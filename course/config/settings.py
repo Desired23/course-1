@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+
 import dj_database_url
 from pathlib import Path
 import os
@@ -23,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-&fdfpm3&397v^3-cay1lhfg$5ktshko79(^56-vu&)zx29eclj'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+ASGI_APPLICATION = "config.asgi.application"
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'course-604d.onrender.com',  'https://dashboard.render.com/web/srv-d1sfgrfdiees73fhpme0/deploys/dep-d1sfgrvdiees73fhpmrg']
@@ -34,16 +36,47 @@ def get_env(key, default=None, required=False):
             raise EnvironmentError(f"❌ {key} is required but not set.")
     return value
 
+
+
+
+
+REDIS_URL = get_env("REDIS_URL", default="redis://default:fMBjEIf17oJYN7eT6mkqTAcubcTWrGa1@redis-19172.crce178.ap-east-1-1.ec2.redns.redis-cloud.com:19172")
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],
+        },
+    },
+}
+
+
+
 # Cloudinary config values
 CLOUDINARY_CLOUD_NAME = get_env("CLOUDINARY_CLOUD_NAME", default="dqzopvk2t")
 CLOUDINARY_API_KEY = get_env("CLOUDINARY_API_KEY", default="791785722646617")
 CLOUDINARY_API_SECRET = get_env("CLOUDINARY_API_SECRET", default="eYOL6HTUSbXlZNdtAyY4chQlgrk")
+
+
+
+
+
 REFUND_DAYS = 7  # Số ngày được hoàn tiền kể từ ngày mua khóa học
 VNPAY_HASH_SECRET_KEY ="BNPD5VQ9RUUJ9E3YVLEUHLF2EDA8AAYC"
+
+
+
+
+
 # Application definition
 VNPAY_REFUND_URL = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
 VNPAY_URL = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
 VNPAY_TMN_CODE = "9AHLD0UQ"
+
+
+
+
+
 # VNPAY_RETURN_URL = "http://127.0.0.1:8000/api/vnpay/return/"
 VNPAY_RETURN_URL = "https://dashboard.render.com/web/srv-d1sfgrfdiees73fhpme0/deploys/dep-d1sfgrvdiees73fhpmrg/api/vnpay/return/"
 INSTALLED_APPS = [
@@ -55,6 +88,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'cloudinary',
     'cloudinary_storage',
+    'channels',
+    'realtime',  
+    # 'uvicorn',
     'users',
     'rest_framework',
     'config',
@@ -88,6 +124,7 @@ INSTALLED_APPS = [
     'instructor_payouts',
     'instructor_levels',
     'support_replies',
+    'lesson_comments',
 ]
 
 MIDDLEWARE = [
@@ -118,7 +155,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

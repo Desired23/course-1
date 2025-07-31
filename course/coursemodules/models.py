@@ -21,4 +21,4 @@ class CourseModule(models.Model):
         db_table = 'CourseModules'
 
     def __str__(self):
-        return f"{self.title} (Module {self.id})"
+        return f"{self.title} (Module {self.module_id})"

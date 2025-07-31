@@ -2,6 +2,8 @@ from rest_framework.exceptions import ValidationError
 from .serializers import NotificationSerializer
 from .models import Notification
 from users.models import User
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 def create_notification(user_id, title, message, type, related_id=None, sender=None):
     try:
         serializer = NotificationSerializer(data={
@@ -13,6 +15,17 @@ def create_notification(user_id, title, message, type, related_id=None, sender=N
         })
         if serializer.is_valid():
             serializer.save()
+            channel_layer = get_channel_layer()
+            dataws = dict(serializer.data)
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user_id}",
+                {
+                    "type": "send_notification",
+                    "data":  dataws,
+                    
+                }
+            )
+            
             return serializer.data
         else:
             raise ValidationError(serializer.errors)
