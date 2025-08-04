@@ -82,6 +82,8 @@ def delete_notification_by_admin(notification_code):
         raise ValidationError(f"Error deleting notification: {str(e)}")
 def notification_to_users(notification_code, user_ids, title, message, type, related_id=None):
     try:
+        channel_layer = get_channel_layer()
+        success_count = 0
         for uid in user_ids:
             data = {
                 "user_id": uid,
@@ -92,10 +94,25 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
                 "related_id": related_id
             }
             serializer = NotificationSerializer(data=data)
+
             if serializer.is_valid():
                 serializer.save()
+                dataws = dict(serializer.data)
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{uid}",
+                    {
+                        "type": "send_notification",
+                        "data":  dataws,
+                        
+                    }
+                )
+                success_count += 1
+                
             else:
                 raise ValidationError(serializer.errors)
-        return {"message": f"Notifications{notification_code} sent successfully"}
+            return {
+                "message": f"{success_count}/{len(user_ids)} notifications sent successfully.",
+                "code": notification_code
+            }
     except Exception as e:
         raise ValidationError(f"Error sending notifications: {str(e)}")

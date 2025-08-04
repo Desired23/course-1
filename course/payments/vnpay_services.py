@@ -16,6 +16,7 @@ from decimal import Decimal
 from instructor_earnings.services import generate_instructor_earnings_from_payment
 import pytz, uuid, hmac, hashlib, requests
 from django.db import transaction
+from instructor_earnings.models import InstructorEarning
 # from orders.models import Order
 # VNPAY cấu hình
 
@@ -295,6 +296,10 @@ def send_vnpay_refund_request(payment_detail_id, reason):
 
             payment.refund_amount += payment_detail.refund_amount
             payment.save()
+            earning = InstructorEarning.objects.filter(payment_id=payment, course_id=payment_detail.course_id).first()
+            if earning:
+                earning.status = InstructorEarning.StatusChoices.CANCELLED
+                earning.save()
         else:
             # Thất bại
             payment_detail.refund_status = Payment_Details.RefundStatus.FAILED

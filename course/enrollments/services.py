@@ -12,6 +12,7 @@ def create_enrollment(data):
             'course_id': data['course_id'],
             'enrollment_date': datetime.now(),   
             'status': Enrollment.Status.Active,
+            'expiry_date': data.get('expiry_date', None),
             'progress': 0,
             'certificate_issue_date': None,
         }

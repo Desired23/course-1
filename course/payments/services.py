@@ -156,6 +156,25 @@ def create_payment(payment_data):
                 raise ValidationError({"payment_details": payment_detail_serializer.errors})
 
             payment_detail_serializer.save()
+            used_promotions = set()
+
+            # Thêm promotion của từng khóa học
+            for detail in payment_detail_arr:
+                if detail.get("promotion_id"):
+                    used_promotions.add(detail["promotion_id"])
+
+            # Thêm promotion toàn đơn
+            if promotion_id:
+                used_promotions.add(promotion_id)
+
+            # Cập nhật used_count
+            for promo_id in used_promotions:
+                try:
+                    promo = Promotion.objects.select_for_update().get(promotion_id=promo_id)
+                    promo.used_count = (promo.used_count or 0) + 1
+                    promo.save()
+                except Promotion.DoesNotExist:
+                    raise ValidationError(f"Khuyến mãi ID {promo_id} không tồn tại khi cập nhật lượt dùng.")
 
             return {
                 "payment": PaymentSerializer(payment).data,
