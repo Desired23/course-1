@@ -16,8 +16,6 @@ class PaymentSerializer(serializers.ModelSerializer):
             'payment_status',
             'payment_method',
             'refund_amount',
-            'refund_reason',
-            'refund_date',
             'payment_gateway',
             'gateway_response'
         ]
