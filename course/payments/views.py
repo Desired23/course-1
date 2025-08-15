@@ -19,6 +19,7 @@ class VnpayIPNView(APIView):
     def get(self, request):
         try:
             returnData = payment_ipn(request)
+            
             # Assuming payment_return is a function that handles the return logic
             return returnData
         except Exception as e:

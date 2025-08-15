@@ -16,10 +16,7 @@ class LearningProgressView(APIView):
         try:
             enrollment_id = request.data.get('enrollment_id')
             lesson_id = request.data.get('lesson_id')
-            progress_data = {
-                'progress': request.data.get('progress'),
-                'status': request.data.get('status')
-            }
+            progress_data = request.data.get('progress_data', {})
             result = update_learning_progress(enrollment_id, lesson_id, progress_data)
             return Response(result, status=status.HTTP_201_CREATED)
         except ValidationError as e:

@@ -100,7 +100,7 @@ def user_cancel_refund_request(payment_id, payment_details_ids):
             refund_items = payment.payment_details.filter(id__in=payment_details_ids)
             for detail in refund_items:
                 if detail.refund_status == Payment_Details.RefundStatus.PENDING:
-                    detail.refund_status = Payment_Details.RefundStatus.REJECTED
+                    detail.refund_status = Payment_Details.RefundStatus.FAILED
                     detail.save()
                 else:
                     raise ValidationError("Only pending refund requests can be cancelled.")

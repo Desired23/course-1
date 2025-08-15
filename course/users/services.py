@@ -6,6 +6,9 @@ from django.contrib.auth.hashers import make_password, check_password
 from datetime import datetime, timedelta
 from django.utils import timezone
 import jwt
+from utils.mailer.mailer import send_reset_password, send_verify_email
+from django.db import transaction
+import threading
 JWT_SECRET = settings.SECRET_KEY
 JWT_ALGORITHM = "HS256"
 
@@ -21,7 +24,8 @@ def update_user_by_selfself(user_id, data):
         user = User.objects.get(user_id=user_id)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
-    
+    if 'password_hash' in data:
+        data['password_hash'] = make_password(data['password_hash'])
     serializer = UserUpdateBySelfSerializer(user, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_user = serializer.save()
@@ -68,12 +72,30 @@ def get_user_by_id(user_id):
         except User.DoesNotExist:
             raise ValidationError({"error": "User not found."})
 def register(data):
-    data['status'] = 'inactive'
-    data['user_type'] = 'student'
-    data['password_hash'] = make_password(data['password'])
-    serializer = Userserializers(data=data)
-    serializer.is_valid(raise_exception=True)
-    return serializer.save()
+    with transaction.atomic():
+        data['status'] = 'inactive'
+        data['user_type'] = 'student'
+        data['password_hash'] = make_password(data['password'])
+        data['email'] = data['email'].strip().lower()
+        serializer = Userserializers(data=data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        # Gửi email xác nhận
+        token = jwt.encode(
+            {'user_id': user.user_id, 'exp': datetime.utcnow() + timedelta(minutes=30)},
+            JWT_SECRET,
+            algorithm=JWT_ALGORITHM
+        )
+        verify_link = f"https://example.com/verify?token={token}"
+        # Token trả về từ jwt.encode có thể là bytes
+        # Token trả về từ jwt.encode có thể là bytes
+        # Token trả về từ jwt.encode có thể là bytes
+        # Token trả về từ jwt.encode có thể là bytes
+        # Token trả về từ jwt.encode có thể là bytes
+
+        threading.Thread(target=send_verify_email, args=(user.email, verify_link)).start()
+        
+    return serializer.data
 def login(data):
     try:
         if data['username'] and data['password']:
@@ -166,3 +188,54 @@ def active_user(user_id):
         return {"message": "User activated successfully."}
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
+def user_reset_password(data):
+    try:
+        email_raw = data.get('email', '')
+        email = email_raw.strip().lower()
+        user = User.objects.get(email=data['email'])
+    except User.DoesNotExist:
+        raise ValidationError({"error": "User not found."})
+    
+    reset_token = jwt.encode(
+        {'user_id': user.user_id, 'exp': datetime.utcnow() + timedelta(minutes=30)},
+        JWT_SECRET,
+        algorithm=JWT_ALGORITHM
+    )
+    reset_link = f"https://example.com/reset-password?token={reset_token}"
+    try:
+            send_reset_password(user.email, reset_link)
+            return {"message": "Reset password email sent."}
+    except Exception as e:
+        raise ValidationError({"error": f"Failed to send email: {str(e)}"})
+
+def confirm_reset_password(token, new_password):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
+        user = User.objects.get(user_id=payload['user_id'])
+    except jwt.ExpiredSignatureError:
+        raise ValidationError({"error": "Token has expired."})
+    except jwt.InvalidTokenError:
+        raise ValidationError({"error": "Invalid token."})
+    except User.DoesNotExist:
+        raise ValidationError({"error": "User not found."})
+    
+    user.password_hash = make_password(new_password)
+    user.save()
+    return {"message": "Password reset successfully."}
+def user_confirm_email(token):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
+        user = User.objects.get(user_id=payload['user_id'])
+    except jwt.ExpiredSignatureError:
+        raise ValidationError({"error": "Token has expired."})
+    except jwt.InvalidTokenError:
+        raise ValidationError({"error": "Invalid token."})
+    except User.DoesNotExist:
+        raise ValidationError({"error": "User not found."})
+    
+    if user.status == 'active':
+        return {"message": "User is already active."}
+    
+    user.status = 'active'
+    user.save()
+    return {"message": "Email confirmed successfully. User is now active."}
