@@ -212,7 +212,7 @@ def payment_ipn(request):
                         print(f"Payment {order_id} completed successfully.")
                         # Generate instructor earnings from the payment
                         try:
-                            generate_instructor_earnings_from_payment(payment)
+                            generate_instructor_earnings_from_payment(payment.payment_id)
                         except Exception as e:
                             print(f"Error generating instructor earnings: {str(e)}")
                             return JsonResponse({"error": "Failed to generate instructor earnings"}, status=500)
