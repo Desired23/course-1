@@ -181,7 +181,7 @@ def payment_ipn(request):
         vnp = vnpay()
         vnp.responseData = inputData.dict()
         order_id = inputData['vnp_TxnRef']
-        amount = inputData['vnp_Amount']
+        amount = inputData['vnp_Amount'] /100
         order_desc = inputData['vnp_OrderInfo']
         vnp_TransactionNo = inputData['vnp_TransactionNo']
         vnp_ResponseCode = inputData['vnp_ResponseCode']
