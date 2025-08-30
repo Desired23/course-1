@@ -9,6 +9,7 @@ import jwt
 from utils.mailer.mailer import send_reset_password, send_verify_email
 from django.db import transaction
 import threading
+from activity_logs.services import log_activity
 JWT_SECRET = settings.SECRET_KEY
 JWT_ALGORITHM = "HS256"
 
@@ -44,9 +45,16 @@ def update_user_by_admin(user_id, data):
     raise ValidationError(serializer.errors)
 
 
-def delete_user(user_id):
+def delete_user(user_id, request=None):
     try:
         user = User.objects.get(user_id=user_id)
+        log_activity(
+            user_id=request.user.user_id if request and hasattr(request, 'user') else None,
+            action="DELETE_USER",
+            entity_type="User",
+            entity_id=user_id,
+            description="Xóa tài khoản người dùng"
+        )
         user.delete()
         return {"message": "User deleted successfully."}
     except User.DoesNotExist:
@@ -92,8 +100,14 @@ def register(data):
         # Token trả về từ jwt.encode có thể là bytes
         # Token trả về từ jwt.encode có thể là bytes
         # Token trả về từ jwt.encode có thể là bytes
-
         threading.Thread(target=send_verify_email, args=(user.email, verify_link)).start()
+        log_activity(
+        user_id=user.user_id,
+        action="REGISTER",
+        entity_type="User",
+        entity_id=user.user_id,
+        description="Người dùng đăng ký tài khoản mới"
+        )
         
     return serializer.data
 def login(data):
@@ -137,6 +151,13 @@ def login(data):
         "iat": datetime.utcnow()
     }
     refresh_token = jwt.encode(refresh_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    log_activity(
+    user_id=user.user_id,
+    action="LOGIN",
+    entity_type="User",
+    entity_id=user.user_id,
+    description="Người dùng đăng nhập hệ thống"
+    )
     return {
         'access_token': access_token,
         'refresh_token': refresh_token,
@@ -239,3 +260,13 @@ def user_confirm_email(token):
     user.status = 'active'
     user.save()
     return {"message": "Email confirmed successfully. User is now active."}
+def ban_user(user_id):
+    try:
+        user = User.objects.get(user_id=user_id)
+        if user.status == 'banned':
+            raise ValidationError({"error": "User is already banned."})
+        user.status = 'banned'
+        user.save()
+        return {"message": "User banned successfully."}
+    except User.DoesNotExist:
+        raise ValidationError({"error": "User not found."})

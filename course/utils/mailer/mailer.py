@@ -104,6 +104,7 @@ def send_email(
 def send_payment_invoice(user_email, payment):
     # Lấy danh sách chi tiết thanh toán
     payment_details = payment.payment_details.all()
+    
     if not payment_details.exists():
         print(f"[Invoice Error] Không tìm thấy payment_details cho payment_id={payment.payment_id}")
         return False

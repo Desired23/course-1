@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hoàn tiền thành công</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        color: #333;
+        background: #f9f9f9;
+      }
+      .refund-container {
+        max-width: 600px;
+        margin: auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+      }
+      .header h2 {
+        margin: 0;
+        color: #28a745;
+      }
+      .content {
+        margin-top: 20px;
+        line-height: 1.6;
+      }
+      .course-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+        background: #f4f4f4;
+        padding: 10px;
+        border-radius: 6px;
+      }
+      .course-info img {
+        width: 60px;
+        height: auto;
+        border-radius: 4px;
+      }
+      .footer {
+        margin-top: 30px;
+        text-align: center;
+        font-size: 12px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="refund-container">
+      <div class="header">
+        <h2>HOÀN TIỀN THÀNH CÔNG</h2>
+        <p>Mã đơn hàng: {{ payment.payment_id }}</p>
+        <p>Ngày hoàn tiền: {{ refund.refund_date }}</p>
+      </div>
+
+      <div class="content">
+        <p>Xin chào {{ user.full_name }},</p>
+        <p>
+          Chúng tôi đã xử lý yêu cầu hoàn tiền của bạn đối với khóa học sau:
+        </p>
+
+        <div class="course-info">
+          <img src="{{ refund.course.thumbnail }}" alt="Ảnh khóa học" />
+          <div>
+            <strong>{{ refund.course.title }}</strong><br />
+            Số tiền hoàn: <strong>{{ refund.amount|floatformat:0 }} đ</strong><br />
+            Phương thức thanh toán: {{ payment.payment_method }}
+          </div>
+        </div>
+
+        <p style="margin-top: 20px;">
+          Số tiền đã được hoàn về tài khoản/thẻ thanh toán ban đầu của bạn. Thời gian nhận tiền có thể mất từ 1–3 ngày làm việc tùy theo ngân hàng.
+        </p>
+        <p>
+          Nếu có bất kỳ thắc mắc nào, xin vui lòng liên hệ đội ngũ hỗ trợ tại
+          <strong>{{ support_email }}</strong>.
+        </p>
+        <p>Cảm ơn bạn đã sử dụng dịch vụ của {{ site_name }}.</p>
+      </div>
+
+      <div class="footer">
+        &copy; {{ current_year }} {{ site_name }}. All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>

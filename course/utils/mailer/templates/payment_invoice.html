@@ -1,90 +1,107 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>Hóa đơn thanh toán</title>
-  <style>
-    body { font-family: Arial, sans-serif; color: #333; background: #f9f9f9; }
-    .invoice-container {
-      max-width: 600px;
-      margin: auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .header {
-      text-align: center;
-      border-bottom: 2px solid #eee;
-      padding-bottom: 10px;
-    }
-    .header h2 { margin: 0; color: #007BFF; }
-    .details { margin-top: 20px; }
-    .details table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .details th, .details td {
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      text-align: left;
-    }
-    .details th {
-      background: #f4f4f4;
-    }
-    .total {
-      text-align: right;
-      font-size: 16px;
-      font-weight: bold;
-      margin-top: 15px;
-    }
-    .footer {
-      margin-top: 30px;
-      text-align: center;
-      font-size: 12px;
-      color: #888;
-    }
-  </style>
-</head>
-<body>
-  <div class="invoice-container">
-    <div class="header">
-      <h2>HÓA ĐƠN THANH TOÁN</h2>
-      <p>Mã đơn hàng: {{ payment.payment_id }}</p>
-      <p>Ngày thanh toán: {{ payment.pay_date }}</p>
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Hóa đơn thanh toán</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        color: #333;
+        background: #f9f9f9;
+      }
+      .invoice-container {
+        max-width: 600px;
+        margin: auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        text-align: center;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+      }
+      .header h2 {
+        margin: 0;
+        color: #007bff;
+      }
+      .details {
+        margin-top: 20px;
+      }
+      .details table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .details th,
+      .details td {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        text-align: left;
+      }
+      .details th {
+        background: #f4f4f4;
+      }
+      .total {
+        text-align: right;
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 15px;
+      }
+      .footer {
+        margin-top: 30px;
+        text-align: center;
+        font-size: 12px;
+        color: #888;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="invoice-container">
+      <div class="header">
+        <h2>HÓA ĐƠN THANH TOÁN</h2>
+        <p>Mã đơn hàng: {{ payment.payment_id }}</p>
+        <p>Ngày thanh toán: {{ payment.pay_date }}</p>
+      </div>
 
-    <div class="details">
-      <table>
-        <thead>
-          <tr>
-            <th>Khóa học</th>
-            <th>Giá</th>
-            <th>Giảm giá</th>
-            <th>Thành tiền</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in payment_details %}
-          <tr>
-            <td>{{ item.course_name }}</td>
-            <td>{{ item.price|floatformat:0 }} đ</td>
-            <td>{{ item.discount|floatformat:0 }} đ</td>
-            <td>{{ item.final_price|floatformat:0 }} đ</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="details">
+        <table>
+          <thead>
+            <tr>
+              <th>Tên khóa học</th>
+              <th>Giá</th>
+              <th>Giảm giá</th>
+              <th>Thành tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in payment_details %}
+            <tr>
+              <td style="display: flex; align-items: center; gap: 10px">
+                <img
+                  src="{{ item.thumbnail }}"
+                  alt="Ảnh khóa học"
+                  style="width: 60px; height: auto; border-radius: 4px"
+                />
+                <span>{{ item.title }}</span>
+              </td>
+              <td>{{ item.price|floatformat:0 }} đ</td>
+              <td>{{ item.discount|floatformat:0 }} đ</td>
+              <td>{{ item.final_price|floatformat:0 }} đ</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
 
-      <div class="total">
-        Tổng cộng: {{ payment.total_amount|floatformat:0 }} đ
+        <div class="total">
+          Tổng cộng: {{ payment.total_amount|floatformat:0 }} đ
+        </div>
+      </div>
+
+      <div class="footer">
+        Cảm ơn bạn đã mua khóa học tại {{ site_name }}!<br />
+        Nếu có thắc mắc, vui lòng liên hệ {{ support_email }}
       </div>
     </div>
-
-    <div class="footer">
-      Cảm ơn bạn đã mua khóa học tại {{ site_name }}!<br>
-      Nếu có thắc mắc, vui lòng liên hệ {{ support_email }}
-    </div>
-  </div>
-</body>
+  </body>
 </html>

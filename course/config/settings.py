@@ -9,7 +9,9 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+# import sys
+# print(">>> settings loaded from:", __file__)
+# print(">>> sys.modules count:", len(sys.modules))
 import dj_database_url
 from pathlib import Path
 import os
@@ -95,6 +97,7 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'channels',
     'realtime',  
+    'activity_logs',
     # 'uvicorn',
     'users',
     'rest_framework',

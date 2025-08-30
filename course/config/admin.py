@@ -15,7 +15,7 @@ from qnas.models import QnA
 from qna_answers.models import QnAAnswer
 from forums.models import Forum
 from forum_topics.models import ForumTopic
-from forum_comments.models import ForumComment
+from forum_comments.models import ForumComment 
 from systems_settings.models import SystemsSetting
 from supports.models import Support
 # from reviews.models import Review
@@ -30,6 +30,7 @@ from support_replies.models import SupportReply
 from lesson_comments.models import LessonComment
 from lessons.models import Lesson
 from coursemodules.models import CourseModule
+from activity_logs.models import ActivityLog
 admin.site.register(BlogPost)
 admin.site.register(User)
 admin.site.register(Course)
@@ -61,3 +62,4 @@ admin.site.register(SupportReply)
 admin.site.register(LessonComment)
 admin.site.register(Lesson)
 admin.site.register(CourseModule)
+admin.site.register(ActivityLog)

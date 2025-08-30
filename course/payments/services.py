@@ -10,6 +10,7 @@ from django.utils import timezone
 from courses.models import Course
 from .utils import generate_unique_transaction_id
 from decimal import Decimal
+from carts.models import Cart
 from django.utils import timezone
 
 
@@ -175,6 +176,8 @@ def create_payment(payment_data):
                     promo.save()
                 except Promotion.DoesNotExist:
                     raise ValidationError(f"Khuyến mãi ID {promo_id} không tồn tại khi cập nhật lượt dùng.")
+            # Xoá giỏ hàng của user sau khi thanh toán thành công
+                carts = Cart.objects.filter(user_id=user_id).delete()
 
             return {
                 "payment": PaymentSerializer(payment).data,
