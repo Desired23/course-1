@@ -5,11 +5,11 @@ class AdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = Admin
         fields = [
-            'admin_id',
-            'user_id',
+            'id',
+            'user',
             'department',
             'role',
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['admin_id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']

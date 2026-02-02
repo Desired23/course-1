@@ -1,12 +1,13 @@
 from rest_framework import serializers
 from .models import QuizQuestion
+from lessons.models import Lesson
 
 class QuizQuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizQuestion
         fields = [
-            'question_id',
-            'lesson_id',
+            'id',
+            'lesson',
             'question_text',
             'question_type',
             'options',
@@ -18,5 +19,13 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
         read_only_fields = [
-            'question_id', 'created_at'
+            'id', 'created_at'
         ]
+    
+    def validate_lesson(self, value):
+        """Validate lesson exists and is not deleted"""
+        if value is None:
+            raise serializers.ValidationError("Lesson is required.")
+        if value.is_deleted:
+            raise serializers.ValidationError("Lesson has been deleted.")
+        return value

@@ -113,7 +113,7 @@ def payment_return(request):
             vnp_CardType = inputData['vnp_CardType']
             if vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
                 if vnp_ResponseCode == "00":
-                    payment = Payment.objects.get(payment_id=order_id)
+                    payment = Payment.objects.get(id=order_id)
                     if not payment:
                         print(f"Payment with order_id {order_id} not found.")
                         return JsonResponse({"error": "Payment not found"}, status=404)
@@ -121,7 +121,6 @@ def payment_return(request):
                     if Decimal(payment.total_amount) != Decimal(amount):
                         raise ValidationError("Payment amount mismatch")
                     payment.transaction_id = vnp_TransactionNo
-                    payment.payment_date = datetime.now()
                     payment.gateway_response = vnp_ResponseCode
                     payment.payment_gateway = 'vnpay'
                     payment.save()
@@ -134,7 +133,7 @@ def payment_return(request):
                         return JsonResponse({"error": "Failed to generate instructor earnings"}, status=500)
 
                 else:
-                    payment = Payment.objects.get(payment_id=order_id)
+                    payment = Payment.objects.get(id=order_id)
                     if not payment:
                         print(f"Payment with order_id {order_id} not found.")
                         return JsonResponse({"error": "Payment not found"}, status=404)
@@ -195,14 +194,13 @@ def payment_ipn(request):
                 if firstTimeUpdate:
                     if vnp_ResponseCode == "00":
                         try:
-                            payment = Payment.objects.get(payment_id=order_id)
+                            payment = Payment.objects.get(id=order_id)
                         except Payment.DoesNotExist:
                             return JsonResponse({'RspCode': '01', 'Message': 'Order not found'})
                         payment.payment_status = 'completed'
                         if Decimal(payment.total_amount) != Decimal(amount):
                             raise ValidationError("Payment amount mismatch")
                         payment.transaction_id = vnp_TransactionNo
-                        payment.payment_date = datetime.now()
                         payment.gateway_response = vnp_ResponseCode
                         payment.payment_gateway = 'vnpay'
                         payment.save()

@@ -5,7 +5,7 @@ class Userserializers(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'user_id',
+            'id',
             'username',
             'email',
             'password_hash',
@@ -28,7 +28,7 @@ class UserUpdateBySelfSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'user_id',
+            'id',
             'username',
             'email',
             'password_hash',
@@ -44,4 +44,4 @@ class UserUpdateBySelfSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password_hash': {'write_only': True},
         }
-        read_only_fields = ['user_id', 'created_at', 'last_login', 'status', 'user_type']
+        read_only_fields = ['id', 'created_at', 'last_login', 'status', 'user_type']

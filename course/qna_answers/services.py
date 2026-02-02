@@ -15,7 +15,7 @@ def create_qna_answer(data):
 
 def get_qna_answer_by_id(answer_id):
     try:
-        qna_answer = QnAAnswer.objects.get(answer_id=answer_id)
+        qna_answer = QnAAnswer.objects.get(id=answer_id)
         return QnAAnswerSerializer(qna_answer).data
     except QnAAnswer.DoesNotExist:
         raise ValidationError("QnA Answer not found")
@@ -33,7 +33,7 @@ def get_qna_answers_by_qna_id(qna_id):
 
 def update_qna_answer(answer_id, data):
     try:
-        qna_answer = QnAAnswer.objects.get(answer_id=answer_id)
+        qna_answer = QnAAnswer.objects.get(id=answer_id)
         serializer = QnAAnswerSerializer(qna_answer, data=data, partial=True)
         if serializer.is_valid():
             updated_qna_answer = serializer.save()
@@ -47,7 +47,7 @@ def update_qna_answer(answer_id, data):
 
 def delete_qna_answer(answer_id):
     try:
-        qna_answer = QnAAnswer.objects.get(answer_id=answer_id)
+        qna_answer = QnAAnswer.objects.get(id=answer_id)
         qna_answer.delete()
         return {"message": "QnA Answer deleted successfully"}
     except QnAAnswer.DoesNotExist:

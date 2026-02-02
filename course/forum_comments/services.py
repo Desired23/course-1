@@ -15,7 +15,7 @@ def create_forum_comment(data):
 
 def get_forum_comment_by_id(comment_id):
     try:
-        forum_comment = ForumComment.objects.get(comment_id=comment_id)
+        forum_comment = ForumComment.objects.get(id=comment_id)
         return ForumCommentSerializer(forum_comment).data
     except ForumComment.DoesNotExist:
         raise ValidationError("Forum Comment not found")
@@ -51,7 +51,7 @@ def get_all_forum_comments():
 
 def update_forum_comment(comment_id, data):
     try:
-        forum_comment = ForumComment.objects.get(comment_id=comment_id)
+        forum_comment = ForumComment.objects.get(id=comment_id)
         serializer = ForumCommentSerializer(forum_comment, data=data, partial=True)
         if serializer.is_valid():
             updated_forum_comment = serializer.save()
@@ -65,7 +65,7 @@ def update_forum_comment(comment_id, data):
 
 def delete_forum_comment(comment_id):
     try:
-        forum_comment = ForumComment.objects.get(comment_id=comment_id)
+        forum_comment = ForumComment.objects.get(id=comment_id)
         forum_comment.delete()
         return {"message": "Forum Comment deleted successfully"}
     except ForumComment.DoesNotExist:

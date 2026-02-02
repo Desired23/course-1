@@ -24,7 +24,7 @@ def get_lesson_attachments_by_lesson(lesson_id):
     
 def find_lesson_attachment_by_id(attachment_id):
     try:
-        lesson_attachment = LessonAttachment.objects.get(attachment_id=attachment_id)
+        lesson_attachment = LessonAttachment.objects.get(id=attachment_id)
         serializer = LessonAttachmentSerializer(lesson_attachment)
         return serializer.data
     except LessonAttachment.DoesNotExist:
@@ -34,7 +34,7 @@ def find_lesson_attachment_by_id(attachment_id):
     
 def update_lesson_attachment(attachment_id, data):
     try:
-        lesson_attachment = LessonAttachment.objects.get(attachment_id=attachment_id)
+        lesson_attachment = LessonAttachment.objects.get(id=attachment_id)
         serializer = LessonAttachmentSerializer(lesson_attachment, data=data, partial=True)
         if serializer.is_valid(raise_exception=True):
             updated_lesson_attachment = serializer.save()
@@ -47,7 +47,7 @@ def update_lesson_attachment(attachment_id, data):
 
 def delete_lesson_attachment(attachment_id):
     try:
-        lesson_attachment = LessonAttachment.objects.get(attachment_id=attachment_id)
+        lesson_attachment = LessonAttachment.objects.get(id=attachment_id)
         lesson_attachment.delete()
         return {"message": "Lesson attachment deleted successfully."}
     except LessonAttachment.DoesNotExist:

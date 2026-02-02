@@ -21,7 +21,7 @@ def create_enrollment(data):
                 enrollment = serializer.save()
             except IntegrityError:
                 raise ValidationError({"error": "User has already enrolled in this course."})
-            course = Course.objects.get(course_id=dataCopy.get('course_id'))
+            course = Course.objects.get(id=dataCopy.get('course_id'))
             course.total_students += 1
             course.save()
             return EnrollmentCreateSerializer(enrollment).data 
@@ -39,7 +39,7 @@ def get_enrollment_by_user(user_id):
         raise ValidationError({"error": str(e)})
 def find_enrollment_by_id(enrollment_id):
     try:
-        enrollment = Enrollment.objects.get(enrollment_id=enrollment_id)
+        enrollment = Enrollment.objects.get(id=enrollment_id)
         serializer = EnrollmentSerializer(enrollment)
         return serializer.data
     except Enrollment.DoesNotExist:

@@ -12,7 +12,7 @@ def user_refund_request(payment_id, payment_details_ids , reason=None):
     try:
         with transaction.atomic():
             try:
-                payment = Payment.objects.prefetch_related('payment_details').get(payment_id=payment_id)
+                payment = Payment.objects.prefetch_related('payment_details').get(id=payment_id)
             except Payment.DoesNotExist:
                 raise ValidationError("Payment not found.")
             if payment.payment_status != Payment.PaymentStatus.COMPLETED:
@@ -67,7 +67,7 @@ def user_refund_request(payment_id, payment_details_ids , reason=None):
 def admin_update_refund_status(payment_id, payment_details_ids, status, response_code=None, transaction_id=None):
     try:
         with transaction.atomic():
-            payment = Payment.objects.prefetch_related('payment_details').get(payment_id=payment_id)
+            payment = Payment.objects.prefetch_related('payment_details').get(id=payment_id)
             if not payment.payment_details.filter(id__in=payment_details_ids).exists():
                 raise ValidationError("Payment details IDs do not match the specified payment.")
             refund_items = payment.payment_details.filter(id__in=payment_details_ids)
@@ -94,7 +94,7 @@ def admin_update_refund_status(payment_id, payment_details_ids, status, response
 def user_cancel_refund_request(payment_id, payment_details_ids):
     try:
         with transaction.atomic():
-            payment = Payment.objects.prefetch_related('payment_details').select_for_update().get(payment_id=payment_id)
+            payment = Payment.objects.prefetch_related('payment_details').select_for_update().get(id=payment_id)
             if not payment.payment_details.filter(id__in=payment_details_ids).exists():
                 raise ValidationError("Payment details IDs do not match the specified payment.")
             refund_items = payment.payment_details.filter(id__in=payment_details_ids)
@@ -108,7 +108,7 @@ def user_cancel_refund_request(payment_id, payment_details_ids):
         raise ValidationError(f"Error cancelling refund request: {str(e)}")
 def get_refund_details(payment_id, payment_details_ids):
     try:
-        payment = Payment.objects.prefetch_related('payment_details').get(payment_id=payment_id)
+        payment = Payment.objects.prefetch_related('payment_details').get(id=payment_id)
         refund_items = payment.payment_details.select_related('course').filter(id__in=payment_details_ids)
 
         # Kiểm tra tính hợp lệ

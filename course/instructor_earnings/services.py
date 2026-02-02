@@ -14,7 +14,7 @@ def generate_instructor_earnings_from_payment(payment_id):
         with transaction.atomic():
             payment = Payment.objects.prefetch_related(
                 'payment_details__course_id__instructor_id'
-            ).get(payment_id=payment_id)
+            ).get(id=payment_id)
             results = []
             print("ok")
             # print("payment:", payment.__dict__)
@@ -54,7 +54,7 @@ def generate_instructor_earnings_from_payment(payment_id):
         raise ValidationError(f"Lỗi khi tạo earnings cho giảng viên: {str(e)}")
 def get_instructor_earnings_by_instructor_id(instructor_id, status=None):
     try:
-        instructor = Instructor.objects.get(instructor_id=instructor_id)
+        instructor = Instructor.objects.get(id=instructor_id)
         earnings = InstructorEarning.objects.filter(instructor_id=instructor)
 
         if status:
@@ -69,7 +69,7 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None):
 def get_instructor_earnings(status=None, earning_id=None):
     try:
         if earning_id:
-            earning = InstructorEarning.objects.get(earning_id=earning_id)
+            earning = InstructorEarning.objects.get(id=earning_id)
             return InstructorEarningSerializer(earning).data
         else:
             earnings = InstructorEarning.objects.all()
@@ -84,7 +84,7 @@ def update_instructor_earning_status(earning_id, new_status):
     try:
         if new_status not in [choice[0] for choice in InstructorEarning.StatusChoices.choices]:
             raise ValidationError("Trạng thái không hợp lệ.")
-        earning = InstructorEarning.objects.get(earning_id=earning_id)
+        earning = InstructorEarning.objects.get(id=earning_id)
         if earning.status == 'paid':
             raise ValidationError("Thu nhập đã được thanh toán, không thể cập nhật.")
         earning.status = new_status

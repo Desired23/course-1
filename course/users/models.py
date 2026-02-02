@@ -12,7 +12,7 @@ class User(models.Model):
         INSTRUCTOR = 'instructor', 'instructor'
         ADMIN = 'admin', 'admin'
 
-    user_id = models.AutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     
     username = models.CharField(max_length=255, unique=True)
     email = models.EmailField(max_length=255, unique=True)
@@ -22,6 +22,10 @@ class User(models.Model):
     avatar = models.CharField(max_length=255, blank=True, null=True)
     address = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_users')
+    is_deleted = models.BooleanField(default=False)
     last_login = models.DateTimeField(blank=True, null=True)
 
     status = models.CharField(

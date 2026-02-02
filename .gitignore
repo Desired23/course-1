@@ -15,3 +15,15 @@ django.log
 
 *.pyc
 __pycache__/
+
+# Ignore helper scripts (for data migrations and bulk fixes)
+fix_all_serializers.py
+fix_foreignkey_constraints.py
+add_serializer_validations.py
+cleanup.py
+cleanup_invalid_data.py
+debug_instructor.py
+fix_instructor_records.py
+fix_id_references.py
+fix_str_methods.py
+FIXES_SUMMARY.md

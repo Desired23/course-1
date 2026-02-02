@@ -66,7 +66,7 @@ class InstructorPayoutView(APIView):
 
             elif instructor:
                 payouts = get_payouts_for_instructor(
-                    instructor_id=instructor.instructor_id,
+                    instructor_id=instructor.id,
                     status=status_payout,
                     period=period
                 )
@@ -86,7 +86,7 @@ class InstructorPayoutView(APIView):
         if not payout_id:
             return Response({"detail": "Payout ID is required."}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            delete_instructor_payout(payout_id=payout_id, admin_id=admin.admin_id)
+            delete_instructor_payout(payout_id=payout_id, admin_id=admin.id)
             return Response({"detail": "Payout deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except ValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)  

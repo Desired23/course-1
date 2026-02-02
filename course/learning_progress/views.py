@@ -2,54 +2,84 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from utils.permissions import RolePermissionFactory
 from .services import (
     update_learning_progress,
-    get_learning_progress,
-    get_all_learning_progress_by_enrollment,
-    delete_learning_progress
+    update_lesson_progress,
+    get_course_progress
 )
+from .serializers import LearningProgressSerializer, CourseLearningProgressSerializer
 
-
-class LearningProgressView(APIView):
+class LearningProgressUpdateView(APIView):
+    """
+    POST /api/learning-progress/update/
+    Update learning progress for a lesson
+    """
+    permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    
     def post(self, request):
         try:
-            enrollment_id = request.data.get('enrollment_id')
+            user_id = request.user.id
             lesson_id = request.data.get('lesson_id')
+            
+            if not lesson_id:
+                raise ValidationError({"lesson_id": "lesson_id is required."})
+            
             progress_data = {
-                'progress': request.data.get('progress'),
-                'status': request.data.get('status')
+                'progress_percentage': request.data.get('progress_percentage', 0),
+                'time_spent': request.data.get('time_spent', 0),
+                'is_completed': request.data.get('is_completed', False),
+                'last_position': request.data.get('last_position')
             }
-            result = update_learning_progress(enrollment_id, lesson_id, progress_data)
+            
+            result = update_learning_progress(user_id, lesson_id, progress_data)
             return Response(result, status=status.HTTP_201_CREATED)
+        
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    def get(self, request):
+
+class LearningProgressDetailView(APIView):
+    """
+    PUT /api/learning-progress/<lesson_id>/
+    Update progress for specific lesson
+    """
+    permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    
+    def put(self, request, lesson_id):
         try:
-            enrollment_id = request.query_params.get('enrollment_id')
-            lesson_id = request.query_params.get('lesson_id')
-            if enrollment_id and lesson_id:
-                result = get_learning_progress(enrollment_id, lesson_id)
-            elif enrollment_id:
-                result = get_all_learning_progress_by_enrollment(enrollment_id)
-            else:
-                raise ValidationError("Cung cấp enrollment_id hoặc lesson_id.")
+            user_id = request.user.id
+            
+            progress_data = {
+                'progress_percentage': request.data.get('progress_percentage', 0),
+                'time_spent': request.data.get('time_spent', 0),
+                'is_completed': request.data.get('is_completed', False),
+                'last_position': request.data.get('last_position')
+            }
+            
+            result = update_lesson_progress(lesson_id, user_id, progress_data)
             return Response(result, status=status.HTTP_200_OK)
+        
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    def delete(self, request):
+
+class CourseProgressView(APIView):
+    """
+    GET /api/learning-progress/course/<course_id>/
+    Get overall progress for a course
+    """
+    permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    
+    def get(self, request, course_id):
         try:
-            enrollment_id = request.query_params.get('enrollment_id')
-            lesson_id = request.query_params.get('lesson_id')
-            if not enrollment_id or not lesson_id:
-                raise ValidationError("Cung cấp enrollment_id và lesson_id.")
-            delete_learning_progress(enrollment_id, lesson_id)
-            return Response({"message": "Learning progress deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+            user_id = request.user.id
+            result = get_course_progress(user_id, course_id)
+            return Response(result, status=status.HTTP_200_OK)
+        
         except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

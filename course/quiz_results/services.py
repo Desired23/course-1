@@ -7,7 +7,7 @@ from lessons.models import Lesson
 def calculate_quiz_evaluation(quiz_result_id):
     try:
         quiz_result = QuizResult.objects.get(pk=quiz_result_id)
-        lesson_id = quiz_result.lesson_id_id  # Lấy id của ForeignKey
+        lesson_id = quiz_result.lesson.id  # Fix: use lesson.id instead of lesson_id_id
         answers = quiz_result.answers or {}
 
         quiz_questions = QuizQuestion.objects.filter(lesson_id=lesson_id)
@@ -81,7 +81,7 @@ def create_quiz_result(data):
 
 def get_quiz_result_by_id(quiz_result_id):
     try:
-        quiz_result = QuizResult.objects.get(quiz_result_id=quiz_result_id)
+        quiz_result = QuizResult.objects.get(id=quiz_result_id)
         return QuizResultSerializer(quiz_result).data
     except QuizResult.DoesNotExist:
         raise ValidationError("Quiz result not found")
@@ -108,7 +108,7 @@ def get_all_quiz_results():
 
 def update_quiz_result(quiz_result_id, data):
     try:
-        quiz_result = QuizResult.objects.get(quiz_result_id=quiz_result_id)
+        quiz_result = QuizResult.objects.get(id=quiz_result_id)
         serializer = QuizResultSerializer(quiz_result, data=data, partial=True)
         if serializer.is_valid(raise_exception=True):
             updated_quiz_result = serializer.save()
@@ -121,7 +121,7 @@ def update_quiz_result(quiz_result_id, data):
 
 def delete_quiz_result(quiz_result_id):
     try:
-        quiz_result = QuizResult.objects.get(quiz_result_id=quiz_result_id)
+        quiz_result = QuizResult.objects.get(id=quiz_result_id)
         quiz_result.delete()
         return {"message": "Quiz result deleted successfully"}
     except QuizResult.DoesNotExist:

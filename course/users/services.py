@@ -5,7 +5,8 @@ from config import settings
 from django.contrib.auth.hashers import make_password, check_password
 from datetime import datetime, timedelta
 from django.utils import timezone
-import jwt
+from jwt import encode, decode, ExpiredSignatureError
+from jwt.exceptions import DecodeError
 JWT_SECRET = settings.SECRET_KEY
 JWT_ALGORITHM = "HS256"
 
@@ -18,7 +19,7 @@ def create_user(data):
 
 def update_user_by_selfself(user_id, data):
     try:
-        user = User.objects.get(user_id=user_id)
+        user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
     
@@ -29,7 +30,7 @@ def update_user_by_selfself(user_id, data):
     raise ValidationError(serializer.errors)
 def update_user_by_admin(user_id, data):
     try:
-        user = User.objects.get(user_id=user_id)
+        user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
     
@@ -42,7 +43,7 @@ def update_user_by_admin(user_id, data):
 
 def delete_user(user_id):
     try:
-        user = User.objects.get(user_id=user_id)
+        user = User.objects.get(id=user_id)
         user.delete()
         return {"message": "User deleted successfully."}
     except User.DoesNotExist:
@@ -54,7 +55,7 @@ def validate_user_data(data):
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
 def get_users():
-        users = User.objects.all()
+        users = User.objects.select_related('instructor', 'admin').all()
         if not users.exists():
             raise ValidationError({"error": "No users found."})
         serializer = Userserializers(users, many=True)
@@ -62,7 +63,7 @@ def get_users():
     
 def get_user_by_id(user_id):
         try:
-            user = User.objects.get(user_id=user_id)
+            user = User.objects.select_related('instructor', 'admin').get(id=user_id)
             serializer = Userserializers(user)
             return serializer.data
         except User.DoesNotExist:
@@ -75,9 +76,14 @@ def register(data):
     serializer.is_valid(raise_exception=True)
     return serializer.save()
 def login(data):
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        raise ValidationError({"error": "Username and password are required."})
     try:
-        if data['username'] and data['password']:
-            user = User.objects.select_related('instructor', 'admin').get(username=data['username'])
+            user = User.objects.select_related('instructor', 'admin').get(username=username)
+                
             # print(f"User found: {user}")
     except User.DoesNotExist:
          raise ValidationError({"error": "User not found."})
@@ -87,39 +93,39 @@ def login(data):
         raise ValidationError({"error": "User is not active."})
     user.last_login = timezone.now()
     user.save()
-    user_type = []
+    user_type = ["student"]  
 
-    admin = getattr(user, "admin", None)
-    instructor = getattr(user, "instructor", None)
 
-    if admin:
+    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:  # type: ignore
         user_type.append("admin")
-    if instructor:
+    
+    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:  # type: ignore
         user_type.append("instructor")
+    
     payload = {
-        'user_id': user.user_id,
+        'user_id': user.id,
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
         'exp': datetime.utcnow() + timedelta(minutes=300),
         "iat": datetime.utcnow()
     }
-    access_token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    access_token = encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
     refresh_payload = {
-        'user_id': user.user_id,
+        'user_id': user.id,
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
         'exp': datetime.utcnow() + timedelta(days=3),
         "iat": datetime.utcnow()
     }
-    refresh_token = jwt.encode(refresh_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    refresh_token = encode(refresh_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {
         'access_token': access_token,
-        'refresh_token': refresh_token,
+        'refresh_token': refresh_token, 
         'user': {
-            'user_id': user.user_id,
+            'id': user.id,
             'username': user.username,
             'email': user.email,
             'user_type': user_type,
@@ -127,38 +133,40 @@ def login(data):
     }
 def refresh_token(token):
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=JWT_ALGORITHM)
-        user = User.objects.select_related('instructor', 'admin').get(user_id=payload["user_id"])
-    except jwt.ExpiredSignatureError:
+        payload = decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
+    except ExpiredSignatureError:
         raise ValidationError({"error": "Token has expired."})
-    except jwt.InvalidTokenError:
+    except DecodeError:
         raise ValidationError({"error": "Invalid token."})
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
-    user_type = []
-    admin = getattr(user, "admin", None)
-    instructor = getattr(user, "instructor", None)
-
-    if admin:
+    
+    user_type = ["student"]  # Mặc định luôn có student
+    
+    # select_related đã load sẵn, không tốn thêm query
+    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:  # type: ignore
         user_type.append("admin")
-    if instructor:
+    
+    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:  # type: ignore
         user_type.append("instructor")
+    
     new_payload = {
-        'user_id': user.user_id,
+        'user_id': user.id,
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30),
+        'exp': datetime.utcnow() + timedelta(minutes=30),
         "iat": datetime.utcnow()
     }
-    new_token = jwt.encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    new_token = encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {
         'access_token': new_token,
         'message': "Token refreshed successfully.",
     }
 def active_user(user_id):
     try:
-        user = User.objects.get(user_id=user_id)
+        user = User.objects.get(id=user_id)
         if user.status == 'active':
             raise ValidationError({"error": "User is already active."})
         user.status = 'active'

@@ -5,15 +5,17 @@ class QnAAnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = QnAAnswer
         fields = [
-            'answer_id',
-            'qna_id',
+            'id',
+            'qna',
             'answer',
-            'user_id',
-            'answered_date',
-            'updated_date',
+            'user',
+            'created_at',
+            'updated_at',
             'is_accepted',
             'likes'
         ]
         extra_kwargs = {
-            'answer_id': {'read_only': True},
+            'id': {'read_only': True},
+            'created_at': {'read_only': True},
+            'updated_at': {'read_only': True}
         }

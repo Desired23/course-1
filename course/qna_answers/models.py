@@ -3,12 +3,15 @@ from users.models import User
 from qnas.models import QnA
 
 class QnAAnswer(models.Model):
-    answer_id = models.AutoField(primary_key=True)
-    qna_id = models.ForeignKey(QnA, on_delete=models.CASCADE, related_name='answwer_qna')
+    id = models.AutoField(primary_key=True)
+    qna = models.ForeignKey(QnA, on_delete=models.CASCADE, related_name='answwer_qna')
     answer = models.TextField()
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='answer_user')
-    answered_date = models.DateTimeField(auto_now_add=True)
-    updated_date = models.DateTimeField(auto_now=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='answer_user')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_qna_answers')
+    is_deleted = models.BooleanField(default=False)
     is_accepted = models.BooleanField(default=False)
     likes = models.IntegerField(default=0)
 
@@ -16,4 +19,4 @@ class QnAAnswer(models.Model):
         db_table = 'QnAAnswers'
 
     def __str__(self):
-        return f"Answer {self.answer_id}: QnA {self.qna_id}: User {self.user_id}"
+        return f"Answer {self.id}: QnA {self.id}: User {self.user_id}"

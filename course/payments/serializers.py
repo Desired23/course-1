@@ -5,10 +5,10 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            'payment_id',
-            'user_id',
+            'id',
+            'user',
             'amount',
-            'promotion_id', 
+            'promotion', 
             'discount_amount',
             'total_amount',
             'transaction_id',
@@ -16,22 +16,25 @@ class PaymentSerializer(serializers.ModelSerializer):
             'payment_status',
             'payment_method',
             'refund_amount',
-            'refund_reason',
-            'refund_date',
             'payment_gateway',
-            'gateway_response'
+            'gateway_response',
+            'created_at',
+            'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
 class PaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = [
-            'payment_id',
-            'user_id',
+            'id',
+            'user',
             'amount',
-            'promotion_id', 
+            'promotion', 
             'discount_amount',
             'total_amount',
             'payment_method',
             'payment_date',
+            'created_at'
         ]
-        read_only_fields = []
+        read_only_fields = ['id', 'created_at']

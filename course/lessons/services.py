@@ -25,6 +25,8 @@ def get_lesson_by_id(lesson_id):
         raise ValidationError({"error": "Lesson not found."})
 
 def create_lesson(data, user):
+    from coursemodules.models import CourseModule
+    
     try:
         user_instance = User.objects.get(pk=user)  # Truy cập qua data
         print(user_instance)
@@ -34,6 +36,16 @@ def create_lesson(data, user):
     # Kiểm tra nếu user đã là Instructor
     if user_instance.user_type == User.UserTypeChoices.STUDENT:
         raise ValidationError({"user_id": "Người dùng không đủ quyền."})
+    
+    # Validate coursemodule exists and is not deleted
+    coursemodule_id = data.get('coursemodule')
+    if not coursemodule_id:
+        raise ValidationError({"coursemodule": "Coursemodule is required."})
+    
+    try:
+        coursemodule = CourseModule.objects.get(id=coursemodule_id, is_deleted=False)
+    except CourseModule.DoesNotExist:
+        raise ValidationError({"coursemodule": "Coursemodule does not exist or has been deleted."})
 
     # Sửa đổi data để truyền user instance, không phải user_id
     modified_data = data.copy()  # Tạo bản sao để không ảnh hưởng đến dữ liệu gốc
@@ -58,7 +70,7 @@ def update_lesson(lesson_id, data):
 
 def delete_lesson(lesson_id):
     try:
-        lesson = Lesson.objects.get(lesson_id=lesson_id)
+        lesson = Lesson.objects.get(id=lesson_id)
         lesson.delete()
         return {"message": "Lesson deleted successfully."}
     except Lesson.DoesNotExist:

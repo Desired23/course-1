@@ -5,10 +5,10 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment_Details
         fields = [
-            'payment_id',
-            'course_id',
+            'payment',
+            'course',
             'price',
             'discount',
             'final_price',
-            'promotion_id'
+            'promotion'
         ]

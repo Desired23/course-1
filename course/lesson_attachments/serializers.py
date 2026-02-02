@@ -5,15 +5,15 @@ class LessonAttachmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonAttachment
         fields = [
-            'attachment_id',  # Tương ứng với AttachmentID
-            'lesson_id',      # Tương ứng với LessonID (ForeignKey)
+            'id',  # Tương ứng với AttachmentID
+            'lesson',      # Tương ứng với LessonID (ForeignKey)
             'title',
             'file_path',
             'file_type',
             'file_size',
             'download_count',
-            'created_date',
+            'created_at',
         ]
         read_only_fields = [
-            'attachment_id', 'created_date', 'download_count'
+            'id', 'created_at', 'download_count'
         ]

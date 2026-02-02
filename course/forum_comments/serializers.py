@@ -5,15 +5,15 @@ class ForumCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = ForumComment
         fields = [
-            'comment_id',
-            'topic_id',
+            'id',
+            'topic',
             'content',
-            'user_id',
-            'created_date',
-            'updated_date',
+            'user',
+            'created_at',
+            'updated_at',
             'parent_comment',
             'likes',
             'status',
             'is_best_answer'
         ]
-        read_only_fields = ['comment_id', 'created_date', 'updated_date', 'likes']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'likes']

@@ -10,24 +10,26 @@ class Review(models.Model):
         APPROVED = 'approved', 'approved'
         REJECTED = 'rejected', 'rejected'
 
-    review_id = models.AutoField(primary_key=True)
-    course_id = models.ForeignKey(Course, on_delete=models.CASCADE,related_name='reviews_course')
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE,related_name='reviews_user')
+    id = models.AutoField(primary_key=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE,related_name='reviews_course')
+    user = models.ForeignKey(User, on_delete=models.CASCADE,related_name='reviews_user')
 
     rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
 
     comment = models.TextField(blank=True, null=True)
-    review_date = models.DateTimeField(auto_now_add=True)
-    updated_date = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_reviews')
+    is_deleted = models.BooleanField(default=False)
     status = models.CharField(max_length=10, choices=StatusChoices, default=StatusChoices.PENDING)
     likes = models.PositiveIntegerField(default=0)
     report_count = models.PositiveIntegerField(default=0)
     instructor_response = models.TextField(blank=True, null=True)
-    response_date = models.DateTimeField(auto_now=True)
+    response_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        ordering = ['-review_date'] # Mới nhất lên đầu
-        ordering = ['-likes'] # Đánh giá nhiều nhất lên đầu
+        ordering = ['-created_at']  # Mới nhất lên đầu
 
     def __str__(self):
-        return f'Review by {self.user_id} for {self.course_id}'
+        return f'Review by {self.user} for {self.course}'

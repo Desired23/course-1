@@ -1,6 +1,12 @@
 from django.urls import path
-from .views import LearningProgressView
-from rest_framework.routers import DefaultRouter
+from .views import (
+    LearningProgressUpdateView,
+    LearningProgressDetailView,
+    CourseProgressView
+)
+
 urlpatterns = [
-   path('learning-progress/', LearningProgressView.as_view(), name='learning_progress'),
-   path('learning-progress/<int:enrollment_id>/<int:lesson_id>/', LearningProgressView.as_view(), name='learning_progress_detail'),]
+    path('learning-progress/update/', LearningProgressUpdateView.as_view(), name='learning_progress_update'),
+    path('learning-progress/<int:lesson_id>/', LearningProgressDetailView.as_view(), name='learning_progress_detail'),
+    path('learning-progress/course/<int:course_id>/', CourseProgressView.as_view(), name='course_progress'),
+]

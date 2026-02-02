@@ -15,7 +15,7 @@ def create_course(data):
 
 def get_course_by_id(course_id):
     try:
-        course = Course.objects.get(course_id=course_id)
+        course = Course.objects.get(id=course_id)
         return CourseSerializer(course).data
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
@@ -33,7 +33,7 @@ def get_all_courses():
 
 def update_course(course_id, data):
     try:
-        course = Course.objects.get(course_id=course_id)
+        course = Course.objects.get(id=course_id)
         serializer = CourseSerializer(course, data=data, partial=True)
         if serializer.is_valid():
             updated_course = serializer.save()
@@ -46,7 +46,7 @@ def update_course(course_id, data):
 
 def delete_course(course_id):
     try:
-        course = Course.objects.get(course_id=course_id)
+        course = Course.objects.get(id=course_id)
         course.delete()
         return {"message": "Course deleted successfully"}
     except Course.DoesNotExist:

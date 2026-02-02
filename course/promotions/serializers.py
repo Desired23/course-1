@@ -6,7 +6,7 @@ class PromotionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Promotion
         fields = [
-            'promotion_id',
+            'id',
             'code',
             'description',
             'discount_type',
@@ -19,12 +19,12 @@ class PromotionSerializer(serializers.ModelSerializer):
             'max_discount',
             'applicable_courses',
             'applicable_categories',
-            'admin_id',
-            'instructor_id',
+            'admin',
+            'instructor',
             'status',
-            'created_date',
-            'updated_date'
+            'created_at',
+            'updated_at'
         ]
         read_only_fields = [
-            'promotion_id', 'created_date'
+            'id', 'created_at', 'updated_at'
         ]

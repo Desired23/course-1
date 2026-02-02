@@ -14,8 +14,8 @@ class Lesson(models.Model):
         DRAFT = 'draft'
         PUBLISHED = 'published'
 
-    lesson_id = models.AutoField(primary_key=True)
-    coursemodule_id = models.ForeignKey(CourseModule, on_delete=models.CASCADE, related_name='lessons')
+    id = models.AutoField(primary_key=True)
+    coursemodule = models.ForeignKey(CourseModule, on_delete=models.CASCADE, related_name='lessons')
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -29,6 +29,9 @@ class Lesson(models.Model):
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_lessons')
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['order']

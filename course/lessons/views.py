@@ -44,7 +44,8 @@ class LessonCreateView(APIView):
     permission_classes = [RolePermissionFactory(["instructor", "admin"])]
     def post(self, request):
         try:
-            lesson = create_lesson(request.data, request.user.user_id)
+            print ("Request data:", request.data)
+            lesson = create_lesson(request.data, request.user.id)
             return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

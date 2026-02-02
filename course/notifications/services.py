@@ -2,15 +2,18 @@ from rest_framework.exceptions import ValidationError
 from .serializers import NotificationSerializer
 from .models import Notification
 from users.models import User
-def create_notification(user_id, title, message, type, related_id=None, sender=None):
+def create_notification(receiver_id, title, message, type, related_id=None, sender_id=None):
     try:
-        serializer = NotificationSerializer(data={
-            'user_id': user_id,
+        data = {
+            'receiver': receiver_id,
             'title': title,
             'message': message,
             'type': type,
             'related_id': related_id
-        })
+        }
+        if sender_id:
+            data['sender'] = sender_id
+        serializer = NotificationSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return serializer.data
@@ -21,7 +24,7 @@ def create_notification(user_id, title, message, type, related_id=None, sender=N
     
 def get_notification_by_id(notification_id):
     try:
-        notification = Notification.objects.get(notification_id=notification_id)
+        notification = Notification.objects.get(id=notification_id)
         return NotificationSerializer(notification).data
     except Notification.DoesNotExist:
         raise ValidationError("Notification not found")
@@ -29,13 +32,13 @@ def get_notification_by_id(notification_id):
         raise ValidationError(f"Error retrieving notification: {str(e)}")
 def get_notifications_by_user(user_id):
     try:
-        notifications = Notification.objects.filter(user_id=user_id)
+        notifications = Notification.objects.filter(receiver_id=user_id)
         return NotificationSerializer(notifications, many=True).data
     except Exception as e:
         raise ValidationError(f"Error retrieving notifications: {str(e)}")
 def mark_notification_as_read(notification_id):
     try:
-        notification = Notification.objects.get(notification_id=notification_id)
+        notification = Notification.objects.get(id=notification_id)
         notification.is_read = True
         notification.save()
         return NotificationSerializer(notification).data
@@ -45,11 +48,11 @@ def mark_notification_as_read(notification_id):
         raise ValidationError(f"Error marking notification as read: {str(e)}")
 def mark_all_notifications_as_read(user_id):
     try:
-        userCheck = User.objects.filter(user_id=user_id)
+        userCheck = User.objects.filter(id=user_id)
         if not userCheck.exists():
             raise ValidationError("User not found")
 
-        notifications = Notification.objects.filter(user_id=user_id, is_read=False)
+        notifications = Notification.objects.filter(receiver_id=user_id, is_read=False)
         notifications.update(is_read=True)
         return {"message": "All notifications marked as read"}
     except Exception as e:
@@ -71,7 +74,7 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
     try:
         for uid in user_ids:
             data = {
-                "user_id": uid,
+                "receiver": uid,
                 "title": title,
                 "message": message,
                 "type": type,

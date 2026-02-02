@@ -26,7 +26,7 @@ def get_quiz_questions_by_lesson(lesson_id):
 
 def find_quiz_question_by_id(question_id):
     try:
-        quiz_question = QuizQuestion.objects.get(question_id=question_id)
+        quiz_question = QuizQuestion.objects.get(id=question_id)
         serializer = QuizQuestionSerializer(quiz_question)
         return serializer.data
     except QuizQuestion.DoesNotExist:
@@ -36,7 +36,7 @@ def find_quiz_question_by_id(question_id):
 
 def update_quiz_question(question_id, data):
     try:
-        quiz_question = QuizQuestion.objects.get(question_id=question_id)
+        quiz_question = QuizQuestion.objects.get(id=question_id)
         serializer = QuizQuestionSerializer(quiz_question, data=data, partial=True)
         if serializer.is_valid(raise_exception=True):
             updated_quiz_question = serializer.save()
@@ -49,7 +49,7 @@ def update_quiz_question(question_id, data):
 
 def delete_quiz_question(question_id):
     try:
-        quiz_question = QuizQuestion.objects.get(question_id=question_id)
+        quiz_question = QuizQuestion.objects.get(id=question_id)
         quiz_question.delete()
         return {"message": "Quiz question deleted successfully."}
     except QuizQuestion.DoesNotExist:

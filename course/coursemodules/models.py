@@ -7,15 +7,18 @@ class CourseModule(models.Model):
         ('Published', 'Published'),
     ]
 
-    module_id = models.AutoField(primary_key=True)
-    course_id = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules')  # CourseID
+    id = models.AutoField(primary_key=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules', null=True, blank=True)  # CourseID
     title = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     order_number = models.IntegerField()
     duration = models.IntegerField(null=True, blank=True)  # Thời lượng tính bằng phút
     status = models.CharField(max_length=10, choices=MODULE_STATUS_CHOICES, default='Draft')
-    created_date = models.DateTimeField(auto_now_add=True)
-    updated_date = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_course_modules')
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'CourseModules'

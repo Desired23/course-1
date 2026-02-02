@@ -142,7 +142,7 @@ def delete_instructor_payout(payout_id, admin_id):
         if not admin_check:
             raise ValidationError("Admin not found or does not have permission to delete payouts.")
 
-        payout = InstructorPayout.objects.get(payout_id=payout_id)
+        payout = InstructorPayout.objects.get(id=payout_id)
 
         if payout.status != InstructorPayout.PayoutStatusChoices.PENDING:
             raise ValidationError("Only pending payouts can be deleted.")

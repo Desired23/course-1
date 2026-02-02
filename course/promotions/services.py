@@ -22,14 +22,14 @@ def create_promotion(data):
 
         if admin_id:
             try:
-                Admin.objects.get(admin_id=admin_id)
+                Admin.objects.get(id=admin_id)
             except Admin.DoesNotExist:
                 raise ValidationError({"error": "Admin not found."})
 
 
         if instructor_id:
             try:
-                Instructor.objects.get(instructor_id=instructor_id)
+                Instructor.objects.get(id=instructor_id)
             except Instructor.DoesNotExist:
                 raise ValidationError({"error": "Instructor not found."})
 
@@ -101,7 +101,7 @@ def get_promotions_by_admin(admin_id):
             raise ValidationError({"error": "admin_id is required"})
 
         try:
-            Admin.objects.get(admin_id=admin_id)
+            Admin.objects.get(id=admin_id)
         except Admin.DoesNotExist:
             raise ValidationError({"error": "Admin not found"})
 
@@ -125,7 +125,7 @@ def get_promotions_by_instructor(instructor_id):
             raise ValidationError({"error": "instructor_id is required"})
 
         try:
-            Instructor.objects.get(instructor_id=instructor_id)
+            Instructor.objects.get(id=instructor_id)
         except Instructor.DoesNotExist:
             raise ValidationError({"error": "Instructor not found"})
 
@@ -148,7 +148,7 @@ def delete_promotion(promotion_id):
         if not promotion_id:
             raise ValidationError({"error": "promotion_id is required"})
 
-        promotion = Promotion.objects.get(promotion_id=promotion_id)
+        promotion = Promotion.objects.get(id=promotion_id)
         promotion.delete()
         return {"message": "Promotion deleted successfully"}
 
@@ -164,7 +164,7 @@ def update_promotion(promotion_id, data):
         if not promotion_id:
             raise ValidationError({"error": "promotion_id is required"})
 
-        promotion = Promotion.objects.get(promotion_id=promotion_id)
+        promotion = Promotion.objects.get(id=promotion_id)
 
         if 'end_date' in data:
             from dateutil.parser import parse

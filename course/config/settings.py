@@ -180,6 +180,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        # RolePermissionFactory tự xử lý authentication + permission
         # 'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }

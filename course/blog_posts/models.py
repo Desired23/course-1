@@ -7,19 +7,22 @@ class BlogPost(models.Model):
         DRAFT = 'draft', 'draft'
         PUBLISHED = 'published', 'published'
         ARCHIVED = 'archived', 'archived'
-    blog_post_id = models.AutoField(primary_key=True)
+    id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255)
     content = models.TextField()
-    author_id = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blog_posts')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blog_posts', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_blog_posts')
+    is_deleted = models.BooleanField(default=False)
     status = models.CharField(
         max_length=20,
         choices=StatusChoices.choices,
         default=StatusChoices.DRAFT
     )
     tags = models.JSONField(null=True, blank=True)
-    category_id = models.ForeignKey(
+    category = models.ForeignKey(
         Category,
         on_delete=models.CASCADE,
         related_name='blog_posts',

@@ -5,12 +5,13 @@ class SystemsSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = SystemsSetting
         fields = [
-            'setting_id',
+            'id',
             'setting_group',
             'setting_key',
             'setting_value',
             'description',
-            'admin_id',
-            'updated_date'
+            'admin',
+            'created_at',
+            'updated_at'
         ]
-        read_only_fields = ['setting_id']
+        read_only_fields = ['id', 'created_at', 'updated_at']

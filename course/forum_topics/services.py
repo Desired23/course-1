@@ -15,7 +15,7 @@ def create_forum_topic(data):
 
 def get_forum_topic_by_id(topic_id):
     try:
-        forum_topic = ForumTopic.objects.get(topic_id=topic_id)
+        forum_topic = ForumTopic.objects.get(id=topic_id)
         return ForumTopicSerializer(forum_topic).data
     except ForumTopic.DoesNotExist:
         raise ValidationError("Forum Topic not found")
@@ -51,7 +51,7 @@ def get_all_forum_topics():
 
 def update_forum_topic(topic_id, data):
     try:
-        forum_topic = ForumTopic.objects.get(topic_id=topic_id)
+        forum_topic = ForumTopic.objects.get(id=topic_id)
         serializer = ForumTopicSerializer(forum_topic, data=data, partial=True)
         if serializer.is_valid():
             updated_forum_topic = serializer.save()
@@ -65,7 +65,7 @@ def update_forum_topic(topic_id, data):
 
 def delete_forum_topic(topic_id):
     try:
-        forum_topic = ForumTopic.objects.get(topic_id=topic_id)
+        forum_topic = ForumTopic.objects.get(id=topic_id)
         forum_topic.delete()
         return {"message": "Forum Topic deleted successfully"}
     except ForumTopic.DoesNotExist:

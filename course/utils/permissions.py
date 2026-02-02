@@ -13,9 +13,9 @@ def RolePermissionFactory(roles):
                 raise AuthenticationFailed("Thiếu token hoặc sai định dạng.")
             token = auth_header.split(" ")[1]
             try:
-                payload = jwt.decode(token, JWT_SECRET, algorithms="HS256")
-                user = User.objects.select_related('instructor','admin').get(user_id=payload["user_id"])
-                # user = User.objects.get(user_id=payload["user_id"])
+                payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                user = User.objects.select_related('instructor','admin').get(id=payload["user_id"])
+                # user = User.objects.get(id=payload["user_id"])
                 print("User:", user)
                 if user.status == User.StatusChoices.BANNED:
                     raise AuthenticationFailed("Tài khoản bị cấm.")

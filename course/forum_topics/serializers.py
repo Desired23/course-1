@@ -5,15 +5,17 @@ class ForumTopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = ForumTopic
         fields = [
-            'topic_id',
-            'forum_id',
+            'id',
+            'forum',
             'title',
             'content',
-            'user_id',
-            'created_date',
-            'updated_date',
+            'user',
+            'created_at',
+            'updated_at',
             'status'
         ]
         extra_kwargs = {
-            'topic_id': {'read_only': True},
+            'id': {'read_only': True},
+            'created_at': {'read_only': True},
+            'updated_at': {'read_only': True}
         }

@@ -8,13 +8,16 @@ class ForumComment(models.Model):
         ('deleted', 'deleted'),
     ]
 
-    comment_id = models.AutoField(primary_key=True)
-    topic_id = models.ForeignKey(ForumTopic, on_delete=models.CASCADE, related_name='comments_topic')
+    id = models.AutoField(primary_key=True)
+    topic = models.ForeignKey(ForumTopic, on_delete=models.CASCADE, related_name='comments_topic')
     content = models.TextField()
-    user_id = models.ForeignKey(User,on_delete=models.CASCADE,related_name='comments_user')
-    created_date = models.DateTimeField(auto_now_add=True)
-    updated_date = models.DateTimeField(auto_now=True)
-    parent_comment = models.ForeignKey('self',null=True,blank=True,on_delete=models.SET_NULL,related_name='replies')
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='comments_user')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_forum_comments')
+    is_deleted = models.BooleanField(default=False)
+    parent = models.ForeignKey('self',null=True,blank=True,on_delete=models.SET_NULL,related_name='replies')
     likes = models.IntegerField(default=0)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='aactive')
     is_best_answer = models.BooleanField(default=False)
@@ -23,4 +26,4 @@ class ForumComment(models.Model):
         db_table = 'ForumComments'
 
     def __str__(self):
-        return f"Comment {self.comment_id} on Topic {self.topic_id} by User {self.user_id}"
+        return f"Comment {self.id} on Topic {self.id} by User {self.user_id}"

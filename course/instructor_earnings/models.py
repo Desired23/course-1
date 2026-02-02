@@ -11,10 +11,10 @@ class InstructorEarning(models.Model):
         PAID = 'paid', 'paid'                      
         CANCELLED = 'cancelled', 'cancelled'     
 
-    earning_id = models.AutoField(primary_key=True)
-    instructor_id = models.ForeignKey(Instructor, on_delete=models.CASCADE, related_name='earnings')
-    course_id = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='earnings')
-    payment_id = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='instructor_earnings')
+    id = models.AutoField(primary_key=True)
+    instructor = models.ForeignKey(Instructor, on_delete=models.CASCADE, related_name='earnings')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='earnings')
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='instructor_earnings')
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)  # Tổng tiền khóa học (sau giảm giá)
     net_amount = models.DecimalField(max_digits=10, decimal_places=2)  # = amount * (100 - commission_rate) / 100
@@ -26,7 +26,12 @@ class InstructorEarning(models.Model):
     )
 
     earning_date = models.DateTimeField(auto_now_add=True)
-    instructor_payout_id = models.ForeignKey(
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_instructor_earnings')
+    is_deleted = models.BooleanField(default=False)
+    instructor_payout = models.ForeignKey(
         InstructorPayout, on_delete=models.SET_NULL,
         null=True, blank=True, related_name='earnings'
     )
@@ -41,7 +46,7 @@ class InstructorEarning(models.Model):
             models.Index(fields=['course_id']),
         ]
         unique_together = [
-            ('payment_id', 'course_id', 'instructor_id')]
+            ('payment', 'course', 'instructor')]
 
     def __str__(self):
-        return f"[{self.earning_id}] {self.instructor_id.user_id.full_name} - {self.course_id.title} - {self.net_amount} VND"
+        return f"[{self.id}] {self.instructor.user.full_name} - {self.course.title} - {self.net_amount} VND"

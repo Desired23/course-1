@@ -4,18 +4,20 @@ class SupportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Support
         fields = [
-            'support_id',
-            'user_id',
+            'id',
+            'user',
             'name',
             'email',
             'subject',
             'message',
             'status',
             'priority',
-            'created_date',
-            'updated_date',
-            'admin_id'
+            'created_at',
+            'updated_at',
+            'admin'
         ]
         read_only_fields = [
-            'support_id',
+            'id',
+            'created_at',
+            'updated_at'
         ]

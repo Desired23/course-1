@@ -8,8 +8,8 @@ class QuizQuestion(models.Model):
         SHORT_ANSWER = 'short', 'short'
         ESSAY = 'essay'
 
-    question_id = models.AutoField(primary_key=True)
-    lesson_id = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='quiz_question_lesson')
+    id = models.AutoField(primary_key=True)
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='quiz_question_lesson')
 
     question_text = models.TextField()
     question_type = models.CharField(max_length=20, choices=QuestionType.choices)
@@ -20,9 +20,12 @@ class QuizQuestion(models.Model):
     order_number = models.IntegerField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_quiz_questions')
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         db_table = "QuizQuestions"
 
     def __str__(self):
-        return f"Question {self.question_id}: {self.question_text[:50]}"
+        return f"Question {self.id}: {self.question_text[:50]}"

@@ -11,7 +11,7 @@ def create_support(data):
 
 def get_support_by_id(support_id):
     try:
-        support = Support.objects.get(support_id=support_id)
+        support = Support.objects.get(id=support_id)
         return SupportSerializer(support).data
     except Support.DoesNotExist:
         raise ValidationError("Support request not found")
@@ -38,7 +38,7 @@ def get_all_supports():
 
 def update_support(support_id, data):
     try:
-        support = Support.objects.get(support_id=support_id)
+        support = Support.objects.get(id=support_id)
         serializer = SupportSerializer(support, data=data, partial=True)
         if serializer.is_valid(raise_exception=True):
             updated_support = serializer.save()
@@ -51,8 +51,9 @@ def update_support(support_id, data):
 
 def update_admin_id(support_id, admin_id):
     try:
-        support = Support.objects.get(support_id=support_id)
-        support.admin_id = admin_id
+        from admins.models import Admin
+        support = Support.objects.get(id=support_id)
+        support.admin = Admin.objects.get(id=admin_id)
         support.save()
         return SupportSerializer(support).data
     except Support.DoesNotExist:
@@ -62,7 +63,7 @@ def update_admin_id(support_id, admin_id):
 
 def delete_support(support_id):
     try:
-        support = Support.objects.get(support_id=support_id)
+        support = Support.objects.get(id=support_id)
         support.delete()
         return {"message": "Support request deleted successfully"}
     except Support.DoesNotExist:

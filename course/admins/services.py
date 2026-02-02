@@ -6,11 +6,11 @@ from users.models import User
 def create_admin(data):
     try:
         try:
-            userCheck = User.objects.get(user_id=data['user_id'])
+            userCheck = User.objects.get(id=data['user_id'])
         except User.DoesNotExist:
             raise ValidationError({"error": "User not found."})
         serializer = AdminSerializer(data={
-            'user_id': userCheck.user_id,
+            'user_id': userCheck.id,
             'department': data['department'],
             'role': data['role'],
         })
@@ -24,7 +24,7 @@ def create_admin(data):
 
 def get_admin_by_id(admin_id):
     try:
-        admin = Admin.objects.get(admin_id=admin_id)
+        admin = Admin.objects.get(id=admin_id)
         return AdminSerializer(admin).data
     except Admin.DoesNotExist:
         raise ValidationError("Admin not found")
@@ -40,7 +40,7 @@ def get_admins():
 
 def update_admin(admin_id, data):
     try:
-        admin = Admin.objects.get(admin_id=admin_id)
+        admin = Admin.objects.get(id=admin_id)
     except Admin.DoesNotExist:
         raise ValidationError({"error": "Admin not found."})
 
@@ -52,7 +52,7 @@ def update_admin(admin_id, data):
 
 def delete_admin(admin_id):
     try:
-        admin = Admin.objects.get(admin_id=admin_id)
+        admin = Admin.objects.get(id=admin_id)
         admin.delete()
         return {"message": "Admin deleted successfully"}
     except Admin.DoesNotExist:

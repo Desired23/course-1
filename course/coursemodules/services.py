@@ -17,7 +17,7 @@ def get_course_modules():
 
 def get_course_module_by_id(course_module_id):
     try:
-        course_module = CourseModule.objects.get(module_id=course_module_id)
+        course_module = CourseModule.objects.get(id=course_module_id)
         serializer = CourseModuleSerializer(course_module)
         return serializer.data
     except CourseModule.DoesNotExist:
@@ -33,7 +33,7 @@ def create_course_module(data):
 
 def update_course_module(course_module_id, data):
     try:
-        course_module = CourseModule.objects.get(module_id=course_module_id)
+        course_module = CourseModule.objects.get(id=course_module_id)
     except CourseModule.DoesNotExist:
         raise ValidationError({"error": "Course module not found."})
 
@@ -45,7 +45,7 @@ def update_course_module(course_module_id, data):
 
 def delete_course_module(course_module_id):
     try:
-        course_module = CourseModule.objects.get(module_id=course_module_id)
+        course_module = CourseModule.objects.get(id=course_module_id)
         course_module.delete()
         return {"message": "Course module deleted successfully."}
     except CourseModule.DoesNotExist:

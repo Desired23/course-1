@@ -38,7 +38,7 @@ def create_payment(payment_data):
                     raise ValidationError("Thiếu course_id trong chi tiết thanh toán.")
 
                 try:
-                    course = Course.objects.get(course_id=course_id)
+                    course = Course.objects.get(id=course_id)
                 except Course.DoesNotExist:
                     raise ValidationError(f"Course ID {course_id} không tồn tại.")
 
@@ -49,7 +49,7 @@ def create_payment(payment_data):
                
                 if detail_promotion_id:
                     try:
-                        promotion = Promotion.objects.get(promotion_id=detail_promotion_id)
+                        promotion = Promotion.objects.get(id=detail_promotion_id)
 
                         if not promotion.instructor_id:
                             raise ValidationError(f"Mã giảm giá ID {detail_promotion_id} không áp dụng cho từng khóa học.")
@@ -97,7 +97,7 @@ def create_payment(payment_data):
             admin_discount = Decimal("0.0")
             if promotion_id:
                 try:
-                    promotion = Promotion.objects.get(promotion_id=promotion_id)
+                    promotion = Promotion.objects.get(id=promotion_id)
 
                     if not promotion.admin_id:
                         raise ValidationError("Mã giảm giá không hợp lệ (chỉ admin mới áp dụng toàn đơn hàng).")
@@ -129,7 +129,6 @@ def create_payment(payment_data):
             total_amount = total_original - total_discount
 
             # Tạo payment
-            payment_date = timezone.now()
             payment_serializer = PaymentCreateSerializer(data={
                 "user_id": user_id,
                 "amount": total_original,
@@ -137,8 +136,7 @@ def create_payment(payment_data):
                 "total_amount": total_amount,
                 "payment_method": payment_method,
                 "transaction_id": generate_unique_transaction_id(),
-                "promotion_id": promotion_id if promotion_id else None,
-                "payment_date": payment_date
+                "promotion_id": promotion_id if promotion_id else None
             })
 
             if not payment_serializer.is_valid():

@@ -15,7 +15,7 @@ def create_forum(data):
 
 def get_forum_by_id(forum_id):
     try:
-        forum = Forum.objects.get(forum_id=forum_id)
+        forum = Forum.objects.get(id=forum_id)
         return ForumSerializer(forum).data
     except Forum.DoesNotExist:
         raise ValidationError("Forum not found")
@@ -42,7 +42,7 @@ def get_all_forums():
 
 def update_forum(forum_id, data):
     try:
-        forum = Forum.objects.get(forum_id=forum_id)
+        forum = Forum.objects.get(id=forum_id)
         serializer = ForumSerializer(forum, data=data, partial=True)
         if serializer.is_valid():
             updated_forum = serializer.save()
@@ -56,7 +56,7 @@ def update_forum(forum_id, data):
 
 def delete_forum(forum_id):
     try:
-        forum = Forum.objects.get(forum_id=forum_id)
+        forum = Forum.objects.get(id=forum_id)
         forum.delete()
         return {"message": "Forum deleted successfully"}
     except Forum.DoesNotExist:
