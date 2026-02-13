@@ -24,25 +24,25 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
             earnings_qs = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.AVAILABLE,
                 instructor_payout_id__isnull=True
-            ).select_related('instructor_id')
+            ).select_related('instructor')
             print(earnings_qs)
 
             if not earnings_qs.exists():
                 raise ValidationError("No available earnings for payout.")
 
-            # Bước 2: Gom earnings theo instructor_id
+            # Bước 2: Gom earnings theo instructor
             earnings_map = defaultdict(list)
             for earning in earnings_qs:
-                earnings_map[earning.instructor_id].append(earning)
+                earnings_map[earning.instructor].append(earning)
 
             # Bước 3: Chuẩn bị danh sách payouts
             payouts_to_create = []
             instructor_earning_ids_map = {}
 
-            for instructor_id, earnings in earnings_map.items():
+            for instructor, earnings in earnings_map.items():
                 total_amount = sum(e.net_amount for e in earnings)
                 payout = InstructorPayout(
-                    instructor_id=instructor_id,
+                    instructor=instructor,
                     amount=total_amount,
                     period=period or timezone.now().strftime("%Y-%m"),
                     processed_by=processed_by,
@@ -51,7 +51,7 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
                     request_date=timezone.now(),
                 )
                 payouts_to_create.append(payout)
-                instructor_earning_ids_map[instructor_id] = [e.earning_id for e in earnings]
+                instructor_earning_ids_map[instructor] = [e.id for e in earnings]
 
             # Bước 4: Tạo payouts hàng loạt (1 query duy nhất)
             InstructorPayout.objects.bulk_create(payouts_to_create)
@@ -60,13 +60,13 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
                 processed_by=processed_by,
                 period=period or timezone.now().strftime("%Y-%m"),
             ).order_by('-request_date')
-            # Bước 5: Map lại payouts theo instructor_id
-            payout_map = {payout.instructor_id: payout for payout in created_payouts}
+            # Bước 5: Map lại payouts theo instructor
+            payout_map = {payout.instructor: payout for payout in created_payouts}
 
             # Bước 6: Gán instructor_payout_id cho các earning
-            for instructor_id, earning_ids in instructor_earning_ids_map.items():
-                InstructorEarning.objects.filter(earning_id__in=earning_ids).update(
-                    instructor_payout_id=payout_map[instructor_id]
+            for instructor, earning_ids in instructor_earning_ids_map.items():
+                InstructorEarning.objects.filter(id__in=earning_ids).update(
+                    instructor_payout=payout_map[instructor]
                 )
 
             return InstructorPayoutSerializer(payouts_to_create, many=True).data
@@ -78,7 +78,7 @@ def admin_update_instructor_payout(payout_id, status, transaction_id, notes, fee
     try:
         print(f"Updating payout with ID: {payout_id}, Status: {status}, Transaction ID: {transaction_id}, Notes: {notes}, Fee: {fee}, Processed Date: {processed_date}, Period: {period}, Processed By: {processed_by}")
         with transaction.atomic():
-            payout = InstructorPayout.objects.select_for_update().get(payout_id=payout_id)
+            payout = InstructorPayout.objects.select_for_update().get(id=payout_id)
 
             if payout.status != InstructorPayout.PayoutStatusChoices.PENDING:
                 raise ValidationError("Only pending payouts can be updated.")
@@ -101,7 +101,7 @@ def admin_update_instructor_payout(payout_id, status, transaction_id, notes, fee
         raise ValidationError(f"Error updating payout: {str(e)}")
 def get_payouts_for_instructor(instructor_id, status=None, period=None):
     try:
-        queryset = InstructorPayout.objects.filter(instructor_id=instructor_id)
+        queryset = InstructorPayout.objects.filter(instructor=instructor_id)
 
         if status:
             queryset = queryset.filter(status=status)
@@ -115,11 +115,11 @@ def get_payouts_for_instructor(instructor_id, status=None, period=None):
         raise ValidationError(f"Error retrieving payouts: {str(e)}")
 def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
     try:
-        queryset = InstructorPayout.objects.select_related("instructor_id", "processed_by").all()
+        queryset = InstructorPayout.objects.select_related("instructor", "processed_by").all()
         print(queryset)
         
         if processed_by:
-            queryset = queryset.filter(processed_by__admin_id=processed_by)
+            queryset = queryset.filter(processed_by__admin=processed_by)
         if status:
             queryset = queryset.filter(status=status)
         if period:
@@ -130,7 +130,7 @@ def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
         raise ValidationError(f"Error retrieving payouts: {str(e)}")
 def get_payout_detail_by_id(payout_id):
     try:
-        payout = InstructorPayout.objects.select_related("instructor_id", "processed_by").get(payout_id=payout_id)
+        payout = InstructorPayout.objects.select_related("instructor", "processed_by").get(id=payout_id)
         return InstructorPayoutSerializer(payout).data
     except InstructorPayout.DoesNotExist:
         raise ValidationError("Payout not found.")
@@ -138,7 +138,7 @@ def get_payout_detail_by_id(payout_id):
         raise ValidationError(f"Error retrieving payout: {str(e)}")
 def delete_instructor_payout(payout_id, admin_id):
     try:
-        admin_check = Admin.objects.filter(admin_id=admin_id).exists()
+        admin_check = Admin.objects.filter(id=admin_id).exists()
         if not admin_check:
             raise ValidationError("Admin not found or does not have permission to delete payouts.")
 

@@ -12,6 +12,7 @@ class Enrollment(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollment_user')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollment_course', null=True, blank=True)
+    payment = models.ForeignKey('payments.Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='enrollments')
     enrollment_date = models.DateTimeField(blank=True, null=True)
     expiry_date = models.DateTimeField(blank=True, null = True)
     completion_date = models.DateTimeField(blank=True, null = True)

@@ -27,20 +27,15 @@ def RolePermissionFactory(roles):
                 raise AuthenticationFailed("Token hết hạn.")
             except jwt.InvalidTokenError:
                 raise AuthenticationFailed("Token không hợp lệ.")
-
-            user_type = payload.get("user_type")
-            # print(roles)
-            # print(user_type)
-            if not user_type:
-                raise AuthenticationFailed("Không có quyền truy cập.")
-            # if user_type:
-            #     raise AuthenticationFailed("Role hiện tại: {}".format(user_type))
-            if isinstance(user_type, list):
-                if not any(role in roles for role in user_type):
-                    raise PermissionDenied("Bạn không có quyền truy cập.")
-            else:
-                if user_type not in roles:
-                    raise PermissionDenied("Bạn không có quyền truy cập.")
+            user_type = ["student"]
+            admin = getattr(user, "admin", None)
+            instructor = getattr(user, "instructor", None)
+            if admin:
+                user_type.append("admin")
+            if instructor:
+                user_type.append("instructor")
+            if not any(role in roles for role in user_type):
+                raise PermissionDenied("Bạn không có quyền truy cập.")
             request.jwt_payload = payload
             request.user = user
             return True

@@ -24,7 +24,7 @@ def get_qna_answer_by_id(answer_id):
 
 def get_qna_answers_by_qna_id(qna_id):
     try:
-        qna_answer_list = QnAAnswer.objects.filter(qna_id=qna_id)
+        qna_answer_list = QnAAnswer.objects.filter(qna=qna_id)
         if not qna_answer_list.exists():
             raise ValidationError("No QnA Answers found for this QnA ID.")
         return QnAAnswerSerializer(qna_answer_list, many=True).data

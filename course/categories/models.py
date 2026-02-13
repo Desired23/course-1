@@ -3,7 +3,6 @@ from django.db import models
 class StatusChoices(models.TextChoices):
     ACTIVE = 'active', 'active'
     INACTIVE = 'inactive', 'inactive'
-    BANNED = 'banned', 'banned'
 class Category(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True)

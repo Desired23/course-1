@@ -37,4 +37,4 @@ class Lesson(models.Model):
         ordering = ['order']
 
     def __str__(self):
-        return f"Lesson {self.title}"
+        return f"Lesson {self.id}  Lesson {self.title}"

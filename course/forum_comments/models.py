@@ -26,4 +26,4 @@ class ForumComment(models.Model):
         db_table = 'ForumComments'
 
     def __str__(self):
-        return f"Comment {self.id} on Topic {self.id} by User {self.user_id}"
+        return f"Comment {self.id} on Topic {self.topic.id} by User {self.user.id}"

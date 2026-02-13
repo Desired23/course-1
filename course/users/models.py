@@ -45,4 +45,4 @@ class User(models.Model):
     
 
     def __str__(self):
-        return f"{self.username} ({self.user_type})"
+        return f"{self.username} ({self.user_type} - User_id = {self.id})"

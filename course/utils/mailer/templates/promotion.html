@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Khuyến mãi đặc biệt</title>
+<style>
+body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+.container { max-width: 600px; margin: auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.header { background: #ff9800; color: #fff; text-align: center; padding: 20px; }
+.content { padding: 20px; text-align: center; }
+.coupon { font-size: 24px; font-weight: bold; color: #ff9800; border: 2px dashed #ff9800; display: inline-block; padding: 10px 20px; margin-top: 15px; }
+.button { display: inline-block; background: #ff9800; color: #fff; padding: 12px 20px; border-radius: 5px; text-decoration: none; margin-top: 15px; }
+.button:hover { background: #e68900; }
+.footer { text-align: center; font-size: 12px; color: #777; padding: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h2>🎉 Ưu đãi đặc biệt dành cho bạn</h2>
+  </div>
+  <div class="content">
+    <p>Xin chào <strong>{{ user.full_name }}</strong>,</p>
+    <p>Nhập mã bên dưới để nhận ưu đãi:</p>
+    <div class="coupon">{{ coupon_code }}</div>
+    <p>Giảm <strong>{{ discount_percent }}%</strong> cho tất cả khóa học. Hạn sử dụng: {{ expire_date|date:"d/m/Y" }}</p>
+    <a href="{{ promotion_url }}" class="button">Nhận ưu đãi</a>
+  </div>
+  <div class="footer">
+    © {{ site_name }} - Học tập cùng bạn.
+  </div>
+</div>
+</body>
+</html>

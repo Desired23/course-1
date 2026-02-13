@@ -24,7 +24,7 @@ class LearningProgressSerializer(serializers.ModelSerializer):
             'last_access_date',
             'completion_date'
         ]
-        read_only_fields = ['progress_id', 'user_id', 'last_access_date']
+        read_only_fields = ['id', 'user', 'last_accessed']
     
     def validate_course(self, value):
         """Validate course exists and is not deleted"""

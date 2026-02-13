@@ -7,10 +7,9 @@ from courses.models import Course
 from payment_details.serializers import PaymentDetailSerializer
 from decimal import Decimal
 from django.utils import timezone
-from courses.models import Course
 from .utils import generate_unique_transaction_id
-from decimal import Decimal
-from django.utils import timezone
+from carts.models import Cart
+from activity_logs.services import log_activity
 
 
 def create_payment(payment_data):
@@ -20,7 +19,7 @@ def create_payment(payment_data):
             payment_method = payment_data.get("payment_method")
             payment_detail_input = payment_data.get("payment_details", [])
             promotion_id = payment_data.get("promotion_id")  # ADMIN-level promotion
-
+            courses_detail = []
             if not payment_detail_input:
                 raise ValidationError("Thiếu thông tin chi tiết thanh toán.")
 
@@ -41,7 +40,7 @@ def create_payment(payment_data):
                     course = Course.objects.get(id=course_id)
                 except Course.DoesNotExist:
                     raise ValidationError(f"Course ID {course_id} không tồn tại.")
-
+                courses_detail.append(course)
                 price = Decimal(course.price)
                 discount = Decimal("0.0")
 
@@ -51,7 +50,7 @@ def create_payment(payment_data):
                     try:
                         promotion = Promotion.objects.get(id=detail_promotion_id)
 
-                        if not promotion.instructor_id:
+                        if not promotion.instructor:
                             raise ValidationError(f"Mã giảm giá ID {detail_promotion_id} không áp dụng cho từng khóa học.")
                         if promotion.status != Promotion.StatusChoices.ACTIVE:
                             raise ValidationError(f"Khuyến mãi ID {detail_promotion_id} không hoạt động.")
@@ -67,7 +66,7 @@ def create_payment(payment_data):
 
                         if not (course_valid):
                             raise ValidationError(
-                                f"Khuyến mãi ID {promotion.promotion_id} không áp dụng cho khóa học {course.title}"
+                                f"Khuyến mãi ID {promotion.id} không áp dụng cho khóa học {course.title}"
                             )
                         # Tính discount
                         if promotion.discount_type == Promotion.DiscountTypeChoices.PERCENTAGE:
@@ -86,7 +85,7 @@ def create_payment(payment_data):
                 total_discount += discount
 
                 payment_detail_arr.append({
-                    "course_id": course.course_id,
+                    "course_id": course.id,
                     "price": price,
                     "discount": discount,
                     "final_price": final_price,
@@ -99,11 +98,18 @@ def create_payment(payment_data):
                 try:
                     promotion = Promotion.objects.get(id=promotion_id)
 
-                    if not promotion.admin_id:
+                    if not promotion.admin:
                         raise ValidationError("Mã giảm giá không hợp lệ (chỉ admin mới áp dụng toàn đơn hàng).")
-                    category_valid = promotion.applicable_categories.filter(pk=course.category_id.pk).exists()
-                    if not category_valid:
-                        raise ValidationError(f"Khuyến mãi ID {promotion.code} id {promotion.promotion_id}không áp dụng cho danh mục khóa học {course.category_id.name}.")
+                    
+                    # Kiểm tra tất cả courses trong đơn hàng đều thuộc category được áp dụng
+                    applicable_category_ids = set(
+                        promotion.applicable_categories.values_list('pk', flat=True)
+                    )
+                    for detail_course in courses_detail:
+                        if not detail_course.category_id or detail_course.category_id not in applicable_category_ids:
+                            raise ValidationError(
+                                f"Khuyến mãi {promotion.code} (ID {promotion.id}) không áp dụng cho danh mục của khóa học '{detail_course.title}'."
+                            )
                     if promotion.status != Promotion.StatusChoices.ACTIVE:
                         raise ValidationError("Khuyến mãi không hoạt động.")
                     now = timezone.now()
@@ -129,32 +135,60 @@ def create_payment(payment_data):
             total_amount = total_original - total_discount
 
             # Tạo payment
+            transaction_id = generate_unique_transaction_id()
             payment_serializer = PaymentCreateSerializer(data={
                 "user_id": user_id,
                 "amount": total_original,
                 "discount_amount": total_discount,
                 "total_amount": total_amount,
                 "payment_method": payment_method,
-                "transaction_id": generate_unique_transaction_id(),
+                "transaction_id": transaction_id,
                 "promotion_id": promotion_id if promotion_id else None
             })
 
             if not payment_serializer.is_valid():
                 raise ValidationError({"payment": payment_serializer.errors})
 
-            payment = payment_serializer.save()
-
+            payment_serializer.save()
+            payment = Payment.objects.get(transaction_id=transaction_id)
             # Gán payment_id vào từng chi tiết
             for detail in payment_detail_arr:
-                print("payment_id:", payment.payment_id)
-                detail["payment_id"] = payment.payment_id
+                print("payment_id:", payment.id)
+                detail["payment_id"] = payment.id
 
             payment_detail_serializer = PaymentDetailSerializer(data=payment_detail_arr, many=True)
             if not payment_detail_serializer.is_valid():
                 raise ValidationError({"payment_details": payment_detail_serializer.errors})
 
             payment_detail_serializer.save()
+            used_promotions = set()
 
+            # Thêm promotion của từng khóa học
+            for detail in payment_detail_arr:
+                if detail.get("promotion_id"):
+                    used_promotions.add(detail["promotion_id"])
+
+            # Thêm promotion toàn đơn
+            if promotion_id:
+                used_promotions.add(promotion_id)
+
+            # Cập nhật used_count
+            for promo_id in used_promotions:
+                try:
+                    promo = Promotion.objects.select_for_update().get(id=promo_id)
+                    promo.used_count = (promo.used_count or 0) + 1
+                    promo.save()
+                except Promotion.DoesNotExist:
+                    raise ValidationError(f"Khuyến mãi ID {promo_id} không tồn tại khi cập nhật lượt dùng.")
+            # Xoá giỏ hàng của user sau khi thanh toán thành công
+            Cart.objects.filter(user=user_id).delete()
+            log_activity(
+                user_id=user_id,
+                action="PAYMENT_INITIATED",
+                entity_type="Payment",
+                entity_id=payment.id,
+                description=f"Khởi tạo thanh toán: {payment.payment_method} - {payment.total_amount} VND"
+            )
             return {
                 "payment": PaymentSerializer(payment).data,
                 "payment_details": payment_detail_serializer.data
@@ -162,3 +196,101 @@ def create_payment(payment_data):
 
     except Exception as e:
         raise ValidationError(f"Lỗi khi tạo thanh toán: {str(e)}")
+
+
+def get_payment_status(payment_id, user):
+    """Get payment status by payment ID for the authenticated user."""
+    try:
+        payment = Payment.objects.get(id=payment_id, user=user, is_deleted=False)
+    except Payment.DoesNotExist:
+        raise ValidationError("Payment không tồn tại hoặc không thuộc về bạn.")
+
+    from payment_details.models import Payment_Details
+    from enrollments.models import Enrollment
+
+    details = Payment_Details.objects.filter(payment=payment, is_deleted=False).select_related('course')
+
+    courses = []
+    for detail in details:
+        enrollment = Enrollment.objects.filter(
+            user=user, course_id=detail.course_id, is_deleted=False
+        ).first()
+
+        courses.append({
+            "course_id": detail.course_id,
+            "course_title": detail.course.title if detail.course else None,
+            "price": str(detail.price),
+            "discount": str(detail.discount),
+            "final_price": str(detail.final_price),
+            "enrollment_status": enrollment.status if enrollment else None,
+            "enrollment_id": enrollment.id if enrollment else None,
+        })
+
+    completed_at = None
+    if payment.payment_status == Payment.PaymentStatus.COMPLETED:
+        completed_at = payment.updated_at
+
+    return {
+        "payment_id": payment.id,
+        "payment_status": payment.payment_status,
+        "transaction_id": payment.transaction_id,
+        "amount": payment.amount,
+        "discount_amount": payment.discount_amount,
+        "total_amount": payment.total_amount,
+        "payment_method": payment.payment_method,
+        "courses": courses,
+        "created_at": payment.created_at,
+        "completed_at": completed_at,
+    }
+
+
+def check_enrollment_by_course(course_id, user):
+    """Check if user has paid for and enrolled in a specific course."""
+    from payment_details.models import Payment_Details
+    from enrollments.models import Enrollment
+
+    try:
+        course = Course.objects.get(id=course_id)
+    except Course.DoesNotExist:
+        raise ValidationError(f"Course ID {course_id} không tồn tại.")
+
+    # Find the latest payment detail for this course & user
+    payment_detail = (
+        Payment_Details.objects
+        .filter(course_id=course_id, payment__user=user, payment__is_deleted=False, is_deleted=False)
+        .select_related('payment')
+        .order_by('-payment__created_at')
+        .first()
+    )
+
+    enrollment = Enrollment.objects.filter(
+        user=user, course_id=course_id, is_deleted=False
+    ).first()
+
+    if not payment_detail:
+        return {
+            "payment_id": None,
+            "payment_status": None,
+            "transaction_id": None,
+            "amount": None,
+            "course_id": course_id,
+            "enrollment_status": enrollment.status if enrollment else None,
+            "enrollment_id": enrollment.id if enrollment else None,
+            "created_at": None,
+            "completed_at": None,
+        }
+
+    payment = payment_detail.payment
+    completed_at = payment.updated_at if payment.payment_status == Payment.PaymentStatus.COMPLETED else None
+
+    return {
+        "payment_id": payment.id,
+        "payment_status": payment.payment_status,
+        "transaction_id": payment.transaction_id,
+        "amount": payment_detail.final_price,
+        "course_id": course_id,
+        "enrollment_status": enrollment.status if enrollment else None,
+        "enrollment_id": enrollment.id if enrollment else None,
+        "created_at": payment.created_at,
+        "completed_at": completed_at,
+    }

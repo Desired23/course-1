@@ -20,7 +20,7 @@ def get_support_by_id(support_id):
 
 def get_supports_by_user(user_id):
     try:
-        supports = Support.objects.filter(user_id=user_id)
+        supports = Support.objects.filter(user=user_id)
         if not supports.exists():
             raise ValidationError("No support requests found for this user.")
         return SupportSerializer(supports, many=True).data

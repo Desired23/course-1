@@ -14,7 +14,7 @@ def create_lesson_attachment(data):
     
 def get_lesson_attachments_by_lesson(lesson_id):
     try:
-        lesson_attachments = LessonAttachment.objects.filter(lesson_id=lesson_id)
+        lesson_attachments = LessonAttachment.objects.filter(lesson=lesson_id)
         if not lesson_attachments.exists():
             raise ValidationError({"error": "No lesson attachments found."})
         serializer = LessonAttachmentSerializer(lesson_attachments, many=True)

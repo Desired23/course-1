@@ -28,4 +28,4 @@ class QnA(models.Model):
 
 
     def __str__(self):
-        return f"QnA #{self.id}: Student {self.user_id}"
+        return f"QnA #{self.id}: Student {self.user.id}"

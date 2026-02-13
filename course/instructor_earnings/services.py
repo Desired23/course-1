@@ -13,14 +13,14 @@ def generate_instructor_earnings_from_payment(payment_id):
     try:
         with transaction.atomic():
             payment = Payment.objects.prefetch_related(
-                'payment_details__course_id__instructor_id'
+                'payment_details__course__instructor'
             ).get(id=payment_id)
             results = []
             print("ok")
             # print("payment:", payment.__dict__)
 
             for detail in payment.payment_details.all():
-                instructor = detail.course_id.instructor_id
+                instructor = detail.course.instructor
                 # print("detail:", detail.__dict__)
                 if not instructor:
                     continue  # Bỏ qua nếu chưa gán instructor cho khóa học
@@ -35,9 +35,9 @@ def generate_instructor_earnings_from_payment(payment_id):
                 net_amount = amount * (Decimal(100) - commission_rate) / Decimal(100)
 
                 earning = InstructorEarning.objects.create(
-                    instructor_id=instructor,
-                    course_id=detail.course_id,
-                    payment_id=payment,
+                    instructor=instructor,
+                    course=detail.course,
+                    payment=payment,
                     amount=amount,
                     net_amount=net_amount,
                     status=InstructorEarning.StatusChoices.PENDING,
@@ -55,7 +55,7 @@ def generate_instructor_earnings_from_payment(payment_id):
 def get_instructor_earnings_by_instructor_id(instructor_id, status=None):
     try:
         instructor = Instructor.objects.get(id=instructor_id)
-        earnings = InstructorEarning.objects.filter(instructor_id=instructor)
+        earnings = InstructorEarning.objects.filter(instructor=instructor)
 
         if status:
             earnings = earnings.filter(status=status)
@@ -103,7 +103,7 @@ def update_instructor_earning_with_payout(payout_id):
         with transaction.atomic():
             payout = InstructorPayout.objects.prefetch_related(
                 'earnings__instructor_id__user_id'
-            ).get(payout_id=payout_id)
+            ).get(instructor_payout=payout_id)
 
             earnings = payout.earnings.all()
 

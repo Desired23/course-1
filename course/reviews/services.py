@@ -31,7 +31,7 @@ def create_review(data):
 def get_reviews_by_course(course_id):
     try:
         print("course_id", course_id)
-        reviews = Review.objects.filter(course_id=course_id)
+        reviews = Review.objects.filter(course=course_id)
         if not reviews.exists():
             raise ValidationError({"error": "Không tìm thấy đánh giá nào cho khóa học này."})
         serializer = ReviewSerializer(reviews, many=True)
@@ -51,7 +51,7 @@ def get_review_by_id(review_id):
 
 def count_reviews_by_course(course_id):
     try:
-        count = Review.objects.filter(course_id=course_id).count()
+        count = Review.objects.filter(course=course_id).count()
         return count
     except Exception as e:
         raise ValidationError({"error": str(e)})

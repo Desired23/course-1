@@ -15,7 +15,7 @@ from qnas.models import QnA
 from qna_answers.models import QnAAnswer
 from forums.models import Forum
 from forum_topics.models import ForumTopic
-from forum_comments.models import ForumComment
+from forum_comments.models import ForumComment 
 from systems_settings.models import SystemsSetting
 from supports.models import Support
 # from reviews.models import Review
@@ -28,6 +28,12 @@ from instructor_payouts.models import InstructorPayout
 from instructor_levels.models import InstructorLevel
 from support_replies.models import SupportReply
 from coursemodules.models import CourseModule
+from lesson_comments.models import LessonComment
+from lessons.models import Lesson
+from activity_logs.models import ActivityLog
+from learning_progress.models import LearningProgress
+from quiz_questions.models import QuizTestCase
+admin.site.register(LearningProgress)
 admin.site.register(BlogPost)
 admin.site.register(User)
 admin.site.register(Course)
@@ -57,3 +63,7 @@ admin.site.register(InstructorPayout)
 admin.site.register(InstructorLevel)
 admin.site.register(SupportReply)
 admin.site.register(CourseModule)
+admin.site.register(LessonComment)
+admin.site.register(Lesson)
+admin.site.register(ActivityLog)
+admin.site.register(QuizTestCase)

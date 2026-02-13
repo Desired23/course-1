@@ -61,8 +61,8 @@ class Course(models.Model):
     class Meta:
         db_table = 'Courses'
         
-def __str__(self):
-    return f"Course {self.course_id} - {self.title}"
+    def __str__(self):
+        return f"Course {self.id} - {self.title}"
 
 
 

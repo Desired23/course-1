@@ -42,8 +42,8 @@ class InstructorEarning(models.Model):
         verbose_name_plural = 'Instructor Earnings'
         indexes = [
             models.Index(fields=['status']),
-            models.Index(fields=['instructor_id']),
-            models.Index(fields=['course_id']),
+            models.Index(fields=['instructor']),
+            models.Index(fields=['course']),
         ]
         unique_together = [
             ('payment', 'course', 'instructor')]

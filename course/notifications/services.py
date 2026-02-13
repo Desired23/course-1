@@ -2,7 +2,10 @@ from rest_framework.exceptions import ValidationError
 from .serializers import NotificationSerializer
 from .models import Notification
 from users.models import User
-def create_notification(receiver_id, title, message, type, related_id=None, sender_id=None):
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+def create_notification(receiver_id, title, message, type, related_id=None, sender=None):
     try:
         data = {
             'receiver': receiver_id,
@@ -11,11 +14,24 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
             'type': type,
             'related_id': related_id
         }
-        if sender_id:
-            data['sender'] = sender_id
+        if sender:
+            data['sender'] = sender
         serializer = NotificationSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
+            # Send WebSocket notification if channel layer is available
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                dataws = dict(serializer.data)
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{receiver_id}",
+                    {
+                        "type": "send_notification",
+                        "data":  dataws,
+                        
+                    }
+                )
+            
             return serializer.data
         else:
             raise ValidationError(serializer.errors)
@@ -32,7 +48,7 @@ def get_notification_by_id(notification_id):
         raise ValidationError(f"Error retrieving notification: {str(e)}")
 def get_notifications_by_user(user_id):
     try:
-        notifications = Notification.objects.filter(receiver_id=user_id)
+        notifications = Notification.objects.filter(receiver=user_id)
         return NotificationSerializer(notifications, many=True).data
     except Exception as e:
         raise ValidationError(f"Error retrieving notifications: {str(e)}")
@@ -52,7 +68,7 @@ def mark_all_notifications_as_read(user_id):
         if not userCheck.exists():
             raise ValidationError("User not found")
 
-        notifications = Notification.objects.filter(receiver_id=user_id, is_read=False)
+        notifications = Notification.objects.filter(receiver=user_id, is_read=False)
         notifications.update(is_read=True)
         return {"message": "All notifications marked as read"}
     except Exception as e:
@@ -72,6 +88,8 @@ def delete_notification_by_admin(notification_code):
         raise ValidationError(f"Error deleting notification: {str(e)}")
 def notification_to_users(notification_code, user_ids, title, message, type, related_id=None):
     try:
+        channel_layer = get_channel_layer()
+        success_count = 0
         for uid in user_ids:
             data = {
                 "receiver": uid,
@@ -82,10 +100,27 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
                 "related_id": related_id
             }
             serializer = NotificationSerializer(data=data)
+
             if serializer.is_valid():
                 serializer.save()
+                # Send WebSocket notification if channel layer is available
+                if channel_layer:
+                    dataws = dict(serializer.data)
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{uid}",
+                        {
+                            "type": "send_notification",
+                            "data":  dataws,
+                            
+                        }
+                    )
+                success_count += 1
+                
             else:
                 raise ValidationError(serializer.errors)
-        return {"message": f"Notifications{notification_code} sent successfully"}
+            return {
+                "message": f"{success_count}/{len(user_ids)} notifications sent successfully.",
+                "code": notification_code
+            }
     except Exception as e:
         raise ValidationError(f"Error sending notifications: {str(e)}")

@@ -19,4 +19,4 @@ class QnAAnswer(models.Model):
         db_table = 'QnAAnswers'
 
     def __str__(self):
-        return f"Answer {self.id}: QnA {self.id}: User {self.user_id}"
+        return f"Answer {self.id}: QnA {self.qna.id}: User {self.user.id}"

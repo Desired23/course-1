@@ -26,7 +26,7 @@ class UserManagementView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, user_id):
         try:
-            result = delete_user(user_id)
+            result = delete_user(user_id, request)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)

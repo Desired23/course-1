@@ -24,7 +24,7 @@ def get_qna_by_id(qna_id):
 
 def get_qna_by_user_id(user_id):
     try:
-        qna_list = QnA.objects.filter(user_id=user_id)
+        qna_list = QnA.objects.filter(user=user_id)
         if not qna_list.exists():
             raise ValidationError("No QnA found for this user_id.")
         return QnASerializer(qna_list, many=True).data

@@ -24,7 +24,7 @@ def get_forum_comment_by_id(comment_id):
 
 def get_forum_comments_by_topic_id(topic_id):
     try:
-        forum_comment_list = ForumComment.objects.filter(topic_id=topic_id)
+        forum_comment_list = ForumComment.objects.filter(topic=topic_id)
         if not forum_comment_list.exists():
             raise ValidationError("No Forum Comments found for this topic_id.")
         return ForumCommentSerializer(forum_comment_list, many=True).data
@@ -33,7 +33,7 @@ def get_forum_comments_by_topic_id(topic_id):
 
 def get_forum_comments_by_user_id(user_id):
     try:
-        forum_comment_list = ForumComment.objects.filter(user_id=user_id)
+        forum_comment_list = ForumComment.objects.filter(user=user_id)
         if not forum_comment_list.exists():
             raise ValidationError("No Forum Comments found for this user_id.")
         return ForumCommentSerializer(forum_comment_list, many=True).data

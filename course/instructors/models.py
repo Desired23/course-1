@@ -29,4 +29,4 @@ class Instructor(models.Model):
         db_table = 'Instructors'
 
     def __str__(self):
-        return f"Instructor {self.instructor_id} - {self.user_id.full_name} - {self.level.name if self.level else 'No Level'}"
+        return f"Instructor {self.id} - {self.user.full_name} - {self.level.name if self.level else 'No Level'}"

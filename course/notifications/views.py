@@ -16,13 +16,13 @@ class NotificationView(APIView):
     def post(self, request):
         try:
             receiver_id = request.data.get('receiver_id') or request.data.get('user_id')  # Backward compatible
-            sender_id = request.data.get('sender_id')
+            sender = request.data.get('sender') or request.data.get('sender_id')  # Accept both sender and sender_id
             title = request.data.get('title')
             message = request.data.get('message')
             type = request.data.get('type')
             related_id = request.data.get('related_id')
 
-            notification = create_notification(receiver_id, title, message, type, related_id, sender_id)
+            notification = create_notification(receiver_id, title, message, type, related_id, sender)
             return Response(notification, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

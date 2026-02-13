@@ -80,9 +80,9 @@ def get_promotion_by_id(promotion_id):
 
         promotion = (
             Promotion.objects
-            .select_related('admin_id', 'instructor_id')
+            .select_related('admin', 'instructor')
             .prefetch_related('applicable_courses', 'applicable_categories')
-            .get(promotion_id=promotion_id)
+            .get(id=promotion_id)
         )
 
         return PromotionSerializer(promotion).data
@@ -107,8 +107,8 @@ def get_promotions_by_admin(admin_id):
 
         promotions = (
             Promotion.objects
-            .filter(admin_id=admin_id)
-            .select_related('admin_id', 'instructor_id')
+            .filter(admin=admin_id)
+            .select_related('admin', 'instructor')
             .prefetch_related('applicable_courses', 'applicable_categories')
         )
 
@@ -131,8 +131,8 @@ def get_promotions_by_instructor(instructor_id):
 
         promotions = (
             Promotion.objects
-            .filter(instructor_id=instructor_id)
-            .select_related('admin_id', 'instructor_id')
+            .filter(instructor=instructor_id)
+            .select_related('admin', 'instructor')
             .prefetch_related('applicable_courses', 'applicable_categories')
         )
 

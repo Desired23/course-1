@@ -9,13 +9,15 @@ import urllib.parse
 from django.http import JsonResponse, HttpRequest
 from django.utils import timezone
 from datetime import timedelta
-from datetime import datetime
 from payments.vnpay import vnpay
 from django.conf import settings
 from decimal import Decimal
 from instructor_earnings.services import generate_instructor_earnings_from_payment
 import pytz, uuid, hmac, hashlib, requests
 from django.db import transaction
+from instructor_earnings.models import InstructorEarning
+from utils.mailer.mailer import send_payment_invoice
+from activity_logs.services import log_activity
 # from orders.models import Order
 # VNPAY cấu hình
 
@@ -112,62 +114,62 @@ def payment_return(request):
             vnp_BankCode = inputData['vnp_BankCode']
             vnp_CardType = inputData['vnp_CardType']
             if vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
-                if vnp_ResponseCode == "00":
+                try:
                     payment = Payment.objects.get(id=order_id)
-                    if not payment:
-                        print(f"Payment with order_id {order_id} not found.")
-                        return JsonResponse({"error": "Payment not found"}, status=404)
-                    payment.payment_status = 'completed'
-                    if Decimal(payment.total_amount) != Decimal(amount):
-                        raise ValidationError("Payment amount mismatch")
-                    payment.transaction_id = vnp_TransactionNo
-                    payment.gateway_response = vnp_ResponseCode
-                    payment.payment_gateway = 'vnpay'
-                    payment.save()
-                    print(f"Payment {order_id} completed successfully.")
-                    # Generate instructor earnings from the payment
-                    try:
-                        generate_instructor_earnings_from_payment(payment)
-                    except Exception as e:
-                        print(f"Error generating instructor earnings: {str(e)}")
-                        return JsonResponse({"error": "Failed to generate instructor earnings"}, status=500)
+                except Payment.DoesNotExist:
+                    return JsonResponse({"error": "Payment not found"}, status=404)
 
+                if vnp_ResponseCode == "00":
+                    if Decimal(payment.total_amount) != Decimal(amount):
+                        return JsonResponse({
+                            "title": "Kết quả thanh toán",
+                            "result": "Lỗi",
+                            "msg": "Số tiền không khớp",
+                        }, status=400)
+                    with transaction.atomic():
+                        payment.payment_status = Payment.PaymentStatus.COMPLETED
+                        payment.transaction_id = vnp_TransactionNo
+                        payment.gateway_response = vnp_ResponseCode
+                        payment.payment_gateway = 'vnpay'
+                        payment.save()
+                        # Generate instructor earnings from the payment
+                        generate_instructor_earnings_from_payment(payment)
+                    print(f"Payment {order_id} completed successfully.")
+
+                    return JsonResponse({
+                        "title": "Kết quả thanh toán",
+                        "result": "Thành công",
+                        "order_id": order_id,
+                        "amount": amount,
+                        "order_desc": order_desc,
+                        "vnp_TransactionNo": vnp_TransactionNo,
+                        "vnp_ResponseCode": vnp_ResponseCode,
+                    })
                 else:
-                    payment = Payment.objects.get(id=order_id)
-                    if not payment:
-                        print(f"Payment with order_id {order_id} not found.")
-                        return JsonResponse({"error": "Payment not found"}, status=404)
-                    payment.payment_status = 'failed'
+                    payment.payment_status = Payment.PaymentStatus.FAILED
                     payment.transaction_id = vnp_TransactionNo
                     payment.gateway_response = vnp_ResponseCode
                     payment.save()
                     print(f"Payment {order_id} failed with response code {vnp_ResponseCode}.")
+                    return JsonResponse({
+                        "title": "Kết quả thanh toán",
+                        "result": "Lỗi",
+                        "order_id": order_id,
+                        "amount": amount,
+                        "order_desc": order_desc,
+                        "vnp_TransactionNo": vnp_TransactionNo,
+                        "vnp_ResponseCode": vnp_ResponseCode,
+                    })
+            else:
+                return JsonResponse({
+                    "title": "Kết quả thanh toán",
+                    "result": "Lỗi",
+                    "msg": "Sai checksum",
+                })
+        else:
+            return JsonResponse({"title": "Kết quả thanh toán", "result": ""})
     except Exception as e:
         raise ValidationError(f"Error processing payment return: {str(e)}")
-    
-    #         if vnp_ResponseCode == "00":
-    #             return  {"title": "Kết quả thanh toán",
-    #                     "result": "Thành công", "order_id": order_id,
-    #                     "amount": amount,
-    #                     "order_desc": order_desc,
-    #                     "vnp_TransactionNo": vnp_TransactionNo,
-    #                     "vnp_ResponseCode": vnp_ResponseCode}
-    #         else:
-    #             return  {"title": "Kết quả thanh toán",
-    #                     "result": "Lỗi", "order_id": order_id,
-    #                     "amount": amount,
-    #                     "order_desc": order_desc,
-    #                     "vnp_TransactionNo": vnp_TransactionNo,
-    #                     "vnp_ResponseCode": vnp_ResponseCode}
-    #     else:
-    #         return {"title": "Kết quả thanh toán",
-    #                 "result": "Lỗi", 
-    #                 "order_id": order_id, 
-    #                 "amount": amount,
-    #                 "order_desc": order_desc, "vnp_TransactionNo": vnp_TransactionNo,
-    #                 "vnp_ResponseCode": vnp_ResponseCode, "msg": "Sai checksum"}
-    # else:
-    #     return {"title": "Kết quả thanh toán", "result": ""}
 
 
 
@@ -177,7 +179,7 @@ def payment_ipn(request):
         vnp = vnpay()
         vnp.responseData = inputData.dict()
         order_id = inputData['vnp_TxnRef']
-        amount = inputData['vnp_Amount']
+        amount = Decimal(inputData['vnp_Amount']) / Decimal(100)
         order_desc = inputData['vnp_OrderInfo']
         vnp_TransactionNo = inputData['vnp_TransactionNo']
         vnp_ResponseCode = inputData['vnp_ResponseCode']
@@ -187,39 +189,59 @@ def payment_ipn(request):
         vnp_CardType = inputData['vnp_CardType']
         if vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
             # Check & Update Order Status in your Database
-            # Your code here
-            firstTimeUpdate = True
-            totalamount = True
-            if totalamount:
-                if firstTimeUpdate:
-                    if vnp_ResponseCode == "00":
-                        try:
-                            payment = Payment.objects.get(id=order_id)
-                        except Payment.DoesNotExist:
-                            return JsonResponse({'RspCode': '01', 'Message': 'Order not found'})
-                        payment.payment_status = 'completed'
-                        if Decimal(payment.total_amount) != Decimal(amount):
-                            raise ValidationError("Payment amount mismatch")
-                        payment.transaction_id = vnp_TransactionNo
-                        payment.gateway_response = vnp_ResponseCode
-                        payment.payment_gateway = 'vnpay'
-                        payment.save()
-                        print(f"Payment {order_id} completed successfully.")
-                        # Generate instructor earnings from the payment
-                        try:
-                            generate_instructor_earnings_from_payment(payment)
-                        except Exception as e:
-                            print(f"Error generating instructor earnings: {str(e)}")
-                            return JsonResponse({"error": "Failed to generate instructor earnings"}, status=500)
+            try:
+                payment = Payment.objects.get(id=order_id)
+            except Payment.DoesNotExist:
+                return JsonResponse({'RspCode': '01', 'Message': 'Order not found'})
 
-                    # Return VNPAY: Merchant update success
-                    result = JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
-                else:
-                    # Already Update
-                    result = JsonResponse({'RspCode': '02', 'Message': 'Order Already Update'})
+            # Verify amount matches
+            if Decimal(payment.total_amount) != Decimal(amount):
+                return JsonResponse({'RspCode': '04', 'Message': 'invalid amount'})
+
+            # Check if already processed
+            if payment.payment_status != Payment.PaymentStatus.PENDING:
+                return JsonResponse({'RspCode': '02', 'Message': 'Order Already Update'})
+
+            if vnp_ResponseCode == "00":
+                with transaction.atomic():
+                    payment.payment_status = Payment.PaymentStatus.COMPLETED
+                    payment.transaction_id = vnp_TransactionNo
+                    payment.gateway_response = vnp_ResponseCode
+                    payment.payment_gateway = 'vnpay'
+                    payment.save()
+
+                    # Log payment success
+                    log_activity(
+                        user_id=payment.user.id,
+                        action="PAYMENT_SUCCESS",
+                        entity_type="Payment",
+                        entity_id=payment.id,
+                        description=f"Thanh toán thành công: {payment.total_amount} VND qua VNPay"
+                    )
+
+                    # Generate instructor earnings from the payment
+                    generate_instructor_earnings_from_payment(payment.id)
+
+                print(f"Payment {order_id} completed successfully.")
+
+                # Send invoice email (outside transaction - best effort)
+                try:
+                    details = payment.payment_details.all()
+                    if details.exists():
+                        send_payment_invoice(payment.user.email, payment)
+                except Exception as e:
+                    print(f"Error sending invoice: {str(e)}")
+
             else:
-                # invalid amount
-                result = JsonResponse({'RspCode': '04', 'Message': 'invalid amount'})
+                # Payment failed at VNPAY
+                payment.payment_status = Payment.PaymentStatus.FAILED
+                payment.transaction_id = vnp_TransactionNo
+                payment.gateway_response = vnp_ResponseCode
+                payment.save()
+                print(f"Payment {order_id} failed with response code {vnp_ResponseCode}.")
+
+            # Return VNPAY: Merchant update success
+            result = JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
         else:
             # Invalid Signature
             result = JsonResponse({'RspCode': '97', 'Message': 'Invalid Signature'})
@@ -232,11 +254,11 @@ def payment_ipn(request):
 def send_vnpay_refund_request(payment_detail_id, reason):
     try:
         from payments.vnpay import vnpay  # Nếu bạn có lớp vnpay helper thì dùng lại
-        payment_detail = Payment_Details.objects.select_related('payment_id').get(id=payment_detail_id)
+        payment_detail = Payment_Details.objects.select_related('payment').get(id=payment_detail_id)
         if payment_detail.refund_status != Payment_Details.RefundStatus.APPROVED:
             raise ValidationError("Refund must be approved before processing.")
 
-        payment = payment_detail.payment_id
+        payment = payment_detail.payment
         if payment.payment_status != Payment.PaymentStatus.COMPLETED:
             raise ValidationError("Only completed payments can be refunded.")
 
@@ -245,7 +267,7 @@ def send_vnpay_refund_request(payment_detail_id, reason):
         vnp_HashSecret = settings.VNPAY_HASH_SECRET_KEY
         vnp_Url = settings.VNPAY_REFUND_URL  # Dùng URL refund: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
 
-        vnp_TxnRef = payment.payment_id
+        vnp_TxnRef = payment.id
         vnp_TransactionNo = payment.transaction_id
         vnp_Amount = int(payment_detail.refund_amount * 100)  # VNPAY yêu cầu nhân 100
         vnp_TransactionDate = payment.payment_date.strftime('%Y%m%d%H%M%S')  # Theo định dạng của VNPAY
@@ -286,13 +308,20 @@ def send_vnpay_refund_request(payment_detail_id, reason):
 
         if response_data.get("vnp_ResponseCode") == "00":
             # Thành công
-            payment_detail.refund_status = Payment_Details.RefundStatus.SUCCESS
-            payment_detail.refund_transaction_id = response_data.get("vnp_TransactionNo")
-            payment_detail.refund_date = timezone.now()
-            payment_detail.save()
+            with transaction.atomic():
+                payment_detail.refund_status = Payment_Details.RefundStatus.SUCCESS
+                payment_detail.refund_transaction_id = response_data.get("vnp_TransactionNo")
+                payment_detail.refund_date = timezone.now()
+                payment_detail.save()
 
-            payment.refund_amount += payment_detail.refund_amount
-            payment.save()
+                payment.refund_amount = (payment.refund_amount or Decimal(0)) + (payment_detail.refund_amount or Decimal(0))
+                payment.save()
+
+                earning = InstructorEarning.objects.filter(payment=payment, course=payment_detail.course).first()
+                if earning:
+                    earning.status = InstructorEarning.StatusChoices.CANCELLED
+                    earning.save()
+
         else:
             # Thất bại
             payment_detail.refund_status = Payment_Details.RefundStatus.FAILED

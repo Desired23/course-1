@@ -28,7 +28,7 @@ def get_all_carts():
 
 def get_cart_by_user(user_id):
     try:
-        cart = Cart.objects.filter(user_id=user_id)
+        cart = Cart.objects.filter(user=user_id)
         serializer = CartSerializer(cart, many=True)
         return serializer.data
     except Cart.DoesNotExist:

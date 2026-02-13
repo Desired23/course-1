@@ -25,4 +25,4 @@ class Forum(models.Model):
         db_table = 'Forums'
 
     def __str__(self):
-        return f"{self.title} (ID: {self.id}) - {self.user_id})"
+        return f"{self.title} (ID: {self.id}) - {self.user.id})"

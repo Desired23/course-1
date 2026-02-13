@@ -19,20 +19,20 @@ class AdminManagementView(APIView):
     permission_classes = [RolePermissionFactory("admin")]
     def post(self, request,):
         try:
-            admin = create_admin(request.data)
+            admin = create_admin(request.data, request)
             print("Admin created successfully:", admin)
             return Response(admin, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def patch(self, request, admin_id):
         try:
-            updated_admin = update_admin(admin_id, request.data)
+            updated_admin = update_admin(admin_id, request.data, request)
             return Response(updated_admin, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, admin_id):
         try:
-            result = delete_admin(admin_id)
+            result = delete_admin(admin_id, request)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)

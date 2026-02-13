@@ -1,8 +1,17 @@
 from rest_framework.exceptions import ValidationError
 from .models import QuizResult
-from .serializers import QuizResultSerializer
+from .serializers import (
+    QuizResultSerializer,
+    QuizResultDetailSerializer,
+    UserQuizHistorySerializer
+)
 from quiz_questions.models import QuizQuestion
+from quiz_questions.serializers import QuizSubmitSerializer
 from lessons.models import Lesson
+from enrollments.models import Enrollment
+from users.models import User
+from django.utils import timezone
+from decimal import Decimal
 
 def calculate_quiz_evaluation(quiz_result_id):
     try:
@@ -10,7 +19,7 @@ def calculate_quiz_evaluation(quiz_result_id):
         lesson_id = quiz_result.lesson.id  # Fix: use lesson.id instead of lesson_id_id
         answers = quiz_result.answers or {}
 
-        quiz_questions = QuizQuestion.objects.filter(lesson_id=lesson_id)
+        quiz_questions = QuizQuestion.objects.filter(lesson=lesson_id)
         total_questions = quiz_questions.count()
         correct_answers = 0
         total_points = 0
@@ -90,7 +99,7 @@ def get_quiz_result_by_id(quiz_result_id):
 
 def get_quiz_results_by_enrollment(enrollment_id):
     try:
-        quiz_results = QuizResult.objects.filter(Enrollment_id=enrollment_id)
+        quiz_results = QuizResult.objects.filter(enrollment=enrollment_id)
         if not quiz_results.exists():
             raise ValidationError("No quiz results found for this enrollment.")
         return QuizResultSerializer(quiz_results, many=True).data
@@ -128,3 +137,360 @@ def delete_quiz_result(quiz_result_id):
         raise ValidationError("Quiz result not found")
     except Exception as e:
         raise ValidationError(f"Error deleting quiz result: {str(e)}")
+
+
+# New services for Quiz API
+def submit_quiz(data, user):
+    """
+    Submit quiz answers and calculate results
+    """
+    try:
+        # Validate input data
+        serializer = QuizSubmitSerializer(data=data)
+        if not serializer.is_valid():
+            raise ValidationError(serializer.errors)
+
+        validated_data = serializer.validated_data
+        lesson_id = validated_data['lesson_id']
+        answers_data = validated_data['answers']
+        time_spent = validated_data['time_spent']
+
+        # Validate lesson exists
+        try:
+            lesson = Lesson.objects.get(id=lesson_id, is_deleted=False)
+        except Lesson.DoesNotExist:
+            raise ValidationError({"error": "Lesson not found."})
+
+        # Get user's enrollment for this course
+        try:
+            enrollment = Enrollment.objects.get(
+                user=user,
+                course=lesson.coursemodule.course,
+                is_deleted=False
+            )
+        except Enrollment.DoesNotExist:
+            raise ValidationError({"error": "User is not enrolled in this course."})
+
+        # Get all questions for this lesson
+        questions = QuizQuestion.objects.filter(
+            lesson=lesson,
+            is_deleted=False
+        )
+
+        if not questions.exists():
+            raise ValidationError({"error": "No quiz questions found for this lesson."})
+
+        # Calculate score
+        total_points = Decimal('0')
+        earned_points = Decimal('0')
+        answer_results = []
+
+        # Create answers dict for storage
+        answers_dict = {}
+
+        for answer_data in answers_data:
+            question_id = answer_data['question_id']
+            
+            try:
+                question = questions.get(id=question_id)
+            except QuizQuestion.DoesNotExist:
+                continue
+
+            total_points += Decimal(str(question.points))
+
+            # Check if answer is correct
+            is_correct = False
+            selected_option_id = answer_data.get('selected_option_id')
+            text_answer = answer_data.get('text_answer', '')
+            code_answer = answer_data.get('code_answer', '')
+            actual_output = answer_data.get('actual_output', '')
+
+            # Store answer
+            answers_dict[str(question_id)] = {
+                'selected_option_id': selected_option_id,
+                'text_answer': text_answer,
+                'code_answer': code_answer,
+                'actual_output': actual_output
+            }
+
+            # Validate answer based on question type
+            if question.question_type == 'multiple' or question.question_type == 'multiple_choice':
+                # For multiple choice, check if selected option matches correct_answer
+                if selected_option_id is not None:
+                    correct_answer = question.correct_answer
+                    # Try to parse correct_answer as integer if possible
+                    try:
+                        if str(selected_option_id) == str(correct_answer):
+                            is_correct = True
+                    except:
+                        pass
+
+            elif question.question_type in ['short', 'short_answer', 'text_input']:
+                # For text answers, do case-insensitive comparison
+                if text_answer:
+                    if text_answer.strip().lower() == question.correct_answer.strip().lower():
+                        is_correct = True
+
+            elif question.question_type in ['truefalse', 'true_false']:
+                # For true/false
+                if selected_option_id is not None:
+                    if str(selected_option_id) == str(question.correct_answer):
+                        is_correct = True
+
+            elif question.question_type == 'code':
+                # For code questions, check test cases
+                from quiz_questions.models import QuizTestCase
+                
+                test_cases = QuizTestCase.objects.filter(
+                    question=question,
+                    is_deleted=False
+                ).order_by('order_number')
+
+                test_cases_results = []
+                passed_test_cases = 0
+                total_test_cases = test_cases.count()
+
+                if total_test_cases > 0 and actual_output:
+                    # Split actual output by lines (each line is output for one test case)
+                    actual_outputs = actual_output.strip().split('\n')
+                    
+                    for idx, test_case in enumerate(test_cases):
+                        # Get the actual output for this test case (or empty if not provided)
+                        actual_test_output = actual_outputs[idx].strip() if idx < len(actual_outputs) else ""
+                        expected_test_output = test_case.expected_output.strip()
+                        
+                        # Compare actual output with expected output
+                        test_passed = (actual_test_output == expected_test_output)
+                        if test_passed:
+                            passed_test_cases += 1
+                        
+                        test_cases_results.append({
+                            'test_case_id': test_case.id,
+                            'order_number': test_case.order_number,
+                            'input': test_case.input_data,
+                            'expected_output': test_case.expected_output if not test_case.is_hidden else None,
+                            'actual_output': actual_test_output,
+                            'passed': test_passed,
+                            'points': float(test_case.points) if test_passed else 0
+                        })
+                    
+                    # Calculate points based on test cases passed
+                    if total_test_cases > 0:
+                        points_ratio = Decimal(str(passed_test_cases)) / Decimal(str(total_test_cases))
+                        points_earned = Decimal(str(question.points)) * points_ratio
+                        is_correct = (passed_test_cases == total_test_cases)
+                    else:
+                        points_earned = Decimal('0')
+                else:
+                    points_earned = Decimal('0')
+                    test_cases_results = []
+
+            # Calculate points for non-code questions
+            if question.question_type != 'code':
+                points_earned = Decimal(str(question.points)) if is_correct else Decimal('0')
+            
+            earned_points += points_earned
+
+            # Build answer result
+            answer_result = {
+                'question_id': question_id,
+                'selected_option_id': selected_option_id,
+                'text_answer': text_answer,
+                'code_answer': code_answer,
+                'actual_output': actual_output,
+                'is_correct': is_correct,
+                'points_earned': float(points_earned),
+                'correct_answer_explanation': question.explanation or ""
+            }
+            
+            # Add test cases results for code questions
+            if question.question_type == 'code' and 'test_cases_results' in locals():
+                answer_result['test_cases_results'] = test_cases_results
+            
+            answer_results.append(answer_result)
+
+        # Calculate percentage score
+        score = (earned_points / total_points * 100) if total_points > 0 else Decimal('0')
+        passing_score = 70  # Default passing score
+        passed = score >= passing_score
+
+        # Get current attempt number
+        existing_result = QuizResult.objects.filter(
+            enrollment=enrollment,
+            lesson=lesson,
+        ).first()
+        attempt = (existing_result.attempt + 1) if existing_result else 1
+
+        # Update or create quiz result (UNIQUE constraint on enrollment + lesson)
+        quiz_result, created = QuizResult.objects.update_or_create(
+            enrollment=enrollment,
+            lesson=lesson,
+            defaults={
+                'start_time': timezone.now() - timezone.timedelta(seconds=time_spent),
+                'submit_time': timezone.now(),
+                'time_taken': time_spent,
+                'total_questions': questions.count(),
+                'corret_answers': sum(1 for ar in answer_results if ar['is_correct']),
+                'total_points': int(total_points),
+                'score': score,
+                'answers': answers_dict,
+                'passed': passed,
+                'attempt': attempt,
+                'is_deleted': False,
+            }
+        )
+
+        # Build response
+        result_data = {
+            'quiz_result_id': quiz_result.id,
+            'quiz_id': lesson.id,
+            'user_id': user.id,
+            'score': float(score),
+            'total_points': float(total_points),
+            'earned_points': float(earned_points),
+            'passing_score': passing_score,
+            'passed': passed,
+            'time_spent': time_spent,
+            'submitted_at': quiz_result.submit_time,
+            'answers': answer_results
+        }
+
+        result_serializer = QuizResultDetailSerializer(result_data)
+        return result_serializer.data
+
+    except ValidationError:
+        raise
+    except Exception as e:
+        raise ValidationError({"error": f"Error submitting quiz: {str(e)}"})
+
+
+def get_user_quiz_history(user_id):
+    """
+    Get all quiz results for a user
+    """
+    try:
+        # Validate user exists
+        try:
+            user = User.objects.get(id=user_id, is_deleted=False)
+        except User.DoesNotExist:
+            raise ValidationError({"error": "User not found."})
+
+        # Get all enrollments for this user
+        enrollments = Enrollment.objects.filter(
+            user=user,
+            is_deleted=False
+        )
+
+        if not enrollments.exists():
+            return []
+
+        # Get all quiz results for these enrollments
+        quiz_results = QuizResult.objects.filter(
+            enrollment__in=enrollments,
+            is_deleted=False
+        ).select_related('lesson', 'lesson__coursemodule', 'lesson__coursemodule__course').order_by('-submit_time')
+
+        if not quiz_results.exists():
+            return []
+
+        # Format results
+        history_data = []
+        for result in quiz_results:
+            history_data.append({
+                'quiz_result_id': result.id,
+                'lesson_id': result.lesson.id,
+                'lesson_title': result.lesson.title,
+                'course_title': result.lesson.coursemodule.course.title,
+                'score': result.score,
+                'passed': result.passed,
+                'attempt': result.attempt,
+                'submitted_at': result.submit_time,
+                'time_spent': result.time_taken or 0
+            })
+
+        serializer = UserQuizHistorySerializer(history_data, many=True)
+        return serializer.data
+
+    except ValidationError:
+        raise
+    except Exception as e:
+        raise ValidationError({"error": f"Error retrieving quiz history: {str(e)}"})
+
+
+def get_quiz_result_detail(quiz_result_id):
+    """
+    Get detailed information about a specific quiz result
+    """
+    try:
+        # Get quiz result
+        try:
+            quiz_result = QuizResult.objects.select_related(
+                'lesson', 'enrollment', 'enrollment__user'
+            ).get(id=quiz_result_id, is_deleted=False)
+        except QuizResult.DoesNotExist:
+            raise ValidationError({"error": "Quiz result not found."})
+
+        # Get questions to build detailed answer results
+        questions = QuizQuestion.objects.filter(
+            lesson=quiz_result.lesson,
+            is_deleted=False
+        )
+
+        answer_results = []
+        answers_dict = quiz_result.answers or {}
+
+        for question in questions:
+            question_answer = answers_dict.get(str(question.id), {})
+            
+            # Determine if answer was correct
+            is_correct = False
+            selected_option_id = question_answer.get('selected_option_id')
+            text_answer = question_answer.get('text_answer', '')
+
+            # Recalculate correctness (same logic as submit)
+            if question.question_type == 'multiple' or question.question_type == 'multiple_choice':
+                if selected_option_id is not None:
+                    if str(selected_option_id) == str(question.correct_answer):
+                        is_correct = True
+            elif question.question_type in ['short', 'short_answer', 'text_input']:
+                if text_answer:
+                    if text_answer.strip().lower() == question.correct_answer.strip().lower():
+                        is_correct = True
+            elif question.question_type in ['truefalse', 'true_false']:
+                if selected_option_id is not None:
+                    if str(selected_option_id) == str(question.correct_answer):
+                        is_correct = True
+
+            points_earned = float(question.points) if is_correct else 0.0
+
+            answer_results.append({
+                'question_id': question.id,
+                'selected_option_id': selected_option_id,
+                'text_answer': text_answer,
+                'is_correct': is_correct,
+                'points_earned': points_earned,
+                'correct_answer_explanation': question.explanation or ""
+            })
+
+        # Build response
+        result_data = {
+            'quiz_result_id': quiz_result.id,
+            'quiz_id': quiz_result.lesson.id,
+            'user_id': quiz_result.enrollment.user.id,
+            'score': float(quiz_result.score),
+            'total_points': float(quiz_result.total_points),
+            'earned_points': float(quiz_result.score * quiz_result.total_points / 100) if quiz_result.total_points > 0 else 0.0,
+            'passing_score': 70,  # Default
+            'passed': quiz_result.passed,
+            'time_spent': quiz_result.time_taken or 0,
+            'submitted_at': quiz_result.submit_time,
+            'answers': answer_results
+        }
+
+        result_serializer = QuizResultDetailSerializer(result_data)
+        return result_serializer.data
+
+    except ValidationError:
+        raise
+    except Exception as e:
+        raise ValidationError({"error": f"Error retrieving quiz result detail: {str(e)}"})

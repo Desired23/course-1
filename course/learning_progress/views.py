@@ -41,10 +41,6 @@ class LearningProgressUpdateView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LearningProgressDetailView(APIView):
-    """
-    PUT /api/learning-progress/<lesson_id>/
-    Update progress for specific lesson
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     
     def put(self, request, lesson_id):

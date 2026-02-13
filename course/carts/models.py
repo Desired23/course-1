@@ -26,4 +26,4 @@ class Cart(models.Model):
         ]
 
     def __str__(self):
-        return f"Cart {self.id}: User {self.user_id}, Course {self.course_id}"
+        return f"Cart {self.id}: User {self.user.id}, Course {self.course.id}"

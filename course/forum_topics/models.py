@@ -26,4 +26,4 @@ class ForumTopic(models.Model):
         db_table = 'ForumTopics'
 
     def __str__(self):
-        return f"Topic {self.id}: {self.title} by {self.user_id}"
+        return f"Topic {self.id}: {self.title} by {self.user.id}"

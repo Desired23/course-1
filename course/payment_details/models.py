@@ -10,12 +10,13 @@ class Payment_Details(models.Model):
         SUCCESS = "success", "Refunded successfully"
         REJECTED = "rejected", "Rejected"
         FAILED = "failed", "Refund failed"
-    payment_id = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='payment_details')
-    course_id = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='payment_details')
+        CANCELLED = "cancelled", "Cancelled by user"
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='payment_details')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='payment_details')
     price = models.DecimalField(max_digits=10, decimal_places=2)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     final_price = models.DecimalField(max_digits=10, decimal_places=2)
-    promotion_id = models.ForeignKey(Promotion, on_delete=models.SET_NULL, null=True, blank=True, related_name='payment_details')
+    promotion = models.ForeignKey(Promotion, on_delete=models.SET_NULL, null=True, blank=True, related_name='payment_details')
     refund_transaction_id = models.CharField(max_length=100, null=True, blank=True)
     refund_status = models.CharField(max_length=20, choices=RefundStatus.choices, default='pending')
     refund_request_time = models.DateTimeField(null=True, blank=True)
@@ -31,7 +32,7 @@ class Payment_Details(models.Model):
 
     class Meta:
         db_table = 'payment_details'
-        unique_together = ('payment_id', 'course_id')
+        unique_together = ('payment', 'course')
 
     def __str__(self):
-        return f"Payment {self.payment_id} - {self.course_id} - {self.final_price}"
+        return f"Payment {self.payment.id} - {self.course.title} - {self.final_price}"

@@ -24,7 +24,7 @@ def get_forum_by_id(forum_id):
 
 def get_forums_by_course_id(course_id):
     try:
-        forum_list = Forum.objects.filter(course_id=course_id)
+        forum_list = Forum.objects.filter(course=course_id)
         if not forum_list.exists():
             raise ValidationError("No Forums found for this course_id.")
         return ForumSerializer(forum_list, many=True).data

@@ -32,7 +32,7 @@ def get_systems_settings():
 
 def get_systems_setting_by_admin_id(admin_id):
     try:
-        systems_settings = SystemsSetting.objects.filter(admin_id=admin_id)
+        systems_settings = SystemsSetting.objects.filter(admin=admin_id)
         serializer = SystemsSettingSerializer(systems_settings, many=True)
         return serializer.data
     except Exception as e:

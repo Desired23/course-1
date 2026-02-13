@@ -33,7 +33,7 @@ def get_all_wishlists():
 
 def get_wishlists_by_user(user_id):
     try:
-        wishlists = Wishlist.objects.filter(user_id=user_id)
+        wishlists = Wishlist.objects.filter(user=user_id)
         serializer = WishlistSerializer(wishlists, many=True)
         return serializer.data
     except Exception as e:
