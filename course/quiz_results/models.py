@@ -10,7 +10,7 @@ class QuizResult(models.Model):
     submit_time = models.DateTimeField(null=True, blank=True)
     time_taken = models.IntegerField(null=True, blank=True)
     total_questions = models.IntegerField(null=True, blank=True)
-    corret_answers = models.IntegerField(null=True, blank=True)
+    correct_answers = models.IntegerField(null=True, blank=True, db_column='corret_answers')
     total_points = models.IntegerField(null=True, blank=True)
     score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     answers = models.JSONField(null=True, blank=True)

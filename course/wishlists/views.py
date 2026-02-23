@@ -10,21 +10,25 @@ from .services import (
     update_wishlist,
     delete_wishlist
 )
+from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import WishlistSerializer
 
 class WishlistListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def get(self, request):
         try:
             if 'user_id' in request.query_params:
                 user_id = request.query_params.get('user_id')
                 wishlists = get_wishlists_by_user(user_id)
-                return Response(wishlists, status=status.HTTP_200_OK)
+                return paginate_queryset(wishlists, request, WishlistSerializer)
             elif 'wishlist_id' in request.query_params:
                 wishlist_id = request.query_params.get('wishlist_id')
                 wishlist = get_wishlist_by_id(wishlist_id)
                 return Response(wishlist, status=status.HTTP_200_OK)
             else:
                 wishlists = get_all_wishlists()
-                return Response(wishlists, status=status.HTTP_200_OK)
+                return paginate_queryset(wishlists, request, WishlistSerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
     def post(self, request):

@@ -13,13 +13,15 @@ from .services import (
     delete_course_module
 )
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
 class CourseModuleListView(APIView):
     def get(self, request):
         course_modules = get_course_modules()
-        serializer = CourseModuleSerializer(course_modules, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return paginate_queryset(course_modules, request, CourseModuleSerializer)
 
 class CourseModuleDetailView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+
     def get(self, request, course_module_id):
         try:
             course_module = get_course_module_by_id(course_module_id)
@@ -42,6 +44,8 @@ class CourseModuleDetailView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 class CourseModuleCreateView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+
     def post(self, request):
         try:
             course_module = create_course_module(request.data)

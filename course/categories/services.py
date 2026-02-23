@@ -13,8 +13,7 @@ def get_categories():
     categories = Category.objects.all()
     if not categories.exists():
         raise ValidationError({"error": "No categories found."})
-    serializer = CategoriesSerializer(categories, many=True)
-    return serializer.data
+    return categories
 def get_category_by_id(category_id):
     try:
         category = Category.objects.get(id=category_id)
@@ -46,14 +45,12 @@ def get_subcategories(category_id):
         subcategories = Category.objects.filter(parent_category=category)
         if not subcategories.exists():
             raise ValidationError({"error": "No subcategories found."})
-        serializer = CategoriesSerializer(subcategories, many=True)
-        return serializer.data
+        return subcategories
     except Category.DoesNotExist:
         raise ValidationError({"error": "Category not found."})
 def get_active_categories():
     categories = Category.objects.filter(status='active')
     if not categories.exists():
         raise ValidationError({"error": "No active categories found."})
-    serializer = CategoriesSerializer(categories, many=True)
-    return serializer.data
+    return categories
 

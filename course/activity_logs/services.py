@@ -47,8 +47,7 @@ def get_activity_logs(filters=None):
     if filters is None:
         filters = {}
     logs = ActivityLog.objects.filter(**filters).order_by('-created_at')
-    serializer = ActivityLogSerializer(logs, many=True)
-    return serializer.data
+    return logs
 def delete_old_logs(cutoff_date):
     deleted_count, _ = ActivityLog.objects.filter(created_at__lt=cutoff_date).delete()
     return deleted_count

@@ -1,0 +1,13 @@
+{
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportAttributeAccessIssue": "information",
+        "reportOperatorIssue": "information",
+        "reportArgumentType": "information",
+        "reportCallIssue": "information",
+        "reportIndexIssue": "information"
+    },
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/course"
+    ]
+}

@@ -25,18 +25,14 @@ def get_forum_by_id(forum_id):
 def get_forums_by_course_id(course_id):
     try:
         forum_list = Forum.objects.filter(course=course_id)
-        if not forum_list.exists():
-            raise ValidationError("No Forums found for this course_id.")
-        return ForumSerializer(forum_list, many=True).data
+        return forum_list
     except Exception as e:
         raise ValidationError(f"Error retrieving Forums: {str(e)}")
 
 def get_all_forums():
     try:
         forum_list = Forum.objects.all()
-        if not forum_list.exists():
-            raise ValidationError("No Forums found.")
-        return ForumSerializer(forum_list, many=True).data
+        return forum_list
     except Exception as e:
         raise ValidationError(f"Error retrieving all Forums: {str(e)}")
 

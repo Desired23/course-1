@@ -60,7 +60,7 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None):
         if status:
             earnings = earnings.filter(status=status)
 
-        return InstructorEarningSerializer(earnings, many=True).data
+        return earnings
 
     except Instructor.DoesNotExist:
         raise ValidationError("Không tìm thấy giảng viên.")
@@ -75,7 +75,7 @@ def get_instructor_earnings(status=None, earning_id=None):
             earnings = InstructorEarning.objects.all()
             if status:
                 earnings = earnings.filter(status=status)
-            return InstructorEarningSerializer(earnings, many=True).data
+            return earnings
 
 
     except Exception as e:
@@ -117,14 +117,14 @@ def update_instructor_earning_with_payout(payout_id):
                 new_status = InstructorEarning.StatusChoices.CANCELLED
                 assign_payout = None
             else:
-                return  # Trạng thái không hợp lệ thì không làm gì cả
+                return InstructorEarning.objects.none()  # Trạng thái không hợp lệ thì không làm gì cả
 
             for earning in earnings:
                 if earning.status == InstructorEarning.StatusChoices.AVAILABLE:
                     earning.status = new_status
                     earning.instructor_payout_id = assign_payout
                     earning.save()
-            return InstructorEarningSerializer(earnings, many=True).data
+            return InstructorEarning.objects.filter(id__in=earnings.values_list('id', flat=True))
     except InstructorPayout.DoesNotExist:
         raise ValidationError("Không tìm thấy Payout.")
     except Exception as e:
@@ -143,7 +143,10 @@ def update_earnings_available(): #cronjob
                 earning.status = InstructorEarning.StatusChoices.AVAILABLE
                 earning.save()
 
-            return InstructorEarningSerializer(earnings, many=True).data
+            return InstructorEarning.objects.filter(
+                status=InstructorEarning.StatusChoices.AVAILABLE,
+                payment_id__payment_date__lt=refund_time
+            )
 
     except Exception as e:
         raise ValidationError(f"Lỗi khi cập nhật earnings thành AVAILABLE: {str(e)}")

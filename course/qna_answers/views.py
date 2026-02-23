@@ -9,14 +9,18 @@ from .services import (
     update_qna_answer,
     delete_qna_answer,
 )
+from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import QnAAnswerSerializer
 
 class QnAAnswerListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def get(self, request):
         try:
             if 'qna_id' in request.query_params:
                 qna_id = request.query_params.get('qna_id')
                 qna_answers = get_qna_answers_by_qna_id(qna_id)
-                return Response(qna_answers, status=status.HTTP_200_OK)
+                return paginate_queryset(qna_answers, request, QnAAnswerSerializer)
             elif 'answer_id' in request.query_params:
                 answer_id = request.query_params.get('answer_id')
                 qna_answer = get_qna_answer_by_id(answer_id)

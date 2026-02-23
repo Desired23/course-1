@@ -69,7 +69,11 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
                     instructor_payout=payout_map[instructor]
                 )
 
-            return InstructorPayoutSerializer(payouts_to_create, many=True).data
+            return InstructorPayout.objects.filter(
+                status=InstructorPayout.PayoutStatusChoices.PENDING,
+                processed_by=processed_by,
+                period=period or timezone.now().strftime("%Y-%m"),
+            ).order_by('-request_date')
 
     except Exception as e:
         raise ValidationError(f"Error creating payouts: {str(e)}")
@@ -109,7 +113,7 @@ def get_payouts_for_instructor(instructor_id, status=None, period=None):
         if period:
             queryset = queryset.filter(period=period)
 
-        return InstructorPayoutSerializer(queryset, many=True).data
+        return queryset
 
     except Exception as e:
         raise ValidationError(f"Error retrieving payouts: {str(e)}")
@@ -125,7 +129,7 @@ def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
         if period:
             queryset = queryset.filter(period=period)
 
-        return InstructorPayoutSerializer(queryset, many=True).data
+        return queryset
     except Exception as e:
         raise ValidationError(f"Error retrieving payouts: {str(e)}")
 def get_payout_detail_by_id(payout_id):

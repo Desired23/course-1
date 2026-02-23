@@ -13,6 +13,7 @@ from .services import (
     )
 from .serializers import AdminSerializer
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
 
 
 class AdminManagementView(APIView):
@@ -42,7 +43,7 @@ class AdminListView(APIView):
     def get(self, request):
         try:
             admins = get_admins()
-            return Response(admins, status=status.HTTP_200_OK)
+            return paginate_queryset(admins, request, AdminSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
 

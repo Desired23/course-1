@@ -17,8 +17,7 @@ def get_lesson_attachments_by_lesson(lesson_id):
         lesson_attachments = LessonAttachment.objects.filter(lesson=lesson_id)
         if not lesson_attachments.exists():
             raise ValidationError({"error": "No lesson attachments found."})
-        serializer = LessonAttachmentSerializer(lesson_attachments, many=True)
-        return serializer.data
+        return lesson_attachments
     except Exception as e:
         raise ValidationError({"error": str(e)})
     
@@ -60,7 +59,6 @@ def get_all_lesson_attachments():
         lesson_attachments = LessonAttachment.objects.all()
         if not lesson_attachments.exists():
             raise ValidationError({"error": "No lesson attachments found."})
-        serializer = LessonAttachmentSerializer(lesson_attachments, many=True)
-        return serializer.data
+        return lesson_attachments
     except Exception as e:
         raise ValidationError({"error": str(e)})

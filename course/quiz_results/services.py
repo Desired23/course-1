@@ -100,18 +100,14 @@ def get_quiz_result_by_id(quiz_result_id):
 def get_quiz_results_by_enrollment(enrollment_id):
     try:
         quiz_results = QuizResult.objects.filter(enrollment=enrollment_id)
-        if not quiz_results.exists():
-            raise ValidationError("No quiz results found for this enrollment.")
-        return QuizResultSerializer(quiz_results, many=True).data
+        return quiz_results
     except Exception as e:
         raise ValidationError(f"Error retrieving quiz results: {str(e)}")
 
 def get_all_quiz_results():
     try:
         quiz_results = QuizResult.objects.all()
-        if not quiz_results.exists():
-            raise ValidationError("No quiz results found.")
-        return QuizResultSerializer(quiz_results, many=True).data
+        return quiz_results
     except Exception as e:
         raise ValidationError(f"Error retrieving all quiz results: {str(e)}")
 
@@ -330,7 +326,7 @@ def submit_quiz(data, user):
                 'submit_time': timezone.now(),
                 'time_taken': time_spent,
                 'total_questions': questions.count(),
-                'corret_answers': sum(1 for ar in answer_results if ar['is_correct']),
+                'correct_answers': sum(1 for ar in answer_results if ar['is_correct']),
                 'total_points': int(total_points),
                 'score': score,
                 'answers': answers_dict,
@@ -408,8 +404,7 @@ def get_user_quiz_history(user_id):
                 'time_spent': result.time_taken or 0
             })
 
-        serializer = UserQuizHistorySerializer(history_data, many=True)
-        return serializer.data
+        return history_data
 
     except ValidationError:
         raise

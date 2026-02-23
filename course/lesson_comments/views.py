@@ -12,6 +12,8 @@ from .services import (
     get_comment_by_id
 )
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import LessonCommentSerializer
 
 
 class LessonCommentView(APIView):
@@ -46,7 +48,7 @@ class LessonCommentView(APIView):
     def get(self, request, lesson_id = None):
         try:
             root_comments = get_root_comments(lesson_id)
-            return Response(root_comments, status=status.HTTP_200_OK)
+            return paginate_queryset(root_comments, request, LessonCommentSerializer)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 class LessonCommentManagementView(APIView):
@@ -72,7 +74,7 @@ class LessonCommentDetailView(APIView):
                 return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
         try:
             replies = get_comment_replies(comment_id)
-            return Response(replies, status=status.HTTP_200_OK)
+            return paginate_queryset(replies, request, LessonCommentSerializer)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
     

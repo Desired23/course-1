@@ -2,6 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from utils.pagination import paginate_queryset
+from .serializers import EnrollmentSerializer
 from .services import (
     create_enrollment,
     get_enrollment_by_user,
@@ -21,7 +23,7 @@ class EnrollmentManageByUserView(APIView):
         user = request.user.id
         print(f"Fetching enrollments for user: {user}")
         enrollments = get_enrollment_by_user(user)
-        return Response(enrollments, status=status.HTTP_200_OK)
+        return paginate_queryset(enrollments, request, EnrollmentSerializer)
     def post(self, request):
         try:
             enrollment = create_enrollment(request.data)

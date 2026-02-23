@@ -23,14 +23,12 @@ def get_cart_by_id(cart_id):
 
 def get_all_carts():
     carts = Cart.objects.all()
-    serializer = CartSerializer(carts, many=True)
-    return serializer.data
+    return carts
 
 def get_cart_by_user(user_id):
     try:
         cart = Cart.objects.filter(user=user_id)
-        serializer = CartSerializer(cart, many=True)
-        return serializer.data
+        return cart
     except Cart.DoesNotExist:
         raise ValidationError({"error": "Cart not found for this user."})
 def update_cart(cart_id, data):

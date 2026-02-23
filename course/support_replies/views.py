@@ -8,8 +8,12 @@ from .services import (
     get_support_reply_by_id,
     delete_support_reply,
 )
+from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import SupportReplySerializer
 
 class SupportReplyListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def post(self, request):
         data = request.data
         try:
@@ -21,10 +25,11 @@ class SupportReplyListView(APIView):
     def get(self, request, support_id):
         try:
             replies = get_support_replies(support_id)
-            return Response(replies, status=status.HTTP_200_OK)
+            return paginate_queryset(replies, request, SupportReplySerializer)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
 class SupportReplyDetailView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def get(self, request, reply_id):
         try:
             reply = get_support_reply_by_id(reply_id)

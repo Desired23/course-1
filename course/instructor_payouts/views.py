@@ -3,10 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from utils.permissions import RolePermissionFactory
-from instructor_payouts.models import InstructorPayout
-from instructor_payouts.services import auto_create_instructor_payouts, admin_update_instructor_payout, get_payouts_for_instructor, get_all_payouts_as_admin, delete_instructor_payout, 	get_payout_detail_by_id
+from instructor_payouts.services import admin_update_instructor_payout, get_payouts_for_instructor, get_all_payouts_as_admin, delete_instructor_payout, get_payout_detail_by_id
+from instructor_payouts.serializers import InstructorPayoutSerializer
+from utils.pagination import paginate_queryset
 class InstructorPayoutView(APIView):
-    permission_classes = [RolePermissionFactory('instructor, admin')]
+    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
 
     def patch(self, request):
         # instructor = request.user.instructor
@@ -14,7 +15,6 @@ class InstructorPayoutView(APIView):
         # payout =auto_create_instructor_payouts(admin)
         # print(f"Fetching payouts for instructor: {instructor}")
         request_data = request.data
-        period = request_data.get('period', None)
         processed_by = request.user.admin 
         payout_id = request_data.get('payout_id', None)
         status_payout = request_data.get('status', None)
@@ -56,6 +56,7 @@ class InstructorPayoutView(APIView):
                     status=status_payout,
                     period=period
                 )
+                return paginate_queryset(payouts, request, InstructorPayoutSerializer)
 
             elif admin:
                 payouts = get_all_payouts_as_admin(
@@ -63,6 +64,7 @@ class InstructorPayoutView(APIView):
                     period=period,
                     processed_by=processed_by
                 )
+                return paginate_queryset(payouts, request, InstructorPayoutSerializer)
 
             elif instructor:
                 payouts = get_payouts_for_instructor(
@@ -70,6 +72,7 @@ class InstructorPayoutView(APIView):
                     status=status_payout,
                     period=period
                 )
+                return paginate_queryset(payouts, request, InstructorPayoutSerializer)
 
             else:
                 return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)

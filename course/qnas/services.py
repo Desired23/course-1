@@ -25,18 +25,14 @@ def get_qna_by_id(qna_id):
 def get_qna_by_user_id(user_id):
     try:
         qna_list = QnA.objects.filter(user=user_id)
-        if not qna_list.exists():
-            raise ValidationError("No QnA found for this user_id.")
-        return QnASerializer(qna_list, many=True).data
+        return qna_list
     except Exception as e:
         raise ValidationError(f"Error retrieving QnA: {str(e)}")
 
 def get_all_qna():
     try:
         qna_list = QnA.objects.all()
-        if not qna_list.exists():
-            raise ValidationError("No QnA found.")
-        return QnASerializer(qna_list, many=True).data
+        return qna_list
     except Exception as e:
         raise ValidationError(f"Error retrieving all QnA: {str(e)}")
 

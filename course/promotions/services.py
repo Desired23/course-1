@@ -111,8 +111,7 @@ def get_promotions_by_admin(admin_id):
             .select_related('admin', 'instructor')
             .prefetch_related('applicable_courses', 'applicable_categories')
         )
-
-        return PromotionSerializer(promotions, many=True).data
+        return promotions
 
     except ValidationError:
         raise
@@ -135,8 +134,7 @@ def get_promotions_by_instructor(instructor_id):
             .select_related('admin', 'instructor')
             .prefetch_related('applicable_courses', 'applicable_categories')
         )
-
-        return PromotionSerializer(promotions, many=True).data
+        return promotions
 
     except ValidationError:
         raise

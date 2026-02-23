@@ -14,7 +14,7 @@ class QuizResultSerializer(serializers.ModelSerializer):
             'submit_time',
             'time_taken',
             'total_questions',
-            'corret_answers',
+            'correct_answers',
             'total_points',
             'score',
             'answers',

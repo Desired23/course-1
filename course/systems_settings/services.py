@@ -25,22 +25,20 @@ def get_systems_setting_by_key(setting_key):
 def get_systems_settings():
     try:
         systems_settings = SystemsSetting.objects.all()
-        serializer = SystemsSettingSerializer(systems_settings, many=True)
-        return serializer.data
+        return systems_settings
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
 def get_systems_setting_by_admin_id(admin_id):
     try:
         systems_settings = SystemsSetting.objects.filter(admin=admin_id)
-        serializer = SystemsSettingSerializer(systems_settings, many=True)
-        return serializer.data
+        return systems_settings
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
-def update_systems_setting(setting_key, data):
+def update_systems_setting(setting_id, data):
     try:
-        systems_setting = SystemsSetting.objects.get(setting_key=setting_key)
+        systems_setting = SystemsSetting.objects.get(id=setting_id)
         serializer = SystemsSettingSerializer(systems_setting, data=data, partial=True)
         if serializer.is_valid(raise_exception=True):
             updated_systems_setting = serializer.save()
@@ -51,9 +49,9 @@ def update_systems_setting(setting_key, data):
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
-def delete_systems_setting(setting_key):
+def delete_systems_setting(setting_id):
     try:
-        systems_setting = SystemsSetting.objects.get(setting_key=setting_key)
+        systems_setting = SystemsSetting.objects.get(id=setting_id)
         systems_setting.delete()
         return {"message": "Systems setting deleted successfully."}
     except SystemsSetting.DoesNotExist:

@@ -8,7 +8,6 @@ from .services import (
     update_lesson_progress,
     get_course_progress
 )
-from .serializers import LearningProgressSerializer, CourseLearningProgressSerializer
 
 class LearningProgressUpdateView(APIView):
     """

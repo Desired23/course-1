@@ -47,8 +47,7 @@ def get_quiz_questions_by_lesson(lesson_id):
         quiz_questions = QuizQuestion.objects.filter(lesson=lesson_id)
         if not quiz_questions.exists():
             raise ValidationError({"error": "No quiz questions found."})
-        serializer = QuizQuestionSerializer(quiz_questions, many=True)
-        return serializer.data
+        return quiz_questions
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
@@ -116,8 +115,7 @@ def get_all_quiz_questions():
         quiz_questions = QuizQuestion.objects.all()
         if not quiz_questions.exists():
             raise ValidationError({"error": "No quiz questions found."})
-        serializer = QuizQuestionSerializer(quiz_questions, many=True)
-        return serializer.data
+        return quiz_questions
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
@@ -183,10 +181,9 @@ def get_test_cases_by_question(question_id):
         ).order_by('order_number')
         
         if not test_cases.exists():
-            return []
+            return QuizTestCase.objects.none()
         
-        serializer = QuizTestCaseSerializer(test_cases, many=True)
-        return serializer.data
+        return test_cases
     except Exception as e:
         raise ValidationError({"error": str(e)})
 

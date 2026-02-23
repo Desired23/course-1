@@ -11,8 +11,12 @@ from .services import (
     get_promotions_by_instructor
 
 )
+from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import PromotionSerializer
 
 class PromotionManagementView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
     def post(self, request):
         try:
             promotion = create_promotion(request.data)
@@ -31,11 +35,11 @@ class PromotionManagementView(APIView):
             elif 'admin_id' in request.query_params:
                 admin_id = request.query_params.get('admin_id')
                 promotions = get_promotions_by_admin(admin_id)
-                return Response(promotions, status=status.HTTP_200_OK)
+                return paginate_queryset(promotions, request, PromotionSerializer)
             elif 'instructor_id' in request.query_params:
                 instructor_id = request.query_params.get('instructor_id')
                 promotions = get_promotions_by_instructor(instructor_id)
-                return Response(promotions, status=status.HTTP_200_OK)
+                return paginate_queryset(promotions, request, PromotionSerializer)
             else:
                 return Response({"error": "promotion_id or admin_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:

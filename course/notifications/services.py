@@ -49,7 +49,7 @@ def get_notification_by_id(notification_id):
 def get_notifications_by_user(user_id):
     try:
         notifications = Notification.objects.filter(receiver=user_id)
-        return NotificationSerializer(notifications, many=True).data
+        return notifications
     except Exception as e:
         raise ValidationError(f"Error retrieving notifications: {str(e)}")
 def mark_notification_as_read(notification_id):
@@ -118,9 +118,9 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
                 
             else:
                 raise ValidationError(serializer.errors)
-            return {
-                "message": f"{success_count}/{len(user_ids)} notifications sent successfully.",
-                "code": notification_code
-            }
+        return {
+            "message": f"{success_count}/{len(user_ids)} notifications sent successfully.",
+            "code": notification_code
+        }
     except Exception as e:
         raise ValidationError(f"Error sending notifications: {str(e)}")

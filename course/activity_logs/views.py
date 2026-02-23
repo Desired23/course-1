@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .services import delete_old_logs, get_activity_logs, log_activity
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import ActivityLogSerializer
 from datetime import datetime
 
 
@@ -31,8 +33,9 @@ class ActivityLogView(APIView):
             logs = get_activity_logs(filters)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(logs, status=status.HTTP_200_OK)
-def delete(self, request):
+        return paginate_queryset(logs, request, ActivityLogSerializer)
+
+    def delete(self, request):
         before_str = request.query_params.get("before")
         if not before_str:
             return Response({"error": "Thiếu tham số 'before'. Định dạng yêu cầu: YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)

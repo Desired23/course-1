@@ -5,6 +5,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import QuizResultSerializer
 from .services import (
     create_quiz_result,
     get_quiz_result_by_id,
@@ -32,14 +34,14 @@ class QuizResultListView(APIView):
             if 'enrollment_id' in request.query_params:
                 enrollment_id = request.query_params.get('enrollment_id')
                 quiz_results = get_quiz_results_by_enrollment(enrollment_id)
-                return Response(quiz_results, status=status.HTTP_200_OK)
+                return paginate_queryset(quiz_results, request, QuizResultSerializer)
             elif 'quiz_result_id' in request.query_params:
                 quiz_result_id = request.query_params.get('quiz_result_id')
                 quiz_result = get_quiz_result_by_id(quiz_result_id)
                 return Response(quiz_result, status=status.HTTP_200_OK)
             else:
                 quiz_results = get_all_quiz_results()
-                return Response(quiz_results, status=status.HTTP_200_OK)
+                return paginate_queryset(quiz_results, request, QuizResultSerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
 

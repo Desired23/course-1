@@ -10,6 +10,8 @@ get_blog_post_published,
 increase_blog_post_views
 )
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import BlogPostSerializer
 
 class AdminBlogPostView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
@@ -22,7 +24,7 @@ class AdminBlogPostView(APIView):
                 return Response(blog_post, status=status.HTTP_200_OK)
             else:
                 blog_posts = get_all_blog_posts()
-                return Response(blog_posts, status=status.HTTP_200_OK)
+                return paginate_queryset(blog_posts, request, BlogPostSerializer)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -57,7 +59,7 @@ class ClientBlogPostView(APIView):
                 return Response(blog_post, status=status.HTTP_200_OK)
             else:
                 blog_posts = get_blog_posts_published()
-                return Response(blog_posts, status=status.HTTP_200_OK)
+                return paginate_queryset(blog_posts, request, BlogPostSerializer)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     def patch(self, request, blog_post_id):

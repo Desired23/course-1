@@ -12,6 +12,8 @@ from .services import (
     notification_to_users
 )
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import NotificationSerializer
 class NotificationView(APIView):
     def post(self, request):
         try:
@@ -36,7 +38,7 @@ class NotificationView(APIView):
             else:
                 user_id = request.query_params.get('user_id')
                 notifications = get_notifications_by_user(user_id)
-                return Response(notifications, status=status.HTTP_200_OK)
+                return paginate_queryset(notifications, request, NotificationSerializer)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

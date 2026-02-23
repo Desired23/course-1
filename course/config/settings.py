@@ -133,6 +133,10 @@ INSTALLED_APPS = [
     'instructor_levels',
     'support_replies',
     'lesson_comments',
+    'registration_forms',
+    'applications',
+    'certificates',
+    'subscription_plans',
 ]
 
 MIDDLEWARE = [

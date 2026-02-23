@@ -13,6 +13,7 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from .serializers import CategoriesSerializer
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
 
 class CategoryListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
@@ -20,7 +21,7 @@ class CategoryListView(APIView):
     def get(self, request):
         try:
             categories = get_categories()
-            return Response(categories, status=status.HTTP_200_OK)
+            return paginate_queryset(categories, request, CategoriesSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
         
@@ -59,7 +60,7 @@ class ActiveCategoryListView(APIView):
     def get(self, request):
         try:
             categories = get_active_categories()
-            return Response(categories, status=status.HTTP_200_OK)
+            return paginate_queryset(categories, request, CategoriesSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
@@ -67,7 +68,7 @@ class SubcategoryListView(APIView):
     def get(self, request, category_id):
         try:
             subcategories = get_subcategories(category_id)
-            return Response(subcategories, status=status.HTTP_200_OK)
+            return paginate_queryset(subcategories, request, CategoriesSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
 

@@ -26,16 +26,14 @@ def get_wishlist_by_id(wishlist_id):
 def get_all_wishlists():
     try:
         wishlists = Wishlist.objects.all()
-        serializer = WishlistSerializer(wishlists, many=True)
-        return serializer.data
+        return wishlists
     except Exception as e:
         raise ValidationError(f"Error retrieving wishlists: {str(e)}")
 
 def get_wishlists_by_user(user_id):
     try:
         wishlists = Wishlist.objects.filter(user=user_id)
-        serializer = WishlistSerializer(wishlists, many=True)
-        return serializer.data
+        return wishlists
     except Exception as e:
         raise ValidationError(f"Error retrieving wishlists for user: {str(e)}")
 

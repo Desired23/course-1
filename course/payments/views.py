@@ -7,8 +7,10 @@ from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
 from .vnpay_services import  payment_ipn
 from .services import create_payment, get_payment_status, check_enrollment_by_course
 from .refund_services import admin_update_refund_status, user_cancel_refund_request, get_refund_details, user_refund_request
+from utils.permissions import RolePermissionFactory
 
 class CreateVnpayPaymentView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def post(self, request):
         try:
             return create_vnpay_payment(request)
@@ -25,6 +27,8 @@ class VnpayIPNView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 class CreatePaymentRecordView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def post(self, request):
         try:
             payment = create_payment(request.data)
@@ -32,6 +36,8 @@ class CreatePaymentRecordView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 class VnpayReturnView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def get (self, request):
         try:
             payment_id = request.query_params.get('payment_id')
@@ -72,6 +78,8 @@ class VnpayReturnView(APIView):
 
 
 class PaymentStatusView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def get(self, request, payment_id):
         try:
             data = get_payment_status(payment_id, request.user)
@@ -81,6 +89,8 @@ class PaymentStatusView(APIView):
 
 
 class CheckEnrollmentView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def get(self, request, course_id):
         try:
             data = check_enrollment_by_course(course_id, request.user)

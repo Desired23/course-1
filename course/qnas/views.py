@@ -10,21 +10,25 @@ from .services import (
     update_qna,
     delete_qna,
 )
+from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import QnASerializer
 
 class QnAListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def get(self, request):
         try:
             if 'user_id' in request.query_params:
                 user_id = request.query_params.get('user_id')
                 qna = get_qna_by_user_id(user_id)
-                return Response(qna, status=status.HTTP_200_OK)
+                return paginate_queryset(qna, request, QnASerializer)
             elif 'qna_id' in request.query_params:
                 qna_id = request.query_params.get('qna_id')
                 qna = get_qna_by_id(qna_id)
                 return Response(qna, status=status.HTTP_200_OK)
             else:
                 qnas = get_all_qna()
-                return Response(qnas, status=status.HTTP_200_OK)
+                return paginate_queryset(qnas, request, QnASerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
     def post(self, request):

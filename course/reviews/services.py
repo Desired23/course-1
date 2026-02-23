@@ -24,18 +24,18 @@ def create_review(data):
     serializer = ReviewSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
         course.total_reviews += 1
+        course.save()
         review = serializer.save()
         return review
     raise ValidationError(serializer.errors)
 
 def get_reviews_by_course(course_id):
     try:
-        print("course_id", course_id)
-        reviews = Review.objects.filter(course=course_id)
-        if not reviews.exists():
-            raise ValidationError({"error": "Không tìm thấy đánh giá nào cho khóa học này."})
-        serializer = ReviewSerializer(reviews, many=True)
-        return serializer.data
+        if course_id:
+            reviews = Review.objects.filter(course=course_id)
+        else:
+            reviews = Review.objects.all()
+        return reviews
     except Exception as e:
         raise ValidationError({"error": str(e)})
 

@@ -12,13 +12,15 @@ from .services import (
     get_lesson_by_id
 )
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
 class LessonListView(APIView):
     def get(self, request):
         lessons = get_lessons()
-        serializer = LessonSerializer(lessons, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return paginate_queryset(lessons, request, LessonSerializer)
     
 class LessonDetailView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def get(self, request, lesson_id):
         try:
             lesson = get_lesson_by_id(lesson_id)

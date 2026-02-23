@@ -53,5 +53,8 @@ urlpatterns = [
     path('api/', include('support_replies.urls')),
     path('api/', include('utils.upload.urls')),     # /api/cloudinary/upload/
     path('api/', include('lesson_comments.urls')),  # /api/lesson_comments/
-    
+    path('api/', include('registration_forms.urls')),
+    path('api/', include('applications.urls')),
+    path('api/', include('certificates.urls')),
+    path('api/', include('subscription_plans.urls')),
 ]

@@ -21,18 +21,14 @@ def get_support_by_id(support_id):
 def get_supports_by_user(user_id):
     try:
         supports = Support.objects.filter(user=user_id)
-        if not supports.exists():
-            raise ValidationError("No support requests found for this user.")
-        return SupportSerializer(supports, many=True).data
+        return supports
     except Exception as e:
         raise ValidationError(f"Error retrieving support requests: {str(e)}")
 
 def get_all_supports():
     try:
         supports = Support.objects.all()
-        if not supports.exists():
-            raise ValidationError("No support requests found.")
-        return SupportSerializer(supports, many=True).data
+        return supports
     except Exception as e:
         raise ValidationError(f"Error retrieving all support requests: {str(e)}")
 

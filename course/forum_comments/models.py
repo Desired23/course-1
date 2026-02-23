@@ -19,7 +19,7 @@ class ForumComment(models.Model):
     is_deleted = models.BooleanField(default=False)
     parent = models.ForeignKey('self',null=True,blank=True,on_delete=models.SET_NULL,related_name='replies')
     likes = models.IntegerField(default=0)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='aactive')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
     is_best_answer = models.BooleanField(default=False)
 
     class Meta:

@@ -16,7 +16,7 @@ class BlogPostSerializer(serializers.ModelSerializer):
             'category',
             'slug',
             'featured_image',
-            'sumary',
+            'summary',
             'published_at',
             'views',
             'allow_comments',

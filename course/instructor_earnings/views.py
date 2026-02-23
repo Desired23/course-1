@@ -4,6 +4,8 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from utils.permissions import RolePermissionFactory
 from .services import update_instructor_earning_with_payout,generate_instructor_earnings_from_payment, get_instructor_earnings, get_instructor_earnings_by_instructor_id, update_instructor_earning_status
+from .serializers import InstructorEarningSerializer
+from utils.pagination import paginate_queryset
 
 
 class InstructorEarningsView(APIView):
@@ -21,8 +23,11 @@ class InstructorEarningsView(APIView):
         try:
             if instructor_id:
                 earnings = get_instructor_earnings_by_instructor_id(instructor_id, status_param)
+                return paginate_queryset(earnings, request, InstructorEarningSerializer)
             else:
                 earnings = get_instructor_earnings(status_param, earning_id)
+                if not earning_id:
+                    return paginate_queryset(earnings, request, InstructorEarningSerializer)
             return Response(earnings, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST) 
@@ -40,7 +45,8 @@ class InstructorEarningsByPayoutView(APIView):
     # permission_classes = [RolePermissionFactory(["admin", "instructor"])]   
     def patch(self, request, payout_id):
         try:
-            earnings = update_instructor_earning_with_payout(payout_id)
-            return Response(earnings, status=status.HTTP_200_OK)
+            earnings_qs = update_instructor_earning_with_payout(payout_id)
+            earnings_data = InstructorEarningSerializer(earnings_qs, many=True).data
+            return Response(earnings_data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

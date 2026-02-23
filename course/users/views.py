@@ -6,6 +6,7 @@ from .serializers import Userserializers, UserUpdateBySelfSerializer
 from .services import create_user, update_user_by_admin, delete_user, get_users, get_user_by_id, register, login, refresh_token, update_user_by_selfself
 from utils.permissions import RolePermissionFactory
 from .models import User
+from utils.pagination import paginate_queryset
 class UserManagementView(APIView):
     permission_classes = [RolePermissionFactory("admin")]
     def post(self, request):
@@ -16,8 +17,7 @@ class UserManagementView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def get(self, request):
         users = get_users()
-        serializer = Userserializers(users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return paginate_queryset(users, request, Userserializers)
     def patch(self, request, user_id):
         try:
             user = update_user_by_admin (user_id,request.data)

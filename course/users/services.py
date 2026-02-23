@@ -76,11 +76,8 @@ def validate_user_data(data):
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
 def get_users():
-        users = User.objects.select_related('instructor', 'admin').all()
-        if not users.exists():
-            raise ValidationError({"error": "No users found."})
-        serializer = Userserializers(users, many=True)
-        return serializer.data
+    users = User.objects.select_related('instructor', 'admin').all()
+    return users
     
 def get_user_by_id(user_id):
         try:

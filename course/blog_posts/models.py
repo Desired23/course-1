@@ -31,7 +31,7 @@ class BlogPost(models.Model):
     )
     slug = models.SlugField(max_length=255, unique=True)
     featured_image = models.CharField(max_length=255, null=True, blank=True)
-    sumary = models.TextField(null=True, blank=True)
+    summary = models.TextField(null=True, blank=True, db_column='sumary')
     published_at = models.DateTimeField(null=True, blank=True)
     views = models.IntegerField(default=0)
     allow_comments = models.BooleanField(default=True)

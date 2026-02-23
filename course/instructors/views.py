@@ -12,15 +12,16 @@ from .services import (
     get_instructor_by_id
 )
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
 class InstructorListView(APIView):
     print("InstructorListView")
     def get(self, request):
         instructors = get_instructors()
-        serializer = InstructorSerializers(instructors, many=True) # Tuần tự hóa queryset
-    # sửa đổi lại để trả về danh sách
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return paginate_queryset(instructors, request, InstructorSerializers)
 
 class InstructorDetailView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+
     def get(self, request, instructor_id):
         try:
             instructor = get_instructor_by_id(instructor_id)
@@ -43,6 +44,8 @@ class InstructorDetailView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 class InstructorCreateView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+
     def post(self, request):
         try:
             instructor = create_instructor(request.data)

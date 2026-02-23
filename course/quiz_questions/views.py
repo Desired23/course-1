@@ -2,6 +2,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from utils.pagination import paginate_queryset
+from .serializers import QuizQuestionSerializer, QuizTestCaseSerializer
 from .services import (
     create_quiz_question,
     get_quiz_questions_by_lesson,
@@ -39,14 +41,14 @@ class QuizQuestionManagementView(APIView):
             elif 'lesson_id' in request.query_params:
                 lesson_id = request.query_params.get('lesson_id')
                 quiz_questions = get_quiz_questions_by_lesson(lesson_id)
-                return Response(quiz_questions, status=status.HTTP_200_OK)
+                return paginate_queryset(quiz_questions, request, QuizQuestionSerializer)
             # elif 'user_id' in request.query_params:
             #     user_id = request.query_params.get('user_id')
             #     quiz_questions = get_quiz_questions_by_user_id(user_id)
-            #     return Response(quiz_questions, status=status.HTTP_200_OK)
+            #     return paginate_queryset(quiz_questions, request, QuizQuestionSerializer)
             else:
                 quiz_questions = get_all_quiz_questions()
-                return Response(quiz_questions, status=status.HTTP_200_OK)
+                return paginate_queryset(quiz_questions, request, QuizQuestionSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -104,7 +106,7 @@ class QuizTestCaseView(APIView):
                 return Response({"error": "question_id is required"}, status=status.HTTP_400_BAD_REQUEST)
             
             test_cases = get_test_cases_by_question(question_id)
-            return Response(test_cases, status=status.HTTP_200_OK)
+            return paginate_queryset(test_cases, request, QuizTestCaseSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 

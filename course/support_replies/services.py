@@ -13,11 +13,8 @@ def create_support_reply(data):
         raise ValidationError({"error": "Invalid data provided.", "details": e.detail})
 def get_support_replies(support_id):
     try:
-        replies = SupportReply.objects.filter(id=support_id)
-        if not replies.exists():
-            raise ValidationError({"error": "No replies found for this support request."})
-        serializer = SupportReplySerializer(replies, many=True)
-        return serializer.data  
+        replies = SupportReply.objects.filter(support=support_id)
+        return replies
     except SupportReply.DoesNotExist:
         raise ValidationError({"error": "Support request not found."})
 def get_support_reply_by_id(reply_id):

@@ -14,7 +14,7 @@ def create_blog_post(data, request=None):
                 request=request,
                 action="CREATE",
                 entity_type="BlogPost",
-                entity_id=blog_post.blog_post_id,
+                entity_id=blog_post.id,
                 description=f"Đăng bài blog mới: {blog_post.title}"
             )
             return serializer.data
@@ -46,7 +46,7 @@ def update_blog_post(blog_post_id, data, request=None):
                 request=request,
                 action="UPDATE",
                 entity_type="BlogPost",
-                entity_id=blog_post.blog_post_id,
+                entity_id=blog_post.id,
                 description=f"Cập nhật bài blog: {blog_post.title}"
             )
             return serializer.data
@@ -58,7 +58,7 @@ def update_blog_post(blog_post_id, data, request=None):
         raise ValidationError({"error": str(e)})
 def delete_blog_post(blog_post_id, request=None):
     try:
-        blog_post = BlogPost.objects.get(blog_post_id=blog_post_id)
+        blog_post = BlogPost.objects.get(id=blog_post_id)
         title = blog_post.title
         blog_post.delete()
         log_activity(
@@ -81,15 +81,13 @@ def get_blog_post(blog_post_id):
 def get_all_blog_posts():
     try:
         blog_posts = BlogPost.objects.all()
-        serializer = BlogPostSerializer(blog_posts, many=True)
-        return serializer.data
+        return blog_posts
     except Exception as e:
         raise ValidationError({"error": str(e)})
 def get_blog_posts_published():
     try:
         blog_posts = BlogPost.objects.filter(status=BlogPost.StatusChoices.PUBLISHED)
-        serializer = BlogPostSerializer(blog_posts, many=True)
-        return serializer.data
+        return blog_posts
     except Exception as e:
         raise ValidationError({"error": str(e)})
 def get_blog_post_published(blog_post_id):
@@ -110,7 +108,7 @@ def increase_blog_post_views(blog_post_id, request=None):
             request=request,
             action="VIEW",
             entity_type="BlogPost",
-            entity_id=blog_post.blog_post_id,
+            entity_id=blog_post.id,
             description=f"Xem bài blog: {blog_post.title}"
         )
         return {"message": "Blog post views incremented successfully"}

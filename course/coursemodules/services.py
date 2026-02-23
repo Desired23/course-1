@@ -1,7 +1,6 @@
 from rest_framework.exceptions import ValidationError
 from .models import CourseModule
 from .serializers import CourseModuleSerializer
-from .models import CourseModule
 
 def validate_course_module_data(data):
     serializer = CourseModuleSerializer(data=data)

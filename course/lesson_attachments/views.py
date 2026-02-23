@@ -2,6 +2,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from utils.pagination import paginate_queryset
+from .serializers import LessonAttachmentSerializer
 from .services import (
     create_lesson_attachment,
     get_lesson_attachments_by_lesson,
@@ -25,7 +27,7 @@ class LessonAttachmentManagementView(APIView):
     def get(self, request, lesson_id):
         try:
             lesson_attachments = get_lesson_attachments_by_lesson(lesson_id)
-            return Response(lesson_attachments, status=status.HTTP_200_OK)
+            return paginate_queryset(lesson_attachments, request, LessonAttachmentSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def patch (self, request, attachment_id):
@@ -57,6 +59,6 @@ class LessonAttachmentListView(APIView):
     def get(self, request):
         try:
             lesson_attachments = get_all_lesson_attachments()
-            return Response(lesson_attachments, status=status.HTTP_200_OK)
+            return paginate_queryset(lesson_attachments, request, LessonAttachmentSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

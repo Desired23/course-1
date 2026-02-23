@@ -43,7 +43,7 @@ def get_admin_by_id(admin_id):
 def get_admins():
     try:
         admins = Admin.objects.all()
-        return AdminSerializer(admins, many=True).data
+        return admins
     except Exception as e:
         raise ValidationError(f"Error retrieving admins: {str(e)}")
 

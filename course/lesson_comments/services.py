@@ -46,7 +46,7 @@ def get_root_comments(lesson_id):
             parent_comment__isnull=True
         ).select_related('user')\
          .order_by('-created_at')
-        return LessonCommentSerializer(root_comments, many=True).data
+        return root_comments
     except Exception as e:
         raise ValidationError(f"Error retrieving root comments: {str(e)}")
 def get_comment_replies(comment_id):
@@ -55,7 +55,7 @@ def get_comment_replies(comment_id):
             parent_comment_id=comment_id
         ).select_related('user')\
          .order_by('created_at')
-        return LessonCommentSerializer(replies, many=True).data
+        return replies
     except Exception as e:
         raise ValidationError(f"Error retrieving replies: {str(e)}")
 def get_comment_by_id(comment_id):
@@ -69,6 +69,6 @@ def get_comment_by_id(comment_id):
 def get_comments_by_user(user_id):
     try:
         comments = LessonComment.objects.filter(user=user_id)
-        return LessonCommentSerializer(comments, many=True).data
+        return comments
     except Exception as e:
         raise ValidationError(f"Error retrieving comments by user: {str(e)}")

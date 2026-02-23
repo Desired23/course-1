@@ -25,27 +25,21 @@ def get_forum_topic_by_id(topic_id):
 def get_forum_topics_by_forum_id(forum_id):
     try:
         forum_topic_list = ForumTopic.objects.filter(forum=forum_id)
-        if not forum_topic_list.exists():
-            raise ValidationError("No Forum Topics found for this forum_id.")
-        return ForumTopicSerializer(forum_topic_list, many=True).data
+        return forum_topic_list
     except Exception as e:
         raise ValidationError(f"Error retrieving Forum Topics: {str(e)}")
 
 def get_forum_topics_by_user_id(user_id):
     try:
         forum_topic_list = ForumTopic.objects.filter(user=user_id)
-        if not forum_topic_list.exists():
-            raise ValidationError("No Forum Topics found for this user_id.")
-        return ForumTopicSerializer(forum_topic_list, many=True).data
+        return forum_topic_list
     except Exception as e:
         raise ValidationError(f"Error retrieving Forum Topics: {str(e)}")
 
 def get_all_forum_topics():
     try:
         forum_topic_list = ForumTopic.objects.all()
-        if not forum_topic_list.exists():
-            raise ValidationError("No Forum Topics found.")
-        return ForumTopicSerializer(forum_topic_list, many=True).data
+        return forum_topic_list
     except Exception as e:
         raise ValidationError(f"Error retrieving all Forum Topics: {str(e)}")
 

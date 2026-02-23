@@ -43,8 +43,7 @@ def get_enrollment_by_user(user_id):
         enrollments = Enrollment.objects.filter(user=user_id)
         if not enrollments.exists():
             raise ValidationError({"error": "No enrollments found."})
-        serializer = EnrollmentSerializer(enrollments, many=True)
-        return serializer.data
+        return enrollments
     except Exception as e:
         raise ValidationError({"error": str(e)})
 def find_enrollment_by_id(enrollment_id):
@@ -97,9 +96,9 @@ def has_access(user_id, course_id):
 #         raise ValidationError({"error": "Enrollment not found."})
 #     except Exception as e:
 #         raise ValidationError({"error": str(e)})
-def user_has_course_access(student_id, course_id):
+def user_has_course_access(user_id, course_id):
     return Enrollment.objects.filter(
-        student_id=student_id,
+        user_id=user_id,
         course_id=course_id,
         status='Active'
     ).exists()

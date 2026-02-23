@@ -183,7 +183,7 @@ def get_learning_progress(data):
 def get_all_learning_progress_by_enrollment(enrollment_id):
     try:
         learning_progress = LearningProgress.objects.filter(enrollment=enrollment_id)
-        return LearningProgressSerializer(learning_progress, many=True).data
+        return learning_progress
     except Exception as e:
         raise ValidationError(f"An error occurred: {str(e)}")
 def delete_learning_progress(enrollment_id, lesson_id):

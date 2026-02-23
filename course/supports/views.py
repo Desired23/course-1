@@ -10,8 +10,12 @@ from .services import (
     update_support,
     update_admin_id,
 )
+from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
+from .serializers import SupportSerializer
 
 class SupportListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     def post(self, request):
         try:
             data = request.data
@@ -31,10 +35,10 @@ class SupportListView(APIView):
             elif 'user_id' in request.query_params:
                 user_id = request.query_params.get('user_id')
                 supports = get_supports_by_user(user_id)
-                return Response(supports, status=status.HTTP_200_OK)
+                return paginate_queryset(supports, request, SupportSerializer)
             else:
                 supports = get_all_supports()
-                return Response(supports, status=status.HTTP_200_OK)
+                return paginate_queryset(supports, request, SupportSerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
