@@ -20,12 +20,28 @@ from .services import (
     get_user_accessible_courses,
     get_plan_subscribers,
     expire_overdue_subscriptions,
+    upsert_course_subscription_consent,
+    get_instructor_course_consents,
+    get_plan_candidate_courses,
+    track_subscription_usage,
+    # Phase 3
+    send_subscription_expiry_notifications,
+    expire_subscriptions_and_suspend_enrollments,
+    reactivate_subscription_enrollments,
+    schedule_plan_course_removal,
+    process_scheduled_plan_course_removals,
 )
-from .serializers import SubscriptionPlanListSerializer, PlanCourseSerializer, UserSubscriptionListSerializer
+from .serializers import (
+    SubscriptionPlanListSerializer,
+    PlanCourseSerializer,
+    UserSubscriptionListSerializer,
+    CourseSubscriptionConsentSerializer,
+)
 from utils.pagination import paginate_queryset
 
 
 class SubscriptionPlanPublicView(APIView):
+    throttle_scope = 'search'
 
     def get(self, request):
         try:
@@ -40,6 +56,7 @@ class SubscriptionPlanPublicView(APIView):
 
 
 class PlanCoursesPublicView(APIView):
+    throttle_scope = 'search'
 
     def get(self, request, plan_id):
         try:
@@ -51,6 +68,7 @@ class PlanCoursesPublicView(APIView):
 
 class SubscriptionPlanAdminView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -87,16 +105,22 @@ class SubscriptionPlanAdminView(APIView):
 
 class PlanCourseAdminView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def post(self, request, plan_id):
         try:
             course_id = request.data.get('course_id')
+            added_reason = request.data.get('added_reason', '')
             if not course_id:
                 return Response(
                     {"error": "course_id is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            result = add_course_to_plan(plan_id, course_id, admin_user=request.user)
+            result = add_course_to_plan(
+                plan_id, course_id,
+                admin_user=request.user,
+                added_reason=added_reason
+            )
             return Response(result, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -109,7 +133,7 @@ class PlanCourseAdminView(APIView):
                     {"error": "course_id is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            result = remove_course_from_plan(plan_id, course_id)
+            result = remove_course_from_plan(plan_id, course_id, admin_user=request.user)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -117,6 +141,7 @@ class PlanCourseAdminView(APIView):
 
 class PlanSubscribersView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def get(self, request, plan_id):
         try:
@@ -128,6 +153,7 @@ class PlanSubscribersView(APIView):
 
 class ExpireSubscriptionsView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         result = expire_overdue_subscriptions()
@@ -136,6 +162,7 @@ class ExpireSubscriptionsView(APIView):
 
 class UserSubscribeView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
 
     def post(self, request):
         try:
@@ -154,6 +181,7 @@ class UserSubscribeView(APIView):
 
 class UserSubscriptionView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -169,6 +197,7 @@ class UserSubscriptionView(APIView):
 
 class UserCancelSubscriptionView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def post(self, request, subscription_id):
         try:
@@ -180,6 +209,7 @@ class UserCancelSubscriptionView(APIView):
 
 class UserCourseAccessView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -189,5 +219,175 @@ class UserCourseAccessView(APIView):
                 return Response({"has_access": has_access}, status=status.HTTP_200_OK)
             course_ids = get_user_accessible_courses(request.user)
             return Response({"accessible_course_ids": course_ids}, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserSubscriptionCoursesView(APIView):
+    """
+    GET /subscriptions/me/courses/
+    Returns all courses the user can access via active subscriptions,
+    with enrollment status (enrolled or not).
+    """
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            from courses.models import Course
+            from courses.serializers import CourseSerializer
+            from enrollments.models import Enrollment
+
+            course_ids = get_user_accessible_courses(request.user)
+            courses = Course.objects.filter(
+                id__in=course_ids, is_deleted=False
+            ).select_related('instructor__user', 'category')
+
+            course_list = []
+            for course in courses:
+                data = CourseSerializer(course).data
+                # Check if user has enrollment for this course
+                enrollment = Enrollment.objects.filter(
+                    user=request.user, course=course, is_deleted=False
+                ).first()
+                data['enrollment_status'] = enrollment.status if enrollment else None
+                data['enrollment_source'] = enrollment.source if enrollment else None
+                course_list.append(data)
+
+            return Response({
+                "count": len(course_list),
+                "courses": course_list,
+            }, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InstructorCourseConsentView(APIView):
+    permission_classes = [RolePermissionFactory(['instructor'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            consents = get_instructor_course_consents(request.user)
+            return paginate_queryset(consents, request, CourseSubscriptionConsentSerializer)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        try:
+            course_id = request.data.get('course_id')
+            consent_status = request.data.get('consent_status')
+            note = request.data.get('note', '')
+            if not course_id or not consent_status:
+                return Response(
+                    {"error": "course_id và consent_status là bắt buộc."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            result = upsert_course_subscription_consent(
+                request.user,
+                int(course_id),
+                consent_status,
+                note,
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PlanCandidateSuggestionView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request, plan_id):
+        try:
+            limit = int(request.query_params.get('limit', 20))
+            result = get_plan_candidate_courses(plan_id, limit)
+            return Response({"count": len(result), "candidates": result}, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SubscriptionUsageTrackingView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        try:
+            course_id = request.data.get('course_id')
+            usage_type = request.data.get('usage_type', 'course_access')
+            consumed_minutes = request.data.get('consumed_minutes', 0)
+
+            if not course_id:
+                return Response(
+                    {"error": "course_id is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            result = track_subscription_usage(
+                request.user,
+                int(course_id),
+                usage_type,
+                int(consumed_minutes or 0),
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ─── Phase 3 Admin Operations ─────────────────────────────────────────────────
+
+class SendExpiryNotificationsView(APIView):
+    """
+    POST /api/subscriptions/admin/notify-expiry/
+    Cron job: gửi thông báo 7d và 3d cho subscription sắp hết hạn.
+    """
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        result = send_subscription_expiry_notifications()
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class ExpireAndSuspendView(APIView):
+    """
+    POST /api/subscriptions/admin/expire-suspend/
+    Cron job: expire subscription quá hạn + suspend enrollment.
+    """
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        result = expire_subscriptions_and_suspend_enrollments()
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class ProcessScheduledRemovalsView(APIView):
+    """
+    POST /api/subscriptions/admin/process-removals/
+    Cron job: xử lý các PlanCourse đã đến ngày xóa.
+    """
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        result = process_scheduled_plan_course_removals()
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class SchedulePlanCourseRemovalView(APIView):
+    """
+    POST /api/subscription-plans/admin/courses/<plan_course_id>/schedule-removal/
+    Lên lịch xóa khóa học khỏi plan sau 7 ngày + thông báo user.
+    Body: { reason: str (optional) }
+    """
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, plan_course_id):
+        try:
+            reason = request.data.get('reason', '')
+            result = schedule_plan_course_removal(plan_course_id, request.user, reason)
+            return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

@@ -9,10 +9,27 @@ class Enrollment(models.Model):
         Complete = "complete"
         Expired = "expired"
         Cancelled = "cancelled"
+        SUSPENDED = "suspended"  # gói subscription hết hạn, chờ gia hạn
+
+    class Source(models.TextChoices):
+        PURCHASE = 'purchase', 'Purchase'
+        SUBSCRIPTION = 'subscription', 'Subscription'
+
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollment_user')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='enrollment_course', null=True, blank=True)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, related_name='enrollment_course', null=True, blank=True)
     payment = models.ForeignKey('payments.Payment', on_delete=models.SET_NULL, null=True, blank=True, related_name='enrollments')
+    source = models.CharField(
+        max_length=20,
+        choices=Source.choices,
+        default=Source.PURCHASE
+    )
+    subscription = models.ForeignKey(
+        'subscription_plans.UserSubscription',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='enrollments'
+    )
     enrollment_date = models.DateTimeField(blank=True, null=True)
     expiry_date = models.DateTimeField(blank=True, null = True)
     completion_date = models.DateTimeField(blank=True, null = True)
@@ -36,8 +53,8 @@ class Enrollment(models.Model):
             models.UniqueConstraint(fields=['user', 'course'], name='unique_enrollment')
         ]
 
-def __str__(self):
-    return f"Enrollment {self.status} - {self.certificate}"
+    def __str__(self):
+        return f"Enrollment {self.status} - {self.certificate}"
 
 
 

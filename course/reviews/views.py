@@ -18,6 +18,7 @@ from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 
 class ReviewListView(APIView):
+    throttle_scope = 'review'
     def get(self, request):
         # GET is public - no auth required
         try:
@@ -29,7 +30,9 @@ class ReviewListView(APIView):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
         self.check_permissions(request)
         try:
-            review = create_review(request.data)
+            data = request.data.copy()
+            data['user_id'] = request.user.id  # enforce from token, prevent IDOR
+            review = create_review(data)
             return Response(ReviewSerializer(review).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -37,7 +40,7 @@ class ReviewListView(APIView):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
         self.check_permissions(request)
         try:
-            updated_review = update_review(review_id, request.data)
+            updated_review = update_review(review_id, request.data, requesting_user=request.user)
             return Response(ReviewSerializer(updated_review).data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -51,6 +54,7 @@ class ReviewListView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 class ReviewDetailView(APIView):
+    throttle_scope = 'burst'
     def get(self, request, review_id):
         try:
             review = get_review_by_id(review_id)

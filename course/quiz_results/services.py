@@ -11,6 +11,7 @@ from lessons.models import Lesson
 from enrollments.models import Enrollment
 from users.models import User
 from django.utils import timezone
+from datetime import timedelta
 from decimal import Decimal
 
 def calculate_quiz_evaluation(quiz_result_id):
@@ -27,7 +28,7 @@ def calculate_quiz_evaluation(quiz_result_id):
 
         for question in quiz_questions:
             total_points += question.points
-            student_answer = answers.get(str(question.question_id))  # Đảm bảo question_id là string
+            student_answer = answers.get(str(question.id))  # Đảm bảo question id là string
             correct_answer = question.correct_answer
 
             if student_answer is not None and str(student_answer).lower() == str(correct_answer).lower():
@@ -322,7 +323,7 @@ def submit_quiz(data, user):
             enrollment=enrollment,
             lesson=lesson,
             defaults={
-                'start_time': timezone.now() - timezone.timedelta(seconds=time_spent),
+                'start_time': timezone.now() - timedelta(seconds=time_spent),
                 'submit_time': timezone.now(),
                 'time_taken': time_spent,
                 'total_questions': questions.count(),

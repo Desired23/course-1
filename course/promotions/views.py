@@ -17,6 +17,7 @@ from .serializers import PromotionSerializer
 
 class PromotionManagementView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
     def post(self, request):
         try:
             promotion = create_promotion(request.data)

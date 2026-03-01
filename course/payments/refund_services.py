@@ -162,3 +162,39 @@ def get_refund_details(payment_id, payment_details_ids, user):
         raise ValidationError("Payment not found.")
     except Exception as e:
         raise ValidationError(f"Error retrieving refund details: {str(e)}")
+
+
+def get_user_refunds(user, refund_status_filter=None):
+    """
+    Returns all payment_details where user has requested a refund.
+    Optionally filter by refund_status.
+    """
+    from payment_details.models import Payment_Details
+
+    qs = Payment_Details.objects.select_related(
+        'payment', 'course', 'payment__user'
+    ).filter(
+        payment__user=user,
+        refund_request_time__isnull=False,  # has been submitted
+    )
+
+    if refund_status_filter:
+        qs = qs.filter(refund_status=refund_status_filter)
+
+    result = []
+    for detail in qs.order_by('-refund_request_time'):
+        result.append({
+            'refund_id': detail.id,
+            'payment_id': detail.payment_id,
+            'course_id': detail.course_id,
+            'course_title': detail.course.title if detail.course else None,
+            'amount': float(detail.final_price),
+            'refund_amount': float(detail.refund_amount) if detail.refund_amount else None,
+            'reason': detail.refund_reason,
+            'status': detail.refund_status,
+            'request_date': detail.refund_request_time,
+            'processed_date': detail.refund_date,
+            'transaction_id': detail.refund_transaction_id,
+        })
+    return result
+

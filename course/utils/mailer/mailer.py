@@ -8,6 +8,9 @@ from io import BytesIO
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
+import logging
+
+logger = logging.getLogger(__name__)
 from reportlab.lib import colors
 
 def generate_invoice_pdf(payment, payment_details):
@@ -95,7 +98,7 @@ def send_email(
         email.send(fail_silently=False)
         return True
     except Exception as e:
-        print(f"[Email Error] {e}")
+        logger.error(f"[Email Error] {e}")
         return False
 
 def send_payment_invoice(user_email, payment):
@@ -103,7 +106,7 @@ def send_payment_invoice(user_email, payment):
     payment_details = payment.payment_details.all()
     
     if not payment_details.exists():
-        print(f"[Invoice Error] Không tìm thấy payment_details cho payment_id={payment.id}")
+        logger.warning(f"[Invoice Error] Không tìm thấy payment_details cho payment_id={payment.id}")
         return False
 
     # HTML email
@@ -138,7 +141,7 @@ def send_payment_invoice(user_email, payment):
         email.send(fail_silently=False)
         return True
     except Exception as e:
-        print(f"[Email Error] {e}")
+        logger.error(f"[Email Error] {e}")
         return False
 
 

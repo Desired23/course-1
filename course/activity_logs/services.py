@@ -10,14 +10,6 @@ def get_client_ip(request):
     return request.META.get('REMOTE_ADDR')
 
 def log_activity(request = None, action = None, description = None, entity_type = None, entity_id = None, user_id = None):
-    print("Logging activity:", {
-        "action": action,
-        "description": description,
-        "entity_type": entity_type,
-        "entity_id": entity_id,
-        "user_id": user_id,
-        "request": request.user if request else None,
-    })
     if not action:
         raise ValidationError("Action is required to log activity.")
     user = None

@@ -19,7 +19,6 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
 
     async def receive(self, text_data):
         # Bạn có thể xử lý tin nhắn gửi từ client nếu cần
-        print(f"Received message: {text_data}")
         await self.send(text_data=json.dumps({"message": "Message received"}))
         pass
 

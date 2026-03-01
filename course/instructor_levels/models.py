@@ -8,6 +8,14 @@ class InstructorLevel(models.Model):
     min_students = models.IntegerField(default=0)  # Hoặc doanh thu tối thiểu
     min_revenue = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('30.00'))
+    plan_commission_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('30.00'),
+        help_text='% platform giữ lại khi giảng viên tham gia plan (revenue sharing)'
+    )
+    min_plan_minutes = models.IntegerField(
+        default=0,
+        help_text='Tổng số phút học viên học qua plan tối thiểu để đạt level này (0 = không yêu cầu)'
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -29,7 +29,6 @@ def create_lesson(data, user):
     
     try:
         user_instance = User.objects.get(pk=user)  # Truy cập qua data
-        print(user_instance)
     except User.DoesNotExist:
         raise ValidationError({"user_id": "User with this ID does not exist."})
 

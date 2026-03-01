@@ -14,6 +14,7 @@ from .serializers import SupportReplySerializer
 
 class SupportReplyListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
     def post(self, request):
         data = request.data
         try:
@@ -30,6 +31,7 @@ class SupportReplyListView(APIView):
             return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
 class SupportReplyDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
     def get(self, request, reply_id):
         try:
             reply = get_support_reply_by_id(reply_id)

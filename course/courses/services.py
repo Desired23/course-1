@@ -19,8 +19,10 @@ def create_course(data):
             )
             return serializer.data
         raise ValidationError(serializer.errors)
-    except Exception as e:
-        raise ValidationError(f"Error creating course: {str(e)}")
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError("Lỗi khi tạo khóa học.")
 
 def get_course_by_id(course_id, user=None):
     try:
@@ -32,19 +34,26 @@ def get_course_by_id(course_id, user=None):
         return CourseDetailSerializer(course, context={'user': user}).data
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
-    except Exception as e:
-        raise ValidationError(f"Error retrieving course: {str(e)}")
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError("Lỗi khi lấy thông tin khóa học.")
 
 def get_all_courses():
     try:
         courses = Course.objects.filter(is_deleted=False)
         return courses
-    except Exception as e:
-        raise ValidationError(f"Error retrieving all courses: {str(e)}")
+    except Exception:
+        raise ValidationError("Lỗi khi lấy danh sách khóa học.")
 
-def update_course(course_id, data):
+def update_course(course_id, data, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
+        # Ownership check: instructor can only update own courses
+        if requesting_user and not hasattr(requesting_user, 'admin'):
+            instructor = getattr(requesting_user, 'instructor', None)
+            if not instructor or course.instructor_id != instructor.id:
+                raise ValidationError("Bạn không có quyền cập nhật khóa học này.")
         serializer = CourseSerializer(course, data=data, partial=True)
         if serializer.is_valid():
             updated_course = serializer.save()
@@ -59,12 +68,15 @@ def update_course(course_id, data):
         raise ValidationError(serializer.errors)
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
-    except Exception as e:
-        raise ValidationError(f"Error updating course: {str(e)}")
 
-def delete_course(course_id):
+def delete_course(course_id, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
+        # Ownership check: instructor can only delete own courses
+        if requesting_user and not hasattr(requesting_user, 'admin'):
+            instructor = getattr(requesting_user, 'instructor', None)
+            if not instructor or course.instructor_id != instructor.id:
+                raise ValidationError("Bạn không có quyền xóa khóa học này.")
         course_title = course.title
         instructor_id = course.instructor.user.id if course.instructor else None
         course.is_deleted = True
@@ -80,8 +92,6 @@ def delete_course(course_id):
         return {"message": "Course deleted successfully"}
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
-    except Exception as e:
-        raise ValidationError(f"Error deleting course: {str(e)}")
 
 def validate_course_data(data):
     serializer = CourseSerializer(data=data)

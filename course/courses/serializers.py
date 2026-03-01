@@ -112,6 +112,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     subcategory = CategorySummarySerializer(read_only=True)
     modules = serializers.SerializerMethodField()
     user_enrollment = serializers.SerializerMethodField()
+    access_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -146,6 +147,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'certificate',
             'modules',
             'user_enrollment',
+            'access_info',
         ]
 
     def get_modules(self, obj):
@@ -164,3 +166,29 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             return UserEnrollmentSerializer(enrollment).data
         except Exception:
             return None
+
+    def get_access_info(self, obj):
+        """
+        Returns access info for UX:
+        - has_access: bool
+        - access_type: 'admin' | 'instructor' | 'purchase' | 'subscription' | None
+        - in_subscription: bool (whether course is in any active plan)
+        """
+        user = self.context.get('user')
+        if not user:
+            # Check if course is in any subscription plan (for anonymous users)
+            from subscription_plans.models import PlanCourse
+            in_sub = PlanCourse.objects.filter(
+                course=obj, status='active', is_deleted=False,
+                plan__status='active', plan__is_deleted=False,
+            ).exists()
+            return {
+                "has_access": False,
+                "access_type": None,
+                "in_subscription": in_sub,
+            }
+        try:
+            from utils.course_access import get_course_access_info
+            return get_course_access_info(user, obj)
+        except Exception:
+            return {"has_access": False, "access_type": None, "in_subscription": False}

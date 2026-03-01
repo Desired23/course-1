@@ -10,7 +10,7 @@ class Forum(models.Model):
     ]
 
     id = models.AutoField(primary_key=True)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True, related_name='forums_course')
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True, blank=True, related_name='forums_course')
     title = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='forums_user')

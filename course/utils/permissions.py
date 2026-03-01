@@ -14,9 +14,11 @@ def RolePermissionFactory(roles):
             token = auth_header.split(" ")[1]
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+                # Reject refresh tokens used as access tokens
+                if payload.get('token_type') == 'refresh':
+                    raise AuthenticationFailed("Không thể dùng refresh token để xác thực.")
                 user = User.objects.select_related('instructor','admin').get(id=payload["user_id"])
                 # user = User.objects.get(id=payload["user_id"])
-                print("User:", user)
                 if user.status == User.StatusChoices.BANNED:
                     raise AuthenticationFailed("Tài khoản bị cấm.")
                 if user.status == User.StatusChoices.INACTIVE:

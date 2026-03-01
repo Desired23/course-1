@@ -13,8 +13,22 @@ class Payment(models.Model):
     class PaymentMethod(models.TextChoices):
         VNPAY = 'vnpay', 'vnpay'
         MOMO = 'momo', 'momo'
+    class PaymentType(models.TextChoices):
+        COURSE_PURCHASE = 'course_purchase', 'Course Purchase'
+        SUBSCRIPTION = 'subscription', 'Subscription'
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payment_user_id')
+    payment_type = models.CharField(
+        max_length=20,
+        choices=PaymentType.choices,
+        default=PaymentType.COURSE_PURCHASE
+    )
+    subscription_plan = models.ForeignKey(
+        'subscription_plans.SubscriptionPlan',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='payments'
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, null=False)

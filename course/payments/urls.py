@@ -1,6 +1,9 @@
 from django.urls import path
-from .views import CreateVnpayPaymentView, VnpayReturnView, CreatePaymentRecordView, VnpayIPNView, PaymentStatusView, CheckEnrollmentView
-# , VnpayReturnView, CreatePaymentRecordView
+from .views import (
+    CreateVnpayPaymentView, VnpayReturnView, CreatePaymentRecordView,
+    VnpayIPNView, PaymentStatusView, CheckEnrollmentView,
+    AdminRefundUpdateView, UserRefundListView,
+)
 
 urlpatterns = [
     path('vnpay/create/', CreateVnpayPaymentView.as_view(), name='vnpay-create'),
@@ -9,4 +12,9 @@ urlpatterns = [
     path('vnpay/return/', VnpayReturnView.as_view(), name='vnpay-return'),
     path('payments/status/<int:payment_id>/', PaymentStatusView.as_view(), name='payment-status'),
     path('payments/check-enrollment/<int:course_id>/', CheckEnrollmentView.as_view(), name='check-enrollment'),
+    path('payments/refund/admin/', AdminRefundUpdateView.as_view(), name='admin-refund-update'),
+
+    # User refund endpoints
+    path('refunds/', UserRefundListView.as_view(), name='user-refund-list'),
+    path('refunds/request/', UserRefundListView.as_view(), name='user-refund-request'),
 ]

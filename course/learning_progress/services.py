@@ -67,7 +67,6 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
         enrollment =  Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
         if not enrollment:
             raise ValidationError({"enrollment": "User is not enrolled in the course."})
-        print("Enrollment found:", course)
         if not course:
             raise ValidationError({"lesson_id": "Lesson does not belong to any course."})
         learning_progress, created = LearningProgress.objects.get_or_create(
@@ -171,9 +170,11 @@ def get_course_progress(user_id, course_id):
         raise ValidationError(f"Error retrieving course progress: {str(e)}")
 def get_learning_progress(data):
     try:
+        enrollment_id = data.get('enrollment_id') if isinstance(data, dict) else getattr(data, 'enrollment_id', None)
+        lesson_id = data.get('lesson_id') if isinstance(data, dict) else getattr(data, 'lesson_id', None)
         learning_progress = LearningProgress.objects.get(
-            enrollment=data.enrollment_id,
-            lesson=data.lesson_id
+            enrollment=enrollment_id,
+            lesson=lesson_id
         )
         return LearningProgressSerializer(learning_progress).data
     except LearningProgress.DoesNotExist:
@@ -200,3 +201,82 @@ def delete_learning_progress(enrollment_id, lesson_id):
         raise ValidationError(f"An error occurred: {str(e)}")
 
 
+def get_student_stats(user):
+    """
+    GET /api/students/my-stats/
+    Returns aggregated learning statistics for the authenticated student.
+    """
+    from enrollments.models import Enrollment
+    from certificates.models import Certificate
+    from quiz_results.models import QuizResult
+    from activity_logs.models import ActivityLog
+    from django.db.models import Avg, Sum, Count
+    from django.utils import timezone
+    from datetime import timedelta
+
+    enrollments = Enrollment.objects.filter(user=user, is_deleted=False)
+    total_enrolled = enrollments.count()
+    courses_completed = enrollments.filter(status='complete').count()
+    courses_in_progress = enrollments.filter(status='active').exclude(progress=0).count()
+
+    # Total time spent (seconds) across all learning progress records
+    total_time_spent = LearningProgress.objects.filter(
+        user=user, is_deleted=False
+    ).aggregate(t=Sum('time_spent'))['t'] or 0
+
+    # Certificates
+    certificates_earned = Certificate.objects.filter(user=user, is_deleted=False, revoked=False).count()
+
+    # Quiz stats
+    quiz_results = QuizResult.objects.filter(
+        enrollment__user=user, is_deleted=False
+    )
+    total_quizzes = quiz_results.count()
+    avg_quiz_score = quiz_results.aggregate(avg=Avg('score'))['avg'] or 0
+
+    # Recent activity — last 10 completed lessons
+    recent_lp = LearningProgress.objects.filter(
+        user=user, is_deleted=False, is_completed=True
+    ).select_related('course', 'lesson').order_by('-last_accessed')[:10]
+
+    recent_activity = [
+        {
+            'activity_type': 'lesson_completed',
+            'course_title': lp.course.title if lp.course else None,
+            'lesson_title': lp.lesson.title if lp.lesson else None,
+            'timestamp': lp.last_accessed,
+        }
+        for lp in recent_lp
+    ]
+
+    # Learning streak: count consecutive days with learning activity ending today
+    # Single query to get all distinct activity dates in the last 90 days
+    today = timezone.now().date()
+    cutoff = today - timedelta(days=90)
+    activity_dates = set(
+        LearningProgress.objects.filter(
+            user=user,
+            is_deleted=False,
+            last_accessed__date__gte=cutoff,
+        ).values_list('last_accessed__date', flat=True).distinct()
+    )
+
+    streak_days = 0
+    check_date = today
+    while check_date in activity_dates:
+        streak_days += 1
+        check_date -= timedelta(days=1)
+
+    return {
+        'total_courses_enrolled': total_enrolled,
+        'courses_in_progress': courses_in_progress,
+        'courses_completed': courses_completed,
+        'total_time_spent': total_time_spent,
+        'certificates_earned': certificates_earned,
+        'total_quizzes_taken': total_quizzes,
+        'average_quiz_score': round(float(avg_quiz_score), 1),
+        'recent_activity': recent_activity,
+        'learning_streak': {
+            'current_streak': streak_days,
+        },
+    }

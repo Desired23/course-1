@@ -18,6 +18,7 @@ from .serializers import LessonCommentSerializer
 
 class LessonCommentView(APIView):
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         user_id = request.user.id
@@ -53,6 +54,7 @@ class LessonCommentView(APIView):
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 class LessonCommentManagementView(APIView):
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
 
     def delete(self, request, comment_id):
         try:
@@ -62,10 +64,10 @@ class LessonCommentManagementView(APIView):
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 class LessonCommentDetailView(APIView):
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'burst'
 
     def get(self, request, comment_id):
         query = request.query_params.get('replies', 'false').lower() == 'true'
-        print(f"Query for replies: {query}")
         if not query:
             try:
                 comment = get_comment_by_id(comment_id)

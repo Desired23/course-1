@@ -20,6 +20,7 @@ from .services import (
 )
 
 class QuizResultListView(APIView):
+    throttle_scope = 'burst'
     def post(self, request):
         try:
             data = request.data
@@ -66,6 +67,7 @@ class QuizSubmitView(APIView):
     Submit quiz answers and get results
     """
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'quiz_submit'
 
     def post(self, request):
         try:
@@ -83,6 +85,7 @@ class UserQuizHistoryView(APIView):
     Get user's quiz history
     """
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'burst'
 
     def get(self, request, user_id):
         try:
@@ -104,6 +107,7 @@ class QuizResultDetailView(APIView):
     Get specific quiz result detail
     """
     permission_classes = [IsAuthenticated]
+    throttle_scope = 'burst'
 
     def get(self, request, quiz_result_id):
         try:

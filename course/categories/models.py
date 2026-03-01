@@ -8,7 +8,7 @@ class Category(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
     parent_category = models.ForeignKey(
-        'self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories'
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories'
     )
     
     status = models.CharField(

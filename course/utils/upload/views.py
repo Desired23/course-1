@@ -4,10 +4,10 @@ from rest_framework import status
 from rest_framework.parsers import MultiPartParser, JSONParser
 from .cloudinary_upload import upload_file_to_cloudinary, delete_file_from_cloudinary
 class UploadFileView(APIView):
-    parser_classes = [MultiPartParser, JSONParser]  # Cho phép xử lý multipart/form-data
+    parser_classes = [MultiPartParser, JSONParser]
+    throttle_scope = 'upload'
     def post(self, request):
         file = request.FILES.getlist("files")
-        print("🛠️ Received file:", file)
         if not file:
             return Response({"detail": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 

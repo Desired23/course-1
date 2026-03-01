@@ -11,7 +11,7 @@ class ForumCommentSerializer(serializers.ModelSerializer):
             'user',
             'created_at',
             'updated_at',
-            'parent_comment',
+            'parent',
             'likes',
             'status',
             'is_best_answer'

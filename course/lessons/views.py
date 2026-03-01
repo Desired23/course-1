@@ -14,12 +14,14 @@ from .services import (
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 class LessonListView(APIView):
+    throttle_scope = 'search'
     def get(self, request):
         lessons = get_lessons()
         return paginate_queryset(lessons, request, LessonSerializer)
     
 class LessonDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def get(self, request, lesson_id):
         try:
@@ -44,6 +46,7 @@ class LessonDetailView(APIView):
         
 class LessonCreateView(APIView):
     permission_classes = [RolePermissionFactory(["instructor", "admin"])]
+    throttle_scope = 'burst'
     def post(self, request):
         try:
             print ("Request data:", request.data)

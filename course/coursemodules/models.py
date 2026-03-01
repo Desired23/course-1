@@ -8,7 +8,7 @@ class CourseModule(models.Model):
     ]
 
     id = models.AutoField(primary_key=True)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='modules', null=True, blank=True)  # CourseID
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, related_name='modules', null=True, blank=True)  # CourseID
     title = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     order_number = models.IntegerField()

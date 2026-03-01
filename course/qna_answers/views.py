@@ -15,6 +15,7 @@ from .serializers import QnAAnswerSerializer
 
 class QnAAnswerListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
     def get(self, request):
         try:
             if 'qna_id' in request.query_params:

@@ -9,6 +9,7 @@ from .services import (
     get_all_supports,
     update_support,
     update_admin_id,
+    delete_support,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
@@ -16,6 +17,7 @@ from .serializers import SupportSerializer
 
 class SupportListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'support'
     def post(self, request):
         try:
             data = request.data
@@ -56,3 +58,12 @@ class SupportListView(APIView):
             return Response(updated_support, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, support_id):
+        try:
+            result = delete_support(support_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

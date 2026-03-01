@@ -16,6 +16,7 @@ from .serializers import ForumSerializer
 
 class ForumListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
     def get(self, request):
         try:
             if 'course_id' in request.query_params:

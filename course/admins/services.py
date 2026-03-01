@@ -16,7 +16,6 @@ def create_admin(data, request=None):
             'role': data['role'],
         })
         if serializer.is_valid():
-            print("Serializer data is valid.")
             admin = serializer.save()
             log_activity(
                 request=request,

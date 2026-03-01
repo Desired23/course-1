@@ -8,8 +8,8 @@ class QuizResultSerializer(serializers.ModelSerializer):
         model = QuizResult
         fields = [
             'id',
-            'Enrollment',
-            'Lesson',
+            'enrollment',
+            'lesson',
             'start_time',
             'submit_time',
             'time_taken',

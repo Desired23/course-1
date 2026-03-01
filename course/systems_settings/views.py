@@ -16,6 +16,7 @@ from .serializers import SystemsSettingSerializer
 
 class SystemsSettingsView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
     def get(self, request):
         try:
             if 'setting_key' in request.query_params:

@@ -5,7 +5,7 @@ class LessonComment(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='lesson_comments')
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='comments')
-    parent_comment = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    parent_comment = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='replies')
     content = models.TextField()
     votes = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

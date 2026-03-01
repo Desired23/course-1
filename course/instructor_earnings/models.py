@@ -14,7 +14,18 @@ class InstructorEarning(models.Model):
     id = models.AutoField(primary_key=True)
     instructor = models.ForeignKey(Instructor, on_delete=models.CASCADE, related_name='earnings')
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='earnings')
-    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, related_name='instructor_earnings')
+    payment = models.ForeignKey(
+        Payment, on_delete=models.SET_NULL,
+        related_name='instructor_earnings',
+        null=True, blank=True
+    )
+    user_subscription = models.ForeignKey(
+        'subscription_plans.UserSubscription',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='instructor_earnings',
+        help_text='Earning từ subscription (revenue sharing)'
+    )
 
     amount = models.DecimalField(max_digits=10, decimal_places=2)  # Tổng tiền khóa học (sau giảm giá)
     net_amount = models.DecimalField(max_digits=10, decimal_places=2)  # = amount * (100 - commission_rate) / 100
@@ -45,8 +56,18 @@ class InstructorEarning(models.Model):
             models.Index(fields=['instructor']),
             models.Index(fields=['course']),
         ]
-        unique_together = [
-            ('payment', 'course', 'instructor')]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['payment', 'course', 'instructor'],
+                condition=models.Q(payment__isnull=False),
+                name='unique_earning_per_payment_course_instructor',
+            ),
+            models.UniqueConstraint(
+                fields=['user_subscription', 'course', 'instructor'],
+                condition=models.Q(user_subscription__isnull=False),
+                name='unique_earning_per_subscription_course_instructor',
+            ),
+        ]
 
     def __str__(self):
         return f"[{self.id}] {self.instructor.user.full_name} - {self.course.title} - {self.net_amount} VND"

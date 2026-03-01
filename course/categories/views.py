@@ -17,6 +17,7 @@ from utils.pagination import paginate_queryset
 
 class CategoryListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -27,6 +28,7 @@ class CategoryListView(APIView):
         
 class CategoryDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def get(self, request, category_id):
         try:
@@ -37,6 +39,7 @@ class CategoryDetailView(APIView):
     
 class CategoryManagementView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         try:
@@ -57,6 +60,7 @@ class CategoryManagementView(APIView):
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 class ActiveCategoryListView(APIView):
+    throttle_scope = 'search'
     def get(self, request):
         try:
             categories = get_active_categories()
@@ -65,6 +69,7 @@ class ActiveCategoryListView(APIView):
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 class SubcategoryListView(APIView):
+    throttle_scope = 'search'
     def get(self, request, category_id):
         try:
             subcategories = get_subcategories(category_id)

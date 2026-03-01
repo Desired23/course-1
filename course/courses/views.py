@@ -14,6 +14,7 @@ from .serializers import CourseSerializer
 from utils.pagination import paginate_queryset
 
 class CourseListView(APIView):
+    throttle_scope = 'search'
     def get(self, request):
         try:
             courses = get_all_courses()
@@ -34,7 +35,7 @@ class CourseListView(APIView):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
         self.check_permissions(request)
         try:
-            course = update_course(course_id, request.data)
+            course = update_course(course_id, request.data, requesting_user=request.user)
             return Response(course, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -43,12 +44,13 @@ class CourseListView(APIView):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
         self.check_permissions(request)
         try:
-            result = delete_course(course_id)
+            result = delete_course(course_id, requesting_user=request.user)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
         
 class CourseDetailView(APIView):
+    throttle_scope = 'search'
     def get(self, request, course_id):
         try:
             user = getattr(request, 'user', None)

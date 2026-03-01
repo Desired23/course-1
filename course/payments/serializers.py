@@ -7,6 +7,8 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'user',
+            'payment_type',
+            'subscription_plan',
             'amount',
             'promotion', 
             'discount_amount',
@@ -29,6 +31,8 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'user',
+            'payment_type',
+            'subscription_plan',
             'amount',
             'promotion', 
             'discount_amount',

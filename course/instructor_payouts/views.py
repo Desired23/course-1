@@ -3,11 +3,21 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from utils.permissions import RolePermissionFactory
-from instructor_payouts.services import admin_update_instructor_payout, get_payouts_for_instructor, get_all_payouts_as_admin, delete_instructor_payout, get_payout_detail_by_id
+from instructor_payouts.services import (
+    admin_update_instructor_payout,
+    get_payouts_for_instructor,
+    get_all_payouts_as_admin,
+    delete_instructor_payout,
+    get_payout_detail_by_id,
+    request_instructor_payout,
+    admin_approve_payout,
+    admin_reject_payout,
+)
 from instructor_payouts.serializers import InstructorPayoutSerializer
 from utils.pagination import paginate_queryset
 class InstructorPayoutView(APIView):
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
 
     def patch(self, request):
         # instructor = request.user.instructor
@@ -76,8 +86,6 @@ class InstructorPayoutView(APIView):
 
             else:
                 return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-            print(f"Fetched payouts: {payouts}")
-            return Response(payouts, status=status.HTTP_200_OK)
 
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -92,8 +100,83 @@ class InstructorPayoutView(APIView):
             delete_instructor_payout(payout_id=payout_id, admin_id=admin.id)
             return Response({"detail": "Payout deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except ValidationError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)  
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class InstructorPayoutRequestView(APIView):
+    """
+    POST /api/instructor/payouts/request/
+    Instructor requests a payout for their available earnings.
+    Body: { amount, payout_method_id, notes }
+    """
+    permission_classes = [RolePermissionFactory(['instructor'])]
+    throttle_scope = 'payment'
 
-        
+    def post(self, request):
+        instructor = getattr(request.user, 'instructor', None)
+        if not instructor:
+            return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        amount = request.data.get('amount')
+        if not amount:
+            return Response({"error": "amount is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = request_instructor_payout(
+                instructor=instructor,
+                amount=amount,
+                payout_method_id=request.data.get('payout_method_id'),
+                notes=request.data.get('notes', ''),
+                period=request.data.get('period'),
+            )
+            return Response(result, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminPayoutApproveView(APIView):
+    """
+    PUT /api/admin/payouts/<payout_id>/approve/
+    Admin approves a pending payout.
+    """
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def put(self, request, payout_id):
+        admin = getattr(request.user, 'admin', None)
+        if not admin:
+            return Response({"error": "Admin profile not found."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            result = admin_approve_payout(
+                payout_id=payout_id,
+                admin=admin,
+                transaction_id=request.data.get('transaction_id'),
+                notes=request.data.get('notes'),
+                fee=request.data.get('fee', 0),
+            )
+            return Response(result)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminPayoutRejectView(APIView):
+    """
+    PUT /api/admin/payouts/<payout_id>/reject/
+    Admin rejects a pending payout.
+    """
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def put(self, request, payout_id):
+        admin = getattr(request.user, 'admin', None)
+        if not admin:
+            return Response({"error": "Admin profile not found."}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            result = admin_reject_payout(
+                payout_id=payout_id,
+                admin=admin,
+                notes=request.data.get('notes'),
+            )
+            return Response(result)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)

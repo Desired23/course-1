@@ -16,6 +16,7 @@ from utils.permissions import RolePermissionFactory
 
 class LessonAttachmentManagementView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         try:
@@ -45,6 +46,7 @@ class LessonAttachmentManagementView(APIView):
 
 class LessonAttachmentDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def get(self, request, attachment_id):
         try:
@@ -55,6 +57,7 @@ class LessonAttachmentDetailView(APIView):
         
 class LessonAttachmentListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:

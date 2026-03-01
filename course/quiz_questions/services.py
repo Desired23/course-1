@@ -18,11 +18,8 @@ def create_quiz_question(data):
         # print("Data received for quiz question creation:", data)
         serializer = QuizQuestionSerializer(data=data)
         if serializer.is_valid(raise_exception=True):
-            print("Serializer data:", serializer.validated_data)
-            
             with transaction.atomic():
                 # Create question
-                print ("Quiz question created with ID:", serializer.validated_data.get('id'))
                 quiz_question = serializer.save()
 
                 # Create test cases for code questions

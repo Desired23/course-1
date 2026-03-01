@@ -10,7 +10,7 @@ class BlogPost(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255)
     content = models.TextField()
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blog_posts', null=True, blank=True)
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='blog_posts', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -24,7 +24,7 @@ class BlogPost(models.Model):
     tags = models.JSONField(null=True, blank=True)
     category = models.ForeignKey(
         Category,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='blog_posts',
         null=True,
         blank=True

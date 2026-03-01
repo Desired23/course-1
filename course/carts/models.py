@@ -6,10 +6,10 @@ from promotions.models import Promotion
 class Cart(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='cart_user')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='cart_course', null=True, blank=True)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, related_name='cart_course', null=True, blank=True)
     promotion = models.ForeignKey(
         Promotion,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name='cart_promotion',
         null=True, blank=True  # Cho phép null và không bắt buộc
     )

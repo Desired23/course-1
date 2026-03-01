@@ -25,7 +25,6 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
                 status=InstructorEarning.StatusChoices.AVAILABLE,
                 instructor_payout_id__isnull=True
             ).select_related('instructor')
-            print(earnings_qs)
 
             if not earnings_qs.exists():
                 raise ValidationError("No available earnings for payout.")
@@ -80,7 +79,6 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
 
 def admin_update_instructor_payout(payout_id, status, transaction_id, notes, fee, processed_date, period = None , processed_by=None):
     try:
-        print(f"Updating payout with ID: {payout_id}, Status: {status}, Transaction ID: {transaction_id}, Notes: {notes}, Fee: {fee}, Processed Date: {processed_date}, Period: {period}, Processed By: {processed_by}")
         with transaction.atomic():
             payout = InstructorPayout.objects.select_for_update().get(id=payout_id)
 
@@ -120,7 +118,6 @@ def get_payouts_for_instructor(instructor_id, status=None, period=None):
 def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
     try:
         queryset = InstructorPayout.objects.select_related("instructor", "processed_by").all()
-        print(queryset)
         
         if processed_by:
             queryset = queryset.filter(processed_by__admin=processed_by)
@@ -158,6 +155,140 @@ def delete_instructor_payout(payout_id, admin_id):
         raise ValidationError("Payout not found.")
     except Exception as e:
         raise ValidationError(f"Error deleting payout: {str(e)}")
+
+
+def request_instructor_payout(instructor, amount, payout_method_id, notes='', period=None):
+    """
+    Instructor tự yêu cầu payout dựa trên available earnings.
+    Optionally choose a saved payout method.
+    """
+    from payment_methods.models import InstructorPayoutMethod
+    from decimal import Decimal
+
+    with transaction.atomic():
+        # Verify available balance >= requested amount
+        available = InstructorEarning.objects.filter(
+            instructor=instructor,
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+            instructor_payout_id__isnull=True,
+            is_deleted=False,
+        ).aggregate(total=Sum('net_amount'))['total'] or Decimal('0')
+
+        if Decimal(str(amount)) > available:
+            raise ValidationError(
+                f"Requested amount ({amount}) exceeds available balance ({available})."
+            )
+
+        # Resolve payout method label
+        payment_method_label = 'bank_transfer'
+        bank_details = {}
+        if payout_method_id:
+            try:
+                pm = InstructorPayoutMethod.objects.get(
+                    id=payout_method_id, instructor=instructor, is_deleted=False
+                )
+                payment_method_label = pm.method_type
+                bank_details = {
+                    'bank_name': pm.bank_name,
+                    'account_number': pm.account_number,
+                    'account_name': pm.account_name,
+                    'wallet_phone': pm.wallet_phone,
+                    'nickname': pm.nickname,
+                }
+            except InstructorPayoutMethod.DoesNotExist:
+                raise ValidationError({"payout_method_id": "Payout method not found."})
+
+        payout = InstructorPayout.objects.create(
+            instructor=instructor,
+            amount=Decimal(str(amount)),
+            payment_method=payment_method_label,
+            period=period or timezone.now().strftime("%Y-%m"),
+            notes=notes,
+            status=InstructorPayout.PayoutStatusChoices.PENDING,
+        )
+
+        # Attach earnings FIFO until amount covered
+        earnings_qs = InstructorEarning.objects.filter(
+            instructor=instructor,
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+            instructor_payout_id__isnull=True,
+            is_deleted=False,
+        ).order_by('created_at')
+
+        covered = Decimal('0')
+        earning_ids = []
+        for earning in earnings_qs:
+            if covered >= Decimal(str(amount)):
+                break
+            earning_ids.append(earning.id)
+            covered += earning.net_amount
+
+        InstructorEarning.objects.filter(id__in=earning_ids).update(
+            instructor_payout=payout
+        )
+
+        serialized = InstructorPayoutSerializer(payout).data
+        serialized['bank_details'] = bank_details
+        return serialized
+
+
+def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=0):
+    """Admin approves a pending payout → marks earnings as paid."""
+    from decimal import Decimal
+
+    with transaction.atomic():
+        try:
+            payout = InstructorPayout.objects.select_for_update().get(id=payout_id)
+        except InstructorPayout.DoesNotExist:
+            raise ValidationError("Payout not found.")
+
+        if payout.status != InstructorPayout.PayoutStatusChoices.PENDING:
+            raise ValidationError("Only pending payouts can be approved.")
+
+        fee_dec = Decimal(str(fee or 0))
+        payout.status = InstructorPayout.PayoutStatusChoices.PROCESSED
+        payout.transaction_id = transaction_id
+        payout.fee = fee_dec
+        payout.net_amount = payout.amount - fee_dec
+        payout.processed_date = timezone.now()
+        payout.processed_by = admin
+        if notes:
+            payout.notes = notes
+        payout.save()
+
+        # Mark linked earnings as paid
+        InstructorEarning.objects.filter(
+            instructor_payout=payout
+        ).update(status=InstructorEarning.StatusChoices.PAID)
+
+        return InstructorPayoutSerializer(payout).data
+
+
+def admin_reject_payout(payout_id, admin, notes=None):
+    """Admin rejects a pending payout → releases earnings back to available."""
+    with transaction.atomic():
+        try:
+            payout = InstructorPayout.objects.select_for_update().get(id=payout_id)
+        except InstructorPayout.DoesNotExist:
+            raise ValidationError("Payout not found.")
+
+        if payout.status != InstructorPayout.PayoutStatusChoices.PENDING:
+            raise ValidationError("Only pending payouts can be rejected.")
+
+        payout.status = InstructorPayout.PayoutStatusChoices.CANCELLED
+        payout.processed_date = timezone.now()
+        payout.processed_by = admin
+        if notes:
+            payout.notes = notes
+        payout.save()
+
+        # Release earnings back so instructor can re-request
+        InstructorEarning.objects.filter(
+            instructor_payout=payout
+        ).update(instructor_payout=None)
+
+        return InstructorPayoutSerializer(payout).data
+
 
 
 

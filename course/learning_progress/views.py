@@ -6,7 +6,8 @@ from utils.permissions import RolePermissionFactory
 from .services import (
     update_learning_progress,
     update_lesson_progress,
-    get_course_progress
+    get_course_progress,
+    get_student_stats,
 )
 
 class LearningProgressUpdateView(APIView):
@@ -15,6 +16,7 @@ class LearningProgressUpdateView(APIView):
     Update learning progress for a lesson
     """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'burst'
     
     def post(self, request):
         try:
@@ -41,6 +43,7 @@ class LearningProgressUpdateView(APIView):
 
 class LearningProgressDetailView(APIView):
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'burst'
     
     def put(self, request, lesson_id):
         try:
@@ -61,12 +64,14 @@ class LearningProgressDetailView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class CourseProgressView(APIView):
     """
     GET /api/learning-progress/course/<course_id>/
     Get overall progress for a course
     """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'burst'
     
     def get(self, request, course_id):
         try:
@@ -76,5 +81,20 @@ class CourseProgressView(APIView):
         
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class StudentStatsView(APIView):
+    """
+    GET /api/students/my-stats/
+    Returns aggregated learning statistics for the authenticated student.
+    """
+    permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            result = get_student_stats(request.user)
+            return Response(result)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

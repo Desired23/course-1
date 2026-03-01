@@ -15,6 +15,7 @@ from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 from .serializers import NotificationSerializer
 class NotificationView(APIView):
+    throttle_scope = 'notification'
     def post(self, request):
         try:
             receiver_id = request.data.get('receiver_id') or request.data.get('user_id')  # Backward compatible
@@ -60,6 +61,7 @@ class NotificationView(APIView):
     
 class NotificationByAdminView(APIView):
     permission_classes = [RolePermissionFactory("admin")]
+    throttle_scope = 'burst'
     def delete(self, request, notification_code):
         try:
             notification = delete_notification_by_admin(notification_code)
@@ -69,7 +71,6 @@ class NotificationByAdminView(APIView):
     def post(self, request):
         try:
             notification_code = request.data.get('notification_code')
-            print(notification_code)
             user_ids = request.data.get('user_ids')
             title = request.data.get('title')
             message = request.data.get('message')

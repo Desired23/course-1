@@ -17,6 +17,7 @@ from utils.pagination import paginate_queryset
 
 class ApplicationSubmitView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         try:
@@ -28,6 +29,7 @@ class ApplicationSubmitView(APIView):
 
 class ApplicationUserView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -43,6 +45,7 @@ class ApplicationUserView(APIView):
 
 class ApplicationResubmitView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def put(self, request, application_id):
         try:
@@ -54,6 +57,7 @@ class ApplicationResubmitView(APIView):
 
 class ApplicationAdminView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -74,6 +78,7 @@ class ApplicationAdminView(APIView):
 
 class ApplicationReviewView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def post(self, request, application_id):
         try:

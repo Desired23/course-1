@@ -120,8 +120,7 @@ class QuizQuestionForStudentSerializer(serializers.ModelSerializer):
             if isinstance(obj.options, list):
                 return obj.options
             # If options is stored as dict, convert to list
-            if isinstance(obj, dict):
-                print ("Options is a dict:", obj)
+            if isinstance(obj.options, dict):
                 return [
                     {
                         "option_id": k,

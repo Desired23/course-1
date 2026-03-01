@@ -17,8 +17,18 @@ def create_payment(payment_data):
         with transaction.atomic():
             user_id = payment_data.get("user_id")
             payment_method = payment_data.get("payment_method")
+            payment_type = payment_data.get("payment_type", "course_purchase")
             payment_detail_input = payment_data.get("payment_details", [])
             promotion_id = payment_data.get("promotion_id")  # ADMIN-level promotion
+
+            # Subscription payments cannot use promotions
+            if payment_type == "subscription":
+                if promotion_id:
+                    raise ValidationError("Thanh toán gói subscription không được áp dụng mã giảm giá.")
+                for item in (payment_detail_input or []):
+                    if item.get("promotion_id"):
+                        raise ValidationError("Thanh toán gói subscription không được áp dụng mã giảm giá.")
+
             courses_detail = []
             if not payment_detail_input:
                 raise ValidationError("Thiếu thông tin chi tiết thanh toán.")
@@ -31,8 +41,6 @@ def create_payment(payment_data):
             for item in payment_detail_input:
                 course_id = item.get("course_id")
                 detail_promotion_id = item.get("promotion_id")
-                print("detail_promotion_id:", detail_promotion_id)
-
                 if not course_id:
                     raise ValidationError("Thiếu course_id trong chi tiết thanh toán.")
 
@@ -142,6 +150,8 @@ def create_payment(payment_data):
                 "discount_amount": total_discount,
                 "total_amount": total_amount,
                 "payment_method": payment_method,
+                "payment_type": payment_type,
+                "subscription_plan": payment_data.get("subscription_plan_id"),
                 "transaction_id": transaction_id,
                 "promotion_id": promotion_id if promotion_id else None
             })
@@ -153,7 +163,6 @@ def create_payment(payment_data):
             payment = Payment.objects.get(transaction_id=transaction_id)
             # Gán payment_id vào từng chi tiết
             for detail in payment_detail_arr:
-                print("payment_id:", payment.id)
                 detail["payment_id"] = payment.id
 
             payment_detail_serializer = PaymentDetailSerializer(data=payment_detail_arr, many=True)

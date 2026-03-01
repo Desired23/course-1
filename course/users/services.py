@@ -3,7 +3,7 @@ from .models import User
 from .serializers import Userserializers, UserUpdateBySelfSerializer
 from config import settings
 from django.contrib.auth.hashers import make_password, check_password
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 from jwt import encode, decode, ExpiredSignatureError
 from jwt.exceptions import DecodeError
@@ -65,7 +65,13 @@ def delete_user(user_id, request=None):
                 entity_id=user_id,
                 description="Xóa tài khoản người dùng"
             )
-        user.delete()
+        # Soft delete instead of hard delete
+        user.is_deleted = True
+        user.deleted_at = timezone.now()
+        if request and hasattr(request, 'user'):
+            user.deleted_by = request.user
+        user.status = User.StatusChoices.INACTIVE
+        user.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'status'])
         return {"message": "User deleted successfully."}
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
@@ -98,7 +104,7 @@ def register(data):
         assert isinstance(user, User) 
         # Gửi email xác nhận
         token = encode(
-            {'user_id': user.id, 'exp': datetime.utcnow() + timedelta(minutes=30)},
+            {'user_id': user.id, 'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=30)},
             JWT_SECRET,
             algorithm=JWT_ALGORITHM
         )
@@ -145,8 +151,9 @@ def login(data):
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
-        'exp': datetime.utcnow() + timedelta(minutes=300),
-        "iat": datetime.utcnow()
+        'token_type': 'access',
+        'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=300),
+        "iat": datetime.now(dt_timezone.utc)
     }
     access_token = encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -155,8 +162,9 @@ def login(data):
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
-        'exp': datetime.utcnow() + timedelta(days=3),
-        "iat": datetime.utcnow()
+        'token_type': 'refresh',
+        'exp': datetime.now(dt_timezone.utc) + timedelta(days=3),
+        "iat": datetime.now(dt_timezone.utc)
     }
     refresh_token = encode(refresh_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     log_activity(
@@ -179,6 +187,9 @@ def login(data):
 def refresh_token(token):
     try:
         payload = decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        # Only accept refresh tokens
+        if payload.get('token_type') != 'refresh':
+            raise ValidationError({"error": "Invalid token type. Expected refresh token."})
         user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
     except ExpiredSignatureError:
         raise ValidationError({"error": "Token has expired."})
@@ -201,8 +212,9 @@ def refresh_token(token):
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
-        'exp': datetime.utcnow() + timedelta(minutes=30),
-        "iat": datetime.utcnow()
+        'token_type': 'access',
+        'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=30),
+        "iat": datetime.now(dt_timezone.utc)
     }
     new_token = encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return {
@@ -228,7 +240,7 @@ def user_reset_password(data):
         raise ValidationError({"error": "User not found."})
     
     reset_token = encode(
-        {'user_id': user.id, 'exp': datetime.utcnow() + timedelta(minutes=30)},
+        {'user_id': user.id, 'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=30)},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM
     )

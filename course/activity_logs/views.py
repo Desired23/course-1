@@ -12,6 +12,7 @@ from datetime import datetime
 
 class ActivityLogView(APIView):
     permission_classes = [RolePermissionFactory(roles=["admin", "instructor", "student"])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         filters = {}

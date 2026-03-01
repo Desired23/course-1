@@ -21,6 +21,7 @@ from utils.pagination import paginate_queryset
 
 class RegistrationFormAdminView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def get(self, request, form_id=None):
         try:
@@ -56,6 +57,7 @@ class RegistrationFormAdminView(APIView):
 
 
 class RegistrationFormPublicView(APIView):
+    throttle_scope = 'search'
 
     def get(self, request):
         try:
@@ -73,6 +75,7 @@ class RegistrationFormPublicView(APIView):
 
 class FormQuestionAdminView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def post(self, request, form_id=None, question_id=None):
         try:
@@ -98,6 +101,7 @@ class FormQuestionAdminView(APIView):
 
 class FormQuestionBatchView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
 
     def put(self, request, form_id):
         try:

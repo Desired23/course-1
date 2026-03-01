@@ -4,11 +4,11 @@ from .models import Enrollment
 from datetime import datetime
 from courses.models import Course
 from django.db import IntegrityError
+from django.db.models import F
 from activity_logs.services import log_activity
 
 def create_enrollment(data):
     try: 
-        print("Data received for enrollment creation:", data)
         dataCopy = {
             'user_id': data['user_id'],
             'course_id': data['course_id'],
@@ -25,8 +25,7 @@ def create_enrollment(data):
             except IntegrityError:
                 raise ValidationError({"error": "User has already enrolled in this course."})
             course = Course.objects.get(id=dataCopy.get('course_id'))
-            course.total_students += 1
-            course.save()
+            Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
             log_activity(
                 user_id=enrollment.user.id,
                 action="ENROLL",
@@ -36,8 +35,10 @@ def create_enrollment(data):
             )
             return EnrollmentCreateSerializer(enrollment).data 
         raise ValidationError(serializer.errors)
-    except Exception as e:
-        raise ValidationError({"error": str(e)})
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError({"error": "Lỗi khi tạo enrollment."})
 def get_enrollment_by_user(user_id):
     try:
         enrollments = Enrollment.objects.filter(user=user_id)
@@ -100,5 +101,6 @@ def user_has_course_access(user_id, course_id):
     return Enrollment.objects.filter(
         user_id=user_id,
         course_id=course_id,
-        status='Active'
+        status=Enrollment.Status.Active,
+        is_deleted=False,
     ).exists()

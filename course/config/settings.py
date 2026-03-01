@@ -23,13 +23,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-&fdfpm3&397v^3-cay1lhfg$5ktshko79(^56-vu&)zx29eclj'
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-&fdfpm3&397v^3-cay1lhfg$5ktshko79(^56-vu&)zx29eclj'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 ASGI_APPLICATION = "config.asgi.application"
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'course-604d.onrender.com',  'https://dashboard.render.com/web/srv-d1sfgrfdiees73fhpme0/deploys/dep-d1sfgrvdiees73fhpmrg']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'course-604d.onrender.com']
 def get_env(key, default=None, required=False):
     value = os.getenv(key, default)
     if not value:
@@ -64,7 +67,7 @@ CLOUDINARY_API_SECRET = get_env("CLOUDINARY_API_SECRET", default="eYOL6HTUSbXlZN
 
 
 REFUND_DAYS = 7  # Số ngày được hoàn tiền kể từ ngày mua khóa học
-VNPAY_HASH_SECRET_KEY ="BNPD5VQ9RUUJ9E3YVLEUHLF2EDA8AAYC"
+VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY', 'BNPD5VQ9RUUJ9E3YVLEUHLF2EDA8AAYC')
 
 
 
@@ -85,7 +88,7 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Online Course <{EMAIL_HOS
 
 
 # VNPAY_RETURN_URL = "http://127.0.0.1:8000/api/vnpay/return/"
-VNPAY_RETURN_URL = "https://dashboard.render.com/web/srv-d1sfgrfdiees73fhpme0/deploys/dep-d1sfgrvdiees73fhpmrg/api/vnpay/return/"
+VNPAY_RETURN_URL = os.getenv("VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/vnpay/return/")
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -95,6 +98,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'cloudinary',
     'cloudinary_storage',
+    'corsheaders',
     'channels',
     'realtime',  
     'activity_logs',
@@ -137,10 +141,12 @@ INSTALLED_APPS = [
     'applications',
     'certificates',
     'subscription_plans',
+    'payment_methods',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -236,4 +242,43 @@ REST_FRAMEWORK = {
         # RolePermissionFactory tự xử lý authentication + permission
         # 'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # Global defaults
+        'anon': '20/min',           # Anonymous users
+        'user': '60/min',           # Authenticated users (global)
+
+        # Scoped rates — sensitive endpoints
+        'login': '5/min',
+        'register': '3/min',
+        'password_reset': '3/hour',
+        'payment': '10/min',
+        'quiz_submit': '5/min',
+        'upload': '10/min',
+
+        # Scoped rates — content interaction
+        'review': '5/min',
+        'support': '5/min',
+        'notification': '30/min',
+
+        # Scoped rates — browsing / search
+        'search': '30/min',
+
+        # Scoped rates — general authenticated burst
+        'burst': '60/min',
+    },
 }
+
+# CORS Settings
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Chỉ cho phép tất cả trong dev
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+]
+CORS_ALLOW_CREDENTIALS = True

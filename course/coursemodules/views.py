@@ -15,16 +15,17 @@ from .services import (
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 class CourseModuleListView(APIView):
+    throttle_scope = 'search'
     def get(self, request):
         course_modules = get_course_modules()
         return paginate_queryset(course_modules, request, CourseModuleSerializer)
 
 class CourseModuleDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def get(self, request, course_module_id):
         try:
-            course_module = get_course_module_by_id(course_module_id)
             return Response(course_module, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
@@ -45,6 +46,7 @@ class CourseModuleDetailView(APIView):
 
 class CourseModuleCreateView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         try:

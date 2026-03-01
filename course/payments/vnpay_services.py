@@ -94,7 +94,6 @@ def create_vnpay_payment(request: HttpRequest):
     params['vnp_CreateDate'] = datetime.now(tz).strftime('%Y%m%d%H%M%S')
     # print(f"Creating VNPAY payment with params: {params}")
     vn_payment_url = get_payment_url(vnp_Url, params, vnp_HashSecret)
-    print(vn_payment_url)
 
     return JsonResponse({'payment_url': vn_payment_url})
 
@@ -134,7 +133,6 @@ def payment_return(request):
                         payment.save()
                         # Generate instructor earnings from the payment
                         generate_instructor_earnings_from_payment(payment)
-                    print(f"Payment {order_id} completed successfully.")
 
                     return JsonResponse({
                         "title": "Kết quả thanh toán",
@@ -150,7 +148,6 @@ def payment_return(request):
                     payment.transaction_id = vnp_TransactionNo
                     payment.gateway_response = vnp_ResponseCode
                     payment.save()
-                    print(f"Payment {order_id} failed with response code {vnp_ResponseCode}.")
                     return JsonResponse({
                         "title": "Kết quả thanh toán",
                         "result": "Lỗi",
@@ -222,15 +219,13 @@ def payment_ipn(request):
                     # Generate instructor earnings from the payment
                     generate_instructor_earnings_from_payment(payment.id)
 
-                print(f"Payment {order_id} completed successfully.")
-
                 # Send invoice email (outside transaction - best effort)
                 try:
                     details = payment.payment_details.all()
                     if details.exists():
                         send_payment_invoice(payment.user.email, payment)
-                except Exception as e:
-                    print(f"Error sending invoice: {str(e)}")
+                except Exception:
+                    pass  # Email sending is best-effort
 
             else:
                 # Payment failed at VNPAY
@@ -238,7 +233,6 @@ def payment_ipn(request):
                 payment.transaction_id = vnp_TransactionNo
                 payment.gateway_response = vnp_ResponseCode
                 payment.save()
-                print(f"Payment {order_id} failed with response code {vnp_ResponseCode}.")
 
             # Return VNPAY: Merchant update success
             result = JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
@@ -304,7 +298,6 @@ def send_vnpay_refund_request(payment_detail_id, reason):
         # Gửi yêu cầu đến VNPAY
         response = requests.post(vnp_Url, json=request_data, headers={'Content-Type': 'application/json'})
         response_data = response.json()
-        print(f"VNPAY Refund Response: {response_data}")
 
         if response_data.get("vnp_ResponseCode") == "00":
             # Thành công

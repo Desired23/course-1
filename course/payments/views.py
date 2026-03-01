@@ -6,11 +6,18 @@ from django.utils.decorators import method_decorator
 from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
 from .vnpay_services import  payment_ipn
 from .services import create_payment, get_payment_status, check_enrollment_by_course
-from .refund_services import admin_update_refund_status, user_cancel_refund_request, get_refund_details, user_refund_request
+from .refund_services import (
+    admin_update_refund_status,
+    user_cancel_refund_request,
+    get_refund_details,
+    user_refund_request,
+    get_user_refunds,
+)
 from utils.permissions import RolePermissionFactory
 
 class CreateVnpayPaymentView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
     def post(self, request):
         try:
             return create_vnpay_payment(request)
@@ -28,15 +35,19 @@ class VnpayIPNView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 class CreatePaymentRecordView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
 
     def post(self, request):
         try:
-            payment = create_payment(request.data)
+            data = request.data.copy()
+            data['user_id'] = request.user.id  # enforce from token, prevent IDOR
+            payment = create_payment(data)
             return Response(payment, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 class VnpayReturnView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
 
     def get (self, request):
         try:
@@ -56,17 +67,6 @@ class VnpayReturnView(APIView):
             return Response(returnData, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    def patch (self, request):
-        try:
-            payment_id = request.data.get('payment_id')
-            payment_details_ids = request.data.get('payment_details_ids')
-            refund_status = request.data.get('status')
-            response_code = request.data.get('response_code')
-            transaction_id = request.data.get('transaction_id')
-            admin_update_refund_status(payment_id, payment_details_ids, refund_status, response_code, transaction_id)
-            return Response({"message": "Refund status updated successfully"}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     def put (self, request):
         try:
             payment_id = request.data.get('payment_id')
@@ -77,8 +77,27 @@ class VnpayReturnView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class AdminRefundUpdateView(APIView):
+    """Admin-only endpoint for updating refund status."""
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'payment'
+
+    def patch(self, request):
+        try:
+            payment_id = request.data.get('payment_id')
+            payment_details_ids = request.data.get('payment_details_ids')
+            refund_status = request.data.get('status')
+            response_code = request.data.get('response_code')
+            transaction_id = request.data.get('transaction_id')
+            admin_update_refund_status(payment_id, payment_details_ids, refund_status, response_code, transaction_id)
+            return Response({"message": "Refund status updated successfully"}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class PaymentStatusView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def get(self, request, payment_id):
         try:
@@ -90,6 +109,7 @@ class PaymentStatusView(APIView):
 
 class CheckEnrollmentView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
 
     def get(self, request, course_id):
         try:
@@ -98,3 +118,29 @@ class CheckEnrollmentView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
+class UserRefundListView(APIView):
+    """
+    GET /api/refunds/           - list my refund requests (optionally ?status=pending)
+    POST /api/refunds/request/  - alias: submit refund (same as VnpayReturnView POST but cleaner URL)
+    """
+    permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
+    throttle_scope = 'payment'
+
+    def get(self, request):
+        try:
+            refund_status_filter = request.query_params.get('status')
+            data = get_user_refunds(request.user, refund_status_filter)
+            return Response(data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        try:
+            payment_id = request.data.get('payment_id')
+            payment_details_ids = request.data.get('payment_details_ids')
+            reason = request.data.get('reason')
+            result = user_refund_request(payment_id, payment_details_ids, request.user, reason)
+            return Response(result, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

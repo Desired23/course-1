@@ -64,6 +64,13 @@ def create_promotion(data):
             courses = Course.objects.filter(pk__in=applicable_course_ids)
             if len(courses) != len(applicable_course_ids):
                 raise ValidationError({"error": "Some courses not found."})
+            # Verify instructor owns all applicable courses
+            if instructor_id:
+                for course in courses:
+                    if course.instructor_id != int(instructor_id):
+                        raise ValidationError(
+                            {"error": f"Giảng viên không sở hữu khóa học '{course.title}' (ID={course.id})."}
+                        )
             promotion.applicable_courses.set(courses)
 
         return PromotionSerializer(promotion).data

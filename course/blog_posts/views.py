@@ -15,6 +15,7 @@ from .serializers import BlogPostSerializer
 
 class AdminBlogPostView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def get(self, request):
         try:
@@ -49,6 +50,7 @@ class AdminBlogPostView(APIView):
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 class ClientBlogPostView(APIView):
+    throttle_scope = 'search'
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
 
     def get(self, request):

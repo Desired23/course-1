@@ -4,6 +4,7 @@ from .models import Review
 from users.models import User
 from courses.models import Course
 from enrollments.models import Enrollment
+from django.db.models import F
 
 def create_review(data):
     try:
@@ -23,8 +24,7 @@ def create_review(data):
         raise ValidationError({"error": "Người dùng chưa đăng ký khóa học này."})
     serializer = ReviewSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
-        course.total_reviews += 1
-        course.save()
+        Course.objects.filter(id=data['course_id']).update(total_reviews=F('total_reviews') + 1)
         review = serializer.save()
         return review
     raise ValidationError(serializer.errors)
@@ -58,18 +58,23 @@ def count_reviews_by_course(course_id):
     
 def count_like_review(review_id):
     try:
-        review = Review.objects.get(id=review_id)
-        review.likes += 1
-        review.save()
-        return review
+        updated = Review.objects.filter(id=review_id).update(likes=F('likes') + 1)
+        if not updated:
+            raise ValidationError({"error": "Không tìm thấy đánh giá."})
+        return Review.objects.get(id=review_id)
     except Review.DoesNotExist:
         raise ValidationError({"error": "Không tìm thấy đánh giá."})
     
-def update_review(review_id, data):
+def update_review(review_id, data, requesting_user=None):
     try:
         review = Review.objects.get(id=review_id)
     except Review.DoesNotExist:
         raise ValidationError({"error": "Không tìm thấy đánh giá."})
+
+    # Ownership check: only the review author or admin can update
+    if requesting_user:
+        if review.user_id != requesting_user.id and not hasattr(requesting_user, 'admin'):
+            raise ValidationError({"error": "Bạn không có quyền chỉnh sửa đánh giá này."})
 
     serializer = ReviewSerializer(review, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):

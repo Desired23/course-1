@@ -22,12 +22,11 @@ from rest_framework.permissions import IsAuthenticated
 
 class QuizQuestionManagementView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         try:
             quiz_question = create_quiz_question(request.data)
-            print("Quiz question created successfully:", quiz_question)
-            print("Request data:", request.data)
             return Response(quiz_question, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -54,7 +53,6 @@ class QuizQuestionManagementView(APIView):
 
     def patch(self, request, question_id):
         try:
-            print("Updating quiz question ID:", question_id)
             updated_quiz_question = update_quiz_question(question_id, request.data)
             return Response(updated_quiz_question, status=status.HTTP_200_OK)
         except ValidationError as e:
@@ -74,6 +72,7 @@ class LessonQuizView(APIView):
     Get all quiz questions for a lesson (for students taking quiz)
     """
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
     def get(self, request, lesson_id):
         try:
             quiz_data = get_lesson_quiz(lesson_id)
@@ -89,6 +88,7 @@ class QuizTestCaseView(APIView):
     Manage test cases for code-type quiz questions
     """
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
 
     def post(self, request):
         """Create a new test case"""
