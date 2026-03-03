@@ -196,3 +196,99 @@ def get_course_analytics(instructor, course_id):
         'popular_lessons': popular_lessons_data,
         'rating_distribution': rating_dist,
     }
+
+
+def get_instructor_analytics_timeseries(instructor, months=12):
+    """
+    Returns overall time-series data across all instructor courses.
+    Used by InstructorAnalyticsPage for charts (revenue, enrollments, engagement by month).
+    """
+    from courses.models import Course
+    from enrollments.models import Enrollment
+    from reviews.models import Review
+    from instructor_earnings.models import InstructorEarning
+    from learning_progress.models import LearningProgress
+
+    now = timezone.now()
+    courses_qs = Course.objects.filter(instructor=instructor, is_deleted=False)
+    course_ids = list(courses_qs.values_list('id', flat=True))
+
+    revenue_trend = []
+    enrollment_trend = []
+    engagement_trend = []
+
+    for i in range(months - 1, -1, -1):
+        month_start = (now.replace(day=1) - timedelta(days=i * 30)).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1)
+
+        label = month_start.strftime('%Y-%m')
+
+        # Revenue
+        rev = InstructorEarning.objects.filter(
+            instructor=instructor, is_deleted=False,
+            created_at__gte=month_start, created_at__lt=month_end
+        ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+        revenue_trend.append({'date': label, 'revenue': float(rev)})
+
+        # Enrollments
+        enr_count = Enrollment.objects.filter(
+            course_id__in=course_ids, is_deleted=False,
+            enrollment_date__gte=month_start, enrollment_date__lt=month_end
+        ).count()
+        enrollment_trend.append({'date': label, 'enrollments': enr_count})
+
+        # Engagement (active learners who interacted with progress)
+        active_learners = LearningProgress.objects.filter(
+            course_id__in=course_ids, is_deleted=False,
+            last_accessed__gte=month_start, last_accessed__lt=month_end
+        ).values('user_id').distinct().count()
+
+        completions = LearningProgress.objects.filter(
+            course_id__in=course_ids, is_deleted=False,
+            is_completed=True,
+            completion_date__gte=month_start, completion_date__lt=month_end
+        ).count()
+
+        engagement_trend.append({
+            'date': label,
+            'active_learners': active_learners,
+            'completions': completions,
+        })
+
+    # Top courses by enrollments
+    top_courses = []
+    for course in courses_qs.order_by('-total_students')[:5]:
+        top_courses.append({
+            'course_id': course.id,
+            'title': course.title,
+            'students': course.total_students or 0,
+            'rating': float(course.rating or 0),
+            'revenue': float(
+                InstructorEarning.objects.filter(
+                    course=course, instructor=instructor, is_deleted=False
+                ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+            ),
+        })
+
+    # Review overview
+    reviews_qs = Review.objects.filter(
+        course_id__in=course_ids, is_deleted=False, status='approved'
+    )
+    rating_dist = {f'{i}_star': 0 for i in range(1, 6)}
+    for row in reviews_qs.values('rating').annotate(cnt=Count('id')):
+        key = f"{int(row['rating'])}_star"
+        if key in rating_dist:
+            rating_dist[key] = row['cnt']
+
+    return {
+        'revenue_trend': revenue_trend,
+        'enrollment_trend': enrollment_trend,
+        'engagement_trend': engagement_trend,
+        'top_courses': top_courses,
+        'rating_distribution': rating_dist,
+    }

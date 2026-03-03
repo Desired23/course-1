@@ -34,6 +34,7 @@ class BlogPost(models.Model):
     summary = models.TextField(null=True, blank=True, db_column='sumary')
     published_at = models.DateTimeField(null=True, blank=True)
     views = models.IntegerField(default=0)
+    likes = models.IntegerField(default=0)
     allow_comments = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
 

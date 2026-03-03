@@ -2,6 +2,7 @@ from django.urls import path
 from .views import (
     InstructorListView, InstructorCreateView, InstructorDetailView,
     InstructorDashboardStatsView, InstructorCourseAnalyticsView,
+    InstructorAnalyticsTimeseriesView,
 )
 
 urlpatterns = [
@@ -14,4 +15,5 @@ urlpatterns = [
     # Dashboard analytics
     path('instructor/dashboard/stats/', InstructorDashboardStatsView.as_view(), name='instructor-dashboard-stats'),
     path('instructor/courses/<int:course_id>/analytics/', InstructorCourseAnalyticsView.as_view(), name='instructor-course-analytics'),
+    path('instructor/analytics/timeseries/', InstructorAnalyticsTimeseriesView.as_view(), name='instructor-analytics-timeseries'),
 ]

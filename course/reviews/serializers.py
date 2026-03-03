@@ -11,10 +11,18 @@ class ReviewUserSerializer(serializers.Serializer):
     avatar = serializers.CharField(allow_null=True)
 
 
+class ReviewCourseSerializer(serializers.Serializer):
+    """Nested course summary inside review response (for user's reviews page)."""
+    course_id = serializers.IntegerField(source='id')
+    title = serializers.CharField()
+    thumbnail = serializers.CharField(allow_null=True)
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     """Review with nested user info for public list endpoints."""
     review_id = serializers.IntegerField(source='id', read_only=True)
     user_info = ReviewUserSerializer(source='user', read_only=True)
+    course_detail = ReviewCourseSerializer(source='course', read_only=True)
     review_date = serializers.DateTimeField(source='created_at', read_only=True)
     updated_date = serializers.DateTimeField(source='updated_at', read_only=True)
     response_date = serializers.DateTimeField(source='response_at', read_only=True)
@@ -26,6 +34,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             'course',
             'user',
             'user_info',
+            'course_detail',
             'rating',
             'comment',
             'review_date',

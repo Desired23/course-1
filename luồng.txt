@@ -1,0 +1,206 @@
+1. Nguyên tắc cốt lõi của mô hình Udemy
+
+Udemy KHÔNG làm:
+
+“Mỗi course thuộc đúng 1 plan”
+
+“Tự động nhét tất cả course vào subscription”
+
+Udemy làm:
+
+Marketplace mở (ai cũng bán)
+
+Subscription là curated library
+
+Course opt-in vào subscription
+
+👉 Đây là điểm khác biệt quan trọng.
+
+2. Kiến trúc chức năng tổng thể
+Course Marketplace (mua lẻ)
+        │
+        ├── Course Quality Filter
+        │
+        └── Subscription Library (Plan)
+
+3. Mô hình dữ liệu (Udemy-style)
+3.1. Course không biết Plan
+
+❌ KHÔNG để course.plan_id
+
+✅ Course độc lập:
+
+Course
+- id
+- title
+- category
+- level
+- rating
+- updated_at
+- instructor_id
+
+3.2. Subscription Library (quan trọng)
+Plan
+- id
+- name
+- type (individual / business)
+
+PlanCourse
+- plan_id
+- course_id
+- status (active / removed)
+- added_reason
+- added_by
+- added_at
+
+
+👉 PlanCourse là curation layer, không phải core content.
+
+4. Luồng đưa course vào plan (chuẩn Udemy)
+Bước 1: Course public trên marketplace
+
+Instructor publish course
+
+Course bán lẻ bình thường
+
+Bước 2: Course được “đề xuất” vào plan
+
+Hệ thống chạy job định kỳ:
+
+IF rating >= 4.4
+AND students >= 1000
+AND updated_at < 12 months
+AND category IN allowed_categories
+THEN mark_as_candidate
+
+
+👉 Chỉ là candidate, chưa vào plan.
+
+Bước 3: Instructor opt-in (bắt buộc)
+
+Instructor nhận notification:
+
+“Course của bạn đủ điều kiện vào Subscription Plan”
+
+Instructor đồng ý chia sẻ doanh thu
+
+CourseSubscriptionConsent
+- course_id
+- instructor_id
+- consented_at
+
+Bước 4: Admin curate thủ công
+
+Admin dashboard:
+
+Xem list candidate
+
+So sánh các course cùng topic
+
+Chọn 1–3 course tốt nhất
+
+👉 Udemy không cho trùng quá nhiều course cùng nội dung.
+
+Bước 5: Publish vào plan
+
+Thêm record vào PlanCourse
+
+Course xuất hiện cho user subscription
+
+Marketplace vẫn mua lẻ bình thường
+
+5. Kiểm soát truy cập (Access Control)
+IF user.has_subscription():
+    IF course IN subscription_library:
+        ALLOW
+    ELSE:
+        REQUIRE_PURCHASE
+ELSE:
+    REQUIRE_PURCHASE
+
+
+👉 Subscription KHÔNG unlock toàn bộ marketplace.
+
+6. UX giống Udemy (rất quan trọng)
+Course card:
+
+“Included in Subscription”
+
+“Buy separately”
+
+Course page:
+
+Giá mua lẻ vẫn hiện
+
+Subscription như một alternative
+
+👉 Subscription là upsell, không thay thế marketplace.
+
+7. Revenue sharing (logic nội bộ)
+
+Udemy-style:
+
+Không trả tiền theo số course
+
+Trả theo minutes watched
+
+Bạn nên có:
+
+SubscriptionUsage
+- user_id
+- course_id
+- minutes_watched
+- date
+
+
+→ dùng để:
+
+Trả tiền instructor
+
+Loại course ít được học khỏi plan
+
+8. Loại course khỏi plan (vòng đời)
+
+Job chạy hàng quý:
+
+IF usage < threshold
+OR rating drops
+OR outdated
+THEN remove_from_plan
+
+
+👉 Course bị remove khỏi plan nhưng KHÔNG bị xóa marketplace.
+
+9. MVP giống Udemy nhất (khuyến nghị)
+Phase 1
+
+Marketplace mua lẻ
+
+1 subscription plan
+
+Admin curate thủ công
+
+Access control
+
+Phase 2
+
+Candidate rule engine
+
+Instructor opt-in
+
+Usage tracking
+
+Phase 3
+
+Multi plan
+
+Revenue sharing automation
+
+Enterprise features
+
+10. Sai lầm phổ biến khi “bắt chước Udemy”
+
+❌ Cho toàn bộ course vào subscription
+❌ Không có opt-in của instructor
+❌ Subscription làm sập giá marketplace
+❌ Không curate → plan thành “rác”

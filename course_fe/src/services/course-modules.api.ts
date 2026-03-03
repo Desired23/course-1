@@ -1,0 +1,99 @@
+/**
+ * Course Modules API Service
+ * CRUD operations for course modules (sections)
+ *
+ * Endpoints:
+ *   GET    /api/course_modules/                         — List all modules (paginated)
+ *   POST   /api/course_modules/create                   — Create module
+ *   GET    /api/course_modules/:id                      — Get module detail
+ *   PATCH  /api/course_modules/:id/update               — Update module
+ *   DELETE /api/course_modules/:id/delete               — Delete module
+ */
+
+import { http } from './http'
+
+// ─── Types ────────────────────────────────────────────────────
+
+export interface CourseModule {
+  id: number
+  course: number | null
+  title: string
+  description: string | null
+  order_number: number
+  duration: number | null
+  status: 'Draft' | 'Published'
+  created_at: string
+  updated_at: string
+}
+
+export interface CourseModuleCreateData {
+  course: number
+  title: string
+  description?: string
+  order_number: number
+  duration?: number
+  status?: 'Draft' | 'Published'
+}
+
+export interface CourseModuleUpdateData {
+  title?: string
+  description?: string
+  order_number?: number
+  duration?: number
+  status?: 'Draft' | 'Published'
+}
+
+export interface PaginatedModules {
+  count: number
+  next: string | null
+  previous: string | null
+  results: CourseModule[]
+}
+
+// ─── API Functions ────────────────────────────────────────────
+
+/** List modules — optionally filter by course */
+export async function getCourseModules(courseId?: number, page = 1): Promise<PaginatedModules> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (courseId) params.set('course_id', String(courseId))
+  return http.get<PaginatedModules>(`/course_modules/?${params}`)
+}
+
+/** Get all modules for a course (auto-paginate) */
+export async function getAllCourseModules(courseId: number): Promise<CourseModule[]> {
+  const all: CourseModule[] = []
+  let page = 1
+  while (true) {
+    const res = await getCourseModules(courseId, page)
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all.sort((a, b) => a.order_number - b.order_number)
+}
+
+/** Get single module */
+export async function getCourseModuleById(moduleId: number): Promise<CourseModule> {
+  return http.get<CourseModule>(`/course_modules/${moduleId}`)
+}
+
+/** Create module */
+export async function createCourseModule(data: CourseModuleCreateData): Promise<CourseModule> {
+  return http.post<CourseModule>('/course_modules/create', data)
+}
+
+/** Update module */
+export async function updateCourseModule(moduleId: number, data: CourseModuleUpdateData): Promise<CourseModule> {
+  return http.patch<CourseModule>(`/course_modules/${moduleId}/update`, data)
+}
+
+/** Delete module */
+export async function deleteCourseModule(moduleId: number): Promise<void> {
+  return http.delete(`/course_modules/${moduleId}/delete`)
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+export function getModuleStatusLabel(status: string): string {
+  return status === 'Published' ? 'Đã xuất bản' : 'Bản nháp'
+}

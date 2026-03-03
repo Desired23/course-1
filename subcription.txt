@@ -1,0 +1,180 @@
+Hiểu rồi 👍
+Bạn đang hỏi về mặt thiết kế chức năng & kiến trúc hệ thống: làm thế nào để triển khai tính năng “phân chia khóa học vào các plan” cho một nền tảng course online, chứ không phải cách Udemy làm về mặt kinh doanh.
+
+Mình sẽ trả lời theo góc độ product + system design, có thể áp dụng trực tiếp.
+
+1. Bài toán cốt lõi cần giải
+
+Bạn cần trả lời 3 câu hỏi:
+
+Plan là gì? (quyền truy cập khác nhau ở đâu)
+
+Khóa học được gán vào plan bằng cách nào? (manual, rule-based, hay hybrid)
+
+Khi user mua plan thì hệ thống kiểm soát truy cập ra sao?
+
+👉 Tất cả xoay quanh Access Control (quyền truy cập nội dung).
+
+2. Mô hình dữ liệu (rất quan trọng)
+2.1. Các entity cơ bản
+User
+Course
+Plan
+Subscription
+
+2.2. Quan hệ cốt lõi (Many-to-Many)
+Plan ---< PlanCourse >--- Course
+User ---< Subscription >--- Plan
+
+Ví dụ bảng PlanCourse
+plan_id	course_id
+basic	c001
+pro	c002
+pro	c003
+
+👉 Một khóa học có thể thuộc nhiều plan.
+
+3. Các cách phân chia khóa học vào plan
+Cách 1: Gán thủ công (Manual – bắt buộc có)
+
+Admin dashboard:
+
+Checkbox chọn plan cho mỗi course
+
+Phù hợp giai đoạn đầu
+
+Dễ kiểm soát chất lượng
+
+Nên làm:
+
+Course → Tab “Plan access”
+
+Tick: Basic / Pro / Enterprise
+
+👉 Đây là MVP bắt buộc.
+
+Cách 2: Rule-based (bán tự động)
+
+Sau khi có nhiều khóa học (>100):
+
+Ví dụ rule:
+
+Nếu course.level = Advanced → Pro+
+
+Nếu course.category = AI, Cloud → Enterprise
+
+Nếu rating < 4.2 → không cho vào plan cao
+
+Cách triển khai:
+IF course.category IN ("AI", "Cloud")
+AND course.rating >= 4.5
+THEN add_to_plan("Enterprise")
+
+
+👉 Rule chỉ gợi ý, admin vẫn cần confirm.
+
+Cách 3: Score-based (nâng cao – sau này)
+
+Tính điểm khóa học:
+
+score =
+  rating * 0.3
++ completion_rate * 0.2
++ freshness * 0.2
++ demand * 0.3
+
+
+Score > 80 → Plan cao
+
+Score 50–80 → Plan trung
+
+<50 → không vào subscription
+
+👉 Phù hợp khi scale lớn.
+
+4. Kiểm soát truy cập (Access Control)
+4.1. Middleware kiểm tra quyền
+
+Khi user mở course:
+
+IF user.has_active_subscription():
+    IF course IN user.plan.courses:
+        ALLOW
+    ELSE:
+        DENY
+ELSE:
+    DENY
+
+4.2. UX nên làm
+
+Course card có badge:
+
+🔓 Included in Pro
+
+🔒 Upgrade to access
+
+Không ẩn course → dùng làm upsell
+
+5. Thiết kế plan thông minh (Product tip)
+5.1. Đừng chia theo số lượng khóa
+
+❌ “Basic: 50 khóa, Pro: 200 khóa”
+✅ “Basic: Foundation skills, Pro: Job-ready skills”
+
+5.2. Tối đa 3 plan
+
+Quá nhiều plan → user rối
+
+Udemy, Coursera đều ≤ 3
+
+6. Luồng nghiệp vụ hoàn chỉnh
+Admin tạo course
+→ gán category, level, tag
+→ hệ thống suggest plan
+→ admin approve
+→ user mua plan
+→ middleware kiểm tra quyền
+→ cho học
+
+7. Những lỗi phổ biến nên tránh
+
+❌ Hard-code plan trong course
+❌ Không cho course thuộc nhiều plan
+❌ Không có công cụ admin review
+❌ Không log lý do course vào plan nào
+
+8. MVP đề xuất cho bạn (thực tế nhất)
+
+Nếu bạn đang làm platform:
+
+Phase 1 (2–3 tuần)
+
+Plan (Basic / Pro)
+
+Gán course thủ công
+
+Access control đơn giản
+
+Phase 2
+
+Rule suggest plan
+
+Analytics course usage
+
+Upsell UI
+
+Phase 3
+
+Score-based
+
+A/B test plan content
+
+Nếu bạn muốn, bạn có thể cho mình biết:
+
+Bạn đang dùng tech stack gì (Laravel, Django, Node, Firebase…)
+
+Platform B2C hay B2B
+
+Subscription hay mua lẻ song song
+
+👉 Mình có thể vẽ schema DB / API / middleware mẫu cho đúng case của bạn.

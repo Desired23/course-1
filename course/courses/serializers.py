@@ -5,6 +5,11 @@ from categories.models import Category
 from instructors.serializers import InstructorSerializers  # giả sử đã có sẵn
 
 class CourseSerializer(serializers.ModelSerializer):
+    instructor_name = serializers.SerializerMethodField()
+    instructor_avatar = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
+    subcategory_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Course
         fields = [
@@ -26,6 +31,10 @@ class CourseSerializer(serializers.ModelSerializer):
             'total_lessons',
             'total_modules',
             'requirements',
+            'learning_objectives',
+            'target_audience',
+            'tags',
+            'promotional_video',
             'status',
             'is_featured',
             'is_public',
@@ -36,10 +45,34 @@ class CourseSerializer(serializers.ModelSerializer):
             'total_reviews',
             'total_students',
             'certificate',
+            'instructor_name',
+            'instructor_avatar',
+            'category_name',
+            'subcategory_name',
         ]
         read_only_fields = [
             'rating', 'total_reviews', 'total_students'
         ]
+
+    def get_instructor_name(self, obj):
+        if obj.instructor and hasattr(obj.instructor, 'user'):
+            return obj.instructor.user.full_name
+        return None
+
+    def get_instructor_avatar(self, obj):
+        if obj.instructor and hasattr(obj.instructor, 'user'):
+            return obj.instructor.user.avatar
+        return None
+
+    def get_category_name(self, obj):
+        if obj.category:
+            return obj.category.name
+        return None
+
+    def get_subcategory_name(self, obj):
+        if obj.subcategory:
+            return obj.subcategory.name
+        return None
 
 
 # ---- Nested serializers for detail response ----
@@ -135,6 +168,10 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'total_lessons',
             'total_modules',
             'requirements',
+            'learning_objectives',
+            'target_audience',
+            'tags',
+            'promotional_video',
             'status',
             'is_featured',
             'is_public',

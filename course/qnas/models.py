@@ -22,6 +22,9 @@ class QnA(models.Model):
     is_deleted = models.BooleanField(default=False)
     status = models.CharField(max_length=10, choices=StatusChoices.choices, default=StatusChoices.PENDING)
     views = models.IntegerField(default=0)
+    description = models.TextField(null=True, blank=True)
+    tags = models.JSONField(null=True, blank=True, default=list)
+    votes = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'QnA'

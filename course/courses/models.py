@@ -40,6 +40,10 @@ class Course(models.Model):
     total_lessons = models.IntegerField(default=0)
     total_modules = models.IntegerField(default=0)
     requirements = models.TextField(blank=True, null=True)
+    learning_objectives = models.JSONField(default=list, blank=True, help_text="Danh sách mục tiêu học tập")
+    target_audience = models.JSONField(default=list, blank=True, help_text="Danh sách đối tượng mục tiêu")
+    tags = models.JSONField(default=list, blank=True, help_text="Danh sách tags")
+    promotional_video = models.CharField(max_length=500, blank=True, null=True, help_text="URL video giới thiệu")
     status = models.CharField(
         max_length=20,
         choices=Status.choices,

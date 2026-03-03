@@ -1,0 +1,364 @@
+import { useState } from "react"
+import { Camera, Mail, Phone, MapPin, Calendar, BookOpen, Users, Award, Settings, Edit2 } from "lucide-react"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
+import { Textarea } from "../../components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
+import { Badge } from "../../components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Separator } from "../../components/ui/separator"
+import { useAuth } from "../../contexts/AuthContext"
+import { toast } from "sonner@2.0.3"
+import { useTranslation } from "react-i18next"
+
+export function ProfilePage() {
+  const { t } = useTranslation()
+  const { user, updateProfile } = useAuth()
+  const [isEditing, setIsEditing] = useState(false)
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    bio: user?.bio || '',
+    website: user?.website || '',
+    twitter: user?.twitter || '',
+    facebook: user?.facebook || '',
+    linkedin: user?.linkedin || '',
+    youtube: user?.youtube || ''
+  })
+
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await updateProfile(formData)
+      setIsEditing(false)
+      toast.success(t('profile.profile_updated'))
+    } catch {
+      toast.error(t('profile.update_failed', 'Failed to update profile'))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      bio: user?.bio || '',
+      website: user?.website || '',
+      twitter: user?.twitter || '',
+      facebook: user?.facebook || '',
+      linkedin: user?.linkedin || '',
+      youtube: user?.youtube || ''
+    })
+    setIsEditing(false)
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl mb-4">{t('profile.login_required')}</h2>
+          <Button onClick={() => window.location.href = '/login'}>
+            {t('profile.log_in')}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-8 overflow-y-auto">
+      <div className="max-w-5xl mx-auto">
+        {/* Profile Header */}
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row gap-6">
+              <div className="relative">
+                <Avatar className="w-32 h-32">
+                  <AvatarImage src={user.avatar} />
+                  <AvatarFallback className="text-2xl">
+                    {user.name.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0"
+                >
+                  <Camera className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              <div className="flex-1">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h1 className="text-3xl mb-2">{user.name}</h1>
+                    <div className="flex items-center gap-4 text-muted-foreground mb-2">
+                      <div className="flex items-center gap-1">
+                        <Mail className="w-4 h-4" />
+                        <span>{user.email}</span>
+                      </div>
+                      <Badge variant="secondary">{user.role}</Badge>
+                    </div>
+                    <p className="text-muted-foreground">
+                      {user.bio || t('profile.no_bio')}
+                    </p>
+                  </div>
+                  
+                  <Button
+                    variant={isEditing ? "default" : "outline"}
+                    onClick={() => setIsEditing(!isEditing)}
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    {isEditing ? t('profile.cancel') : t('profile.edit_profile')}
+                  </Button>
+                </div>
+                
+                {user.role === 'instructor' && (
+                  <div className="flex gap-6 text-sm">
+                    <div className="flex items-center gap-1">
+                      <BookOpen className="w-4 h-4" />
+                      <span>{user.totalCourses || 0} {t('profile.courses_label')}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Users className="w-4 h-4" />
+                      <span>{user.totalStudents?.toLocaleString() || 0} {t('profile.students_label')}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>{t('profile.joined')} {user.createdAt.toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
+            <TabsTrigger value="overview">{t('profile.overview')}</TabsTrigger>
+            <TabsTrigger value="edit">{t('profile.edit_tab')}</TabsTrigger>
+            <TabsTrigger value="courses">{t('profile.my_courses_tab')}</TabsTrigger>
+            <TabsTrigger value="settings">{t('profile.settings_tab')}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{t('profile.learning_progress')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl mb-1">12</div>
+                  <p className="text-sm text-muted-foreground">{t('profile.courses_completed')}</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{t('common.certificate')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl mb-1">8</div>
+                  <p className="text-sm text-muted-foreground">{t('profile.certificates_earned')}</p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">{t('profile.study_time')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl mb-1">147h</div>
+                  <p className="text-sm text-muted-foreground">{t('profile.total_learning_time')}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('profile.recent_activity')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="text-sm">Completed "React Fundamentals" course</p>
+                      <p className="text-xs text-muted-foreground">2 days ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="text-sm">Earned certificate in JavaScript Basics</p>
+                      <p className="text-xs text-muted-foreground">1 week ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <div className="flex-1">
+                      <p className="text-sm">Started "Machine Learning A-Z" course</p>
+                      <p className="text-xs text-muted-foreground">2 weeks ago</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="edit" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('profile.edit_profile_info')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">{t('profile.full_name')}</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">{t('auth.email')}</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="bio">{t('profile.bio')}</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="Tell us about yourself..."
+                    value={formData.bio}
+                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
+                  />
+                </div>
+
+                <Separator />
+
+                <h4 className="font-medium">{t('profile.social_links')}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="website">{t('profile.website')}</Label>
+                    <Input
+                      id="website"
+                      placeholder="https://yourwebsite.com"
+                      value={formData.website}
+                      onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="twitter">{t('profile.twitter')}</Label>
+                    <Input
+                      id="twitter"
+                      placeholder="@username"
+                      value={formData.twitter}
+                      onChange={(e) => setFormData({...formData, twitter: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="linkedin">{t('profile.linkedin')}</Label>
+                    <Input
+                      id="linkedin"
+                      placeholder="linkedin.com/in/username"
+                      value={formData.linkedin}
+                      onChange={(e) => setFormData({...formData, linkedin: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="youtube">{t('profile.youtube')}</Label>
+                    <Input
+                      id="youtube"
+                      placeholder="youtube.com/c/channel"
+                      value={formData.youtube}
+                      onChange={(e) => setFormData({...formData, youtube: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? t('profile.saving', 'Saving...') : t('profile.save_changes')}
+                  </Button>
+                  <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+                    {t('profile.cancel')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="courses" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('my_learning.title')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-center py-8">
+                  {t('profile.no_courses')}
+                </p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('account_settings.title')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">{t('profile.email_notifications')}</h4>
+                    <p className="text-sm text-muted-foreground">{t('profile.email_notifications_desc')}</p>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    {t('profile.configure')}
+                  </Button>
+                </div>
+                
+                <Separator />
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">{t('profile.privacy_settings')}</h4>
+                    <p className="text-sm text-muted-foreground">{t('profile.privacy_settings_desc')}</p>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    {t('profile.manage')}
+                  </Button>
+                </div>
+                
+                <Separator />
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">{t('profile.delete_account')}</h4>
+                    <p className="text-sm text-muted-foreground">{t('profile.delete_account_desc')}</p>
+                  </div>
+                  <Button variant="destructive" size="sm">
+                    {t('common.delete')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}

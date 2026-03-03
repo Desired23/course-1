@@ -16,7 +16,14 @@ from utils.pagination import paginate_queryset
 class LessonListView(APIView):
     throttle_scope = 'search'
     def get(self, request):
-        lessons = get_lessons()
+        filters = {}
+        if request.query_params.get('coursemodule_id'):
+            filters['coursemodule_id'] = request.query_params['coursemodule_id']
+        if request.query_params.get('content_type'):
+            filters['content_type'] = request.query_params['content_type']
+        if request.query_params.get('instructor_id'):
+            filters['instructor_id'] = request.query_params['instructor_id']
+        lessons = get_lessons(filters if filters else None)
         return paginate_queryset(lessons, request, LessonSerializer)
     
 class LessonDetailView(APIView):

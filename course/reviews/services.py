@@ -32,9 +32,17 @@ def create_review(data):
 def get_reviews_by_course(course_id):
     try:
         if course_id:
-            reviews = Review.objects.filter(course=course_id)
+            reviews = Review.objects.filter(course=course_id).select_related('user', 'course')
         else:
-            reviews = Review.objects.all()
+            reviews = Review.objects.all().select_related('user', 'course')
+        return reviews
+    except Exception as e:
+        raise ValidationError({"error": str(e)})
+
+def get_reviews_by_user(user_id):
+    """Get all reviews written by a specific user."""
+    try:
+        reviews = Review.objects.filter(user_id=user_id, is_deleted=False).select_related('user', 'course')
         return reviews
     except Exception as e:
         raise ValidationError({"error": str(e)})
@@ -82,9 +90,24 @@ def update_review(review_id, data, requesting_user=None):
         return updated_review
     raise ValidationError(serializer.errors)
 
-def delete_review(review_id):
+def get_reviews_by_instructor(instructor_id):
+    """Get all reviews across all courses taught by an instructor."""
+    try:
+        reviews = Review.objects.filter(
+            course__instructor_id=instructor_id,
+            is_deleted=False
+        ).select_related('user', 'course')
+        return reviews
+    except Exception as e:
+        raise ValidationError({"error": str(e)})
+
+def delete_review(review_id, requesting_user=None):
     try:
         review = Review.objects.get(id=review_id)
+        # Ownership check: only the review author or admin can delete
+        if requesting_user:
+            if review.user_id != requesting_user.id and not hasattr(requesting_user, 'admin'):
+                raise ValidationError({"error": "Bạn không có quyền xóa đánh giá này."})
         review.delete()
         return {"message": "Đánh giá đã được xóa thành công."}
     except Review.DoesNotExist:

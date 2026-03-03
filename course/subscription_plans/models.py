@@ -41,6 +41,26 @@ class SubscriptionPlan(models.Model):
         max_digits=5, decimal_places=2, default=Decimal('60.00')
     )
     thumbnail = models.CharField(max_length=500, blank=True, null=True)
+    features = models.JSONField(
+        default=list, blank=True,
+        help_text="Danh sách quyền lợi gói (list of strings)"
+    )
+    not_included = models.JSONField(
+        default=list, blank=True,
+        help_text="Danh sách tính năng KHÔNG có trong gói (list of strings)"
+    )
+    badge_text = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text="Text hiển thị trên badge, VD: 'Phổ biến nhất', 'Tiết kiệm nhất'"
+    )
+    icon = models.CharField(
+        max_length=50, blank=True, null=True,
+        help_text="Icon name for FE display, e.g. 'Zap', 'Crown', 'Shield'"
+    )
+    highlight_color = models.CharField(
+        max_length=20, blank=True, null=True,
+        help_text="Color theme: blue, yellow, purple, etc."
+    )
 
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,

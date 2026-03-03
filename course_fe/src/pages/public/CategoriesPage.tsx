@@ -1,0 +1,251 @@
+import { useState, useEffect } from "react"
+import { Code, Briefcase, Palette, Megaphone, Database, Music, ChevronRight, BookOpen, Target, TrendingUp, Loader2 } from "lucide-react"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent } from "../../components/ui/card"
+import { Badge } from "../../components/ui/badge"
+import { useRouter } from "../../components/Router"
+import { getActiveCategories, buildCategoryTree, type CategoryTreeNode } from "../../services/category.api"
+
+export function CategoriesPage() {
+  const { navigate } = useRouter()
+  const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        setLoading(true)
+        const res = await getActiveCategories({ page: 1, page_size: 200 })
+        if (cancelled) return
+        const tree = buildCategoryTree(res.results)
+        setCategoryTree(tree)
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Không thể tải danh mục')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+  
+  // Icon mapping
+  const iconMap: Record<string, any> = {
+    Code,
+    Briefcase,
+    Palette,
+    Megaphone,
+    Database,
+    Music
+  }
+
+  // Pick an icon based on category name (simple heuristic)
+  const pickIcon = (name: string) => {
+    const lower = name.toLowerCase()
+    if (lower.includes('develop') || lower.includes('programming') || lower.includes('lập trình')) return Code
+    if (lower.includes('business') || lower.includes('kinh doanh')) return Briefcase
+    if (lower.includes('design') || lower.includes('thiết kế')) return Palette
+    if (lower.includes('marketing') || lower.includes('tiếp thị')) return Megaphone
+    if (lower.includes('data') || lower.includes('dữ liệu')) return Database
+    if (lower.includes('music') || lower.includes('âm nhạc')) return Music
+    return BookOpen
+  }
+
+  // Pick a color class based on index
+  const colorClasses = [
+    'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400',
+    'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400',
+    'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400',
+    'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400',
+    'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400',
+    'bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-400',
+  ]
+  
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-br from-blue-600 to-purple-700 text-white py-16 px-4">
+        <div className="container mx-auto text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            Explore Our Course Categories
+          </h1>
+          <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-8">
+            Discover thousands of courses across diverse topics. Whether you're looking to advance your career, 
+            learn a new skill, or pursue a passion, we have something for everyone.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+              <BookOpen className="w-5 h-5" />
+              <span className="font-semibold">5,000+ Courses</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+              <Target className="w-5 h-5" />
+              <span className="font-semibold">50+ Categories</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+              <TrendingUp className="w-5 h-5" />
+              <span className="font-semibold">1M+ Students</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Categories Grid */}
+      <div className="container mx-auto px-4 py-12">
+        <div className="mb-12">
+          <h2 className="text-3xl font-bold mb-4">Popular Categories</h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Start with our most popular categories and explore thousands of courses
+          </p>
+        </div>
+
+        {loading && (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center py-16">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()}>Thử lại</Button>
+          </div>
+        )}
+
+        {!loading && !error && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+          {categoryTree.map((category, idx) => {
+            const Icon = pickIcon(category.name)
+            const colorClass = colorClasses[idx % colorClasses.length]
+            const subcategoryCount = category.children?.length || 0
+            
+            return (
+              <Card 
+                key={category.id} 
+                className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden"
+                onClick={() => navigate('/courses', undefined, { category: String(category.id) })}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-14 h-14 ${colorClass} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                      <Icon className="w-7 h-7" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
+                          {category.name}
+                        </h3>
+                        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                      </div>
+                      
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                        {category.description || `Master ${category.name.toLowerCase()} with expert-led courses covering beginner to advanced topics.`}
+                      </p>
+                      
+                      <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                        {subcategoryCount > 0 && (
+                          <span>{subcategoryCount} subcategories</span>
+                        )}
+                      </div>
+                      
+                      {/* Subcategories Preview */}
+                      {category.children && category.children.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {category.children.slice(0, 3).map((sub) => (
+                            <Badge 
+                              key={sub.id} 
+                              variant="secondary" 
+                              className="text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate('/courses', undefined, { subcategory: String(sub.id) })
+                              }}
+                            >
+                              {sub.name}
+                            </Badge>
+                          ))}
+                          {category.children.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{category.children.length - 3} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+        )}
+
+        {/* Category Benefits */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-8 mb-12">
+          <h2 className="text-3xl font-bold mb-6 text-center">Why Choose Our Platform?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                <BookOpen className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Diverse Topics</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                From technology and business to arts and personal development, explore courses in every field imaginable.
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Target className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Skill Levels for Everyone</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Whether you're a complete beginner or an advanced professional, find courses tailored to your level.
+              </p>
+            </div>
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                <TrendingUp className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Industry-Relevant Skills</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Learn the most in-demand skills that employers are looking for in today's job market.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="text-center bg-gradient-to-br from-blue-600 to-purple-700 text-white rounded-lg p-12">
+          <h2 className="text-3xl font-bold mb-4">Ready to Start Learning?</h2>
+          <p className="text-xl text-blue-100 mb-6 max-w-2xl mx-auto">
+            Join over 1 million students already learning on our platform. Start your journey today!
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg" 
+              className="hover:bg-gray-100 dark:hover:bg-gray-200"
+              style={{ backgroundColor: '#ffffff', color: '#2563eb' }}
+              onClick={() => navigate('/courses')}
+            >
+              Browse All Courses
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              className="hover:bg-white/10"
+              style={{ backgroundColor: 'transparent', color: '#ffffff', borderColor: '#ffffff' }}
+              onClick={() => navigate('/signup')}
+            >
+              Sign Up for Free
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

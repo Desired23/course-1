@@ -142,6 +142,7 @@ INSTALLED_APPS = [
     'certificates',
     'subscription_plans',
     'payment_methods',
+    'blog_comments',
 ]
 
 MIDDLEWARE = [
@@ -249,27 +250,27 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         # Global defaults
-        'anon': '20/min',           # Anonymous users
-        'user': '60/min',           # Authenticated users (global)
+        'anon': '200/min',           # Anonymous users
+        'user': '600/min',           # Authenticated users (global)
 
         # Scoped rates — sensitive endpoints
-        'login': '5/min',
-        'register': '3/min',
-        'password_reset': '3/hour',
-        'payment': '10/min',
-        'quiz_submit': '5/min',
-        'upload': '10/min',
+        'login': '50/min',
+        'register': '30/min',
+        'password_reset': '30/hour',
+        'payment': '100/min',
+        'quiz_submit': '50/min',
+        'upload': '100/min',
 
         # Scoped rates — content interaction
-        'review': '5/min',
-        'support': '5/min',
-        'notification': '30/min',
+        'review': '50/min',
+        'support': '50/min',
+        'notification': '300/min',
 
         # Scoped rates — browsing / search
-        'search': '30/min',
+        'search': '300/min',
 
         # Scoped rates — general authenticated burst
-        'burst': '60/min',
+        'burst': '600/min',
     },
 }
 

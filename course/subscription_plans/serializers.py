@@ -48,7 +48,9 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'price', 'discount_price',
             'duration_type', 'duration_days', 'status',
             'is_featured', 'max_subscribers', 'instructor_share_percent',
-            'thumbnail', 'created_by', 'created_at', 'updated_at',
+            'thumbnail', 'features', 'not_included', 'badge_text',
+            'icon', 'highlight_color',
+            'created_by', 'created_at', 'updated_at',
             'effective_price', 'current_subscribers', 'course_count',
             'courses',
         ]
@@ -70,7 +72,9 @@ class SubscriptionPlanListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description', 'price', 'discount_price',
             'duration_type', 'duration_days', 'status',
-            'is_featured', 'thumbnail', 'effective_price', 'course_count',
+            'is_featured', 'thumbnail', 'features', 'not_included',
+            'badge_text', 'icon', 'highlight_color',
+            'effective_price', 'course_count',
         ]
 
     def get_course_count(self, obj):

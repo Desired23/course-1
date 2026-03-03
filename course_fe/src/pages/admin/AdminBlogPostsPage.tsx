@@ -1,0 +1,601 @@
+import { useState, useEffect } from 'react'
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
+import { Textarea } from "../../components/ui/textarea"
+import { Badge } from "../../components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../../components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Switch } from "../../components/ui/switch"
+import { Plus, Edit, Trash2, Eye, Calendar, User, Tag } from 'lucide-react'
+import { useRouter } from "../../components/Router"
+import { toast } from "sonner"
+import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
+import { getAdminBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost } from '../../services/blog-posts.api'
+import type { BlogPost as ApiBlogPost } from '../../services/blog-posts.api'
+
+interface BlogPost {
+  id: string
+  title: string
+  slug: string
+  excerpt: string
+  content: string
+  author: string
+  category: string
+  tags: string[]
+  featuredImage: string
+  status: 'draft' | 'published'
+  views: number
+  publishedAt: string
+  createdAt: string
+}
+
+
+export function AdminBlogPostsPage() {
+  const { navigate } = useRouter()
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
+
+  const mapApiBlogPost = (p: ApiBlogPost): BlogPost => ({
+    id: String(p.id),
+    title: p.title,
+    slug: p.slug,
+    excerpt: p.summary || '',
+    content: p.content,
+    author: p.author_name || '',
+    category: p.category_name || '',
+    tags: p.tags || [],
+    featuredImage: p.featured_image || '',
+    status: p.status === 'archived' ? 'draft' : p.status as 'draft' | 'published',
+    views: p.views,
+    publishedAt: p.published_at || '',
+    createdAt: p.created_at ? new Date(p.created_at).toLocaleDateString() : ''
+  })
+
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const res = await getAdminBlogPosts({ page_size: 200 })
+        setBlogPosts((res.results ?? []).map(mapApiBlogPost))
+      } catch { toast.error('Không thể tải bài viết') }
+    }
+    fetchPosts()
+  }, [])
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
+  
+  const [formData, setFormData] = useState({
+    title: '',
+    slug: '',
+    excerpt: '',
+    content: '',
+    author: '',
+    category: '',
+    tags: '',
+    featuredImage: '',
+    status: 'draft' as 'draft' | 'published'
+  })
+
+  const filteredPosts = blogPosts.filter(post => {
+    const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         post.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         post.category.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = filterStatus === 'all' || post.status === filterStatus
+    return matchesSearch && matchesStatus
+  })
+
+  const handleCreatePost = async () => {
+    try {
+      const created = await createBlogPost({
+        title: formData.title,
+        content: formData.content,
+        summary: formData.excerpt,
+        slug: formData.slug || formData.title.toLowerCase().replace(/\s+/g, '-'),
+        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        featured_image: formData.featuredImage || undefined,
+        status: formData.status
+      })
+      setBlogPosts(prev => [...prev, mapApiBlogPost(created)])
+      setIsCreateDialogOpen(false)
+      resetForm()
+      toast.success('Blog post created successfully!')
+    } catch { toast.error('Tạo bài viết thất bại') }
+  }
+
+  const handleUpdatePost = async () => {
+    if (!selectedPost) return
+    try {
+      const updated = await updateBlogPost(Number(selectedPost.id), {
+        title: formData.title,
+        content: formData.content,
+        summary: formData.excerpt,
+        slug: formData.slug,
+        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        featured_image: formData.featuredImage || undefined,
+        status: formData.status
+      })
+      setBlogPosts(prev => prev.map(p => p.id === selectedPost.id ? mapApiBlogPost(updated) : p))
+      setIsEditDialogOpen(false)
+      setSelectedPost(null)
+      resetForm()
+      toast.success('Blog post updated successfully!')
+    } catch { toast.error('Cập nhật thất bại') }
+  }
+
+  const handleDeletePost = async (postId: string) => {
+    if (window.confirm('Are you sure you want to delete this blog post?')) {
+      try {
+        await deleteBlogPost(Number(postId))
+        setBlogPosts(prev => prev.filter(p => p.id !== postId))
+        toast.success('Blog post deleted successfully!')
+      } catch { toast.error('Xóa thất bại') }
+    }
+  }
+
+  const openEditDialog = (post: BlogPost) => {
+    setSelectedPost(post)
+    setFormData({
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      content: post.content,
+      author: post.author,
+      category: post.category,
+      tags: post.tags.join(', '),
+      featuredImage: post.featuredImage,
+      status: post.status
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      slug: '',
+      excerpt: '',
+      content: '',
+      author: '',
+      category: '',
+      tags: '',
+      featuredImage: '',
+      status: 'draft'
+    })
+  }
+
+  const generateSlug = (title: string) => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Blog Posts</h1>
+          <p className="text-muted-foreground">Manage all blog posts and articles</p>
+        </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Create New Post
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Blog Post</DialogTitle>
+              <DialogDescription>
+                Add a new blog post to your website
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="title">Title *</Label>
+                  <Input
+                    id="title"
+                    placeholder="Enter post title"
+                    value={formData.title}
+                    onChange={(e) => {
+                      setFormData({ 
+                        ...formData, 
+                        title: e.target.value,
+                        slug: generateSlug(e.target.value)
+                      })
+                    }}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="slug">URL Slug *</Label>
+                  <Input
+                    id="slug"
+                    placeholder="post-url-slug"
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="author">Author *</Label>
+                  <Input
+                    id="author"
+                    placeholder="Author name"
+                    value={formData.author}
+                    onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category *</Label>
+                  <Select 
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Programming">Programming</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                      <SelectItem value="Technology">Technology</SelectItem>
+                      <SelectItem value="Business">Business</SelectItem>
+                      <SelectItem value="Design">Design</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="tags"
+                    placeholder="tag1, tag2, tag3"
+                    value={formData.tags}
+                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="excerpt">Excerpt *</Label>
+                  <Textarea
+                    id="excerpt"
+                    placeholder="Short description of the post"
+                    rows={3}
+                    value={formData.excerpt}
+                    onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="content">Content *</Label>
+                  <Textarea
+                    id="content"
+                    placeholder="Full content of the post (supports markdown)"
+                    rows={8}
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label htmlFor="featuredImage">Featured Image URL</Label>
+                  <Input
+                    id="featuredImage"
+                    placeholder="https://example.com/image.jpg"
+                    value={formData.featuredImage}
+                    onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status *</Label>
+                  <Select 
+                    value={formData.status}
+                    onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreatePost}>
+                Create Post
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Total Posts</CardDescription>
+            <CardTitle className="text-3xl">{blogPosts.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Published</CardDescription>
+            <CardTitle className="text-3xl text-green-600">
+              {blogPosts.filter(p => p.status === 'published').length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Drafts</CardDescription>
+            <CardTitle className="text-3xl text-amber-600">
+              {blogPosts.filter(p => p.status === 'draft').length}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Total Views</CardDescription>
+            <CardTitle className="text-3xl">
+              {blogPosts.reduce((sum, p) => sum + p.views, 0).toLocaleString()}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filter Posts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Search by title, author, or category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Blog Posts Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Blog Posts ({filteredPosts.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Post</TableHead>
+                <TableHead>Author</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Views</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPosts.map((post) => (
+                <TableRow key={post.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      {post.featuredImage && (
+                        <ImageWithFallback
+                          src={post.featuredImage}
+                          alt={post.title}
+                          className="w-16 h-16 rounded object-cover"
+                        />
+                      )}
+                      <div>
+                        <div className="font-medium">{post.title}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-1">
+                          {post.excerpt}
+                        </div>
+                        <div className="flex gap-1 mt-1">
+                          {post.tags.slice(0, 2).map((tag, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      {post.author}
+                    </div>
+                  </TableCell>
+                  <TableCell>{post.category}</TableCell>
+                  <TableCell>
+                    <Badge variant={post.status === 'published' ? 'default' : 'secondary'}>
+                      {post.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      {post.views.toLocaleString()}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      {post.publishedAt || post.createdAt}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate(`/blog/${post.slug}`)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(post)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeletePost(post.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Blog Post</DialogTitle>
+            <DialogDescription>
+              Make changes to your blog post
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input
+                  id="edit-title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-slug">URL Slug *</Label>
+                <Input
+                  id="edit-slug"
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-author">Author *</Label>
+                <Input
+                  id="edit-author"
+                  value={formData.author}
+                  onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category *</Label>
+                <Select 
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Programming">Programming</SelectItem>
+                    <SelectItem value="Education">Education</SelectItem>
+                    <SelectItem value="Technology">Technology</SelectItem>
+                    <SelectItem value="Business">Business</SelectItem>
+                    <SelectItem value="Design">Design</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-tags">Tags</Label>
+                <Input
+                  id="edit-tags"
+                  value={formData.tags}
+                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-excerpt">Excerpt *</Label>
+                <Textarea
+                  id="edit-excerpt"
+                  rows={3}
+                  value={formData.excerpt}
+                  onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-content">Content *</Label>
+                <Textarea
+                  id="edit-content"
+                  rows={8}
+                  value={formData.content}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="edit-featuredImage">Featured Image URL</Label>
+                <Input
+                  id="edit-featuredImage"
+                  value={formData.featuredImage}
+                  onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-status">Status *</Label>
+                <Select 
+                  value={formData.status}
+                  onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">Draft</SelectItem>
+                    <SelectItem value="published">Published</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditDialogOpen(false)
+              setSelectedPost(null)
+              resetForm()
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePost}>
+              Update Post
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

@@ -1,0 +1,571 @@
+{
+  "1_CREATE_MULTIPLE_CHOICE_QUESTION": {
+    "method": "POST",
+    "url": "/api/quiz-questions/create/",
+    "description": "Create a multiple choice question",
+    "request_body": {
+      "lesson": 1,
+      "question_text": "What is the capital of France?",
+      "question_type": "multiple_choice",
+      "difficulty": "easy",
+      "points": 5,
+      "options": [
+        {
+          "option_id": 1,
+          "option_text": "Paris",
+          "order": 1
+        },
+        {
+          "option_id": 2,
+          "option_text": "Lyon",
+          "order": 2
+        },
+        {
+          "option_id": 3,
+          "option_text": "Marseille",
+          "order": 3
+        }
+      ],
+      "correct_answer": 1,
+      "explanation": "Paris is the capital and largest city of France.",
+      "order_number": 1
+    },
+    "expected_response": {
+      "id": 101,
+      "lesson": 1,
+      "question_text": "What is the capital of France?",
+      "question_type": "multiple_choice",
+      "difficulty": "easy",
+      "points": 5,
+      "options": [
+        {
+          "option_id": 1,
+          "option_text": "Paris",
+          "order": 1
+        }
+      ],
+      "correct_answer": 1,
+      "explanation": "Paris is the capital and largest city of France.",
+      "order_number": 1,
+      "test_cases": []
+    }
+  },
+
+  "2_CREATE_CODE_QUESTION": {
+    "method": "POST",
+    "url": "/api/quiz-questions/create/",
+    "description": "Create a code question with test cases",
+        "request_body": {
+        "lesson": 1,
+        "question_text": "Two Sum",
+        "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+        "question_type": "code",
+        "difficulty": "easy",
+        "points": 10,
+        "time_limit": 5,
+        "memory_limit": 128000,
+        "allowed_languages": [63, 71, 62],
+        "starter_code": "function twoSum(nums, target) {\n  // Your solution here\n}",
+        "correct_answer": "reference_solution",
+        "explanation": "Use a hash map to store values and their indices for O(n) solution",
+        "order_number": 2,
+        "test_cases": [
+            {
+            "input_data": "[2,7,11,15]\n9",
+            "expected_output": "[0,1]",
+            "is_hidden": false,
+            "points": 3,
+            "order_number": 1
+            },
+            {
+            "input_data": "[3,2,4]\n6",
+            "expected_output": "[1,2]",
+            "is_hidden": false,
+            "points": 3,
+            "order_number": 2
+            },
+            {
+            "input_data": "[3,3]\n6",
+            "expected_output": "[0,1]",
+            "is_hidden": true,
+            "points": 4,
+            "order_number": 3
+            }
+        ]
+        },
+    "expected_response": {
+      "id": 102,
+      "lesson": 1,
+      "question_text": "Two Sum",
+      "description": "Given an array of integers nums and an integer target...",
+      "question_type": "code",
+      "difficulty": "easy",
+      "points": 10,
+      "time_limit": 5,
+      "memory_limit": 128000,
+      "allowed_languages": [63, 71, 62],
+      "starter_code": "function twoSum(nums, target) {\n  // Your solution here\n}",
+      "correct_answer": "reference_solution",
+      "explanation": "Use a hash map to store values and their indices for O(n) solution",
+      "order_number": 2,
+      "test_cases": [
+        {
+          "id": 201,
+          "input_data": "[2,7,11,15]\n9",
+          "expected_output": "[0,1]",
+          "is_hidden": false,
+          "points": 3,
+          "order_number": 1
+        },
+        {
+          "id": 202,
+          "input_data": "[3,2,4]\n6",
+          "expected_output": "[1,2]",
+          "is_hidden": false,
+          "points": 3,
+          "order_number": 2
+        },
+        {
+          "id": 203,
+          "input_data": "[3,3]\n6",
+          "expected_output": "[0,1]",
+          "is_hidden": true,
+          "points": 4,
+          "order_number": 3
+        }
+      ]
+    }
+  },
+
+  "3_GET_ALL_QUIZ_QUESTIONS": {
+    "method": "GET",
+    "url": "/api/quiz-questions/",
+    "description": "Get all quiz questions",
+    "expected_response": [
+      {
+        "id": 101,
+        "lesson": 1,
+        "question_text": "What is the capital of France?",
+        "question_type": "multiple_choice",
+        "difficulty": "easy",
+        "points": 5,
+        "order_number": 1
+      },
+      {
+        "id": 102,
+        "lesson": 1,
+        "question_text": "Two Sum",
+        "question_type": "code",
+        "difficulty": "easy",
+        "points": 10,
+        "order_number": 2
+      }
+    ]
+  },
+
+  "4_GET_QUESTIONS_BY_LESSON": {
+    "method": "GET",
+    "url": "/api/quiz-questions/?lesson_id=1",
+    "description": "Get all quiz questions for a specific lesson",
+    "expected_response": [
+      {
+        "id": 101,
+        "lesson": 1,
+        "question_text": "What is the capital of France?"
+      },
+      {
+        "id": 102,
+        "lesson": 1,
+        "question_text": "Two Sum"
+      }
+    ]
+  },
+
+  "5_GET_SINGLE_QUESTION": {
+    "method": "GET",
+    "url": "/api/quiz-questions/?question_id=101",
+    "description": "Get a specific quiz question by ID",
+    "expected_response": {
+      "id": 101,
+      "lesson": 1,
+      "question_text": "What is the capital of France?",
+      "question_type": "multiple_choice",
+      "difficulty": "easy",
+      "points": 5,
+      "options": [
+        {
+          "option_id": 1,
+          "option_text": "Paris",
+          "order": 1
+        }
+      ],
+      "correct_answer": 1,
+      "explanation": "Paris is the capital and largest city of France.",
+      "order_number": 1,
+      "test_cases": []
+    }
+  },
+
+  "6_UPDATE_QUIZ_QUESTION": {
+    "method": "PATCH",
+    "url": "/api/quiz-questions/101/",
+    "description": "Update a quiz question",
+    "request_body": {
+      "points": 10,
+      "explanation": "Paris is the capital of France, located in central France."
+    },
+    "expected_response": {
+      "id": 101,
+      "lesson": 1,
+      "question_text": "What is the capital of France?",
+      "question_type": "multiple_choice",
+      "difficulty": "easy",
+      "points": 10,
+      "explanation": "Paris is the capital of France, located in central France.",
+      "order_number": 1
+    }
+  },
+
+  "7_DELETE_QUIZ_QUESTION": {
+    "method": "DELETE",
+    "url": "/api/quiz-questions/101/",
+    "description": "Delete a quiz question",
+    "expected_response": {
+      "message": "Quiz question deleted successfully."
+    }
+  },
+
+  "8_GET_LESSON_QUIZ": {
+    "method": "GET",
+    "url": "/api/quizzes/lesson/1/",
+    "description": "Get all quiz questions for a lesson (student view - no answers)",
+    "expected_response": {
+      "quiz_id": 1,
+      "lesson_id": 1,
+      "title": "Lesson 1 Quiz",
+      "description": "Test your knowledge",
+      "time_limit": null,
+      "passing_score": 70,
+      "total_points": 15,
+      "total_questions": 2,
+      "questions": [
+        {
+          "question_id": 101,
+          "question_text": "What is the capital of France?",
+          "question_type": "multiple_choice",
+          "difficulty": "easy",
+          "points": 5,
+          "order": 1,
+          "image_url": null,
+          "code_snippet": null,
+          "options": [
+            {
+              "option_id": 1,
+              "option_text": "Paris",
+              "order": 1
+            }
+          ],
+          "description": null,
+          "test_cases": []
+        },
+        {
+          "question_id": 102,
+          "question_text": "Two Sum",
+          "question_type": "code",
+          "difficulty": "easy",
+          "points": 10,
+          "order": 2,
+          "description": "Given an array of integers nums and an integer target...",
+          "time_limit": 5,
+          "memory_limit": 128000,
+          "allowed_languages": [63, 71, 62],
+          "starter_code": "function twoSum(nums, target) {\n  // Your solution here\n}",
+          "test_cases": [
+            {
+              "id": 201,
+              "input_data": "[2,7,11,15]\n9",
+              "expected_output": "[0,1]",
+              "is_hidden": false,
+              "points": 3,
+              "order_number": 1
+            },
+            {
+              "id": 202,
+              "input_data": "[3,2,4]\n6",
+              "expected_output": "[1,2]",
+              "is_hidden": false,
+              "points": 3,
+              "order_number": 2
+            },
+            {
+              "id": 203,
+              "input_data": "[3,3]\n6",
+              "expected_output": null,
+              "is_hidden": true,
+              "points": 4,
+              "order_number": 3
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "9_SUBMIT_QUIZ_WITH_MULTIPLE_CHOICE_AND_CODE": {
+    "method": "POST",
+    "url": "/api/quizzes/submit/",
+    "description": "Submit quiz with both multiple choice and code answers",
+    "request_body": {
+      "quiz_id": 1,
+      "lesson_id": 1,
+      "answers": [
+        {
+          "question_id": 101,
+          "selected_option_id": 1
+        },
+        {
+          "question_id": 102,
+          "code_answer": "function twoSum(nums, target) {\n  const map = new Map();\n  for (let i = 0; i < nums.length; i++) {\n    const complement = target - nums[i];\n    if (map.has(complement)) {\n      return [map.get(complement), i];\n    }\n    map.set(nums[i], i);\n  }\n}",
+          "actual_output": "[0,1]\n[1,2]\n[0,1]"
+        }
+      ],
+      "time_spent": 600
+    },
+    "expected_response": {
+      "quiz_result_id": 301,
+      "quiz_id": 1,
+      "user_id": 1,
+      "score": 100,
+      "total_points": 15,
+      "earned_points": 15,
+      "passing_score": 70,
+      "passed": true,
+      "time_spent": 600,
+      "submitted_at": "2026-02-10T14:30:00Z",
+      "answers": [
+        {
+          "question_id": 101,
+          "selected_option_id": 1,
+          "text_answer": null,
+          "code_answer": null,
+          "actual_output": null,
+          "is_correct": true,
+          "points_earned": 5,
+          "correct_answer_explanation": "Paris is the capital and largest city of France.",
+          "test_cases_results": null
+        },
+        {
+          "question_id": 102,
+          "selected_option_id": null,
+          "text_answer": null,
+          "code_answer": "function twoSum(nums, target) {...}",
+          "actual_output": "[0,1]\n[1,2]\n[0,1]",
+          "is_correct": true,
+          "points_earned": 10,
+          "correct_answer_explanation": "Use a hash map to store values and their indices for O(n) solution",
+          "test_cases_results": [
+            {
+              "test_case_id": 201,
+              "order_number": 1,
+              "input": "[2,7,11,15]\n9",
+              "expected_output": "[0,1]",
+              "actual_output": "[0,1]",
+              "passed": true,
+              "points": 3
+            },
+            {
+              "test_case_id": 202,
+              "order_number": 2,
+              "input": "[3,2,4]\n6",
+              "expected_output": "[1,2]",
+              "actual_output": "[1,2]",
+              "passed": true,
+              "points": 3
+            },
+            {
+              "test_case_id": 203,
+              "order_number": 3,
+              "input": "[3,3]\n6",
+              "expected_output": "[0,1]",
+              "actual_output": "[0,1]",
+              "passed": true,
+              "points": 4
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "10_SUBMIT_QUIZ_PARTIAL_CODE_PASS": {
+    "method": "POST",
+    "url": "/api/quizzes/submit/",
+    "description": "Submit quiz where code answer passes only 2 out of 3 test cases",
+    "request_body": {
+      "quiz_id": 1,
+      "lesson_id": 1,
+      "answers": [
+        {
+          "question_id": 101,
+          "selected_option_id": 2
+        },
+        {
+          "question_id": 102,
+          "code_answer": "function twoSum(nums, target) { return [0, 1]; }",
+          "actual_output": "[0,1]\n[1,2]\n[0,2]"
+        }
+      ],
+      "time_spent": 300
+    },
+    "expected_response": {
+      "quiz_result_id": 302,
+      "quiz_id": 1,
+      "user_id": 1,
+      "score": 76.67,
+      "total_points": 15,
+      "earned_points": 11.5,
+      "passing_score": 70,
+      "passed": true,
+      "time_spent": 300,
+      "submitted_at": "2026-02-10T14:35:00Z",
+      "answers": [
+        {
+          "question_id": 101,
+          "selected_option_id": 2,
+          "is_correct": false,
+          "points_earned": 0,
+          "correct_answer_explanation": "Paris is the capital and largest city of France.",
+          "test_cases_results": null
+        },
+        {
+          "question_id": 102,
+          "is_correct": false,
+          "points_earned": 6.67,
+          "test_cases_results": [
+            {
+              "test_case_id": 201,
+              "order_number": 1,
+              "expected_output": "[0,1]",
+              "actual_output": "[0,1]",
+              "passed": true,
+              "points": 3
+            },
+            {
+              "test_case_id": 202,
+              "order_number": 2,
+              "expected_output": "[1,2]",
+              "actual_output": "[1,2]",
+              "passed": true,
+              "points": 3
+            },
+            {
+              "test_case_id": 203,
+              "order_number": 3,
+              "expected_output": "[0,1]",
+              "actual_output": "[0,2]",
+              "passed": false,
+              "points": 0
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "11_CREATE_TEST_CASE": {
+    "method": "POST",
+    "url": "/api/test-cases/create/",
+    "description": "Create a new test case for a code question",
+    "request_body": {
+      "question": 102,
+      "input_data": "[2,5,5,11]\n10",
+      "expected_output": "[0,3]",
+      "is_hidden": true,
+      "points": 5,
+      "order_number": 4
+    },
+    "expected_response": {
+      "id": 204,
+      "input_data": "[2,5,5,11]\n10",
+      "expected_output": "[0,3]",
+      "is_hidden": true,
+      "points": 5,
+      "order_number": 4
+    }
+  },
+
+  "12_GET_TEST_CASES_FOR_QUESTION": {
+    "method": "GET",
+    "url": "/api/test-cases/?question_id=102",
+    "description": "Get all test cases for a specific code question",
+    "expected_response": [
+      {
+        "id": 201,
+        "input_data": "[2,7,11,15]\n9",
+        "expected_output": "[0,1]",
+        "is_hidden": false,
+        "points": 3,
+        "order_number": 1
+      },
+      {
+        "id": 202,
+        "input_data": "[3,2,4]\n6",
+        "expected_output": "[1,2]",
+        "is_hidden": false,
+        "points": 3,
+        "order_number": 2
+      },
+      {
+        "id": 203,
+        "input_data": "[3,3]\n6",
+        "expected_output": "[0,1]",
+        "is_hidden": true,
+        "points": 4,
+        "order_number": 3
+      },
+      {
+        "id": 204,
+        "input_data": "[2,5,5,11]\n10",
+        "expected_output": "[0,3]",
+        "is_hidden": true,
+        "points": 5,
+        "order_number": 4
+      }
+    ]
+  },
+
+  "13_UPDATE_TEST_CASE": {
+    "method": "PATCH",
+    "url": "/api/test-cases/201/",
+    "description": "Update an existing test case",
+    "request_body": {
+      "points": 5,
+      "expected_output": "[0,1]"
+    },
+    "expected_response": {
+      "id": 201,
+      "input_data": "[2,7,11,15]\n9",
+      "expected_output": "[0,1]",
+      "is_hidden": false,
+      "points": 5,
+      "order_number": 1
+    }
+  },
+
+  "14_DELETE_TEST_CASE": {
+    "method": "DELETE",
+    "url": "/api/test-cases/204/",
+    "description": "Delete a test case",
+    "expected_response": {
+      "message": "Test case deleted successfully."
+    }
+  },
+
+  "NOTES": {
+    "actual_output_format": "Client gửi actual_output từ RapidAPI, ngăn cách bằng newline. Ví dụ với 3 test cases: '[0,1]\\n[1,2]\\n[0,1]'",
+    "scoring": "Điểm code question = (passed_test_cases / total_test_cases) * question_points",
+    "is_correct_for_code": "Chỉ true nếu pass hết tất cả test cases",
+    "hidden_test_cases": "Khi is_hidden=true, expected_output sẽ bị ẩn trong GET /api/quizzes/lesson/<lesson_id>/",
+    "permissions": "Quiz question endpoints yêu cầu admin hoặc instructor role. Lesson quiz và submit yêu cầu authenticated user"
+  }
+}

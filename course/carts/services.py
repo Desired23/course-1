@@ -22,12 +22,16 @@ def get_cart_by_id(cart_id):
         raise ValidationError({"error": "Cart not found."})
 
 def get_all_carts():
-    carts = Cart.objects.all()
+    carts = Cart.objects.select_related(
+        'course__instructor__user', 'course__category'
+    ).all()
     return carts
 
 def get_cart_by_user(user_id):
     try:
-        cart = Cart.objects.filter(user=user_id)
+        cart = Cart.objects.select_related(
+            'course__instructor__user', 'course__category'
+        ).filter(user=user_id)
         return cart
     except Cart.DoesNotExist:
         raise ValidationError({"error": "Cart not found for this user."})

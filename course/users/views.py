@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from .serializers import Userserializers, UserUpdateBySelfSerializer
-from .services import create_user, update_user_by_admin, delete_user, get_users, get_user_by_id, register, login, refresh_token, update_user_by_selfself
+from .services import create_user, update_user_by_admin, delete_user, get_users, get_user_by_id, register, login, refresh_token, user_reset_password, confirm_reset_password, user_confirm_email, update_user_by_selfself
 from utils.permissions import RolePermissionFactory
 from .models import User
 from utils.pagination import paginate_queryset
@@ -75,5 +75,55 @@ class UserLoginView(APIView):
         try:
             user = login(request.data)
             return Response(user, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+class RefreshTokenView(APIView):
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        token = request.data.get('refresh_token')
+        if not token:
+            return Response({"errors": {"refresh_token": ["This field is required."]}}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = refresh_token(token)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+class ResetPasswordView(APIView):
+    throttle_scope = 'register'
+
+    def post(self, request):
+        try:
+            result = user_reset_password(request.data)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+class ConfirmResetPasswordView(APIView):
+    throttle_scope = 'register'
+
+    def post(self, request):
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        if not token or not new_password:
+            return Response({"errors": {"error": "Token and new_password are required."}}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = confirm_reset_password(token, new_password)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+class ConfirmEmailView(APIView):
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response({"errors": {"token": ["This field is required."]}}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = user_confirm_email(token)
+            return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

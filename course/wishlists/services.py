@@ -25,14 +25,18 @@ def get_wishlist_by_id(wishlist_id):
 
 def get_all_wishlists():
     try:
-        wishlists = Wishlist.objects.all()
+        wishlists = Wishlist.objects.select_related(
+            'course__instructor__user', 'course__category'
+        ).all()
         return wishlists
     except Exception as e:
         raise ValidationError(f"Error retrieving wishlists: {str(e)}")
 
 def get_wishlists_by_user(user_id):
     try:
-        wishlists = Wishlist.objects.filter(user=user_id)
+        wishlists = Wishlist.objects.select_related(
+            'course__instructor__user', 'course__category'
+        ).filter(user=user_id)
         return wishlists
     except Exception as e:
         raise ValidationError(f"Error retrieving wishlists for user: {str(e)}")

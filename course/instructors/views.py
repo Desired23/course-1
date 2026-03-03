@@ -11,7 +11,7 @@ from .services import (
     get_instructors,
     get_instructor_by_id
 )
-from .dashboard_services import get_instructor_dashboard_stats, get_course_analytics
+from .dashboard_services import get_instructor_dashboard_stats, get_course_analytics, get_instructor_analytics_timeseries
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 class InstructorListView(APIView):
@@ -127,3 +127,34 @@ class InstructorCourseAnalyticsView(APIView):
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
+
+class InstructorAnalyticsTimeseriesView(APIView):
+    """
+    GET /api/instructor/analytics/timeseries/?months=12
+    Returns time-series analytics data for instructor charts.
+    Admin can pass ?instructor_id=<id> to view any instructor.
+    """
+    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        user = request.user
+        admin = getattr(user, 'admin', None)
+        instructor_id = request.query_params.get('instructor_id')
+        months = int(request.query_params.get('months', 12))
+
+        if admin and instructor_id:
+            try:
+                instructor = Instructor.objects.get(id=instructor_id, is_deleted=False)
+            except Instructor.DoesNotExist:
+                return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instructor = getattr(user, 'instructor', None)
+            if not instructor:
+                return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            data = get_instructor_analytics_timeseries(instructor, months)
+            return Response(data)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)

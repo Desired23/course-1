@@ -10,8 +10,15 @@ def validate_lesson_data(data):
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
 
-def get_lessons():
+def get_lessons(filters=None):
     lessons = Lesson.objects.all()
+    if filters:
+        if filters.get('coursemodule_id'):
+            lessons = lessons.filter(coursemodule_id=filters['coursemodule_id'])
+        if filters.get('content_type'):
+            lessons = lessons.filter(content_type=filters['content_type'])
+        if filters.get('instructor_id'):
+            lessons = lessons.filter(coursemodule__course__instructor_id=filters['instructor_id'])
     if not lessons.exists():
         raise ValidationError({"error": "No lessons found."})
     return lessons  # Trả về queryset trực tiếp

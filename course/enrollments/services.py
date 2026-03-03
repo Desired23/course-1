@@ -41,7 +41,9 @@ def create_enrollment(data):
         raise ValidationError({"error": "Lỗi khi tạo enrollment."})
 def get_enrollment_by_user(user_id):
     try:
-        enrollments = Enrollment.objects.filter(user=user_id)
+        enrollments = Enrollment.objects.select_related(
+            'course__instructor__user', 'course__category'
+        ).filter(user=user_id)
         if not enrollments.exists():
             raise ValidationError({"error": "No enrollments found."})
         return enrollments

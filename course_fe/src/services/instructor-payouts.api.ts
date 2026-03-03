@@ -1,0 +1,108 @@
+/**
+ * Instructor Payouts API Service
+ * Payout request & management
+ *
+ * Endpoints:
+ *   GET    /api/instructor-payouts/                    — List payouts (?status=, ?period=, ?instructor_id=, ?payout_id=)
+ *   POST   /api/instructor/payouts/request/            — Request payout
+ *   PATCH  /api/instructor-payouts/                    — Admin update payout
+ *   DELETE /api/instructor-payouts/delete/:id/         — Delete payout
+ *   PUT    /api/admin/payouts/:id/approve/             — Admin approve
+ *   PUT    /api/admin/payouts/:id/reject/              — Admin reject
+ */
+
+import { http } from './http'
+
+// ─── Types ────────────────────────────────────────────────────
+
+export type PayoutStatus = 'pending' | 'processed' | 'cancelled' | 'failed'
+
+export interface InstructorPayout {
+  id: number
+  instructor: number
+  amount: string // decimal
+  fee: string
+  net_amount: string | null
+  payment_method: string
+  transaction_id: string | null
+  status: PayoutStatus
+  request_date: string
+  created_at: string
+  updated_at: string
+  processed_date: string | null
+  notes: string | null
+  period: string
+  processed_by: number | null
+}
+
+export interface PayoutRequestData {
+  amount: number
+  payout_method_id: number
+  notes?: string
+  period: string // e.g. "2025-07"
+}
+
+// ─── API Functions ────────────────────────────────────────────
+
+/** List payouts */
+export async function getInstructorPayouts(params?: {
+  status?: PayoutStatus
+  period?: string
+  instructor_id?: number
+  payout_id?: number
+}): Promise<InstructorPayout[]> {
+  const search = new URLSearchParams()
+  if (params?.status) search.set('status', params.status)
+  if (params?.period) search.set('period', params.period)
+  if (params?.instructor_id) search.set('instructor_id', String(params.instructor_id))
+  if (params?.payout_id) search.set('payout_id', String(params.payout_id))
+  const qs = search.toString()
+  return http.get<InstructorPayout[]>(`/instructor-payouts/${qs ? `?${qs}` : ''}`)
+}
+
+/** Get my payouts (for current instructor) */
+export async function getMyPayouts(instructorId: number): Promise<InstructorPayout[]> {
+  return getInstructorPayouts({ instructor_id: instructorId })
+}
+
+/** Request a new payout */
+export async function requestPayout(data: PayoutRequestData): Promise<InstructorPayout> {
+  return http.post<InstructorPayout>('/instructor/payouts/request/', data)
+}
+
+/** Delete payout */
+export async function deletePayout(payoutId: number): Promise<void> {
+  return http.delete(`/instructor-payouts/delete/${payoutId}/`)
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+export function parseDecimal(value: string | null | undefined): number {
+  if (!value) return 0
+  return parseFloat(value) || 0
+}
+
+export function formatPayoutAmount(amount: string | number): string {
+  const num = typeof amount === 'string' ? parseDecimal(amount) : amount
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num)
+}
+
+export function getPayoutStatusLabel(status: PayoutStatus): string {
+  const labels: Record<PayoutStatus, string> = {
+    pending: 'Chờ xử lý',
+    processed: 'Đã xử lý',
+    cancelled: 'Đã hủy',
+    failed: 'Thất bại',
+  }
+  return labels[status] || status
+}
+
+export function getPayoutStatusColor(status: PayoutStatus): string {
+  const colors: Record<PayoutStatus, string> = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    processed: 'bg-green-100 text-green-800',
+    cancelled: 'bg-gray-100 text-gray-800',
+    failed: 'bg-red-100 text-red-800',
+  }
+  return colors[status] || ''
+}

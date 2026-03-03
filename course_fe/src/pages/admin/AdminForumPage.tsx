@@ -1,0 +1,989 @@
+import { useState, useEffect } from 'react'
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
+import { Textarea } from "../../components/ui/textarea"
+import { Badge } from "../../components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../../components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert"
+import { Plus, Edit, Trash2, Eye, MessageSquare, Users, AlertTriangle, CheckCircle, Lock, Unlock, FileText, Shield, UserX, Ban, ExternalLink } from 'lucide-react'
+import { useRouter } from "../../components/Router"
+import { toast } from "sonner"
+import { QuickTopicPreview } from "../../components/QuickTopicPreview"
+import { getAllForums, createForum, deleteForum, getAllForumTopics, createForumTopic, updateForumTopic, deleteForumTopic } from '../../services/forum.api'
+import type { Forum, ForumTopic as ApiForumTopic } from '../../services/forum.api'
+
+interface ForumTopic {
+  id: string
+  title: string
+  category: string
+  author: string
+  replies: number
+  views: number
+  lastActivity: string
+  status: 'active' | 'locked' | 'pinned' | 'reported'
+  createdAt: string
+  content?: string
+  excerpt?: string
+}
+
+interface ForumCategory {
+  id: string
+  name: string
+  description: string
+  topicsCount: number
+  order: number
+}
+
+
+
+export function AdminForumPage() {
+  const { navigate } = useRouter()
+  const [topics, setTopics] = useState<ForumTopic[]>([])
+  const [categories, setCategories] = useState<ForumCategory[]>([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [forumsData, topicsData] = await Promise.all([
+          getAllForums(),
+          getAllForumTopics()
+        ])
+        setCategories(forumsData.map((f: Forum, i: number) => ({
+          id: String(f.id),
+          name: f.title,
+          description: f.description || '',
+          topicsCount: f.topic_count || 0,
+          order: i + 1
+        })))
+        setTopics(topicsData.map((t: ApiForumTopic) => {
+          const forum = forumsData.find(f => f.id === t.forum)
+          return {
+            id: String(t.id),
+            title: t.title,
+            category: forum?.title || '',
+            author: t.user_name || '',
+            replies: t.replies_count,
+            views: t.views,
+            lastActivity: t.updated_at ? new Date(t.updated_at).toLocaleDateString() : '',
+            status: (t.is_pinned ? 'pinned' : t.status === 'locked' ? 'locked' : 'active') as ForumTopic['status'],
+            createdAt: t.created_at ? new Date(t.created_at).toLocaleDateString() : '',
+            content: t.content,
+            excerpt: t.content ? t.content.substring(0, 100) + '...' : ''
+          }
+        }))
+      } catch {
+        toast.error('Không thể tải dữ liệu diễn đàn')
+      }
+    }
+    fetchData()
+  }, [])
+  const [isCreateCategoryOpen, setIsCreateCategoryOpen] = useState(false)
+  const [isCreateTopicOpen, setIsCreateTopicOpen] = useState(false)
+  const [isModerationDialogOpen, setIsModerationDialogOpen] = useState(false)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [selectedTopicForModeration, setSelectedTopicForModeration] = useState<ForumTopic | null>(null)
+  const [selectedTopicForPreview, setSelectedTopicForPreview] = useState<ForumTopic | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterStatus, setFilterStatus] = useState<'all' | ForumTopic['status']>('all')
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    description: '',
+    order: 1
+  })
+
+  const [topicForm, setTopicForm] = useState({
+    title: '',
+    category: '',
+    content: '',
+    author: 'Admin'
+  })
+
+  const [moderationAction, setModerationAction] = useState({
+    action: '',
+    reason: '',
+    duration: ''
+  })
+
+  const filteredTopics = topics.filter(topic => {
+    const matchesSearch = topic.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         topic.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         topic.category.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesStatus = filterStatus === 'all' || topic.status === filterStatus
+    return matchesSearch && matchesStatus
+  })
+
+  const reportedTopics = topics.filter(t => t.status === 'reported')
+  const totalTopics = topics.length
+  const totalReplies = topics.reduce((sum, t) => sum + t.replies, 0)
+  const totalViews = topics.reduce((sum, t) => sum + t.views, 0)
+
+  const getStatusColor = (status: ForumTopic['status']) => {
+    switch (status) {
+      case 'active':
+        return 'default'
+      case 'locked':
+        return 'secondary'
+      case 'pinned':
+        return 'outline'
+      case 'reported':
+        return 'destructive'
+      default:
+        return 'default'
+    }
+  }
+
+  const getStatusIcon = (status: ForumTopic['status']) => {
+    switch (status) {
+      case 'active':
+        return <CheckCircle className="h-4 w-4" />
+      case 'locked':
+        return <Lock className="h-4 w-4" />
+      case 'pinned':
+        return <CheckCircle className="h-4 w-4" />
+      case 'reported':
+        return <AlertTriangle className="h-4 w-4" />
+      default:
+        return null
+    }
+  }
+
+  const handleLockTopic = async (topicId: string) => {
+    const topic = topics.find(t => t.id === topicId)
+    if (!topic) return
+    const newStatus = topic.status === 'locked' ? 'active' : 'locked'
+    try {
+      await updateForumTopic(Number(topicId), { status: newStatus })
+      setTopics(topics.map(t => t.id === topicId ? { ...t, status: newStatus === 'locked' ? 'locked' : 'active' } : t))
+      toast.success('Topic status updated')
+    } catch { toast.error('Thao tác thất bại') }
+  }
+
+  const handlePinTopic = async (topicId: string) => {
+    const topic = topics.find(t => t.id === topicId)
+    if (!topic) return
+    try {
+      await updateForumTopic(Number(topicId), { is_pinned: topic.status !== 'pinned' })
+      setTopics(topics.map(t => t.id === topicId ? { ...t, status: t.status === 'pinned' ? 'active' : 'pinned' } : t))
+      toast.success('Topic status updated')
+    } catch { toast.error('Thao tác thất bại') }
+  }
+
+  const handleDeleteTopic = async (topicId: string) => {
+    if (window.confirm('Are you sure you want to delete this topic?')) {
+      try {
+        await deleteForumTopic(Number(topicId))
+        setTopics(topics.filter(t => t.id !== topicId))
+        toast.success('Topic deleted successfully')
+      } catch { toast.error('Xóa thất bại') }
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    if (!categoryForm.name) {
+      toast.error('Category name is required')
+      return
+    }
+    try {
+      const created = await createForum({ title: categoryForm.name, description: categoryForm.description })
+      setCategories(prev => [...prev, {
+        id: String(created.id),
+        name: created.title,
+        description: created.description || '',
+        topicsCount: 0,
+        order: prev.length + 1
+      }])
+      setIsCreateCategoryOpen(false)
+      setCategoryForm({ name: '', description: '', order: 1 })
+      toast.success('Category created successfully')
+    } catch { toast.error('Tạo danh mục thất bại') }
+  }
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const category = categories.find(c => c.id === categoryId)
+    if (category && category.topicsCount > 0) {
+      toast.error('Cannot delete category with existing topics')
+      return
+    }
+    if (window.confirm('Are you sure you want to delete this category?')) {
+      try {
+        await deleteForum(Number(categoryId))
+        setCategories(categories.filter(c => c.id !== categoryId))
+        toast.success('Category deleted successfully')
+      } catch { toast.error('Xóa thất bại') }
+    }
+  }
+
+  const handleCreateTopic = async () => {
+    if (!topicForm.title || !topicForm.category || !topicForm.content) {
+      toast.error('Please fill all required fields')
+      return
+    }
+    try {
+      const forumId = Number(topicForm.category)
+      const created = await createForumTopic({ forum: forumId, title: topicForm.title, content: topicForm.content })
+      const forum = categories.find(c => c.id === topicForm.category)
+      setTopics(prev => [{
+        id: String(created.id),
+        title: created.title,
+        category: forum?.name || '',
+        author: created.user_name || 'Admin',
+        replies: 0,
+        views: 0,
+        lastActivity: 'Just now',
+        status: 'active',
+        createdAt: new Date().toLocaleDateString()
+      }, ...prev])
+      setIsCreateTopicOpen(false)
+      setTopicForm({ title: '', category: '', content: '', author: 'Admin' })
+      toast.success('Topic created successfully!')
+    } catch { toast.error('Tạo chủ đề thất bại') }
+  }
+
+  const openModerationDialog = (topic: ForumTopic) => {
+    setSelectedTopicForModeration(topic)
+    setIsModerationDialogOpen(true)
+  }
+
+  const openPreviewDialog = (topic: ForumTopic) => {
+    setSelectedTopicForPreview(topic)
+    setIsPreviewOpen(true)
+  }
+
+  const handleModeration = async () => {
+    if (!selectedTopicForModeration || !moderationAction.action) {
+      toast.error('Please select an action')
+      return
+    }
+    const action = moderationAction.action
+    const topicId = Number(selectedTopicForModeration.id)
+    try {
+      if (action === 'approve') {
+        await updateForumTopic(topicId, { status: 'active' })
+        setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'active' as const } : t))
+        toast.success('Topic approved')
+      } else if (action === 'delete') {
+        await deleteForumTopic(topicId)
+        setTopics(topics.filter(t => t.id !== selectedTopicForModeration.id))
+        toast.success('Topic deleted')
+      } else if (action === 'lock') {
+        await updateForumTopic(topicId, { status: 'locked' })
+        setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'locked' as const } : t))
+        toast.success('Topic locked')
+      } else if (action === 'warn') {
+        toast.success(`Warning sent to ${selectedTopicForModeration.author}`)
+      } else if (action === 'ban') {
+        toast.success(`User ${selectedTopicForModeration.author} has been banned`)
+      }
+    } catch { toast.error('Thao tác thất bại') }
+
+    setIsModerationDialogOpen(false)
+    setSelectedTopicForModeration(null)
+    setModerationAction({ action: '', reason: '', duration: '' })
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Forum Management</h1>
+          <p className="text-muted-foreground">Manage forum topics, categories, and moderation</p>
+        </div>
+        <Dialog open={isCreateTopicOpen} onOpenChange={setIsCreateTopicOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Tạo Chủ Đề Mới
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Tạo Chủ Đề Diễn Đàn Mới</DialogTitle>
+              <DialogDescription>
+                Tạo chủ đề thảo luận mới cho cộng đồng
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="topic-title">Tiêu Đề *</Label>
+                <Input
+                  id="topic-title"
+                  placeholder="Nhập tiêu đề chủ đề..."
+                  value={topicForm.title}
+                  onChange={(e) => setTopicForm({ ...topicForm, title: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="topic-category">Danh Mục *</Label>
+                <Select 
+                  value={topicForm.category}
+                  onValueChange={(value) => setTopicForm({ ...topicForm, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn danh mục" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="topic-content">Nội Dung *</Label>
+                <Textarea
+                  id="topic-content"
+                  placeholder="Nhập nội dung chi tiết..."
+                  rows={8}
+                  value={topicForm.content}
+                  onChange={(e) => setTopicForm({ ...topicForm, content: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="topic-author">Tác Giả</Label>
+                <Input
+                  id="topic-author"
+                  value={topicForm.author}
+                  onChange={(e) => setTopicForm({ ...topicForm, author: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsCreateTopicOpen(false)}>
+                Hủy
+              </Button>
+              <Button onClick={handleCreateTopic}>
+                Tạo Chủ Đề
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardDescription>Total Topics</CardDescription>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalTopics}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Across all categories
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardDescription>Total Replies</CardDescription>
+              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalReplies}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Community engagement
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardDescription>Total Views</CardDescription>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalViews.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Forum reach
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardDescription>Reported Topics</CardDescription>
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-destructive">{reportedTopics.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Needs moderation
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <Tabs defaultValue="topics" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="topics">Topics</TabsTrigger>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="reported">
+            Reported ({reportedTopics.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="topics" className="space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Filter Topics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search topics..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="locked">Locked</SelectItem>
+                    <SelectItem value="pinned">Pinned</SelectItem>
+                    <SelectItem value="reported">Reported</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Topics Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>All Topics ({filteredTopics.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Topic</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Author</TableHead>
+                    <TableHead>Replies</TableHead>
+                    <TableHead>Views</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Last Activity</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTopics.map((topic) => (
+                    <TableRow key={topic.id}>
+                      <TableCell>
+                        <div className="font-medium">{topic.title}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Created {topic.createdAt}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{topic.category}</Badge>
+                      </TableCell>
+                      <TableCell>{topic.author}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                          {topic.replies}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                          {topic.views}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusColor(topic.status)} className="gap-1">
+                          {getStatusIcon(topic.status)}
+                          {topic.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {topic.lastActivity}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openPreviewDialog(topic)}
+                            title="Quick Preview"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openModerationDialog(topic)}
+                            title="Moderation"
+                          >
+                            <Shield className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePinTopic(topic.id)}
+                            title={topic.status === 'pinned' ? 'Unpin' : 'Pin'}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleLockTopic(topic.id)}
+                            title={topic.status === 'locked' ? 'Unlock' : 'Lock'}
+                          >
+                            {topic.status === 'locked' ? (
+                              <Unlock className="h-4 w-4" />
+                            ) : (
+                              <Lock className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteTopic(topic.id)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="categories" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Forum Categories</CardTitle>
+                <CardDescription>Manage discussion categories</CardDescription>
+              </div>
+              <Dialog open={isCreateCategoryOpen} onOpenChange={setIsCreateCategoryOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add Category
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Category</DialogTitle>
+                    <DialogDescription>
+                      Add a new discussion category
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Category Name *</Label>
+                      <Input
+                        id="name"
+                        placeholder="e.g., React, JavaScript"
+                        value={categoryForm.name}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        placeholder="Brief description of this category"
+                        rows={3}
+                        value={categoryForm.description}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="order">Display Order</Label>
+                      <Input
+                        id="order"
+                        type="number"
+                        min="1"
+                        value={categoryForm.order}
+                        onChange={(e) => setCategoryForm({ ...categoryForm, order: parseInt(e.target.value) || 1 })}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCreateCategoryOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateCategory}>
+                      Create Category
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {categories.sort((a, b) => a.order - b.order).map((category) => (
+                  <Card key={category.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-lg">{category.name}</div>
+                          <div className="text-sm text-muted-foreground">{category.description}</div>
+                          <div className="flex items-center gap-4 mt-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                              {category.topicsCount} topics
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Order: {category.order}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm">
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reported" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reported Topics</CardTitle>
+              <CardDescription>Topics that need moderation</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {reportedTopics.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="h-12 w-12 mx-auto text-green-600 mb-4" />
+                  <h3 className="font-medium mb-1">All Clear!</h3>
+                  <p className="text-sm text-muted-foreground">No reported topics at the moment</p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Topic</TableHead>
+                      <TableHead>Author</TableHead>
+                      <TableHead>Reports</TableHead>
+                      <TableHead>Last Activity</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportedTopics.map((topic) => (
+                      <TableRow key={topic.id} className="bg-destructive/5">
+                        <TableCell>
+                          <div className="font-medium">{topic.title}</div>
+                          <div className="text-sm text-muted-foreground">in {topic.category}</div>
+                        </TableCell>
+                        <TableCell>{topic.author}</TableCell>
+                        <TableCell>
+                          <Badge variant="destructive">Flagged</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {topic.lastActivity}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openPreviewDialog(topic)}
+                              title="Quick View"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => openModerationDialog(topic)}
+                            >
+                              <Shield className="h-3 w-3" />
+                              Review
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setTopics(topics.map(t => 
+                                  t.id === topic.id ? { ...t, status: 'active' } : t
+                                ))
+                                toast.success('Report dismissed')
+                              }}
+                            >
+                              Dismiss
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteTopic(topic.id)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Quick Topic Preview */}
+      <QuickTopicPreview
+        open={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+        topic={selectedTopicForPreview}
+        onModerate={() => {
+          if (selectedTopicForPreview) {
+            openModerationDialog(selectedTopicForPreview)
+          }
+        }}
+      />
+
+      {/* Moderation Dialog */}
+      <Dialog open={isModerationDialogOpen} onOpenChange={setIsModerationDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              Kiểm Duyệt Nội Dung
+            </DialogTitle>
+            <DialogDescription>
+              Thực hiện hành động kiểm duyệt cho chủ đề: <strong>{selectedTopicForModeration?.title}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* View Topic Buttons */}
+            <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
+              <CardContent className="pt-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Eye className="h-4 w-4 text-blue-600 mt-1" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      Xem Trước Khi Kiểm Duyệt
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300">
+                      Đọc toàn bộ nội dung và phản hồi để đưa ra quyết định chính xác
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="gap-2 flex-1"
+                    onClick={() => window.open(`/forum/topic/${selectedTopicForModeration?.id}`, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Mở Tab Mới
+                  </Button>
+                  <Button
+                    variant="default"
+                    className="gap-2 flex-1"
+                    onClick={() => {
+                      setIsModerationDialogOpen(false)
+                      navigate(`/forum/topic/${selectedTopicForModeration?.id}`)
+                    }}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Chuyển Đến
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Topic Info */}
+            <Alert>
+              <FileText className="h-4 w-4" />
+              <AlertTitle>Thông Tin Chủ Đề</AlertTitle>
+              <AlertDescription>
+                <div className="mt-2 space-y-1">
+                  <div><strong>Tác giả:</strong> {selectedTopicForModeration?.author}</div>
+                  <div><strong>Danh mục:</strong> {selectedTopicForModeration?.category}</div>
+                  <div><strong>Lượt xem:</strong> {selectedTopicForModeration?.views}</div>
+                  <div><strong>Trả lời:</strong> {selectedTopicForModeration?.replies}</div>
+                  <div><strong>Ngày tạo:</strong> {selectedTopicForModeration?.createdAt}</div>
+                  <div><strong>Trạng thái:</strong> <Badge variant={getStatusColor(selectedTopicForModeration?.status || 'active')}>{selectedTopicForModeration?.status}</Badge></div>
+                </div>
+              </AlertDescription>
+            </Alert>
+
+            {/* Content Preview */}
+            {selectedTopicForModeration?.content && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Nội Dung Preview</CardTitle>
+                  <CardDescription>Đọc nội dung để đánh giá trước khi kiểm duyệt</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-secondary/50 p-4 rounded-lg max-h-48 overflow-y-auto">
+                    <p className="text-sm whitespace-pre-wrap">{selectedTopicForModeration.content}</p>
+                  </div>
+                  {selectedTopicForModeration.content.length > 200 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      * Hiển thị một phần nội dung. Click "Xem Chi Tiết" để đọc đầy đủ.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Moderation Action */}
+            <div className="space-y-2">
+              <Label htmlFor="mod-action">Hành Động *</Label>
+              <Select 
+                value={moderationAction.action}
+                onValueChange={(value) => setModerationAction({ ...moderationAction, action: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn hành động" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="approve">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Duyệt - Cho phép hiển thị
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="lock">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-amber-600" />
+                      Khóa - Không cho phép trả lời mới
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="warn">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      Cảnh báo - Gửi cảnh báo cho tác giả
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="ban">
+                    <div className="flex items-center gap-2">
+                      <Ban className="h-4 w-4 text-red-600" />
+                      Cấm - Cấm tác giả (tạm thời/vĩnh viễn)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="delete">
+                    <div className="flex items-center gap-2">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                      Xóa - Xóa chủ đề hoàn toàn
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Reason */}
+            <div className="space-y-2">
+              <Label htmlFor="mod-reason">Lý Do *</Label>
+              <Textarea
+                id="mod-reason"
+                placeholder="Nhập lý do thực hiện hành động này..."
+                rows={4}
+                value={moderationAction.reason}
+                onChange={(e) => setModerationAction({ ...moderationAction, reason: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Lý do này sẽ được gửi đến tác giả và lưu vào log kiểm duyệt
+              </p>
+            </div>
+
+            {/* Duration (for ban) */}
+            {moderationAction.action === 'ban' && (
+              <div className="space-y-2">
+                <Label htmlFor="mod-duration">Thời Gian Cấm</Label>
+                <Select 
+                  value={moderationAction.duration}
+                  onValueChange={(value) => setModerationAction({ ...moderationAction, duration: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn thời gian" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1d">1 ngày</SelectItem>
+                    <SelectItem value="3d">3 ngày</SelectItem>
+                    <SelectItem value="7d">7 ngày</SelectItem>
+                    <SelectItem value="30d">30 ngày</SelectItem>
+                    <SelectItem value="permanent">Vĩnh viễn</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Warning Alert */}
+            {(moderationAction.action === 'delete' || moderationAction.action === 'ban') && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Cảnh Báo</AlertTitle>
+                <AlertDescription>
+                  Hành động này không thể hoàn tác. Vui lòng kiểm tra kỹ trước khi thực hiện.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsModerationDialogOpen(false)
+                setSelectedTopicForModeration(null)
+                setModerationAction({ action: '', reason: '', duration: '' })
+              }}
+            >
+              Hủy
+            </Button>
+            <Button 
+              onClick={handleModeration}
+              variant={moderationAction.action === 'delete' || moderationAction.action === 'ban' ? 'destructive' : 'default'}
+            >
+              Thực Hiện
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

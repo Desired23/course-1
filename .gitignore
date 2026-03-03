@@ -27,3 +27,12 @@ fix_instructor_records.py
 fix_id_references.py
 fix_str_methods.py
 FIXES_SUMMARY.md
+
+# Frontend
+node_modules/
+course_fe/node_modules/
+dist/
+course_fe/dist/
+course_fe/build/
+.env
+.env.local

@@ -10,6 +10,8 @@ from .services import (
     update_review,
     delete_review,
     get_reviews_by_course,
+    get_reviews_by_user,
+    get_reviews_by_instructor,
     get_review_by_id,
     count_reviews_by_course,
     count_like_review
@@ -22,7 +24,14 @@ class ReviewListView(APIView):
     def get(self, request):
         # GET is public - no auth required
         try:
-            reviews = get_reviews_by_course(request.query_params.get('course_id'))
+            user_id = request.query_params.get('user_id')
+            instructor_id = request.query_params.get('instructor_id')
+            if user_id:
+                reviews = get_reviews_by_user(user_id)
+            elif instructor_id:
+                reviews = get_reviews_by_instructor(instructor_id)
+            else:
+                reviews = get_reviews_by_course(request.query_params.get('course_id'))
             return paginate_queryset(reviews, request, ReviewSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
@@ -45,10 +54,10 @@ class ReviewListView(APIView):
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, review_id):
-        self.permission_classes = [RolePermissionFactory(['admin'])]
+        self.permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
         self.check_permissions(request)
         try:
-            result = delete_review(review_id)
+            result = delete_review(review_id, requesting_user=request.user)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)

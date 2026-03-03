@@ -1,0 +1,219 @@
+================================================================================
+  FE-BE INTEGRATION PROGRESS - COURSE PLATFORM
+  Completed: March 3, 2026
+================================================================================
+
+TECH STACK:
+  Backend:  Django 5.2 + DRF, PyJWT (HS256), SQLite, DEBUG=True
+  Frontend: React 18.3.1 + Vite 6.3.5 + TypeScript + SWC
+            Zustand + TanStack React Query, Radix UI + Tailwind CSS v4.1
+  URL prefix: /api/ (NOT /api/v1/)
+  Auth: useAuth() from contexts/AuthContext
+  Toast: import { toast } from 'sonner'
+  HTTP: import { http } from './http' (named export)
+
+================================================================================
+PHASE 1: AUTH & CORE SERVICES                                              [DONE]
+================================================================================
+  - HttpService (http.ts) with JWT interceptor
+  - AuthContext with login/register/logout/refresh
+  - Auth API (auth.api.ts): login, register, refreshToken, getProfile, etc.
+  - Protected routes and role-based access
+
+================================================================================
+PHASE 2: COURSE-RELATED PAGES                                             [DONE]
+================================================================================
+  - course.api.ts: getAllCourses, getCourseById, getCourseBySlug, searchCourses
+  - course-modules.api.ts: getModulesByCourse, createModule, updateModule, etc.
+  - lessons.api.ts: getLessonsByModule, createLesson, updateLesson, etc.
+  - lesson-attachments.api.ts: getAttachments, uploadAttachment, etc.
+  - quiz-questions.api.ts: getQuizQuestions, createQuizQuestion, etc.
+  - Pages integrated:
+    * CoursesPage, CourseDetailPage, CourseContentPage
+    * Course creation/editing flows
+
+================================================================================
+PHASE 3: STUDENT PAGES                                                    [DONE]
+================================================================================
+  - enrollment.api.ts: enrollCourse, getMyEnrollments, getEnrollmentProgress
+  - learning-progress.api.ts: markLessonComplete, getCourseProgress
+  - certificate.api.ts: getCertificates, generateCertificate
+  - review.api.ts: getReviewsByCourse, createReview, updateReview, deleteReview
+  - Pages integrated:
+    * MyCoursesPage, LearningPage, CertificatesPage
+    * StudentDashboard, StudentProfilePage
+
+================================================================================
+PHASE 4: INSTRUCTOR PAGES                                                 [DONE]
+================================================================================
+  - instructor.api.ts: getInstructorProfile, getInstructorCourses
+  - instructor-earnings.api.ts: getEarnings, getEarningStats
+  - instructor-payouts.api.ts: getPayouts, requestPayout
+  - instructor-levels.api.ts: getLevels, getCurrentLevel
+  - application.api.ts: submitApplication, getApplicationStatus
+  - Pages integrated:
+    * InstructorDashboard, InstructorCoursesPage
+    * InstructorEarningsPage, InstructorPayoutsPage
+    * InstructorStudentsPage, InstructorSettingsPage
+    * InstructorCommunicationPage (partial - has mock conversations)
+
+================================================================================
+PHASE 5: PAYMENT/CART PAGES                                               [DONE]
+================================================================================
+  - cart.api.ts: getCart, addToCart, removeFromCart, clearCart
+  - wishlist.api.ts: getWishlist, addToWishlist, removeFromWishlist
+  - payment.api.ts: createPayment, getPaymentStatus, createVnpayPayment
+  - payment-method.api.ts: getUserPaymentMethods, createUserPaymentMethod
+  - Pages integrated:
+    * CartPage, CheckoutPage, PaymentSuccessPage
+    * WishlistPage
+
+================================================================================
+PHASE 6: COMMUNITY (FORUM, BLOG, Q&A)                                     [DONE]
+================================================================================
+  - forum.api.ts: getForums, getForumTopics, createTopic, createComment
+  - blog-posts.api.ts: getBlogPosts, getBlogPostBySlug, createBlogPost
+  - qna.api.ts: getQnAs, createQnA, createAnswer
+  - lesson-comments.api.ts: getComments, createComment
+  - Pages integrated:
+    * ForumPage, ForumTopicPage
+    * BlogPage, BlogPostPage (partial - has mock for single post detail)
+    * Q&A sections in course pages
+
+================================================================================
+PHASE 7: SUPPORT & NOTIFICATIONS                                          [DONE]
+================================================================================
+  - support.api.ts: getSupportTickets, createSupportTicket, updateSupportTicket
+  - notification.api.ts: getNotifications, markAsRead, markAllAsRead
+  - Pages integrated:
+    * SupportPage, SupportTicketDetailPage
+    * NotificationsPage, notification bell component
+
+================================================================================
+PHASE 8: OTHER PAGES                                                       [DONE]
+================================================================================
+  - category.api.ts: getAllCategories, getCategoryById, createCategory
+  - subscription.api.ts: getSubscriptionPlans, subscribe, cancelSubscription
+  - promotions.api.ts: getPromotions, createPromotion, applyPromotion
+  - Pages integrated:
+    * CategoriesPage, SubscriptionPage, PromotionsPage
+    * Various utility pages
+
+================================================================================
+PHASE 9: ADMIN PAGES (27 pages)                                           [DONE]
+================================================================================
+  API Services Used:
+    - admin.api.ts: Dashboard stats, Revenue/User/Course analytics,
+      AdminUser CRUD, Application review, ActivityLog, Subscription Plans,
+      SystemSetting CRUD, UserItem management
+    - support.api.ts, review.api.ts, category.api.ts, etc.
+
+  Pages integrated:
+    1.  AdminDashboard.tsx            - dashboardStats + users + courses
+    2.  AdminCoursesPage.tsx          - getAllCourses, async handlers
+    3.  AdminCourseDetailPage.tsx     - getCourseById + reviews
+    4.  AdminUsersPage.tsx            - getAllUsers, async ban/unban/delete
+    5.  EditUserPage.tsx              - getUserById, adminUpdateUser
+    6.  CreateUserPage.tsx            - createUser
+    7.  AdminCategoriesPage.tsx       - getAllCategories, CRUD
+    8.  AdminBlogPostsPage.tsx        - getAdminBlogPosts, CRUD
+    9.  AdminDiscountsPage.tsx        - getPromotions, create/delete
+    10. AdminForumPage.tsx            - forums + topics, CRUD
+    11. AdminAnalyticsPage.tsx        - Skip (29 lines, delegates to component)
+    12. ActivityLogPage.tsx           - getActivityLogs
+    13. AdminInstructorApplicationsPage - getAdminApplications, reviewApplication
+    14. AdminSubscriptionPage.tsx     - getAdminSubscriptionPlans, getPlanSubscribers
+    15. AdminWebsiteSettingsPage.tsx  - System settings (site_name, banners, etc.)
+    16. AdminHomeLayoutPage.tsx       - System setting 'homepage_layout'
+    17. HomepageConfigPage.tsx        - System setting 'homepage_config'
+    18. PaymentGatewaySettingsPage.tsx - System setting 'payment_gateways'
+    19. PaymentManagementPage.tsx     - System settings (5 keys)
+    20. PaymentMethodsPage.tsx        - System settings (2 keys)
+    21. PermissionsPage.tsx           - getAllUsers + getAdmins, adminUpdateUser
+    22. PlatformSettingsPage.tsx      - System setting 'platform_settings'
+    23. ReportManagementPage.tsx      - getSupportTickets mapped to Report
+    24. ReviewManagementPage.tsx      - getAllReviews, updateReview, deleteReview
+    25. StatisticsPage.tsx            - Admin analytics APIs + getAllCategories
+    26. SubscriptionsPage.tsx         - Admin subscription APIs
+    27. WebsiteManagementPage.tsx     - System setting 'website_management'
+
+================================================================================
+API SERVICE FILES (src/services/)
+================================================================================
+  admin.api.ts          - Admin dashboard, analytics, users, apps, settings
+  auth.api.ts           - Login, register, refresh, profile
+  application.api.ts    - Instructor applications
+  blog-posts.api.ts     - Blog CRUD
+  cart.api.ts           - Cart operations
+  category.api.ts       - Category CRUD
+  certificate.api.ts    - Certificate generation
+  course.api.ts         - Course CRUD + search
+  course-modules.api.ts - Module CRUD
+  enrollment.api.ts     - Enrollment operations
+  forum.api.ts          - Forum/topics/comments
+  instructor.api.ts     - Instructor profiles
+  instructor-earnings.api.ts  - Earnings stats
+  instructor-levels.api.ts    - Level system
+  instructor-payouts.api.ts   - Payout management
+  lesson-attachments.api.ts   - Attachment upload
+  lesson-comments.api.ts      - Lesson comments
+  lessons.api.ts              - Lesson CRUD
+  notification.api.ts         - Notifications
+  payment.api.ts              - Payments, VNPay, Refunds
+  payment-method.api.ts       - Payment methods
+  promotions.api.ts           - Promotions/coupons
+  qna.api.ts                  - Q&A system
+  quiz-questions.api.ts       - Quiz questions
+  review.api.ts               - Reviews CRUD + getAllReviews
+  subscription.api.ts         - Subscription plans
+  support.api.ts              - Support tickets + replies
+  wishlist.api.ts             - Wishlist operations
+  http.ts                     - HttpService base class
+
+================================================================================
+KNOWN REMAINING MOCK DATA (minor)
+================================================================================
+  1. InstructorCommunicationPage.tsx
+     - mockConversations, mockMessages, mockAnnouncements
+     - No messaging API exists in backend yet
+
+  2. BlogPostPage.tsx
+     - mockBlogPost, mockComments for single post detail view
+     - Blog post detail API endpoint may need verification
+
+  3. AdminDashboard.tsx
+     - State variables named mockUsers/mockCourses but actually fetch from API
+     - Just needs variable rename (cosmetic)
+
+  4. _dev/AdvancedFeaturesDemo.tsx
+     - Dev demo page, mock data intentional, no action needed
+
+================================================================================
+INTEGRATION PATTERNS USED
+================================================================================
+  Settings Pages:
+    - Store complex config as JSON in SystemSetting via key-value API
+    - Load: getSystemSettings() -> find by key -> JSON.parse(value)
+    - Save: createSystemSetting/updateSystemSetting with JSON.stringify
+    - Track settingId in local state for create vs update logic
+
+  Entity Pages:
+    - Fetch from dedicated API endpoints
+    - Map API response to local interface using adapter functions
+    - Status mapping (e.g., API 'approved' -> UI 'published')
+    - Async handlers with try/catch + toast feedback
+
+  Common Fixes Applied:
+    - toast import: 'sonner@2.0.3' -> 'sonner'
+    - db-extended imports replaced with API calls
+    - All mock arrays removed, replaced with useState([]) + useEffect
+
+================================================================================
+BUILD STATUS
+================================================================================
+  Final build: PASS
+  Modules: 4020
+  JS:  2,748.73 kB (gzip: 703.12 kB)
+  CSS: 179.44 kB (gzip: 24.94 kB)
+  Time: ~10.6s
+  Warnings: chunk size > 500kB (expected, can add code-splitting later)

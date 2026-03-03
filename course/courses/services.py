@@ -39,12 +39,81 @@ def get_course_by_id(course_id, user=None):
     except Exception:
         raise ValidationError("Lỗi khi lấy thông tin khóa học.")
 
-def get_all_courses():
+def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
+                    status=None, is_featured=None, level=None, search=None,
+                    ordering=None, rating_min=None, language=None,
+                    price_min=None, price_max=None):
     try:
-        courses = Course.objects.filter(is_deleted=False)
+        courses = Course.objects.filter(is_deleted=False).select_related(
+            'instructor__user', 'category', 'subcategory'
+        )
+        if instructor_id:
+            courses = courses.filter(instructor_id=instructor_id)
+        if category_id:
+            courses = courses.filter(category_id=category_id)
+        if subcategory_id:
+            courses = courses.filter(subcategory_id=subcategory_id)
+        if status:
+            courses = courses.filter(status=status)
+        if is_featured is not None:
+            courses = courses.filter(is_featured=is_featured)
+        if level:
+            courses = courses.filter(level=level)
+        if rating_min is not None:
+            courses = courses.filter(rating__gte=rating_min)
+        if language:
+            courses = courses.filter(language__iexact=language)
+        if price_min is not None:
+            courses = courses.filter(price__gte=price_min)
+        if price_max is not None:
+            courses = courses.filter(price__lte=price_max)
+        if search:
+            from django.db.models import Q
+            courses = courses.filter(
+                Q(title__icontains=search) |
+                Q(shortdescription__icontains=search) |
+                Q(description__icontains=search)
+            )
+        if ordering:
+            allowed = {
+                'created_at', '-created_at',
+                'price', '-price',
+                'rating', '-rating',
+                'total_students', '-total_students',
+                'title', '-title',
+            }
+            if ordering in allowed:
+                courses = courses.order_by(ordering)
         return courses
     except Exception:
         raise ValidationError("Lỗi khi lấy danh sách khóa học.")
+
+
+def get_public_stats():
+    """Return aggregate platform stats for the homepage."""
+    from users.models import User
+    from instructors.models import Instructor
+    from django.db.models import Avg
+    try:
+        total_courses = Course.objects.filter(is_deleted=False, status='published').count()
+        total_students = User.objects.filter(user_type='student', status='active', is_deleted=False).count()
+        total_instructors = Instructor.objects.count()
+        avg_rating = Course.objects.filter(
+            is_deleted=False, status='published', rating__gt=0
+        ).aggregate(avg=Avg('rating'))['avg'] or 0
+        return {
+            'total_courses': total_courses,
+            'total_students': total_students,
+            'total_instructors': total_instructors,
+            'avg_rating': round(float(avg_rating), 1)
+        }
+    except Exception:
+        return {
+            'total_courses': 0,
+            'total_students': 0,
+            'total_instructors': 0,
+            'avg_rating': 0
+        }
 
 def update_course(course_id, data, requesting_user=None):
     try:

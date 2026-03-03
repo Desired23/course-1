@@ -1,0 +1,607 @@
+import { useState, useRef, useEffect } from 'react'
+import { Button } from './ui/button'
+import { Slider } from './ui/slider'
+import { 
+  Play, 
+  Pause, 
+  Volume2, 
+  VolumeX, 
+  Volume1,
+  Maximize, 
+  Minimize,
+  Settings,
+  SkipBack,
+  SkipForward,
+  Bookmark,
+  CheckCircle
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu'
+import { toast } from 'sonner@2.0.3'
+
+interface VideoPlayerProps {
+  url?: string
+  title: string
+  onProgress?: (progress: number) => void
+  onComplete?: () => void
+  savedProgress?: number
+  lessonId?: number
+}
+
+// YouTube IFrame API types
+declare global {
+  interface Window {
+    YT: any
+    onYouTubeIframeAPIReady: () => void
+  }
+}
+
+export function VideoPlayer({ 
+  url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 
+  title,
+  onProgress,
+  onComplete,
+  savedProgress = 0,
+  lessonId
+}: VideoPlayerProps) {
+  const playerRef = useRef<any>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const iframeRef = useRef<HTMLDivElement>(null)
+  const isMountedRef = useRef(true)
+  const progressIntervalRef = useRef<NodeJS.Timeout>()
+  
+  const [playing, setPlaying] = useState(false)
+  const [volume, setVolume] = useState(80)
+  const [muted, setMuted] = useState(false)
+  const [played, setPlayed] = useState(savedProgress / 100)
+  const [duration, setDuration] = useState(0)
+  const [playbackRate, setPlaybackRate] = useState(1.0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showControls, setShowControls] = useState(true)
+  const [bookmarks, setBookmarks] = useState<number[]>([])
+  const [playerReady, setPlayerReady] = useState(false)
+  
+  const controlsTimeoutRef = useRef<NodeJS.Timeout>()
+
+  // Extract YouTube video ID from URL
+  const getYouTubeVideoId = (url: string): string | null => {
+    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/
+    const match = url.match(regExp)
+    return (match && match[7].length === 11) ? match[7] : null
+  }
+
+  const videoId = getYouTubeVideoId(url)
+
+  // Load YouTube IFrame API
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement('script')
+      tag.src = 'https://www.youtube.com/iframe_api'
+      const firstScriptTag = document.getElementsByTagName('script')[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+    }
+
+    return () => {
+      isMountedRef.current = false
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+      }
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Initialize YouTube Player
+  useEffect(() => {
+    if (!videoId || !iframeRef.current) return
+
+    const initPlayer = () => {
+      if (!window.YT || !window.YT.Player) {
+        setTimeout(initPlayer, 100)
+        return
+      }
+
+      // Destroy existing player
+      if (playerRef.current) {
+        playerRef.current.destroy()
+      }
+
+      playerRef.current = new window.YT.Player(iframeRef.current, {
+        videoId: videoId,
+        width: '100%',
+        height: '100%',
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          showinfo: 0,
+          fs: 0,
+          playsinline: 1
+        },
+        events: {
+          onReady: (event: any) => {
+            setPlayerReady(true)
+            setDuration(event.target.getDuration())
+            event.target.setVolume(volume)
+            
+            // Start progress tracking
+            progressIntervalRef.current = setInterval(() => {
+              if (playerRef.current && isMountedRef.current) {
+                try {
+                  const currentTime = playerRef.current.getCurrentTime()
+                  const duration = playerRef.current.getDuration()
+                  const playedFraction = currentTime / duration
+                  
+                  setPlayed(playedFraction)
+                  
+                  if (onProgress) {
+                    onProgress(playedFraction * 100)
+                  }
+                  
+                  // Auto-complete when video is 95% watched
+                  if (playedFraction > 0.95 && onComplete) {
+                    onComplete()
+                  }
+                } catch (err) {
+                  // Player not ready yet
+                }
+              }
+            }, 1000)
+          },
+          onStateChange: (event: any) => {
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              setPlaying(true)
+            } else if (event.data === window.YT.PlayerState.PAUSED) {
+              setPlaying(false)
+            } else if (event.data === window.YT.PlayerState.ENDED) {
+              setPlaying(false)
+              if (onComplete) onComplete()
+            }
+          }
+        }
+      })
+    }
+
+    initPlayer()
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+      }
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy()
+        } catch (err) {
+          // Player already destroyed
+        }
+      }
+    }
+  }, [videoId, lessonId])
+
+  // Load saved bookmarks
+  useEffect(() => {
+    if (lessonId) {
+      try {
+        const saved = localStorage.getItem(`bookmarks_${lessonId}`)
+        if (saved) {
+          setBookmarks(JSON.parse(saved))
+        }
+      } catch (e) {
+        console.error('Error loading bookmarks:', e)
+      }
+    }
+  }, [lessonId])
+
+  // Save bookmarks
+  useEffect(() => {
+    if (lessonId && bookmarks.length > 0) {
+      try {
+        localStorage.setItem(`bookmarks_${lessonId}`, JSON.stringify(bookmarks))
+      } catch (e) {
+        console.error('Error saving bookmarks:', e)
+      }
+    }
+  }, [bookmarks, lessonId])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return
+      }
+
+      if (!playerRef.current || !playerReady) {
+        return
+      }
+
+      try {
+        switch (e.key) {
+          case ' ':
+            e.preventDefault()
+            togglePlay()
+            break
+          case 'ArrowLeft':
+            e.preventDefault()
+            skipBackward()
+            break
+          case 'ArrowRight':
+            e.preventDefault()
+            skipForward()
+            break
+          case 'ArrowUp':
+            e.preventDefault()
+            setVolume(v => {
+              const newVol = Math.min(100, v + 10)
+              playerRef.current?.setVolume(newVol)
+              return newVol
+            })
+            break
+          case 'ArrowDown':
+            e.preventDefault()
+            setVolume(v => {
+              const newVol = Math.max(0, v - 10)
+              playerRef.current?.setVolume(newVol)
+              return newVol
+            })
+            break
+          case 'm':
+            e.preventDefault()
+            toggleMute()
+            break
+          case 'f':
+            e.preventDefault()
+            toggleFullscreen()
+            break
+          case 'b':
+            e.preventDefault()
+            addBookmark()
+            break
+        }
+      } catch (err) {
+        console.log('Keyboard shortcut not available yet')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyPress)
+    return () => window.removeEventListener('keydown', handleKeyPress)
+  }, [playerReady, volume, muted])
+
+  // Handle mouse movement to show/hide controls
+  const handleMouseMove = () => {
+    setShowControls(true)
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current)
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      if (playing) {
+        setShowControls(false)
+      }
+    }, 3000)
+  }
+
+  const togglePlay = () => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      const state = playerRef.current.getPlayerState()
+      if (state === window.YT.PlayerState.PLAYING) {
+        playerRef.current.pauseVideo()
+      } else {
+        playerRef.current.playVideo()
+      }
+    } catch (err) {
+      console.log('Play/pause not available yet')
+    }
+  }
+
+  const handleSeek = (value: number[]) => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      const seekTime = (value[0] / 100) * duration
+      playerRef.current.seekTo(seekTime, true)
+      setPlayed(value[0] / 100)
+    } catch (err) {
+      console.log('Seek not available yet')
+    }
+  }
+
+  const skipForward = () => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      const currentTime = playerRef.current.getCurrentTime()
+      const newTime = Math.min(duration, currentTime + 10)
+      playerRef.current.seekTo(newTime, true)
+    } catch (err) {
+      console.log('Skip forward not available yet')
+    }
+  }
+
+  const skipBackward = () => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      const currentTime = playerRef.current.getCurrentTime()
+      const newTime = Math.max(0, currentTime - 10)
+      playerRef.current.seekTo(newTime, true)
+    } catch (err) {
+      console.log('Skip backward not available yet')
+    }
+  }
+
+  const toggleMute = () => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      if (muted) {
+        playerRef.current.unMute()
+        setMuted(false)
+      } else {
+        playerRef.current.mute()
+        setMuted(true)
+      }
+    } catch (err) {
+      console.log('Mute not available yet')
+    }
+  }
+
+  const handleVolumeChange = (value: number[]) => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      const newVolume = value[0]
+      playerRef.current.setVolume(newVolume)
+      setVolume(newVolume)
+      if (newVolume > 0 && muted) {
+        playerRef.current.unMute()
+        setMuted(false)
+      }
+    } catch (err) {
+      console.log('Volume change not available yet')
+    }
+  }
+
+  const handlePlaybackRateChange = (rate: number) => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      playerRef.current.setPlaybackRate(rate)
+      setPlaybackRate(rate)
+    } catch (err) {
+      console.log('Playback rate change not available yet')
+    }
+  }
+
+  const addBookmark = () => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      const currentTime = playerRef.current.getCurrentTime()
+      setBookmarks(prev => [...prev, currentTime])
+      toast.success('Bookmark added at ' + formatTime(currentTime))
+    } catch (err) {
+      console.log('Bookmark not available yet')
+    }
+  }
+
+  const jumpToBookmark = (time: number) => {
+    if (!playerRef.current || !playerReady) return
+    
+    try {
+      playerRef.current.seekTo(time, true)
+    } catch (err) {
+      console.log('Jump to bookmark not available yet')
+    }
+  }
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen()
+      setIsFullscreen(true)
+    } else {
+      document.exitFullscreen()
+      setIsFullscreen(false)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = Math.floor(seconds % 60)
+    
+    if (h > 0) {
+      return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+    }
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  const getVolumeIcon = () => {
+    if (muted || volume === 0) return <VolumeX className="w-4 h-4" />
+    if (volume < 50) return <Volume1 className="w-4 h-4" />
+    return <Volume2 className="w-4 h-4" />
+  }
+
+  return (
+    <div 
+      ref={containerRef}
+      className="relative bg-black group"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => playing && setShowControls(false)}
+    >
+      {/* YouTube Player */}
+      <div className="w-full" style={{ aspectRatio: '16/9' }}>
+        <div ref={iframeRef} className="w-full h-full" />
+      </div>
+
+      {/* Play/Pause Overlay */}
+      <div 
+        className="absolute inset-0 flex items-center justify-center cursor-pointer"
+        onClick={togglePlay}
+      >
+        {!playing && playerReady && (
+          <div className="bg-black/50 rounded-full p-4 backdrop-blur-sm transition-opacity">
+            <Play className="w-12 h-12 text-white" />
+          </div>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div 
+        className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <div className="p-4 space-y-2">
+          {/* Progress Bar */}
+          <div className="flex items-center gap-2">
+            <Slider
+              value={[played * 100]}
+              onValueChange={handleSeek}
+              max={100}
+              step={0.1}
+              className="flex-1"
+            />
+          </div>
+
+          {/* Bookmarks */}
+          {bookmarks.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {bookmarks.map((bookmark, index) => (
+                <Button
+                  key={index}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => jumpToBookmark(bookmark)}
+                  className="h-6 px-2 text-xs text-white hover:bg-white/20"
+                >
+                  <Bookmark className="w-3 h-3 mr-1" />
+                  {formatTime(bookmark)}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {/* Control Buttons */}
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              {/* Play/Pause */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={togglePlay}
+                className="text-white hover:bg-white/20"
+              >
+                {playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+              </Button>
+
+              {/* Skip Backward */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={skipBackward}
+                className="text-white hover:bg-white/20"
+              >
+                <SkipBack className="w-4 h-4" />
+              </Button>
+
+              {/* Skip Forward */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={skipForward}
+                className="text-white hover:bg-white/20"
+              >
+                <SkipForward className="w-4 h-4" />
+              </Button>
+
+              {/* Volume */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleMute}
+                  className="text-white hover:bg-white/20"
+                >
+                  {getVolumeIcon()}
+                </Button>
+                <Slider
+                  value={[muted ? 0 : volume]}
+                  onValueChange={handleVolumeChange}
+                  max={100}
+                  step={1}
+                  className="w-20"
+                />
+              </div>
+
+              {/* Time Display */}
+              <span className="text-sm">
+                {formatTime(played * duration)} / {formatTime(duration)}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Add Bookmark */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addBookmark}
+                className="text-white hover:bg-white/20"
+                title="Add Bookmark (B)"
+              >
+                <Bookmark className="w-4 h-4" />
+              </Button>
+
+              {/* Playback Speed */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white hover:bg-white/20"
+                  >
+                    <Settings className="w-4 h-4 mr-1" />
+                    {playbackRate}x
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(rate => (
+                    <DropdownMenuItem 
+                      key={rate}
+                      onClick={() => handlePlaybackRateChange(rate)}
+                      className={playbackRate === rate ? 'bg-accent' : ''}
+                    >
+                      {rate}x {playbackRate === rate && <CheckCircle className="w-4 h-4 ml-2" />}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Fullscreen */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleFullscreen}
+                className="text-white hover:bg-white/20"
+                title="Fullscreen (F)"
+              >
+                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Keyboard Shortcuts Help */}
+          <div className="text-xs text-white/60 text-center">
+            Shortcuts: Space (Play/Pause) • ← → (Skip 10s) • ↑ ↓ (Volume) • M (Mute) • F (Fullscreen) • B (Bookmark)
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
