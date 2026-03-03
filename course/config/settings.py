@@ -299,3 +299,15 @@ FRONTEND_CORS = os.getenv('FRONTEND_URL', '')
 if FRONTEND_CORS and FRONTEND_CORS not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_CORS)
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Trusted Origins (needed for POST requests in production)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+]
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+if FRONTEND_CORS:
+    CSRF_TRUSTED_ORIGINS.append(FRONTEND_CORS) 
