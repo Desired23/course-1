@@ -93,11 +93,11 @@ def create_payment(payment_data):
                 total_discount += discount
 
                 payment_detail_arr.append({
-                    "course_id": course.id,
+                    "course": course.id,
                     "price": price,
                     "discount": discount,
                     "final_price": final_price,
-                    "promotion_id": detail_promotion_id
+                    "promotion": detail_promotion_id
                 })
 
             # Áp dụng promotion cho toàn đơn hàng nếu có (admin-level)
@@ -145,7 +145,7 @@ def create_payment(payment_data):
             # Tạo payment
             transaction_id = generate_unique_transaction_id()
             payment_serializer = PaymentCreateSerializer(data={
-                "user_id": user_id,
+                "user": user_id,
                 "amount": total_original,
                 "discount_amount": total_discount,
                 "total_amount": total_amount,
@@ -153,7 +153,7 @@ def create_payment(payment_data):
                 "payment_type": payment_type,
                 "subscription_plan": payment_data.get("subscription_plan_id"),
                 "transaction_id": transaction_id,
-                "promotion_id": promotion_id if promotion_id else None
+                "promotion": promotion_id if promotion_id else None
             })
 
             if not payment_serializer.is_valid():
@@ -161,9 +161,9 @@ def create_payment(payment_data):
 
             payment_serializer.save()
             payment = Payment.objects.get(transaction_id=transaction_id)
-            # Gán payment_id vào từng chi tiết
+            # Gán payment vào từng chi tiết
             for detail in payment_detail_arr:
-                detail["payment_id"] = payment.id
+                detail["payment"] = payment.id
 
             payment_detail_serializer = PaymentDetailSerializer(data=payment_detail_arr, many=True)
             if not payment_detail_serializer.is_valid():
@@ -174,8 +174,8 @@ def create_payment(payment_data):
 
             # Thêm promotion của từng khóa học
             for detail in payment_detail_arr:
-                if detail.get("promotion_id"):
-                    used_promotions.add(detail["promotion_id"])
+                if detail.get("promotion"):
+                    used_promotions.add(detail["promotion"])
 
             # Thêm promotion toàn đơn
             if promotion_id:

@@ -30,9 +30,17 @@ SECRET_KEY = os.getenv(
 
 # SECURITY WARNING: don't run with debug turned on in production!
 ASGI_APPLICATION = "config.asgi.application"
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'course-604d.onrender.com']
+RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Allow additional hosts from env (comma-separated)
+extra_hosts = os.getenv('ALLOWED_HOSTS', '')
+if extra_hosts:
+    ALLOWED_HOSTS.extend(extra_hosts.split(','))
 def get_env(key, default=None, required=False):
     value = os.getenv(key, default)
     if not value:
@@ -87,8 +95,9 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "ahbv oxuf ssvx klkb")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Online Course <{EMAIL_HOST_USER}>")
 
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 # VNPAY_RETURN_URL = "http://127.0.0.1:8000/api/vnpay/return/"
-VNPAY_RETURN_URL = os.getenv("VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/vnpay/return/")
+VNPAY_RETURN_URL = os.getenv("VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/vnpay/payment-return/")
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -147,6 +156,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -232,6 +242,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -282,4 +293,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
 ]
+
+# Add Render frontend URL to CORS if set
+FRONTEND_CORS = os.getenv('FRONTEND_URL', '')
+if FRONTEND_CORS and FRONTEND_CORS not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append(FRONTEND_CORS)
 CORS_ALLOW_CREDENTIALS = True

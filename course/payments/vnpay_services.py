@@ -97,76 +97,101 @@ def create_vnpay_payment(request: HttpRequest):
 
     return JsonResponse({'payment_url': vn_payment_url})
 
+def create_enrollments_from_payment(payment):
+    """Create enrollments for all courses in a completed payment."""
+    from enrollments.services import create_enrollment
+    from enrollments.models import Enrollment
+    details = Payment_Details.objects.filter(payment=payment, is_deleted=False).select_related('course')
+    for detail in details:
+        # Skip if already enrolled
+        existing = Enrollment.objects.filter(
+            user=payment.user, course=detail.course, is_deleted=False
+        ).first()
+        if existing:
+            continue
+        try:
+            create_enrollment({
+                'user_id': payment.user.id,
+                'course_id': detail.course.id,
+            })
+        except Exception as e:
+            print(f"[WARN] Failed to create enrollment for course {detail.course.id}: {e}")
+
+
 def payment_return(request):
+    """Handle VNPay browser redirect after payment. Redirects to FE result page."""
+    from django.http import HttpResponseRedirect
+    fe_url = settings.FRONTEND_URL
+
     try:
         inputData = request.GET
-        if inputData:
-            vnp = vnpay()
-            vnp.responseData = inputData.dict()
-            order_id = inputData['vnp_TxnRef']
-            amount = int(inputData['vnp_Amount']) / 100
-            order_desc = inputData['vnp_OrderInfo']
-            vnp_TransactionNo = inputData['vnp_TransactionNo']
-            vnp_ResponseCode = inputData['vnp_ResponseCode']
-            vnp_TmnCode = inputData['vnp_TmnCode']
-            vnp_PayDate = inputData['vnp_PayDate']
-            vnp_BankCode = inputData['vnp_BankCode']
-            vnp_CardType = inputData['vnp_CardType']
-            if vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
-                try:
-                    payment = Payment.objects.get(id=order_id)
-                except Payment.DoesNotExist:
-                    return JsonResponse({"error": "Payment not found"}, status=404)
+        if not inputData:
+            return HttpResponseRedirect(f"{fe_url}/payment/result?status=error&message=No+data")
 
-                if vnp_ResponseCode == "00":
-                    if Decimal(payment.total_amount) != Decimal(amount):
-                        return JsonResponse({
-                            "title": "Kết quả thanh toán",
-                            "result": "Lỗi",
-                            "msg": "Số tiền không khớp",
-                        }, status=400)
-                    with transaction.atomic():
-                        payment.payment_status = Payment.PaymentStatus.COMPLETED
-                        payment.transaction_id = vnp_TransactionNo
-                        payment.gateway_response = vnp_ResponseCode
-                        payment.payment_gateway = 'vnpay'
-                        payment.save()
-                        # Generate instructor earnings from the payment
-                        generate_instructor_earnings_from_payment(payment)
+        vnp = vnpay()
+        vnp.responseData = inputData.dict()
+        order_id = inputData['vnp_TxnRef']
+        amount = int(inputData['vnp_Amount']) / 100
+        vnp_TransactionNo = inputData.get('vnp_TransactionNo', '')
+        vnp_ResponseCode = inputData.get('vnp_ResponseCode', '')
 
-                    return JsonResponse({
-                        "title": "Kết quả thanh toán",
-                        "result": "Thành công",
-                        "order_id": order_id,
-                        "amount": amount,
-                        "order_desc": order_desc,
-                        "vnp_TransactionNo": vnp_TransactionNo,
-                        "vnp_ResponseCode": vnp_ResponseCode,
-                    })
-                else:
-                    payment.payment_status = Payment.PaymentStatus.FAILED
-                    payment.transaction_id = vnp_TransactionNo
-                    payment.gateway_response = vnp_ResponseCode
-                    payment.save()
-                    return JsonResponse({
-                        "title": "Kết quả thanh toán",
-                        "result": "Lỗi",
-                        "order_id": order_id,
-                        "amount": amount,
-                        "order_desc": order_desc,
-                        "vnp_TransactionNo": vnp_TransactionNo,
-                        "vnp_ResponseCode": vnp_ResponseCode,
-                    })
-            else:
-                return JsonResponse({
-                    "title": "Kết quả thanh toán",
-                    "result": "Lỗi",
-                    "msg": "Sai checksum",
-                })
+        if not vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
+            return HttpResponseRedirect(
+                f"{fe_url}/payment/result?status=error&payment_id={order_id}&message=Invalid+checksum"
+            )
+
+        try:
+            payment = Payment.objects.get(id=order_id)
+        except Payment.DoesNotExist:
+            return HttpResponseRedirect(
+                f"{fe_url}/payment/result?status=error&message=Payment+not+found"
+            )
+
+        if vnp_ResponseCode == "00":
+            if Decimal(payment.total_amount) != Decimal(amount):
+                return HttpResponseRedirect(
+                    f"{fe_url}/payment/result?status=error&payment_id={order_id}&message=Amount+mismatch"
+                )
+
+            with transaction.atomic():
+                payment.payment_status = Payment.PaymentStatus.COMPLETED
+                payment.transaction_id = vnp_TransactionNo
+                payment.gateway_response = vnp_ResponseCode
+                payment.payment_gateway = 'vnpay'
+                payment.save()
+
+                # Generate instructor earnings
+                generate_instructor_earnings_from_payment(payment)
+
+                # Create enrollments for purchased courses
+                create_enrollments_from_payment(payment)
+
+                log_activity(
+                    user_id=payment.user.id,
+                    action="PAYMENT_SUCCESS",
+                    entity_type="Payment",
+                    entity_id=payment.id,
+                    description=f"Thanh toán thành công: {payment.total_amount} VND qua VNPay"
+                )
+
+            return HttpResponseRedirect(
+                f"{fe_url}/payment/result?status=success&payment_id={order_id}&amount={amount}&transaction={vnp_TransactionNo}"
+            )
         else:
-            return JsonResponse({"title": "Kết quả thanh toán", "result": ""})
+            payment.payment_status = Payment.PaymentStatus.FAILED
+            payment.transaction_id = vnp_TransactionNo
+            payment.gateway_response = vnp_ResponseCode
+            payment.save()
+
+            return HttpResponseRedirect(
+                f"{fe_url}/payment/result?status=failed&payment_id={order_id}&code={vnp_ResponseCode}"
+            )
+
     except Exception as e:
-        raise ValidationError(f"Error processing payment return: {str(e)}")
+        import urllib.parse
+        return HttpResponseRedirect(
+            f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
+        )
 
 
 
@@ -218,6 +243,9 @@ def payment_ipn(request):
 
                     # Generate instructor earnings from the payment
                     generate_instructor_earnings_from_payment(payment.id)
+
+                    # Create enrollments for purchased courses
+                    create_enrollments_from_payment(payment)
 
                 # Send invoice email (outside transaction - best effort)
                 try:

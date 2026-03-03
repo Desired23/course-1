@@ -125,7 +125,7 @@ export function SubscriptionCheckoutPage() {
     setIsProcessing(true)
     try {
       // Step 1: Create payment record for subscription
-      const payment = await createPaymentRecord({
+      const result = await createPaymentRecord({
         user_id: Number(user.id),
         payment_method: 'vnpay',
         payment_type: 'subscription',
@@ -137,7 +137,7 @@ export function SubscriptionCheckoutPage() {
       const totalAmount = Math.round(price)
       const vnpayRes = await createVnpayPayment({
         amount: totalAmount,
-        order_id: String(payment.id),
+        order_id: String(result.payment.id),
         order_desc: `Subscription: ${selectedPlan.name} (${interval === 'year' ? 'Annual' : 'Monthly'})`,
       })
 

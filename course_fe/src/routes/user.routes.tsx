@@ -7,6 +7,7 @@ import { CoursePlayerPage } from '../pages/user/CoursePlayerPage'
 import { CartPage } from '../pages/user/CartPage'
 import { CheckoutPage } from '../pages/user/CheckoutPage'
 import { SubscriptionCheckoutPage } from '../pages/user/SubscriptionCheckoutPage'
+import { PaymentResultPage } from '../pages/user/PaymentResultPage'
 import { WishlistPage } from '../pages/user/WishlistPage'
 import { ProfilePage } from '../pages/user/ProfilePage'
 import { NotificationsPage } from '../pages/user/NotificationsPage'
@@ -74,6 +75,10 @@ export const userRoutes: RouteConfig[] = [
         <CheckoutPage />
       </RequireAuth>
     )
+  },
+  {
+    path: '/payment/result',
+    element: <PaymentResultPage />
   },
   
   // Wishlist

@@ -72,6 +72,11 @@ export interface VnpayReturnResponse {
   msg?: string
 }
 
+export interface CreatePaymentResponse {
+  payment: Payment
+  payment_details: PaymentDetail[]
+}
+
 // ─── Payments ─────────────────────────────────────────────────────────────────
 
 export async function createPaymentRecord(data: {
@@ -83,8 +88,8 @@ export async function createPaymentRecord(data: {
     promotion_id?: number | null
   }>
   promotion_id?: number | null
-}): Promise<Payment> {
-  return http.post<Payment>('/payment/create/', data)
+}): Promise<CreatePaymentResponse> {
+  return http.post<CreatePaymentResponse>('/payment/create/', data)
 }
 
 export async function getPaymentStatus(paymentId: number): Promise<Payment> {

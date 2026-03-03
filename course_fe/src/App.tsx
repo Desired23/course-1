@@ -67,7 +67,7 @@ function AppContent() {
   // Determine if current route needs special layout
   const isPlayerPage = currentRoute.startsWith('/course/') && currentRoute.includes('/learn')
   const isAuthPage = currentRoute === '/login' || currentRoute === '/signup'
-  const isCheckoutPage = currentRoute.startsWith('/checkout')
+  const isCheckoutPage = currentRoute.startsWith('/checkout') || currentRoute.startsWith('/payment/result')
   
   // Hide main Header/Footer for Instructor and Admin pages (they have their own layouts)
   const isInstructorPage = currentRoute.startsWith('/instructor')

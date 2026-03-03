@@ -4,7 +4,7 @@ from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
-from .vnpay_services import  payment_ipn
+from .vnpay_services import payment_ipn, payment_return
 from .services import create_payment, get_payment_status, check_enrollment_by_course
 from .refund_services import (
     admin_update_refund_status,
@@ -33,6 +33,27 @@ class VnpayIPNView(APIView):
             return returnData
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class VnpayPaymentReturnView(APIView):
+    """Handle VNPay redirect after user completes payment.
+    No auth required — VNPay redirects the browser here.
+    Validates via VNPay checksum, then redirects to FE result page.
+    """
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            return payment_return(request)
+        except Exception as e:
+            from django.conf import settings
+            from django.http import HttpResponseRedirect
+            import urllib.parse
+            fe_url = settings.FRONTEND_URL
+            redirect_url = f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
+            return HttpResponseRedirect(redirect_url)
+
 class CreatePaymentRecordView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'payment'
@@ -45,11 +66,13 @@ class CreatePaymentRecordView(APIView):
             return Response(payment, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-class VnpayReturnView(APIView):
+
+class RefundDetailView(APIView):
+    """Refund detail management (previously at vnpay/return/)"""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'payment'
 
-    def get (self, request):
+    def get(self, request):
         try:
             payment_id = request.query_params.get('payment_id')
             payment_details_ids = request.query_params.getlist('payment_details_ids')
@@ -67,7 +90,7 @@ class VnpayReturnView(APIView):
             return Response(returnData, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    def put (self, request):
+    def put(self, request):
         try:
             payment_id = request.data.get('payment_id')
             payment_details_ids = request.data.get('payment_details_ids')
