@@ -16,10 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from config.seed_view import seed_demo_view, seed_status_view
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/seed-demo/', seed_demo_view, name='seed-demo'),
+    path('api/seed-demo/status/', seed_status_view, name='seed-status'),
 
     path('api/', include('users.urls')),           # /api/users/
     path('api/', include('payments.urls')),        # /api/payments/
