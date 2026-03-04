@@ -7,7 +7,11 @@ def create_cart(data):
         serializer = CartSerializer(data=data)
         if serializer.is_valid(raise_exception=True):
             cart = serializer.save()
-            return serializer.data
+            # Re-fetch with select_related to ensure course_detail has all fields
+            cart = Cart.objects.select_related(
+                'course__instructor__user', 'course__category'
+            ).get(pk=cart.pk)
+            return CartSerializer(cart).data
         else:
             raise ValidationError(serializer.errors)
     except Exception as e:
