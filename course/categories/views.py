@@ -62,11 +62,8 @@ class CategoryManagementView(APIView):
 class ActiveCategoryListView(APIView):
     throttle_scope = 'search'
     def get(self, request):
-        try:
-            categories = get_active_categories()
-            return paginate_queryset(categories, request, CategoriesSerializer)
-        except ValidationError as e:
-            return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
+        categories = get_active_categories()
+        return paginate_queryset(categories, request, CategoriesSerializer)
 
 class SubcategoryListView(APIView):
     throttle_scope = 'search'

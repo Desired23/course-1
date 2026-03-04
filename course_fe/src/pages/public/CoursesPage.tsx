@@ -158,17 +158,31 @@ export function CoursesPage() {
   const [loading, setLoading] = useState(true)
   const [categoriesLoaded, setCategoriesLoaded] = useState(false)
 
-  // Load categories once
+  // Load categories once (with retry on failure)
   useEffect(() => {
     let cancelled = false
-    getActiveCategories({ page: 1, page_size: 200 })
-      .then(res => {
-        if (!cancelled) {
-          setCategoryTree(buildCategoryTree(res.results))
-          setCategoriesLoaded(true)
-        }
-      })
-      .catch(() => { if (!cancelled) setCategoriesLoaded(true) })
+    let retryCount = 0
+    const maxRetries = 3
+
+    function loadCategories() {
+      getActiveCategories({ page: 1, page_size: 200 })
+        .then(res => {
+          if (!cancelled) {
+            setCategoryTree(buildCategoryTree(res.results))
+            setCategoriesLoaded(true)
+          }
+        })
+        .catch(() => {
+          if (!cancelled && retryCount < maxRetries) {
+            retryCount++
+            setTimeout(loadCategories, retryCount * 1500)
+          } else if (!cancelled) {
+            setCategoriesLoaded(true)
+          }
+        })
+    }
+
+    loadCategories()
     return () => { cancelled = true }
   }, [])
 
@@ -224,9 +238,12 @@ export function CoursesPage() {
     priceRange,
   ])
 
-  // Fetch courses from API — only when apiParamsKey changes
+  // Fetch courses from API — only when apiParamsKey changes (with retry)
   useEffect(() => {
     let cancelled = false
+    let retryCount = 0
+    const maxRetries = 2
+
     async function fetchCourses() {
       try {
         setLoading(true)
@@ -234,7 +251,11 @@ export function CoursesPage() {
         const res = await getCourses(params)
         if (!cancelled) setCoursesPage(res)
       } catch {
-        // silent fail
+        if (!cancelled && retryCount < maxRetries) {
+          retryCount++
+          setTimeout(fetchCourses, retryCount * 1500)
+          return  // don't set loading=false yet
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }

@@ -49,8 +49,5 @@ def get_subcategories(category_id):
     except Category.DoesNotExist:
         raise ValidationError({"error": "Category not found."})
 def get_active_categories():
-    categories = Category.objects.filter(status='active')
-    if not categories.exists():
-        raise ValidationError({"error": "No active categories found."})
-    return categories
+    return Category.objects.filter(status='active')
 
