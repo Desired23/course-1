@@ -62,7 +62,30 @@ def paginate_queryset(queryset, request, serializer_class, page_size=None, conte
     paginator = StandardPagination()
     if page_size:
         paginator.page_size = page_size
-    
+
+    # Sanitize page and page_size query params to avoid malformed values (e.g. "[object Object]")
+    try:
+        # request is a DRF Request; underlying Django request is request._request
+        raw_req = getattr(request, '_request', None)
+        if raw_req is not None and hasattr(raw_req, 'GET'):
+            from django.http import QueryDict
+            q = raw_req.GET.copy()
+            page_key = paginator.page_query_param
+            page_val = q.get(page_key)
+            if page_val is not None:
+                # allow numeric strings only
+                if not str(page_val).lstrip('-').isdigit():
+                    q.pop(page_key, None)
+            # sanitize page_size too
+            psize_key = paginator.page_size_query_param
+            psize_val = q.get(psize_key)
+            if psize_val is not None and not str(psize_val).isdigit():
+                q.pop(psize_key, None)
+            raw_req.GET = q
+    except Exception:
+        # If sanitization fails, continue and let paginator handle errors
+        pass
+
     result_page = paginator.paginate_queryset(queryset, request)
     
     serializer_context = {'request': request}

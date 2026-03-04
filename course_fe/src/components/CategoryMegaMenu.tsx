@@ -30,34 +30,27 @@ export function CategoryMegaMenu() {
   const menuRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // Fetch categories + subcategories from API
+  // Fetch categories from API. Do NOT eagerly fetch subcategories for every
+  // category (that causes N requests). Instead load top-level categories first
+  // and fetch subcategories lazily when the user hovers a category.
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
         const res = await getActiveCategories({ page_size: 100 })
-        // Only top-level categories (no parent)
         const topLevel = res.results.filter(c => !c.parent_category)
-        // Fetch subcategories for each
-        const withSubs = await Promise.all(
-          topLevel.map(async (cat) => {
-            let subs: Category[] = []
-            try {
-              const subRes = await getSubcategories(cat.id, { page_size: 100 })
-              subs = subRes.results
-            } catch { /* no subs */ }
-            const style = CATEGORY_STYLE[cat.name] || { icon: 'BookOpen', color: 'bg-gray-100 text-gray-600' }
-            return {
-              ...cat,
-              icon: style.icon,
-              color: style.color,
-              students: '',
-              subcategories: subs.map(s => ({ ...s, description: s.description || '' })),
-            } as CategoryWithSubs
-          })
-        )
+        const withEmptySubs = topLevel.map((cat) => {
+          const style = CATEGORY_STYLE[cat.name] || { icon: 'BookOpen', color: 'bg-gray-100 text-gray-600' }
+          return {
+            ...cat,
+            icon: style.icon,
+            color: style.color,
+            students: '',
+            subcategories: [], // load on demand
+          } as CategoryWithSubs
+        })
         if (!cancelled) {
-          setCategories(withSubs)
+          setCategories(withEmptySubs)
           setLoading(false)
         }
       } catch {
@@ -67,6 +60,27 @@ export function CategoryMegaMenu() {
     load()
     return () => { cancelled = true }
   }, [])
+
+  // Lazy-load subcategories when a category becomes active (hovered).
+  useEffect(() => {
+    if (!activeCategory) return
+    // If we already have subcategories for this category, skip fetch
+    const cat = categories.find(c => c.id === activeCategory)
+    if (!cat || (cat.subcategories && cat.subcategories.length > 0)) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const subRes = await getSubcategories(activeCategory, { page_size: 100 })
+        if (cancelled) return
+        setCategories(prev => prev.map(c => c.id === activeCategory ? { ...c, subcategories: subRes.results.map(s => ({ ...s, description: s.description || '' })) } : c))
+      } catch {
+        // ignore missing subs
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [activeCategory])
 
   // Icon mapping
   const iconMap: Record<string, any> = {

@@ -173,7 +173,8 @@ export function CourseDetailPage() {
   const loadReviews = useCallback(async (courseId: number) => {
     setReviewsLoading(true)
     try {
-      const res = await getReviewsByCourse(courseId, { page_size: 50 })
+      // pass numeric page and pageSize - avoid passing an object which serializes to "[object Object]"
+      const res = await getReviewsByCourse(courseId, 1, 50)
       setReviews(res.results)
     } catch { /* ignore */ }
     setReviewsLoading(false)

@@ -148,54 +148,14 @@ def payment_return(request):
             return HttpResponseRedirect(
                 f"{fe_url}/payment/result?status=error&payment_id={order_id}&message=Invalid+checksum"
             )
-
-        try:
-            payment = Payment.objects.get(id=order_id)
-        except Payment.DoesNotExist:
-            return HttpResponseRedirect(
-                f"{fe_url}/payment/result?status=error&message=Payment+not+found"
-            )
-
+        # IMPORTANT: Browser return should NOT perform DB state changes (enrollments/earnings).
+        # IPN (server-to-server) is authoritative and will update DB. Here we only validate
+        # the checksum and redirect the user back to the frontend with the payment id.
         if vnp_ResponseCode == "00":
-            # Compare as integers (whole VND) to avoid any decimal precision issues
-            stored_amount = int(Decimal(payment.total_amount).to_integral_value())
-            vnp_amount_vnd = int(amount.to_integral_value())
-            if stored_amount != vnp_amount_vnd:
-                print(f"[VNPAY] Amount mismatch: DB={payment.total_amount}, VNPay={amount}")
-                return HttpResponseRedirect(
-                    f"{fe_url}/payment/result?status=error&payment_id={order_id}&message=Amount+mismatch"
-                )
-
-            with transaction.atomic():
-                payment.payment_status = Payment.PaymentStatus.COMPLETED
-                payment.transaction_id = vnp_TransactionNo
-                payment.gateway_response = vnp_ResponseCode
-                payment.payment_gateway = 'vnpay'
-                payment.save()
-
-                # Generate instructor earnings
-                generate_instructor_earnings_from_payment(payment.id)
-
-                # Create enrollments for purchased courses
-                create_enrollments_from_payment(payment)
-
-                log_activity(
-                    user_id=payment.user.id,
-                    action="PAYMENT_SUCCESS",
-                    entity_type="Payment",
-                    entity_id=payment.id,
-                    description=f"Thanh toán thành công: {payment.total_amount} VND qua VNPay"
-                )
-
             return HttpResponseRedirect(
                 f"{fe_url}/payment/result?status=success&payment_id={order_id}&amount={amount}&transaction={vnp_TransactionNo}"
             )
         else:
-            payment.payment_status = Payment.PaymentStatus.FAILED
-            payment.transaction_id = vnp_TransactionNo
-            payment.gateway_response = vnp_ResponseCode
-            payment.save()
-
             return HttpResponseRedirect(
                 f"{fe_url}/payment/result?status=failed&payment_id={order_id}&code={vnp_ResponseCode}"
             )
@@ -238,7 +198,10 @@ def payment_ipn(request):
                 return JsonResponse({'RspCode': '02', 'Message': 'Order Already Update'})
 
             if vnp_ResponseCode == "00":
+
                 with transaction.atomic():
+                    # Lock the payment row to avoid concurrent processing
+                    payment = Payment.objects.select_for_update().get(id=payment.id)
                     payment.payment_status = Payment.PaymentStatus.COMPLETED
                     payment.transaction_id = vnp_TransactionNo
                     payment.gateway_response = vnp_ResponseCode
@@ -254,8 +217,10 @@ def payment_ipn(request):
                         description=f"Thanh toán thành công: {payment.total_amount} VND qua VNPay"
                     )
 
-                    # Generate instructor earnings from the payment
-                    generate_instructor_earnings_from_payment(payment.id)
+                    # Generate instructor earnings from the payment only if not already created
+                    from instructor_earnings.models import InstructorEarning
+                    if not InstructorEarning.objects.filter(payment=payment).exists():
+                        generate_instructor_earnings_from_payment(payment.id)
 
                     # Create enrollments for purchased courses
                     create_enrollments_from_payment(payment)

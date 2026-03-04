@@ -218,11 +218,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     ;(async () => {
       try {
-        const rooms = await getChatRooms(Number(userId))
+        const roomsResp = await getChatRooms(Number(userId))
+        // Backend may return either an array of rooms or a paginated object { results: ChatRoom[] }
+        const roomsList = Array.isArray(roomsResp) ? roomsResp : (roomsResp && (roomsResp as any).results) ? (roomsResp as any).results : []
         if (!cancelled) {
           dispatch({
             type: 'SET_CONVERSATIONS',
-            payload: rooms.map(r => mapApiRoomToConv(r, userId)),
+            payload: roomsList.map((r: any) => mapApiRoomToConv(r, userId)),
           })
         }
       } catch (err) {

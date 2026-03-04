@@ -9,15 +9,25 @@ from activity_logs.services import log_activity
 
 def create_enrollment(data):
     try: 
+        # Accept either {'user_id', 'course_id'} or {'user', 'course'} inputs.
+        user_val = data.get('user_id') if 'user_id' in data else data.get('user')
+        course_val = data.get('course_id') if 'course_id' in data else data.get('course')
+
         dataCopy = {
-            'user_id': data['user_id'],
-            'course_id': data['course_id'],
+            'user': user_val,
+            'course': course_val,
             'enrollment_date': datetime.now(),   
             'status': Enrollment.Status.Active,
             'expiry_date': data.get('expiry_date', None),
             'progress': 0,
             'certificate_issue_date': None,
         }
+        # If caller passed model instances instead of ids, normalize to ids
+        if hasattr(dataCopy.get('user'), 'id'):
+            dataCopy['user'] = getattr(dataCopy['user'], 'id')
+        if hasattr(dataCopy.get('course'), 'id'):
+            dataCopy['course'] = getattr(dataCopy['course'], 'id')
+
         serializer = EnrollmentCreateSerializer(data=dataCopy)
         if serializer.is_valid(raise_exception=True):
             try:

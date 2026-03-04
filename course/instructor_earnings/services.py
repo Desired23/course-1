@@ -33,17 +33,35 @@ def generate_instructor_earnings_from_payment(payment_id):
                 amount = detail.final_price
                 net_amount = amount * (Decimal(100) - commission_rate) / Decimal(100)
 
-                earning = InstructorEarning.objects.create(
-                    instructor=instructor,
-                    course=detail.course,
-                    payment=payment,
-                    amount=amount,
-                    net_amount=net_amount,
-                    status=InstructorEarning.StatusChoices.PENDING,
-                    earning_date=timezone.now()
-                )
-
-                results.append(InstructorEarningSerializer(earning).data)
+                try:
+                    # Create idempotently: unique constraint on (payment, course, instructor)
+                    earning, created = InstructorEarning.objects.get_or_create(
+                        payment=payment,
+                        course=detail.course,
+                        instructor=instructor,
+                        defaults={
+                            'amount': amount,
+                            'net_amount': net_amount,
+                            'status': InstructorEarning.StatusChoices.PENDING,
+                            'earning_date': timezone.now(),
+                        }
+                    )
+                    # If already exists, don't duplicate — optionally update fields if needed
+                    results.append(InstructorEarningSerializer(earning).data)
+                except Exception as ie:
+                    # Handle rare race/constraint errors gracefully
+                    try:
+                        from django.db import IntegrityError
+                        if isinstance(ie, IntegrityError):
+                            # Try fetch existing record and continue
+                            existing = InstructorEarning.objects.filter(payment=payment, course=detail.course, instructor=instructor).first()
+                            if existing:
+                                results.append(InstructorEarningSerializer(existing).data)
+                                continue
+                    except Exception:
+                        pass
+                    # Re-raise for unexpected errors
+                    raise
 
             return results
 
