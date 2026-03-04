@@ -28,13 +28,24 @@ def create_enrollment(data):
         if hasattr(dataCopy.get('course'), 'id'):
             dataCopy['course'] = getattr(dataCopy['course'], 'id')
 
+        # If enrollment already exists, return it (idempotent)
+        try:
+            if dataCopy.get('user') and dataCopy.get('course'):
+                existing = Enrollment.objects.filter(user_id=dataCopy.get('user'), course_id=dataCopy.get('course'), is_deleted=False).first()
+            if existing:
+                return EnrollmentCreateSerializer(existing).data
+        except Exception:
+            # ignore existence check failures and proceed to create
+            existing = None
+
         serializer = EnrollmentCreateSerializer(data=dataCopy)
         if serializer.is_valid(raise_exception=True):
             try:
                 enrollment = serializer.save()
             except IntegrityError:
                 raise ValidationError({"error": "User has already enrolled in this course."})
-            course = Course.objects.get(id=dataCopy.get('course_id'))
+            # Resolve course id from normalized dataCopy ('course' key holds id)
+            course = Course.objects.get(id=dataCopy.get('course'))
             Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
             log_activity(
                 user_id=enrollment.user.id,
@@ -46,9 +57,11 @@ def create_enrollment(data):
             return EnrollmentCreateSerializer(enrollment).data 
         raise ValidationError(serializer.errors)
     except ValidationError:
+        # propagate serializer/validation errors as-is so caller can return 400 with details
         raise
-    except Exception:
-        raise ValidationError({"error": "Lỗi khi tạo enrollment."})
+    except Exception as e:
+        # Unexpected error — include message for debugging
+        raise ValidationError({"error": f"Lỗi khi tạo enrollment: {str(e)}"})
 def get_enrollment_by_user(user_id):
     try:
         enrollments = Enrollment.objects.select_related(
