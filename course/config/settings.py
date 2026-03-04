@@ -53,15 +53,23 @@ def get_env(key, default=None, required=False):
 
 
 
-REDIS_URL = get_env("REDIS_URL", default="redis://default:fMBjEIf17oJYN7eT6mkqTAcubcTWrGa1@redis-19172.crce178.ap-east-1-1.ec2.redns.redis-cloud.com:19172")
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [REDIS_URL],
+REDIS_URL = get_env("REDIS_URL", default="")
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
         },
-    },
-}
+    }
+else:
+    # Fallback: InMemory channel layer (works for single-process daphne)
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
 
 
 
