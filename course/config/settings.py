@@ -75,7 +75,7 @@ CLOUDINARY_API_SECRET = get_env("CLOUDINARY_API_SECRET", default="eYOL6HTUSbXlZN
 
 
 REFUND_DAYS = 7  # Số ngày được hoàn tiền kể từ ngày mua khóa học
-VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY', 'BNPD5VQ9RUUJ9E3YVLEUHLF2EDA8AAYC')
+VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY', 'T84Y15XCZM36DT7YQHRHN7RT2V2JBA6T')
 
 
 
@@ -84,7 +84,7 @@ VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY', 'BNPD5VQ9RUUJ9E3YVLEU
 # Application definition
 VNPAY_REFUND_URL = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
 VNPAY_URL = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
-VNPAY_TMN_CODE = "9AHLD0UQ"
+VNPAY_TMN_CODE = os.getenv('VNPAY_TMN_CODE', 'BDF9QK1Y')
 # email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
