@@ -16,6 +16,7 @@ import { UserPaymentMethodsPage } from '../pages/user/UserPaymentMethodsPage'
 import { UserSubscriptionsPage } from '../pages/user/UserSubscriptionsPage'
 import { AccountSettingsPage } from '../pages/user/AccountSettingsPage'
 import { MyReviewsPage } from '../pages/user/MyReviewsPage'
+import { TransactionHistoryPage } from '../pages/user/TransactionHistoryPage'
 
 export const userRoutes: RouteConfig[] = [
   // My Learning
@@ -170,6 +171,18 @@ export const userRoutes: RouteConfig[] = [
       <RequireAuth roles={['user', 'instructor', 'admin']}>
         <UserDashboardLayout>
           <MyReviewsPage />
+        </UserDashboardLayout>
+      </RequireAuth>
+    )
+  },
+
+  // Transaction History
+  {
+    path: '/user/transactions',
+    element: (
+      <RequireAuth roles={['user', 'instructor', 'admin']}>
+        <UserDashboardLayout>
+          <TransactionHistoryPage />
         </UserDashboardLayout>
       </RequireAuth>
     )

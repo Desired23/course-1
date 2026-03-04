@@ -14,6 +14,8 @@ from activity_logs.services import log_activity
 
 
 def create_payment(payment_data):
+    # Khóa mốc thời gian ngay khi bắt đầu để tránh độ trễ ảnh hưởng tính giá
+    payment_time = timezone.now()
     try:
         with transaction.atomic():
             user_id = payment_data.get("user_id")
@@ -63,7 +65,19 @@ def create_payment(payment_data):
                     )
 
                 courses_detail.append(course)
-                price = Decimal(course.price)
+
+                # Tính giá thực tế: ưu tiên discount_price nếu đang trong thời gian giảm giá
+                original_price = Decimal(course.price)
+                if (
+                    course.discount_price
+                    and Decimal(course.discount_price) > 0
+                    and course.discount_start_date
+                    and course.discount_end_date
+                    and course.discount_start_date <= payment_time <= course.discount_end_date
+                ):
+                    price = Decimal(course.discount_price)
+                else:
+                    price = original_price
                 discount = Decimal("0.0")
 
                 # Áp dụng promotion của instructor (nếu có)
@@ -77,8 +91,7 @@ def create_payment(payment_data):
                         if promotion.status != Promotion.StatusChoices.ACTIVE:
                             raise ValidationError(f"Khuyến mãi ID {detail_promotion_id} không hoạt động.")
                         if promotion.start_date and promotion.end_date:
-                            now = timezone.now()
-                            if not (promotion.start_date <= now <= promotion.end_date):
+                            if not (promotion.start_date <= payment_time <= promotion.end_date):
                                 raise ValidationError(f"Khuyến mãi ID {detail_promotion_id} đã hết hạn.")
                         if promotion.usage_limit and promotion.used_count >= promotion.usage_limit:
                             raise ValidationError(f"Khuyến mãi ID {detail_promotion_id} đã hết lượt sử dụng.")
@@ -134,8 +147,7 @@ def create_payment(payment_data):
                             )
                     if promotion.status != Promotion.StatusChoices.ACTIVE:
                         raise ValidationError("Khuyến mãi không hoạt động.")
-                    now = timezone.now()
-                    if promotion.start_date and promotion.end_date and not (promotion.start_date <= now <= promotion.end_date):
+                    if promotion.start_date and promotion.end_date and not (promotion.start_date <= payment_time <= promotion.end_date):
                         raise ValidationError("Khuyến mãi hết hạn.")
                     if promotion.usage_limit and promotion.used_count >= promotion.usage_limit:
                         raise ValidationError("Khuyến mãi đã hết lượt sử dụng.")

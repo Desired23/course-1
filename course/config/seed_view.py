@@ -21,6 +21,7 @@ def _run_seed():
     """Delete all data then run seed_data.py"""
     global _seed_running
 
+    from django.db import connection
     from users.models import User
     from admins.models import Admin
     from categories.models import Category
@@ -65,6 +66,9 @@ def _run_seed():
     )
 
     try:
+        # Close any stale DB connections first
+        connection.close()
+
         # ── Delete all data (order matters for FK constraints) ──
         print("🗑️  Clearing database...")
         SubscriptionUsage.objects.all().delete()
@@ -114,13 +118,26 @@ def _run_seed():
         Category.objects.all().delete()
         Admin.objects.all().delete()
         User.objects.all().delete()
+
+        # Also clean realtime chat tables
+        try:
+            from realtime.models import ChatMessage, ChatRoom
+            ChatMessage.objects.all().delete()
+            ChatRoom.objects.all().delete()
+        except Exception:
+            pass
+
         print("✅ Database cleared!")
 
         # ── Run seed script ──
         print("🌱 Running seed_data.py...")
-        import importlib
-        import seed_data
-        importlib.reload(seed_data)
+        import importlib, sys
+        if 'seed_data' in sys.modules:
+            # Already imported in a previous run — just reload
+            importlib.reload(sys.modules['seed_data'])
+        else:
+            # First run in this process — import executes top-level code
+            import seed_data
         print("✅ Seed complete!")
 
     except Exception as e:

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Progress } from "../../components/ui/progress"
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Play, Clock, BookOpen, Award, Loader2 } from 'lucide-react'
+import { Play, Clock, BookOpen, Award, Loader2, Info } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { useTranslation } from "react-i18next"
 import { getAllMyEnrollments, type Enrollment, parseProgress, formatTimeSpent } from '../../services/enrollment.api'
@@ -109,14 +109,23 @@ export function MyLearningPage() {
                           alt={course.title}
                           className="w-full h-40 object-cover rounded-t-lg"
                         />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                           <Button
                             size="sm"
                             className="gap-2"
                             onClick={() => handleContinueLearning(course.course_id)}
                           >
                             <Play className="h-4 w-4" />
-                            {t('my_learning.continue_learning')}
+                            Tiếp tục học
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="gap-2"
+                            onClick={() => navigate(`/course/${course.course_id}`)}
+                          >
+                            <Info className="h-4 w-4" />
+                            Xem chi tiết
                           </Button>
                         </div>
                       </div>
@@ -185,6 +194,25 @@ export function MyLearningPage() {
                               {t('common.certificate')}
                             </Badge>
                           )}
+                        </div>
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                          <Button
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => navigate(`/course-player/${course.course_id}`)}
+                          >
+                            <Play className="h-4 w-4" />
+                            Tiếp tục học
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="gap-2"
+                            onClick={() => navigate(`/course/${course.course_id}`)}
+                          >
+                            <Info className="h-4 w-4" />
+                            Xem chi tiết
+                          </Button>
                         </div>
                       </div>
                       

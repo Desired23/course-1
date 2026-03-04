@@ -12,6 +12,9 @@ import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, form
 import { extractRouteParams } from "../../utils/routeHelpers"
 import { getAllWishlistByUser, addToWishlist, removeFromWishlist, type WishlistItem } from "../../services/wishlist.api"
 import { getReviewsByCourse, createReview, type Review } from "../../services/review.api"
+import { DiscountCountdown } from "../../components/DiscountCountdown"
+import { useOwnedCourses } from "../../hooks/useOwnedCourses"
+import { createEnrollment } from "../../services/enrollment.api"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -21,14 +24,13 @@ import { SubscriptionLockOverlay } from '../../components/subscription/Subscript
 import { useTranslation } from 'react-i18next'
 import { 
   Star, Users, Clock, Globe, Languages, Play, FileText, 
-  Check, Zap, Crown, Lock, Loader2, MessageSquare
+  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen
 } from 'lucide-react'
 
 export function CourseDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [wishlistItemId, setWishlistItemId] = useState<number | null>(null)
   const [wishlistLoading, setWishlistLoading] = useState(false)
-  const [isCardFixed, setIsCardFixed] = useState(true)
   const { t } = useTranslation()
   
   // Course data from API
@@ -42,17 +44,83 @@ export function CourseDetailPage() {
   const [newRating, setNewRating] = useState(5)
   const [newComment, setNewComment] = useState('')
   const [submittingReview, setSubmittingReview] = useState(false)
+  const [discountExpired, setDiscountExpired] = useState(false)
+  const [enrolling, setEnrolling] = useState(false)
   
-  const sidebarCardRef = useRef<HTMLDivElement>(null)
+  const handleDiscountExpire = useCallback(() => {
+    setDiscountExpired(true)
+  }, [])
+  
+  const sidebarCardRef = useRef<HTMLDivElement>(null)       // container in hero grid (for scroll position)
+  const sidebarCardInnerRef = useRef<HTMLDivElement>(null)  // the actual card (follows fixed/docked)
+  const [cardPosition, setCardPosition] = useState<'natural' | 'fixed' | 'docked'>('natural')
   
   const { addToCart, addToCartFromApi, isInCartByCourseId } = useCart()
   const { user, isAuthenticated } = useAuth()
   const { navigate, currentRoute } = useRouter()
+  const { isOwned: isEnrolled, refresh: refreshOwned } = useOwnedCourses()
+
+  // Scroll listener: manage sidebar card position (natural → fixed → docked)
+  useEffect(() => {
+    const handleScroll = () => {
+      const container = sidebarCardRef.current
+      if (!container) return
+      const rect = container.getBoundingClientRect()
+      const topThreshold = 136 // 8.5rem = nav height offset
+      const pageBottom = document.documentElement.scrollHeight
+      const viewportHeight = window.innerHeight
+      const distanceFromBottom = pageBottom - window.scrollY - viewportHeight
+      const cardHeight = container.offsetHeight
+
+      if (distanceFromBottom < cardHeight + 100) {
+        setCardPosition('docked')
+      } else if (rect.top < topThreshold) {
+        setCardPosition('fixed')
+      } else {
+        setCardPosition('natural')
+      }
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll)
+    window.addEventListener('resize', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleScroll)
+    }
+  }, [])
 
   // Derived from API access_info
   const accessInfo = courseData?.access_info
   const canAccessCourse = accessInfo?.has_access || false
+  const accessType = accessInfo?.access_type || null  // "purchase" | "subscription" | "admin" | "instructor" | null
   const isCourseInSubscription = accessInfo?.in_subscription || false
+
+  // Determine if user is enrolled in this course
+  const courseId = courseData?.id || 0
+  const enrolled = isEnrolled(courseId)
+  // Free course = effective price is 0
+  const isFree = courseData ? getEffectivePrice(courseData) === 0 : false
+
+  // Handle enrollment for free or subscription courses
+  const handleEnroll = async (source: 'purchase' | 'subscription' = 'purchase') => {
+    if (!courseData || enrolling) return
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để đăng ký khóa học')
+      navigate('/login')
+      return
+    }
+    setEnrolling(true)
+    try {
+      await createEnrollment({ course_id: courseData.id, source })
+      toast.success('Đăng ký khóa học thành công!', { description: courseData.title })
+      refreshOwned()
+      navigate(`/course-player/${courseData.id}`)
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể đăng ký khóa học')
+    } finally {
+      setEnrolling(false)
+    }
+  }
 
   // Load course from API
   useEffect(() => {
@@ -116,9 +184,13 @@ export function CourseDetailPage() {
   }, [courseData, loadReviews])
 
   // Derived values
-  const effectivePrice = courseData ? getEffectivePrice(courseData) : 0
+  const rawEffectivePrice = courseData ? getEffectivePrice(courseData) : 0
   const regularPrice = courseData ? parseDecimal(courseData.price) : 0
+  // When discount expires, revert to regular price
+  const effectivePrice = discountExpired ? regularPrice : rawEffectivePrice
   const courseRating = courseData ? parseDecimal(courseData.rating) : 0
+  const hasDiscount = !discountExpired && effectivePrice < regularPrice
+  const discountEndDate = courseData?.discount_end_date || null
 
   const handleAddToCart = async () => {
     if (!courseData) return
@@ -191,26 +263,6 @@ export function CourseDetailPage() {
     }
   }
 
-  // Scroll listener logic ...
-  useEffect(() => {
-    const handleScroll = () => {
-      // ... (Existing scroll logic)
-      const scrollHeight = document.documentElement.scrollHeight
-      const scrollTop = window.scrollY
-      const clientHeight = window.innerHeight
-      const cardHeight = 600
-      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight)
-      
-      if (distanceFromBottom < cardHeight + 100) {
-        setIsCardFixed(false)
-      } else {
-        setIsCardFixed(true)
-      }
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       
@@ -235,14 +287,14 @@ export function CourseDetailPage() {
       {/* Sticky Navigation Bar */}
       <CourseStickyNav
         courseTitle={courseData.title}
-        price={canAccessCourse ? 0 : effectivePrice}
-        originalPrice={canAccessCourse ? undefined : regularPrice}
+        price={canAccessCourse || isFree ? 0 : effectivePrice}
+        originalPrice={canAccessCourse || isFree ? undefined : regularPrice}
         isInCart={false}
         isWishlisted={isWishlisted}
-        onAddToCart={canAccessCourse ? () => navigate('/learn') : handleAddToCart}
-        onBuyNow={canAccessCourse ? () => navigate('/learn') : handleBuyNow}
+        onAddToCart={enrolled ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleAddToCart}
+        onBuyNow={enrolled ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleBuyNow}
         onToggleWishlist={handleWishlist}
-        sidebarCardRef={sidebarCardRef}
+        sidebarCardRef={sidebarCardInnerRef}
       />
 
       {/* Hero Section */}
@@ -295,8 +347,17 @@ export function CourseDetailPage() {
             </div>
             
             {/* Desktop Sidebar Card */}
-            <div className="hidden lg:block relative" ref={sidebarCardRef}>
-               <div className={`w-[360px] bg-white dark:bg-slate-900 shadow-2xl rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 transition-all duration-300 ${isCardFixed ? 'fixed top-24 right-[max(1rem,calc(50%-640px+1rem))] z-40' : 'absolute bottom-0 right-0'}`}>
+            <div className="hidden lg:block relative min-h-[500px]" ref={sidebarCardRef}>
+               <div
+                  ref={sidebarCardInnerRef}
+                  className={`w-[360px] bg-white dark:bg-slate-900 shadow-2xl rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 z-40 ${
+                    cardPosition === 'fixed'
+                      ? 'fixed top-[8.5rem]'
+                      : cardPosition === 'docked'
+                        ? 'absolute bottom-0 right-0'
+                        : ''
+                  }`}
+               >
                   {/* Video Preview Area */}
                   <div className="relative h-48 bg-black group cursor-pointer overflow-hidden">
                     <img src={courseData.thumbnail || ''} alt="Preview" className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
@@ -314,30 +375,83 @@ export function CourseDetailPage() {
                   </div>
 
                   <CardContent className="p-6 space-y-6">
-                     {canAccessCourse ? (
-                        /* VIEW FOR SUBSCRIBERS */
+                     {canAccessCourse && enrolled ? (
+                        /* VIEW: Already enrolled — go to player */
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
-                              <span className="text-2xl font-bold text-green-600">{t('course_detail.included')}</span>
-                              <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">{t('course_detail.pro_active')}</Badge>
+                              <span className="text-2xl font-bold text-green-600">
+                                {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Gói đăng ký' : 'Đã sở hữu'}
+                              </span>
+                              <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">
+                                {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Subscription' : 'Active'}
+                              </Badge>
                            </div>
                            <p className="text-sm text-muted-foreground">
                               {t('course_detail.full_access_desc')}
                            </p>
-                           <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={() => navigate('/learn')}>
-                              {t('course_detail.start_learning_now')}
+                           <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={() => navigate(`/course-player/${courseData.id}`)}>
+                              <Play className="w-5 h-5 mr-2" />
+                              Vào học
+                           </Button>
+                        </div>
+                     ) : canAccessCourse && !enrolled && accessType === 'subscription' ? (
+                        /* VIEW: Has subscription access but not enrolled yet */
+                        <div className="space-y-4">
+                           <div className="flex items-center justify-between">
+                              <span className="text-2xl font-bold text-blue-600">Đã bao gồm trong gói</span>
+                              <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">Subscription</Badge>
+                           </div>
+                           <p className="text-sm text-muted-foreground">
+                              Khóa học này nằm trong gói đăng ký của bạn. Đăng ký để bắt đầu học.
+                           </p>
+                           <Button 
+                              className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700" 
+                              onClick={() => handleEnroll('subscription')}
+                              disabled={enrolling}
+                           >
+                              {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
+                              Đăng ký học
+                           </Button>
+                        </div>
+                     ) : !canAccessCourse && isFree ? (
+                        /* VIEW: Free course — enroll for free */
+                        <div className="space-y-4">
+                           <div className="flex items-center justify-between">
+                              <span className="text-2xl font-bold text-green-600">Miễn phí</span>
+                              <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">Free</Badge>
+                           </div>
+                           <p className="text-sm text-muted-foreground">
+                              Khóa học này hoàn toàn miễn phí. Đăng ký ngay để bắt đầu học!
+                           </p>
+                           <Button 
+                              className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
+                              onClick={() => handleEnroll('purchase')}
+                              disabled={enrolling}
+                           >
+                              {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
+                              Đăng ký miễn phí
                            </Button>
                         </div>
                      ) : (
-                        /* VIEW FOR NON-SUBSCRIBERS */
+                        /* VIEW: Non-subscribers / paid course */
                         <div className="space-y-4">
+                           {/* Flash Sale Banner (above price) */}
+                           {hasDiscount && discountEndDate && (
+                              <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="banner" />
+                           )}
+                           
                            <div className="flex items-end gap-3">
-                              <span className="text-3xl font-bold text-slate-900 dark:text-white">
+                              <span className="text-3xl font-bold text-red-600 dark:text-red-400">
                                  {formatPrice(effectivePrice)}
                               </span>
                               {effectivePrice < regularPrice && (
                               <span className="text-lg text-slate-500 line-through mb-1">
                                  {formatPrice(regularPrice)}
+                              </span>
+                              )}
+                              {hasDiscount && regularPrice > 0 && (
+                              <span className="text-sm font-bold text-red-600 mb-1">
+                                 -{Math.round(((regularPrice - effectivePrice) / regularPrice) * 100)}%
                               </span>
                               )}
                            </div>
@@ -409,25 +523,74 @@ export function CourseDetailPage() {
                    </div>
                </div>
                <CardContent className="p-6 space-y-6">
-                  {canAccessCourse ? (
+                  {canAccessCourse && enrolled ? (
+                      /* Mobile: Already enrolled */
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold text-green-600">{t('course_detail.included')}</span>
-                            <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">{t('course_detail.pro_active')}</Badge>
+                            <span className="text-2xl font-bold text-green-600">
+                              {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Gói đăng ký' : 'Đã sở hữu'}
+                            </span>
+                            <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">
+                              {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Subscription' : 'Active'}
+                            </Badge>
                           </div>
-                          <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={() => navigate('/learn')}>
-                            {t('course_detail.start_learning_now')}
+                          <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={() => navigate(`/course-player/${courseData.id}`)}>
+                            <Play className="w-5 h-5 mr-2" />
+                            Vào học
+                          </Button>
+                      </div>
+                  ) : canAccessCourse && !enrolled && accessType === 'subscription' ? (
+                      /* Mobile: Has subscription but not enrolled */
+                      <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-blue-600">Đã bao gồm trong gói</span>
+                            <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">Subscription</Badge>
+                          </div>
+                          <Button 
+                            className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700" 
+                            onClick={() => handleEnroll('subscription')}
+                            disabled={enrolling}
+                          >
+                            {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
+                            Đăng ký học
+                          </Button>
+                      </div>
+                  ) : !canAccessCourse && isFree ? (
+                      /* Mobile: Free course */
+                      <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-2xl font-bold text-green-600">Miễn phí</span>
+                            <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">Free</Badge>
+                          </div>
+                          <Button 
+                            className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
+                            onClick={() => handleEnroll('purchase')}
+                            disabled={enrolling}
+                          >
+                            {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
+                            Đăng ký miễn phí
                           </Button>
                       </div>
                   ) : (
+                      /* Mobile: Paid course */
                       <div className="space-y-4">
+                        {/* Flash Sale Banner (mobile) */}
+                        {hasDiscount && discountEndDate && (
+                            <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="banner" />
+                        )}
+                        
                         <div className="flex items-end gap-3">
-                            <span className="text-3xl font-bold text-slate-900 dark:text-white">
+                            <span className="text-3xl font-bold text-red-600 dark:text-red-400">
                                 {formatPrice(effectivePrice)}
                             </span>
                             {effectivePrice < regularPrice && (
                             <span className="text-lg text-slate-500 line-through mb-1">
                                 {formatPrice(regularPrice)}
+                            </span>
+                            )}
+                            {hasDiscount && regularPrice > 0 && (
+                            <span className="text-sm font-bold text-red-600 mb-1">
+                                -{Math.round(((regularPrice - effectivePrice) / regularPrice) * 100)}%
                             </span>
                             )}
                         </div>

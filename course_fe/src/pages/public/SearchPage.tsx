@@ -11,6 +11,7 @@ import { CourseCard } from "../../components/CourseCard"
 import { useTranslation } from 'react-i18next'
 import { getAllCourses, type CourseListItem, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from '../../services/course.api'
 import { getActiveCategories, type Category } from '../../services/category.api'
+import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
 const levels = ["Beginner", "Intermediate", "Expert", "All Levels"]
 const languages = ["English", "Spanish", "French", "German", "Portuguese", "Japanese"]
@@ -19,6 +20,7 @@ const durations = ["0-1 Hour", "1-3 Hours", "3-6 Hours", "6-17 Hours", "17+ Hour
 export function SearchPage() {
   const { t } = useTranslation()
   const { params } = useRouter()
+  const { isOwned, getProgress } = useOwnedCourses()
   const searchQuery = params?.query || ""
   
   // Data from API
@@ -306,6 +308,9 @@ export function SearchPage() {
                   variant={viewMode === "grid" ? "vertical" : "horizontal"}
                   bestseller={course.total_students > 100000}
                   currency="VND"
+                  discountEndDate={ep < rp ? course.discount_end_date : undefined}
+                  isOwned={isOwned(course.id)}
+                  progress={getProgress(course.id)}
                 />
               )})}
             </div>

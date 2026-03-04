@@ -13,6 +13,9 @@ from .services import (
 from utils.permissions import RolePermissionFactory
 from .serializers import CourseSerializer
 from utils.pagination import paginate_queryset
+from django.conf import settings
+import jwt
+from users.models import User
 
 
 class CourseStatsView(APIView):
@@ -102,10 +105,16 @@ class CourseDetailView(APIView):
     throttle_scope = 'search'
     def get(self, request, course_id):
         try:
-            user = getattr(request, 'user', None)
-            # user might be AnonymousUser if no token; pass None in that case
-            if user and not hasattr(user, 'id'):
-                user = None
+            # Optional JWT: parse token if present (public endpoint, no 401 if missing)
+            user = None
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1]
+                try:
+                    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                    user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
+                except Exception:
+                    user = None  # invalid/expired token → treat as anonymous
             course = get_course_by_id(course_id, user=user)
             return Response(course, status=status.HTTP_200_OK)
         except ValidationError as e:

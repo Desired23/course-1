@@ -37,6 +37,7 @@ export interface Course {
   couponCode?: string
   couponDiscount?: number
   promotionId?: number     // applied promotion ID for this course (instructor promo)
+  discountEndDate?: string | null  // ISO date string for discount expiry countdown
 }
 
 export interface Coupon {
@@ -74,6 +75,7 @@ function cartItemToCourse(item: CartItem): Course {
     rating: typeof course.rating === 'string' ? parseFloat(course.rating) || 0 : (course.rating ?? 0),
     studentsCount: course.enrollment_count || 0,
     duration: course.duration ? `${Math.floor(course.duration / 60)}h ${course.duration % 60}m` : '',
+    discountEndDate: course.discount_end_date || null,
   }
 }
 

@@ -142,6 +142,64 @@ class CheckEnrollmentView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class UserPaymentListView(APIView):
+    """GET /api/payments/my/ — list current user's payments with course details"""
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            from .models import Payment
+            from payment_details.models import Payment_Details
+
+            payments = Payment.objects.filter(
+                user=request.user.id,
+                is_deleted=False
+            ).order_by('-payment_date')
+
+            result = []
+            for payment in payments:
+                details = Payment_Details.objects.filter(
+                    payment=payment,
+                    is_deleted=False
+                ).select_related('course')
+
+                payment_data = {
+                    'id': payment.id,
+                    'payment_type': payment.payment_type,
+                    'amount': str(payment.amount),
+                    'discount_amount': str(payment.discount_amount),
+                    'total_amount': str(payment.total_amount),
+                    'transaction_id': payment.transaction_id,
+                    'payment_date': payment.payment_date.isoformat() if payment.payment_date else None,
+                    'payment_status': payment.payment_status,
+                    'payment_method': payment.payment_method,
+                    'refund_amount': str(payment.refund_amount),
+                    'created_at': payment.created_at.isoformat() if payment.created_at else None,
+                    'items': []
+                }
+
+                for detail in details:
+                    payment_data['items'].append({
+                        'id': detail.id,
+                        'course_id': detail.course.id if detail.course else None,
+                        'course_title': detail.course.title if detail.course else 'N/A',
+                        'course_thumbnail': detail.course.thumbnail if detail.course else None,
+                        'price': str(detail.price),
+                        'discount': str(detail.discount),
+                        'final_price': str(detail.final_price),
+                        'refund_status': detail.refund_status,
+                        'refund_amount': str(detail.refund_amount) if detail.refund_amount else None,
+                        'refund_reason': detail.refund_reason,
+                    })
+
+                result.append(payment_data)
+
+            return Response(result)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class UserRefundListView(APIView):
     """
     GET /api/refunds/           - list my refund requests (optionally ?status=pending)

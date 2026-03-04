@@ -5,10 +5,12 @@ import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { getCourses, parseDecimal, getEffectivePrice, hasActiveDiscount, formatPrice, getLevelLabel, formatDuration, type CourseListItem } from "../services/course.api"
+import { useOwnedCourses } from "../hooks/useOwnedCourses"
 
 export function FeaturedCourses() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
+  const { isOwned, getProgress } = useOwnedCourses()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
@@ -45,8 +47,9 @@ export function FeaturedCourses() {
       : `${course.total_students}`,
     level: getLevelLabel(course.level),
     category: course.category_name || '',
-    isOwned: false,
-    progress: 0
+    isOwned: isOwned(course.id),
+    progress: getProgress(course.id),
+    discountEndDate: hasActiveDiscount(course) ? course.discount_end_date : undefined,
   }))
 
   const scroll = (direction: 'left' | 'right') => {

@@ -5,8 +5,8 @@ from .serializers import LessonCommentSerializer
 def create_lesson_comment(user_id, lesson_id, content, parent_comment=None):
     try:
         serializer = LessonCommentSerializer(data={
-            'user_id': user_id,
-            'lesson_id': lesson_id,
+            'user': user_id,
+            'lesson': lesson_id,
             'content': content,
             'parent_comment': parent_comment
         })

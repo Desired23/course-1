@@ -174,7 +174,7 @@ def payment_return(request):
                 payment.save()
 
                 # Generate instructor earnings
-                generate_instructor_earnings_from_payment(payment)
+                generate_instructor_earnings_from_payment(payment.id)
 
                 # Create enrollments for purchased courses
                 create_enrollments_from_payment(payment)

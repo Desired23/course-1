@@ -15,6 +15,7 @@ import { useRouter } from '../../components/Router'
 import { type BreadcrumbItem } from '../../utils/navigation'
 import { getAllCourses, type CourseListItem, parseDecimal, getEffectivePrice, hasActiveDiscount, formatPrice, getLevelLabel, formatDuration } from '../../services/course.api'
 import { getActiveCategories, getSubcategories as getSubcategoriesApi, type Category } from '../../services/category.api'
+import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
 const levels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced']
 const durations = [
@@ -27,6 +28,7 @@ const ratings = [4.5, 4.0, 3.5, 3.0]
 
 export default function CategoryPage() {
   const { currentRoute, navigate } = useRouter()
+  const { isOwned: isOwnedCourse, getProgress } = useOwnedCourses()
   
   // Extract category ID from URL: /category/:categoryId or /category/:categoryId/:subcategoryId
   const pathParts = currentRoute.split('/').filter(Boolean)
@@ -408,6 +410,9 @@ export default function CategoryPage() {
                       category={course.category_name || ''}
                       currency="VND"
                       variant={viewMode === 'list' ? 'horizontal' : 'vertical'}
+                      discountEndDate={hasDiscount ? course.discount_end_date : undefined}
+                      isOwned={isOwnedCourse(course.id)}
+                      progress={getProgress(course.id)}
                     />
                   );
                 })}

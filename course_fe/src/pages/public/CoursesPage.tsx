@@ -13,6 +13,7 @@ import { getActiveCategories, buildCategoryTree, type CategoryTreeNode } from '.
 import { getQueryParams } from '../../utils/navigation'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
+import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
 // Price range constants
 const PRICE_MIN = 0
@@ -126,6 +127,7 @@ function Pagination({
 export function CoursesPage() {
   const { t } = useTranslation()
   const { currentRoute } = useRouter()
+  const { isOwned, getProgress } = useOwnedCourses()
   // View state
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [gridCols, setGridCols] = useState(3)
@@ -446,6 +448,9 @@ export function CoursesPage() {
       variant: viewMode === 'grid' ? 'vertical' as const : 'horizontal' as const,
       bestseller: course.total_students > 100000,
       currency: 'VND' as const,
+      discountEndDate: hasDiscount ? course.discount_end_date : undefined,
+      isOwned: isOwned(course.id),
+      progress: getProgress(course.id),
     }
   })
 

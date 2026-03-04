@@ -43,6 +43,20 @@ export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEYS.refresh)
 }
 
+// ─── Session expired callback ─────────────────────────────────
+
+type SessionExpiredHandler = () => void
+let _onSessionExpired: SessionExpiredHandler | null = null
+
+/**
+ * Register a callback that fires when both access & refresh tokens
+ * are expired (i.e. session is truly dead). Called once per expiry event.
+ */
+export function onSessionExpired(handler: SessionExpiredHandler): () => void {
+  _onSessionExpired = handler
+  return () => { _onSessionExpired = null }
+}
+
 // ─── Token refresh logic ──────────────────────────────────────
 
 let isRefreshing = false
@@ -65,6 +79,8 @@ function processQueue(error: any, token: string | null) {
 async function refreshAccessToken(): Promise<string> {
   const refreshTkn = getRefreshToken()
   if (!refreshTkn) {
+    clearTokens()
+    _onSessionExpired?.()
     throw { message: 'No refresh token available', status: 401 } as ApiError
   }
 
@@ -76,6 +92,8 @@ async function refreshAccessToken(): Promise<string> {
 
   if (!response.ok) {
     clearTokens()
+    // Notify listeners that the session is dead
+    _onSessionExpired?.()
     throw { message: 'Session expired. Please login again.', status: 401 } as ApiError
   }
 

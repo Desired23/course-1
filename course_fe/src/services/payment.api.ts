@@ -114,6 +114,42 @@ export async function createVnpayPayment(data: {
 
 // ─── Refunds ──────────────────────────────────────────────────────────────────
 
+// ─── User Payment History ─────────────────────────────────────────────────────
+
+export interface MyPaymentItem {
+  id: number
+  course_id: number | null
+  course_title: string
+  course_thumbnail: string | null
+  price: string
+  discount: string
+  final_price: string
+  refund_status: string
+  refund_amount: string | null
+  refund_reason: string | null
+}
+
+export interface MyPayment {
+  id: number
+  payment_type: 'course_purchase' | 'subscription'
+  amount: string
+  discount_amount: string
+  total_amount: string
+  transaction_id: string | null
+  payment_date: string | null
+  payment_status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled'
+  payment_method: 'vnpay' | 'momo'
+  refund_amount: string
+  created_at: string | null
+  items: MyPaymentItem[]
+}
+
+export async function getMyPayments(): Promise<MyPayment[]> {
+  return http.get<MyPayment[]>('/payments/my/')
+}
+
+// ─── Refund requests ──────────────────────────────────────────────────────────
+
 export interface RefundRequest {
   payment_detail_id: number
   reason: string

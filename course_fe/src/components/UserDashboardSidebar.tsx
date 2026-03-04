@@ -16,6 +16,7 @@ import {
   Settings, 
   CreditCard, 
   Package,
+  Receipt,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -48,7 +49,8 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
     { label: t('common.profile'), icon: <User className="h-4 w-4" />, href: '/profile' },
     { label: t('common.notifications'), icon: <Bell className="h-4 w-4" />, href: '/notifications', dividerAfter: true },
     { label: t('common.account_settings'), icon: <Settings className="h-4 w-4" />, href: '/account-settings' },
-    { label: t('sidebar.payment_methods') || 'Payment methods', icon: <CreditCard className="h-4 w-4" />, href: '/user/payment-methods' }, // Fallback
+    { label: t('sidebar.payment_methods') || 'Payment methods', icon: <CreditCard className="h-4 w-4" />, href: '/user/payment-methods' },
+    { label: 'Lịch sử giao dịch', icon: <Receipt className="h-4 w-4" />, href: '/user/transactions' },
     { label: t('sidebar.subscriptions') || 'Subscriptions', icon: <Package className="h-4 w-4" />, href: '/user/subscriptions', dividerAfter: true },
   ]
 

@@ -8,8 +8,16 @@ def create_cart(data):
         user_id = data.get('user')
         course_id = data.get('course')
 
-        # Kiểm tra user đã sở hữu khóa học chưa
         if user_id and course_id:
+            # Kiểm tra khóa học đã có trong giỏ hàng chưa
+            already_in_cart = Cart.objects.filter(
+                user_id=user_id,
+                course_id=course_id
+            ).exists()
+            if already_in_cart:
+                raise ValidationError("Khóa học này đã có trong giỏ hàng.")
+
+            # Kiểm tra user đã sở hữu khóa học chưa
             already_enrolled = Enrollment.objects.filter(
                 user_id=user_id,
                 course_id=course_id,

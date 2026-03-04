@@ -10,6 +10,7 @@ import { useCart } from '../../contexts/CartContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import { formatCartPrice } from '../../services/cart.api'
+import { DiscountCountdown } from '../../components/DiscountCountdown'
 
 export function CartPage() {
   const { t } = useTranslation()
@@ -146,6 +147,9 @@ export function CartPage() {
                                 <span className="text-sm text-muted-foreground line-through">
                                   {formatCartPrice(item.originalPrice)}
                                 </span>
+                              )}
+                              {item.discountEndDate && item.originalPrice > item.currentPrice && (
+                                <DiscountCountdown endDate={item.discountEndDate} variant="badge" />
                               )}
                             </>
                           )}

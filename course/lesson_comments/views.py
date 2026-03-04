@@ -22,7 +22,7 @@ class LessonCommentView(APIView):
 
     def post(self, request):
         user_id = request.user.id
-        lesson_id = request.data.get('lesson_id')
+        lesson_id = request.data.get('lesson') or request.data.get('lesson_id')
         content = request.data.get('content')
         parent_comment = request.data.get('parent_comment')
 

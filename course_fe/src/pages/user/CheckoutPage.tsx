@@ -10,6 +10,7 @@ import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { useTranslation } from "react-i18next"
 import { createPaymentRecord, createVnpayPayment } from "../../services/payment.api"
 import { formatCartPrice } from "../../services/cart.api"
+import { DiscountCountdown } from "../../components/DiscountCountdown"
 import { toast } from 'sonner@2.0.3'
 
 export function CheckoutPage() {
@@ -175,6 +176,9 @@ export function CheckoutPage() {
                             <p className="text-sm font-medium">{formatCartPrice(item.currentPrice)}</p>
                             {item.originalPrice > item.currentPrice && (
                               <p className="text-xs text-muted-foreground line-through">{formatCartPrice(item.originalPrice)}</p>
+                            )}
+                            {item.discountEndDate && item.originalPrice > item.currentPrice && (
+                              <DiscountCountdown endDate={item.discountEndDate} variant="badge" className="mt-1" />
                             )}
                           </>
                         )}

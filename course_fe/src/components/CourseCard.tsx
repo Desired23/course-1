@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Star, Clock, Users, CheckCircle, Play, ShoppingCart, Heart, Loader2, ArrowRight } from "lucide-react"
 import { ImageWithFallback } from "./figma/ImageWithFallback"
 import { Card, CardContent } from "./ui/card"
@@ -10,6 +10,7 @@ import { useWishlist } from "../contexts/WishlistContext"
 import { useAuthAction } from "../hooks/useAuthAction"
 import { useAuth } from "../contexts/AuthContext"
 import { Progress } from "./ui/progress"
+import { DiscountCountdown } from "./DiscountCountdown"
 import { toast } from "sonner@2.0.3"
 
 interface CourseCardProps {
@@ -33,6 +34,7 @@ interface CourseCardProps {
   currency?: 'USD' | 'VND'
   showWishlist?: boolean
   showAddToCart?: boolean
+  discountEndDate?: string | null
 }
 
 export function CourseCard({
@@ -55,7 +57,8 @@ export function CourseCard({
   isNew = false,
   currency = 'USD',
   showWishlist = true,
-  showAddToCart = true
+  showAddToCart = true,
+  discountEndDate
 }: CourseCardProps) {
   const { navigate } = useRouter()
   const { addToCart, addToCartFromApi, isInCart, isInCartByCourseId } = useCart()
@@ -64,6 +67,11 @@ export function CourseCard({
   const { user, isAuthenticated } = useAuth()
   
   const [isAddingToCart, setIsAddingToCart] = useState(false)
+  const [discountExpired, setDiscountExpired] = useState(false)
+  
+  const handleDiscountExpire = useCallback(() => {
+    setDiscountExpired(true)
+  }, [])
   
   const inWishlist = courseId ? isInWishlist(courseId) : false
   const addedToCart = courseId ? isInCart(courseId) : false
@@ -95,9 +103,23 @@ export function CourseCard({
     return studentsValue.toString()
   }
 
-  const formattedPrice = formatPrice(price)
-  const formattedOriginalPrice = originalPrice ? formatPrice(originalPrice) : undefined
+  // When discount expires, show original price as the main price
+  const displayPrice = discountExpired && originalPrice ? originalPrice : price
+  const displayOriginalPrice = discountExpired ? undefined : originalPrice
+  
+  const formattedPrice = formatPrice(displayPrice)
+  const formattedOriginalPrice = displayOriginalPrice ? formatPrice(displayOriginalPrice) : undefined
   const formattedStudents = formatStudents(students)
+  const showCountdown = !discountExpired && !!discountEndDate && !!originalPrice
+
+  // Compute discount percentage
+  const discountPercent = (() => {
+    if (!originalPrice || !showCountdown) return 0
+    const orig = typeof originalPrice === 'string' ? parseFloat(originalPrice.replace(/[^0-9.]/g, '')) : originalPrice
+    const curr = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.]/g, '')) : price
+    if (!orig || orig <= 0 || curr >= orig) return 0
+    return Math.round(((orig - curr) / orig) * 100)
+  })()
 
   const handleToggleWishlist = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -210,7 +232,7 @@ export function CourseCard({
           {isOwned ? (
             <Badge className="absolute top-2 left-2 bg-green-600 text-white flex items-center gap-1 z-10">
               <CheckCircle className="h-3 w-3" />
-              Owned
+              Đã sở hữu
             </Badge>
           ) : (
             <>
@@ -243,7 +265,7 @@ export function CourseCard({
                 ) : (
                   <ShoppingCart className="w-4 h-4 mr-2" />
                 )}
-                {isAddingToCart ? 'Adding...' : addedToCart ? 'Go to Cart' : 'Add to Cart'}
+                {isAddingToCart ? 'Đang thêm...' : addedToCart ? 'Xem giỏ hàng' : 'Thêm vào giỏ'}
               </Button>
             </div>
           )}
@@ -268,7 +290,13 @@ export function CourseCard({
                 {formattedOriginalPrice}
               </span>
             )}
+            {discountPercent > 0 && (
+              <span className="text-xs font-bold text-red-600">-{discountPercent}%</span>
+            )}
           </div>
+          {showCountdown && (
+            <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="badge" discountPercent={discountPercent} />
+          )}
         </CardContent>
       </Card>
     )
@@ -291,7 +319,7 @@ export function CourseCard({
             {isOwned ? (
               <Badge className="absolute top-2 left-2 bg-green-600 text-white flex items-center gap-1">
                 <CheckCircle className="h-3 w-3" />
-                Owned
+                Đã sở hữu
               </Badge>
             ) : (
               <>
@@ -367,34 +395,42 @@ export function CourseCard({
             {isOwned ? (
               <div className="pt-2 space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Course Progress</span>
+                  <span className="text-muted-foreground">Tiến độ</span>
                   <span className="font-medium">{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2" />
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-xl">{formattedPrice}</span>
-                  {formattedOriginalPrice && (
-                    <span className="text-sm text-muted-foreground line-through">{formattedOriginalPrice}</span>
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-xl">{formattedPrice}</span>
+                    {formattedOriginalPrice && (
+                      <span className="text-sm text-muted-foreground line-through">{formattedOriginalPrice}</span>
+                    )}
+                    {discountPercent > 0 && (
+                      <span className="text-xs font-bold text-red-600">-{discountPercent}%</span>
+                    )}
+                  </div>
+                  {showAddToCart && (
+                    <Button 
+                      size="sm"
+                      onClick={handleAddToCart}
+                      disabled={isAddingToCart}
+                    >
+                      {isAddingToCart ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : addedToCart ? (
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                      ) : (
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                      )}
+                      {isAddingToCart ? 'Đang thêm...' : addedToCart ? 'Xem giỏ hàng' : 'Thêm vào giỏ'}
+                    </Button>
                   )}
                 </div>
-                {showAddToCart && (
-                  <Button 
-                    size="sm"
-                    onClick={handleAddToCart}
-                    disabled={isAddingToCart}
-                  >
-                    {isAddingToCart ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : addedToCart ? (
-                      <ArrowRight className="w-4 h-4 mr-2" />
-                    ) : (
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                    )}
-                    {isAddingToCart ? 'Adding...' : addedToCart ? 'Go to Cart' : 'Add to Cart'}
-                  </Button>
+                {showCountdown && (
+                  <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="badge" discountPercent={discountPercent} />
                 )}
               </div>
             )}
@@ -419,7 +455,7 @@ export function CourseCard({
         {isOwned ? (
           <Badge className="absolute top-2 left-2 bg-green-600 text-white flex items-center gap-1 z-10">
             <CheckCircle className="h-3 w-3" />
-            Owned
+            Đã sở hữu
           </Badge>
         ) : (
           <>
@@ -463,7 +499,7 @@ export function CourseCard({
                 ) : (
                   <ShoppingCart className="w-4 h-4 mr-2" />
                 )}
-                {isAddingToCart ? 'Adding...' : addedToCart ? 'Go to Cart' : 'Add to Cart'}
+                {isAddingToCart ? 'Đang thêm...' : addedToCart ? 'Xem giỏ hàng' : 'Thêm vào giỏ'}
               </Button>
               <Button 
                 variant="outline"
@@ -473,7 +509,7 @@ export function CourseCard({
                   handleClick()
                 }}
               >
-                View Details
+                Xem chi tiết
               </Button>
             </div>
           </div>
@@ -538,29 +574,35 @@ export function CourseCard({
           {isOwned ? (
             <div className="pt-2 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Course Progress</span>
+                <span className="text-muted-foreground">Tiến độ</span>
                 <span className="font-medium">{progress}%</span>
               </div>
               <Progress value={progress} className="h-2" />
               <Button className="w-full mt-2" size="sm">
                 <Play className="h-4 w-4 mr-2" />
-                Continue Learning
+                Tiếp tục học
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center space-x-2">
-                <span className="font-bold text-lg">{formattedPrice}</span>
-                {formattedOriginalPrice && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400 line-through">
-                    {formattedOriginalPrice}
-                  </span>
+            <div className="space-y-1 pt-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-lg">{formattedPrice}</span>
+                  {formattedOriginalPrice && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400 line-through">
+                      {formattedOriginalPrice}
+                    </span>
+                  )}                  {discountPercent > 0 && (
+                    <span className="text-xs font-bold text-red-600">-{discountPercent}%</span>
+                  )}                </div>
+                {category && (
+                  <Badge variant="outline" className="text-xs">
+                    {category}
+                  </Badge>
                 )}
               </div>
-              {category && (
-                <Badge variant="outline" className="text-xs">
-                  {category}
-                </Badge>
+              {showCountdown && (
+                <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="badge" />
               )}
             </div>
           )}
