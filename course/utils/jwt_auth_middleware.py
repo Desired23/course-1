@@ -30,7 +30,6 @@ class JWTAuthMiddleware(BaseMiddleware):
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
                 user = await get_user(payload["user_id"])
                 if user and user.status == "active":
-                    user.is_authenticated = True
                     scope["user"] = user
                 else:
                     raise DenyConnection()
