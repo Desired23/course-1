@@ -14,6 +14,7 @@ django.setup()
 
 from django.utils import timezone
 from django.utils.text import slugify
+from django.contrib.auth.hashers import make_password
 
 # ── Import all models ────────────────────────────────────────────────
 from users.models import User
@@ -59,7 +60,7 @@ from subscription_plans.models import SubscriptionPlan, PlanCourse, UserSubscrip
 now = timezone.now()
 
 def hashed(pw):
-    return hashlib.sha256(pw.encode()).hexdigest()
+    return make_password(pw)
 
 def past(days_max=365):
     return now - timedelta(days=random.randint(1, days_max), hours=random.randint(0, 23))
