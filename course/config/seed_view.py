@@ -8,6 +8,54 @@ import threading
 from django.http import JsonResponse
 from django.conf import settings
 import os
+from django.db import connection
+
+# Import all models used in bulk delete (use actual app names)
+from subscription_plans.models import (
+    SubscriptionUsage,
+    UserSubscription,
+    CourseSubscriptionConsent,
+    PlanCourse,
+    SubscriptionPlan,
+)
+from applications.models import ApplicationResponse, Application
+from registration_forms.models import FormQuestion, RegistrationForm
+from activity_logs.models import ActivityLog
+from support_replies.models import SupportReply
+from supports.models import Support
+from systems_settings.models import SystemsSetting
+from notifications.models import Notification
+from instructor_payouts.models import InstructorPayout
+from instructor_earnings.models import InstructorEarning
+from payment_methods.models import InstructorPayoutMethod, UserPaymentMethod
+from payment_details.models import Payment_Details
+from payments.models import Payment
+from wishlists.models import Wishlist
+from carts.models import Cart
+from promotions.models import Promotion
+from qna_answers.models import QnAAnswer
+from qnas.models import QnA
+from forum_comments.models import ForumComment
+from forum_topics.models import ForumTopic
+from forums.models import Forum
+from blog_comments.models import BlogComment
+from blog_posts.models import BlogPost
+from quiz_results.models import QuizResult
+from quiz_questions.models import QuizQuestion, QuizTestCase
+from reviews.models import Review
+from certificates.models import Certificate
+from learning_progress.models import LearningProgress
+from enrollments.models import Enrollment
+from lesson_comments.models import LessonComment
+from lesson_attachments.models import LessonAttachment
+from lessons.models import Lesson
+from coursemodules.models import CourseModule
+from courses.models import Course
+from instructors.models import Instructor
+from instructor_levels.models import InstructorLevel
+from categories.models import Category
+from admins.models import Admin
+from users.models import User
 
 
 SEED_SECRET = os.getenv('SEED_SECRET_KEY', 'demo-seed-2026')
