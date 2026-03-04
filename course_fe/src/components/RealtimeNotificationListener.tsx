@@ -1,56 +1,34 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAuth } from '../contexts/AuthContext'
-import { realtimeNotificationService, RealtimeNotification } from '../utils/realtimeNotifications'
 import { toast } from 'sonner@2.0.3'
 
 /**
- * Component that listens for realtime notifications
- * and displays them to the user
+ * Shows a toast whenever a new notification arrives in the context.
+ * The actual WebSocket is managed inside NotificationContext.
  */
 export function RealtimeNotificationListener() {
-  const { addNotification } = useNotifications()
-  const { user, hasRole } = useAuth()
+  const { state } = useNotifications()
+  const { isAuthenticated } = useAuth()
+  const prevCountRef = useRef(state.notifications.length)
 
   useEffect(() => {
-    // Only enable for instructors and admins
-    if (!hasRole('instructor') && !hasRole('admin')) {
-      return
+    if (!isAuthenticated) return
+
+    // When a new notification is prepended, show toast
+    const currentCount = state.notifications.length
+    if (currentCount > prevCountRef.current && state.notifications.length > 0) {
+      const newest = state.notifications[0]
+      if (newest && !newest.read) {
+        toast.info(newest.title, {
+          description: newest.message,
+          duration: 5000,
+        })
+      }
     }
+    prevCountRef.current = currentCount
+  }, [state.notifications, isAuthenticated])
 
-    console.log('🎧 Realtime notification listener initialized')
-
-    // Subscribe to realtime notifications
-    const unsubscribe = realtimeNotificationService.subscribe((notification: RealtimeNotification) => {
-      // Add to notification center
-      addNotification({
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        actionUrl: notification.actionUrl
-      })
-
-      // Show toast notification
-      toast.info(notification.title, {
-        description: notification.message,
-        action: notification.actionUrl ? {
-          label: 'View',
-          onClick: () => window.location.href = notification.actionUrl
-        } : undefined,
-        duration: 5000
-      })
-    })
-
-    // Start simulation (every 30 seconds)
-    // In production, this would be replaced with WebSocket or SSE
-    realtimeNotificationService.startSimulation(30000)
-
-    // Cleanup
-    return () => {
-      unsubscribe()
-      realtimeNotificationService.stopSimulation()
-    }
-  }, [addNotification, hasRole])
-
-  return null // This component doesn't render anything
+  return null
 }
+

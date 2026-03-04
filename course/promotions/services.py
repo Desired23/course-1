@@ -193,3 +193,144 @@ def update_promotion(promotion_id, data):
         raise
     except Exception as e:
         raise ValidationError({"error": f"Error updating promotion: {str(e)}"})
+
+
+def validate_promotion_code(code, course_ids):
+    """
+    Public endpoint: validate a promotion code against a list of course IDs.
+    Returns promotion info + computed discount per course + order-level discount if admin promo.
+    """
+    from decimal import Decimal
+    from courses.models import Course
+
+    if not code:
+        raise ValidationError({"error": "Mã giảm giá không được để trống."})
+    if not course_ids or not isinstance(course_ids, list):
+        raise ValidationError({"error": "Danh sách khóa học không hợp lệ."})
+
+    try:
+        promotion = (
+            Promotion.objects
+            .select_related('admin', 'instructor')
+            .prefetch_related('applicable_courses', 'applicable_categories')
+            .get(code__iexact=code, is_deleted=False)
+        )
+    except Promotion.DoesNotExist:
+        raise ValidationError({"error": "Mã giảm giá không tồn tại."})
+
+    # Validate status
+    if promotion.status != Promotion.StatusChoices.ACTIVE:
+        raise ValidationError({"error": "Mã giảm giá không còn hoạt động."})
+
+    # Validate dates
+    now = timezone.now()
+    if promotion.start_date and promotion.end_date:
+        if not (promotion.start_date <= now <= promotion.end_date):
+            raise ValidationError({"error": "Mã giảm giá đã hết hạn."})
+
+    # Validate usage limit
+    if promotion.usage_limit and promotion.used_count >= promotion.usage_limit:
+        raise ValidationError({"error": "Mã giảm giá đã hết lượt sử dụng."})
+
+    # Fetch courses
+    courses = Course.objects.filter(id__in=course_ids)
+    if not courses.exists():
+        raise ValidationError({"error": "Không tìm thấy khóa học nào."})
+
+    is_admin_promo = promotion.admin is not None
+    is_instructor_promo = promotion.instructor is not None
+
+    applicable_course_ids = set(promotion.applicable_courses.values_list('pk', flat=True))
+    applicable_category_ids = set(promotion.applicable_categories.values_list('pk', flat=True))
+
+    result_courses = []
+    total_original = Decimal("0.0")
+    total_discount = Decimal("0.0")
+
+    if is_instructor_promo:
+        # Instructor promo: per-course discount, only for applicable courses
+        for course in courses:
+            price = Decimal(course.price)
+            total_original += price
+            discount = Decimal("0.0")
+
+            if course.pk in applicable_course_ids:
+                if promotion.discount_type == Promotion.DiscountTypeChoices.PERCENTAGE:
+                    discount = price * Decimal(promotion.discount_value) / 100
+                elif promotion.discount_type == Promotion.DiscountTypeChoices.FIXED_AMOUNT:
+                    discount = Decimal(promotion.discount_value)
+
+                if promotion.max_discount and discount > promotion.max_discount:
+                    discount = promotion.max_discount
+
+            total_discount += discount
+            result_courses.append({
+                "course_id": course.id,
+                "course_title": course.title,
+                "original_price": str(price),
+                "discount": str(discount),
+                "final_price": str(price - discount),
+                "applicable": course.pk in applicable_course_ids,
+            })
+
+    elif is_admin_promo:
+        # Admin promo: order-wide discount, check category applicability
+        all_categories_valid = True
+        for course in courses:
+            price = Decimal(course.price)
+            total_original += price
+
+            cat_valid = True
+            if applicable_category_ids:
+                cat_valid = course.category_id and course.category_id in applicable_category_ids
+                if not cat_valid:
+                    all_categories_valid = False
+
+            result_courses.append({
+                "course_id": course.id,
+                "course_title": course.title,
+                "original_price": str(price),
+                "discount": "0.00",
+                "final_price": str(price),
+                "applicable": cat_valid,
+            })
+
+        if not all_categories_valid and applicable_category_ids:
+            raise ValidationError({
+                "error": "Mã giảm giá không áp dụng cho tất cả khóa học trong giỏ hàng."
+            })
+
+        # Check min_purchase
+        if total_original < promotion.min_purchase:
+            raise ValidationError({
+                "error": f"Đơn hàng tối thiểu {promotion.min_purchase} VND để áp dụng mã giảm giá này."
+            })
+
+        # Calculate order-level discount
+        if promotion.discount_type == Promotion.DiscountTypeChoices.PERCENTAGE:
+            total_discount = total_original * Decimal(promotion.discount_value) / 100
+        elif promotion.discount_type == Promotion.DiscountTypeChoices.FIXED_AMOUNT:
+            total_discount = Decimal(promotion.discount_value)
+
+        if promotion.max_discount and total_discount > promotion.max_discount:
+            total_discount = promotion.max_discount
+
+    else:
+        raise ValidationError({"error": "Mã giảm giá không hợp lệ."})
+
+    return {
+        "promotion": {
+            "id": promotion.id,
+            "code": promotion.code,
+            "description": promotion.description,
+            "discount_type": promotion.discount_type,
+            "discount_value": str(promotion.discount_value),
+            "max_discount": str(promotion.max_discount) if promotion.max_discount else None,
+            "min_purchase": str(promotion.min_purchase),
+            "type": "admin" if is_admin_promo else "instructor",
+        },
+        "courses": result_courses,
+        "total_original": str(total_original),
+        "total_discount": str(total_discount),
+        "total_amount": str(total_original - total_discount),
+    }

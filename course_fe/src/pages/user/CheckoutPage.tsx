@@ -16,8 +16,15 @@ export function CheckoutPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
   const { user } = useAuth()
-  const { cartItems, getTotalPrice, getOriginalPrice, getSavings, orderCoupon, clearCart } = useCart()
+  const { cartItems, getTotalPrice, getOriginalPrice, getSavings, orderCoupon, appliedPromotion, clearCart } = useCart()
   const [isProcessing, setIsProcessing] = useState(false)
+  // State for BE-confirmed amount (shown after createPaymentRecord)
+  const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null)
+  const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null)
+  const [pendingPaymentDetails, setPendingPaymentDetails] = useState<any>(null)
+
+  // Displayed total: use BE-confirmed amount if available, otherwise local calculation
+  const displayTotal = confirmedAmount ?? getTotalPrice()
 
   const handleCheckout = async () => {
     if (!user) {
@@ -31,37 +38,81 @@ export function CheckoutPage() {
 
     setIsProcessing(true)
     try {
-      // Step 1: Create payment record with course details
-      const paymentDetails = cartItems.map(item => ({
-        course_id: Number(item.id),
-        promotion_id: null,
-      }))
+      // Build payment details with promotion IDs from applied promotion
+      const paymentDetails = cartItems.map(item => {
+        const detail: { course_id: number; promotion_id?: number | null } = {
+          course_id: Number(item.courseId || item.id),
+          promotion_id: null,
+        }
+
+        // If instructor promo was applied, attach per-course promotion_id
+        if (item.promotionId) {
+          detail.promotion_id = item.promotionId
+        }
+
+        return detail
+      })
+
+      // Admin-level (order-wide) promotion_id goes at the top level
+      const adminPromotionId = appliedPromotion?.promotion.type === 'admin'
+        ? appliedPromotion.promotion.id
+        : null
+
       const result = await createPaymentRecord({
         user_id: Number(user.id),
         payment_method: 'vnpay',
         payment_type: 'course_purchase',
         payment_details: paymentDetails,
+        promotion_id: adminPromotionId,
       })
 
-      // Step 2: Create VNPay payment URL
-      const totalAmount = Math.round(getTotalPrice())
-      const vnpayRes = await createVnpayPayment({
-        amount: totalAmount,
-        order_id: String(result.payment.id),
-        order_desc: `Thanh toan ${cartItems.length} khoa hoc`,
-      })
+      const beTotal = Math.round(parseFloat(String(result.payment.total_amount)))
+      const feTotal = Math.round(getTotalPrice())
 
-      // Step 3: Redirect to VNPay
-      if (vnpayRes.payment_url) {
-        clearCart()
-        window.location.href = vnpayRes.payment_url
-      } else {
-        toast.error('Không thể tạo liên kết thanh toán')
+      // If BE total differs from what user saw, show confirmation with BE amount
+      if (Math.abs(beTotal - feTotal) > 1) {
+        setConfirmedAmount(beTotal)
+        setConfirmedPaymentId(String(result.payment.id))
+        setPendingPaymentDetails(result)
         setIsProcessing(false)
+        toast.info(`Giá đã được cập nhật từ ${formatCartPrice(feTotal)} thành ${formatCartPrice(beTotal)}`)
+        return
       }
+
+      // Prices match — proceed to VNPay directly
+      await proceedToVnpay(String(result.payment.id), beTotal)
     } catch (err: any) {
       console.error('Checkout failed:', err)
-      toast.error(err?.message || 'Thanh toán thất bại. Vui lòng thử lại.')
+      const msg = err?.error || err?.message || 'Thanh toán thất bại. Vui lòng thử lại.'
+      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+      setIsProcessing(false)
+    }
+  }
+
+  const handleConfirmAndPay = async () => {
+    if (!confirmedPaymentId || confirmedAmount === null) return
+    setIsProcessing(true)
+    try {
+      await proceedToVnpay(confirmedPaymentId, confirmedAmount)
+    } catch (err: any) {
+      console.error('VNPay redirect failed:', err)
+      toast.error('Không thể tạo liên kết thanh toán')
+      setIsProcessing(false)
+    }
+  }
+
+  const proceedToVnpay = async (paymentId: string, amount: number) => {
+    const vnpayRes = await createVnpayPayment({
+      amount,
+      order_id: paymentId,
+      order_desc: `Thanh toan ${cartItems.length} khoa hoc`,
+    })
+
+    if (vnpayRes.payment_url) {
+      clearCart()
+      window.location.href = vnpayRes.payment_url
+    } else {
+      toast.error('Không thể tạo liên kết thanh toán')
       setIsProcessing(false)
     }
   }
@@ -180,10 +231,16 @@ export function CheckoutPage() {
                         <span>-{formatCartPrice(getSavings())}</span>
                       </div>
                     )}
-                    {orderCoupon && (
+                    {appliedPromotion && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Mã giảm giá ({appliedPromotion.promotion.code}):</span>
+                        <span>-{formatCartPrice(appliedPromotion.totalDiscount)}</span>
+                      </div>
+                    )}
+                    {!appliedPromotion && orderCoupon && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Mã giảm giá ({orderCoupon.code}):</span>
-                        <span>-{formatCartPrice(getOriginalPrice() - getSavings() - getTotalPrice())}</span>
+                        <span>-{formatCartPrice(orderCoupon.discount)}</span>
                       </div>
                     )}
                   </div>
@@ -192,13 +249,25 @@ export function CheckoutPage() {
 
                   <div className="flex justify-between text-xl font-bold">
                     <span>Tổng cộng:</span>
-                    <span className="text-primary">{formatCartPrice(getTotalPrice())}</span>
+                    <span className="text-primary">{formatCartPrice(displayTotal)}</span>
                   </div>
+
+                  {/* Price changed notice */}
+                  {confirmedAmount !== null && confirmedAmount !== Math.round(getTotalPrice()) && (
+                    <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm">
+                      <p className="text-yellow-800 dark:text-yellow-200 font-medium">
+                        Giá đã được cập nhật bởi hệ thống
+                      </p>
+                      <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
+                        Giá có thể thay đổi do khuyến mãi hết hạn hoặc giá khóa học được điều chỉnh.
+                      </p>
+                    </div>
+                  )}
 
                   <Button
                     className="w-full mt-4"
                     size="lg"
-                    onClick={handleCheckout}
+                    onClick={confirmedAmount !== null ? handleConfirmAndPay : handleCheckout}
                     disabled={isProcessing}
                   >
                     {isProcessing ? (
@@ -206,8 +275,10 @@ export function CheckoutPage() {
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Đang xử lý...
                       </>
+                    ) : confirmedAmount !== null ? (
+                      <>Xác nhận thanh toán — {formatCartPrice(displayTotal)}</>
                     ) : (
-                      <>Thanh toán VNPay — {formatCartPrice(getTotalPrice())}</>
+                      <>Thanh toán VNPay — {formatCartPrice(displayTotal)}</>
                     )}
                   </Button>
 

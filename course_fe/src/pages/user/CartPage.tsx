@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Trash2, Tag, Clock, Star, Check } from 'lucide-react'
+import { Trash2, Tag, Clock, Star, Check, Loader2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Separator } from '../../components/ui/separator'
 import { Input } from '../../components/ui/input'
@@ -24,10 +24,12 @@ export function CartPage() {
     applyCoupon,
     removeCoupon,
     orderCoupon,
+    appliedPromotion,
     loadCart,
   } = useCart()
   
   const [couponInput, setCouponInput] = useState('')
+  const [isApplying, setIsApplying] = useState(false)
 
   // Sync cart from server on mount
   useEffect(() => {
@@ -36,24 +38,27 @@ export function CartPage() {
     }
   }, [user?.id])
 
-  const handleApplyCoupon = (courseId?: string) => {
+  const handleApplyCoupon = async () => {
     if (!couponInput.trim()) {
-      toast.error(t('cart.enter_coupon'))
+      toast.error(t('cart.enter_coupon', 'Vui lòng nhập mã giảm giá'))
       return
     }
     
-    const success = applyCoupon(couponInput, courseId)
-    if (success) {
-      toast.success(t('cart.coupon_applied'))
-      setCouponInput('')
-    } else {
-      toast.error(t('cart.invalid_coupon'))
+    setIsApplying(true)
+    try {
+      const success = await applyCoupon(couponInput)
+      if (success) {
+        toast.success(t('cart.coupon_applied', 'Đã áp dụng mã giảm giá!'))
+        setCouponInput('')
+      }
+    } finally {
+      setIsApplying(false)
     }
   }
 
   const handleRemoveCoupon = (courseId?: string) => {
     removeCoupon(courseId)
-    toast.success(t('cart.coupon_removed'))
+    toast.success(t('cart.coupon_removed', 'Đã xóa mã giảm giá'))
   }
 
   if (cartItems.length === 0) {
@@ -160,13 +165,13 @@ export function CartPage() {
                         </Button>
                       </div>
 
-                      {/* Course-specific coupon */}
-                      {item.couponCode ? (
+                      {/* Course-specific promotion applied */}
+                      {item.couponCode && (
                         <div className="flex items-center justify-between bg-green-50 dark:bg-green-950 p-3 rounded border border-green-200 dark:border-green-800">
                           <div className="flex items-center gap-2">
                             <Check className="w-4 h-4 text-green-600" />
                             <span className="text-sm text-green-700 dark:text-green-300">
-                              Coupon applied: {item.couponCode}
+                              Mã giảm giá: {item.couponCode} (-{formatCartPrice(item.couponDiscount || 0)})
                             </span>
                           </div>
                           <Button
@@ -175,23 +180,7 @@ export function CartPage() {
                             onClick={() => handleRemoveCoupon(item.id)}
                             className="text-green-700 hover:text-green-800"
                           >
-                            {t('cart.remove_coupon')}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder={t('cart.coupon_code')}
-                            value={couponInput}
-                            onChange={(e) => setCouponInput(e.target.value)}
-                            className="text-sm"
-                          />
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleApplyCoupon(item.id)}
-                          >
-                            {t('cart.apply_coupon')}
+                            {t('cart.remove_coupon', 'Xóa')}
                           </Button>
                         </div>
                       )}
@@ -242,13 +231,25 @@ export function CartPage() {
               
               {/* Order-wide Coupon Code */}
               <div className="space-y-3 mb-6">
-                {orderCoupon ? (
+                {appliedPromotion || orderCoupon ? (
                   <div className="flex items-center justify-between bg-green-50 dark:bg-green-950 p-3 rounded border border-green-200 dark:border-green-800">
                     <div className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-green-700 dark:text-green-300">
-                        Order coupon: {orderCoupon.code}
-                      </span>
+                      <div>
+                        <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                          {appliedPromotion?.promotion.code || orderCoupon?.code}
+                        </span>
+                        {appliedPromotion && (
+                          <p className="text-xs text-green-600 dark:text-green-400">
+                            {appliedPromotion.promotion.description || 
+                              `Giảm ${appliedPromotion.promotion.discount_type === 'percentage' 
+                                ? `${appliedPromotion.promotion.discount_value}%` 
+                                : formatCartPrice(parseFloat(appliedPromotion.promotion.discount_value))}`
+                            }
+                            {' · '}Tiết kiệm {formatCartPrice(appliedPromotion.totalDiscount)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <Button
                       variant="ghost"
@@ -256,47 +257,53 @@ export function CartPage() {
                       onClick={() => handleRemoveCoupon()}
                       className="text-green-700 hover:text-green-800"
                     >
-                      {t('cart.remove_coupon')}
+                      {t('cart.remove_coupon', 'Xóa')}
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Input
-                        placeholder={t('cart.coupon_code')}
+                        placeholder={t('cart.coupon_code', 'Nhập mã giảm giá')}
                         value={couponInput}
                         onChange={(e) => setCouponInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
                         className="text-sm"
+                        disabled={isApplying}
                       />
                       <Button 
                         variant="outline" 
                         size="sm"
                         onClick={() => handleApplyCoupon()}
+                        disabled={isApplying}
                       >
-                        {t('cart.apply_coupon')}
+                        {isApplying ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          t('cart.apply_coupon', 'Áp dụng')
+                        )}
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Available codes: UDEMY10, SAVE20
-                    </p>
                   </div>
                 )}
               </div>
               
-              {/* Promotions */}
-              <div className="mt-6 p-4 bg-muted rounded">
-                <div className="flex items-start gap-2">
-                  <Tag className="w-4 h-4 text-purple-600 mt-0.5" />
-                  <div className="text-sm">
-                    <div className="font-medium text-purple-600">
-                      BESTVALUE
-                    </div>
-                    <div className="text-muted-foreground">
-                      Get this course plus top-rated courses for your team.
+              {/* Promotions info */}
+              {appliedPromotion && appliedPromotion.promotion.type === 'instructor' && (
+                <div className="mt-4 p-4 bg-muted rounded">
+                  <div className="flex items-start gap-2">
+                    <Tag className="w-4 h-4 text-purple-600 mt-0.5" />
+                    <div className="text-sm">
+                      <div className="font-medium text-purple-600">
+                        Mã giảm giá của giảng viên
+                      </div>
+                      <div className="text-muted-foreground">
+                        Áp dụng cho {Object.keys(appliedPromotion.courseDiscounts).length} khóa học trong giỏ hàng
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
               
               {/* 30-day guarantee */}
               <div className="mt-4 text-center text-sm text-muted-foreground">

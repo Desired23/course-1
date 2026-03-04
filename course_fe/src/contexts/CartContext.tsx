@@ -1,8 +1,8 @@
 import React from 'react'
-import { useCartStore, Course, Coupon } from '../stores/cart.store'
+import { useCartStore, Course, Coupon, AppliedPromotion } from '../stores/cart.store'
 
 // Re-export types for backward compatibility
-export type { Course, Coupon }
+export type { Course, Coupon, AppliedPromotion }
 
 // CartProvider is now just a wrapper (State managed by Zustand)
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -16,6 +16,7 @@ export function useCart() {
   return {
     cartItems: store.cartItems,
     orderCoupon: store.orderCoupon,
+    appliedPromotion: store.appliedPromotion,
     addToCart: store.addToCart,
     addToCartFromApi: store.addToCartFromApi,
     removeFromCart: store.removeFromCart,

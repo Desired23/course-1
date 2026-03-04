@@ -1,9 +1,24 @@
 from rest_framework.exceptions import ValidationError
 from .models import Cart
 from .serializers import CartSerializer
+from enrollments.models import Enrollment
 
 def create_cart(data):
     try:
+        user_id = data.get('user')
+        course_id = data.get('course')
+
+        # Kiểm tra user đã sở hữu khóa học chưa
+        if user_id and course_id:
+            already_enrolled = Enrollment.objects.filter(
+                user_id=user_id,
+                course_id=course_id,
+                is_deleted=False,
+                status__in=[Enrollment.Status.Active, Enrollment.Status.Complete]
+            ).exists()
+            if already_enrolled:
+                raise ValidationError("Bạn đã sở hữu khóa học này. Không thể thêm vào giỏ hàng.")
+
         serializer = CartSerializer(data=data)
         if serializer.is_valid(raise_exception=True):
             cart = serializer.save()

@@ -64,4 +64,5 @@ urlpatterns = [
     path('api/', include('payment_methods.urls')),
     path('api/', include('activity_logs.urls')),
     path('api/', include('blog_comments.urls')),
+    path('api/', include('realtime.urls')),
 ]

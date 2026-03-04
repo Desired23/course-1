@@ -16,6 +16,11 @@ import {
   getCartOriginalPrice,
   formatCartPrice,
 } from '../services/cart.api'
+import {
+  validatePromotionCode,
+  type ValidatePromotionResponse,
+  type PromotionInfo,
+} from '../services/promotion.api'
 
 // ─── Re-export Course type for backward compat with CartContext / CartPage ────
 export interface Course {
@@ -31,6 +36,7 @@ export interface Course {
   duration: string
   couponCode?: string
   couponDiscount?: number
+  promotionId?: number     // applied promotion ID for this course (instructor promo)
 }
 
 export interface Coupon {
@@ -42,6 +48,14 @@ export interface Coupon {
   courseId?: string
   expiresAt?: Date
   isActive: boolean
+}
+
+/** Applied promotion state from BE validation */
+export interface AppliedPromotion {
+  promotion: PromotionInfo
+  totalDiscount: number
+  courseDiscounts: Record<number, number>  // courseId -> discount amount
+  validationResponse: ValidatePromotionResponse
 }
 
 /** Convert a BE CartItem to the local Course shape. */
@@ -66,6 +80,7 @@ function cartItemToCourse(item: CartItem): Course {
 interface CartState {
   cartItems: Course[]
   orderCoupon: Coupon | null
+  appliedPromotion: AppliedPromotion | null
   _synced: boolean
 
   // Actions
@@ -75,7 +90,7 @@ interface CartState {
   removeFromCart: (courseId: string) => void
   clearCart: () => void
   mergeCart: (serverItems: Course[]) => void
-  applyCoupon: (couponCode: string, courseId?: string) => boolean
+  applyCoupon: (couponCode: string, courseId?: string) => Promise<boolean>
   removeCoupon: (courseId?: string) => void
 
   // Getters
@@ -92,6 +107,7 @@ export const useCartStore = create<CartState>()(
       (set, get) => ({
         cartItems: [],
         orderCoupon: null,
+        appliedPromotion: null,
         _synced: false,
 
         /** Fetch cart items from server & replace local state. */
@@ -153,7 +169,7 @@ export const useCartStore = create<CartState>()(
           }
         },
 
-        clearCart: () => set({ cartItems: [], orderCoupon: null }),
+        clearCart: () => set({ cartItems: [], orderCoupon: null, appliedPromotion: null }),
 
         mergeCart: (serverItems) => {
           const state = get()
@@ -164,20 +180,77 @@ export const useCartStore = create<CartState>()(
           }
         },
 
-        applyCoupon: (couponCode, courseId) => {
-          // Coupons remain client-side for now (no BE promotion validation endpoint yet)
-          if (couponCode === 'UDEMY10' || couponCode === 'SAVE20') {
-            const discount = couponCode === 'UDEMY10' ? 10 : 20
-            const discountType = couponCode === 'UDEMY10' ? 'percentage' : 'fixed' as const
-            set({
-              orderCoupon: {
-                code: couponCode, type: 'order', discount, discountType,
-                isActive: true, minAmount: couponCode === 'UDEMY10' ? 50000 : 0
+        applyCoupon: async (couponCode, courseId) => {
+          const state = get()
+          const courseIds = state.cartItems.map(item => item.courseId)
+
+          if (courseIds.length === 0) return false
+
+          try {
+            const result = await validatePromotionCode(couponCode, courseIds)
+            const promoInfo = result.promotion
+            const totalDiscount = parseFloat(result.total_discount)
+
+            // Build per-course discount map
+            const courseDiscounts: Record<number, number> = {}
+            for (const c of result.courses) {
+              const disc = parseFloat(c.discount)
+              if (disc > 0) {
+                courseDiscounts[c.course_id] = disc
               }
-            })
+            }
+
+            if (promoInfo.type === 'instructor') {
+              // Instructor promo: apply discount per applicable course
+              const updatedItems = state.cartItems.map(item => {
+                const disc = courseDiscounts[item.courseId]
+                if (disc && disc > 0) {
+                  return {
+                    ...item,
+                    couponCode: promoInfo.code,
+                    couponDiscount: disc,
+                    promotionId: promoInfo.id,
+                  }
+                }
+                return item
+              })
+
+              set({
+                cartItems: updatedItems,
+                appliedPromotion: {
+                  promotion: promoInfo,
+                  totalDiscount,
+                  courseDiscounts,
+                  validationResponse: result,
+                },
+              })
+            } else {
+              // Admin promo: order-wide discount
+              set({
+                orderCoupon: {
+                  code: promoInfo.code,
+                  type: 'order',
+                  discount: totalDiscount,
+                  discountType: 'fixed', // already computed as absolute value
+                  isActive: true,
+                  minAmount: parseFloat(promoInfo.min_purchase),
+                },
+                appliedPromotion: {
+                  promotion: promoInfo,
+                  totalDiscount,
+                  courseDiscounts,
+                  validationResponse: result,
+                },
+              })
+            }
+
             return true
+          } catch (err: any) {
+            // Extract error message from BE response
+            const msg = err?.error?.error || err?.message || 'Mã giảm giá không hợp lệ'
+            toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+            return false
           }
-          return false
         },
 
         removeCoupon: (courseId) => {
@@ -185,14 +258,15 @@ export const useCartStore = create<CartState>()(
             set((state) => ({
               cartItems: state.cartItems.map(item => {
                 if (item.id === courseId) {
-                  const { couponCode, couponDiscount, ...rest } = item
+                  const { couponCode, couponDiscount, promotionId, ...rest } = item
                   return rest as Course
                 }
                 return item
-              })
+              }),
+              appliedPromotion: null,
             }))
           } else {
-            set({ orderCoupon: null })
+            set({ orderCoupon: null, appliedPromotion: null })
           }
         },
 

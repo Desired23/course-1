@@ -4,6 +4,7 @@ from .serializers import PaymentSerializer, PaymentCreateSerializer
 from .models import Payment
 from promotions.models import Promotion
 from courses.models import Course
+from enrollments.models import Enrollment
 from payment_details.serializers import PaymentDetailSerializer
 from decimal import Decimal
 from django.utils import timezone
@@ -48,6 +49,19 @@ def create_payment(payment_data):
                     course = Course.objects.get(id=course_id)
                 except Course.DoesNotExist:
                     raise ValidationError(f"Course ID {course_id} không tồn tại.")
+
+                # Kiểm tra user đã sở hữu khóa học chưa (đã enroll active/complete)
+                already_enrolled = Enrollment.objects.filter(
+                    user_id=user_id,
+                    course_id=course_id,
+                    is_deleted=False,
+                    status__in=[Enrollment.Status.Active, Enrollment.Status.Complete]
+                ).exists()
+                if already_enrolled:
+                    raise ValidationError(
+                        f"Bạn đã sở hữu khóa học '{course.title}'. Không thể mua lại."
+                    )
+
                 courses_detail.append(course)
                 price = Decimal(course.price)
                 discount = Decimal("0.0")

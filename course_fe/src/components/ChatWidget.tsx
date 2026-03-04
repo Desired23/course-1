@@ -1,5 +1,6 @@
 import { MessageCircle, X, Send, Minus, GripHorizontal, Paperclip, Smile, Image as ImageIcon, MoreVertical } from 'lucide-react'
 import { useChat } from '../contexts/ChatContext'
+import { useAuth } from '../contexts/AuthContext'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
@@ -15,7 +16,8 @@ import {
 } from "./ui/dropdown-menu"
 
 export function ChatWidget() {
-  const { state, toggleChat, sendMessage, receiveMessage, setActiveConversation } = useChat()
+  const { state, toggleChat, sendMessage, setActiveConversation } = useChat()
+  const { user } = useAuth()
   const [messageInput, setMessageInput] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [alignment, setAlignment] = useState({ x: 'right', y: 'bottom' })
@@ -60,43 +62,19 @@ export function ChatWidget() {
   const messages = state.activeConversationId ? state.messages[state.activeConversationId] || [] : []
 
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !state.activeConversationId || !activeConversation) return
+    if (!messageInput.trim() || !state.activeConversationId || !activeConversation || !user) return
 
     const conversationId = state.activeConversationId
     const text = messageInput.trim()
     
-    // 1. Send user message
     sendMessage(conversationId, {
-      senderId: 'current-user',
-      senderName: 'You',
+      senderId: user.id,
+      senderName: user.name || 'You',
       content: text,
       type: 'text'
     })
     
     setMessageInput('')
-
-    // 2. Simulate bot/user typing and reply
-    setIsTyping(true)
-    
-    // Determine who we are talking to
-    const otherParticipant = activeConversation.participants.find(p => p.id !== 'current-user')
-    
-    setTimeout(() => {
-      setIsTyping(false)
-      
-      if (otherParticipant) {
-        receiveMessage(conversationId, {
-          id: Date.now().toString(),
-          senderId: otherParticipant.id,
-          senderName: otherParticipant.name,
-          senderAvatar: otherParticipant.avatar,
-          content: `This is a simulated reply from ${otherParticipant.name} to: "${text}"`,
-          timestamp: new Date(),
-          read: false,
-          type: 'text'
-        })
-      }
-    }, 2000)
   }
 
   const handleBackToConversations = () => {
@@ -236,9 +214,9 @@ export function ChatWidget() {
                           <div className="flex items-center gap-3">
                             <div className="relative">
                               <Avatar className="h-10 w-10 border-2 border-white dark:border-gray-800 shadow-sm">
-                                <AvatarImage src={conversation.participants[0]?.avatar} />
+                                <AvatarImage src={conversation.participants[1]?.avatar} />
                                 <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
-                                  {conversation.participants[0]?.name?.charAt(0)}
+                                  {conversation.participants[1]?.name?.charAt(0)}
                                 </AvatarFallback>
                               </Avatar>
                               {conversation.unreadCount > 0 && (
@@ -248,7 +226,7 @@ export function ChatWidget() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-0.5">
                                 <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-blue-600 transition-colors">
-                                  {conversation.participants.map(p => p.name).join(', ')}
+                                  {conversation.participants[1]?.name || 'Unknown'}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
                                   {new Date(conversation.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -287,7 +265,7 @@ export function ChatWidget() {
                     ) : (
                       <div className="space-y-4">
                         {messages.map((message) => {
-                          const isMe = message.senderId === 'current-user';
+                          const isMe = message.senderId === (user?.id ?? '');
                           return (
                             <motion.div
                               initial={{ opacity: 0, y: 10 }}

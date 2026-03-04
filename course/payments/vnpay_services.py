@@ -58,9 +58,16 @@ def get_client_ip(request):
 
 def create_vnpay_payment(request: HttpRequest):
     data = request.data if hasattr(request, 'data') else request.GET
-    amount = int(data.get('amount')) * 100
     order_id = data.get('order_id') or datetime.now().strftime('%Y%m%d%H%M%S')
     order_desc = data.get('order_desc', f'Thanh toan don hang {order_id}')
+
+    # Always read the amount from the stored payment — single source of truth
+    # This eliminates FE/BE price mismatch entirely.
+    try:
+        payment = Payment.objects.get(id=order_id)
+        amount = int(payment.total_amount) * 100   # VNPay expects VND * 100
+    except Payment.DoesNotExist:
+        amount = int(data.get('amount', 0)) * 100   # fallback for non-payment flows
     order_type = data.get('order_type', 'other')
     language = data.get('language', 'vn')
     bank_code = data.get('bank_code')
@@ -131,7 +138,9 @@ def payment_return(request):
         vnp = vnpay()
         vnp.responseData = inputData.dict()
         order_id = inputData['vnp_TxnRef']
-        amount = int(inputData['vnp_Amount']) / 100
+        # Use Decimal arithmetic to avoid float precision mismatch
+        vnp_amount = Decimal(inputData['vnp_Amount']) / Decimal('100')
+        amount = vnp_amount
         vnp_TransactionNo = inputData.get('vnp_TransactionNo', '')
         vnp_ResponseCode = inputData.get('vnp_ResponseCode', '')
 
@@ -148,7 +157,11 @@ def payment_return(request):
             )
 
         if vnp_ResponseCode == "00":
-            if Decimal(payment.total_amount) != Decimal(amount):
+            # Compare as integers (whole VND) to avoid any decimal precision issues
+            stored_amount = int(Decimal(payment.total_amount).to_integral_value())
+            vnp_amount_vnd = int(amount.to_integral_value())
+            if stored_amount != vnp_amount_vnd:
+                print(f"[VNPAY] Amount mismatch: DB={payment.total_amount}, VNPay={amount}")
                 return HttpResponseRedirect(
                     f"{fe_url}/payment/result?status=error&payment_id={order_id}&message=Amount+mismatch"
                 )

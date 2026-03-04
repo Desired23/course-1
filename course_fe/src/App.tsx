@@ -94,8 +94,8 @@ function AppContent() {
       {/* Bottom Navigation (Mobile) */}
       {!hideHeaderFooter && <BottomNav />}
       
-      {/* Floating Navigation (Desktop) */}
-      {!hideHeaderFooter && <FloatingNavigation />}
+      {/* Floating Navigation (Desktop) - disabled */}
+      {/* {!hideHeaderFooter && <FloatingNavigation />} */}
       
       {/* Toast Notifications - Configured to look like Ant Design messages */}
       <Toaster 

@@ -8,8 +8,8 @@ from .services import (
     get_promotions_by_admin,
     get_promotion_by_id,
     update_promotion,
-    get_promotions_by_instructor
-
+    get_promotions_by_instructor,
+    validate_promotion_code,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
@@ -69,5 +69,22 @@ class PromotionManagementView(APIView):
             return Response(promotion, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PromotionValidateView(APIView):
+    """Public endpoint for students to validate a promotion code against their cart."""
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        try:
+            code = request.data.get('code')
+            course_ids = request.data.get('course_ids', [])
+            result = validate_promotion_code(code, course_ids)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
