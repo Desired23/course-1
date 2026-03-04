@@ -204,6 +204,11 @@ if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
     }
+    DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+    # Use sslmode=require instead of verify-full to avoid EOF errors on Render
+    DATABASES['default'].setdefault('OPTIONS', {})
+    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+    DATABASES['default']['CONN_MAX_AGE'] = 300
 else:
     import sys
     if 'makemigrations' not in sys.argv and 'migrate' not in sys.argv and 'check' not in sys.argv:
