@@ -45,7 +45,7 @@ export function CourseDetailPage() {
   
   const sidebarCardRef = useRef<HTMLDivElement>(null)
   
-  const { addToCart } = useCart()
+  const { addToCart, addToCartFromApi, isInCartByCourseId } = useCart()
   const { user, isAuthenticated } = useAuth()
   const { navigate, currentRoute } = useRouter()
 
@@ -120,24 +120,36 @@ export function CourseDetailPage() {
   const regularPrice = courseData ? parseDecimal(courseData.price) : 0
   const courseRating = courseData ? parseDecimal(courseData.rating) : 0
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!courseData) return
-    addToCart({
-      id: String(courseData.id),
-      title: courseData.title,
-      instructor: courseData.instructor?.full_name || 'Instructor',
-      originalPrice: regularPrice,
-      currentPrice: effectivePrice,
-      image: courseData.thumbnail || '',
-      rating: courseRating,
-      studentsCount: courseData.total_students,
-      duration: formatDuration(courseData.duration)
-    })
+    
+    // If logged in, use API to persist cart on server
+    if (isAuthenticated && user?.id) {
+      if (isInCartByCourseId(courseData.id)) {
+        toast.info('Khóa học này đã có trong giỏ hàng')
+        return
+      }
+      await addToCartFromApi(parseInt(user.id), courseData.id, {})
+    } else {
+      // Fallback: local-only for guests
+      addToCart({
+        id: String(courseData.id),
+        courseId: courseData.id,
+        title: courseData.title,
+        instructor: courseData.instructor?.full_name || 'Instructor',
+        originalPrice: regularPrice,
+        currentPrice: effectivePrice,
+        image: courseData.thumbnail || '',
+        rating: courseRating,
+        studentsCount: courseData.total_students,
+        duration: formatDuration(courseData.duration)
+      })
+    }
     toast.success(t('course_detail.added_to_cart_toast'), { description: courseData.title })
   }
 
-  const handleBuyNow = () => {
-    handleAddToCart()
+  const handleBuyNow = async () => {
+    await handleAddToCart()
     navigate('/cart')
   }
 

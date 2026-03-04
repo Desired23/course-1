@@ -8,6 +8,7 @@ import { useRouter } from "./Router"
 import { useCart } from "../contexts/CartContext"
 import { useWishlist } from "../contexts/WishlistContext"
 import { useAuthAction } from "../hooks/useAuthAction"
+import { useAuth } from "../contexts/AuthContext"
 import { Progress } from "./ui/progress"
 import { toast } from "sonner@2.0.3"
 
@@ -57,9 +58,10 @@ export function CourseCard({
   showAddToCart = true
 }: CourseCardProps) {
   const { navigate } = useRouter()
-  const { addToCart, isInCart } = useCart()
+  const { addToCart, addToCartFromApi, isInCart, isInCartByCourseId } = useCart()
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist()
   const { execute: executeAuth } = useAuthAction()
+  const { user, isAuthenticated } = useAuth()
   
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   
@@ -148,37 +150,48 @@ export function CourseCard({
 
     setIsAddingToCart(true)
     
-    // Simulate network delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 600))
-    
-    // Parse numeric values from formatted strings
-    const currentPriceVal = typeof price === 'string' 
-      ? parseFloat(price.replace(/[^0-9.]/g, '')) 
-      : price || 0
-    const originalPriceVal = originalPrice 
-      ? (typeof originalPrice === 'string' 
-          ? parseFloat(originalPrice.replace(/[^0-9.]/g, '')) 
-          : originalPrice)
-      : (currentPriceVal > 0 ? currentPriceVal * 2 : 199.99)
+    try {
+      // Extract numeric course ID
+      const numericCourseId = parseInt(courseId.replace('course-', ''))
       
-    const studentsVal = typeof students === 'string' 
-      ? parseInt(students.replace(/[^0-9]/g, '')) 
-      : students || 0
+      if (isAuthenticated && user?.id && !isNaN(numericCourseId)) {
+        // Use API for logged-in users
+        if (isInCartByCourseId(numericCourseId)) {
+          toast.info('Khóa học này đã có trong giỏ hàng')
+          return
+        }
+        await addToCartFromApi(parseInt(user.id), numericCourseId, {})
+      } else {
+        // Fallback: local-only for guests
+        const currentPriceVal = typeof price === 'string' 
+          ? parseFloat(price.replace(/[^0-9.]/g, '')) 
+          : price || 0
+        const originalPriceVal = originalPrice 
+          ? (typeof originalPrice === 'string' 
+              ? parseFloat(originalPrice.replace(/[^0-9.]/g, '')) 
+              : originalPrice)
+          : (currentPriceVal > 0 ? currentPriceVal * 2 : 199.99)
+        const studentsVal = typeof students === 'string' 
+          ? parseInt(students.replace(/[^0-9]/g, '')) 
+          : students || 0
 
-    addToCart({
-      id: courseId,
-      title,
-      instructor,
-      image,
-      rating,
-      currentPrice: currentPriceVal,
-      originalPrice: originalPriceVal,
-      studentsCount: studentsVal,
-      duration
-    })
-    
-    toast.success('Added to cart')
-    setIsAddingToCart(false)
+        addToCart({
+          id: courseId,
+          courseId: numericCourseId,
+          title,
+          instructor,
+          image,
+          rating,
+          currentPrice: currentPriceVal,
+          originalPrice: originalPriceVal,
+          studentsCount: studentsVal,
+          duration
+        })
+        toast.success('Đã thêm vào giỏ hàng')
+      }
+    } finally {
+      setIsAddingToCart(false)
+    }
   }
   
   // Compact variant for related/recommended courses
