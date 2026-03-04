@@ -20,82 +20,80 @@ _seed_running = False
 def _run_seed():
     """Delete all data then run seed_data.py"""
     global _seed_running
-
     print("[SEED] ==== BẮT ĐẦU RESET DỮ LIỆU ====")
-    # Close any stale DB connections first
-    connection.close()
-
-    # ── Delete all data (order matters for FK constraints) ──
-    print("🗑️  Clearing database...")
-    SubscriptionUsage.objects.all().delete()
-    UserSubscription.objects.all().delete()
-    CourseSubscriptionConsent.objects.all().delete()
-    PlanCourse.objects.all().delete()
-    SubscriptionPlan.objects.all().delete()
-    ApplicationResponse.objects.all().delete()
-    Application.objects.all().delete()
-    FormQuestion.objects.all().delete()
-    RegistrationForm.objects.all().delete()
-    ActivityLog.objects.all().delete()
-    SupportReply.objects.all().delete()
-    Support.objects.all().delete()
-    SystemsSetting.objects.all().delete()
-    Notification.objects.all().delete()
-    InstructorPayout.objects.all().delete()
-    InstructorEarning.objects.all().delete()
-    InstructorPayoutMethod.objects.all().delete()
-    UserPaymentMethod.objects.all().delete()
-    Payment_Details.objects.all().delete()
-    Payment.objects.all().delete()
-    Wishlist.objects.all().delete()
-    Cart.objects.all().delete()
-    Promotion.objects.all().delete()
-    QnAAnswer.objects.all().delete()
-    QnA.objects.all().delete()
-    ForumComment.objects.all().delete()
-    ForumTopic.objects.all().delete()
-    Forum.objects.all().delete()
-    BlogComment.objects.all().delete()
-    BlogPost.objects.all().delete()
-    QuizResult.objects.all().delete()
-    QuizTestCase.objects.all().delete()
-    QuizQuestion.objects.all().delete()
-    Review.objects.all().delete()
-    Certificate.objects.all().delete()
-    LearningProgress.objects.all().delete()
-    Enrollment.objects.all().delete()
-    LessonComment.objects.all().delete()
-    LessonAttachment.objects.all().delete()
-    Lesson.objects.all().delete()
-    CourseModule.objects.all().delete()
-    Course.objects.all().delete()
-    Instructor.objects.all().delete()
-    InstructorLevel.objects.all().delete()
-    Category.objects.all().delete()
-    Admin.objects.all().delete()
-    User.objects.all().delete()
-
-    # Also clean realtime chat tables
     try:
-        from realtime.models import ChatMessage, ChatRoom
-        ChatMessage.objects.all().delete()
-        ChatRoom.objects.all().delete()
-    except Exception:
-        pass
+        # Close any stale DB connections first
+        connection.close()
 
-    print("✅ Database cleared!")
+        # ── Delete all data (order matters for FK constraints) ──
+        print("🗑️  Clearing database...")
+        SubscriptionUsage.objects.all().delete()
+        UserSubscription.objects.all().delete()
+        CourseSubscriptionConsent.objects.all().delete()
+        PlanCourse.objects.all().delete()
+        SubscriptionPlan.objects.all().delete()
+        ApplicationResponse.objects.all().delete()
+        Application.objects.all().delete()
+        FormQuestion.objects.all().delete()
+        RegistrationForm.objects.all().delete()
+        ActivityLog.objects.all().delete()
+        SupportReply.objects.all().delete()
+        Support.objects.all().delete()
+        SystemsSetting.objects.all().delete()
+        Notification.objects.all().delete()
+        InstructorPayout.objects.all().delete()
+        InstructorEarning.objects.all().delete()
+        InstructorPayoutMethod.objects.all().delete()
+        UserPaymentMethod.objects.all().delete()
+        Payment_Details.objects.all().delete()
+        Payment.objects.all().delete()
+        Wishlist.objects.all().delete()
+        Cart.objects.all().delete()
+        Promotion.objects.all().delete()
+        QnAAnswer.objects.all().delete()
+        QnA.objects.all().delete()
+        ForumComment.objects.all().delete()
+        ForumTopic.objects.all().delete()
+        Forum.objects.all().delete()
+        BlogComment.objects.all().delete()
+        BlogPost.objects.all().delete()
+        QuizResult.objects.all().delete()
+        QuizTestCase.objects.all().delete()
+        QuizQuestion.objects.all().delete()
+        Review.objects.all().delete()
+        Certificate.objects.all().delete()
+        LearningProgress.objects.all().delete()
+        Enrollment.objects.all().delete()
+        LessonComment.objects.all().delete()
+        LessonAttachment.objects.all().delete()
+        Lesson.objects.all().delete()
+        CourseModule.objects.all().delete()
+        Course.objects.all().delete()
+        Instructor.objects.all().delete()
+        InstructorLevel.objects.all().delete()
+        Category.objects.all().delete()
+        Admin.objects.all().delete()
+        User.objects.all().delete()
 
-    # ── Run seed script ──
-    print("🌱 Running seed_data.py...")
-    import importlib, sys
-    if 'seed_data' in sys.modules:
-        # Already imported in a previous run — just reload
-        importlib.reload(sys.modules['seed_data'])
-    else:
-        # First run in this process — import executes top-level code
-        import seed_data
-    print("✅ Seed complete!")
-    print("[SEED] ==== RESET DỮ LIỆU THÀNH CÔNG ====")
+        # Also clean realtime chat tables
+        try:
+            from realtime.models import ChatMessage, ChatRoom
+            ChatMessage.objects.all().delete()
+            ChatRoom.objects.all().delete()
+        except Exception:
+            pass
+
+        print("✅ Database cleared!")
+
+        # ── Run seed script ──
+        print("🌱 Running seed_data.py...")
+        import importlib, sys
+        if 'seed_data' in sys.modules:
+            importlib.reload(sys.modules['seed_data'])
+        else:
+            import seed_data
+        print("✅ Seed complete!")
+        print("[SEED] ==== RESET DỮ LIỆU THÀNH CÔNG ====")
 
     except Exception as e:
         print(f"❌ Seed error: {e}")
