@@ -21,9 +21,19 @@ class EnrollmentManageByUserView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
+        from django.db import DatabaseError
         user = request.user.id
-        enrollments = get_enrollment_by_user(user)
-        return paginate_queryset(enrollments, request, EnrollmentSerializer)
+        try:
+            enrollments = get_enrollment_by_user(user)
+            return paginate_queryset(enrollments, request, EnrollmentSerializer)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        except DatabaseError as e:
+            # Database issues (connection closed, timeouts) should return 503
+            return Response({"error": "Database unavailable. Please try again later."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as e:
+            # Unexpected errors -> 500 with safe message
+            return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     def post(self, request):
         try:
             data = request.data.copy()
