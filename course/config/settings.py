@@ -202,7 +202,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if DATABASE_URL:
     DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
+        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=50, ssl_require=True)
     }
     DATABASES['default']['CONN_HEALTH_CHECKS'] = True
     # Use sslmode=require instead of verify-full to avoid EOF errors on Render
