@@ -78,6 +78,17 @@ class UserLoginView(APIView):
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
+
+class UserLogoutView(APIView):
+    """Invalidate a refresh token (client should call on logout)."""
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        from .services import logout_user
+        token = request.data.get('refresh_token')
+        logout_user(token)
+        return Response({"message": "Logged out."}, status=status.HTTP_200_OK)
+
 class RefreshTokenView(APIView):
     throttle_scope = 'burst'
 

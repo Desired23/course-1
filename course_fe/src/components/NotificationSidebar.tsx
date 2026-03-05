@@ -13,36 +13,29 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
+  // the context itself now holds the source of truth
   const { user } = useAuth()
   const { navigate } = useRouter()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // Load notifications from API
+  // Note: notifications now come from context; no REST fetch on mount.
+  // We still keep the effect in case the sidebar wants to auto-refresh when
+  // the logged-in user ID changes, but it will call the context helper.
+  const { state: notifState, refreshNotifications } = useNotification() as any
+
   useEffect(() => {
     if (user?.id) {
-      const userId = parseInt(user.id)
-      getNotificationsByUser(userId, 1, 20)
-        .then(res => {
-          // Map API notification to component format
-          const mapped = res.results.map((n: ApiNotification) => ({
-            notification_id: n.id,
-            title: n.title,
-            message: n.message,
-            is_read: n.is_read,
-            type: n.type,
-            related_id: n.related_id,
-            created_at: new Date(n.created_at),
-          }))
-          setNotifications(mapped)
-          setUnreadCount(mapped.filter((n: any) => !n.is_read).length)
-        })
-        .catch(() => {
-          setNotifications([])
-          setUnreadCount(0)
-        })
+      // refresh once when user id becomes available
+      refreshNotifications()
     }
-  }, [user])
+  }, [user?.id, refreshNotifications])
+
+  // mirror context state locally for UI
+  useEffect(() => {
+    setNotifications(notifState.notifications)
+    setUnreadCount(notifState.unreadCount)
+  }, [notifState])
 
   // Handle mouse enter with delay
   const handleMouseEnter = () => {

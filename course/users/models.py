@@ -54,3 +54,31 @@ class User(models.Model):
 
     def __str__(self):
         return f"{self.username} ({self.user_type} - User_id = {self.id})"
+
+
+# new model to track refresh tokens for rotation/revocation
+def generate_refresh_jti():
+    import uuid
+    return str(uuid.uuid4())
+
+class RefreshToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='refresh_tokens')
+    jti = models.CharField(max_length=36, unique=True, default=generate_refresh_jti)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    replaced_by = models.OneToOneField('self', null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        db_table = 'RefreshTokens'
+        indexes = [models.Index(fields=['jti']), models.Index(fields=['user'])]
+
+    def is_active(self):
+        from django.utils import timezone
+        return (self.revoked_at is None) and (timezone.now() < self.expires_at)
+
+    def revoke(self):
+        from django.utils import timezone
+        if self.revoked_at is None:
+            self.revoked_at = timezone.now()
+            self.save(update_fields=['revoked_at'])

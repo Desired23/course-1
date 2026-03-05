@@ -8,7 +8,7 @@
  * - Typed error handling
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -99,6 +99,9 @@ async function refreshAccessToken(): Promise<string> {
 
   const data = await response.json()
   const newAccessToken = data.access_token
+  if (data.refresh_token) {
+    localStorage.setItem(TOKEN_KEYS.refresh, data.refresh_token)
+  }
 
   localStorage.setItem(TOKEN_KEYS.access, newAccessToken)
   return newAccessToken

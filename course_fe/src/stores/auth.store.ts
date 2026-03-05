@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { login as apiLogin, register as apiRegister, getUserById, updateProfile as apiUpdateProfile } from '../services/auth.api'
-import { setTokens, clearTokens, getAccessToken } from '../services/http'
+import { setTokens, clearTokens, getAccessToken, getRefreshToken, API_BASE_URL } from '../services/http'
 import type { UserType } from '../services/auth.api'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -230,6 +230,15 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // call server to revoke current refresh token (best effort)
+        const refresh = getRefreshToken()
+        if (refresh) {
+          fetch(`${API_BASE_URL}/users/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refresh }),
+          }).catch(() => {})
+        }
         clearTokens()
         set({ user: null, error: null })
       },

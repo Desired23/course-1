@@ -206,13 +206,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'CLEAR_ALL_NOTIFICATIONS' })
   }
 
-  const value: NotificationContextType = {
+  // helper to re-fetch via REST (called by components if they need a manual refresh)
+  const refreshNotifications = async () => {
+    if (!isAuthenticated || !userId) return
+    try {
+      const res = await getNotificationsByUser(userId, 1, 50)
+      dispatch({ type: 'SET_NOTIFICATIONS', payload: res.results.map(mapApiNotification) })
+    } catch (err) {
+      console.error('[Notification] Refresh failed:', err)
+    }
+  }
+
+  const value: NotificationContextType & { refreshNotifications: () => Promise<void> } = {
     state,
     addNotification,
     markAsRead,
     markAllAsRead,
     removeNotification,
     clearAllNotifications,
+    refreshNotifications,
   }
 
   return (

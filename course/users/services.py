@@ -157,13 +157,19 @@ def login(data):
     }
     access_token = encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
+    # create a database record for the refresh token (rotation)
+    from .models import RefreshToken
+    expires = datetime.now(dt_timezone.utc) + timedelta(days=3)
+    rt = RefreshToken.objects.create(user=user, expires_at=expires)
+
     refresh_payload = {
         'user_id': user.id,
         'username': user.username,
         'email': user.email,
         'user_type': user_type,
         'token_type': 'refresh',
-        'exp': datetime.now(dt_timezone.utc) + timedelta(days=3),
+        'exp': expires,
+        'jti': rt.jti,
         "iat": datetime.now(dt_timezone.utc)
     }
     refresh_token = encode(refresh_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -185,12 +191,22 @@ def login(data):
         }
     }
 def refresh_token(token):
+    from .models import RefreshToken
     try:
         payload = decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         # Only accept refresh tokens
         if payload.get('token_type') != 'refresh':
             raise ValidationError({"error": "Invalid token type. Expected refresh token."})
-        user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
+        jti = payload.get('jti')
+        if not jti:
+            raise ValidationError({"error": "Missing token identifier."})
+        try:
+            rt_obj = RefreshToken.objects.get(jti=jti)
+        except RefreshToken.DoesNotExist:
+            raise ValidationError({"error": "Refresh token invalid."})
+        if not rt_obj.is_active():
+            raise ValidationError({"error": "Refresh token expired or revoked."})
+        user = rt_obj.user
     except ExpiredSignatureError:
         raise ValidationError({"error": "Token has expired."})
     except DecodeError:
@@ -199,14 +215,17 @@ def refresh_token(token):
         raise ValidationError({"error": "User not found."})
     
     user_type = ["student"]  # Mặc định luôn có student
-    
-    # select_related đã load sẵn, không tốn thêm query
     if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:  # type: ignore
         user_type.append("admin")
-    
     if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:  # type: ignore
         user_type.append("instructor")
-    
+
+    # revoke old refresh token and rotate
+    new_expires = datetime.now(dt_timezone.utc) + timedelta(days=3)
+    rt_obj.revoked_at = datetime.now(dt_timezone.utc)
+    rt_obj.save(update_fields=['revoked_at'])
+    new_rt = RefreshToken.objects.create(user=user, expires_at=new_expires, replaced_by=rt_obj)
+
     new_payload = {
         'user_id': user.id,
         'username': user.username,
@@ -216,9 +235,23 @@ def refresh_token(token):
         'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=30),
         "iat": datetime.now(dt_timezone.utc)
     }
-    new_token = encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    new_access = encode(new_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    refresh_payload = {
+        'user_id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'user_type': user_type,
+        'token_type': 'refresh',
+        'exp': new_expires,
+        'jti': new_rt.jti,
+        "iat": datetime.now(dt_timezone.utc)
+    }
+    new_refresh = encode(refresh_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
     return {
-        'access_token': new_token,
+        'access_token': new_access,
+        'refresh_token': new_refresh,
         'message': "Token refreshed successfully.",
     }
 def active_user(user_id):
@@ -231,6 +264,38 @@ def active_user(user_id):
         return {"message": "User activated successfully."}
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
+
+def revoke_refresh_token(jti):
+    from .models import RefreshToken
+    try:
+        rt = RefreshToken.objects.get(jti=jti)
+        rt.revoked_at = timezone.now()
+        rt.save(update_fields=['revoked_at'])
+    except RefreshToken.DoesNotExist:
+        pass
+
+
+def revoke_all_refresh_tokens_for_user(user_id):
+    from .models import RefreshToken
+    RefreshToken.objects.filter(user_id=user_id, revoked_at__isnull=True).update(revoked_at=timezone.now())
+
+
+# convenience wrapper used by view or other callers
+def logout_user(refresh_token: str):
+    """Decode a refresh token, revoke it in the database.
+    Returns True if token was invalidated or False if token was missing/invalid.
+    """
+    if not refresh_token:
+        return False
+    try:
+        payload = decode(refresh_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        jti = payload.get('jti')
+        if jti:
+            revoke_refresh_token(jti)
+            return True
+    except Exception:
+        pass
+    return False
 def user_reset_password(data):
     try:
         email_raw = data.get('email', '')
