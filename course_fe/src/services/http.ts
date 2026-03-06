@@ -10,6 +10,10 @@
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
+// simple in-memory cache for GET responses
+const getCache: Map<string, { expiry: number; data: any }> = new Map()
+const CACHE_TTL = 30 * 1000 // 30 seconds
+
 // ─── Types ────────────────────────────────────────────────────
 
 export interface ApiError {
@@ -76,7 +80,7 @@ function processQueue(error: any, token: string | null) {
   refreshQueue = []
 }
 
-async function refreshAccessToken(): Promise<string> {
+export async function refreshAccessToken(): Promise<string> {
   const refreshTkn = getRefreshToken()
   if (!refreshTkn) {
     clearTokens()
@@ -139,7 +143,14 @@ class HttpService {
     }
 
     try {
-      const response = await fetch(url, config)
+      // try cache for GET
+    if (config.method === 'GET' || !config.method) {
+      const entry = getCache.get(url)
+      if (entry && entry.expiry > Date.now()) {
+        return entry.data as T
+      }
+    }
+    const response = await fetch(url, config)
 
       // Handle 401 → try refresh
       if (response.status === 401 && retry) {
@@ -178,7 +189,12 @@ class HttpService {
         return undefined as T
       }
 
-      return await response.json()
+      const result = await response.json()
+      // cache GET result
+      if ((config.method === 'GET' || !config.method) && response.ok) {
+        getCache.set(url, { expiry: Date.now() + CACHE_TTL, data: result })
+      }
+      return result
     } catch (error) {
       if ((error as ApiError).status !== undefined) {
         throw error
@@ -212,6 +228,9 @@ class HttpService {
 
   // ─── Public methods ──────────────────────────────────────
 
+  // simple deduplication map for in-flight GET requests
+  private inFlightGets: Map<string, Promise<any>> = new Map()
+
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     let queryString = ''
     if (params) {
@@ -222,7 +241,16 @@ class HttpService {
         queryString = '?' + new URLSearchParams(filtered as Record<string, string>).toString()
       }
     }
-    return this.request<T>(endpoint + queryString, { method: 'GET' })
+    const url = endpoint + queryString
+    if (this.inFlightGets.has(url)) {
+      return this.inFlightGets.get(url) as Promise<T>
+    }
+    const promise = this.request<T>(url, { method: 'GET' })
+      .finally(() => {
+        this.inFlightGets.delete(url)
+      })
+    this.inFlightGets.set(url, promise)
+    return promise
   }
 
   async post<T>(endpoint: string, data?: any): Promise<T> {

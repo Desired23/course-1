@@ -47,13 +47,25 @@ export interface CategoryListParams {
  * Get active categories (public, no auth required)
  * GET /api/categories/active?page=1&page_size=100
  */
+// simple in-memory cache for active categories
+let __activeCategoriesCache: Promise<PaginatedCategories> | null = null
+let __activeCategoriesCacheTime = 0
+
 export async function getActiveCategories(
   params?: CategoryListParams
 ): Promise<PaginatedCategories> {
-  return http.get<PaginatedCategories>('/categories/active', {
+  const now = Date.now()
+  // reuse cache for 1 minute regardless of params
+  if (__activeCategoriesCache && now - __activeCategoriesCacheTime < 60000) {
+    return __activeCategoriesCache
+  }
+  const promise = http.get<PaginatedCategories>('/categories/active', {
     page: params?.page ?? 1,
     page_size: params?.page_size ?? 100,  // get all categories by default
   })
+  __activeCategoriesCache = promise
+  __activeCategoriesCacheTime = now
+  return promise
 }
 
 /**

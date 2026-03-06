@@ -349,6 +349,16 @@ export interface PublicStats {
  * Get aggregate platform stats for the homepage.
  * GET /api/courses/stats/
  */
+// simple cache for public stats (refresh every 30s)
+let __publicStatsCache: Promise<PublicStats> | null = null
+let __publicStatsCacheTime = 0
 export async function getPublicStats(): Promise<PublicStats> {
-  return http.get<PublicStats>('/courses/stats/')
+  const now = Date.now()
+  if (__publicStatsCache && now - __publicStatsCacheTime < 30000) {
+    return __publicStatsCache
+  }
+  const promise = http.get<PublicStats>('/courses/stats/')
+  __publicStatsCache = promise
+  __publicStatsCacheTime = now
+  return promise
 }

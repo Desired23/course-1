@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { getAccessToken } from '../services/http'
+import { getAccessToken, refreshAccessToken } from '../services/http'
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -104,11 +104,19 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     }
   }, [])
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     cleanup()
 
-    const token = getAccessToken()
-    if (!token) return // Not authenticated
+    // make sure access token is fresh before opening websocket
+    let token = getAccessToken()
+    if (token) {
+      try {
+        token = await refreshAccessToken()
+      } catch {
+        token = getAccessToken() // may have been cleared
+      }
+    }
+    if (!token) return // Not authenticated or refresh failed
 
     const url = `${getWsBase()}${path}${path.includes('?') ? '&' : '?'}token=${token}`
     

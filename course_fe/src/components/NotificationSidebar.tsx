@@ -4,6 +4,7 @@ import { Button } from "./ui/button"
 import { useRouter } from "./Router"
 import { getNotificationsByUser, markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead, type Notification as ApiNotification } from "../services/notification.api"
 import { useAuth } from "../contexts/AuthContext"
+import { useNotifications } from "../contexts/NotificationContext"
 
 interface NotificationSidebarProps {
   onHover?: (isHovered: boolean) => void
@@ -22,14 +23,12 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
   // Note: notifications now come from context; no REST fetch on mount.
   // We still keep the effect in case the sidebar wants to auto-refresh when
   // the logged-in user ID changes, but it will call the context helper.
-  const { state: notifState, refreshNotifications } = useNotification() as any
+  const { state: notifState, refreshNotifications } = useNotifications() as any
 
+  // sidebar does not trigger its own refresh; context handles loading and WS updates
   useEffect(() => {
-    if (user?.id) {
-      // refresh once when user id becomes available
-      refreshNotifications()
-    }
-  }, [user?.id, refreshNotifications])
+    // nothing here
+  }, [])
 
   // mirror context state locally for UI
   useEffect(() => {

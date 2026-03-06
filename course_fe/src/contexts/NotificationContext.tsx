@@ -207,8 +207,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }
 
   // helper to re-fetch via REST (called by components if they need a manual refresh)
+  // include a simple throttle: never fetch more than once every 30 seconds
+  let _lastRefresh = 0
   const refreshNotifications = async () => {
     if (!isAuthenticated || !userId) return
+    const now = Date.now()
+    if (now - _lastRefresh < 30000) {
+      // too soon, skip
+      return
+    }
+    _lastRefresh = now
     try {
       const res = await getNotificationsByUser(userId, 1, 50)
       dispatch({ type: 'SET_NOTIFICATIONS', payload: res.results.map(mapApiNotification) })
