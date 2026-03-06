@@ -58,9 +58,9 @@ class User(models.Model):
 
 # new model to track refresh tokens for rotation/revocation
 def generate_refresh_jti():
-    import uuid
+    import uuid 
     return str(uuid.uuid4())
-
+ 
 class RefreshToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='refresh_tokens')
     jti = models.CharField(max_length=36, unique=True, default=generate_refresh_jti)
