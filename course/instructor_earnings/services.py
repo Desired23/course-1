@@ -72,7 +72,12 @@ def generate_instructor_earnings_from_payment(payment_id):
 def get_instructor_earnings_by_instructor_id(instructor_id, status=None, source=None):
     try:
         instructor = Instructor.objects.get(id=instructor_id)
-        earnings = InstructorEarning.objects.filter(instructor=instructor)
+        earnings = (
+            InstructorEarning.objects
+            .filter(instructor=instructor, is_deleted=False)
+            .select_related('course', 'payment', 'user_subscription__plan', 'instructor__user')
+            .order_by('-earning_date', '-id')
+        )
 
         if status:
             earnings = earnings.filter(status=status)
@@ -92,10 +97,15 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None, source=
 def get_instructor_earnings(status=None, earning_id=None, source=None):
     try:
         if earning_id:
-            earning = InstructorEarning.objects.get(id=earning_id)
+            earning = InstructorEarning.objects.get(id=earning_id, is_deleted=False)
             return InstructorEarningSerializer(earning).data
         else:
-            earnings = InstructorEarning.objects.all()
+            earnings = (
+                InstructorEarning.objects
+                .filter(is_deleted=False)
+                .select_related('course', 'payment', 'user_subscription__plan', 'instructor__user')
+                .order_by('-earning_date', '-id')
+            )
             if status:
                 earnings = earnings.filter(status=status)
             if source == 'retail':
@@ -379,3 +389,48 @@ def get_instructor_earnings_summary(instructor_id):
         'retail': retail_agg,
         'subscription': sub_agg,
     }
+
+
+def get_subscription_revenue_breakdown_by_course(instructor_id, search=None, sort_by='earnings_desc'):
+    from django.db.models import Sum, Count, F
+
+    try:
+        instructor = Instructor.objects.get(id=instructor_id)
+    except Instructor.DoesNotExist:
+        raise ValidationError('Khong tim thay giang vien.')
+
+    base_qs = (
+        InstructorEarning.objects
+        .filter(
+            instructor=instructor,
+            is_deleted=False,
+            payment__isnull=True,
+            user_subscription__isnull=False,
+        )
+    )
+
+    if search:
+        base_qs = base_qs.filter(course__title__icontains=search)
+
+    total_earnings = base_qs.aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
+
+    breakdown_qs = (
+        base_qs
+        .values('course_id')
+        .annotate(
+            course_title=F('course__title'),
+            earnings=Sum('net_amount'),
+            records_count=Count('id'),
+        )
+    )
+
+    ordering_map = {
+        'earnings_desc': '-earnings',
+        'earnings_asc': 'earnings',
+        'course_asc': 'course_title',
+        'course_desc': '-course_title',
+        'share_desc': '-earnings',
+        'share_asc': 'earnings',
+    }
+    breakdown_qs = breakdown_qs.order_by(ordering_map.get(sort_by, '-earnings'), 'course_id')
+    return breakdown_qs, total_earnings

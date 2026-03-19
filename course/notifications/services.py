@@ -2,17 +2,29 @@ from rest_framework.exceptions import ValidationError
 from .serializers import NotificationSerializer
 from .models import Notification
 from users.models import User
+from users.preferences import is_notification_allowed
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
-def create_notification(receiver_id, title, message, type, related_id=None, sender=None):
+def create_notification(receiver_id, title, message, type, related_id=None, sender=None, notification_code=None):
     try:
+        if not receiver_id:
+            raise ValidationError({"receiver_id": ["This field is required."]})
+
+        if not is_notification_allowed(int(receiver_id), type, notification_code):
+            return {
+                "skipped": True,
+                "reason": "notification_preference_disabled",
+                "receiver_id": int(receiver_id),
+            }
+
         data = {
             'receiver': receiver_id,
             'title': title,
             'message': message,
             'type': type,
-            'related_id': related_id
+            'related_id': related_id,
+            'notification_code': notification_code,
         }
         if sender:
             data['sender'] = sender
@@ -38,9 +50,12 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
     except Exception as e:
         raise ValidationError(f"Error creating notification: {str(e)}")
     
-def get_notification_by_id(notification_id):
+def get_notification_by_id(notification_id, user_id=None):
     try:
-        notification = Notification.objects.get(id=notification_id)
+        qs = Notification.objects.filter(id=notification_id)
+        if user_id is not None:
+            qs = qs.filter(receiver_id=user_id)
+        notification = qs.get()
         return NotificationSerializer(notification).data
     except Notification.DoesNotExist:
         raise ValidationError("Notification not found")
@@ -49,12 +64,21 @@ def get_notification_by_id(notification_id):
 def get_notifications_by_user(user_id):
     try:
         notifications = Notification.objects.filter(receiver=user_id)
+        hidden_ids = []
+        for item in notifications.only('id', 'type', 'notification_code'):
+            if not is_notification_allowed(int(user_id), item.type, item.notification_code):
+                hidden_ids.append(item.id)
+        if hidden_ids:
+            notifications = notifications.exclude(id__in=hidden_ids)
         return notifications
     except Exception as e:
         raise ValidationError(f"Error retrieving notifications: {str(e)}")
-def mark_notification_as_read(notification_id):
+def mark_notification_as_read(notification_id, user_id=None):
     try:
-        notification = Notification.objects.get(id=notification_id)
+        qs = Notification.objects.filter(id=notification_id)
+        if user_id is not None:
+            qs = qs.filter(receiver_id=user_id)
+        notification = qs.get()
         notification.is_read = True
         notification.save()
         return NotificationSerializer(notification).data
@@ -90,7 +114,11 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
     try:
         channel_layer = get_channel_layer()
         success_count = 0
+        skipped_count = 0
         for uid in user_ids:
+            if not is_notification_allowed(int(uid), type, notification_code):
+                skipped_count += 1
+                continue
             data = {
                 "receiver": uid,
                 "title": title,
@@ -120,7 +148,9 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
                 raise ValidationError(serializer.errors)
         return {
             "message": f"{success_count}/{len(user_ids)} notifications sent successfully.",
-            "code": notification_code
+            "code": notification_code,
+            "sent": success_count,
+            "skipped": skipped_count,
         }
     except Exception as e:
         raise ValidationError(f"Error sending notifications: {str(e)}")

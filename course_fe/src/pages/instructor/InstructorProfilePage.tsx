@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Separator } from '../../components/ui/separator'
 import { Progress } from '../../components/ui/progress'
+import { UserPagination } from '../../components/UserPagination'
 import { 
   Settings, 
   Edit, 
@@ -42,7 +43,7 @@ import { getMyInstructorProfile } from '../../services/instructor.api'
 import { getInstructorDashboardStats, type InstructorDashboardStats } from '../../services/instructor.api'
 import { getAllCourses } from '../../services/course.api'
 import { getAllReviewsByInstructor } from '../../services/review.api'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 
 interface CustomSection {
@@ -83,6 +84,9 @@ export function InstructorProfilePage() {
   })
   const [instructorCourses, setInstructorCourses] = useState<any[]>([])
   const [testimonials, setTestimonials] = useState<any[]>([])
+  const [courseSearch, setCourseSearch] = useState('')
+  const [courseSortBy, setCourseSortBy] = useState('students')
+  const [coursePage, setCoursePage] = useState(1)
 
   useEffect(() => {
     if (!user?.id) return
@@ -202,6 +206,29 @@ export function InstructorProfilePage() {
   const handleSettingChange = (setting: keyof typeof profileSettings, value: boolean) => {
     updateProfileSettings({ [setting]: value })
   }
+
+  const filteredCourses = [...instructorCourses]
+    .filter((course) => course.title.toLowerCase().includes(courseSearch.toLowerCase()))
+    .sort((a, b) => {
+      if (courseSortBy === 'rating') return b.rating - a.rating
+      if (courseSortBy === 'price') return b.price - a.price
+      return b.students - a.students
+    })
+
+  useEffect(() => {
+    setCoursePage(1)
+  }, [courseSearch, courseSortBy])
+
+  const COURSES_PER_PAGE = 6
+  const courseTotalPages = Math.max(1, Math.ceil(filteredCourses.length / COURSES_PER_PAGE))
+  const paginatedCourses = filteredCourses.slice(
+    (coursePage - 1) * COURSES_PER_PAGE,
+    coursePage * COURSES_PER_PAGE
+  )
+
+  useEffect(() => {
+    if (coursePage > courseTotalPages) setCoursePage(courseTotalPages)
+  }, [coursePage, courseTotalPages])
 
   return (
     <div className="p-6">
@@ -414,8 +441,26 @@ export function InstructorProfilePage() {
                 <CardDescription>Courses I've created</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  <Input
+                    className="md:col-span-2"
+                    placeholder="Search courses..."
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                  />
+                  <Select value={courseSortBy} onValueChange={setCourseSortBy}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort By" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="students">Most Students</SelectItem>
+                      <SelectItem value="rating">Highest Rating</SelectItem>
+                      <SelectItem value="price">Highest Price</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {instructorCourses.map((course) => (
+                  {paginatedCourses.map((course) => (
                     <div key={course.id} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
                       <div className="aspect-video bg-muted relative">
                         <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
@@ -442,6 +487,15 @@ export function InstructorProfilePage() {
                     </div>
                   ))}
                 </div>
+                {filteredCourses.length > 0 && (
+                  <div className="mt-4">
+                    <UserPagination
+                      currentPage={coursePage}
+                      totalPages={courseTotalPages}
+                      onPageChange={setCoursePage}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

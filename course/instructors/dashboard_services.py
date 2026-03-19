@@ -11,13 +11,14 @@ from decimal import Decimal
 
 
 def get_instructor_dashboard_stats(instructor):
+    print(f"Calculating dashboard stats for instructor {instructor.id}...")
     """
     Returns overall dashboard stats for an instructor.
     """
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review
-    from qnas.models import Qna
+    from qnas.models import QnA
     from instructor_earnings.models import InstructorEarning
 
     now = timezone.now()
@@ -49,7 +50,7 @@ def get_instructor_dashboard_stats(instructor):
     avg_rating = reviews_qs.aggregate(avg=Avg('rating'))['avg'] or 0
     total_reviews = reviews_qs.count()
 
-    pending_questions = Qna.objects.filter(
+    pending_questions = QnA.objects.filter(
         course_id__in=course_ids, is_deleted=False, status='unanswered'
     ).count()
 

@@ -22,6 +22,7 @@ export type UserType = 'student' | 'instructor' | 'admin'
 export interface LoginCredentials {
   username: string
   password: string
+  remember_me?: boolean
 }
 
 export interface RegisterData {
@@ -56,6 +57,24 @@ export interface UserProfile {
   user_type: string
 }
 
+export interface ActionMessageResponse {
+  message: string
+  status?: string
+  code?: string
+  action?: string
+  expires_in_minutes?: number
+}
+
+export interface ChangePasswordPayload {
+  current_password: string
+  new_password: string
+}
+
+export interface GoogleLoginPayload {
+  credential: string
+  remember_me?: boolean
+}
+
 // ─── Auth API functions ───────────────────────────────────────
 
 /**
@@ -63,6 +82,13 @@ export interface UserProfile {
  */
 export async function login(credentials: LoginCredentials): Promise<LoginResponse> {
   return http.post<LoginResponse>('/users/login', credentials)
+}
+
+/**
+ * Login/register user with Google credential (Google Identity Services ID token)
+ */
+export async function googleLogin(payload: GoogleLoginPayload): Promise<LoginResponse> {
+  return http.post<LoginResponse>('/users/google-login', payload)
 }
 
 /**
@@ -110,6 +136,34 @@ export async function confirmPasswordReset(token: string, newPassword: string): 
 /**
  * Verify email with token
  */
-export async function confirmEmail(token: string): Promise<{ message: string }> {
+export async function confirmEmail(token: string): Promise<ActionMessageResponse> {
   return http.post('/users/confirm-email', { token })
+}
+
+/**
+ * Resend verification email when the old link has expired
+ */
+export async function resendConfirmEmail(email: string): Promise<ActionMessageResponse> {
+  return http.post('/users/resend-confirm-email', { email })
+}
+
+/**
+ * Deactivate current account (self-service)
+ */
+export async function deactivateMyAccount(password: string): Promise<ActionMessageResponse> {
+  return http.post<ActionMessageResponse>('/users/me/deactivate', { password })
+}
+
+/**
+ * Soft-delete current account (self-service)
+ */
+export async function deleteMyAccount(password: string): Promise<ActionMessageResponse> {
+  return http.post<ActionMessageResponse>('/users/me/delete', { password })
+}
+
+/**
+ * Change password for current account (requires current password)
+ */
+export async function changeMyPassword(payload: ChangePasswordPayload): Promise<ActionMessageResponse> {
+  return http.post<ActionMessageResponse>('/users/me/change-password', payload)
 }

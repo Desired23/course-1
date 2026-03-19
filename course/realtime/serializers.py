@@ -12,7 +12,11 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
     def get_sender_name(self, obj):
         if obj.sender:
-            return f"{obj.sender.first_name} {obj.sender.last_name}".strip() or obj.sender.email
+            return (
+                getattr(obj.sender, 'full_name', None)
+                or getattr(obj.sender, 'username', None)
+                or getattr(obj.sender, 'email', None)
+            )
         return None
 
 
@@ -31,7 +35,11 @@ class ChatRoomSerializer(serializers.ModelSerializer):
     def get_other_user_name(self, obj):
         request_user_id = self.context.get('request_user_id')
         other = obj.user2 if obj.user1_id == request_user_id else obj.user1
-        return f"{other.first_name} {other.last_name}".strip() or other.email
+        return (
+            getattr(other, 'full_name', None)
+            or getattr(other, 'username', None)
+            or getattr(other, 'email', None)
+        )
 
     def get_other_user_id(self, obj):
         request_user_id = self.context.get('request_user_id')

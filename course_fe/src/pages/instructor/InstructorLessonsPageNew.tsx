@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { QuickStatsPanel } from "../../components/QuickStatsPanel"
 import { BulkActionsBar } from "../../components/BulkActionsBar"
 import { LessonEditorDialog } from "../../components/LessonEditorDialog"
@@ -10,17 +10,20 @@ import { Button } from '../../components/ui/button'
 import { CourseStatsHorizontal } from '../../components/CourseStatsHorizontal'
 import { LessonEditorMain } from '../../components/LessonEditorMain'
 import { CourseOutlineSidebar } from '../../components/CourseOutlineSidebar'
+import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { LayoutDashboard, CheckSquare } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
-import { getAllCourseModules, createCourseModule, deleteCourseModule } from "../../services/course-modules.api"
-import { getLessons, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
+import { toast } from 'sonner'
+import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
+import { getAllLessons, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
 import { getCourseById } from "../../services/course.api"
+import { useAuthStore } from "../../stores/auth.store"
 
 // Course structure is now fetched from API in the component's useEffect
 
 export function InstructorLessonsPageNew() {
   const { params, navigate } = useRouter()
   const courseId = params?.courseId
+  const isAdmin = useAuthStore(state => state.hasRole('admin'))
   
   // State management
   const [sections, setSections] = useLocalStorage(`courseSections_${courseId}`, [] as any[])
@@ -37,10 +40,126 @@ export function InstructorLessonsPageNew() {
     description: '',
     duration: ''
   })
+  // Snapshot of last-saved positions to avoid sending unchanged updates on Save Changes
+  const lessonPositionRef = useRef<Map<number, { coursemodule: number; order: number }>>(new Map())
+  const sectionOrderRef = useRef<Map<number, number>>(new Map())
   
   // Layout state
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useLocalStorage('lessonSidebarCollapsed', false)
   const [showStatsPanel, setShowStatsPanel] = useLocalStorage('showStatsPanel', true)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+  const [previewLesson, setPreviewLesson] = useState<any>(null)
+  const hasLoadedInitialDataRef = useRef(false)
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  type SectionOrderUpdate = { id: number; payload: { order_number: number } }
+  type LessonOrderUpdate = { id: number; payload: { order?: number; coursemodule?: number } }
+
+  const syncSavedPositionSnapshot = useCallback((nextSections: any[]) => {
+    const nextLessonPositions = new Map<number, { coursemodule: number; order: number }>()
+    const nextSectionOrders = new Map<number, number>()
+
+    nextSections.forEach((section, sectionIndex) => {
+      nextSectionOrders.set(section.id, sectionIndex + 1)
+      section.lessons.forEach((lesson: any, lessonIndex: number) => {
+        nextLessonPositions.set(lesson.id, {
+          coursemodule: section.id,
+          order: lessonIndex + 1,
+        })
+      })
+    })
+
+    lessonPositionRef.current = nextLessonPositions
+    sectionOrderRef.current = nextSectionOrders
+  }, [])
+
+  const scrollToCurriculumNode = useCallback((elementId: string, block: ScrollLogicalPosition = 'center') => {
+    if (typeof document === 'undefined') return
+    const element = document.getElementById(elementId)
+    if (!element) return
+    element.scrollIntoView({ behavior: 'smooth', block })
+  }, [])
+
+  const handleSelectLessonFromSidebar = useCallback((lesson: any) => {
+    setSelectedLesson(lesson)
+    requestAnimationFrame(() => {
+      scrollToCurriculumNode(`lesson-card-${lesson.id}`)
+    })
+  }, [scrollToCurriculumNode])
+
+  const handleSelectSectionFromSidebar = useCallback((sectionId: number) => {
+    requestAnimationFrame(() => {
+      scrollToCurriculumNode(`section-card-${sectionId}`, 'start')
+    })
+  }, [scrollToCurriculumNode])
+
+  const buildCurriculumChanges = useCallback((): {
+    sectionUpdates: SectionOrderUpdate[]
+    lessonUpdates: LessonOrderUpdate[]
+  } => {
+    const sectionUpdates: SectionOrderUpdate[] = []
+    const lessonUpdates: LessonOrderUpdate[] = []
+
+    sections.forEach((section, sectionIndex) => {
+      const nextSectionOrder = sectionIndex + 1
+      const savedSectionOrder = sectionOrderRef.current.get(section.id)
+      if (savedSectionOrder === undefined || savedSectionOrder !== nextSectionOrder) {
+        sectionUpdates.push({
+          id: section.id,
+          payload: { order_number: nextSectionOrder },
+        })
+      }
+
+      section.lessons.forEach((lesson: any, lessonIndex: number) => {
+        const nextOrder = lessonIndex + 1
+        const saved = lessonPositionRef.current.get(lesson.id)
+
+        const changedSection = !saved || saved.coursemodule !== section.id
+        const changedOrder = !saved || saved.order !== nextOrder
+        if (!changedSection && !changedOrder) return
+
+        const payload: { order?: number; coursemodule?: number } = {}
+        if (changedSection) payload.coursemodule = section.id
+        if (changedOrder) payload.order = nextOrder
+        lessonUpdates.push({ id: lesson.id, payload })
+      })
+    })
+
+    return { sectionUpdates, lessonUpdates }
+  }, [sections])
+
+  const persistCurriculumChanges = useCallback(async (options?: {
+    silentNoChanges?: boolean
+    showSuccessToast?: boolean
+  }) => {
+    const { silentNoChanges = false, showSuccessToast = false } = options || {}
+    const { sectionUpdates, lessonUpdates } = buildCurriculumChanges()
+    const totalChanges = sectionUpdates.length + lessonUpdates.length
+
+    if (totalChanges === 0) {
+      if (!silentNoChanges) {
+        toast.info('No curriculum changes to save')
+      }
+      return
+    }
+
+    try {
+      setIsAutoSaving(true)
+      await Promise.all([
+        ...sectionUpdates.map(item => updateCourseModule(item.id, item.payload)),
+        ...lessonUpdates.map(item => updateLessonApi(item.id, item.payload)),
+      ])
+      syncSavedPositionSnapshot(sections)
+      if (showSuccessToast) {
+        toast.success(`Saved ${totalChanges} change(s) successfully!`)
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to save curriculum')
+    } finally {
+      setIsAutoSaving(false)
+    }
+  }, [buildCurriculumChanges, sections, syncSavedPositionSnapshot])
 
   // Fetch course modules and lessons from API
   useEffect(() => {
@@ -61,19 +180,22 @@ export function InstructorLessonsPageNew() {
         // Fetch lessons for each module
         const sectionsData = await Promise.all(
           modules.map(async (mod) => {
-            const lessonsRes = await getLessons(mod.id)
+            const lessons = await getAllLessons(mod.id)
             return {
               id: mod.id,
               title: mod.title,
-              lessons: lessonsRes.results.map((l: any) => ({
+              status: mod.status || 'Draft',
+              lessons: lessons.map((l: any, idx: number) => ({
                 id: l.id,
                 title: l.title,
                 type: l.content_type || 'video',
                 content_type: l.content_type || 'video',
+                order: typeof l.order === 'number' ? l.order : idx + 1,
                 duration: l.duration ? `${Math.floor(l.duration / 60)}:${String(l.duration % 60).padStart(2, '0')}` : '0:00',
                 status: l.status || 'draft',
                 is_free: l.is_free || false,
                 videoUrl: l.video_url || '',
+                videoPublicId: l.video_public_id || '',
                 description: l.description || '',
                 resources: [],
               }))
@@ -82,6 +204,8 @@ export function InstructorLessonsPageNew() {
         )
         if (cancelled) return
         setSections(sectionsData)
+        syncSavedPositionSnapshot(sectionsData)
+        hasLoadedInitialDataRef.current = true
       } catch (err) {
         console.error('Failed to load course structure:', err)
         // Keep local storage data as fallback
@@ -89,7 +213,7 @@ export function InstructorLessonsPageNew() {
     }
     fetchCourseData()
     return () => { cancelled = true }
-  }, [courseId])
+  }, [courseId, syncSavedPositionSnapshot])
 
   // Bulk selection state
   const [showBulkSelection, setShowBulkSelection] = useState(false)
@@ -257,9 +381,11 @@ export function InstructorLessonsPageNew() {
       const section = {
         id: created.id,
         title: created.title,
+        status: created.status || 'Draft',
         lessons: []
       }
       setSections(prev => [...prev, section])
+      sectionOrderRef.current.set(created.id, sections.length + 1)
       setNewSection({ title: '', description: '' })
       setShowAddSection(false)
       toast.success('Section added successfully')
@@ -296,9 +422,11 @@ export function InstructorLessonsPageNew() {
         content_type: created.content_type || newLesson.type,
         description: created.description || '',
         duration: newLesson.duration || '5:00',
+        order: typeof created.order === 'number' ? created.order : orderNum,
         status: 'draft',
         is_free: false,
         videoUrl: '',
+        videoPublicId: '',
         resources: [],
       }
 
@@ -319,6 +447,10 @@ export function InstructorLessonsPageNew() {
             : s
         )
       )
+      lessonPositionRef.current.set(created.id, {
+        coursemodule: sectionId,
+        order: typeof created.order === 'number' ? created.order : orderNum,
+      })
 
       setNewLesson({ title: '', type: 'video', description: '', duration: '' })
       setShowAddLesson(null)
@@ -332,7 +464,16 @@ export function InstructorLessonsPageNew() {
   const handleDeleteSection = useCallback(async (sectionId: number) => {
     try {
       await deleteCourseModule(sectionId)
-      setSections(prevSections => prevSections.filter(section => section.id !== sectionId))
+      setSections(prevSections => {
+        const removed = prevSections.find(section => section.id === sectionId)
+        sectionOrderRef.current.delete(sectionId)
+        if (removed) {
+          removed.lessons.forEach((lesson: any) => {
+            lessonPositionRef.current.delete(lesson.id)
+          })
+        }
+        return prevSections.filter(section => section.id !== sectionId)
+      })
       toast.success('Section deleted successfully')
     } catch (err) {
       console.error(err)
@@ -340,9 +481,42 @@ export function InstructorLessonsPageNew() {
     }
   }, [setSections])
 
+  const handleUpdateSectionStatus = useCallback(async (sectionId: number, status: 'Draft' | 'Published') => {
+    try {
+      const payload: any = { status }
+
+      if (isAdmin) {
+        const reason = window.prompt(`Reason for changing module status to "${status}" (optional):`, '') || ''
+        const sendNotification = window.confirm('Send notification to instructor?')
+        let notifyMessage = ''
+        if (sendNotification) {
+          notifyMessage = window.prompt('Notification message (leave blank to use default):', '') || ''
+        }
+
+        payload.status_reason = reason || undefined
+        payload.send_notification = sendNotification
+        payload.notify_message = notifyMessage || undefined
+      }
+
+      await updateCourseModule(sectionId, payload)
+      setSections(prevSections =>
+        prevSections.map(section =>
+          section.id === sectionId
+            ? { ...section, status }
+            : section
+        )
+      )
+      toast.success(`Section status updated to ${status}`)
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to update section status')
+    }
+  }, [isAdmin, setSections])
+
   const handleDeleteLesson = useCallback(async (lessonId: number) => {
     try {
       await deleteLessonApi(lessonId)
+      lessonPositionRef.current.delete(lessonId)
       setSections(prevSections => 
         prevSections.map(section => ({
           ...section,
@@ -366,7 +540,9 @@ export function InstructorLessonsPageNew() {
 
   const handleEditLesson = (lesson: any) => {
     // Navigate to full-page editor
-    navigate(`/instructor/lessons/${lesson.id}/edit`)
+    navigate(`/instructor/lessons/${lesson.id}/edit`, undefined, {
+      courseId: courseId || '',
+    })
   }
 
   const handleSaveLesson = useCallback(async (updatedLesson: any) => {
@@ -376,6 +552,7 @@ export function InstructorLessonsPageNew() {
         description: updatedLesson.description,
         content_type: updatedLesson.content_type || updatedLesson.type,
         video_url: updatedLesson.videoUrl,
+        video_public_id: updatedLesson.videoPublicId || undefined,
         is_free: updatedLesson.is_free,
         status: updatedLesson.status,
       })
@@ -395,7 +572,7 @@ export function InstructorLessonsPageNew() {
   }, [setSections])
 
   const handlePreviewLesson = (lesson: any) => {
-    toast.info('Preview feature coming soon')
+    setPreviewLesson(lesson)
   }
 
   const handleSaveCurriculum = async () => {
@@ -410,24 +587,29 @@ export function InstructorLessonsPageNew() {
       return
     }
 
-    try {
-      // Update order numbers for all sections and their lessons
-      await Promise.all(
-        sections.map(async (section, sIdx) => {
-          // Update section order (no dedicated endpoint, but keep local state consistent)
-          await Promise.all(
-            section.lessons.map(async (lesson: any, lIdx: number) => {
-              await updateLessonApi(lesson.id, { order: lIdx + 1 })
-            })
-          )
-        })
-      )
-      toast.success('Course curriculum saved successfully!')
-    } catch (err) {
-      console.error(err)
-      toast.error('Failed to save curriculum')
-    }
+    await persistCurriculumChanges({ showSuccessToast: true })
   }
+
+  useEffect(() => {
+    if (!hasLoadedInitialDataRef.current) return
+
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+
+    const { sectionUpdates, lessonUpdates } = buildCurriculumChanges()
+    if (sectionUpdates.length + lessonUpdates.length === 0) return
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      void persistCurriculumChanges({ silentNoChanges: true, showSuccessToast: false })
+    }, 1200)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [sections, buildCurriculumChanges, persistCurriculumChanges])
 
   return (
     <div className="min-h-screen bg-background">
@@ -449,6 +631,9 @@ export function InstructorLessonsPageNew() {
             
             <div className="flex gap-2">
               <DarkModeToggle />
+              <div className="text-xs text-muted-foreground self-center px-2">
+                {isAutoSaving ? 'Auto-saving...' : 'Auto-save on'}
+              </div>
               
               <Button 
                 variant={showBulkSelection ? "default" : "outline"}
@@ -503,6 +688,7 @@ export function InstructorLessonsPageNew() {
               onAddLesson={handleAddLesson}
               onEditSection={handleEditSection}
               onDeleteSection={handleDeleteSection}
+              onUpdateSectionStatus={handleUpdateSectionStatus}
               onEditLesson={handleEditLesson}
               onPreviewLesson={handlePreviewLesson}
               onDeleteLesson={handleDeleteLesson}
@@ -520,7 +706,8 @@ export function InstructorLessonsPageNew() {
       <CourseOutlineSidebar
         sections={sections}
         selectedLesson={selectedLesson}
-        onSelectLesson={setSelectedLesson}
+        onSelectLesson={handleSelectLessonFromSidebar}
+        onSelectSection={handleSelectSectionFromSidebar}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         showCheckboxes={showBulkSelection}
@@ -553,6 +740,15 @@ export function InstructorLessonsPageNew() {
         onSave={handleSaveLesson}
       />
       */}
+      {previewLesson && (
+        <LessonPreviewModal
+          open={!!previewLesson}
+          onOpenChange={(open) => {
+            if (!open) setPreviewLesson(null)
+          }}
+          lesson={previewLesson}
+        />
+      )}
     </div>
   )
 }

@@ -2,8 +2,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 
 from utils.permissions import RolePermissionFactory
+from utils.pagination import paginate_queryset
 from .serializers import (
     UserPaymentMethodSerializer,
     UserPaymentMethodCreateSerializer,
@@ -34,7 +36,26 @@ class UserPaymentMethodListCreateView(APIView):
 
     def get(self, request):
         methods = get_user_payment_methods(request.user.id)
-        return Response(UserPaymentMethodSerializer(methods, many=True).data)
+
+        method_type = request.query_params.get('method_type')
+        default_filter = request.query_params.get('default_filter')
+        search = (request.query_params.get('search') or '').strip()
+
+        if method_type:
+            methods = methods.filter(method_type=method_type)
+        if default_filter == 'default':
+            methods = methods.filter(is_default=True)
+        elif default_filter == 'non_default':
+            methods = methods.filter(is_default=False)
+        if search:
+            methods = methods.filter(
+                Q(nickname__icontains=search)
+                | Q(masked_account__icontains=search)
+                | Q(bank_name__icontains=search)
+                | Q(account_name__icontains=search)
+            )
+
+        return paginate_queryset(methods, request, UserPaymentMethodSerializer)
 
     def post(self, request):
         ser = UserPaymentMethodCreateSerializer(data=request.data)

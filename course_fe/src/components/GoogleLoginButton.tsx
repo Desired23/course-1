@@ -52,6 +52,7 @@ export function GoogleLoginButton({
   const { signIn, isLoading, isReady, error } = useGoogleLogin({
     onSuccess: handleGoogleSuccess,
     onError: handleGoogleError,
+    autoLoad: !useCustomButton,
   })
 
   // Render Google's official button
@@ -83,7 +84,7 @@ export function GoogleLoginButton({
         variant="outline"
         className={`w-full ${className}`}
         onClick={signIn}
-        disabled={!isReady || isLoading}
+        disabled={isLoading}
       >
         {isLoading ? (
           <span className="flex items-center justify-center">

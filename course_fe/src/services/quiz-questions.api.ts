@@ -51,6 +51,26 @@ export interface QuizQuestion {
   updated_at: string
 }
 
+export interface PaginatedQuizQuestions {
+  count: number
+  next: string | null
+  previous: string | null
+  page?: number
+  total_pages?: number
+  page_size?: number
+  results: QuizQuestion[]
+}
+
+export interface PaginatedQuizTestCases {
+  count: number
+  next: string | null
+  previous: string | null
+  page?: number
+  total_pages?: number
+  page_size?: number
+  results: QuizTestCase[]
+}
+
 export interface QuizQuestionCreateData {
   lesson: number
   question_text: string
@@ -109,7 +129,8 @@ export async function getQuizQuestions(params?: { lesson_id?: number; question_i
   if (params?.lesson_id) search.set('lesson_id', String(params.lesson_id))
   if (params?.question_id) search.set('question_id', String(params.question_id))
   const qs = search.toString()
-  return http.get<QuizQuestion[]>(`/quiz-questions/${qs ? `?${qs}` : ''}`)
+  const res = await http.get<PaginatedQuizQuestions | QuizQuestion[]>(`/quiz-questions/${qs ? `?${qs}` : ''}`)
+  return Array.isArray(res) ? res : (res.results || [])
 }
 
 /** Get questions for a lesson */
@@ -136,7 +157,8 @@ export async function deleteQuizQuestion(questionId: number): Promise<void> {
 
 /** List test cases for a question */
 export async function getTestCases(questionId: number): Promise<QuizTestCase[]> {
-  return http.get<QuizTestCase[]>(`/test-cases/?question_id=${questionId}`)
+  const res = await http.get<PaginatedQuizTestCases | QuizTestCase[]>(`/test-cases/?question_id=${questionId}`)
+  return Array.isArray(res) ? res : (res.results || [])
 }
 
 /** Create test case */

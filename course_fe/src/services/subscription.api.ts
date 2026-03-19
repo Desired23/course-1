@@ -56,6 +56,7 @@ export interface SubscriptionPlan {
   is_featured: boolean
   max_subscribers: number | null
   instructor_share_percent: string
+  yearly_discount_percent: string
   thumbnail: string | null
   features: string[]
   not_included: string[]
@@ -81,6 +82,7 @@ export interface SubscriptionPlanListItem {
   duration_days: number
   status: string
   is_featured: boolean
+  yearly_discount_percent?: string
   thumbnail: string | null
   features: string[]
   not_included: string[]
@@ -139,9 +141,21 @@ export async function subscribe(data: {
   return http.post<UserSubscription>('/subscriptions/subscribe/', data)
 }
 
-export async function getMySubscriptions(): Promise<UserSubscription[]> {
-  const res = await http.get<PaginatedResponse<UserSubscription> | UserSubscription[]>('/subscriptions/me/')
-  return Array.isArray(res) ? res : res.results
+export async function getMySubscriptions(params?: {
+  page?: number
+  page_size?: number
+  status?: 'active' | 'cancelled' | 'expired' | 'all'
+  search?: string
+  sort_by?: 'newest' | 'oldest' | 'end_date_desc' | 'end_date_asc'
+}): Promise<PaginatedResponse<UserSubscription>> {
+  const searchParams = new URLSearchParams()
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params?.status && params.status !== 'all') searchParams.set('status', params.status)
+  if (params?.search) searchParams.set('search', params.search)
+  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
+  const qs = searchParams.toString()
+  return http.get<PaginatedResponse<UserSubscription>>(`/subscriptions/me/${qs ? `?${qs}` : ''}`)
 }
 
 export async function getMySubscriptionCourses(): Promise<PlanCourse[]> {

@@ -68,25 +68,112 @@ export interface PromotionUpdateData {
   status?: PromotionStatus
 }
 
-// ─── API Functions ────────────────────────────────────────────
+export interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  page?: number
+  total_pages?: number
+  page_size?: number
+  results: T[]
+}
 
-/** List promotions */
-export async function getPromotions(params?: {
+export interface PromotionListParams {
   promotion_id?: number
   instructor_id?: number
   admin_id?: number
-}): Promise<Promotion[]> {
-  const search = new URLSearchParams()
-  if (params?.promotion_id) search.set('promotion_id', String(params.promotion_id))
-  if (params?.instructor_id) search.set('instructor_id', String(params.instructor_id))
-  if (params?.admin_id) search.set('admin_id', String(params.admin_id))
-  const qs = search.toString()
-  return http.get<Promotion[]>(`/promotions/${qs ? `?${qs}` : ''}`)
+  status?: PromotionStatus
+  search?: string
+  course_id?: number
+  page?: number
+  page_size?: number
+}
+
+function normalizePromotionsPayload(
+  payload: Promotion[] | PaginatedResponse<Promotion>,
+  page: number,
+  pageSize: number
+): PaginatedResponse<Promotion> {
+  if (Array.isArray(payload)) {
+    const totalPages = Math.max(1, Math.ceil(payload.length / pageSize))
+    const start = (page - 1) * pageSize
+    return {
+      count: payload.length,
+      next: page < totalPages ? String(page + 1) : null,
+      previous: page > 1 ? String(page - 1) : null,
+      page,
+      total_pages: totalPages,
+      page_size: pageSize,
+      results: payload.slice(start, start + pageSize),
+    }
+  }
+  return {
+    count: payload.count ?? payload.results?.length ?? 0,
+    next: payload.next ?? null,
+    previous: payload.previous ?? null,
+    page: payload.page ?? page,
+    total_pages: payload.total_pages ?? Math.max(1, Math.ceil((payload.count ?? 0) / (payload.page_size || pageSize))),
+    page_size: payload.page_size ?? pageSize,
+    results: Array.isArray(payload.results) ? payload.results : [],
+  }
+}
+
+// ─── API Functions ────────────────────────────────────────────
+
+/** List promotions */
+export async function getPromotionsPage(params?: PromotionListParams): Promise<PaginatedResponse<Promotion>> {
+  const query: Record<string, string | number> = {}
+  if (params?.promotion_id) query.promotion_id = params.promotion_id
+  if (params?.instructor_id) query.instructor_id = params.instructor_id
+  if (params?.admin_id) query.admin_id = params.admin_id
+  if (params?.status) query.status = params.status
+  if (params?.search) query.search = params.search
+  if (params?.course_id) query.course_id = params.course_id
+
+  const page = params?.page ?? 1
+  const pageSize = params?.page_size ?? 20
+  query.page = page
+  query.page_size = pageSize
+
+  const payload = await http.get<Promotion[] | PaginatedResponse<Promotion>>('/promotions/', query)
+  return normalizePromotionsPayload(payload, page, pageSize)
+}
+
+/** List promotions */
+export async function getPromotions(params?: Omit<PromotionListParams, 'page' | 'page_size'>): Promise<Promotion[]> {
+  const query = { ...(params || {}) }
+
+  const all: Promotion[] = []
+  let page = 1
+  while (true) {
+    const res = await getPromotionsPage({
+      ...query,
+      page,
+      page_size: 100,
+    })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+
+  return all
 }
 
 /** Get promotions for an instructor */
 export async function getInstructorPromotions(instructorId: number): Promise<Promotion[]> {
   return getPromotions({ instructor_id: instructorId })
+}
+
+/** Get promotions for an instructor (paginated) */
+export async function getInstructorPromotionsPage(params: {
+  instructor_id: number
+  status?: PromotionStatus
+  search?: string
+  course_id?: number
+  page?: number
+  page_size?: number
+}): Promise<PaginatedResponse<Promotion>> {
+  return getPromotionsPage(params)
 }
 
 /** Create promotion */

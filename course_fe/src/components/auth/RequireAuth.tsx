@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useAuth, UserRole } from '../../contexts/AuthContext'
 import { useRouter } from '../Router'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface RequireAuthProps {
   children: React.ReactNode

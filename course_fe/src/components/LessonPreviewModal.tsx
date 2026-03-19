@@ -121,6 +121,41 @@ export function LessonPreviewModal({
   }, [lesson])
 
   const contentType = lesson.content_type || lesson.type
+  const quizQuestions = Array.isArray((lesson as any)?.quizData?.questions)
+    ? (lesson as any).quizData.questions
+    : []
+
+  const previewQuizQuestions = quizQuestions.map((q: any, index: number) => {
+    const options = Array.isArray(q.options) ? q.options : []
+    if (q.type === 'multiple-choice') {
+      return {
+        id: q.id || index + 1,
+        question: q.question || '',
+        type: 'single' as const,
+        options,
+        correctAnswer: Number(q.correctAnswer),
+        explanation: q.explanation || '',
+      }
+    }
+    if (q.type === 'true-false') {
+      return {
+        id: q.id || index + 1,
+        question: q.question || '',
+        type: 'single' as const,
+        options: ['True', 'False'],
+        correctAnswer: String(q.correctAnswer).toLowerCase() === 'false' ? 1 : 0,
+        explanation: q.explanation || '',
+      }
+    }
+    return {
+      id: q.id || index + 1,
+      question: q.question || '',
+      type: 'text' as const,
+      options: [],
+      correctAnswer: q.correctAnswer || '',
+      explanation: q.explanation || '',
+    }
+  })
 
   const deviceSizes = {
     desktop: 'sm:max-w-[95vw] w-[95vw]',
@@ -384,6 +419,7 @@ export function LessonPreviewModal({
         return (
           <QuizPreview
             title={lesson.title}
+            questions={previewQuizQuestions}
             passingScore={70}
             showAnswers={false}
           />

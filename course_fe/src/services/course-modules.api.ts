@@ -26,13 +26,15 @@ export interface CourseModule {
   updated_at: string
 }
 
+export type ModuleStatus = 'Draft' | 'Published'
+
 export interface CourseModuleCreateData {
   course: number
   title: string
   description?: string
   order_number: number
   duration?: number
-  status?: 'Draft' | 'Published'
+  status?: ModuleStatus
 }
 
 export interface CourseModuleUpdateData {
@@ -40,7 +42,12 @@ export interface CourseModuleUpdateData {
   description?: string
   order_number?: number
   duration?: number
-  status?: 'Draft' | 'Published'
+  status?: ModuleStatus
+  // Optional moderation metadata (primarily for admin status changes)
+  status_reason?: string
+  send_notification?: boolean
+  notify_title?: string
+  notify_message?: string
 }
 
 export interface PaginatedModules {
@@ -53,8 +60,8 @@ export interface PaginatedModules {
 // ─── API Functions ────────────────────────────────────────────
 
 /** List modules — optionally filter by course */
-export async function getCourseModules(courseId?: number, page = 1): Promise<PaginatedModules> {
-  const params = new URLSearchParams({ page: String(page) })
+export async function getCourseModules(courseId?: number, page = 1, pageSize = 100): Promise<PaginatedModules> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
   if (courseId) params.set('course_id', String(courseId))
   return http.get<PaginatedModules>(`/course_modules/?${params}`)
 }
@@ -63,11 +70,15 @@ export async function getCourseModules(courseId?: number, page = 1): Promise<Pag
 export async function getAllCourseModules(courseId: number): Promise<CourseModule[]> {
   const all: CourseModule[] = []
   let page = 1
+  let safety = 0
   while (true) {
     const res = await getCourseModules(courseId, page)
     all.push(...res.results)
     if (!res.next) break
     page++
+    safety++
+    // Guard against accidental infinite pagination loops
+    if (safety > 1000) break
   }
   return all.sort((a, b) => a.order_number - b.order_number)
 }

@@ -30,7 +30,7 @@ import {
   ChevronUp,
   Quote
 } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { showNotification, withPermissionCheck, withAuthCheck } from '../../utils/notifications'
 import { EnhancedCommentSystem, type Comment } from '../../components/EnhancedCommentSystem'
 

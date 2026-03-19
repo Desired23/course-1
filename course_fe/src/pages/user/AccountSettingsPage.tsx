@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { type ChangeEvent, useEffect, useRef, useState } from "react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -19,11 +19,14 @@ import {
 } from "../../components/ui/dialog"
 import { Alert, AlertDescription } from "../../components/ui/alert"
 import { useAuth } from "../../contexts/AuthContext"
-import { updateProfile as updateProfileApi } from "../../services/auth.api"
-import { toast } from "sonner@2.0.3"
+import { changeMyPassword, deactivateMyAccount, deleteMyAccount } from "../../services/auth.api"
+import { uploadFiles } from "../../services/upload.api"
+import { getMyUserSettings, updateMyUserSettings } from "../../services/user-settings.api"
+import type { ApiError } from "../../services/http"
+import { toast } from "sonner"
 import { 
   Eye, EyeOff, Mail, Lock, Globe, Bell, Shield, 
-  User as UserIcon, Upload, Trash2, AlertTriangle,
+  User as UserIcon, Trash2, AlertTriangle,
   Check, X, Loader2, Camera
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -53,13 +56,25 @@ const validateUsername = (username: string): string | null => {
   return null
 }
 
+const getApiErrorMessage = (error: unknown, fallback: string): string => {
+  const apiError = error as ApiError
+  if (apiError?.message) return apiError.message
+  if (apiError?.errors) {
+    for (const value of Object.values(apiError.errors)) {
+      if (Array.isArray(value) && value.length > 0) return String(value[0])
+      if (typeof value === "string" && value) return value
+    }
+  }
+  return fallback
+}
+
 interface ConfirmDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   description: string
   confirmText: string
-  onConfirm: () => void
+  onConfirm: (password?: string) => Promise<void> | void
   variant?: 'default' | 'destructive'
   requirePassword?: boolean
 }
@@ -84,11 +99,15 @@ function ConfirmDialog({
     }
     
     setLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 800))
-    onConfirm()
-    setLoading(false)
-    setPassword('')
-    onOpenChange(false)
+    try {
+      await onConfirm(requirePassword ? password : undefined)
+      setPassword('')
+      onOpenChange(false)
+    } catch {
+      // keep dialog open so user can retry after seeing toast from handler
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -142,7 +161,8 @@ function ConfirmDialog({
 
 export function AccountSettingsPage() {
   const { t } = useTranslation()
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, logout } = useAuth()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   
   // Profile Data
   const [profileData, setProfileData] = useState({
@@ -150,7 +170,7 @@ export function AccountSettingsPage() {
     username: user?.email?.split('@')[0] || '',
     email: user?.email || '',
     bio: user?.bio || '',
-    phone: '',
+    phone: user?.phone || '',
     website: user?.website || '',
     twitter: user?.twitter || '',
     linkedin: user?.linkedin || '',
@@ -253,6 +273,39 @@ export function AccountSettingsPage() {
   }
 
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+
+  useEffect(() => {
+    if (!user || hasUnsavedChanges) return
+    setProfileData((prev) => ({
+      ...prev,
+      name: user.name || '',
+      username: user.username || user.email?.split('@')[0] || '',
+      email: user.email || '',
+      bio: user.bio || '',
+      phone: user.phone || '',
+      website: user.website || '',
+      twitter: user.twitter || '',
+      linkedin: user.linkedin || '',
+      facebook: user.facebook || '',
+    }))
+  }, [user, hasUnsavedChanges])
+
+  useEffect(() => {
+    let cancelled = false
+    getMyUserSettings()
+      .then((res) => {
+        if (cancelled) return
+        setAccountSettings((prev) => ({ ...prev, ...(res.account_preferences || {}) }))
+        setNotifications((prev) => ({ ...prev, ...(res.notification_preferences || {}) }))
+        setPrivacy((prev) => ({ ...prev, ...(res.privacy_preferences || {}) }))
+      })
+      .catch((error) => {
+        toast.error(getApiErrorMessage(error, "Failed to load settings"))
+      })
+    return () => { cancelled = true }
+  }, [])
 
   // Handle Profile Update
   const handleProfileUpdate = async () => {
@@ -276,8 +329,8 @@ export function AccountSettingsPage() {
       })
       toast.success(t('profile.profile_updated'))
       setHasUnsavedChanges(false)
-    } catch {
-      toast.error('Failed to update profile')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to update profile'))
     } finally {
       setIsSaving(false)
     }
@@ -303,8 +356,9 @@ export function AccountSettingsPage() {
     try {
       await updateProfile({ email: profileData.email })
       toast.success("Email updated successfully! Please verify your new email.")
-    } catch {
-      toast.error('Failed to update email')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to update email'))
+      throw error
     }
   }
 
@@ -320,9 +374,10 @@ export function AccountSettingsPage() {
 
   const confirmPasswordChange = async () => {
     try {
-      const userId = Number(user?.id)
-      if (!userId) return
-      await updateProfileApi(userId, { password_hash: passwordData.newPassword } as any)
+      await changeMyPassword({
+        current_password: passwordData.currentPassword,
+        new_password: passwordData.newPassword,
+      })
       toast.success("Password changed successfully!")
       setPasswordData({
         currentPassword: '',
@@ -330,34 +385,115 @@ export function AccountSettingsPage() {
         confirmPassword: ''
       })
       setPasswordErrors({})
-    } catch {
-      toast.error('Failed to change password')
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to change password'))
+      throw error
+    }
+  }
+
+  const handleAccountSettingsSave = async () => {
+    setIsSavingSettings(true)
+    try {
+      await updateMyUserSettings({ account_preferences: accountSettings })
+      toast.success("Account settings saved!")
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to save account settings"))
+    } finally {
+      setIsSavingSettings(false)
     }
   }
 
   // Handle Notification Settings
-  const handleNotificationSave = () => {
-    toast.success("Notification preferences saved!")
+  const handleNotificationSave = async () => {
+    setIsSavingSettings(true)
+    try {
+      await updateMyUserSettings({ notification_preferences: notifications })
+      toast.success("Notification preferences saved!")
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to save notification preferences"))
+    } finally {
+      setIsSavingSettings(false)
+    }
   }
 
   // Handle Privacy Settings
-  const handlePrivacySave = () => {
-    toast.success("Privacy settings saved!")
+  const handlePrivacySave = async () => {
+    setIsSavingSettings(true)
+    try {
+      await updateMyUserSettings({ privacy_preferences: privacy })
+      toast.success("Privacy settings saved!")
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to save privacy settings"))
+    } finally {
+      setIsSavingSettings(false)
+    }
   }
 
   // Handle Account Deactivation
-  const handleDeactivate = () => {
-    toast.success("Account deactivated. You can reactivate anytime by logging in.")
+  const handleDeactivate = async (password?: string) => {
+    if (!password) {
+      toast.error("Password is required")
+      return
+    }
+    try {
+      await deactivateMyAccount(password)
+      toast.success("Account deactivated. Please login again to reactivate.")
+      logout()
+      window.location.href = '/login'
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to deactivate account"))
+      throw error
+    }
   }
 
   // Handle Account Deletion
-  const handleDelete = () => {
-    toast.error("Account deletion will be processed in 30 days. You can cancel anytime before that.")
+  const handleDelete = async (password?: string) => {
+    if (!password) {
+      toast.error("Password is required")
+      return
+    }
+    try {
+      await deleteMyAccount(password)
+      toast.success("Your account has been deleted.")
+      logout()
+      window.location.href = '/login'
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to delete account"))
+      throw error
+    }
   }
 
   // Handle Avatar Upload
   const handleAvatarUpload = () => {
-    toast.info("Avatar upload feature coming soon!")
+    avatarInputRef.current?.click()
+  }
+
+  const handleAvatarFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsUploadingAvatar(true)
+    try {
+      const uploaded = await uploadFiles([file])
+      const avatarUrl = uploaded?.[0]?.url
+      if (!avatarUrl) throw new Error('Upload failed')
+      await updateProfile({ avatar: avatarUrl })
+      toast.success("Avatar updated successfully")
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to upload avatar"))
+    } finally {
+      event.target.value = ''
+      setIsUploadingAvatar(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    try {
+      await updateProfile({ avatar: '' })
+      toast.success("Avatar removed")
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, "Failed to remove avatar"))
+    }
   }
 
   return (
@@ -392,15 +528,22 @@ export function AccountSettingsPage() {
               </Avatar>
               <div className="space-y-2">
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAvatarUpload}>
-                    <Camera className="h-4 w-4 mr-2" />
+                  <Button size="sm" onClick={handleAvatarUpload} disabled={isUploadingAvatar}>
+                    {isUploadingAvatar ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
                     {t('account_settings.upload_photo')}
                   </Button>
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline" onClick={handleRemoveAvatar} disabled={isUploadingAvatar}>
                     <Trash2 className="h-4 w-4 mr-2" />
                     {t('account_settings.remove_photo')}
                   </Button>
                 </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarFileChange}
+                />
                 <p className="text-sm text-muted-foreground">
                   {t('account_settings.photo_hint')}
                 </p>
@@ -779,7 +922,8 @@ export function AccountSettingsPage() {
               </Select>
             </div>
 
-            <Button onClick={() => toast.success("Account settings saved!")}>
+            <Button onClick={handleAccountSettingsSave} disabled={isSavingSettings}>
+              {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Save Settings
             </Button>
           </CardContent>
@@ -916,7 +1060,8 @@ export function AccountSettingsPage() {
             </div>
             
             <div className="pt-4">
-              <Button onClick={handleNotificationSave}>
+              <Button onClick={handleNotificationSave} disabled={isSavingSettings}>
+                {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Bell className="h-4 w-4 mr-2" />
                 Save Preferences
               </Button>
@@ -1025,7 +1170,8 @@ export function AccountSettingsPage() {
             </div>
             
             <div className="pt-4">
-              <Button onClick={handlePrivacySave}>
+              <Button onClick={handlePrivacySave} disabled={isSavingSettings}>
+                {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Shield className="h-4 w-4 mr-2" />
                 Save Settings
               </Button>
@@ -1086,7 +1232,6 @@ export function AccountSettingsPage() {
         description="Are you sure you want to change your email address? You will need to verify your new email."
         confirmText="Change Email"
         onConfirm={confirmEmailChange}
-        requirePassword={true}
       />
 
       <ConfirmDialog

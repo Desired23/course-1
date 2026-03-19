@@ -17,7 +17,16 @@ from utils.pagination import paginate_queryset
 class CourseModuleListView(APIView):
     throttle_scope = 'search'
     def get(self, request):
-        course_modules = get_course_modules()
+        filters = {}
+        course_id = request.query_params.get('course_id')
+        if course_id:
+            if not str(course_id).isdigit():
+                return Response({"errors": {"course_id": ["course_id must be an integer"]}}, status=status.HTTP_400_BAD_REQUEST)
+            filters['course_id'] = int(course_id)
+        if request.query_params.get('status'):
+            filters['status'] = request.query_params['status']
+
+        course_modules = get_course_modules(filters if filters else None)
         return paginate_queryset(course_modules, request, CourseModuleSerializer)
 
 class CourseModuleDetailView(APIView):
@@ -26,20 +35,21 @@ class CourseModuleDetailView(APIView):
 
     def get(self, request, course_module_id):
         try:
+            course_module = get_course_module_by_id(course_module_id)
             return Response(course_module, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, course_module_id):
         try:
-            updated_course_module = update_course_module(course_module_id, request.data)
+            updated_course_module = update_course_module(course_module_id, request.data, requesting_user=request.user)
             return Response(CourseModuleSerializer(updated_course_module).data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, course_module_id):
         try:
-            result = delete_course_module(course_module_id)
+            result = delete_course_module(course_module_id, requesting_user=request.user)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)

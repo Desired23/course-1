@@ -31,6 +31,7 @@ def get_course_by_id(course_id, user=None):
         ).prefetch_related(
             'modules__lessons__quiz_question_lesson'
         ).get(id=course_id, is_deleted=False)
+        print(f"get_course_by_id: found course {course_id} titled '{course.title}'")
         return CourseDetailSerializer(course, context={'user': user}).data
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
@@ -42,8 +43,11 @@ def get_course_by_id(course_id, user=None):
 def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
                     status=None, is_featured=None, level=None, search=None,
                     ordering=None, rating_min=None, language=None,
-                    price_min=None, price_max=None):
+                    price_min=None, price_max=None, subcategory_ids=None,
+                    levels=None, languages=None, duration_buckets=None,
+                    certificate=None):
     try:
+        from django.db.models import Q
         courses = Course.objects.filter(is_deleted=False).select_related(
             'instructor__user', 'category', 'subcategory'
         )
@@ -53,22 +57,43 @@ def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
             courses = courses.filter(category_id=category_id)
         if subcategory_id:
             courses = courses.filter(subcategory_id=subcategory_id)
+        if subcategory_ids:
+            courses = courses.filter(subcategory_id__in=subcategory_ids)
         if status:
             courses = courses.filter(status=status)
         if is_featured is not None:
             courses = courses.filter(is_featured=is_featured)
         if level:
             courses = courses.filter(level=level)
+        if levels:
+            courses = courses.filter(level__in=levels)
         if rating_min is not None:
             courses = courses.filter(rating__gte=rating_min)
         if language:
             courses = courses.filter(language__iexact=language)
+        if languages:
+            language_q = Q()
+            for lang in languages:
+                language_q |= Q(language__iexact=lang)
+            courses = courses.filter(language_q)
         if price_min is not None:
             courses = courses.filter(price__gte=price_min)
         if price_max is not None:
             courses = courses.filter(price__lte=price_max)
+        if certificate is not None:
+            courses = courses.filter(certificate=certificate)
+        if duration_buckets:
+            duration_q = Q()
+            for bucket in duration_buckets:
+                if bucket == 'short':
+                    duration_q |= Q(duration__lt=120)
+                elif bucket == 'medium':
+                    duration_q |= Q(duration__gte=120, duration__lte=360)
+                elif bucket == 'long':
+                    duration_q |= Q(duration__gt=360)
+            if duration_q:
+                courses = courses.filter(duration_q)
         if search:
-            from django.db.models import Q
             courses = courses.filter(
                 Q(title__icontains=search) |
                 Q(shortdescription__icontains=search) |
@@ -118,12 +143,27 @@ def get_public_stats():
 def update_course(course_id, data, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
+        is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
+
         # Ownership check: instructor can only update own courses
-        if requesting_user and not hasattr(requesting_user, 'admin'):
+        if requesting_user and not is_admin:
             instructor = getattr(requesting_user, 'instructor', None)
             if not instructor or course.instructor_id != instructor.id:
-                raise ValidationError("Bạn không có quyền cập nhật khóa học này.")
-        serializer = CourseSerializer(course, data=data, partial=True)
+                raise ValidationError("You do not have permission to update this course.")
+
+        payload = data.copy()
+        status_reason = payload.pop('status_reason', None)
+        send_notification = payload.pop('send_notification', False)
+        notify_title = payload.pop('notify_title', None)
+        notify_message = payload.pop('notify_message', None)
+
+        if isinstance(send_notification, str):
+            send_notification = send_notification.lower() in ('1', 'true', 'yes', 'on')
+        else:
+            send_notification = bool(send_notification)
+
+        old_status = course.status
+        serializer = CourseSerializer(course, data=payload, partial=True)
         if serializer.is_valid():
             updated_course = serializer.save()
             log_activity(
@@ -131,8 +171,49 @@ def update_course(course_id, data, requesting_user=None):
                 action="UPDATE",
                 entity_type="Course",
                 entity_id=course_id,
-                description=f"Cập nhật khóa học: {updated_course.title}"
+                description=f"Updated course: {updated_course.title}"
             )
+
+            if old_status != updated_course.status:
+                reason_text = (status_reason or '').strip()
+                actor_label = 'Admin' if is_admin else 'Instructor'
+                reason_suffix = f" | Reason: {reason_text}" if reason_text else ''
+                log_activity(
+                    user_id=requesting_user.id if requesting_user else None,
+                    action="UPDATE",
+                    entity_type="Course",
+                    entity_id=course_id,
+                    description=(
+                        f"{actor_label} changed course status '{updated_course.title}' "
+                        f"from '{old_status}' to '{updated_course.status}'{reason_suffix}"
+                    ),
+                )
+
+                if is_admin and send_notification:
+                    instructor_user_id = updated_course.instructor.user.id if updated_course.instructor else None
+                    if instructor_user_id:
+                        title = (notify_title or '').strip() or f"Course '{updated_course.title}' status changed"
+                        default_message = (
+                            f"Admin changed the course status from '{old_status}' to '{updated_course.status}'."
+                        )
+                        if reason_text:
+                            default_message += f" Reason: {reason_text}"
+                        message = (notify_message or '').strip() or default_message
+                        try:
+                            from notifications.services import create_notification
+                            create_notification(
+                                receiver_id=instructor_user_id,
+                                title=title,
+                                message=message,
+                                type='course',
+                                related_id=updated_course.id,
+                                sender=requesting_user.id if requesting_user else None,
+                                notification_code='course_status_changed_by_admin',
+                            )
+                        except Exception:
+                            # Notification failures should not block status update.
+                            pass
+
             return serializer.data
         raise ValidationError(serializer.errors)
     except Course.DoesNotExist:
@@ -167,3 +248,4 @@ def validate_course_data(data):
     if serializer.is_valid():
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
+

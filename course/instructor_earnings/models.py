@@ -55,6 +55,9 @@ class InstructorEarning(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['instructor']),
             models.Index(fields=['course']),
+            models.Index(fields=['instructor', 'is_deleted', 'earning_date']),
+            models.Index(fields=['instructor', 'is_deleted', 'status']),
+            models.Index(fields=['is_deleted', 'earning_date']),
         ]
         constraints = [
             models.UniqueConstraint(

@@ -65,42 +65,58 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     // Load progress from localStorage
-    if (user) {
-      const saved = localStorage.getItem(`learningProgress_${user.id}`)
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved)
-          setLessonProgress(parsed)
-        } catch (error) {
-          console.error('Error loading learning progress:', error)
-        }
-      }
+    if (!user) {
+      setLessonProgress([])
+      setQuizAnswers([])
+      return
+    }
 
-      // ✅ Load quiz answers
-      const savedQuizAnswers = localStorage.getItem(`quizAnswers_${user.id}`)
-      if (savedQuizAnswers) {
-        try {
-          const parsed = JSON.parse(savedQuizAnswers)
-          setQuizAnswers(parsed)
-        } catch (error) {
-          console.error('Error loading quiz answers:', error)
-        }
+    const saved = localStorage.getItem(`learningProgress_${user.id}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setLessonProgress(parsed)
+      } catch (error) {
+        console.error('Error loading learning progress:', error)
+        setLessonProgress([])
       }
+    } else {
+      setLessonProgress([])
+    }
+
+    // ✅ Load quiz answers
+    const savedQuizAnswers = localStorage.getItem(`quizAnswers_${user.id}`)
+    if (savedQuizAnswers) {
+      try {
+        const parsed = JSON.parse(savedQuizAnswers)
+        setQuizAnswers(parsed)
+      } catch (error) {
+        console.error('Error loading quiz answers:', error)
+        setQuizAnswers([])
+      }
+    } else {
+      setQuizAnswers([])
     }
   }, [user])
 
   useEffect(() => {
     // Save progress to localStorage
-    if (user && lessonProgress.length > 0) {
+    if (!user) return
+    if (lessonProgress.length > 0) {
       localStorage.setItem(`learningProgress_${user.id}`, JSON.stringify(lessonProgress))
+      return
     }
+    localStorage.removeItem(`learningProgress_${user.id}`)
   }, [lessonProgress, user])
 
   // ✅ Save quiz answers to localStorage
   useEffect(() => {
-    if (user && quizAnswers.length > 0) {
+    if (!user) return
+    if (quizAnswers.length > 0) {
       localStorage.setItem(`quizAnswers_${user.id}`, JSON.stringify(quizAnswers))
+      return
     }
+    localStorage.removeItem(`quizAnswers_${user.id}`)
   }, [quizAnswers, user])
 
   const getLessonProgress = (lessonId: number): LessonProgress | undefined => {

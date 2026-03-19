@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { useAuthStore, User, UserRole, Permission, PERMISSIONS } from '../stores/auth.store'
 import { onSessionExpired } from '../services/http'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 // Re-export types for backward compatibility
 export type { User, UserRole, Permission }
@@ -47,6 +47,7 @@ export function useAuth() {
     isLoading: store.isLoading,
     error: store.error,
     login: store.login,
+    loginWithGoogle: store.loginWithGoogle,
     signup: store.signup,
     logout: store.logout,
     fetchProfile: store.fetchProfile,

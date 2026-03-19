@@ -76,10 +76,18 @@ print("🌱 Seeding database...")
 print("  → Users...")
 pw = hashed("password123")
 
-admin_user = User.objects.create(
-    username="admin", email="admin@example.com", password_hash=pw,
-    full_name="System Admin", user_type="admin", status="active",
-    phone="0900000001", address="Hà Nội"
+# admin user (use email for uniqueness)
+admin_user, _ = User.objects.update_or_create(
+    email="admin@example.com",
+    defaults={
+        'username': "admin",
+        'password_hash': pw,
+        'full_name': "System Admin",
+        'user_type': "admin",
+        'status': "active",
+        'phone': "0900000001",
+        'address': "Hà Nội",
+    }
 )
 
 instructor_users = []
@@ -94,10 +102,17 @@ instructor_names = [
     ("vothih", "Võ Thị H", "0911111008"),
 ]
 for uname, fname, phone in instructor_names:
-    u = User.objects.create(
-        username=uname, email=f"{uname}@example.com", password_hash=pw,
-        full_name=fname, user_type="instructor", status="active",
-        phone=phone, address="TP. Hồ Chí Minh"
+    u, _ = User.objects.update_or_create(
+        email=f"{uname}@example.com",
+        defaults={
+            'username': uname,
+            'password_hash': pw,
+            'full_name': fname,
+            'user_type': "instructor",
+            'status': "active",
+            'phone': phone,
+            'address': "TP. Hồ Chí Minh",
+        }
     )
     instructor_users.append(u)
 
@@ -111,10 +126,17 @@ student_names = [
     "student26", "student27", "student28", "student29", "student30",
 ]
 for i, uname in enumerate(student_names, 1):
-    u = User.objects.create(
-        username=uname, email=f"{uname}@example.com", password_hash=pw,
-        full_name=f"Học Viên {i:02d}", user_type="student", status="active",
-        phone=f"09222{i:05d}", address="Đà Nẵng"
+    u, _ = User.objects.update_or_create(
+        email=f"{uname}@example.com",
+        defaults={
+            'username': uname,
+            'password_hash': pw,
+            'full_name': f"Học Viên {i:02d}",
+            'user_type': "student",
+            'status': "active",
+            'phone': f"09222{i:05d}",
+            'address': "Đà Nẵng",
+        }
     )
     student_users.append(u)
 
@@ -124,8 +146,9 @@ all_users = [admin_user] + instructor_users + student_users
 # 2. ADMIN
 # ═══════════════════════════════════════════════════════════════════
 print("  → Admin...")
-admin_obj = Admin.objects.create(
-    user=admin_user, department="IT", role="super_admin"
+admin_obj, _ = Admin.objects.update_or_create(
+    user=admin_user,
+    defaults={'department': "IT", 'role': "super_admin"}
 )
 
 # ═══════════════════════════════════════════════════════════════════
@@ -143,15 +166,36 @@ cat_data = {
     "Mobile": ["React Native", "Flutter", "iOS Swift"],
 }
 
+# icon choices for seeding
+icon_choices = [
+    "Code", "Briefcase", "Palette", "Megaphone",
+    "Database", "Music", "BookOpen", "Folder",
+]
+
 categories = {}   # name → Category
 subcategories = {}  # name → Category
-for parent_name, subs in cat_data.items():
-    parent = Category.objects.create(name=parent_name, description=f"Danh mục {parent_name}", status="active")
+for i, (parent_name, subs) in enumerate(cat_data.items()):
+    icon = icon_choices[i % len(icon_choices)]
+    parent, _ = Category.objects.update_or_create(
+        name=parent_name,
+        defaults={
+            'description': f"Danh mục {parent_name}",
+            'status': "active",
+            'icon': icon,
+            'parent_category': None,
+        }
+    )
     categories[parent_name] = parent
-    for sub_name in subs:
-        sub = Category.objects.create(
-            name=sub_name, description=f"Chuyên mục {sub_name}",
-            parent_category=parent, status="active"
+    for j, sub_name in enumerate(subs):
+        sub_icon = random.choice(icon_choices)
+        sub, _ = Category.objects.update_or_create(
+            name=sub_name,
+            defaults={
+                'description': f"Chuyên mục {sub_name}",
+                'parent_category': parent,
+                'status': "active",
+                'icon': sub_icon,
+            }
         )
         subcategories[sub_name] = sub
 
@@ -171,10 +215,15 @@ levels_data = [
 ]
 inst_levels = []
 for name, min_s, min_r, comm in levels_data:
-    lv = InstructorLevel.objects.create(
-        name=name, description=f"Cấp {name}",
-        min_students=min_s, min_revenue=Decimal(min_r),
-        commission_rate=Decimal(comm), plan_commission_rate=Decimal(comm),
+    lv, _ = InstructorLevel.objects.update_or_create(
+        name=name,
+        defaults={
+            'description': f"Cấp {name}",
+            'min_students': min_s,
+            'min_revenue': Decimal(min_r),
+            'commission_rate': Decimal(comm),
+            'plan_commission_rate': Decimal(comm),
+        }
     )
     inst_levels.append(lv)
 
@@ -185,17 +234,19 @@ print("  → Instructors...")
 specializations = ["Web Development", "AI/ML", "Mobile Dev", "UI/UX", "Cloud", "Data", "DevOps", "Language"]
 instructors = []
 for i, u in enumerate(instructor_users):
-    inst = Instructor.objects.create(
+    inst, _ = Instructor.objects.update_or_create(
         user=u,
-        bio=f"Giảng viên {u.full_name} với hơn {random.randint(3,15)} năm kinh nghiệm.",
-        specialization=specializations[i % len(specializations)],
-        qualification=random.choice(["Thạc sĩ CNTT", "Tiến sĩ", "Kỹ sư phần mềm", "MBA"]),
-        experience=random.randint(3, 15),
-        rating=Decimal(str(round(random.uniform(3.5, 5.0), 2))),
-        total_students=random.randint(100, 5000),
-        total_courses=0,
-        level=random.choice(inst_levels),
-        social_links={"linkedin": f"https://linkedin.com/in/{u.username}", "youtube": f"https://youtube.com/@{u.username}"},
+        defaults={
+            'bio': f"Giảng viên {u.full_name} với hơn {random.randint(3,15)} năm kinh nghiệm.",
+            'specialization': specializations[i % len(specializations)],
+            'qualification': random.choice(["Thạc sĩ CNTT", "Tiến sĩ", "Kỹ sư phần mềm", "MBA"]),
+            'experience': random.randint(3, 15),
+            'rating': Decimal(str(round(random.uniform(3.5, 5.0), 2))),
+            'total_students': random.randint(100, 5000),
+            'total_courses': 0,
+            'level': random.choice(inst_levels),
+            'social_links': {"linkedin": f"https://linkedin.com/in/{u.username}", "youtube": f"https://youtube.com/@{u.username}"},
+        }
     )
     instructors.append(inst)
 
@@ -275,39 +326,40 @@ for idx, (title, pcat, subcat, level, lang, price, cert) in enumerate(course_tem
         disc_start = now - timedelta(days=random.randint(1, 10))
         disc_end = now + timedelta(days=random.randint(10, 60))
 
-    c = Course.objects.create(
+    c, _ = Course.objects.update_or_create(
         title=title,
-        shortdescription=f"Khóa học {title} — học từ cơ bản đến thực chiến.",
-        description=f"Khóa học {title} được thiết kế dành cho người muốn nắm vững kiến thức "
-                    f"và áp dụng vào thực tế. Bao gồm bài tập, dự án thực hành, và hỗ trợ 1-1.",
-        instructor=inst,
-        category=parent_cat,
-        subcategory=sub_cat,
-        price=Decimal(str(price)),
-        discount_price=disc_price,
-        discount_start_date=disc_start,
-        discount_end_date=disc_end,
-        level=level,
-        language=lang,
-        duration=duration,
-        total_lessons=random.randint(20, 120),
-        total_modules=random.randint(5, 20),
-        requirements="Máy tính có kết nối internet. Không yêu cầu kinh nghiệm trước.",
-        learning_objectives=[
-            f"Hiểu rõ kiến thức nền tảng về {subcat}",
-            f"Thực hành dự án thực tế với {subcat}",
-            "Có khả năng tự phát triển sau khóa học",
-        ],
-        target_audience=["Sinh viên", "Người đi làm muốn chuyển ngành", "Tự học"],
-        tags=[subcat.lower(), pcat.lower(), level],
-        status="published",
-        published_date=past(180),
-        is_featured=random.random() < 0.2,
-        rating=Decimal(str(rating)),
-        total_reviews=total_reviews,
-        total_students=total_students,
-        certificate=cert,
-        thumbnail=f"https://picsum.photos/seed/course{idx}/640/360",
+        defaults={
+            'shortdescription': f"Khóa học {title} — học từ cơ bản đến thực chiến.",
+            'description': f"Khóa học {title} được thiết kế dành cho người muốn nắm vững kiến thức ",
+            'instructor': inst,
+            'category': parent_cat,
+            'subcategory': sub_cat,
+            'price': Decimal(str(price)),
+            'discount_price': disc_price,
+            'discount_start_date': disc_start,
+            'discount_end_date': disc_end,
+            'level': level,
+            'language': lang,
+            'duration': duration,
+            'total_lessons': random.randint(20, 120),
+            'total_modules': random.randint(5, 20),
+            'requirements': "Máy tính có kết nối internet. Không yêu cầu kinh nghiệm trước.",
+            'learning_objectives': [
+                f"Hiểu rõ kiến thức nền tảng về {subcat}",
+                f"Thực hành dự án thực tế với {subcat}",
+                "Có kỹ năng tự phát triển sau khóa học",
+            ],
+            'target_audience': ["Sinh viên", "Người đi làm muốn chuyển ngành", "Tự học"],
+            'tags': [subcat.lower(), pcat.lower(), level],
+            'status': "published",
+            'published_date': past(180),
+            'is_featured': random.random() < 0.2,
+            'rating': Decimal(str(rating)),
+            'total_reviews': total_reviews,
+            'total_students': total_students,
+            'certificate': cert,
+            'thumbnail': f"https://picsum.photos/seed/course{idx}/640/360",
+        }
     )
     courses.append(c)
 
@@ -418,21 +470,29 @@ plans_data = [
 ]
 sub_plans = []
 for name, price, dtype, days, features, not_inc in plans_data:
-    sp = SubscriptionPlan.objects.create(
-        name=name, description=f"Gói {name}",
-        price=Decimal(str(price)), duration_type=dtype, duration_days=days,
-        status="active", is_featured=(name == "Tiêu chuẩn"),
-        features=features, not_included=not_inc,
-        badge_text="Phổ biến" if name == "Tiêu chuẩn" else None,
-        created_by=admin_user,
+    sp, _ = SubscriptionPlan.objects.update_or_create(
+        name=name,
+        defaults={
+            'description': f"Gói {name}",
+            'price': Decimal(str(price)),
+            'duration_type': dtype,
+            'duration_days': days,
+            'status': "active",
+            'is_featured': (name == "Tiêu chuẩn"),
+            'features': features,
+            'not_included': not_inc,
+            'badge_text': "Phổ biến" if name == "Tiêu chuẩn" else None,
+            'created_by': admin_user,
+        }
     )
     sub_plans.append(sp)
 
 # PlanCourse — add random courses to plans
 for sp in sub_plans:
-    plan_courses_list = random.sample(courses, k=min(random.randint(10, 30), len(courses)))
-    for c in plan_courses_list:
-        PlanCourse.objects.create(plan=sp, course=c, status="active", added_by=admin_user)
+    if courses:
+        plan_courses_list = random.sample(courses, k=min(random.randint(10, 30), len(courses)))
+        for c in plan_courses_list:
+            PlanCourse.objects.get_or_create(plan=sp, course=c, defaults={'status': "active", 'added_by': admin_user})
 
 # ═══════════════════════════════════════════════════════════════════
 # 10. PROMOTIONS
@@ -448,18 +508,27 @@ promo_data = [
     ("FLASH40", "percentage", 40, 0, 800000),
 ]
 for code, dtype, val, min_p, max_d in promo_data:
-    p = Promotion.objects.create(
-        code=code, description=f"Mã giảm giá {code}",
-        discount_type=dtype, discount_value=Decimal(str(val)),
-        start_date=past(30), end_date=future(60),
-        usage_limit=random.randint(50, 500), used_count=random.randint(0, 30),
-        min_purchase=Decimal(str(min_p)),
-        max_discount=Decimal(str(max_d)) if max_d else None,
-        admin=admin_obj, instructor=random.choice(instructors),
-        status="active",
+    p, _ = Promotion.objects.update_or_create(
+        code=code,
+        defaults={
+            'description': f"Mã giảm giá {code}",
+            'discount_type': dtype,
+            'discount_value': Decimal(str(val)),
+            'start_date': past(30),
+            'end_date': future(60),
+            'usage_limit': random.randint(50, 500),
+            'used_count': random.randint(0, 30),
+            'min_purchase': Decimal(str(min_p)),
+            'max_discount': Decimal(str(max_d)) if max_d else None,
+            'admin': admin_obj,
+            'instructor': random.choice(instructors) if instructors else None,
+            'status': "active",
+        }
     )
-    p.applicable_courses.set(random.sample(courses, k=random.randint(3, 10)))
-    p.applicable_categories.set(random.sample(all_parent_cats, k=random.randint(1, 3)))
+    if courses:
+        p.applicable_courses.set(random.sample(courses, k=min(random.randint(3, 10), len(courses))))
+    if all_parent_cats:
+        p.applicable_categories.set(random.sample(all_parent_cats, k=min(random.randint(1, 3), len(all_parent_cats))))
     promos.append(p)
 
 # ═══════════════════════════════════════════════════════════════════
@@ -470,55 +539,87 @@ payments_list = []
 enrollments_list = []
 
 for student in student_users:
-    # Each student buys 3-8 courses
-    bought = random.sample(courses, k=random.randint(3, 8))
-    for course in bought:
-        price = float(course.discount_price or course.price)
-        promo = random.choice(promos) if random.random() < 0.2 else None
-        discount = 0
-        if promo:
-            if promo.discount_type == "percentage":
-                discount = price * float(promo.discount_value) / 100
-                if promo.max_discount:
-                    discount = min(discount, float(promo.max_discount))
-            else:
-                discount = float(promo.discount_value)
-        total = max(0, price - discount)
+    # every student makes a few transactions, and each transaction may include one or
+    # more course purchases. this more closely mimics a real checkout, where a user
+    # might buy several courses in a single payment.
+    txns = random.randint(2, 5)
+    # shuffle courses so we don't always pick the same ones for each student
+    available = random.sample(courses, k=len(courses))
+    idx = 0
+    for _ in range(txns):
+        # pick 1–4 courses for this transaction
+        count = random.randint(1, 4)
+        bought = available[idx:idx + count]
+        idx += count
+        if not bought:
+            break
 
+        # create payment record with amounts aggregated below
         pmt = Payment.objects.create(
             user=student,
             payment_type="course_purchase",
-            amount=Decimal(str(price)),
-            discount_amount=Decimal(str(round(discount, 2))),
-            total_amount=Decimal(str(round(total, 2))),
+            amount=Decimal('0.00'),
+            discount_amount=Decimal('0.00'),
+            total_amount=Decimal('0.00'),
             transaction_id=f"TXN_{uuid.uuid4().hex[:16].upper()}",
-            payment_status="completed",
+            # explicit completed flag, even though model default now does the same
+            payment_status=Payment.PaymentStatus.COMPLETED,
             payment_method=random.choice(["vnpay", "momo"]),
-            promotion=promo,
+            promotion=None,
+            ipn_attempts=0,
         )
+
+        running_amount = Decimal('0.00')
+        running_discount = Decimal('0.00')
+
+        for course in bought:
+            price = Decimal(str(course.discount_price or course.price))
+            promo = random.choice(promos) if random.random() < 0.2 else None
+            discount = Decimal('0.00')
+            if promo:
+                if promo.discount_type == "percentage":
+                    discount = price * Decimal(str(promo.discount_value)) / Decimal(100)
+                    if promo.max_discount:
+                        discount = min(discount, promo.max_discount)
+                else:
+                    discount = Decimal(str(promo.discount_value))
+            final_price = max(Decimal('0.00'), price - discount)
+
+            Payment_Details.objects.create(
+                payment=pmt,
+                course=course,
+                price=price,
+                discount=discount,
+                final_price=final_price,
+                promotion=promo,
+            )
+
+            running_amount += price
+            running_discount += discount
+
+            enroll_date = past(120)
+            progress = Decimal(str(round(random.uniform(0, 100), 2)))
+            status = "complete" if progress >= 100 else "active"
+            enr, _ = Enrollment.objects.update_or_create(
+                user=student, course=course,
+                defaults={
+                    'payment': pmt,
+                    'source': "purchase",
+                    'enrollment_date': enroll_date,
+                    'progress': progress,
+                    'status': status,
+                    'completion_date': enroll_date + timedelta(days=random.randint(30, 90)) if status == "complete" else None,
+                    'last_access_date': past(14),
+                }
+            )
+            enrollments_list.append(enr)
+
+        # update the top-level payment amounts now that we know all details
+        pmt.amount = running_amount
+        pmt.discount_amount = running_discount
+        pmt.total_amount = running_amount - running_discount
+        pmt.save()
         payments_list.append(pmt)
-
-        Payment_Details.objects.create(
-            payment=pmt, course=course,
-            price=Decimal(str(price)),
-            discount=Decimal(str(round(discount, 2))),
-            final_price=Decimal(str(round(total, 2))),
-            promotion=promo,
-        )
-
-        enroll_date = past(120)
-        progress = Decimal(str(round(random.uniform(0, 100), 2)))
-        status = "complete" if progress >= 100 else "active"
-        enr = Enrollment.objects.create(
-            user=student, course=course, payment=pmt,
-            source="purchase",
-            enrollment_date=enroll_date,
-            progress=progress,
-            status=status,
-            completion_date=enroll_date + timedelta(days=random.randint(30, 90)) if status == "complete" else None,
-            last_access_date=past(14),
-        )
-        enrollments_list.append(enr)
 
 # ═══════════════════════════════════════════════════════════════════
 # 12. USER SUBSCRIPTIONS
@@ -548,16 +649,19 @@ for enr in enrollments_list[:100]:  # limit for speed
     for lesson in course_lessons:
         if random.random() < 0.7:
             completed = random.random() < 0.5
-            LearningProgress.objects.create(
+            lp, created = LearningProgress.objects.update_or_create(
                 user=enr.user, enrollment=enr, course=enr.course, lesson=lesson,
-                progress_percentage=Decimal("100.00") if completed else Decimal(str(round(random.uniform(10, 90), 2))),
-                status="completed" if completed else "progress",
-                is_completed=completed,
-                time_spent=random.randint(60, 3600),
-                start_time=past(60),
-                completion_date=past(30) if completed else None,
+                defaults={
+                    'progress_percentage': Decimal("100.00") if completed else Decimal(str(round(random.uniform(10, 90), 2))),
+                    'status': "completed" if completed else "progress",
+                    'is_completed': completed,
+                    'time_spent': random.randint(60, 3600),
+                    'start_time': past(60),
+                    'completion_date': past(30) if completed else None,
+                }
             )
-            lp_count += 1
+            if created:
+                lp_count += 1
 print(f"    ({lp_count} records)")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -571,19 +675,22 @@ for enr in enrollments_list[:60]:
     )[:3]
     for ql in quiz_ls:
         score = Decimal(str(round(random.uniform(30, 100), 2)))
-        QuizResult.objects.create(
+        qr, created = QuizResult.objects.update_or_create(
             enrollment=enr, lesson=ql,
-            start_time=past(30),
-            submit_time=past(29),
-            time_taken=random.randint(300, 1800),
-            total_questions=random.randint(5, 15),
-            correct_answers=random.randint(2, 15),
-            total_points=random.randint(10, 30),
-            score=score,
-            passed=score >= 60,
-            attempt=1,
+            defaults={
+                'start_time': past(30),
+                'submit_time': past(29),
+                'time_taken': random.randint(300, 1800),
+                'total_questions': random.randint(5, 15),
+                'correct_answers': random.randint(2, 15),
+                'total_points': random.randint(10, 30),
+                'score': score,
+                'passed': score >= 60,
+                'attempt': 1,
+            }
         )
-        qr_count += 1
+        if created:
+            qr_count += 1
 print(f"    ({qr_count} records)")
 
 # ═══════════════════════════════════════════════════════════════════
@@ -659,26 +766,29 @@ blog_titles = [
 blog_posts = []
 for i, title in enumerate(blog_titles):
     slug_base = slugify(title, allow_unicode=True) or f"blog-post-{i}"
-    bp = BlogPost.objects.create(
-        title=title,
-        content=f"<p>Nội dung chi tiết về {title}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-                f"Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>"
-                f"<h2>Phần 1</h2><p>Chi tiết phần 1...</p>"
-                f"<h2>Phần 2</h2><p>Chi tiết phần 2...</p>",
-        author=random.choice(instructor_users + [admin_user]),
-        status="published",
-        tags=["technology", "education", random.choice(["python", "javascript", "devops", "career"])],
-        category=random.choice(all_parent_cats),
-        slug=f"{slug_base}-{i}",
-        summary=f"Tóm tắt: {title}",
-        published_at=past(90),
-        views=random.randint(100, 10000),
-        likes=random.randint(10, 500),
-        is_featured=(i < 3),
+    slug_val = f"{slug_base}-{i}"
+    bp, _ = BlogPost.objects.update_or_create(
+        slug=slug_val,
+        defaults={
+            'title': title,
+            'content': f"<p>Nội dung chi tiết về {title}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+                       f"Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>"
+                       f"<h2>Phần 1</h2><p>Chi tiết phần 1...</p>"
+                       f"<h2>Phần 2</h2><p>Chi tiết phần 2...</p>",
+            'author': random.choice(instructor_users + [admin_user]),
+            'status': "published",
+            'tags': ["technology", "education", random.choice(["python", "javascript", "devops", "career"])],
+            'category': random.choice(all_parent_cats) if all_parent_cats else None,
+            'summary': f"Tóm tắt: {title}",
+            'published_at': past(90),
+            'views': random.randint(100, 10000),
+            'likes': random.randint(10, 500),
+            'is_featured': (i < 3),
+        }
     )
     blog_posts.append(bp)
 
-    # Comments
+    # Comments — these can still accumulate multiple times if rerun
     for _ in range(random.randint(2, 8)):
         BlogComment.objects.create(
             blog_post=bp,
@@ -687,7 +797,7 @@ for i, title in enumerate(blog_titles):
                 "Mình muốn biết thêm về chủ đề này.", "Share cho bạn bè ngay!",
                 "Nội dung chi tiết và dễ hiểu.", "Mong có thêm bài viết tương tự.",
             ]),
-            user=random.choice(student_users),
+            user=random.choice(student_users) if student_users else None,
             status="active",
             likes=random.randint(0, 20),
         )
@@ -930,10 +1040,14 @@ settings_data = [
     ("course", "auto_approve", "false", "Tự động duyệt khóa học"),
 ]
 for group, key, val, desc in settings_data:
-    SystemsSetting.objects.create(
-        setting_group=group, setting_key=key,
-        setting_value=val, description=desc,
-        admin=admin_obj,
+    SystemsSetting.objects.update_or_create(
+        setting_key=key,
+        defaults={
+            'setting_group': group,
+            'setting_value': val,
+            'description': desc,
+            'admin': admin_obj,
+        }
     )
 
 # ═══════════════════════════════════════════════════════════════════
@@ -953,57 +1067,104 @@ for _ in range(100):
     )
 
 # ═══════════════════════════════════════════════════════════════════
+# 28. REALTIME CHAT
+# ═══════════════════════════════════════════════════════════════════
+print("  → Realtime chat...")
+from realtime.models import ChatRoom, ChatMessage
+
+for _ in range(10):
+    stud = random.choice(student_users)
+    instr = random.choice(instructor_users)
+    # ensure consistent ordering for unique_together
+    u1, u2 = (stud, instr) if stud.id < instr.id else (instr, stud)
+    room, _ = ChatRoom.objects.get_or_create(user1=u1, user2=u2)
+    # create a few messages with back-and-forth
+    for m in range(random.randint(1, 5)):
+        sender = random.choice([stud, instr])
+        ChatMessage.objects.create(
+            room=room,
+            sender=sender,
+            content=f"Seed message {m+1} in room {room.id} by {sender.username}",
+        )
+
+# ═══════════════════════════════════════════════════════════════════
 # 28. REGISTRATION FORMS & APPLICATIONS
 # ═══════════════════════════════════════════════════════════════════
 print("  → Registration Forms & Applications...")
-form = RegistrationForm.objects.create(
+form, _ = RegistrationForm.objects.update_or_create(
     type="instructor_application",
-    title="Đăng ký làm giảng viên",
-    description="Form đăng ký trở thành giảng viên trên nền tảng",
-    is_active=True, version=1, created_by=admin_user,
+    defaults={
+        'title': "Đăng ký làm giảng viên",
+        'description': "Form đăng ký trở thành giảng viên trên nền tảng",
+        'is_active': True,
+        'version': 1,
+        'created_by': admin_user,
+    }
 )
-q1 = FormQuestion.objects.create(
-    form=form, order=1, label="Lĩnh vực chuyên môn của bạn?",
-    type="text", required=True, placeholder="VD: Web Development",
+q1, _ = FormQuestion.objects.update_or_create(
+    form=form, order=1,
+    defaults={
+        'label': "Lĩnh vực chuyên môn của bạn?",
+        'type': "text",
+        'required': True,
+        'placeholder': "VD: Web Development",
+    }
 )
-q2 = FormQuestion.objects.create(
-    form=form, order=2, label="Số năm kinh nghiệm?",
-    type="number", required=True, placeholder="VD: 5",
+q2, _ = FormQuestion.objects.update_or_create(
+    form=form, order=2,
+    defaults={
+        'label': "Số năm kinh nghiệm?",
+        'type': "number",
+        'required': True,
+        'placeholder': "VD: 5",
+    }
 )
-q3 = FormQuestion.objects.create(
-    form=form, order=3, label="Tại sao bạn muốn trở thành giảng viên?",
-    type="textarea", required=True, placeholder="Chia sẻ động lực của bạn...",
+q3, _ = FormQuestion.objects.update_or_create(
+    form=form, order=3,
+    defaults={
+        'label': "Tại sao bạn muốn trở thành giảng viên?",
+        'type': "textarea",
+        'required': True,
+        'placeholder': "Chia sẻ động lực của bạn...",
+    }
 )
-q4 = FormQuestion.objects.create(
-    form=form, order=4, label="Bạn có kinh nghiệm giảng dạy không?",
-    type="radio", required=True,
-    options=["Có", "Không", "Một chút"],
+q4, _ = FormQuestion.objects.update_or_create(
+    form=form, order=4,
+    defaults={
+        'label': "Bạn có kinh nghiệm giảng dạy không?",
+        'type': "radio",
+        'required': True,
+        'options': ["Có", "Không", "Một chút"],
+    }
 )
 
 # Some applications from instructor users
 for u in instructor_users[:5]:
-    app = Application.objects.create(
+    app, _ = Application.objects.update_or_create(
         user=u, form=form,
-        status="approved",
-        reviewed_by=admin_user,
-        reviewed_at=past(30),
-        admin_notes="Đáp ứng yêu cầu.",
+        defaults={
+            'status': "approved",
+            'reviewed_by': admin_user,
+            'reviewed_at': past(30),
+            'admin_notes': "Đáp ứng yêu cầu.",
+        }
     )
-    ApplicationResponse.objects.create(application=app, question=q1, value="Web Development")
-    ApplicationResponse.objects.create(application=app, question=q2, value=5)
-    ApplicationResponse.objects.create(application=app, question=q3, value="Muốn chia sẻ kiến thức")
-    ApplicationResponse.objects.create(application=app, question=q4, value="Có")
+    # responses -- update or create by question
+    ApplicationResponse.objects.update_or_create(application=app, question=q1, defaults={'value': "Web Development"})
+    ApplicationResponse.objects.update_or_create(application=app, question=q2, defaults={'value': 5})
+    ApplicationResponse.objects.update_or_create(application=app, question=q3, defaults={'value': "Muốn chia sẻ kiến thức"})
+    ApplicationResponse.objects.update_or_create(application=app, question=q4, defaults={'value': "Có"})
 
 # Pending applications from some students
 for u in student_users[:3]:
-    app = Application.objects.create(
+    app, _ = Application.objects.update_or_create(
         user=u, form=form,
-        status="pending",
+        defaults={'status': "pending"}
     )
-    ApplicationResponse.objects.create(application=app, question=q1, value="Data Science")
-    ApplicationResponse.objects.create(application=app, question=q2, value=2)
-    ApplicationResponse.objects.create(application=app, question=q3, value="Muốn thử sức")
-    ApplicationResponse.objects.create(application=app, question=q4, value="Không")
+    ApplicationResponse.objects.update_or_create(application=app, question=q1, defaults={'value': "Data Science"})
+    ApplicationResponse.objects.update_or_create(application=app, question=q2, defaults={'value': 2})
+    ApplicationResponse.objects.update_or_create(application=app, question=q3, defaults={'value': "Muốn thử sức"})
+    ApplicationResponse.objects.update_or_create(application=app, question=q4, defaults={'value': "Không"})
 
 # ═══════════════════════════════════════════════════════════════════
 # 29. COURSE SUBSCRIPTION CONSENTS

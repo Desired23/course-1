@@ -33,6 +33,8 @@ from lessons.models import Lesson
 from activity_logs.models import ActivityLog
 from learning_progress.models import LearningProgress
 from quiz_questions.models import QuizTestCase
+from applications.models import Application, ApplicationResponse
+from registration_forms.models import RegistrationForm, FormQuestion
 admin.site.register(LearningProgress)
 admin.site.register(BlogPost)
 admin.site.register(User)
@@ -67,3 +69,7 @@ admin.site.register(LessonComment)
 admin.site.register(Lesson)
 admin.site.register(ActivityLog)
 admin.site.register(QuizTestCase)
+admin.site.register(Application)
+admin.site.register(ApplicationResponse)
+admin.site.register(RegistrationForm)
+admin.site.register(FormQuestion)

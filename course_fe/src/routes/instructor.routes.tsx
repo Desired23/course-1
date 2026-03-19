@@ -222,6 +222,17 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
+  {
+    path: '/instructor/course-landing/:courseId',
+    element: (
+      <RequireAuth roles={['instructor', 'admin']}>
+        <InstructorLayout>
+          <InstructorCourseLandingPage />
+        </InstructorLayout>
+      </RequireAuth>
+    ),
+    dynamic: true
+  },
   
   // Communication
   {

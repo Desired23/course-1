@@ -37,6 +37,7 @@ class Payment(models.Model):
     payment_status = models.CharField(
         max_length=20,
         choices=PaymentStatus.choices,
+        # default to pending; seeds explicitly mark completed
         default=PaymentStatus.PENDING
     )
     payment_method = models.CharField(
@@ -59,6 +60,8 @@ class Payment(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_payments')
     is_deleted = models.BooleanField(default=False)
+    # count of IPN callback attempts (added in migration)
+    ipn_attempts = models.IntegerField(default=0)
 
     class Meta:
         db_table = "payments"

@@ -117,7 +117,7 @@ function DraggableTestCase({
                 <Textarea
                   value={testCase.input}
                   onChange={(e) => onUpdate(index, { ...testCase, input: e.target.value })}
-                  placeholder="e.g., 2,7,11,15\n9"
+                  placeholder="e.g., [2,7,11,15]\n9"
                   className="mt-1 font-mono text-sm"
                   rows={3}
                 />
@@ -126,11 +126,12 @@ function DraggableTestCase({
               {/* Expected Output */}
               <div>
                 <Label className="text-xs text-muted-foreground">Expected Output</Label>
-                <Input
+                <Textarea
                   value={testCase.expectedOutput}
                   onChange={(e) => onUpdate(index, { ...testCase, expectedOutput: e.target.value })}
-                  placeholder="e.g., 2,7"
+                  placeholder="e.g., [0,1] or 0,1"
                   className="mt-1 font-mono text-sm"
+                  rows={2}
                 />
               </div>
 
@@ -505,8 +506,8 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
                 <ul className="list-disc list-inside space-y-1 text-sm">
                   <li>Create comprehensive test cases covering edge cases and corner scenarios</li>
                   <li>First 1-2 test cases should serve as <strong>examples</strong> in the problem description</li>
-                  <li>Input format: each line = one parameter (e.g., line 1: array, line 2: target)</li>
-                  <li>Expected output should match exactly what the function returns</li>
+                  <li>Input format: each line = one argument, ưu tiên JSON literal (number, string, array, object, boolean, null)</li>
+                  <li>Expected output: hỗ trợ 1 dòng hoặc nhiều dòng, có thể dùng JSON hoặc plain text</li>
                   <li>All test cases are visible to help students debug their solutions</li>
                 </ul>
               </AlertDescription>

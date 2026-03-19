@@ -1,8 +1,9 @@
 from django.urls import path
 from .views import (
     UserDetailView, UserRegisterView, UserLoginView, UserUpdateView, 
-    UserManagementView, RefreshTokenView, ResetPasswordView, 
-    ConfirmResetPasswordView, ConfirmEmailView, UserLogoutView  
+    UserManagementView, UserGoogleLoginView, RefreshTokenView, ResetPasswordView, 
+    ConfirmResetPasswordView, ConfirmEmailView, ResendConfirmEmailView, UserLogoutView, UserSettingsView,
+    UserDeactivateSelfView, UserDeleteSelfView, UserChangePasswordSelfView
 )
 
 urlpatterns = [
@@ -14,9 +15,15 @@ urlpatterns = [
     path('users/<int:user_id>/updateinfo', UserUpdateView.as_view(), name='user-update'),
     path('users/register', UserRegisterView.as_view(), name='user-register'),
     path('users/login', UserLoginView.as_view(), name='user-login'),
+    path('users/google-login', UserGoogleLoginView.as_view(), name='user-google-login'),
     path('users/refresh-token', RefreshTokenView.as_view(), name='user-refresh-token'),
     path('users/logout', UserLogoutView.as_view(), name='user-logout'),
+    path('users/me/settings', UserSettingsView.as_view(), name='user-settings'),
+    path('users/me/change-password', UserChangePasswordSelfView.as_view(), name='user-self-change-password'),
+    path('users/me/deactivate', UserDeactivateSelfView.as_view(), name='user-self-deactivate'),
+    path('users/me/delete', UserDeleteSelfView.as_view(), name='user-self-delete'),
     path('users/reset-password', ResetPasswordView.as_view(), name='user-reset-password'),
     path('users/confirm-reset-password', ConfirmResetPasswordView.as_view(), name='user-confirm-reset-password'),
     path('users/confirm-email', ConfirmEmailView.as_view(), name='user-confirm-email'),
+    path('users/resend-confirm-email', ResendConfirmEmailView.as_view(), name='user-resend-confirm-email'),
 ]

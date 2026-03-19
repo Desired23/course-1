@@ -56,9 +56,25 @@ export interface PaginatedResponse<T> {
 
 // ─── Support Tickets ──────────────────────────────────────────────────────────
 
-export async function getSupportTickets(): Promise<SupportTicket[]> {
-  const res = await http.get<PaginatedResponse<SupportTicket> | SupportTicket[]>('/supports/')
-  return Array.isArray(res) ? res : res.results
+export async function getSupportTickets(params?: {
+  user_id?: number
+  page?: number
+  page_size?: number
+  status?: string
+  priority?: string
+  search?: string
+  sort_by?: 'newest' | 'oldest' | 'updated_desc'
+}): Promise<PaginatedResponse<SupportTicket>> {
+  const searchParams = new URLSearchParams()
+  if (params?.user_id !== undefined) searchParams.set('user_id', String(params.user_id))
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params?.status) searchParams.set('status', params.status)
+  if (params?.priority) searchParams.set('priority', params.priority)
+  if (params?.search) searchParams.set('search', params.search)
+  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
+  const qs = searchParams.toString()
+  return http.get<PaginatedResponse<SupportTicket>>(`/supports/${qs ? `?${qs}` : ''}`)
 }
 
 export async function createSupportTicket(data: {

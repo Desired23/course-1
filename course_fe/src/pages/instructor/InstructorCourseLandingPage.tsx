@@ -13,7 +13,6 @@ import {
   ArrowLeft, 
   Save, 
   Eye, 
-  Upload, 
   Image as ImageIcon, 
   Video, 
   X, 
@@ -34,6 +33,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { getCourseById, createCourse, updateCourse } from "../../services/course.api"
 import { getMyInstructorProfile } from "../../services/instructor.api"
 import { getActiveCategories, getSubcategories, type Category } from "../../services/category.api"
+import { uploadFiles } from "../../services/upload.api"
 
 interface LearningObjective {
   id: number
@@ -108,6 +108,27 @@ const levelOptions = [
   { value: 'all_levels', label: 'All Levels' },
 ]
 
+function getCategoryValue(category: unknown): string {
+  if (category == null) return ''
+  if (typeof category === 'number') return String(category)
+  if (typeof category === 'object') {
+    const categoryObj = category as Record<string, unknown>
+    if (typeof categoryObj.id === 'number') return String(categoryObj.id)
+    if (typeof categoryObj.category_id === 'number') return String(categoryObj.category_id)
+  }
+  return ''
+}
+
+function normalizeCourseLanguage(language?: string | null): string {
+  if (!language) return 'Vietnamese'
+  const normalized = language.trim().toLowerCase()
+  if (['vietnamese', 'tiếng việt', 'tieng viet'].includes(normalized)) return 'Vietnamese'
+  if (normalized === 'english') return 'English'
+  if (normalized === 'japanese') return 'Japanese'
+  if (normalized === 'chinese') return 'Chinese'
+  return 'Vietnamese'
+}
+
 export function InstructorCourseLandingPage() {
   const { navigate, params } = useRouter()
   const { user } = useAuth()
@@ -115,8 +136,8 @@ export function InstructorCourseLandingPage() {
   
   const [data, setData] = useState<CourseLandingData>(initialData)
   const [activeTab, setActiveTab] = useState('basic')
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [isUploading, setIsUploading] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(false)
@@ -181,9 +202,8 @@ export function InstructorCourseLandingPage() {
         if (courseId !== 'new') {
           const course = await getCourseById(Number(courseId))
           if (cancelled) return
-          // CourseDetail has category/subcategory as nested objects {id, name}
-          const catId = course.category ? String((course.category as any).id ?? course.category) : ''
-          const subCatId = course.subcategory ? String((course.subcategory as any).id ?? course.subcategory) : ''
+          const catId = getCategoryValue(course.category)
+          const subCatId = getCategoryValue(course.subcategory)
           setData({
             title: course.title || '',
             subtitle: course.shortdescription || '',
@@ -191,7 +211,7 @@ export function InstructorCourseLandingPage() {
             category: catId,
             subcategory: subCatId,
             topic: '',
-            language: course.language || 'Vietnamese',
+            language: normalizeCourseLanguage(course.language),
             level: course.level || '',
             learningObjectives: (course.learning_objectives || []).map((text: string, i: number) => ({ id: i + 1, text })),
             requirements: course.requirements
@@ -221,93 +241,77 @@ export function InstructorCourseLandingPage() {
   // Subcategories are now fetched from API in useEffect above
 
   // Handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        toast.error('Vui lòng chọn file ảnh hợp lệ')
+        toast.error('Please choose a valid image file')
         return
       }
       
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('Kích thước ảnh không được vượt quá 5MB')
+        toast.error('Image size must be <= 5MB')
         return
       }
       
-      setIsUploading(true)
-      setUploadProgress(0)
-      
-      // Simulate upload progress
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval)
-            setIsUploading(false)
-            return 100
-          }
-          return prev + 10
-        })
-      }, 100)
-      
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setData({ 
-          ...data, 
+      try {
+        setIsUploadingImage(true)
+        const uploaded = await uploadFiles([file])
+        if (!uploaded?.length) throw new Error('Upload failed')
+        const uploadedUrl = uploaded[0].url
+
+        setData((prev) => ({ 
+          ...prev, 
           courseImage: file, 
-          courseImagePreview: reader.result as string 
-        })
-        toast.success('Tải ảnh lên thành công!')
+          courseImagePreview: uploadedUrl 
+        }))
+        toast.success('Upload image successfully')
+      } catch (err) {
+        console.error('Image upload failed:', err)
+        toast.error('Upload image failed')
+      } finally {
+        setIsUploadingImage(false)
       }
-      reader.readAsDataURL(file)
     }
   }
-
   // Handle video upload
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       // Validate file type
       if (!file.type.startsWith('video/')) {
-        toast.error('Vui lòng chọn file video hợp lệ')
+        toast.error('Please choose a valid video file')
         return
       }
       
       // Validate file size (max 200MB)
       if (file.size > 200 * 1024 * 1024) {
-        toast.error('Kích thước video không được vượt quá 200MB')
+        toast.error('Video size must be <= 200MB')
         return
       }
       
-      setIsUploading(true)
-      setUploadProgress(0)
-      
-      // Simulate upload progress
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval)
-            setIsUploading(false)
-            return 100
-          }
-          return prev + 5
-        })
-      }, 200)
-      
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setData({ 
-          ...data, 
+      try {
+        setIsUploadingVideo(true)
+        const uploaded = await uploadFiles([file])
+        if (!uploaded?.length) throw new Error('Upload failed')
+        const uploadedUrl = uploaded[0].url
+
+        setData((prev) => ({ 
+          ...prev, 
           promotionalVideo: file, 
-          promotionalVideoPreview: reader.result as string 
-        })
-        toast.success('Tải video lên thành công!')
+          promotionalVideoPreview: uploadedUrl 
+        }))
+        toast.success('Upload video successfully')
+      } catch (err) {
+        console.error('Video upload failed:', err)
+        toast.error('Upload video failed')
+      } finally {
+        setIsUploadingVideo(false)
       }
-      reader.readAsDataURL(file)
     }
   }
-
   // Add learning objective
   const addLearningObjective = () => {
     if (!newObjective.trim()) {
@@ -463,7 +467,7 @@ export function InstructorCourseLandingPage() {
         category: data.category ? Number(data.category) : null,
         subcategory: data.subcategory ? Number(data.subcategory) : null,
         level: data.level || 'all_levels',
-        language: data.language || 'Tiếng Việt',
+        language: data.language || 'Vietnamese',
         price: data.price ? Number(data.price) : 0,
         thumbnail: data.courseImagePreview || null,
         promotional_video: data.promotionalVideoPreview || null,
@@ -575,8 +579,8 @@ export function InstructorCourseLandingPage() {
             {data.learningObjectives.length >= 4 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
             Mục tiêu ({data.learningObjectives.length}/4)
           </Badge>
-          <Badge variant={data.courseImage ? "default" : "outline"} className="gap-1">
-            {data.courseImage ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+          <Badge variant={data.courseImagePreview ? "default" : "outline"} className="gap-1">
+            {data.courseImagePreview ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
             Ảnh khóa học
           </Badge>
         </div>
@@ -895,13 +899,10 @@ export function InstructorCourseLandingPage() {
                   onChange={handleImageUpload}
                 />
                 
-                {isUploading && (
-                  <div className="space-y-2">
-                    <Progress value={uploadProgress} />
-                    <p className="text-sm text-muted-foreground text-center">
-                      Đang tải lên... {uploadProgress}%
-                    </p>
-                  </div>
+                {isUploadingImage && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    Uploading image...
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -951,6 +952,11 @@ export function InstructorCourseLandingPage() {
                   className="hidden"
                   onChange={handleVideoUpload}
                 />
+                {isUploadingVideo && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    Uploading video...
+                  </p>
+                )}
               </div>
 
               <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">

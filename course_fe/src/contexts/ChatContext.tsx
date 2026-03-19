@@ -218,7 +218,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     let cancelled = false
     ;(async () => {
       try {
-        const roomsResp = await getChatRooms(Number(userId))
+        const roomsResp = await getChatRooms()
         // Backend may return either an array of rooms or a paginated object { results: ChatRoom[] }
         const roomsList = Array.isArray(roomsResp) ? roomsResp : (roomsResp && (roomsResp as any).results) ? (roomsResp as any).results : []
         if (!cancelled) {

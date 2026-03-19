@@ -50,6 +50,7 @@ const KNOWN_DYNAMIC_PATTERNS = [
   '/instructor/:instructorId/profile',
   '/instructor/view/:instructorId',
   '/instructor/courses/:courseId',
+  '/instructor/course-landing/:courseId',
   '/instructor/lessons/:courseId',
   '/instructor/lessons/:lessonId/edit',
   '/admin/users/:userId/edit',

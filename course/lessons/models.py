@@ -6,6 +6,7 @@ class Lesson(models.Model):
         VIDEO = 'video'
         TEXT = 'text'
         QUIZ = 'quiz'
+        CODE = 'code'
         ASSIGNMENT = 'assignment'
         FILE = 'file'
         LINK = 'link'
@@ -22,6 +23,7 @@ class Lesson(models.Model):
     content_type = models.CharField(max_length=20, choices=ContentType.choices)
     content = models.TextField(blank=True, null=True)
     video_url = models.CharField(max_length=255, blank=True, null=True)
+    video_public_id = models.CharField(max_length=500, blank=True, null=True)
     file_path = models.CharField(max_length=255, blank=True, null=True)
     duration = models.IntegerField(blank=True, null=True)
     is_free = models.BooleanField(default=False)

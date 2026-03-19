@@ -9,18 +9,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
 import { HelpCircle, MessageCircle, Phone, Mail, Search, Send, Clock, CheckCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   getSupportTickets,
   createSupportTicket,
   type SupportTicket,
 } from '../../services/support.api'
+import { UserPagination } from "../../components/UserPagination"
 
 export function SupportPage() {
   const { t } = useTranslation()
+  const { user } = useAuth()
   const [selectedTab, setSelectedTab] = useState("help")
   const [searchQuery, setSearchQuery] = useState("")
   const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [ticketSearch, setTicketSearch] = useState("")
+  const [ticketStatus, setTicketStatus] = useState<"all" | "open" | "in_progress" | "resolved">("all")
+  const [ticketPriority, setTicketPriority] = useState<"all" | "low" | "medium" | "high" | "urgent">("all")
+  const [ticketPage, setTicketPage] = useState(1)
+  const [ticketPageSize, setTicketPageSize] = useState(5)
+  const [ticketTotalPages, setTicketTotalPages] = useState(1)
+  const [ticketTotalCount, setTicketTotalCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [ticketForm, setTicketForm] = useState({
     subject: '',
@@ -31,14 +41,27 @@ export function SupportPage() {
 
   const fetchTickets = async () => {
     try {
-      const data = await getSupportTickets()
-      setTickets(Array.isArray(data) ? data : (data as any).results || [])
+      const data = await getSupportTickets({
+        user_id: user?.id ? Number(user.id) : undefined,
+        page: ticketPage,
+        page_size: ticketPageSize,
+        status: ticketStatus !== 'all' ? ticketStatus : undefined,
+        priority: ticketPriority !== 'all' ? ticketPriority : undefined,
+        search: ticketSearch || undefined,
+        sort_by: 'newest',
+      })
+      setTickets(data.results || [])
+      setTicketTotalPages(data.total_pages || 1)
+      setTicketTotalCount(data.count || 0)
     } catch {
       // Not logged in or no tickets
+      setTickets([])
+      setTicketTotalPages(1)
+      setTicketTotalCount(0)
     }
   }
 
-  useEffect(() => { fetchTickets() }, [])
+  useEffect(() => { fetchTickets() }, [user?.id, ticketPage, ticketPageSize, ticketSearch, ticketStatus, ticketPriority])
 
   const faqData = [
     {
@@ -67,7 +90,11 @@ export function SupportPage() {
     }
   ]
 
-  const supportTickets = tickets
+  const filteredTickets = tickets
+
+  useEffect(() => {
+    setTicketPage(1)
+  }, [ticketSearch, ticketStatus, ticketPriority, ticketPageSize])
 
   const filteredFAQ = faqData.filter(faq =>
     faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -231,8 +258,59 @@ export function SupportPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <Card className="mb-4">
+                  <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                    <Input
+                      className="h-9"
+                      placeholder="Search tickets"
+                      value={ticketSearch}
+                      onChange={(e) => setTicketSearch(e.target.value)}
+                    />
+                    <select
+                      className="h-9 rounded-md border px-3 text-sm"
+                      value={ticketStatus}
+                      onChange={(e) => setTicketStatus(e.target.value as "all" | "open" | "in_progress" | "resolved")}
+                    >
+                      <option value="all">All status</option>
+                      <option value="open">Open</option>
+                      <option value="in_progress">In progress</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                    <select
+                      className="h-9 rounded-md border px-3 text-sm"
+                      value={ticketPriority}
+                      onChange={(e) => setTicketPriority(e.target.value as "all" | "low" | "medium" | "high" | "urgent")}
+                    >
+                      <option value="all">All priority</option>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                    <select
+                      className="h-9 rounded-md border px-3 text-sm"
+                      value={String(ticketPageSize)}
+                      onChange={(e) => setTicketPageSize(Number(e.target.value))}
+                    >
+                      <option value="5">5 / page</option>
+                      <option value="10">10 / page</option>
+                      <option value="20">20 / page</option>
+                    </select>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setTicketSearch("")
+                        setTicketStatus("all")
+                        setTicketPriority("all")
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  </CardContent>
+                </Card>
+
                 <div className="space-y-4">
-                  {supportTickets.map((ticket) => (
+                  {filteredTickets.map((ticket) => (
                     <Card key={ticket.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
@@ -263,7 +341,7 @@ export function SupportPage() {
                     </Card>
                   ))}
 
-                  {supportTickets.length === 0 && (
+                  {filteredTickets.length === 0 && (
                     <div className="text-center py-8">
                       <MessageCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                       <h3 className="mb-2">{t('support.no_tickets')}</h3>
@@ -273,6 +351,15 @@ export function SupportPage() {
                     </div>
                   )}
                 </div>
+
+                {filteredTickets.length > 0 && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Page {ticketPage}/{ticketTotalPages} - Total {ticketTotalCount} tickets
+                    </p>
+                    <UserPagination currentPage={ticketPage} totalPages={ticketTotalPages} onPageChange={setTicketPage} />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

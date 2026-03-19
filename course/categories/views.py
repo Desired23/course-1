@@ -5,7 +5,8 @@ from .services import (
     get_categories,
     get_category_by_id,
     get_active_categories,
-    get_subcategories
+    get_subcategories,
+    get_top_categories,
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -73,6 +74,19 @@ class SubcategoryListView(APIView):
             return paginate_queryset(subcategories, request, CategoriesSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TopCategoryListView(APIView):
+    throttle_scope = 'search'
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get('limit', 6))
+        except (TypeError, ValueError):
+            limit = 6
+        limit = min(max(limit, 1), 20)
+        categories = get_top_categories(limit=limit)
+        return Response(CategoriesSerializer(categories, many=True).data, status=status.HTTP_200_OK)
 
 
 

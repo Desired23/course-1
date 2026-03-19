@@ -18,12 +18,35 @@ import { http } from './http'
 export interface LessonAttachment {
   id: number
   lesson: number | null
+  lesson_title?: string | null
+  course_id?: number | null
+  course_title?: string | null
   title: string | null
   file_path: string
   file_type: string | null
   file_size: number | null
   download_count: number
   created_at: string
+}
+
+export interface PaginatedAttachments {
+  count: number
+  next: string | null
+  previous: string | null
+  page?: number
+  total_pages?: number
+  page_size?: number
+  results: LessonAttachment[]
+}
+
+export interface AttachmentListParams {
+  instructor_id?: number
+  course_id?: number
+  file_type?: string
+  search?: string
+  sort_by?: 'newest' | 'downloads' | 'title'
+  page?: number
+  page_size?: number
 }
 
 export interface AttachmentCreateData {
@@ -44,13 +67,48 @@ export interface AttachmentUpdateData {
 // ─── API Functions ────────────────────────────────────────────
 
 /** List all attachments */
-export async function getAttachments(): Promise<LessonAttachment[]> {
-  return http.get<LessonAttachment[]>('/attachments/')
+export async function getAttachmentsPage(params?: AttachmentListParams): Promise<PaginatedAttachments> {
+  const query: Record<string, string | number> = {}
+  if (params?.instructor_id) query.instructor_id = params.instructor_id
+  if (params?.course_id) query.course_id = params.course_id
+  if (params?.file_type) query.file_type = params.file_type
+  if (params?.search) query.search = params.search
+  if (params?.sort_by) query.sort_by = params.sort_by
+  if (params?.page) query.page = params.page
+  if (params?.page_size) query.page_size = params.page_size
+  return http.get<PaginatedAttachments>('/attachments/', query)
 }
 
-/** Get attachments for a specific lesson */
+/** List all attachments (auto-paginate) */
+export async function getAttachments(params?: Omit<AttachmentListParams, 'page' | 'page_size'>): Promise<LessonAttachment[]> {
+  const all: LessonAttachment[] = []
+  let page = 1
+  while (true) {
+    const res = await getAttachmentsPage({ ...(params || {}), page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
+}
+
+/** Get attachments for a specific lesson (auto-paginate) */
 export async function getAttachmentsByLesson(lessonId: number): Promise<LessonAttachment[]> {
-  return http.get<LessonAttachment[]>(`/attachments/lesson/${lessonId}/`)
+  const all: LessonAttachment[] = []
+  let page = 1
+  while (true) {
+    const res = await http.get<PaginatedAttachments | LessonAttachment[]>(
+      `/attachments/lesson/${lessonId}/?page=${page}&page_size=100`
+    )
+    if (Array.isArray(res)) {
+      all.push(...res)
+      break
+    }
+    all.push(...(res.results || []))
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /** Get single attachment */

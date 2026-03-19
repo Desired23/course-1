@@ -4,7 +4,8 @@ from .views import (
     CategoryDetailView,
     CategoryManagementView,
     ActiveCategoryListView,
-    SubcategoryListView
+    SubcategoryListView,
+    TopCategoryListView
 )
 
 urlpatterns =[
@@ -14,5 +15,6 @@ urlpatterns =[
     path('categories/<int:category_id>/update', CategoryManagementView.as_view(), name='category-update-admin'),
     path('categories/<int:category_id>', CategoryDetailView.as_view(), name='category-detail'),
     path('categories/active', ActiveCategoryListView.as_view(), name='active-category-list'),
+    path('categories/top', TopCategoryListView.as_view(), name='top-category-list'),
     path('categories/<int:category_id>/subcategories', SubcategoryListView.as_view(), name='subcategory-list'),
 ]

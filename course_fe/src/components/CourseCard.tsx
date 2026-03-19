@@ -11,7 +11,7 @@ import { useAuthAction } from "../hooks/useAuthAction"
 import { useAuth } from "../contexts/AuthContext"
 import { Progress } from "./ui/progress"
 import { DiscountCountdown } from "./DiscountCountdown"
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 
 interface CourseCardProps {
   title: string

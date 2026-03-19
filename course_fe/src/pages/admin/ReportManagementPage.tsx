@@ -69,8 +69,8 @@ export function ReportManagementPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const tickets = await getSupportTickets()
-        const mapped: Report[] = tickets.map(t => ({
+        const tickets = await getSupportTickets({ page: 1, page_size: 200 })
+        const mapped: Report[] = (tickets.results || []).map(t => ({
           id: String(t.id),
           reporter_id: String(t.user || 0),
           reporter_name: t.name || 'Unknown',

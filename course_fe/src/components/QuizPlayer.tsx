@@ -19,7 +19,7 @@ import {
   Trash2,
   HelpCircle
 } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { CodeQuizPlayer, type CodeQuestion } from './CodeQuizPlayer'
 import { useQuizStore } from '../stores/quiz.store'
 

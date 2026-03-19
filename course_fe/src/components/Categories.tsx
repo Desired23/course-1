@@ -2,17 +2,16 @@ import { Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen, Loader2
 import { Button } from "./ui/button"
 import { Card, CardContent } from "./ui/card"
 import { useRouter } from "./Router"
-import { getActiveCategories, type Category } from "../services/category.api"
+import { getTopCategories, type Category } from "../services/category.api"
 import { useState, useEffect } from "react"
 
-// Default icon/color mapping by category name
-const CATEGORY_STYLE: Record<string, { icon: string; color: string }> = {
-  Development: { icon: 'Code', color: 'bg-blue-100 text-blue-600' },
-  Business: { icon: 'Briefcase', color: 'bg-green-100 text-green-600' },
-  Design: { icon: 'Palette', color: 'bg-purple-100 text-purple-600' },
-  Marketing: { icon: 'Megaphone', color: 'bg-orange-100 text-orange-600' },
-  'IT & Software': { icon: 'Database', color: 'bg-red-100 text-red-600' },
-  Music: { icon: 'Music', color: 'bg-pink-100 text-pink-600' },
+const CATEGORY_COLOR: Record<string, string> = {
+  Development: 'bg-blue-100 text-blue-600',
+  Business: 'bg-green-100 text-green-600',
+  Design: 'bg-purple-100 text-purple-600',
+  Marketing: 'bg-orange-100 text-orange-600',
+  'IT & Software': 'bg-red-100 text-red-600',
+  Music: 'bg-pink-100 text-pink-600',
 }
 
 export function Categories() {
@@ -22,16 +21,15 @@ export function Categories() {
 
   useEffect(() => {
     let cancelled = false
-    getActiveCategories({ page_size: 20 })
+    getTopCategories(6)
       .then(res => {
         if (!cancelled) {
-          const topLevel = res.results
-            .filter(c => !c.parent_category)
-            .map(c => {
-              const style = CATEGORY_STYLE[c.name] || { icon: 'BookOpen', color: 'bg-gray-100 text-gray-600' }
-              return { ...c, icon: style.icon, color: style.color }
-            })
-          setCategories(topLevel)
+          const topLevel = res.map(c => ({
+            ...c,
+            icon: c.icon || 'BookOpen',
+            color: CATEGORY_COLOR[c.name] || 'bg-gray-100 text-gray-600',
+          }))
+          setCategories(topLevel.slice(0, 6))
           setLoading(false)
         }
       })

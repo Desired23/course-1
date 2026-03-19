@@ -7,24 +7,32 @@ from enrollments.models import Enrollment
 from django.db.models import F
 
 def create_review(data):
+    # validate/normalize user field
+    user_id = data.get('user_id') or data.get('user')
+    if user_id is None:
+        raise ValidationError({"user": "Người dùng không được cung cấp."})
     try:
-        # Kiểm tra xem người dùng có tồn tại không
-        user = User.objects.get(id=data['user_id'])
+        user = User.objects.get(id=user_id)
     except User.DoesNotExist:
-        raise ValidationError({"user_id": "Người dùng không tồn tại."})
+        raise ValidationError({"user": "Người dùng không tồn tại."})
+    # ensure serializer will receive 'user' field (it reads FK named user)
+    data['user'] = user.id
 
     # Kiểm tra xem khóa học có tồn tại không
+    # frontend gửi field `course` (PK) whereas some internal calls might use `course_id`
+    course_id = data.get('course') or data.get('course_id')
+    if course_id is None:
+        raise ValidationError({"course": "Khóa học không được cung cấp."})
     try:
-        course = Course.objects.get(id=data['course_id'])
+        course = Course.objects.get(id=course_id)
     except Course.DoesNotExist:
-        raise ValidationError({"course_id": "Khóa học không tồn tại."})
-
+        raise ValidationError({"course": "Khóa học không tồn tại."})
     # Kiểm tra xem người dùng đã đăng ký khóa học chưa
     if not Enrollment.objects.filter(user=user, course=course).exists():
         raise ValidationError({"error": "Người dùng chưa đăng ký khóa học này."})
     serializer = ReviewSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
-        Course.objects.filter(id=data['course_id']).update(total_reviews=F('total_reviews') + 1)
+        Course.objects.filter(id=course_id).update(total_reviews=F('total_reviews') + 1)
         review = serializer.save()
         return review
     raise ValidationError(serializer.errors)

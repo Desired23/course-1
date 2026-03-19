@@ -4,6 +4,8 @@ from instructors.models import Instructor
 from categories.models import Category
 from instructors.serializers import InstructorSerializers  # giả sử đã có sẵn
 
+from lessons.video_signing import build_signed_video_url
+
 class CourseSerializer(serializers.ModelSerializer):
     instructor_name = serializers.SerializerMethodField()
     instructor_avatar = serializers.SerializerMethodField()
@@ -101,6 +103,10 @@ class LessonSummarySerializer(serializers.Serializer):
     lesson_id = serializers.IntegerField(source='id')
     title = serializers.CharField()
     content_type = serializers.CharField()
+    video_url = serializers.CharField(allow_null=True)
+    video_public_id = serializers.CharField(allow_null=True)
+    signed_video_url = serializers.SerializerMethodField()
+    signed_video_expires_at = serializers.SerializerMethodField()
     duration = serializers.IntegerField(allow_null=True)
     is_free = serializers.BooleanField()
     order = serializers.IntegerField()
@@ -112,6 +118,23 @@ class LessonSummarySerializer(serializers.Serializer):
 
     def get_quiz_count(self, obj):
         return obj.quiz_question_lesson.filter(is_deleted=False).count()
+
+    def _get_signed_tuple(self, obj):
+        cache = self.context.setdefault('_signed_video_cache', {})
+        if obj.id not in cache:
+            cache[obj.id] = build_signed_video_url(
+                raw_video_url=obj.video_url,
+                explicit_public_id=obj.video_public_id,
+            )
+        return cache[obj.id]
+
+    def get_signed_video_url(self, obj):
+        signed, _ = self._get_signed_tuple(obj)
+        return signed
+
+    def get_signed_video_expires_at(self, obj):
+        _, expires_at = self._get_signed_tuple(obj)
+        return expires_at
 
 
 class ModuleSummarySerializer(serializers.Serializer):
@@ -125,7 +148,7 @@ class ModuleSummarySerializer(serializers.Serializer):
 
     def get_lessons(self, obj):
         lessons = obj.lessons.filter(is_deleted=False).order_by('order')
-        return LessonSummarySerializer(lessons, many=True).data
+        return LessonSummarySerializer(lessons, many=True, context=self.context).data
 
 
 class UserEnrollmentSerializer(serializers.Serializer):

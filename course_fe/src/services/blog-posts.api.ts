@@ -193,8 +193,15 @@ export async function getBlogComments(
 
 /** Get all comments for a blog post. */
 export async function getAllBlogComments(postId: number): Promise<BlogComment[]> {
-  const res = await getBlogComments({ post_id: postId, page_size: 1000 })
-  return res.results
+  const all: BlogComment[] = []
+  let page = 1
+  while (true) {
+    const res = await getBlogComments({ post_id: postId, page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /** Create a blog comment. */

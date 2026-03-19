@@ -22,6 +22,8 @@ from .serializers import (
 from courses.models import Course
 from activity_logs.services import log_activity
 from enrollments.models import Enrollment
+from notifications.services import create_notification
+from users.preferences import format_datetime_for_user
 
 
 def create_subscription_plan(data, admin_user=None):
@@ -37,6 +39,7 @@ def create_subscription_plan(data, admin_user=None):
             'is_featured': data.get('is_featured', False),
             'max_subscribers': data.get('max_subscribers'),
             'instructor_share_percent': data.get('instructor_share_percent', 60),
+            'yearly_discount_percent': data.get('yearly_discount_percent', 0),
             'thumbnail': data.get('thumbnail'),
         }
         if admin_user:
@@ -535,14 +538,13 @@ def track_subscription_usage(user, course_id, usage_type='course_access', consum
 
 def _create_notification(receiver, title, message, notification_code, related_id=None):
     """Helper: tạo Notification cho user."""
-    from notifications.models import Notification
-    Notification.objects.create(
-        receiver=receiver,
+    create_notification(
+        receiver_id=receiver.id,
         title=title,
         message=message,
-        type=Notification.TypeChoise.PAYMENT,
-        notification_code=notification_code,
+        type='payment',
         related_id=related_id,
+        notification_code=notification_code,
     )
 
 
@@ -574,7 +576,7 @@ def send_subscription_expiry_notifications():
             title=f"Gói {sub.plan.name} sắp hết hạn",
             message=(
                 f"Gói đăng ký '{sub.plan.name}' của bạn sẽ hết hạn vào "
-                f"{sub.end_date.strftime('%d/%m/%Y %H:%M')}. "
+                f"{format_datetime_for_user(sub.user_id, sub.end_date)}. "
                 f"Hãy gia hạn để tiếp tục truy cập các khóa học trong gói."
             ),
             notification_code='subscription_expiry_7d',
@@ -601,7 +603,7 @@ def send_subscription_expiry_notifications():
             title=f"Gói {sub.plan.name} còn 3 ngày nữa hết hạn",
             message=(
                 f"Chỉ còn 3 ngày! Gói '{sub.plan.name}' của bạn sẽ hết hạn vào "
-                f"{sub.end_date.strftime('%d/%m/%Y %H:%M')}. "
+                f"{format_datetime_for_user(sub.user_id, sub.end_date)}. "
                 f"Sau khi hết hạn, bạn sẽ không còn truy cập được các khóa học trong gói."
             ),
             notification_code='subscription_expiry_3d',

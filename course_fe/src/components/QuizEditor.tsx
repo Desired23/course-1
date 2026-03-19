@@ -8,7 +8,7 @@ import { Badge } from "./ui/badge"
 import { Label } from "./ui/label"
 import { Switch } from "./ui/switch"
 import { Plus, Trash2, GripVertical, Code, Image as ImageIcon, X } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { useDrag, useDrop } from 'react-dnd'
 
 interface QuizQuestion {

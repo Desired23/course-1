@@ -1,6 +1,10 @@
 from rest_framework import serializers
 from .models import QuizQuestion, QuizTestCase
 from lessons.models import Lesson
+from utils.input_validators import (
+    MAX_ACTUAL_OUTPUT_LENGTH,
+    MAX_CODE_ANSWER_LENGTH,
+)
 
 class QuizTestCaseSerializer(serializers.ModelSerializer):
     """Serializer for quiz test cases (code questions)"""
@@ -174,6 +178,24 @@ class QuizAnswerSerializer(serializers.Serializer):
     text_answer = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     code_answer = serializers.CharField(required=False, allow_null=True, allow_blank=True, help_text="Code submission for code-type questions")
     actual_output = serializers.CharField(required=False, allow_null=True, allow_blank=True, help_text="Actual output from RapidAPI code execution")
+
+    def validate_code_answer(self, value):
+        if value is None:
+            return value
+        if len(value) > MAX_CODE_ANSWER_LENGTH:
+            raise serializers.ValidationError(
+                f"Code answer vượt quá {MAX_CODE_ANSWER_LENGTH} ký tự."
+            )
+        return value
+
+    def validate_actual_output(self, value):
+        if value is None:
+            return value
+        if len(value) > MAX_ACTUAL_OUTPUT_LENGTH:
+            raise serializers.ValidationError(
+                f"Actual output vượt quá {MAX_ACTUAL_OUTPUT_LENGTH} ký tự."
+            )
+        return value
 
 
 class QuizSubmitSerializer(serializers.Serializer):

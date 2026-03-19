@@ -6,6 +6,7 @@ import { Textarea } from './ui/textarea'
 import { Avatar } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { Card, CardContent } from './ui/card'
+import { SafeCommentContent } from './SafeCommentContent'
 import { 
   ThumbsUp, 
   ThumbsDown, 
@@ -472,7 +473,13 @@ export function EnhancedCommentSystem({
             </div>
           ) : (
             <>
-              <p className="mb-3 whitespace-pre-wrap">{comment.content}</p>
+              <div className="mb-3">
+                <SafeCommentContent
+                  content={comment.content}
+                  textClassName="whitespace-pre-wrap"
+                  codeClassName="text-xs font-mono"
+                />
+              </div>
               
               {comment.moderationNote && (
                 <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border-l-4 border-yellow-400 mb-3">

@@ -26,7 +26,7 @@ import {
   CheckCircle2
 } from 'lucide-react'
 import { cn } from './ui/utils'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { BasicTab } from './BasicTab'
 import { ContentTab } from './ContentTab'
 import { ResourcesTab } from './ResourcesTab'

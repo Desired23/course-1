@@ -3,89 +3,59 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Badge } from '../../components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell } from 'recharts'
+import { Input } from '../../components/ui/input'
+import { UserPagination } from '../../components/UserPagination'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts'
 import { 
-  PlayCircle, 
-  DollarSign, 
-  TrendingUp, 
-  Users, 
-  Clock, 
   HelpCircle,
-  AlertCircle,
   Download,
   Info,
   Crown
 } from 'lucide-react'
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip"
-import { toast } from 'sonner'
-import { getInstructorEarningsSummary, getAllInstructorEarnings, parseEarningAmount, type InstructorEarning, type EarningsSummary } from '../../services/instructor-earnings.api'
+import { getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount } from '../../services/instructor-earnings.api'
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from '../../services/instructor.api'
-import { formatCurrency } from '../../utils/formatters'
 
 export function InstructorSubscriptionRevenuePage() {
   const [period, setPeriod] = useState('7d')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<'earnings_desc' | 'earnings_asc' | 'share_desc' | 'share_asc' | 'course_asc' | 'course_desc'>('earnings_desc')
+  const [currentPage, setCurrentPage] = useState(1)
   const [courseBreakdown, setCourseBreakdown] = useState<any[]>([])
   const [totalEarnings, setTotalEarnings] = useState(0)
   const [totalMinutes, setTotalMinutes] = useState(0)
   const [performanceData, setPerformanceData] = useState<any[]>([])
   const [qualifyingStudents, setQualifyingStudents] = useState(0)
-  const [TOTAL_SYSTEM_MINUTES, setTotalSystemMinutes] = useState(5000000)
-  const [INSTRUCTOR_POOL_SIZE, setInstructorPoolSize] = useState(150000)
+  const [listLoading, setListLoading] = useState(false)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const TOTAL_SYSTEM_MINUTES = 5000000
+  const ITEMS_PER_PAGE = 8
 
   useEffect(() => {
-    async function fetchData() {
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchInput.trim())
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
+  useEffect(() => {
+    async function fetchOverviewData() {
       try {
         const monthsMap: Record<string, number> = { '7d': 1, '30d': 3, '90d': 6 }
         const months = monthsMap[period] || 3
 
-        const [summary, allEarnings, dashStats, timeseries] = await Promise.all([
+        const [summary, dashStats, timeseries] = await Promise.all([
           getInstructorEarningsSummary(),
-          getAllInstructorEarnings({ source: 'subscription' }),
           getInstructorDashboardStats(),
           getInstructorAnalyticsTimeseries(months),
         ])
 
-        // Aggregate subscription earnings by course
-        const byCourse = new Map<string, { id: number; title: string; earnings: number; students: number }>()
-        for (const e of allEarnings) {
-          const key = e.course_title || 'Unknown'
-          const existing = byCourse.get(key)
-          const amt = parseEarningAmount(e.net_amount)
-          if (existing) {
-            existing.earnings += amt
-          } else {
-            byCourse.set(key, { id: e.course ?? 0, title: key, earnings: amt, students: 0 })
-          }
-        }
-
-        // Enrich with student counts from dashboard stats
-        const courseMap = new Map(dashStats.course_stats.map(c => [c.course_id, c]))
-        const breakdown = Array.from(byCourse.values()).map((c) => {
-          const cStats = courseMap.get(c.id)
-          const students = cStats?.total_students ?? 0
-          return {
-            id: c.id,
-            title: c.title,
-            totalMinutes: Math.round(c.earnings * 100), // Approximation
-            share: '0.0000',
-            earnings: c.earnings,
-            students,
-            engagementType: 'Video + Quizzes',
-          }
-        })
-
-        const tEarnings = breakdown.reduce((acc, curr) => acc + curr.earnings, 0)
-        const tMinutes = breakdown.reduce((acc, curr) => acc + curr.totalMinutes, 0)
-        // Calculate shares
-        breakdown.forEach(c => {
-          c.share = tMinutes > 0 ? ((c.totalMinutes / (tMinutes * 100)) * 100).toFixed(4) : '0.0000'
-        })
-
-        setCourseBreakdown(breakdown)
-        setTotalEarnings(tEarnings)
-        setTotalMinutes(tMinutes)
+        const subscriptionTotal = parseEarningAmount(summary.subscription.total_net_amount)
+        setTotalEarnings(subscriptionTotal)
+        setTotalMinutes(Math.round(subscriptionTotal * 100))
         setQualifyingStudents(dashStats.total_students)
 
         // Map timeseries to performance chart data
@@ -99,11 +69,56 @@ export function InstructorSubscriptionRevenuePage() {
         })
         setPerformanceData(perfData)
       } catch (err) {
-        console.error('Failed to fetch subscription revenue data:', err)
+        console.error('Failed to fetch subscription revenue overview:', err)
       }
     }
-    fetchData()
+    fetchOverviewData()
   }, [period])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, sortBy])
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchBreakdownPage() {
+      try {
+        setListLoading(true)
+        const response = await getInstructorSubscriptionRevenueBreakdown({
+          search: searchQuery || undefined,
+          sort_by: sortBy,
+          page: currentPage,
+          page_size: ITEMS_PER_PAGE,
+        })
+
+        if (cancelled) return
+        const mappedRows = (response.results || []).map((row) => {
+          const earnings = parseEarningAmount(row.earnings)
+          return {
+            id: row.course_id,
+            title: row.course_title || 'Unknown',
+            totalMinutes: row.total_minutes ?? Math.round(earnings * 100),
+            share: row.share_pct || '0.0000',
+            earnings,
+            engagementType: 'Video + Quizzes',
+          }
+        })
+
+        setCourseBreakdown(mappedRows)
+        setTotalCount(response.count || 0)
+        setTotalPages(response.total_pages || 1)
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch subscription revenue list:', err)
+      } finally {
+        if (!cancelled) setListLoading(false)
+      }
+    }
+
+    fetchBreakdownPage()
+    return () => {
+      cancelled = true
+    }
+  }, [currentPage, searchQuery, sortBy])
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -175,7 +190,7 @@ export function InstructorSubscriptionRevenuePage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Est. Earnings (This Period)</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Subscription Earnings</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center text-green-600">
@@ -306,6 +321,27 @@ export function InstructorSubscriptionRevenuePage() {
           <CardDescription>Breakdown by course including Coding Exercises & Quizzes</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <Input
+              className="md:col-span-2"
+              placeholder="Search by course name..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'earnings_desc' | 'earnings_asc' | 'share_desc' | 'share_asc' | 'course_asc' | 'course_desc')}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="earnings_desc">Highest Revenue</SelectItem>
+                <SelectItem value="earnings_asc">Lowest Revenue</SelectItem>
+                <SelectItem value="share_desc">Highest Share %</SelectItem>
+                <SelectItem value="share_asc">Lowest Share %</SelectItem>
+                <SelectItem value="course_asc">Course Name A-Z</SelectItem>
+                <SelectItem value="course_desc">Course Name Z-A</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -317,6 +353,13 @@ export function InstructorSubscriptionRevenuePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {!listLoading && courseBreakdown.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                    No data found.
+                  </TableCell>
+                </TableRow>
+              )}
               {courseBreakdown.map((course) => (
                 <TableRow key={course.id}>
                   <TableCell className="font-medium">{course.title}</TableCell>
@@ -334,6 +377,21 @@ export function InstructorSubscriptionRevenuePage() {
               ))}
             </TableBody>
           </Table>
+          {listLoading && (
+            <div className="mt-4 text-sm text-muted-foreground">Loading data...</div>
+          )}
+          {totalCount > 0 && (
+            <div className="mt-4">
+              <div className="text-sm text-muted-foreground mb-2">
+                Showing page {currentPage} of {totalPages} ({totalCount} total records)
+              </div>
+              <UserPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

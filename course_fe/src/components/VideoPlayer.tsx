@@ -21,15 +21,25 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 interface VideoPlayerProps {
   url?: string
   title: string
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: VideoProgressPayload) => void
   onComplete?: () => void
   savedProgress?: number
   lessonId?: number
+  completionThresholdPercent?: number
+  restrictForwardSeeking?: boolean
+  seekToleranceSeconds?: number
+}
+
+export interface VideoProgressPayload {
+  percentage: number
+  currentTime: number
+  duration: number
+  maxWatchedTime: number
 }
 
 // YouTube IFrame API types
@@ -46,7 +56,10 @@ export function VideoPlayer({
   onProgress,
   onComplete,
   savedProgress = 0,
-  lessonId
+  lessonId,
+  completionThresholdPercent = 85,
+  restrictForwardSeeking = true,
+  seekToleranceSeconds = 2
 }: VideoPlayerProps) {
   const playerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -66,6 +79,9 @@ export function VideoPlayer({
   const [playerReady, setPlayerReady] = useState(false)
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout>()
+  const maxWatchedTimeRef = useRef(0)
+  const completionTriggeredRef = useRef(false)
+  const lastBlockedToastAtRef = useRef(0)
 
   // Extract YouTube video ID from URL
   const getYouTubeVideoId = (url: string): string | null => {
@@ -93,6 +109,7 @@ export function VideoPlayer({
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current)
       }
+      completionTriggeredRef.current = false
     }
   }, [])
 
@@ -127,8 +144,20 @@ export function VideoPlayer({
         events: {
           onReady: (event: any) => {
             setPlayerReady(true)
-            setDuration(event.target.getDuration())
+            const playerDuration = event.target.getDuration()
+            setDuration(playerDuration)
             event.target.setVolume(volume)
+            completionTriggeredRef.current = false
+
+            const initialWatched = Math.max(
+              0,
+              Math.min(playerDuration, (savedProgress / 100) * playerDuration)
+            )
+            setPlayed(playerDuration > 0 ? initialWatched / playerDuration : 0)
+            maxWatchedTimeRef.current = initialWatched
+            if (initialWatched > 0) {
+              event.target.seekTo(initialWatched, true)
+            }
             
             // Start progress tracking
             progressIntervalRef.current = setInterval(() => {
@@ -136,16 +165,41 @@ export function VideoPlayer({
                 try {
                   const currentTime = playerRef.current.getCurrentTime()
                   const duration = playerRef.current.getDuration()
+                  if (!duration || duration <= 0) return
+
+                  const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
+                  if (restrictForwardSeeking && currentTime > maxAllowedTime + 0.5) {
+                    playerRef.current.seekTo(maxWatchedTimeRef.current, true)
+                    const now = Date.now()
+                    if (now - lastBlockedToastAtRef.current > 3000) {
+                      toast.warning('Bạn chưa thể tua tới đoạn chưa xem')
+                      lastBlockedToastAtRef.current = now
+                    }
+                    return
+                  }
+
+                  const updatedMaxWatched = Math.max(maxWatchedTimeRef.current, currentTime)
+                  if (updatedMaxWatched !== maxWatchedTimeRef.current) {
+                    maxWatchedTimeRef.current = updatedMaxWatched
+                  }
+
                   const playedFraction = currentTime / duration
+                  const watchedPercent = (updatedMaxWatched / duration) * 100
                   
                   setPlayed(playedFraction)
                   
                   if (onProgress) {
-                    onProgress(playedFraction * 100)
+                    onProgress({
+                      percentage: Math.min(watchedPercent, 100),
+                      currentTime,
+                      duration,
+                      maxWatchedTime: updatedMaxWatched,
+                    })
                   }
                   
-                  // Auto-complete when video is 95% watched
-                  if (playedFraction > 0.95 && onComplete) {
+                  // Auto-complete only once when reaching completion threshold
+                  if (!completionTriggeredRef.current && watchedPercent >= completionThresholdPercent && onComplete) {
+                    completionTriggeredRef.current = true
                     onComplete()
                   }
                 } catch (err) {
@@ -161,7 +215,10 @@ export function VideoPlayer({
               setPlaying(false)
             } else if (event.data === window.YT.PlayerState.ENDED) {
               setPlaying(false)
-              if (onComplete) onComplete()
+              if (!completionTriggeredRef.current && onComplete) {
+                completionTriggeredRef.current = true
+                onComplete()
+              }
             }
           }
         }
@@ -305,8 +362,15 @@ export function VideoPlayer({
     
     try {
       const seekTime = (value[0] / 100) * duration
-      playerRef.current.seekTo(seekTime, true)
-      setPlayed(value[0] / 100)
+      const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
+      const safeSeekTime = restrictForwardSeeking ? Math.min(seekTime, maxAllowedTime) : seekTime
+
+      if (safeSeekTime + 0.5 < seekTime) {
+        toast.warning('Bạn chỉ có thể tua trong phạm vi đã xem')
+      }
+
+      playerRef.current.seekTo(safeSeekTime, true)
+      setPlayed(duration > 0 ? safeSeekTime / duration : 0)
     } catch (err) {
       console.log('Seek not available yet')
     }
@@ -317,7 +381,12 @@ export function VideoPlayer({
     
     try {
       const currentTime = playerRef.current.getCurrentTime()
-      const newTime = Math.min(duration, currentTime + 10)
+      const desiredTime = Math.min(duration, currentTime + 10)
+      const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
+      const newTime = restrictForwardSeeking ? Math.min(desiredTime, maxAllowedTime) : desiredTime
+      if (newTime + 0.5 < desiredTime) {
+        toast.warning('Không thể tua nhanh qua phần chưa xem')
+      }
       playerRef.current.seekTo(newTime, true)
     } catch (err) {
       console.log('Skip forward not available yet')
@@ -395,7 +464,12 @@ export function VideoPlayer({
     if (!playerRef.current || !playerReady) return
     
     try {
-      playerRef.current.seekTo(time, true)
+      const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
+      const safeTime = restrictForwardSeeking ? Math.min(time, maxAllowedTime) : time
+      if (safeTime + 0.5 < time) {
+        toast.warning('Bookmark nằm ở đoạn chưa mở')
+      }
+      playerRef.current.seekTo(safeTime, true)
     } catch (err) {
       console.log('Jump to bookmark not available yet')
     }

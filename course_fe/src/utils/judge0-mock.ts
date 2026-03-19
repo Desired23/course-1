@@ -3,6 +3,14 @@
 
 import type { SubmissionPayload, SubmissionResult, TestCase, TestResult } from './judge0'
 
+function normalizeText(value?: string | null): string {
+  return (value || '').replace(/\r\n/g, '\n').trim()
+}
+
+function compareOutputs(expected: string, actual?: string | null): boolean {
+  return normalizeText(expected) === normalizeText(actual)
+}
+
 // Simple code evaluator for testing (JavaScript only)
 function evaluateJavaScriptCode(code: string, input: string): { output: string; error: string | null } {
   try {
@@ -129,9 +137,7 @@ export async function mockRunTestCases(
       
       const result = await mockGetSubmissionResult('mock_token', payload)
       
-      const actualOutput = result.stdout?.trim() || ''
-      const expectedOutput = testCase.expectedOutput.trim()
-      const passed = actualOutput === expectedOutput && result.status.id === 3
+      const passed = compareOutputs(testCase.expectedOutput, result.stdout) && result.status.id === 3
       
       results.push({
         ...testCase,

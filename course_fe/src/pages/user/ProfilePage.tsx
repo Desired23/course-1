@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Camera, Mail, Phone, MapPin, Calendar, BookOpen, Users, Award, Settings, Edit2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Camera, Mail, Calendar, BookOpen, Users, Edit2, Loader2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -10,12 +10,15 @@ import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Separator } from "../../components/ui/separator"
 import { useAuth } from "../../contexts/AuthContext"
-import { toast } from "sonner@2.0.3"
+import { useRouter } from "../../components/Router"
+import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { getStudentStats, type StudentStats, getAllMyEnrollments, type Enrollment } from "../../services/enrollment.api"
 
 export function ProfilePage() {
   const { t } = useTranslation()
   const { user, updateProfile } = useAuth()
+  const { navigate } = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -29,6 +32,30 @@ export function ProfilePage() {
   })
 
   const [isSaving, setIsSaving] = useState(false)
+  const [stats, setStats] = useState<StudentStats | null>(null)
+  const [myEnrollments, setMyEnrollments] = useState<Enrollment[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+
+  useEffect(() => {
+    if (!user?.id) return
+    let cancelled = false
+    setLoadingData(true)
+
+    Promise.all([
+      getStudentStats().catch(() => null),
+      getAllMyEnrollments().catch(() => [] as Enrollment[])
+    ])
+      .then(([statsData, enrollmentsData]) => {
+        if (cancelled) return
+        setStats(statsData)
+        setMyEnrollments(enrollmentsData)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingData(false)
+      })
+
+    return () => { cancelled = true }
+  }, [user?.id])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -70,6 +97,14 @@ export function ProfilePage() {
     )
   }
 
+  if (loadingData) {
+    return (
+      <div className="p-8 overflow-y-auto min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="p-8 overflow-y-auto">
       <div className="max-w-5xl mx-auto">
@@ -88,6 +123,7 @@ export function ProfilePage() {
                   size="sm"
                   variant="outline"
                   className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0"
+                  onClick={() => navigate('/account-settings')}
                 >
                   <Camera className="w-4 h-4" />
                 </Button>
@@ -102,7 +138,7 @@ export function ProfilePage() {
                         <Mail className="w-4 h-4" />
                         <span>{user.email}</span>
                       </div>
-                      <Badge variant="secondary">{user.role}</Badge>
+                      <Badge variant="secondary">{user.roles?.[0] || 'user'}</Badge>
                     </div>
                     <p className="text-muted-foreground">
                       {user.bio || t('profile.no_bio')}
@@ -118,7 +154,7 @@ export function ProfilePage() {
                   </Button>
                 </div>
                 
-                {user.role === 'instructor' && (
+                {user.roles?.includes('instructor') && (
                   <div className="flex gap-6 text-sm">
                     <div className="flex items-center gap-1">
                       <BookOpen className="w-4 h-4" />
@@ -154,7 +190,7 @@ export function ProfilePage() {
                   <CardTitle className="text-base">{t('profile.learning_progress')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl mb-1">12</div>
+                  <div className="text-2xl mb-1">{stats?.courses_completed ?? 0}</div>
                   <p className="text-sm text-muted-foreground">{t('profile.courses_completed')}</p>
                 </CardContent>
               </Card>
@@ -164,7 +200,7 @@ export function ProfilePage() {
                   <CardTitle className="text-base">{t('common.certificate')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl mb-1">8</div>
+                  <div className="text-2xl mb-1">{stats?.certificates_earned ?? 0}</div>
                   <p className="text-sm text-muted-foreground">{t('profile.certificates_earned')}</p>
                 </CardContent>
               </Card>
@@ -174,7 +210,7 @@ export function ProfilePage() {
                   <CardTitle className="text-base">{t('profile.study_time')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl mb-1">147h</div>
+                  <div className="text-2xl mb-1">{Math.floor((stats?.total_time_spent ?? 0) / 3600)}h</div>
                   <p className="text-sm text-muted-foreground">{t('profile.total_learning_time')}</p>
                 </CardContent>
               </Card>
@@ -186,27 +222,23 @@ export function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">Completed "React Fundamentals" course</p>
-                      <p className="text-xs text-muted-foreground">2 days ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">Earned certificate in JavaScript Basics</p>
-                      <p className="text-xs text-muted-foreground">1 week ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">Started "Machine Learning A-Z" course</p>
-                      <p className="text-xs text-muted-foreground">2 weeks ago</p>
-                    </div>
-                  </div>
+                  {stats?.recent_activity?.length ? (
+                    stats.recent_activity.slice(0, 5).map((activity, idx) => (
+                      <div key={`${activity.lesson_title}-${idx}`} className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            Completed "{activity.lesson_title}" in {activity.course_title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(activity.completed_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No recent activity yet.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -308,9 +340,25 @@ export function ProfilePage() {
                 <CardTitle>{t('my_learning.title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {t('profile.no_courses')}
-                </p>
+                {myEnrollments.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    {t('profile.no_courses')}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {myEnrollments.slice(0, 8).map((enrollment) => (
+                      <div key={enrollment.enrollment_id} className="flex items-center justify-between border rounded-md p-3">
+                        <div>
+                          <p className="font-medium">{enrollment.course.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Enrolled: {new Date(enrollment.enrollment_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant="outline">{enrollment.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -326,7 +374,7 @@ export function ProfilePage() {
                     <h4 className="font-medium">{t('profile.email_notifications')}</h4>
                     <p className="text-sm text-muted-foreground">{t('profile.email_notifications_desc')}</p>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => navigate('/account-settings')}>
                     {t('profile.configure')}
                   </Button>
                 </div>
@@ -338,7 +386,7 @@ export function ProfilePage() {
                     <h4 className="font-medium">{t('profile.privacy_settings')}</h4>
                     <p className="text-sm text-muted-foreground">{t('profile.privacy_settings_desc')}</p>
                   </div>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => navigate('/account-settings')}>
                     {t('profile.manage')}
                   </Button>
                 </div>
@@ -350,7 +398,7 @@ export function ProfilePage() {
                     <h4 className="font-medium">{t('profile.delete_account')}</h4>
                     <p className="text-sm text-muted-foreground">{t('profile.delete_account_desc')}</p>
                   </div>
-                  <Button variant="destructive" size="sm">
+                  <Button variant="destructive" size="sm" onClick={() => navigate('/account-settings')}>
                     {t('common.delete')}
                   </Button>
                 </div>

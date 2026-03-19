@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
@@ -6,53 +6,105 @@ import { Badge } from "../../components/ui/badge"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Search, Eye, Edit, Trash2, Check, X, Clock, Users, Star, DollarSign, BookOpen } from 'lucide-react'
+import { Search, Eye, Edit, Trash2, Check, X, Clock, Users, Star, DollarSign, BookOpen, Loader2 } from 'lucide-react'
 import { useRouter } from "../../components/Router"
-import { toast } from 'sonner@2.0.3'
-import { getAllCourses, updateCourse, deleteCourse as deleteCourseApi, type CourseListItem } from '../../services/course.api'
+import { toast } from 'sonner'
+import { UserPagination } from '../../components/UserPagination'
+import { getCourses, updateCourse, deleteCourse as deleteCourseApi, type CourseListItem, parseDecimal } from '../../services/course.api'
+
+const ITEMS_PER_PAGE = 10
 
 export function AdminCoursesPage() {
   const { navigate } = useRouter()
   const { t } = useTranslation()
-  const [courses, setCourses] = useState<any[]>([])
+
+  const [courses, setCourses] = useState<CourseListItem[]>([])
+  const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [categoryFilter, setCategoryFilter] = useState('all')
   const [sortBy, setSortBy] = useState('recent')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [statusCounts, setStatusCounts] = useState({
+    all: 0,
+    published: 0,
+    pending: 0,
+    draft: 0,
+    rejected: 0,
+  })
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, debouncedSearch, sortBy])
+
+  const ordering = useMemo(() => {
+    switch (sortBy) {
+      case 'students': return '-total_students'
+      case 'rating': return '-rating'
+      default: return '-updated_at'
+    }
+  }, [sortBy])
+
+  async function loadStatusCounts() {
+    try {
+      const [allRes, publishedRes, pendingRes, draftRes, rejectedRes] = await Promise.all([
+        getCourses({ page: 1, page_size: 1 }),
+        getCourses({ page: 1, page_size: 1, status: 'published' }),
+        getCourses({ page: 1, page_size: 1, status: 'pending' }),
+        getCourses({ page: 1, page_size: 1, status: 'draft' }),
+        getCourses({ page: 1, page_size: 1, status: 'rejected' }),
+      ])
+      setStatusCounts({
+        all: allRes.count || 0,
+        published: publishedRes.count || 0,
+        pending: pendingRes.count || 0,
+        draft: draftRes.count || 0,
+        rejected: rejectedRes.count || 0,
+      })
+    } catch {
+      // counts are supplemental; ignore if BE does not support a status filter
+    }
+  }
+
+  useEffect(() => {
+    loadStatusCounts()
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     async function fetchCourses() {
       try {
-        const data = await getAllCourses()
-        setCourses(data.map((c: CourseListItem) => ({
-          id: c.id,
-          title: c.title,
-          instructor: c.instructor_name || 'Unknown',
-          thumbnail: c.thumbnail || '',
-          status: c.status,
-          price: parseFloat(String(c.price || 0)),
-          students: c.total_students || 0,
-          rating: parseFloat(String(c.rating || 0)),
-          reviews: c.total_reviews || 0,
-          category: c.category_name || 'Uncategorized',
-          level: c.level || 'all_levels',
-          createdAt: c.created_at?.split('T')[0] || '',
-          lastUpdated: c.updated_at?.split('T')[0] || '',
-        })))
+        setLoading(true)
+        const res = await getCourses({
+          page: currentPage,
+          page_size: ITEMS_PER_PAGE,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          search: debouncedSearch || undefined,
+          ordering,
+        })
+        if (cancelled) return
+        setCourses(res.results)
+        setTotalPages(res.total_pages || 1)
+        setTotalCount(res.count || 0)
       } catch (err) {
-        console.error('Failed to fetch courses:', err)
+        if (!cancelled) {
+          console.error('Failed to fetch courses:', err)
+          toast.error('Failed to load courses')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
     fetchCourses()
-  }, [])
-
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.instructor.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || course.status === statusFilter
-    const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter
-    return matchesSearch && matchesStatus && matchesCategory
-  })
+    return () => { cancelled = true }
+  }, [currentPage, statusFilter, debouncedSearch, ordering])
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -61,7 +113,7 @@ export function AdminCoursesPage() {
       draft: { variant: "outline" as const, text: t('admin_courses.status_draft'), icon: Edit },
       rejected: { variant: "destructive" as const, text: t('admin_courses.status_rejected'), icon: X }
     }
-    const config = variants[status as keyof typeof variants]
+    const config = variants[status as keyof typeof variants] || variants.draft
     const Icon = config.icon
     return (
       <Badge variant={config.variant} className="gap-1">
@@ -71,43 +123,61 @@ export function AdminCoursesPage() {
     )
   }
 
+  async function refetchCurrentPageAndCounts() {
+    setCurrentPage(1)
+    await loadStatusCounts()
+  }
+
+  const collectAdminStatusMeta = (targetStatusLabel: string) => {
+    const reason = window.prompt(`Reason for changing status to "${targetStatusLabel}" (optional):`, '') || ''
+    const sendNotification = window.confirm('Send notification to instructor?')
+    let notifyMessage = ''
+    if (sendNotification) {
+      notifyMessage = window.prompt('Notification message (leave blank to use default):', '') || ''
+    }
+    return {
+      status_reason: reason || undefined,
+      send_notification: sendNotification,
+      notify_message: notifyMessage || undefined,
+    }
+  }
+
   const handleApproveCourse = async (courseId: number) => {
     try {
-      await updateCourse(courseId, { status: 'published' })
-      setCourses(courses.map(c => 
-        c.id === courseId ? { ...c, status: 'published' } : c
-      ))
+      const meta = collectAdminStatusMeta('published')
+      await updateCourse(courseId, { status: 'published', ...meta })
       toast.success('Course approved')
-    } catch (err) { toast.error('Failed to approve course') }
+      await refetchCurrentPageAndCounts()
+    } catch {
+      toast.error('Failed to approve course')
+    }
   }
 
   const handleRejectCourse = async (courseId: number) => {
     try {
-      await updateCourse(courseId, { status: 'rejected' })
-      setCourses(courses.map(c => 
-        c.id === courseId ? { ...c, status: 'rejected' } : c
-      ))
+      const meta = collectAdminStatusMeta('rejected')
+      await updateCourse(courseId, { status: 'rejected', ...meta })
       toast.success('Course rejected')
-    } catch (err) { toast.error('Failed to reject course') }
-  }
-
-  const handleDeleteCourse = async (courseId: number) => {
-    if (confirm(t('admin_courses.delete_confirm'))) {
-      try {
-        await deleteCourseApi(courseId)
-        setCourses(courses.filter(c => c.id !== courseId))
-        toast.success('Course deleted')
-      } catch (err) { toast.error('Failed to delete course') }
+      await refetchCurrentPageAndCounts()
+    } catch {
+      toast.error('Failed to reject course')
     }
   }
 
-  const statusCounts = {
-    all: courses.length,
-    published: courses.filter(c => c.status === 'published').length,
-    pending: courses.filter(c => c.status === 'pending').length,
-    draft: courses.filter(c => c.status === 'draft').length,
-    rejected: courses.filter(c => c.status === 'rejected').length
+  const handleDeleteCourse = async (courseId: number) => {
+    if (!confirm(t('admin_courses.delete_confirm'))) return
+    try {
+      await deleteCourseApi(courseId)
+      toast.success('Course deleted')
+      await refetchCurrentPageAndCounts()
+    } catch {
+      toast.error('Failed to delete course')
+    }
   }
+
+  const totalStudentsOnPage = courses.reduce((sum, c) => sum + (c.total_students || 0), 0)
+  const startIdx = totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1
+  const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -116,20 +186,19 @@ export function AdminCoursesPage() {
         <p className="text-muted-foreground">Manage all courses on the platform</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Courses</p>
-                <p className="text-2xl font-semibold mt-1">{courses.length}</p>
+                <p className="text-2xl font-semibold mt-1">{statusCounts.all}</p>
               </div>
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -141,7 +210,7 @@ export function AdminCoursesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -153,13 +222,13 @@ export function AdminCoursesPage() {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Students</p>
-                <p className="text-2xl font-semibold mt-1">{courses.reduce((sum, c) => sum + c.students, 0).toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Students (Current Page)</p>
+                <p className="text-2xl font-semibold mt-1">{totalStudentsOnPage.toLocaleString()}</p>
               </div>
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
@@ -167,7 +236,6 @@ export function AdminCoursesPage() {
         </Card>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -178,19 +246,6 @@ export function AdminCoursesPage() {
             className="pl-10"
           />
         </div>
-        
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="Development">Development</SelectItem>
-            <SelectItem value="Design">Design</SelectItem>
-            <SelectItem value="Marketing">Marketing</SelectItem>
-            <SelectItem value="Data Science">Data Science</SelectItem>
-          </SelectContent>
-        </Select>
 
         <Select value={sortBy} onValueChange={setSortBy}>
           <SelectTrigger className="w-full md:w-48">
@@ -204,7 +259,6 @@ export function AdminCoursesPage() {
         </Select>
       </div>
 
-      {/* Tabs */}
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
         <div className="overflow-x-auto mb-6">
           <TabsList className="inline-flex w-auto min-w-full">
@@ -217,123 +271,127 @@ export function AdminCoursesPage() {
         </div>
 
         <TabsContent value={statusFilter}>
-          <div className="space-y-4">
-            {filteredCourses.map((course) => (
-              <Card key={course.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4 md:p-6">
-                  <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-                    {/* Thumbnail */}
-                    <div className="flex-shrink-0">
-                      <img
-                        src={course.thumbnail}
-                        alt={course.title}
-                        className="w-full md:w-48 h-48 md:h-32 object-cover rounded-lg"
-                      />
-                    </div>
-
-                    {/* Course Info */}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                            <h3 className="font-semibold line-clamp-2 sm:line-clamp-1">{course.title}</h3>
-                            {getStatusBadge(course.status)}
-                          </div>
-                          <p className="text-sm text-muted-foreground">By {course.instructor}</p>
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-muted-foreground mt-2">
-                            <span>{course.category} • {course.level}</span>
-                            <span className="hidden sm:inline">Created {course.createdAt}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 flex-shrink-0">
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
-                            <Eye className="h-4 w-4 md:mr-1" />
-                            <span className="hidden md:inline">View</span>
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
-                            <Edit className="h-4 w-4 md:mr-1" />
-                            <span className="hidden md:inline">Edit</span>
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleDeleteCourse(course.id)}
-                          >
-                            <Trash2 className="h-4 w-4 md:mr-1" />
-                            <span className="hidden md:inline">Delete</span>
-                          </Button>
-                        </div>
+          {loading ? (
+            <div className="min-h-[220px] flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {courses.map((course) => (
+                <Card key={course.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                      <div className="flex-shrink-0">
+                        <img
+                          src={course.thumbnail || ''}
+                          alt={course.title}
+                          className="w-full md:w-48 h-48 md:h-32 object-cover rounded-lg"
+                        />
                       </div>
 
-                      {/* Stats */}
-                      {course.status === 'published' ? (
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 pt-3 border-t">
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <p className="font-semibold text-sm md:text-base">{course.students.toLocaleString()}</p>
+                      <div className="flex-1 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                              <h3 className="font-semibold line-clamp-2 sm:line-clamp-1">{course.title}</h3>
+                              {getStatusBadge(course.status)}
                             </div>
-                            <p className="text-xs md:text-sm text-muted-foreground">Students</p>
-                          </div>
-                          
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <p className="font-semibold text-sm md:text-base">{course.rating}</p>
+                            <p className="text-sm text-muted-foreground">By {course.instructor_name || 'Unknown'}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-muted-foreground mt-2">
+                              <span>{course.category_name || 'Uncategorized'} • {course.level}</span>
+                              <span className="hidden sm:inline">Created {course.created_at?.split('T')[0] || ''}</span>
                             </div>
-                            <p className="text-xs md:text-sm text-muted-foreground">{course.reviews} reviews</p>
                           </div>
-                          
-                          <div className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <p className="font-semibold text-sm md:text-base">${course.price}</p>
-                            </div>
-                            <p className="text-xs md:text-sm text-muted-foreground">Price</p>
-                          </div>
-                          
-                          <div className="text-center">
-                            <p className="font-semibold text-sm md:text-base">${(course.students * course.price * 0.7).toLocaleString()}</p>
-                            <p className="text-xs md:text-sm text-muted-foreground">Est. Revenue</p>
-                          </div>
-                        </div>
-                      ) : course.status === 'pending' ? (
-                        <div className="flex gap-2 pt-3 border-t">
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => handleApproveCourse(course.id)}
-                          >
-                            <Check className="h-4 w-4 mr-1" />
-                            Approve Course
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleRejectCourse(course.id)}
-                          >
-                            <X className="h-4 w-4 mr-1" />
-                            Reject Course
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
 
-            {filteredCourses.length === 0 && (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-semibold mb-2">No courses found</h3>
-                  <p className="text-muted-foreground">Try adjusting your filters</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
+                              <Eye className="h-4 w-4 md:mr-1" />
+                              <span className="hidden md:inline">View</span>
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
+                              <Edit className="h-4 w-4 md:mr-1" />
+                              <span className="hidden md:inline">Edit</span>
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDeleteCourse(course.id)}>
+                              <Trash2 className="h-4 w-4 md:mr-1" />
+                              <span className="hidden md:inline">Delete</span>
+                            </Button>
+                          </div>
+                        </div>
+
+                        {course.status === 'published' ? (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 pt-3 border-t">
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <p className="font-semibold text-sm md:text-base">{(course.total_students || 0).toLocaleString()}</p>
+                              </div>
+                              <p className="text-xs md:text-sm text-muted-foreground">Students</p>
+                            </div>
+
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                <p className="font-semibold text-sm md:text-base">{parseDecimal(course.rating).toFixed(1)}</p>
+                              </div>
+                              <p className="text-xs md:text-sm text-muted-foreground">{course.total_reviews || 0} reviews</p>
+                            </div>
+
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                <p className="font-semibold text-sm md:text-base">${parseDecimal(course.price)}</p>
+                              </div>
+                              <p className="text-xs md:text-sm text-muted-foreground">Price</p>
+                            </div>
+
+                            <div className="text-center">
+                              <p className="font-semibold text-sm md:text-base">${Math.round((course.total_students || 0) * parseDecimal(course.price) * 0.7).toLocaleString()}</p>
+                              <p className="text-xs md:text-sm text-muted-foreground">Est. Revenue</p>
+                            </div>
+                          </div>
+                        ) : course.status === 'pending' ? (
+                          <div className="flex gap-2 pt-3 border-t">
+                            <Button variant="default" size="sm" onClick={() => handleApproveCourse(course.id)}>
+                              <Check className="h-4 w-4 mr-1" />
+                              Approve Course
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleRejectCourse(course.id)}>
+                              <X className="h-4 w-4 mr-1" />
+                              Reject Course
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {courses.length === 0 && (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="font-semibold mb-2">No courses found</h3>
+                    <p className="text-muted-foreground">Try adjusting your filters</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {totalCount > 0 && (
+                <div className="pt-2">
+                  <div className="text-sm text-muted-foreground mb-3">
+                    Showing {startIdx}-{endIdx} of {totalCount} courses
+                  </div>
+                  <UserPagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

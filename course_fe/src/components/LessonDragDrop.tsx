@@ -157,6 +157,8 @@ export function DraggableLessonCard({
   return (
     <div
       ref={ref}
+      id={`lesson-card-${lesson.id}`}
+      data-lesson-id={lesson.id}
       data-handler-id={handlerId}
       style={{ opacity }}
       className={`group flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 cursor-pointer hover:bg-muted/50 hover:shadow-sm ${

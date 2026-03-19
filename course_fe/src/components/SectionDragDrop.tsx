@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
 import { Card, CardHeader, CardContent, CardTitle } from './ui/card'
 import { Button } from './ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { GripVertical, Plus, Edit3, Trash2, MoreVertical, Copy, MoveUp, MoveDown } from 'lucide-react'
 import { DraggableLessonCard } from './LessonDragDrop'
 import {
@@ -16,6 +17,7 @@ import { Badge } from './ui/badge'
 interface Section {
   id: number
   title: string
+  status?: 'Draft' | 'Published' | string
   lessons: any[]
 }
 
@@ -28,6 +30,7 @@ interface DraggableSectionCardProps {
   onAddLesson: (sectionId: number) => void
   onEditSection: (section: Section) => void
   onDeleteSection: (sectionId: number) => void
+  onUpdateSectionStatus?: (sectionId: number, status: 'Draft' | 'Published') => void
   onEditLesson: (lesson: any) => void
   onPreviewLesson: (lesson: any) => void
   onDeleteLesson: (lessonId: number) => void
@@ -49,6 +52,7 @@ export function DraggableSectionCard({
   onAddLesson,
   onEditSection,
   onDeleteSection,
+  onUpdateSectionStatus,
   onEditLesson,
   onPreviewLesson,
   onDeleteLesson,
@@ -129,6 +133,8 @@ export function DraggableSectionCard({
   return (
     <div
       ref={sectionRef}
+      id={`section-card-${section.id}`}
+      data-section-id={section.id}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       className="transition-all duration-200"
     >
@@ -148,6 +154,19 @@ export function DraggableSectionCard({
             </div>
             
             <div className="flex items-center gap-2">
+              <Select
+                value={(section.status as 'Draft' | 'Published') || 'Draft'}
+                onValueChange={(value: 'Draft' | 'Published') => onUpdateSectionStatus?.(section.id, value)}
+              >
+                <SelectTrigger className="w-[130px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Draft">Draft</SelectItem>
+                  <SelectItem value="Published">Published</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Button
                 variant="outline"
                 size="sm"

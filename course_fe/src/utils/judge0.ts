@@ -88,8 +88,188 @@ export interface TestResult extends TestCase {
   actualOutput: string | null
   passed: boolean
   error?: string
+  debugLogs?: string[]
   time?: string
   memory?: number
+  statusId?: number
+  statusDescription?: string
+  stderr?: string | null
+  compileOutput?: string | null
+  message?: string | null
+}
+
+export interface RunTestOptions {
+  timeLimit?: number
+  memoryLimit?: number
+}
+
+const DEBUG_STDERR_START = '__CODEQUIZ_DEBUG_START__'
+const DEBUG_STDERR_END = '__CODEQUIZ_DEBUG_END__'
+
+function normalizeText(value?: string | null): string {
+  return (value || '').replace(/\r\n/g, '\n').trim()
+}
+
+function tryParseJson(value: string): unknown | undefined {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}
+
+function parseScalarToken(raw: string): unknown {
+  const token = raw.trim()
+  if (!token.length) return ''
+
+  const jsonParsed = tryParseJson(token)
+  if (jsonParsed !== undefined) return jsonParsed
+
+  if (/^true$/i.test(token)) return true
+  if (/^false$/i.test(token)) return false
+  if (/^null$/i.test(token)) return null
+  if (/^-?\d+$/.test(token)) return Number.parseInt(token, 10)
+  if (/^-?(?:\d+\.\d+|\d+\.\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(token)) {
+    return Number.parseFloat(token)
+  }
+  if ((token.startsWith("'") && token.endsWith("'")) || (token.startsWith('"') && token.endsWith('"'))) {
+    return token.slice(1, -1)
+  }
+
+  return token
+}
+
+function tryParseCsvLike(value: string): unknown[] | undefined {
+  if (!value.includes(',')) return undefined
+  return value.split(',').map((part) => parseScalarToken(part))
+}
+
+function parseLooseValue(raw: string): unknown {
+  const value = raw.trim()
+  if (!value.length) return ''
+
+  const jsonParsed = tryParseJson(value)
+  if (jsonParsed !== undefined) return jsonParsed
+
+  const csvParsed = tryParseCsvLike(value)
+  if (csvParsed) return csvParsed
+
+  return parseScalarToken(value)
+}
+
+function toComparableValue(raw: string): unknown {
+  const normalized = normalizeText(raw)
+  if (!normalized) return ''
+
+  const lines = normalized.split('\n').map((line) => line.trim())
+  if (lines.length > 1) {
+    return lines.map((line) => parseLooseValue(line))
+  }
+
+  return parseLooseValue(normalized)
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true
+  if (typeof a !== typeof b) return false
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false
+    }
+    return true
+  }
+
+  if (
+    a &&
+    b &&
+    typeof a === 'object' &&
+    typeof b === 'object' &&
+    !Array.isArray(a) &&
+    !Array.isArray(b)
+  ) {
+    const aObj = a as Record<string, unknown>
+    const bObj = b as Record<string, unknown>
+    const aKeys = Object.keys(aObj).sort()
+    const bKeys = Object.keys(bObj).sort()
+    if (!deepEqual(aKeys, bKeys)) return false
+
+    for (const key of aKeys) {
+      if (!deepEqual(aObj[key], bObj[key])) return false
+    }
+    return true
+  }
+
+  return false
+}
+
+function outputsMatch(expectedRaw: string, actualRaw?: string | null): boolean {
+  const expected = normalizeText(expectedRaw)
+  const actual = normalizeText(actualRaw)
+
+  if (expected === actual) return true
+
+  const expectedValue = toComparableValue(expected)
+  const actualValue = toComparableValue(actual)
+  if (deepEqual(expectedValue, actualValue)) return true
+
+  if (Array.isArray(expectedValue) && Array.isArray(actualValue)) {
+    const stringifyItem = (item: unknown) => {
+      if (item && typeof item === 'object') {
+        try {
+          return JSON.stringify(item)
+        } catch {
+          return String(item)
+        }
+      }
+      return String(item)
+    }
+    return deepEqual(expectedValue.map(stringifyItem), actualValue.map(stringifyItem))
+  }
+
+  return false
+}
+
+function extractDebugLogs(stderr?: string | null): { cleanStderr: string | null; debugLogs: string[] } {
+  const content = stderr || ''
+  if (!content.includes(DEBUG_STDERR_START)) {
+    const normalized = normalizeText(content)
+    return { cleanStderr: normalized || null, debugLogs: [] }
+  }
+
+  const debugLogs: string[] = []
+  let clean = content
+  const blockRegex = new RegExp(`${DEBUG_STDERR_START}\\n?([\\s\\S]*?)\\n?${DEBUG_STDERR_END}`, 'g')
+  clean = clean.replace(blockRegex, (_, debugBlock: string) => {
+    const normalized = normalizeText(debugBlock)
+    if (normalized) {
+      debugLogs.push(normalized)
+    }
+    return ''
+  })
+
+  const cleanStderr = normalizeText(clean) || null
+  return { cleanStderr, debugLogs }
+}
+
+export function shouldWrapUserCode(userCode: string, language: string): boolean {
+  const lang = language.toLowerCase()
+  const source = userCode || ''
+
+  if (!['javascript', 'typescript', 'python'].includes(lang)) {
+    return false
+  }
+
+  if (lang === 'javascript' || lang === 'typescript') {
+    const usesStdin = /(fs\.readFileSync|process\.stdin|readline\.createInterface)/.test(source)
+    const hasFunction = /(function\s+\w+\s*\(|const\s+\w+\s*=\s*\([^)]*\)\s*=>|let\s+\w+\s*=\s*\([^)]*\)\s*=>)/.test(source)
+    return hasFunction && !usesStdin
+  }
+
+  const usesStdin = /(sys\.stdin|input\(|stdin\.read|for\s+.*\s+in\s+sys\.stdin)/.test(source)
+  const hasFunction = /def\s+\w+\s*\(/.test(source)
+  return hasFunction && !usesStdin
 }
 
 // ✅ Helper: Rate limit protection
@@ -136,250 +316,215 @@ async function retryWithBackoff<T>(
 }
 
 // ✅ Helper: Wrap user code with stdin/stdout handler (LeetCode-style)
-export function wrapUserCode(userCode: string, language: string, testInput: string): string {
+export function wrapUserCode(userCode: string, language: string, _testInput: string = ''): string {
   const lang = language.toLowerCase()
-  
-  // ✅ Clean user code: Remove common boilerplate patterns
-  let cleanedCode = userCode
-  
+  let cleanedCode = userCode || ''
+
   if (lang === 'javascript' || lang === 'typescript') {
-    // Remove common stdin reading patterns
     cleanedCode = cleanedCode
-      .replace(/const\s+fs\s*=\\s*require\(['\"]fs['\"]\);?\\s*/g, '')
-      .replace(/const\s+readline\s*=\\s*require\(['\"]readline['\"]\);?\\s*/g, '')
-      .replace(/const\s+input\s*=\\s*fs\\.readFileSync\([^)]+\)[^;]*;?\\s*/g, '')
-      .replace(/const\s+input\s*=\\s*process\\.argv\[[^\\]]+\][^;]*;?\\s*/g, '')
-      .replace(/const\s+(nums|target|data|n|arr|s|str)\s*=\\s*input[^;]*;?\\s*/g, '')
-      .replace(/console\\.log\([^)]*result[^)]*\);?\\s*/g, '')
+      .replace(/const\s+fs\s*=\s*require\(['"]fs['"]\);?\s*/g, '')
+      .replace(/const\s+readline\s*=\s*require\(['"]readline['"]\);?\s*/g, '')
+      .replace(/const\s+input\s*=\s*fs\.readFileSync\([^)]+\)[^;]*;?\s*/g, '')
+      .replace(/const\s+input\s*=\s*process\.argv\[[^\]]+\][^;]*;?\s*/g, '')
       .trim()
   } else if (lang === 'python') {
-    // Remove common stdin reading patterns for Python
     cleanedCode = cleanedCode
-      .replace(/import\s+sys\s*/g, '')
-      .replace(/input_lines\s*=\\s*sys\\.stdin[^;]*\\n?/g, '')
-      .replace(/nums\s*=\\s*list\([^)]+\)\\n?/g, '')
-      .replace(/target\s*=\\s*int\([^)]+\)\\n?/g, '')
-      .replace(/print\([^)]*result[^)]*\)\\n?/g, '')
+      .replace(/^\s*import\s+sys\s*$/gm, '')
+      .replace(/^\s*input_lines\s*=\s*sys\.stdin.*$/gm, '')
       .trim()
   }
-  
-  // Detect function name from cleaned user code
-  const functionMatch = cleanedCode.match(/function\s+(\w+)\s*\(/) || 
-                        cleanedCode.match(/def\s+(\w+)\s*\(/) ||
-                        cleanedCode.match(/\w+\s+(\w+)\s*\([^)]*\)\s*{/)
+
+  const functionMatch =
+    cleanedCode.match(/function\s+([A-Za-z_]\w*)\s*\(/) ||
+    cleanedCode.match(/def\s+([A-Za-z_]\w*)\s*\(/) ||
+    cleanedCode.match(new RegExp('([A-Za-z_]\\w*)\\s*=\\s*\\([^)]*\\)\\s*=>'))
   const functionName = functionMatch ? functionMatch[1] : 'solution'
-  
-  // Parse function parameters to understand input format
-  const paramsMatch = cleanedCode.match(/function\s+\w+\s*\(([^)]+)\)/) ||
-                      cleanedCode.match(/def\s+\w+\s*\(([^)]+)\)/)
-  const params = paramsMatch ? paramsMatch[1].split(',').map(p => p.trim().split(/\\s+/).pop() || 'arg') : ['arg']
-  
-  switch (lang) {
-    case 'javascript':
-    case 'typescript':
-      return `const fs = require('fs');
-const lines = fs.readFileSync(0, 'utf-8').trim().split('\\n');
+
+  if (lang === 'javascript' || lang === 'typescript') {
+    return `const fs = require('fs');
+const DEBUG_START = '${DEBUG_STDERR_START}';
+const DEBUG_END = '${DEBUG_STDERR_END}';
+const rawInput = fs.readFileSync(0, 'utf-8');
+const lines = rawInput.length === 0 ? [] : rawInput.replace(/\\r\\n/g, '\\n').split('\\n').filter((line, idx, arr) => !(idx === arr.length - 1 && line === ''));
 
 // ============ USER CODE START ============
 ${cleanedCode}
 // ============ USER CODE END ============
 
-// Auto-parse inputs based on common patterns
-function parseInput(line) {
-  line = line.trim();
-  
-  // Try to parse as JSON first (arrays, objects)
-  if (line.startsWith('[') || line.startsWith('{')) {
-    try { return JSON.parse(line); } catch {}
-  }
-  
-  // Parse comma-separated numbers: "1,2,3" -> [1,2,3]
-  if (/^[\\d,\\s-]+$/.test(line)) {
-    return line.split(',').map(x => parseInt(x.trim()));
-  }
-  
-  // Parse single number
-  if (/^-?\\d+$/.test(line)) {
-    return parseInt(line);
-  }
-  
-  // Otherwise return as string
-  return line;
+function parseScalar(token) {
+  const value = token.trim();
+  if (!value.length) return '';
+  try { return JSON.parse(value); } catch {}
+  if (/^true$/i.test(value)) return true;
+  if (/^false$/i.test(value)) return false;
+  if (/^null$/i.test(value)) return null;
+  if (/^-?\\d+$/.test(value)) return parseInt(value, 10);
+  if (/^-?(?:\\d+\\.\\d+|\\d+\\.\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?$/.test(value)) return parseFloat(value);
+  if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) return value.slice(1, -1);
+  return value;
 }
 
-// Parse all input lines
-const inputs = lines.map(parseInput);
+function parseInput(line) {
+  const value = (line || '').trim();
+  if (!value.length) return '';
+  try { return JSON.parse(value); } catch {}
+  if (value.includes(',')) return value.split(',').map(parseScalar);
+  return parseScalar(value);
+}
 
-// Capture console.log output in case function doesn't return
-const originalLog = console.log;
-const capturedOutput = [];
-console.log = (...args) => capturedOutput.push(args.map(String).join(' '));
+function stringifyAny(value) {
+  if (typeof value === 'string') return value;
+  try { return JSON.stringify(value); } catch { return String(value); }
+}
 
-// Call user function with parsed inputs
-const result = ${functionName}(...inputs);
-
-// Restore console.log
-console.log = originalLog;
-
-// Output result intelligently
-if (result !== undefined && result !== null) {
-  // Function returned a value - use it
-  if (Array.isArray(result)) {
-    // If array contains strings (like ['1', 'Fizz', 'Buzz']), likely multiline output
-    if (result.length > 0 && typeof result[0] === 'string') {
-      console.log(result.join('\\n'));
-    } else {
-      // Numeric array -> comma-separated
-      console.log(result.join(','));
-    }
-  } else if (typeof result === 'object') {
-    console.log(JSON.stringify(result));
-  } else {
-    console.log(result);
+function formatResult(value) {
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) {
+    if (value.length > 0 && value.every((item) => typeof item === 'string')) return value.join('\\n');
+    return value.map((item) => stringifyAny(item)).join(',');
   }
-} else if (capturedOutput.length > 0) {
-  // Function didn't return anything but used console.log - output captured logs
-  console.log(capturedOutput.join('\\n'));
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+const inputs = lines.map(parseInput);
+const debugLogs = [];
+const originalLog = console.log;
+const originalError = console.error;
+console.log = (...args) => { debugLogs.push(args.map((arg) => stringifyAny(arg)).join(' ')); };
+console.error = (...args) => { debugLogs.push(args.map((arg) => stringifyAny(arg)).join(' ')); };
+
+let result;
+let runtimeError = null;
+try {
+  result = ${functionName}(...inputs);
+} catch (err) {
+  runtimeError = err;
+} finally {
+  console.log = originalLog;
+  console.error = originalError;
+  if (debugLogs.length > 0) {
+    process.stderr.write(DEBUG_START + '\\n' + debugLogs.join('\\n') + '\\n' + DEBUG_END + '\\n');
+  }
+}
+
+if (runtimeError) throw runtimeError;
+if (result !== undefined && result !== null) {
+  process.stdout.write(formatResult(result));
+} else if (debugLogs.length > 0) {
+  process.stdout.write(debugLogs.join('\\n'));
 } else {
-  // Function returned nothing and didn't log - output empty
-  console.log('');
+  process.stdout.write('');
 }`
+  }
 
-    case 'python':
-      return `import sys
+  if (lang === 'python') {
+    return `import sys
 import json
-import io
+import builtins
 
-lines = [line.strip() for line in sys.stdin.read().strip().split('\\n')]
+DEBUG_START = '${DEBUG_STDERR_START}'
+DEBUG_END = '${DEBUG_STDERR_END}'
+raw_input = sys.stdin.read()
+lines = [] if raw_input == '' else raw_input.replace('\\r\\n', '\\n').split('\\n')
+if lines and lines[-1] == '':
+    lines = lines[:-1]
 
 # ============ USER CODE START ============
 ${cleanedCode}
 # ============ USER CODE END ============
 
-# Auto-parse inputs
-def parse_input(line):
-    # Try JSON first
-    if line.startswith('[') or line.startswith('{'):
-        try:
-            return json.loads(line)
-        except:
-            pass
-    
-    # Parse comma-separated numbers
-    if all(c in '0123456789,- ' for c in line):
-        return [int(x.strip()) for x in line.split(',')]
-    
-    # Parse single number
+def parse_scalar(token):
+    value = token.strip()
+    if value == '':
+        return ''
     try:
-        return int(line)
+        return json.loads(value)
     except:
-        return line
+        pass
+    lowered = value.lower()
+    if lowered == 'true':
+        return True
+    if lowered == 'false':
+        return False
+    if lowered == 'null':
+        return None
+    try:
+        if '.' in value or 'e' in lowered:
+            return float(value)
+        return int(value)
+    except:
+        pass
+    if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+        return value[1:-1]
+    return value
+
+def parse_input(line):
+    value = (line or '').strip()
+    if value == '':
+        return ''
+    try:
+        return json.loads(value)
+    except:
+        pass
+    if ',' in value:
+        return [parse_scalar(part) for part in value.split(',')]
+    return parse_scalar(value)
+
+def stringify_any(value):
+    if isinstance(value, str):
+        return value
+    try:
+        return json.dumps(value)
+    except:
+        return str(value)
+
+def format_result(value):
+    if value is None:
+        return ''
+    if isinstance(value, list):
+        if len(value) > 0 and all(isinstance(x, str) for x in value):
+            return '\\n'.join(value)
+        return ','.join([stringify_any(x) for x in value])
+    if isinstance(value, dict):
+        return json.dumps(value)
+    return str(value)
 
 inputs = [parse_input(line) for line in lines]
+debug_logs = []
+original_print = builtins.print
 
-# Capture print output in case function doesn't return
-old_stdout = sys.stdout
-sys.stdout = captured_output = io.StringIO()
+def capture_print(*args, **kwargs):
+    sep = kwargs.get('sep', ' ')
+    end = kwargs.get('end', '\\n')
+    message = sep.join([str(arg) for arg in args]) + end
+    debug_logs.append(message[:-1] if message.endswith('\\n') else message)
 
-result = ${functionName}(*inputs)
+builtins.print = capture_print
+result = None
+runtime_error = None
+try:
+    result = ${functionName}(*inputs)
+except Exception as e:
+    runtime_error = e
+finally:
+    builtins.print = original_print
+    if len(debug_logs) > 0:
+        sys.stderr.write(DEBUG_START + '\\n' + '\\n'.join(debug_logs) + '\\n' + DEBUG_END + '\\n')
 
-# Get captured output
-captured = captured_output.getvalue()
-sys.stdout = old_stdout
-
-# Output result intelligently
+if runtime_error is not None:
+    raise runtime_error
 if result is not None:
-    # Function returned a value - use it
-    if isinstance(result, list):
-        # Check if all elements are strings (multiline output like FizzBuzz)
-        if all(isinstance(x, str) for x in result):
-            print('\\n'.join(result))
-        else:
-            print(','.join(map(str, result)))
-    elif isinstance(result, dict):
-        print(json.dumps(result))
-    else:
-        print(result)
-elif captured:
-    # Function didn't return anything but used print - output captured text
-    print(captured.rstrip())
+    sys.stdout.write(format_result(result))
+elif len(debug_logs) > 0:
+    sys.stdout.write('\\n'.join(debug_logs))
 else:
-    # Function returned nothing and didn't print
-    print('')`
-
-    case 'java':
-      return `import java.util.*;
-import java.util.stream.*;
-
-public class Main {
-${cleanedCode.replace(/public class \w+/g, '').replace(/class \w+/g, '')}
-
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        
-        // Read first line as array of integers
-        String[] numsStr = scanner.nextLine().split(",");
-        int[] nums = Arrays.stream(numsStr).mapToInt(Integer::parseInt).toArray();
-        
-        // Read second line as integer
-        int target = scanner.nextInt();
-        
-        int[] result = ${functionName}(nums, target);
-        System.out.println(Arrays.stream(result)
-            .mapToObj(String::valueOf)
-            .collect(Collectors.joining(",")));
-    }
-}`
-
-    case 'cpp':
-      return `#include <iostream>
-#include <vector>
-#include <string>
-#include <sstream>
-using namespace std;
-
-// ============ USER CODE START ============
-${cleanedCode}
-// ============ USER CODE END ============
-
-vector<int> parseArray(const string& line) {
-    vector<int> result;
-    stringstream ss(line);
-    string num;
-    while (getline(ss, num, ',')) {
-        result.push_back(stoi(num));
-    }
-    return result;
-}
-
-int main() {
-    string line;
-    
-    // Read first line as array
-    getline(cin, line);
-    vector<int> nums = parseArray(line);
-    
-    // Read second line as integer
-    int target;
-    cin >> target;
-    
-    vector<int> result = ${functionName}(nums, target);
-    
-    for (int i = 0; i < result.size(); i++) {
-        if (i > 0) cout << ",";
-        cout << result[i];
-    }
-    cout << endl;
-    
-    return 0;
-}`
-
-    default:
-      // Fallback: return cleaned code
-      return cleanedCode
+    sys.stdout.write('')
+`
   }
-}
 
+  return cleanedCode
+}
 // ✅ Submit code to Judge0 (with queue and rate limiting)
 export async function submitCode(payload: SubmissionPayload): Promise<{ token: string }> {
   // Check if we should use mock mode
@@ -552,8 +697,14 @@ export async function runTestCases(
   sourceCode: string,
   languageId: number,
   testCases: TestCase[],
-  onProgress?: (current: number, total: number) => void
+  optionsOrProgress?: RunTestOptions | ((current: number, total: number) => void),
+  maybeOnProgress?: (current: number, total: number) => void
 ): Promise<TestResult[]> {
+  const options: RunTestOptions =
+    typeof optionsOrProgress === 'function' ? {} : (optionsOrProgress || {})
+  const onProgress =
+    typeof optionsOrProgress === 'function' ? optionsOrProgress : maybeOnProgress
+
   // Check if we should use mock mode immediately
   if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
     console.warn('⚠️ Using mock mode for test execution')
@@ -575,22 +726,26 @@ export async function runTestCases(
         source_code: sourceCode,
         language_id: languageId,
         stdin: testCase.input,
-        expected_output: testCase.expectedOutput,
-        cpu_time_limit: 3, // Generous time limit
-        memory_limit: 256000, // 256MB
+        cpu_time_limit: options.timeLimit || 3, // Generous default
+        memory_limit: options.memoryLimit || 256000, // 256MB default
       })
       
-      const actualOutput = result.stdout?.trim() || ''
-      const expectedOutput = testCase.expectedOutput.trim()
-      const passed = actualOutput === expectedOutput && result.status.id === 3
+      const { cleanStderr, debugLogs } = extractDebugLogs(result.stderr)
+      const passed = outputsMatch(testCase.expectedOutput, result.stdout) && result.status.id === 3
       
       results.push({
         ...testCase,
         actualOutput: result.stdout,
         passed,
-        error: result.stderr || result.compile_output || result.message || undefined,
+        error: cleanStderr || result.compile_output || result.message || undefined,
+        debugLogs,
         time: result.time || undefined,
         memory: result.memory || undefined,
+        statusId: result.status?.id,
+        statusDescription: result.status?.description,
+        stderr: cleanStderr,
+        compileOutput: result.compile_output,
+        message: result.message,
       })
       
       // Small delay between test cases to avoid hitting rate limits
@@ -623,6 +778,7 @@ export async function runTestCases(
         actualOutput: null,
         passed: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        statusDescription: 'Execution failed',
       })
     }
   }

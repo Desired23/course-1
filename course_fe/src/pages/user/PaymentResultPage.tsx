@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { useRouter } from "../../components/Router"
 import { useTranslation } from "react-i18next"
-import { formatCurrency } from "../../services/payment.api"
+import { formatCurrency, getPaymentStatus, Payment } from "../../services/payment.api"
 
 type PaymentStatus = 'success' | 'failed' | 'error' | 'loading'
 
@@ -17,6 +17,9 @@ export function PaymentResultPage() {
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [responseCode, setResponseCode] = useState<string | null>(null)
+
+  const [paymentData, setPaymentData] = useState<Payment | null>(null)
+  const [apiError, setApiError] = useState<string | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -42,6 +45,18 @@ export function PaymentResultPage() {
     } else {
       setStatus('error')
       setErrorMessage('Invalid payment status')
+    }
+
+    // if success we fetch the full payment record
+    if (statusParam === 'success' && pid) {
+      getPaymentStatus(Number(pid))
+        .then((data) => setPaymentData(data))
+        .catch((err: any) => {
+          const msg = err?.message || 'Lỗi khi lấy thông tin thanh toán'
+          setApiError(msg)
+          setErrorMessage(msg)
+          setStatus('error')
+        })
     }
   }, [])
 
@@ -117,18 +132,61 @@ export function PaymentResultPage() {
                     <span className="font-medium">#{paymentId}</span>
                   </div>
                 )}
-                {amount && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Số tiền:</span>
-                    <span className="font-medium text-green-600">{formatCurrency(parseFloat(amount))}</span>
-                  </div>
+                {paymentData && (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Tổng hóa đơn:</span>
+                      <span className="font-medium text-green-600">{formatCurrency(parseFloat(paymentData.total_amount))}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Phương thức:</span>
+                      <span className="font-medium">{paymentData.payment_method}</span>
+                    </div>
+                  </>
                 )}
+                {/* still show transactionId if available */}
                 {transactionId && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Mã giao dịch:</span>
                     <span className="font-mono text-xs">{transactionId}</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* render course breakdown */}
+            {/* data-loading indicator */}
+            {status === 'success' && !paymentData && !apiError && (
+              <div className="py-4 text-center">
+                <Loader2 className="inline w-6 h-6 animate-spin mr-2" />
+                <span>Đang tải thông tin hóa đơn...</span>
+              </div>
+            )}
+
+            {paymentData && paymentData.courses.length > 0 && (
+              <div className="w-full mt-4 space-y-4">
+                {paymentData.courses.map((c) => (
+                  <Card key={c.course_id} className="border">
+                    <CardContent className="flex items-center space-x-4">
+                      {c.course_thumbnail && (
+                        <img src={c.course_thumbnail} alt={c.course_title} className="w-16 h-16 object-cover" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-semibold">{c.course_title}</div>
+                        {c.instructor_name && (
+                          <div className="text-sm text-muted-foreground">{c.instructor_name}</div>
+                        )}
+                        <div className="text-sm">
+                          {formatCurrency(parseFloat(c.price))}
+                          {' '}→ <span className="font-medium">{formatCurrency(parseFloat(c.final_price))}</span>
+                        </div>
+                        {c.discount !== '0.00' && (
+                          <div className="text-xs text-red-500">Giảm {formatCurrency(parseFloat(c.discount))}</div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
 

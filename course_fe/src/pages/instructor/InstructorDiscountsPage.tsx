@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -36,17 +36,26 @@ import {
   Edit, 
   Trash2,
   Tag,
-  TrendingUp,
   DollarSign,
   Users,
   Calendar,
   Copy
 } from "lucide-react"
 import { cn } from "../../components/ui/utils"
-import { toast } from "sonner@2.0.3"
+import { UserPagination } from "../../components/UserPagination"
+import { toast } from "sonner"
 import { useAuth } from "../../contexts/AuthContext"
 import { getMyInstructorProfile } from "../../services/instructor.api"
-import { getInstructorPromotions, createPromotion, updatePromotion, deletePromotion, parseDecimal, type Promotion, type PromotionStatus } from "../../services/promotions.api"
+import {
+  getInstructorPromotions,
+  getInstructorPromotionsPage,
+  createPromotion,
+  updatePromotion,
+  deletePromotion,
+  parseDecimal,
+  type Promotion,
+  type PromotionStatus,
+} from "../../services/promotions.api"
 import { getAllCourses, type CourseListItem } from "../../services/course.api"
 
 // Adapter type that maps BE Promotion to what the UI expects
@@ -64,6 +73,8 @@ interface Discount {
   applicableCourseIds: number[]
   revenue: number
 }
+
+const ITEMS_PER_PAGE = 10
 
 /** Map BE Promotion → FE Discount for UI display */
 function promotionToDiscount(p: Promotion, coursesMap: Map<number, string>): Discount {
@@ -94,9 +105,15 @@ export function InstructorDiscountsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
+  const [selectedCourse, setSelectedCourse] = useState<string>("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   
   const [newDiscount, setNewDiscount] = useState({
     code: '',
@@ -112,11 +129,27 @@ export function InstructorDiscountsPage() {
   const [instructorCourses, setInstructorCourses] = useState<{ id: string; title: string }[]>([])
   // Instructor ID for API calls
   const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [coursesMap, setCoursesMap] = useState<Map<number, string>>(new Map())
 
-  // State for discounts
+  // State for current page discounts
   const [discounts, setDiscounts] = useState<Discount[]>([])
+  // State for summary cards
+  const [allDiscountsForStats, setAllDiscountsForStats] = useState<Discount[]>([])
 
-  // Fetch data from API
+  const backendStatus = useMemo<PromotionStatus | undefined>(() => {
+    if (selectedStatus === 'all') return undefined
+    if (selectedStatus === 'disabled') return 'inactive'
+    return selectedStatus as PromotionStatus
+  }, [selectedStatus])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim())
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Fetch base instructor/courses info
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
@@ -124,29 +157,21 @@ export function InstructorDiscountsPage() {
     async function fetchData() {
       try {
         setIsLoading(true)
-        // Get instructor profile to get instructor ID
         const profile = await getMyInstructorProfile(user!.id)
         if (cancelled) return
         setInstructorId(profile.id)
 
-        // Fetch courses and promotions in parallel
-        const [courses, promotions] = await Promise.all([
-          getAllCourses({ instructor_id: profile.id }),
-          getInstructorPromotions(profile.id),
-        ])
+        const courses = await getAllCourses({ instructor_id: profile.id })
         if (cancelled) return
 
-        // Build course lookup map
-        const coursesMap = new Map<number, string>()
+        const nextCoursesMap = new Map<number, string>()
         const coursesList: { id: string; title: string }[] = []
         courses.forEach((c: CourseListItem) => {
-          coursesMap.set(c.id, c.title)
+          nextCoursesMap.set(c.id, c.title)
           coursesList.push({ id: String(c.id), title: c.title })
         })
+        setCoursesMap(nextCoursesMap)
         setInstructorCourses(coursesList)
-
-        // Map promotions to UI discount format
-        setDiscounts(promotions.map(p => promotionToDiscount(p, coursesMap)))
       } catch (err) {
         console.error('Failed to load discounts data:', err)
         toast.error('Failed to load discount codes')
@@ -159,13 +184,71 @@ export function InstructorDiscountsPage() {
     return () => { cancelled = true }
   }, [user?.id])
 
-  const filteredDiscounts = discounts.filter(discount => {
-    const matchesSearch = discount.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         discount.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = selectedStatus === 'all' || discount.status === selectedStatus
-    
-    return matchesSearch && matchesStatus
-  })
+  // Fetch table data from BE with server-side pagination/filter
+  useEffect(() => {
+    if (!instructorId) return
+    let cancelled = false
+
+    async function fetchDiscountsPage() {
+      try {
+        setIsLoading(true)
+        const res = await getInstructorPromotionsPage({
+          instructor_id: instructorId,
+          page: currentPage,
+          page_size: ITEMS_PER_PAGE,
+          status: backendStatus,
+          search: debouncedSearch || undefined,
+          course_id: selectedCourse === 'all' ? undefined : Number(selectedCourse),
+        })
+        if (cancelled) return
+        const mapped = (Array.isArray(res.results) ? res.results : []).map((p) => promotionToDiscount(p, coursesMap))
+        setDiscounts(mapped)
+        setTotalCount(res.count || 0)
+        setTotalPages(Math.max(1, res.total_pages || Math.ceil((res.count || 0) / ITEMS_PER_PAGE)))
+      } catch (err) {
+        console.error('Failed to load discounts data:', err)
+        if (!cancelled) {
+          setDiscounts([])
+          setTotalCount(0)
+          setTotalPages(1)
+          toast.error('Failed to load discount codes')
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    fetchDiscountsPage()
+    return () => { cancelled = true }
+  }, [instructorId, currentPage, backendStatus, debouncedSearch, selectedCourse, coursesMap, refreshKey])
+
+  // Fetch all promotions only for summary cards
+  useEffect(() => {
+    if (!instructorId) return
+    let cancelled = false
+
+    async function fetchSummaryStats() {
+      try {
+        const promotions = await getInstructorPromotions(instructorId)
+        if (cancelled) return
+        const mapped = (Array.isArray(promotions) ? promotions : []).map((p) => promotionToDiscount(p, coursesMap))
+        setAllDiscountsForStats(mapped)
+      } catch (err) {
+        console.error('Failed to load discount stats:', err)
+      }
+    }
+
+    fetchSummaryStats()
+    return () => { cancelled = true }
+  }, [instructorId, coursesMap, refreshKey])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedStatus, selectedCourse])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   const getStatusBadge = (status: string) => {
     const config = {
@@ -212,9 +295,9 @@ export function InstructorDiscountsPage() {
         status: 'active',
       })
 
-      // Build course name map from current courses
-      const coursesMap = new Map<number, string>(instructorCourses.map(c => [Number(c.id), c.title]))
-      setDiscounts(prev => [promotionToDiscount(created, coursesMap), ...prev])
+      if (created) {
+        setRefreshKey((prev) => prev + 1)
+      }
       toast.success('Discount code created successfully!')
       setIsCreateDialogOpen(false)
       setNewDiscount({
@@ -274,10 +357,9 @@ export function InstructorDiscountsPage() {
         applicable_courses: courseIds,
       })
 
-      const coursesMap = new Map<number, string>(instructorCourses.map(c => [Number(c.id), c.title]))
-      setDiscounts(prev => prev.map(d =>
-        d.id === editingDiscount.id ? promotionToDiscount(updated, coursesMap) : d
-      ))
+      if (updated) {
+        setRefreshKey((prev) => prev + 1)
+      }
 
       toast.success('Discount updated successfully!')
       setIsEditDialogOpen(false)
@@ -309,7 +391,7 @@ export function InstructorDiscountsPage() {
     if (discount && confirm(`Delete discount code "${discount.code}"?`)) {
       try {
         await deletePromotion(discountId)
-        setDiscounts(prev => prev.filter(d => d.id !== discountId))
+        setRefreshKey((prev) => prev + 1)
         toast.success('Discount code deleted')
       } catch (err: any) {
         console.error('Delete discount failed:', err)
@@ -324,11 +406,7 @@ export function InstructorDiscountsPage() {
     const newStatus: PromotionStatus = discount.status === 'active' ? 'inactive' : 'active'
     try {
       await updatePromotion(discountId, { status: newStatus })
-      setDiscounts(prev => prev.map(d =>
-        d.id === discountId
-          ? { ...d, status: newStatus === 'active' ? 'active' : 'disabled' }
-          : d
-      ))
+      setRefreshKey((prev) => prev + 1)
       toast.success('Discount status updated')
     } catch (err: any) {
       console.error('Toggle status failed:', err)
@@ -336,9 +414,9 @@ export function InstructorDiscountsPage() {
     }
   }
 
-  const totalRevenue = discounts.reduce((sum, d) => sum + d.revenue, 0)
-  const totalUsage = discounts.reduce((sum, d) => sum + d.usedCount, 0)
-  const activeDiscounts = discounts.filter(d => d.status === 'active').length
+  const totalRevenue = allDiscountsForStats.reduce((sum, d) => sum + d.revenue, 0)
+  const totalUsage = allDiscountsForStats.reduce((sum, d) => sum + d.usedCount, 0)
+  const activeDiscounts = allDiscountsForStats.filter(d => d.status === 'active').length
 
   return (
     <div className="p-8">
@@ -543,6 +621,17 @@ export function InstructorDiscountsPage() {
                 <SelectItem value="disabled">Disabled</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+              <SelectTrigger className="w-60">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Courses</SelectItem>
+                {instructorCourses.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Discounts Table */}
@@ -562,16 +651,22 @@ export function InstructorDiscountsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDiscounts.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Loading discount codes...
+                    </TableCell>
+                  </TableRow>
+                ) : discounts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No discount codes found. Create your first one!
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredDiscounts.map((discount) => {
+                  discounts.map((discount) => {
                     const statusBadge = getStatusBadge(discount.status)
-                    const usagePercent = (discount.usedCount / discount.usageLimit) * 100
+                    const usagePercent = discount.usageLimit > 0 ? (discount.usedCount / discount.usageLimit) * 100 : 0
                     
                     return (
                       <TableRow key={discount.id}>
@@ -665,6 +760,22 @@ export function InstructorDiscountsPage() {
               </TableBody>
             </Table>
           </div>
+
+          {totalCount > 0 && (
+            <div className="mt-4">
+              <div className="text-sm text-muted-foreground mb-3">
+                Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount)}
+                -
+                {Math.min((currentPage - 1) * ITEMS_PER_PAGE + discounts.length, totalCount)}
+                {' '}of {totalCount} discount codes
+              </div>
+              <UserPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
 
           {/* Edit Discount Dialog */}
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

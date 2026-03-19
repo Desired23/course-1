@@ -44,7 +44,80 @@
 
 import { http } from './http'
 
+interface PaginatedListResponse<T> {
+  next: string | null
+  results: T[]
+}
+
+function isPaginatedListResponse<T>(value: any): value is PaginatedListResponse<T> {
+  return Boolean(value && typeof value === 'object' && Array.isArray(value.results))
+}
+
+async function fetchAllPages<T>(endpoint: string): Promise<T[]> {
+  const all: T[] = []
+  let page = 1
+  while (true) {
+    const res = await http.get<any>(endpoint, { page, page_size: 100 })
+    if (Array.isArray(res)) return res as T[]
+    if (isPaginatedListResponse<T>(res)) {
+      all.push(...res.results)
+      if (!res.next) break
+      page++
+      continue
+    }
+    break
+  }
+  return all
+}
+
 // ─── Dashboard Stats ──────────────────────────────────────────────────────────
+
+// ─── Payments (admin) ─────────────────────────────────────────────────────────
+
+export interface AdminPaymentCourse {
+  course_id: number
+  course_title: string
+  enrollment_status: string | null
+}
+
+export interface AdminPayment {
+  payment_id: number
+  user_id: number | null
+  user_email: string | null
+  payment_status: string
+  total_amount: string
+  created_at: string
+  has_problem: boolean
+  courses: AdminPaymentCourse[]
+}
+
+/**
+ * List payments for the admin dashboard.
+ * @param problematic only include payments with missing enrollment when true
+ */
+export async function getAdminPayments(problematic = false): Promise<AdminPayment[]> {
+  const all: AdminPayment[] = []
+  let page = 1
+  while (true) {
+    const params: any = { page, page_size: 100 }
+    if (problematic) params.problematic = true
+    const res = await http.get<any>('/payments/', params)
+    if (Array.isArray(res)) return res
+    if (isPaginatedListResponse<AdminPayment>(res)) {
+      all.push(...res.results)
+      if (!res.next) break
+      page++
+      continue
+    }
+    break
+  }
+  return all
+}
+
+export async function fixPayment(paymentId: number): Promise<any> {
+  return http.post<any>('/payments/fix/', { payment_id: paymentId })
+}
+
 
 export interface AdminDashboardStats {
   total_users: number
@@ -114,8 +187,7 @@ export interface AdminUser {
 }
 
 export async function getAdmins(): Promise<AdminUser[]> {
-  const res = await http.get<any>('/admins/')
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<AdminUser>('/admins/')
 }
 
 export async function getAdminById(adminId: number): Promise<AdminUser> {
@@ -150,8 +222,7 @@ export interface Application {
 }
 
 export async function getAdminApplications(): Promise<Application[]> {
-  const res = await http.get<any>('/applications/admin/')
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<Application>('/applications/admin/')
 }
 
 export async function reviewApplication(
@@ -175,8 +246,7 @@ export interface ActivityLog {
 }
 
 export async function getActivityLogs(): Promise<ActivityLog[]> {
-  const res = await http.get<any>('/activity-logs/')
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<ActivityLog>('/activity-logs/')
 }
 
 export async function cleanupActivityLogs(): Promise<{ message: string }> {
@@ -186,8 +256,7 @@ export async function cleanupActivityLogs(): Promise<{ message: string }> {
 // ─── Subscription Plans (admin) ───────────────────────────────────────────────
 
 export async function getAdminSubscriptionPlans(): Promise<any[]> {
-  const res = await http.get<any>('/subscription-plans/admin/')
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<any>('/subscription-plans/admin/')
 }
 
 export async function createSubscriptionPlan(data: Record<string, any>): Promise<any> {
@@ -203,16 +272,14 @@ export async function deleteSubscriptionPlan(planId: number): Promise<{ message:
 }
 
 export async function getPlanSubscribers(planId: number): Promise<any[]> {
-  const res = await http.get<any>(`/subscription-plans/admin/${planId}/subscribers/`)
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<any>(`/subscription-plans/admin/${planId}/subscribers/`)
 }
 
 export async function managePlanCourses(planId: number, data?: Record<string, any>): Promise<any> {
   if (data) {
     return http.post(`/subscription-plans/admin/${planId}/courses/`, data)
   }
-  const res = await http.get<any>(`/subscription-plans/admin/${planId}/courses/`)
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<any>(`/subscription-plans/admin/${planId}/courses/`)
 }
 
 // ─── System Settings ──────────────────────────────────────────────────────────
@@ -227,8 +294,7 @@ export interface SystemSetting {
 }
 
 export async function getSystemSettings(): Promise<SystemSetting[]> {
-  const res = await http.get<any>('/systems_settings/')
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<SystemSetting>('/systems_settings/')
 }
 
 export async function createSystemSetting(data: Record<string, any>): Promise<SystemSetting> {
@@ -258,9 +324,30 @@ export interface UserItem {
   last_login: string | null
 }
 
+export interface AdminUserListParams {
+  page?: number
+  page_size?: number
+  search?: string
+  status?: 'active' | 'inactive' | 'banned'
+  user_type?: 'student' | 'instructor' | 'admin'
+}
+
+export interface AdminPaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  total_pages: number
+  page_size: number
+  results: T[]
+}
+
+export async function getUsers(params?: AdminUserListParams): Promise<AdminPaginatedResponse<UserItem>> {
+  return http.get<AdminPaginatedResponse<UserItem>>('/users/', params)
+}
+
 export async function getAllUsers(): Promise<UserItem[]> {
-  const res = await http.get<any>('/users/')
-  return Array.isArray(res) ? res : res.results ?? []
+  return fetchAllPages<UserItem>('/users/')
 }
 
 export async function getUserById(userId: number): Promise<UserItem> {

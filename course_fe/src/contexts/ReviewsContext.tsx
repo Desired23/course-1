@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 export interface Review {
   review_id: number

@@ -63,8 +63,15 @@ export async function getCartByUser(
 
 /** Get ALL cart items for a user (no pagination limit). */
 export async function getAllCartByUser(userId: number): Promise<CartItem[]> {
-  const res = await getCartByUser(userId, { page_size: 1000 })
-  return res.results
+  const all: CartItem[] = []
+  let page = 1
+  while (true) {
+    const res = await getCartByUser(userId, { page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /** Add a course to cart. */

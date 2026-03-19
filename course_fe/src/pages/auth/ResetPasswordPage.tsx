@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { CheckCircle2, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 export function ResetPasswordPage() {
   const { navigate, params } = useRouter()

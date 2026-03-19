@@ -93,11 +93,21 @@ export async function getAllReviewsByCourse(courseId: number): Promise<Review[]>
 export async function getReviewsByUser(
   userId: number,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  params?: {
+    search?: string
+    rating?: string
+    sort_by?: 'newest' | 'oldest' | 'rating_desc' | 'rating_asc'
+  }
 ): Promise<PaginatedResponse<Review>> {
-  const res = await http.get<PaginatedResponse<Review>>(
-    `/reviews/?user_id=${userId}&page=${page}&page_size=${pageSize}`
-  )
+  const searchParams = new URLSearchParams()
+  searchParams.set('user_id', String(userId))
+  searchParams.set('page', String(page))
+  searchParams.set('page_size', String(pageSize))
+  if (params?.search) searchParams.set('search', params.search)
+  if (params?.rating) searchParams.set('rating', params.rating)
+  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
+  const res = await http.get<PaginatedResponse<Review>>(`/reviews/?${searchParams.toString()}`)
   return res
 }
 

@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react'
 import './utils/i18n' // Initialize i18n
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { AuthProvider } from './contexts/AuthContext'
+import { queryClient } from './lib/queryClient'
 
 // CRITICAL FIX: Suppress AMD module conflicts from esm.sh
 // This prevents "Can only have one anonymous define call per script file" errors
@@ -40,17 +41,6 @@ import { BottomNav } from './components/BottomNav'
 import { FloatingNavigation } from './components/FloatingNavigation'
 
 import { AuthModal } from './components/auth/AuthModal'
-
-// Create React Query client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000,
-    },
-  },
-})
 
 function AppContent() {
   const { currentRoute } = useRouter()

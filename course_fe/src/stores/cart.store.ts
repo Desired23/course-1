@@ -6,7 +6,7 @@
 
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import {
   getAllCartByUser,
   addToCart as addToCartApi,

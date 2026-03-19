@@ -13,6 +13,8 @@ import {
   XCircle,
   Clock,
   Trophy,
+  Info,
+  AlertCircle,
   ChevronDown,
   ChevronUp,
   Play,
@@ -23,9 +25,9 @@ import {
 import { EnhancedCodeQuizData } from './EnhancedCodeQuizCreator'
 import Editor from '@monaco-editor/react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { SUPPORTED_LANGUAGES, runTestCases, type TestResult } from '../utils/judge0'
+import { SUPPORTED_LANGUAGES, runTestCases, wrapUserCode, shouldWrapUserCode, type TestResult } from '../utils/judge0'
 import { useQuizStore } from '../stores/quiz.store'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 
 interface EnhancedCodeQuizPlayerProps {
@@ -44,6 +46,20 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, onComplete }: EnhancedC
   const [isSubmitted, setIsSubmitted] = useState(false)
   
   const { saveQuizAnswer, getQuizAnswer } = useQuizStore()
+  const normalizeOutput = (value?: string | null) => (value || '').replace(/\r\n/g, '\n').trim()
+  const getDebugHint = (result: TestResult) => {
+    const error = (result.error || '').toLowerCase()
+    if (error.includes('compilation') || error.includes('compile')) {
+      return 'Compilation error: Check syntax and required function signature.'
+    }
+    if (error.includes('runtime') || error.includes('exception') || error.includes('traceback')) {
+      return 'Runtime error: Check null values, index bounds, and special edge cases.'
+    }
+    if (!result.passed) {
+      return 'Wrong answer: Compare expected and actual output, including spaces/new lines.'
+    }
+    return ''
+  }
 
   // Load saved answer
   useEffect(() => {
@@ -118,7 +134,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, onComplete }: EnhancedC
     setTestResults([])
 
     try {
-      const results = await runTestCases(code, selectedLanguage, quiz.testCases, {
+      const results = await runTestCases(getExecutableCode(), selectedLanguage, quiz.testCases, {
         timeLimit: quiz.timeLimit,
         memoryLimit: quiz.memoryLimit
       })
@@ -150,7 +166,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, onComplete }: EnhancedC
     setIsRunning(true)
 
     try {
-      const results = await runTestCases(code, selectedLanguage, quiz.testCases, {
+      const results = await runTestCases(getExecutableCode(), selectedLanguage, quiz.testCases, {
         timeLimit: quiz.timeLimit,
         memoryLimit: quiz.memoryLimit
       })
@@ -209,6 +225,11 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, onComplete }: EnhancedC
       case 'hard': return 'bg-red-500'
       default: return 'bg-gray-500'
     }
+  }
+
+  const getExecutableCode = (): string => {
+    const langValue = SUPPORTED_LANGUAGES.find(l => l.id === selectedLanguage)?.value || 'javascript'
+    return shouldWrapUserCode(code, langValue) ? wrapUserCode(code, langValue, '') : code
   }
 
   return (
@@ -655,11 +676,74 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, onComplete }: EnhancedC
                               </pre>
                             </div>
                           )}
+                          {(result.debugLogs?.length || result.stderr || result.compileOutput || result.message || result.statusDescription) && (
+                            <div>
+                              <div className="text-xs text-muted-foreground">Debug Logs:</div>
+                              <div className="space-y-1 mt-1">
+                                {result.debugLogs && result.debugLogs.length > 0 && (
+                                  <pre className="bg-slate-500/10 p-2 rounded text-xs font-mono text-slate-700 dark:text-slate-200">
+                                    {result.debugLogs.join('\n')}
+                                  </pre>
+                                )}
+                                {result.statusDescription && (
+                                  <pre className="bg-muted p-2 rounded text-xs font-mono">
+                                    Status: {result.statusDescription}{result.statusId ? ` (${result.statusId})` : ''}
+                                  </pre>
+                                )}
+                                {result.compileOutput && (
+                                  <pre className="bg-amber-500/10 p-2 rounded text-xs font-mono text-amber-700 dark:text-amber-300">
+                                    {result.compileOutput}
+                                  </pre>
+                                )}
+                                {result.stderr && (
+                                  <pre className="bg-red-500/10 p-2 rounded text-xs font-mono text-red-500">
+                                    {result.stderr}
+                                  </pre>
+                                )}
+                                {result.message && (
+                                  <pre className="bg-muted p-2 rounded text-xs font-mono">
+                                    {result.message}
+                                  </pre>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {!result.passed && (
+                            <Alert>
+                              <Info className="h-4 w-4" />
+                              <AlertDescription>{getDebugHint(result)}</AlertDescription>
+                            </Alert>
+                          )}
+                          {!result.passed && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div>
+                                <div className="text-xs text-muted-foreground">Normalized Expected:</div>
+                                <pre className="bg-muted p-2 rounded text-xs font-mono">
+                                  {normalizeOutput(result.expectedOutput) || '(empty)'}
+                                </pre>
+                              </div>
+                              <div>
+                                <div className="text-xs text-muted-foreground">Normalized Actual:</div>
+                                <pre className="bg-muted p-2 rounded text-xs font-mono">
+                                  {normalizeOutput(result.actualOutput) || '(empty)'}
+                                </pre>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
+
+                {testResults.some(result => !result.passed) && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Nếu còn lỗi, sửa code rồi bấm Run lại để kiểm tra ngay. Debug logs ở từng test sẽ cập nhật theo lần chạy mới nhất.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </div>
           )}

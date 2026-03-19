@@ -6,7 +6,7 @@ import { Label } from "../../components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 import { CreditCard, Plus, Trash2, CheckCircle, Smartphone, Building2, Wallet } from "lucide-react"
 import {
   getUserPaymentMethods,
@@ -16,6 +16,7 @@ import {
   getMethodTypeLabel,
   type UserPaymentMethod,
 } from "../../services/payment-method.api"
+import { UserPagination } from "../../components/UserPagination"
 
 type MethodType = UserPaymentMethod['method_type']
 
@@ -32,22 +33,44 @@ const initialFormState = {
 export function UserPaymentMethodsPage() {
   const [methods, setMethods] = useState<UserPaymentMethod[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [methodFilter, setMethodFilter] = useState<"all" | MethodType>("all")
+  const [defaultFilter, setDefaultFilter] = useState<"all" | "default" | "non_default">("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState(initialFormState)
 
   const fetchMethods = async () => {
     try {
-      const data = await getUserPaymentMethods()
-      setMethods(data)
+      const data = await getUserPaymentMethods({
+        page: currentPage,
+        page_size: pageSize,
+        method_type: methodFilter,
+        default_filter: defaultFilter,
+        search: searchTerm || undefined,
+      })
+      setMethods(data.results || [])
+      setTotalPages(data.total_pages || 1)
+      setTotalCount(data.count || 0)
     } catch {
       toast.error("Failed to load payment methods")
+      setMethods([])
+      setTotalPages(1)
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => { fetchMethods() }, [])
+  useEffect(() => { fetchMethods() }, [currentPage, pageSize, searchTerm, methodFilter, defaultFilter])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, methodFilter, defaultFilter, pageSize])
 
   const handleAdd = async () => {
     if (form.method_type === 'bank_transfer') {
@@ -248,6 +271,56 @@ export function UserPaymentMethodsPage() {
             </Dialog>
           </div>
 
+          <Card className="mb-4">
+            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+              <Input
+                className="h-9"
+                placeholder="Search methods"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <select
+                className="h-9 rounded-md border px-3 text-sm"
+                value={methodFilter}
+                onChange={(e) => setMethodFilter(e.target.value as "all" | MethodType)}
+              >
+                <option value="all">All methods</option>
+                <option value="vnpay">VNPay</option>
+                <option value="momo">MoMo</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="credit_card">Credit Card</option>
+              </select>
+              <select
+                className="h-9 rounded-md border px-3 text-sm"
+                value={defaultFilter}
+                onChange={(e) => setDefaultFilter(e.target.value as "all" | "default" | "non_default")}
+              >
+                <option value="all">All status</option>
+                <option value="default">Default only</option>
+                <option value="non_default">Non-default</option>
+              </select>
+              <select
+                className="h-9 rounded-md border px-3 text-sm"
+                value={String(pageSize)}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                <option value="5">5 / page</option>
+                <option value="10">10 / page</option>
+                <option value="20">20 / page</option>
+              </select>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSearchTerm("")
+                  setMethodFilter("all")
+                  setDefaultFilter("all")
+                }}
+              >
+                Clear filters
+              </Button>
+            </CardContent>
+          </Card>
+
           <div className="space-y-4">
             {loading ? (
               <Card>
@@ -259,7 +332,7 @@ export function UserPaymentMethodsPage() {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground mb-4">No payment methods added yet</p>
+                  <p className="text-muted-foreground mb-4">No payment methods match your filters</p>
                   <Button onClick={() => setIsAddOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Your First Method
@@ -326,6 +399,15 @@ export function UserPaymentMethodsPage() {
               ))
             )}
           </div>
+
+          {methods.length > 0 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Page {currentPage}/{totalPages} - Total {totalCount} methods
+              </p>
+              <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+            </div>
+          )}
 
           {/* Security Notice */}
           <Card className="mt-8 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-900">

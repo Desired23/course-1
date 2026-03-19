@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { login as apiLogin, register as apiRegister, getUserById, updateProfile as apiUpdateProfile } from '../services/auth.api'
-import { setTokens, clearTokens, getAccessToken, getRefreshToken, API_BASE_URL } from '../services/http'
+import { login as apiLogin, googleLogin as apiGoogleLogin, register as apiRegister, getUserById, updateProfile as apiUpdateProfile } from '../services/auth.api'
+import { setTokens, getAccessToken, getRefreshToken, API_BASE_URL } from '../services/http'
+import { clearSessionData } from '../services/sessionCleanup'
 import type { UserType } from '../services/auth.api'
 
 // ─── Types ────────────────────────────────────────────────────
@@ -140,7 +141,8 @@ interface AuthState {
   error: string | null
 
   // Actions
-  login: (username: string, password: string) => Promise<boolean>
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<boolean>
+  loginWithGoogle: (credential: string, rememberMe?: boolean) => Promise<boolean>
   signup: (username: string, email: string, fullName: string, password: string) => Promise<boolean>
   logout: () => void
   fetchProfile: () => Promise<void>
@@ -164,10 +166,12 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       error: null,
 
-      login: async (username, password) => {
+      login: async (username, password, rememberMe = false) => {
+        console.log('auth.store: login attempt', username)
         set({ isLoading: true, error: null })
         try {
-          const res = await apiLogin({ username, password })
+          const res = await apiLogin({ username, password, remember_me: rememberMe })
+          console.log('auth.store: login response', res)
 
           // Store tokens
           setTokens(res.access_token, res.refresh_token)
@@ -208,6 +212,45 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      loginWithGoogle: async (credential, rememberMe = false) => {
+        set({ isLoading: true, error: null })
+        try {
+          const res = await apiGoogleLogin({ credential, remember_me: rememberMe })
+
+          setTokens(res.access_token, res.refresh_token)
+
+          const roles = mapUserTypes(res.user.user_type)
+          const permissions = derivePermissions(roles)
+
+          const user: User = {
+            id: String(res.user.id),
+            name: res.user.username,
+            username: res.user.username,
+            email: res.user.email,
+            roles,
+            permissions,
+            createdAt: new Date(),
+            isOnline: true,
+            lastSeen: new Date(),
+            profileSettings: {
+              showCourses: true,
+              showStats: false,
+              showBio: true,
+              showSocialLinks: true,
+              customSections: [],
+            },
+          }
+
+          set({ user, isLoading: false })
+          get().fetchProfile()
+          return true
+        } catch (err: any) {
+          const msg = err?.errors?.error || err?.message || 'Google login failed'
+          set({ isLoading: false, error: msg })
+          return false
+        }
+      },
+
       signup: async (username, email, fullName, password) => {
         set({ isLoading: true, error: null })
         try {
@@ -239,7 +282,7 @@ export const useAuthStore = create<AuthState>()(
             body: JSON.stringify({ refresh_token: refresh }),
           }).catch(() => {})
         }
-        clearTokens()
+        clearSessionData()
         set({ user: null, error: null })
       },
 
@@ -247,7 +290,9 @@ export const useAuthStore = create<AuthState>()(
         const user = get().user
         if (!user) return
         try {
+          console.log('auth.store: fetchProfile starting for', user.id)
           const profile = await getUserById(Number(user.id))
+          console.log('auth.store: fetchProfile result', profile)
           set({
             user: {
               ...user,
@@ -261,7 +306,8 @@ export const useAuthStore = create<AuthState>()(
               status: profile.status,
             },
           })
-        } catch {
+        } catch (err) {
+          console.error('auth.store: fetchProfile failed', err)
           // Profile fetch failed — keep basic user data from login
         }
       },
@@ -269,29 +315,22 @@ export const useAuthStore = create<AuthState>()(
       updateProfile: async (data) => {
         const userId = get().user?.id
         if (!userId) return
-        try {
-          // Map FE field names → BE field names for API call
-          const apiData: Record<string, unknown> = {}
-          const feData = data as Record<string, unknown>
-          for (const [key, value] of Object.entries(feData)) {
-            if (key === 'name') apiData['full_name'] = value
-            else if (['username', 'email', 'phone', 'avatar', 'address', 'full_name', 'password_hash'].includes(key))
-              apiData[key] = value
-            // Skip FE-only fields (bio, website, social links, etc.) for API
-          }
-          if (Object.keys(apiData).length > 0) {
-            await apiUpdateProfile(Number(userId), apiData as any)
-          }
-          // Merge FE input data into local state (keeps FE-only fields)
-          set((state) => ({
-            user: state.user ? { ...state.user, ...data } : null,
-          }))
-        } catch {
-          // Fallback: update local state only
-          set((state) => ({
-            user: state.user ? { ...state.user, ...data } : null,
-          }))
+        // Map FE field names → BE field names for API call
+        const apiData: Record<string, unknown> = {}
+        const feData = data as Record<string, unknown>
+        for (const [key, value] of Object.entries(feData)) {
+          if (key === 'name') apiData['full_name'] = value
+          else if (['username', 'email', 'phone', 'avatar', 'address', 'full_name'].includes(key))
+            apiData[key] = value
+          // Skip FE-only fields (bio, website, social links, etc.) for API
         }
+        if (Object.keys(apiData).length > 0) {
+          await apiUpdateProfile(Number(userId), apiData as any)
+        }
+        // Merge FE input data into local state (keeps FE-only fields)
+        set((state) => ({
+          user: state.user ? { ...state.user, ...data } : null,
+        }))
       },
 
       updateProfileSettings: (settings) => {

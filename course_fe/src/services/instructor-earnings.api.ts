@@ -1,16 +1,9 @@
 /**
  * Instructor Earnings API Service
- *
- * BE endpoints:
- *   GET /api/instructor-earnings/?instructor_id=X&status=X&source=X  — paginated earnings list
- *   GET /api/instructor-earnings/summary/?instructor_id=X             — earnings summary
- *
- * Pagination response: { count, next, previous, page, total_pages, page_size, results }
  */
 
 import { http } from './http'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 export interface InstructorEarning {
   id: number
@@ -18,8 +11,8 @@ export interface InstructorEarning {
   course: number | null
   payment: number | null
   user_subscription: number | null
-  amount: string            // Decimal from BE
-  net_amount: string        // Decimal from BE
+  amount: string
+  net_amount: string
   status: 'pending' | 'available' | 'paid' | 'cancelled'
   earning_date: string
   instructor_payout: number | null
@@ -55,58 +48,64 @@ export interface EarningsSummary {
   subscription: EarningSourceSummary
 }
 
-export interface PaginatedResponse<T> {
-  count: number
-  next: string | null
-  previous: string | null
-  page: number
-  total_pages: number
-  page_size: number
-  results: T[]
-}
-
-// ─── Query Params ─────────────────────────────────────────────────────────────
-
 export interface EarningsListParams {
   instructor_id?: number
   status?: string
   source?: string
+  search?: string
+  sort_by?: 'newest' | 'oldest' | 'earnings_desc' | 'earnings_asc' | 'course_asc' | 'course_desc'
   page?: number
   page_size?: number
 }
 
-// ─── API Functions ────────────────────────────────────────────────────────────
+export interface SubscriptionRevenueBreakdownParams {
+  instructor_id?: number
+  search?: string
+  sort_by?: 'earnings_desc' | 'earnings_asc' | 'course_asc' | 'course_desc' | 'share_desc' | 'share_asc'
+  page?: number
+  page_size?: number
+}
 
-/**
- * Get paginated list of instructor earnings.
- * GET /api/instructor-earnings/?instructor_id=X&status=X&source=X
- */
+export interface SubscriptionRevenueBreakdownRow {
+  course_id: number
+  course_title: string
+  earnings: string
+  records_count: number
+  total_minutes: number
+  share_pct: string
+}
+
 export async function getInstructorEarnings(
   params?: EarningsListParams
 ): Promise<PaginatedResponse<InstructorEarning>> {
-  const query: Record<string, string | number> = {}
-  if (params?.instructor_id) query.instructor_id = params.instructor_id
-  if (params?.status) query.status = params.status
-  if (params?.source) query.source = params.source
-  if (params?.page) query.page = params.page
-  if (params?.page_size) query.page_size = params.page_size
+  const query = buildListQuery({
+    instructor_id: params?.instructor_id,
+    status: params?.status,
+    source: params?.source,
+    search: params?.search,
+    sort_by: params?.sort_by,
+    page: params?.page,
+    page_size: params?.page_size,
+  })
   return http.get<PaginatedResponse<InstructorEarning>>('/instructor-earnings/', query)
 }
 
-/**
- * Get all earnings (no pagination limit).
- */
 export async function getAllInstructorEarnings(
   params?: Omit<EarningsListParams, 'page' | 'page_size'>
 ): Promise<InstructorEarning[]> {
-  const res = await getInstructorEarnings({ ...params, page: 1, page_size: 1000 })
-  return res.results
+  const all: InstructorEarning[] = []
+  let page = 1
+
+  while (true) {
+    const res = await getInstructorEarnings({ ...params, page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+
+  return all
 }
 
-/**
- * Get instructor earnings summary (breakdown by retail/subscription and status).
- * GET /api/instructor-earnings/summary/?instructor_id=X
- */
 export async function getInstructorEarningsSummary(
   instructorId?: number
 ): Promise<EarningsSummary> {
@@ -115,18 +114,27 @@ export async function getInstructorEarningsSummary(
   return http.get<EarningsSummary>('/instructor-earnings/summary/', query)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+export async function getInstructorSubscriptionRevenueBreakdown(
+  params?: SubscriptionRevenueBreakdownParams
+): Promise<PaginatedResponse<SubscriptionRevenueBreakdownRow>> {
+  const query = buildListQuery({
+    instructor_id: params?.instructor_id,
+    search: params?.search,
+    sort_by: params?.sort_by,
+    page: params?.page,
+    page_size: params?.page_size,
+  })
+  return http.get<PaginatedResponse<SubscriptionRevenueBreakdownRow>>('/instructor-earnings/subscription-breakdown/', query)
+}
 
-/** Parse decimal string to number */
 export function parseEarningAmount(val: string | null | undefined): number {
   if (!val) return 0
   const n = parseFloat(val)
   return isNaN(n) ? 0 : n
 }
 
-/** Format amount to VND currency */
 export function formatEarningVND(amount: number): string {
-  if (amount === 0) return '0 ₫'
+  if (amount === 0) return '0 ?'
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -134,7 +142,6 @@ export function formatEarningVND(amount: number): string {
   }).format(amount)
 }
 
-/** Get status color class */
 export function getEarningStatusColor(status: string): string {
   switch (status) {
     case 'available': return 'text-green-600'
@@ -145,7 +152,6 @@ export function getEarningStatusColor(status: string): string {
   }
 }
 
-/** Get status badge variant */
 export function getEarningStatusBadge(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'available': return 'default'

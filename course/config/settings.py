@@ -77,6 +77,7 @@ else:
 CLOUDINARY_CLOUD_NAME = get_env("CLOUDINARY_CLOUD_NAME", default="dqzopvk2t")
 CLOUDINARY_API_KEY = get_env("CLOUDINARY_API_KEY", default="791785722646617")
 CLOUDINARY_API_SECRET = get_env("CLOUDINARY_API_SECRET", default="eYOL6HTUSbXlZNdtAyY4chQlgrk")
+VIDEO_SIGNED_URL_TTL_SECONDS = int(get_env("VIDEO_SIGNED_URL_TTL_SECONDS", default="1800"))
 
 
 
@@ -104,6 +105,16 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Online Course <{EMAIL_HOS
 
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+EMAIL_VERIFICATION_TOKEN_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_MINUTES", "30"))
+EMAIL_VERIFICATION_TOKEN_MINUTES = max(15, min(30, EMAIL_VERIFICATION_TOKEN_MINUTES))
+GOOGLE_OAUTH_CLIENT_IDS = [
+    client_id.strip()
+    for client_id in os.getenv(
+        "GOOGLE_OAUTH_CLIENT_IDS",
+        "769246063466-q50orj7aqn9rshcdaiu2m03d1lc8fq46.apps.googleusercontent.com",
+    ).split(",")
+    if client_id.strip()
+]
 # VNPAY_RETURN_URL = "http://127.0.0.1:8000/api/vnpay/return/"
 VNPAY_RETURN_URL = os.getenv("VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/vnpay/payment-return/")
 INSTALLED_APPS = [
@@ -195,28 +206,37 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
-
+ 
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 if DATABASE_URL:
     DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL, conn_max_age=2, ssl_require=True)
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=30,
+            ssl_require=True
+        )
     }
-    DATABASES['default']['CONN_HEALTH_CHECKS'] = True
-    # Use sslmode=require instead of verify-full to avoid EOF errors on Render
-    DATABASES['default'].setdefault('OPTIONS', {})
-    DATABASES['default']['OPTIONS']['sslmode'] = 'require'
-    DATABASES['default']['CONN_MAX_AGE'] = 300
+ 
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"].update({
+        "connect_timeout": 10,
+    })
+
 else:
     import sys
     if 'makemigrations' not in sys.argv and 'migrate' not in sys.argv and 'check' not in sys.argv:
         print("DATABASE_URL not set. Using SQLite.")
+
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
         }
     }
 

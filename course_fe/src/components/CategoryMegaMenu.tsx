@@ -4,14 +4,13 @@ import { useRouter } from "./Router"
 import { getActiveCategories, getSubcategories, type Category } from "../services/category.api"
 import { Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen } from "lucide-react"
 
-// Default icon/color mapping by category name (fallback when BE has no icon field)
-const CATEGORY_STYLE: Record<string, { icon: string; color: string }> = {
-  Development: { icon: 'Code', color: 'bg-blue-100 text-blue-600' },
-  Business: { icon: 'Briefcase', color: 'bg-green-100 text-green-600' },
-  Design: { icon: 'Palette', color: 'bg-purple-100 text-purple-600' },
-  Marketing: { icon: 'Megaphone', color: 'bg-orange-100 text-orange-600' },
-  'IT & Software': { icon: 'Database', color: 'bg-red-100 text-red-600' },
-  Music: { icon: 'Music', color: 'bg-pink-100 text-pink-600' },
+const CATEGORY_COLOR: Record<string, string> = {
+  Development: 'bg-blue-100 text-blue-600',
+  Business: 'bg-green-100 text-green-600',
+  Design: 'bg-purple-100 text-purple-600',
+  Marketing: 'bg-orange-100 text-orange-600',
+  'IT & Software': 'bg-red-100 text-red-600',
+  Music: 'bg-pink-100 text-pink-600',
 }
 
 interface CategoryWithSubs extends Category {
@@ -40,11 +39,10 @@ export function CategoryMegaMenu() {
         const res = await getActiveCategories({ page_size: 100 })
         const topLevel = res.results.filter(c => !c.parent_category)
         const withEmptySubs = topLevel.map((cat) => {
-          const style = CATEGORY_STYLE[cat.name] || { icon: 'BookOpen', color: 'bg-gray-100 text-gray-600' }
           return {
             ...cat,
-            icon: style.icon,
-            color: style.color,
+            icon: cat.icon || 'BookOpen',
+            color: CATEGORY_COLOR[cat.name] || 'bg-gray-100 text-gray-600',
             students: '',
             subcategories: [], // load on demand
           } as CategoryWithSubs
@@ -135,6 +133,8 @@ export function CategoryMegaMenu() {
     setActiveCategory(null)
   }
 
+  const displayedCategories = categories.slice(0, 5)
+
   return (
     <div
       ref={menuRef}
@@ -163,7 +163,7 @@ export function CategoryMegaMenu() {
             {/* Left Column - Main Categories */}
             <div className="w-1/3 border-r border-gray-200 dark:border-gray-700">
               <div className="p-2">
-                {categories.map((category) => {
+                {displayedCategories.map((category) => {
                   const Icon = iconMap[category.icon] || BookOpen
                   const isActive = activeCategory === category.id
                   
@@ -195,7 +195,7 @@ export function CategoryMegaMenu() {
                         <ArrowRight className="w-4 h-4 flex-shrink-0" />
                       )}
                     </button>
-                  )
+                    )
                 })}
               </div>
             </div>

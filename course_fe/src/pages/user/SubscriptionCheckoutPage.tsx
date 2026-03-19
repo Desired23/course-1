@@ -8,7 +8,7 @@ import { Separator } from "../../components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
 import { useRouter } from "../../components/Router"
 import { Badge } from "../../components/ui/badge"
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 import { useAuth } from "../../contexts/AuthContext"
 import { getSubscriptionPlans, type SubscriptionPlanListItem } from "../../services/subscription.api"
 import { createPaymentRecord, createVnpayPayment } from "../../services/payment.api"
@@ -95,14 +95,15 @@ export function SubscriptionCheckoutPage() {
   // Build selectedPlan from API or fallback
   const selectedPlan = (() => {
     if (apiPlan) {
-      const monthlyPrice = Number(apiPlan.price)
-      const annualPerMonth = apiPlan.discount_price ? Number(apiPlan.discount_price) : monthlyPrice
+      const monthlyPrice = Number(apiPlan.effective_price || apiPlan.discount_price || apiPlan.price)
+      const yearlyDiscountPercent = Number(apiPlan.yearly_discount_percent || 0)
+      const annualPrice = Math.round(monthlyPrice * 12 * (1 - yearlyDiscountPercent / 100))
       const colors = colorMap[apiPlan.highlight_color || ''] || colorMap.blue
       const IconComp = apiPlan.icon ? iconMap[apiPlan.icon] : Zap
       return {
         name: apiPlan.name,
         monthlyPrice,
-        annualPrice: annualPerMonth * 12,
+        annualPrice,
         icon: IconComp || Zap,
         color: colors.color,
         bg: colors.bg,
@@ -129,6 +130,7 @@ export function SubscriptionCheckoutPage() {
         user_id: Number(user.id),
         payment_method: 'vnpay',
         payment_type: 'subscription',
+        billing_cycle: interval === 'year' ? 'yearly' : 'monthly',
         subscription_plan_id: apiPlan ? apiPlan.id : undefined,
         payment_details: [],
       })

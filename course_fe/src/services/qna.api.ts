@@ -64,11 +64,20 @@ export interface PaginatedResponse<T> {
 // ─── QnA Questions ────────────────────────────────────────────────────────────
 
 export async function getQnAs(
-  params?: { user_id?: number; qna_id?: number; page?: number; page_size?: number }
+  params?: {
+    user_id?: number
+    qna_id?: number
+    status?: 'Pending' | 'Answered' | 'Closed'
+    search?: string
+    page?: number
+    page_size?: number
+  }
 ): Promise<PaginatedResponse<QnA>> {
   const q: Record<string, string | number> = {}
   if (params?.user_id) q.user_id = params.user_id
   if (params?.qna_id) q.qna_id = params.qna_id
+  if (params?.status) q.status = params.status
+  if (params?.search) q.search = params.search
   if (params?.page) q.page = params.page
   if (params?.page_size) q.page_size = params.page_size
   return http.get<PaginatedResponse<QnA>>('/qnas/', q)
@@ -79,8 +88,15 @@ export async function getQnAById(qnaId: number): Promise<QnA> {
 }
 
 export async function getAllQnAs(): Promise<QnA[]> {
-  const res = await getQnAs({ page_size: 1000 })
-  return res.results
+  const all: QnA[] = []
+  let page = 1
+  while (true) {
+    const res = await getQnAs({ page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 export async function createQnA(data: {
@@ -118,8 +134,15 @@ export async function getQnAAnswers(
 }
 
 export async function getAllQnAAnswers(qnaId: number): Promise<QnAAnswer[]> {
-  const res = await getQnAAnswers({ qna_id: qnaId, page_size: 1000 })
-  return res.results
+  const all: QnAAnswer[] = []
+  let page = 1
+  while (true) {
+    const res = await getQnAAnswers({ qna_id: qnaId, page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 export async function createQnAAnswer(data: {

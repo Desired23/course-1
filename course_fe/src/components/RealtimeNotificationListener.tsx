@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAuth } from '../contexts/AuthContext'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 /**
  * Shows a toast whenever a new notification arrives in the context.

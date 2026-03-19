@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
 import { ScrollArea } from "../../components/ui/scroll-area"
 import { Progress } from "../../components/ui/progress"
+import { UserPagination } from "../../components/UserPagination"
 import {
   MessageSquare,
   Send,
@@ -38,9 +39,9 @@ import {
   Info,
   PlusCircle
 } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
-import { getAllQnAs, type QnA } from '../../services/qna.api'
+import { getQnAs, type QnA } from '../../services/qna.api'
 import { formatRelativeTime } from '../../utils/formatters'
 
 // Q&A data is now fetched from API
@@ -175,6 +176,14 @@ export function InstructorCommunicationPage() {
   const [activeTab, setActiveTab] = useState('qna')
   const [qnaFilter, setQnaFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQnaSearch, setDebouncedQnaSearch] = useState('')
+  const [qnaPage, setQnaPage] = useState(1)
+  const [qnaTotalPages, setQnaTotalPages] = useState(1)
+  const [qnaLoading, setQnaLoading] = useState(false)
+  const [conversationQuery, setConversationQuery] = useState('')
+  const [conversationPage, setConversationPage] = useState(1)
+  const [announcementTypeFilter, setAnnouncementTypeFilter] = useState('all')
+  const [announcementPage, setAnnouncementPage] = useState(1)
   const [selectedConversation, setSelectedConversation] = useState<number | null>(1)
   const [messageInput, setMessageInput] = useState('')
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
@@ -186,29 +195,82 @@ export function InstructorCommunicationPage() {
   })
   const [questions, setQuestions] = useState<ReturnType<typeof qnaToQuestion>[]>([])
 
-  // Fetch Q&A from API
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQnaSearch(searchQuery.trim()), 300)
+    return () => clearTimeout(t)
+  }, [searchQuery])
+
   useEffect(() => {
     let cancelled = false
     async function fetchQnA() {
       try {
-        const allQnAs = await getAllQnAs()
+        setQnaLoading(true)
+        const statusMap: Record<string, 'Pending' | 'Answered' | 'Closed' | undefined> = {
+          unanswered: 'Pending',
+          answered: 'Answered',
+          all: undefined,
+          flagged: undefined,
+        }
+        const res = await getQnAs({
+          page: qnaPage,
+          page_size: 8,
+          status: statusMap[qnaFilter],
+          search: debouncedQnaSearch || undefined,
+        })
         if (cancelled) return
-        setQuestions(allQnAs.map(qnaToQuestion))
+        setQuestions((res.results || []).map(qnaToQuestion))
+        setQnaTotalPages(res.total_pages || 1)
       } catch (err) {
         console.error('Failed to load Q&A:', err)
+      } finally {
+        if (!cancelled) setQnaLoading(false)
       }
     }
     fetchQnA()
     return () => { cancelled = true }
-  }, [])
+  }, [qnaPage, qnaFilter, debouncedQnaSearch])
 
-  // Filter questions based on selected filter
-  const filteredQuestions = questions.filter(q => {
-    if (qnaFilter === 'unanswered') return q.status === 'unanswered'
-    if (qnaFilter === 'answered') return q.status === 'answered' || q.status === 'resolved'
-    if (qnaFilter === 'flagged') return q.flagged
-    return true
-  })
+  useEffect(() => {
+    setQnaPage(1)
+  }, [qnaFilter, debouncedQnaSearch])
+
+  const paginatedQuestions = questions
+
+  const filteredConversations = mockConversations.filter((conv) =>
+    conv.student.name.toLowerCase().includes(conversationQuery.toLowerCase())
+  )
+  useEffect(() => {
+    setConversationPage(1)
+  }, [conversationQuery])
+
+  const CONVERSATIONS_PER_PAGE = 8
+  const conversationTotalPages = Math.max(1, Math.ceil(filteredConversations.length / CONVERSATIONS_PER_PAGE))
+  const paginatedConversations = filteredConversations.slice(
+    (conversationPage - 1) * CONVERSATIONS_PER_PAGE,
+    conversationPage * CONVERSATIONS_PER_PAGE
+  )
+
+  useEffect(() => {
+    if (conversationPage > conversationTotalPages) setConversationPage(conversationTotalPages)
+  }, [conversationPage, conversationTotalPages])
+
+  const filteredAnnouncements = mockAnnouncements.filter((a) =>
+    announcementTypeFilter === 'all' ? true : a.type === announcementTypeFilter
+  )
+  useEffect(() => {
+    setAnnouncementPage(1)
+  }, [announcementTypeFilter])
+
+  const ANNOUNCEMENTS_PER_PAGE = 5
+  const announcementTotalPages = Math.max(1, Math.ceil(filteredAnnouncements.length / ANNOUNCEMENTS_PER_PAGE))
+  const paginatedAnnouncements = filteredAnnouncements.slice(
+    (announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE,
+    announcementPage * ANNOUNCEMENTS_PER_PAGE
+  )
+
+  useEffect(() => {
+    if (announcementPage > announcementTotalPages) setAnnouncementPage(announcementTotalPages)
+  }, [announcementPage, announcementTotalPages])
 
   // Get selected conversation messages
   const currentMessages = selectedConversation ? mockMessages : []
@@ -381,7 +443,10 @@ export function InstructorCommunicationPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {filteredQuestions.map((question) => (
+                {qnaLoading && (
+                  <div className="text-center py-8 text-muted-foreground">Loading Q&A...</div>
+                )}
+                {!qnaLoading && paginatedQuestions.map((question) => (
                   <Card key={question.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex gap-4">
@@ -457,11 +522,18 @@ export function InstructorCommunicationPage() {
                   </Card>
                 ))}
 
-                {filteredQuestions.length === 0 && (
+                {!qnaLoading && paginatedQuestions.length === 0 && (
                   <div className="text-center py-12">
                     <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">Không có câu hỏi nào</p>
                   </div>
+                )}
+                {!qnaLoading && paginatedQuestions.length > 0 && (
+                  <UserPagination
+                    currentPage={qnaPage}
+                    totalPages={qnaTotalPages}
+                    onPageChange={setQnaPage}
+                  />
                 )}
               </div>
             </CardContent>
@@ -481,12 +553,14 @@ export function InstructorCommunicationPage() {
                       <Input
                         placeholder="Tìm kiếm học viên..."
                         className="pl-10"
+                        value={conversationQuery}
+                        onChange={(e) => setConversationQuery(e.target.value)}
                       />
                     </div>
                   </div>
 
                   <ScrollArea className="h-[540px]">
-                    {mockConversations.map((conv) => (
+                    {paginatedConversations.map((conv) => (
                       <div
                         key={conv.id}
                         className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
@@ -523,6 +597,15 @@ export function InstructorCommunicationPage() {
                         </div>
                       </div>
                     ))}
+                    {filteredConversations.length > 0 && (
+                      <div className="p-3 border-t">
+                        <UserPagination
+                          currentPage={conversationPage}
+                          totalPages={conversationTotalPages}
+                          onPageChange={setConversationPage}
+                        />
+                      </div>
+                    )}
                   </ScrollArea>
                 </div>
 
@@ -622,6 +705,17 @@ export function InstructorCommunicationPage() {
                     Gửi thông báo đến học viên của bạn về nội dung mới hoặc khuyến mãi
                   </CardDescription>
                 </div>
+
+                <Select value={announcementTypeFilter} onValueChange={setAnnouncementTypeFilter}>
+                  <SelectTrigger className="w-full md:w-44">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="educational">Educational</SelectItem>
+                    <SelectItem value="promotional">Promotional</SelectItem>
+                  </SelectContent>
+                </Select>
 
                 <Dialog open={showAnnouncementDialog} onOpenChange={setShowAnnouncementDialog}>
                   <DialogTrigger asChild>
@@ -777,7 +871,7 @@ export function InstructorCommunicationPage() {
 
               {/* Announcements list */}
               <div className="space-y-4">
-                {mockAnnouncements.map((announcement) => (
+                {paginatedAnnouncements.map((announcement) => (
                   <Card key={announcement.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
@@ -817,6 +911,13 @@ export function InstructorCommunicationPage() {
                     </CardContent>
                   </Card>
                 ))}
+                {filteredAnnouncements.length > 0 && (
+                  <UserPagination
+                    currentPage={announcementPage}
+                    totalPages={announcementTotalPages}
+                    onPageChange={setAnnouncementPage}
+                  />
+                )}
               </div>
             </CardContent>
           </Card>

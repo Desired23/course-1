@@ -1,11 +1,14 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+from django.db.models import Q
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
-from .vnpay_services import payment_ipn, payment_return
-from .services import create_payment, get_payment_status, check_enrollment_by_course
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from utils.pagination import StandardPagination
+from utils.permissions import RolePermissionFactory
+
 from .refund_services import (
     admin_update_refund_status,
     user_cancel_refund_request,
@@ -13,33 +16,37 @@ from .refund_services import (
     user_refund_request,
     get_user_refunds,
 )
-from utils.permissions import RolePermissionFactory
+from .services import create_payment, get_payment_status, check_enrollment_by_course, fix_payment, list_admin_payments
+from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
+from .vnpay_services import payment_ipn, payment_return
+
 
 class CreateVnpayPaymentView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'payment'
+
     def post(self, request):
         try:
             return create_vnpay_payment(request)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class VnpayIPNView(APIView):
     def get(self, request):
         try:
-            returnData = payment_ipn(request)
-            
-            # Assuming payment_return is a function that handles the return logic
-            return returnData
+            return_data = payment_ipn(request)
+            return return_data
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class VnpayPaymentReturnView(APIView):
     """Handle VNPay redirect after user completes payment.
-    No auth required — VNPay redirects the browser here.
-    Validates via VNPay checksum, then redirects to FE result page.
+    No auth required because VNPay redirects the browser here.
     """
+
     authentication_classes = []
     permission_classes = []
 
@@ -50,9 +57,11 @@ class VnpayPaymentReturnView(APIView):
             from django.conf import settings
             from django.http import HttpResponseRedirect
             import urllib.parse
+
             fe_url = settings.FRONTEND_URL
             redirect_url = f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
             return HttpResponseRedirect(redirect_url)
+
 
 class CreatePaymentRecordView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
@@ -61,14 +70,14 @@ class CreatePaymentRecordView(APIView):
     def post(self, request):
         try:
             data = request.data.copy()
-            data['user_id'] = request.user.id  # enforce from token, prevent IDOR
+            data['user_id'] = request.user.id
             payment = create_payment(data)
             return Response(payment, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class RefundDetailView(APIView):
-    """Refund detail management (previously at vnpay/return/)"""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'payment'
 
@@ -81,15 +90,17 @@ class RefundDetailView(APIView):
             return Response(refund_details, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     def post(self, request):
         try:
             payment_id = request.data.get('payment_id')
             payment_details_ids = request.data.get('payment_details_ids')
             reason = request.data.get('reason')
-            returnData = user_refund_request(payment_id, payment_details_ids, request.user, reason)
-            return Response(returnData, status=status.HTTP_200_OK)
+            return_data = user_refund_request(payment_id, payment_details_ids, request.user, reason)
+            return Response(return_data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     def put(self, request):
         try:
             payment_id = request.data.get('payment_id')
@@ -101,7 +112,6 @@ class RefundDetailView(APIView):
 
 
 class AdminRefundUpdateView(APIView):
-    """Admin-only endpoint for updating refund status."""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'payment'
 
@@ -130,6 +140,31 @@ class PaymentStatusView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class AdminPaymentFixView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'payment'
+
+    def post(self, request):
+        payment_id = request.data.get('payment_id')
+        if not payment_id:
+            return Response({"error": "payment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = fix_payment(payment_id)
+            return Response({"message": "Fix applied", "result": result}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminPaymentListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        problematic_flag = request.query_params.get('problematic') == 'true'
+        data = list_admin_payments(problematic=problematic_flag)
+        return Response(data, status=status.HTTP_200_OK)
+
+
 class CheckEnrollmentView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
@@ -143,26 +178,45 @@ class CheckEnrollmentView(APIView):
 
 
 class UserPaymentListView(APIView):
-    """GET /api/payments/my/ — list current user's payments with course details"""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
     def get(self, request):
         try:
             from .models import Payment
-            from payment_details.models import Payment_Details
+            from enrollments.models import Enrollment
 
             payments = Payment.objects.filter(
                 user=request.user.id,
-                is_deleted=False
+                is_deleted=False,
+            ).prefetch_related(
+                'payment_details__course',
+                'enrollments__course',
             ).order_by('-payment_date')
+
+            payment_status_filter = request.query_params.get('payment_status')
+            payment_type_filter = request.query_params.get('payment_type')
+            search = (request.query_params.get('search') or '').strip()
+            refund_eligibility = request.query_params.get('refund_eligibility')
+
+            if payment_status_filter:
+                payments = payments.filter(payment_status=payment_status_filter)
+            if payment_type_filter:
+                payments = payments.filter(payment_type=payment_type_filter)
+            if search:
+                payments = payments.filter(
+                    Q(payment_details__course__title__icontains=search)
+                    | Q(transaction_id__icontains=search)
+                ).distinct()
 
             result = []
             for payment in payments:
-                details = Payment_Details.objects.filter(
-                    payment=payment,
-                    is_deleted=False
-                ).select_related('course')
+                details = [d for d in payment.payment_details.all() if not d.is_deleted]
+                enrollments_by_course = {
+                    e.course_id: e
+                    for e in payment.enrollments.all()
+                    if e.course_id and not e.is_deleted
+                }
 
                 payment_data = {
                     'id': payment.id,
@@ -176,43 +230,134 @@ class UserPaymentListView(APIView):
                     'payment_method': payment.payment_method,
                     'refund_amount': str(payment.refund_amount),
                     'created_at': payment.created_at.isoformat() if payment.created_at else None,
-                    'items': []
+                    'items': [],
                 }
 
                 for detail in details:
+                    course_obj = detail.course
+                    enrollment = enrollments_by_course.get(detail.course_id)
+                    is_refund_locked = (
+                        bool(detail.refund_request_time)
+                        or detail.refund_status in ['approved', 'success', 'rejected', 'failed', 'cancelled']
+                    )
+
+                    refund_eligible = True
+                    refund_disabled_reason = None
+
+                    if payment.payment_type != 'course_purchase':
+                        refund_eligible = False
+                        refund_disabled_reason = 'Chỉ hỗ trợ hoàn tiền cho khóa học mua lẻ.'
+                    elif payment.payment_status != Payment.PaymentStatus.COMPLETED:
+                        refund_eligible = False
+                        refund_disabled_reason = 'Giao dịch chưa hoàn tất.'
+                    elif not detail.course_id:
+                        refund_eligible = False
+                        refund_disabled_reason = 'Không tìm thấy khóa học.'
+                    elif is_refund_locked:
+                        refund_eligible = False
+                        if detail.refund_status == 'pending':
+                            refund_disabled_reason = 'Đã gửi yêu cầu hoàn tiền.'
+                        elif detail.refund_status == 'success':
+                            refund_disabled_reason = 'Khóa học đã được hoàn tiền.'
+                        elif detail.refund_status == 'cancelled':
+                            refund_disabled_reason = 'Yêu cầu hoàn tiền đã bị hủy.'
+                        elif detail.refund_status == 'rejected':
+                            refund_disabled_reason = 'Yêu cầu hoàn tiền đã bị từ chối.'
+                        elif detail.refund_status == 'approved':
+                            refund_disabled_reason = 'Yêu cầu đã được duyệt, đang chờ xử lý.'
+                        elif detail.refund_status == 'failed':
+                            refund_disabled_reason = 'Yêu cầu hoàn tiền trước đó thất bại.'
+                        else:
+                            refund_disabled_reason = 'Không đủ điều kiện hoàn tiền.'
+                    elif not enrollment:
+                        refund_eligible = False
+                        refund_disabled_reason = 'Không tìm thấy thông tin ghi danh.'
+                    elif enrollment.status != Enrollment.Status.Active:
+                        refund_eligible = False
+                        refund_disabled_reason = 'Khóa học không còn ở trạng thái đang học.'
+                    elif enrollment.progress > 50:
+                        refund_eligible = False
+                        refund_disabled_reason = 'Đã học quá 50%, không thể hoàn tiền.'
+                    elif enrollment.expiry_date and enrollment.expiry_date < timezone.now():
+                        refund_eligible = False
+                        refund_disabled_reason = 'Khóa học đã hết hạn hoàn tiền.'
+
+                    thumbnail = getattr(course_obj, 'thumbnail', None) if course_obj else None
+                    slug = getattr(course_obj, 'slug', None) if course_obj else None
+                    instructor_name = None
+                    level = None
+                    duration = None
+                    total_lessons = None
+                    if course_obj and hasattr(course_obj, 'instructor') and course_obj.instructor:
+                        instructor_name = course_obj.instructor.user.full_name
+                    if course_obj:
+                        level = getattr(course_obj, 'level', None)
+                        duration = getattr(course_obj, 'duration', None)
+                        total_lessons = getattr(course_obj, 'total_lessons', None)
+
                     payment_data['items'].append({
                         'id': detail.id,
-                        'course_id': detail.course.id if detail.course else None,
-                        'course_title': detail.course.title if detail.course else 'N/A',
-                        'course_thumbnail': detail.course.thumbnail if detail.course else None,
+                        'course_id': course_obj.id if course_obj else None,
+                        'course_title': course_obj.title if course_obj else 'N/A',
+                        'course_thumbnail': thumbnail,
+                        'course_slug': slug,
+                        'instructor_name': instructor_name,
+                        'level': level,
+                        'duration': duration,
+                        'total_lessons': total_lessons,
                         'price': str(detail.price),
                         'discount': str(detail.discount),
                         'final_price': str(detail.final_price),
                         'refund_status': detail.refund_status,
+                        'refund_request_time': detail.refund_request_time.isoformat() if detail.refund_request_time else None,
                         'refund_amount': str(detail.refund_amount) if detail.refund_amount else None,
                         'refund_reason': detail.refund_reason,
+                        'refund_eligible': refund_eligible,
+                        'refund_disabled_reason': refund_disabled_reason,
+                        'enrollment_status': enrollment.status if enrollment else None,
+                        'enrollment_progress': str(enrollment.progress) if enrollment else None,
+                        'enrollment_expiry_date': enrollment.expiry_date.isoformat() if enrollment and enrollment.expiry_date else None,
                     })
+
+                if refund_eligibility == 'eligible':
+                    payment_data['items'] = [item for item in payment_data['items'] if item['refund_eligible']]
+                elif refund_eligibility == 'ineligible':
+                    payment_data['items'] = [item for item in payment_data['items'] if not item['refund_eligible']]
+
+                if not payment_data['items'] and refund_eligibility in ['eligible', 'ineligible']:
+                    continue
 
                 result.append(payment_data)
 
-            return Response(result)
+            paginator = StandardPagination()
+            paged_result = paginator.paginate_queryset(result, request, view=self)
+            return paginator.get_paginated_response(paged_result)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserRefundListView(APIView):
-    """
-    GET /api/refunds/           - list my refund requests (optionally ?status=pending)
-    POST /api/refunds/request/  - alias: submit refund (same as VnpayReturnView POST but cleaner URL)
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'payment'
 
     def get(self, request):
         try:
             refund_status_filter = request.query_params.get('status')
-            data = get_user_refunds(request.user, refund_status_filter)
-            return Response(data)
+            search = (request.query_params.get('search') or '').strip()
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+
+            data = get_user_refunds(
+                request.user,
+                refund_status_filter,
+                search=search,
+                date_from=date_from,
+                date_to=date_to,
+            )
+
+            paginator = StandardPagination()
+            paged_result = paginator.paginate_queryset(data, request, view=self)
+            return paginator.get_paginated_response(paged_result)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

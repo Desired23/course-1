@@ -40,8 +40,11 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { toast } from 'sonner'
-import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
+import { getSystemSettings, createSystemSetting, updateSystemSetting, getAdminPayments, fixPayment } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
+import type { AdminPayment } from '../../services/admin.api'
+import { getPaymentStatus } from '../../services/payment.api'
+import type { Payment as FullPayment } from '../../services/payment.api'
 
 
 // Payment interfaces
@@ -66,6 +69,7 @@ interface Payment {
   instructor_earning: number
   platform_fee: number
 }
+// NOTE: legacy type above is no longer used in list view; AdminPayment from api.ts replaces it
 
 interface RefundRequest {
   id: string
@@ -127,31 +131,43 @@ interface DiscountRule {
 
 export function PaymentManagementPage() {
   const { user, hasPermission } = useAuth()
-  const [payments, setPayments] = useState<Payment[]>([])
+  const [payments, setPayments] = useState<AdminPayment[]>([])
+  const [loadingPayments, setLoadingPayments] = useState(false)
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
   const [policies, setPolicies] = useState<PaymentPolicy[]>([])
   const [instructorRates, setInstructorRates] = useState<InstructorRate[]>([])
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([])
-  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([])
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
+  const [filteredPayments, setFilteredPayments] = useState<AdminPayment[]>([])
+  const [selectedPayment, setSelectedPayment] = useState<FullPayment | null>(null)
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
+      setLoadingPayments(true)
+      try {
+        // payments now come from the real API
+        const p = await getAdminPayments()
+        setPayments(p)
+        setFilteredPayments(p)
+      } catch (err) {
+        toast.error('Không thể tải dữ liệu thanh toán')
+      } finally {
+        setLoadingPayments(false)
+      }
+
+      // legacy sections (refunds, policies, etc.) remain from settings data
       try {
         const settings = await getSystemSettings()
-        const paymentsS = settings.find(s => s.key === 'payment_records')
         const refundsS = settings.find(s => s.key === 'refund_requests')
         const policiesS = settings.find(s => s.key === 'payment_policies')
         const ratesS = settings.find(s => s.key === 'instructor_rates')
         const discountsS = settings.find(s => s.key === 'discount_rules')
-        if (paymentsS) { try { const p = JSON.parse(paymentsS.value); setPayments(p.map((x: any) => ({ ...x, created_at: new Date(x.created_at), completed_at: x.completed_at ? new Date(x.completed_at) : undefined }))); setFilteredPayments(p.map((x: any) => ({ ...x, created_at: new Date(x.created_at), completed_at: x.completed_at ? new Date(x.completed_at) : undefined }))); } catch {} }
         if (refundsS) { try { const r = JSON.parse(refundsS.value); setRefundRequests(r.map((x: any) => ({ ...x, requested_at: new Date(x.requested_at), processed_at: x.processed_at ? new Date(x.processed_at) : undefined }))); } catch {} }
         if (policiesS) { try { setPolicies(JSON.parse(policiesS.value).map((x: any) => ({ ...x, updated_at: new Date(x.updated_at) }))); } catch {} }
         if (ratesS) { try { setInstructorRates(JSON.parse(ratesS.value).map((x: any) => ({ ...x, effective_from: new Date(x.effective_from) }))); } catch {} }
         if (discountsS) { try { setDiscountRules(JSON.parse(discountsS.value).map((x: any) => ({ ...x, valid_from: new Date(x.valid_from), valid_to: new Date(x.valid_to) }))); } catch {} }
       } catch {
-        toast.error('Không thể tải dữ liệu thanh toán')
+        // ignore
       }
     }
     loadData()
@@ -166,14 +182,23 @@ export function PaymentManagementPage() {
       placeholder: 'Tìm theo tên, email, khóa học...'
     },
     {
+      key: 'has_problem',
+      label: 'Lỗi',
+      type: 'select',
+      options: [
+        { label: 'Có lỗi', value: 'true' },
+        { label: 'Không lỗi', value: 'false' }
+      ]
+    },
+    {
       key: 'status',
       label: 'Trạng thái',
       type: 'select',
       options: [
-        { label: 'Đang xử lý', value: 'pending', count: payments.filter(p => p.status === 'pending').length },
-        { label: 'Hoàn thành', value: 'completed', count: payments.filter(p => p.status === 'completed').length },
-        { label: 'Thất bại', value: 'failed', count: payments.filter(p => p.status === 'failed').length },
-        { label: 'Đã hoàn tiền', value: 'refunded', count: payments.filter(p => p.status === 'refunded').length }
+        { label: 'Đang xử lý', value: 'pending', count: payments.filter(p => p.payment_status === 'pending').length },
+        { label: 'Hoàn thành', value: 'completed', count: payments.filter(p => p.payment_status === 'completed').length },
+        { label: 'Thất bại', value: 'failed', count: payments.filter(p => p.payment_status === 'failed').length },
+        { label: 'Đã hoàn tiền', value: 'refunded', count: payments.filter(p => p.payment_status === 'refunded').length }
       ]
     },
     {
@@ -224,14 +249,14 @@ export function PaymentManagementPage() {
 
     if (filters.search) {
       filtered = filtered.filter(payment => 
-        payment.user_name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        payment.user_email.toLowerCase().includes(filters.search.toLowerCase()) ||
-        payment.course_title.toLowerCase().includes(filters.search.toLowerCase())
+        (payment.user_name || '').toLowerCase().includes(filters.search.toLowerCase()) ||
+        (payment.user_email || '').toLowerCase().includes(filters.search.toLowerCase()) ||
+        (payment.course_title || '').toLowerCase().includes(filters.search.toLowerCase())
       )
     }
 
     if (filters.status) {
-      filtered = filtered.filter(payment => payment.status === filters.status)
+      filtered = filtered.filter(payment => payment.payment_status === filters.status)
     }
 
     if (filters.payment_method) {
@@ -240,7 +265,7 @@ export function PaymentManagementPage() {
 
     if (filters.amount?.min || filters.amount?.max) {
       filtered = filtered.filter(payment => {
-        const amount = payment.amount
+        const amount = parseFloat(payment.total_amount as any) || 0
         const min = filters.amount?.min ? parseFloat(filters.amount.min) : 0
         const max = filters.amount?.max ? parseFloat(filters.amount.max) : Infinity
         return amount >= min && amount <= max
@@ -249,11 +274,16 @@ export function PaymentManagementPage() {
 
     if (filters.date?.from || filters.date?.to) {
       filtered = filtered.filter(payment => {
-        const date = payment.created_at
+        const date = new Date(payment.created_at)
         const from = filters.date?.from ? new Date(filters.date.from) : new Date(0)
         const to = filters.date?.to ? new Date(filters.date.to) : new Date()
         return date >= from && date <= to
       })
+    }
+
+    if (filters.has_problem) {
+      const want = filters.has_problem === 'true'
+      filtered = filtered.filter(p => (p as any).has_problem === want)
     }
 
     setFilteredPayments(filtered)
@@ -291,6 +321,19 @@ export function PaymentManagementPage() {
       style: 'currency',
       currency: 'VND'
     }).format(amount)
+  }
+
+  const handleFix = async (paymentId: number) => {
+    try {
+      await fixPayment(paymentId)
+      toast.success('Sửa giao dịch thành công')
+      // reload payments list
+      const p = await getAdminPayments()
+      setPayments(p)
+      setFilteredPayments(p)
+    } catch (err) {
+      toast.error('Lỗi khi sửa giao dịch')
+    }
   }
 
   if (!hasPermission('admin.payments.manage')) {
@@ -337,7 +380,7 @@ export function PaymentManagementPage() {
           <CardContent>
             <div className="text-2xl">{payments.length}</div>
             <p className="text-xs text-muted-foreground">
-              {payments.filter(p => p.status === 'completed').length} hoàn thành
+              {payments.filter(p => p.payment_status === 'completed').length} hoàn thành
             </p>
           </CardContent>
         </Card>
@@ -385,6 +428,7 @@ export function PaymentManagementPage() {
             configs={paymentFilterConfigs}
             onFilterChange={handlePaymentFilter}
           />
+          {loadingPayments && <p>Đang tải giao dịch...</p>}
 
           <Card>
             <CardHeader>
@@ -412,26 +456,26 @@ export function PaymentManagementPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredPayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell className="font-mono text-sm">{payment.id}</TableCell>
+                    <TableRow key={payment.payment_id}>
+                      <TableCell className="font-mono text-sm">{payment.payment_id}</TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{payment.user_name}</p>
-                          <p className="text-sm text-muted-foreground">{payment.user_email}</p>
+                          <p className="font-medium">{payment.user_name || ''}</p>
+                          <p className="text-sm text-muted-foreground">{payment.user_email || ''}</p>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium line-clamp-1">{payment.course_title}</p>
-                          <p className="text-sm text-muted-foreground">{payment.instructor_name}</p>
+                          <p className="font-medium line-clamp-1">{payment.course_title || ''}</p>
+                          <p className="text-sm text-muted-foreground">{payment.instructor_name || ''}</p>
                         </div>
                       </TableCell>
-                      <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                      <TableCell>{formatCurrency(parseFloat(payment.total_amount))}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{payment.payment_method}</Badge>
+                        <Badge variant="outline">{payment.payment_method || ''}</Badge>
                       </TableCell>
-                      <TableCell>{getStatusBadge(payment.status)}</TableCell>
-                      <TableCell>{payment.created_at.toLocaleDateString()}</TableCell>
+                      <TableCell>{getStatusBadge(payment.payment_status)}</TableCell>
+                      <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -440,11 +484,24 @@ export function PaymentManagementPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedPayment(payment)}>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const detail = await getPaymentStatus(payment.payment_id)
+                                setSelectedPayment(detail)
+                              } catch (err) {
+                                toast.error('Không lấy được thông tin chi tiết')
+                              }
+                            }}>
                               <Eye className="h-4 w-4 mr-2" />
                               Xem chi tiết
                             </DropdownMenuItem>
-                            {payment.status === 'completed' && (
+                            {payment.payment_status === 'completed' && (payment.has_problem || false) && (
+                              <DropdownMenuItem onClick={() => handleFix(payment.payment_id)}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Sửa lỗi
+                              </DropdownMenuItem>
+                            )}
+                            {payment.payment_status === 'completed' && (
                               <DropdownMenuItem>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 Hoàn tiền
@@ -707,48 +764,39 @@ export function PaymentManagementPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Trạng thái</Label>
-                  <div className="mt-1">{getStatusBadge(selectedPayment.status)}</div>
+                  <div className="mt-1">{getStatusBadge(selectedPayment.payment_status)}</div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Học viên</Label>
-                  <p>{selectedPayment.user_name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedPayment.user_email}</p>
+                  <Label className="text-sm font-medium">Email</Label>
+                  <p>{selectedPayment.user}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Khóa học</Label>
-                  <p>{selectedPayment.course_title}</p>
-                  <p className="text-sm text-muted-foreground">GV: {selectedPayment.instructor_name}</p>
+                  <p>{selectedPayment.courses[0]?.course_title}</p>
+                  <p className="text-sm text-muted-foreground">GV: {selectedPayment.courses[0]?.instructor_name}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Số tiền</Label>
-                  <p className="text-lg font-medium">{formatCurrency(selectedPayment.amount)}</p>
+                  <p className="text-lg font-medium">{formatCurrency(selectedPayment.total_amount)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Phương thức</Label>
                   <Badge variant="outline">{selectedPayment.payment_method}</Badge>
                 </div>
-                {selectedPayment.vnpay_transaction_id && (
+                {selectedPayment.transaction_id && (
                   <div>
-                    <Label className="text-sm font-medium">VNPAY Transaction ID</Label>
-                    <p className="font-mono text-sm">{selectedPayment.vnpay_transaction_id}</p>
+                    <Label className="text-sm font-medium">Transaction ID</Label>
+                    <p className="font-mono text-sm">{selectedPayment.transaction_id}</p>
                   </div>
                 )}
                 <div>
-                  <Label className="text-sm font-medium">Phí nền tảng</Label>
-                  <p>{formatCurrency(selectedPayment.platform_fee)} ({selectedPayment.commission_rate}%)</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Thu nhập GV</Label>
-                  <p>{formatCurrency(selectedPayment.instructor_earning)}</p>
-                </div>
-                <div>
                   <Label className="text-sm font-medium">Ngày tạo</Label>
-                  <p>{selectedPayment.created_at.toLocaleString()}</p>
+                  <p>{new Date(selectedPayment.created_at).toLocaleString()}</p>
                 </div>
-                {selectedPayment.completed_at && (
+                {selectedPayment.payment_date && (
                   <div>
-                    <Label className="text-sm font-medium">Ngày hoàn thành</Label>
-                    <p>{selectedPayment.completed_at.toLocaleString()}</p>
+                    <Label className="text-sm font-medium">Ngày thanh toán</Label>
+                    <p>{new Date(selectedPayment.payment_date).toLocaleString()}</p>
                   </div>
                 )}
               </div>

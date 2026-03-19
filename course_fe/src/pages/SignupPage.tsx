@@ -6,7 +6,7 @@ import { Label } from '../components/ui/label'
 import { useRouter } from '../components/Router'
 import { useAuth } from '../contexts/AuthContext'
 import { AuthLayout } from '../components/auth/AuthLayout'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 

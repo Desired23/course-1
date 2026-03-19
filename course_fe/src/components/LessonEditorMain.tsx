@@ -26,6 +26,7 @@ interface Lesson {
 interface Section {
   id: number
   title: string
+  status?: 'Draft' | 'Published' | string
   lessons: Lesson[]
 }
 
@@ -57,6 +58,7 @@ interface LessonEditorMainProps {
   onAddLesson: (sectionId: number) => void
   onEditSection: (section: Section) => void
   onDeleteSection: (sectionId: number) => void
+  onUpdateSectionStatus?: (sectionId: number, status: 'Draft' | 'Published') => void
   onEditLesson: (lesson: Lesson) => void
   onPreviewLesson: (lesson: Lesson) => void
   onDeleteLesson: (lessonId: number) => void
@@ -82,6 +84,7 @@ export function LessonEditorMain({
   onAddLesson,
   onEditSection,
   onDeleteSection,
+  onUpdateSectionStatus,
   onEditLesson,
   onPreviewLesson,
   onDeleteLesson,
@@ -176,6 +179,7 @@ export function LessonEditorMain({
               onAddLesson={onShowAddLesson}
               onEditSection={onEditSection}
               onDeleteSection={onDeleteSection}
+              onUpdateSectionStatus={onUpdateSectionStatus}
               onEditLesson={onEditLesson}
               onPreviewLesson={onPreviewLesson}
               onDeleteLesson={onDeleteLesson}

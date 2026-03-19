@@ -3,7 +3,7 @@ import { Trash2, Tag, Clock, Star, Check, Loader2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Separator } from '../../components/ui/separator'
 import { Input } from '../../components/ui/input'
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback'
 import { useRouter } from '../../components/Router'
 import { useCart } from '../../contexts/CartContext'

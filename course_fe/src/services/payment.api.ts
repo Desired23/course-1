@@ -1,26 +1,14 @@
-/**
- * Payment API Service — Payments, VNPay, Refunds
- *
- * BE endpoints (all under /api/):
- *   Payments:
- *     POST   /payment/create/                         — create payment record
- *     GET    /payments/status/<payment_id>/            — check payment status
- *     GET    /payments/check-enrollment/<course_id>/   — check if user enrolled
- *
- *   VNPay:
- *     POST   /vnpay/create/                           — create VNPay payment URL
- *     GET    /vnpay/return/                            — VNPay return callback
- *     GET    /vnpay/ipn/                               — VNPay IPN callback
- *
- *   Refunds:
- *     GET    /refunds/                                 — user refund list
- *     POST   /refunds/request/                         — request refund
- *     POST   /payments/refund/admin/                   — admin update refund
- */
-
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+export interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  total_pages: number
+  page_size: number
+  results: T[]
+}
 
 export interface Payment {
   id: number
@@ -40,6 +28,23 @@ export interface Payment {
   gateway_response: string | null
   created_at: string
   updated_at: string
+  courses: PaymentCourse[]
+}
+
+export interface PaymentCourse {
+  course_id: number
+  course_title: string
+  course_thumbnail?: string | null
+  course_slug?: string | null
+  instructor_name?: string | null
+  level?: string | null
+  duration?: number | null
+  total_lessons?: number | null
+  price: string
+  discount: string
+  final_price: string
+  enrollment_status?: string | null
+  enrollment_id?: number | null
 }
 
 export interface PaymentDetail {
@@ -77,12 +82,12 @@ export interface CreatePaymentResponse {
   payment_details: PaymentDetail[]
 }
 
-// ─── Payments ─────────────────────────────────────────────────────────────────
-
 export async function createPaymentRecord(data: {
   user_id: number
   payment_method: string
   payment_type?: string
+  billing_cycle?: 'monthly' | 'yearly'
+  subscription_plan_id?: number
   payment_details: Array<{
     course_id: number
     promotion_id?: number | null
@@ -100,8 +105,6 @@ export async function checkEnrollment(courseId: number): Promise<{ enrolled: boo
   return http.get<{ enrolled: boolean }>(`/payments/check-enrollment/${courseId}/`)
 }
 
-// ─── VNPay ────────────────────────────────────────────────────────────────────
-
 export async function createVnpayPayment(data: {
   amount: number
   order_id?: string
@@ -112,21 +115,28 @@ export async function createVnpayPayment(data: {
   return http.post<VnpayCreateResponse>('/vnpay/create/', data)
 }
 
-// ─── Refunds ──────────────────────────────────────────────────────────────────
-
-// ─── User Payment History ─────────────────────────────────────────────────────
-
 export interface MyPaymentItem {
   id: number
   course_id: number | null
   course_title: string
   course_thumbnail: string | null
+  course_slug?: string | null
+  instructor_name?: string | null
+  level?: string | null
+  duration?: number | null
+  total_lessons?: number | null
   price: string
   discount: string
   final_price: string
-  refund_status: string
+  refund_status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  refund_request_time?: string | null
   refund_amount: string | null
   refund_reason: string | null
+  refund_eligible?: boolean
+  refund_disabled_reason?: string | null
+  enrollment_status?: string | null
+  enrollment_progress?: string | null
+  enrollment_expiry_date?: string | null
 }
 
 export interface MyPayment {
@@ -144,26 +154,74 @@ export interface MyPayment {
   items: MyPaymentItem[]
 }
 
-export async function getMyPayments(): Promise<MyPayment[]> {
-  return http.get<MyPayment[]>('/payments/my/')
+export async function getMyPayments(params?: {
+  page?: number
+  page_size?: number
+  payment_status?: MyPayment['payment_status'] | 'all'
+  payment_type?: MyPayment['payment_type'] | 'all'
+  refund_eligibility?: 'all' | 'eligible' | 'ineligible'
+  search?: string
+}): Promise<PaginatedResponse<MyPayment>> {
+  const query = {
+    page: params?.page,
+    page_size: params?.page_size,
+    payment_status: params?.payment_status && params.payment_status !== 'all' ? params.payment_status : undefined,
+    payment_type: params?.payment_type && params.payment_type !== 'all' ? params.payment_type : undefined,
+    refund_eligibility: params?.refund_eligibility && params.refund_eligibility !== 'all' ? params.refund_eligibility : undefined,
+    search: params?.search?.trim() || undefined,
+  }
+  return http.get<PaginatedResponse<MyPayment>>('/payments/my/', query)
 }
 
-// ─── Refund requests ──────────────────────────────────────────────────────────
-
 export interface RefundRequest {
-  payment_detail_id: number
+  payment_id: number
+  payment_details_ids: number[]
   reason: string
 }
 
-export async function getUserRefunds(): Promise<PaymentDetail[]> {
-  return http.get<PaymentDetail[]>('/refunds/')
+export interface UserRefundItem {
+  refund_id: number
+  payment_id: number
+  course_id: number
+  course_title: string | null
+  amount: number
+  refund_amount: number | null
+  reason: string | null
+  status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  request_date: string
+  processed_date: string | null
+  transaction_id: string | null
+}
+
+export async function getUserRefunds(params?: {
+  page?: number
+  page_size?: number
+  status?: UserRefundItem['status'] | 'all'
+  search?: string
+  date_from?: string
+  date_to?: string
+}): Promise<PaginatedResponse<UserRefundItem>> {
+  const query = {
+    page: params?.page,
+    page_size: params?.page_size,
+    status: params?.status && params.status !== 'all' ? params.status : undefined,
+    search: params?.search?.trim() || undefined,
+    date_from: params?.date_from || undefined,
+    date_to: params?.date_to || undefined,
+  }
+  return http.get<PaginatedResponse<UserRefundItem>>('/refunds/', query)
 }
 
 export async function requestRefund(data: RefundRequest): Promise<{ message: string }> {
   return http.post<{ message: string }>('/refunds/request/', data)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+export async function cancelRefundRequest(data: {
+  payment_id: number
+  payment_details_ids: number[]
+}): Promise<{ message: string }> {
+  return http.put<{ message: string }>('/refunds/details/', data)
+}
 
 export function getPaymentStatusLabel(status: string): string {
   switch (status) {

@@ -16,8 +16,10 @@ export interface Category {
   id: number
   name: string
   description: string | null
+  icon: string | null
   parent_category: number | null
   status: 'active' | 'inactive'
+  course_count?: number
   created_at: string
   updated_at: string
 }
@@ -68,6 +70,19 @@ export async function getActiveCategories(
   return promise
 }
 
+export function clearCategoryCache(): void {
+  __activeCategoriesCache = null
+  __activeCategoriesCacheTime = 0
+}
+
+/**
+ * Get top categories by published course count (public)
+ * GET /api/categories/top?limit=6
+ */
+export async function getTopCategories(limit = 6): Promise<Category[]> {
+  return http.get<Category[]>('/categories/top', { limit })
+}
+
 /**
  * Get subcategories of a parent category (public)
  * GET /api/categories/{categoryId}/subcategories
@@ -107,6 +122,7 @@ export async function getCategoryById(categoryId: number): Promise<Category> {
 export async function createCategory(data: {
   name: string
   description?: string
+  icon?: string | null
   parent_category?: number | null
   status?: string
 }): Promise<Category> {
@@ -119,7 +135,7 @@ export async function createCategory(data: {
  */
 export async function updateCategory(
   categoryId: number,
-  data: Partial<{ name: string; description: string; parent_category: number | null; status: string }>
+  data: Partial<{ name: string; description: string; icon: string | null; parent_category: number | null; status: string }>
 ): Promise<Category> {
   return http.patch<Category>(`/categories/${categoryId}/update`, data)
 }

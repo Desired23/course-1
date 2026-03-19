@@ -47,6 +47,13 @@ export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEYS.refresh)
 }
 
+export function clearHttpRuntimeState(): void {
+  getCache.clear()
+  refreshQueue = []
+  isRefreshing = false
+  http.clearInFlightGets()
+}
+
 // ─── Session expired callback ─────────────────────────────────
 
 type SessionExpiredHandler = () => void
@@ -87,28 +94,30 @@ export async function refreshAccessToken(): Promise<string> {
     _onSessionExpired?.()
     throw { message: 'No refresh token available', status: 401 } as ApiError
   }
+  try {
+    const response = await fetch(`${API_BASE_URL}/users/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshTkn }),
+    })
 
-  const response = await fetch(`${API_BASE_URL}/users/refresh-token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshTkn }),
-  })
+    if (!response.ok) {
+      throw new Error('REFRESH_FAILED')
+    }
 
-  if (!response.ok) {
+    const data = await response.json()
+    const newAccessToken = data.access_token
+    if (data.refresh_token) {
+      localStorage.setItem(TOKEN_KEYS.refresh, data.refresh_token)
+    }
+
+    localStorage.setItem(TOKEN_KEYS.access, newAccessToken)
+    return newAccessToken
+  } catch {
     clearTokens()
-    // Notify listeners that the session is dead
     _onSessionExpired?.()
     throw { message: 'Session expired. Please login again.', status: 401 } as ApiError
   }
-
-  const data = await response.json()
-  const newAccessToken = data.access_token
-  if (data.refresh_token) {
-    localStorage.setItem(TOKEN_KEYS.refresh, data.refresh_token)
-  }
-
-  localStorage.setItem(TOKEN_KEYS.access, newAccessToken)
-  return newAccessToken
 }
 
 // ─── HTTP Service class ───────────────────────────────────────
@@ -141,10 +150,12 @@ class HttpService {
         ...options.headers,
       },
     }
+    const method = (config.method || 'GET').toUpperCase()
+    const isGetRequest = method === 'GET'
 
     try {
       // try cache for GET
-    if (config.method === 'GET' || !config.method) {
+    if (isGetRequest) {
       const entry = getCache.get(url)
       if (entry && entry.expiry > Date.now()) {
         return entry.data as T
@@ -190,8 +201,12 @@ class HttpService {
       }
 
       const result = await response.json()
+      // any successful write invalidates stale GET cache entries
+      if (!isGetRequest) {
+        getCache.clear()
+      }
       // cache GET result
-      if ((config.method === 'GET' || !config.method) && response.ok) {
+      if (isGetRequest && response.ok) {
         getCache.set(url, { expiry: Date.now() + CACHE_TTL, data: result })
       }
       return result
@@ -230,6 +245,10 @@ class HttpService {
 
   // simple deduplication map for in-flight GET requests
   private inFlightGets: Map<string, Promise<any>> = new Map()
+
+  clearInFlightGets(): void {
+    this.inFlightGets.clear()
+  }
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
     let queryString = ''

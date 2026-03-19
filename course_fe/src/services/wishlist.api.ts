@@ -51,12 +51,21 @@ export interface PaginatedResponse<T> {
 /** Get current user's wishlist items (paginated). Requires user_id query param. */
 export async function getWishlistByUser(
   userId: number,
-  params?: { page?: number; page_size?: number }
+  params?: {
+    page?: number
+    page_size?: number
+    search?: string
+    level?: string
+    sort_by?: string
+  }
 ): Promise<PaginatedResponse<WishlistItem>> {
   const searchParams = new URLSearchParams()
   searchParams.set('user_id', String(userId))
-  if (params?.page) searchParams.set('page', String(params.page))
-  if (params?.page_size) searchParams.set('page_size', String(params.page_size))
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params?.search) searchParams.set('search', params.search)
+  if (params?.level) searchParams.set('level', params.level)
+  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
   return http.get<PaginatedResponse<WishlistItem>>(
     `/wishlists/?${searchParams.toString()}`
   )
@@ -64,8 +73,15 @@ export async function getWishlistByUser(
 
 /** Get ALL wishlist items for a user (no pagination limit). */
 export async function getAllWishlistByUser(userId: number): Promise<WishlistItem[]> {
-  const res = await getWishlistByUser(userId, { page_size: 1000 })
-  return res.results
+  const all: WishlistItem[] = []
+  let page = 1
+  while (true) {
+    const res = await getWishlistByUser(userId, { page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /** Add a course to wishlist. */

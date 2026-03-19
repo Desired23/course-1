@@ -1,4 +1,5 @@
 import { http } from './http'
+import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -30,16 +31,6 @@ export interface Instructor {
   payment_info: unknown | null
 }
 
-interface PaginatedResponse<T> {
-  count: number
-  next: string | null
-  previous: string | null
-  page: number
-  total_pages: number
-  page_size: number
-  results: T[]
-}
-
 // ── API Functions ──────────────────────────────────────────────────
 
 /**
@@ -49,9 +40,7 @@ export async function getInstructors(
   page = 1,
   pageSize = 20
 ): Promise<PaginatedResponse<Instructor>> {
-  return http.get<PaginatedResponse<Instructor>>(
-    `/instructors/?page=${page}&page_size=${pageSize}`
-  )
+  return http.get<PaginatedResponse<Instructor>>('/instructors/', buildListQuery({ page, page_size: pageSize }))
 }
 
 /**
@@ -215,3 +204,4 @@ export function getInitials(fullName: string): string {
 export function formatStudentCount(count: number): string {
   return count.toLocaleString('vi-VN')
 }
+

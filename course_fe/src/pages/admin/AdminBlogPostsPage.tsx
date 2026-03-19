@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { getAdminBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost } from '../../services/blog-posts.api'
 import type { BlogPost as ApiBlogPost } from '../../services/blog-posts.api'
+import { uploadFiles } from '../../services/upload.api'
 
 interface BlogPost {
   id: string
@@ -67,6 +68,7 @@ export function AdminBlogPostsPage() {
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
+  const [isUploadingFeaturedImage, setIsUploadingFeaturedImage] = useState(false)
   
   const [formData, setFormData] = useState({
     title: '',
@@ -171,6 +173,30 @@ export function AdminBlogPostsPage() {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
+  }
+
+  const handleFeaturedImageUpload = async (file?: File) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file ảnh hợp lệ')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 5MB')
+      return
+    }
+    try {
+      setIsUploadingFeaturedImage(true)
+      const uploaded = await uploadFiles([file])
+      if (!uploaded?.length) throw new Error('Upload failed')
+      setFormData((prev) => ({ ...prev, featuredImage: uploaded[0].url }))
+      toast.success('Tải ảnh lên thành công')
+    } catch (err) {
+      console.error('Featured image upload failed:', err)
+      toast.error('Tải ảnh thất bại')
+    } finally {
+      setIsUploadingFeaturedImage(false)
+    }
   }
 
   return (
@@ -278,13 +304,21 @@ export function AdminBlogPostsPage() {
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="featuredImage">Featured Image URL</Label>
+                  <Label htmlFor="featuredImage">Featured Image</Label>
                   <Input
                     id="featuredImage"
-                    placeholder="https://example.com/image.jpg"
-                    value={formData.featuredImage}
-                    onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFeaturedImageUpload(e.target.files?.[0])}
                   />
+                  {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">Đang tải ảnh lên...</p>}
+                  {formData.featuredImage && (
+                    <ImageWithFallback
+                      src={formData.featuredImage}
+                      alt="Featured preview"
+                      className="w-full max-w-sm h-40 rounded object-cover border"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="status">Status *</Label>
@@ -558,12 +592,21 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-featuredImage">Featured Image URL</Label>
+                <Label htmlFor="edit-featuredImage">Featured Image</Label>
                 <Input
                   id="edit-featuredImage"
-                  value={formData.featuredImage}
-                  onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFeaturedImageUpload(e.target.files?.[0])}
                 />
+                {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">Đang tải ảnh lên...</p>}
+                {formData.featuredImage && (
+                  <ImageWithFallback
+                    src={formData.featuredImage}
+                    alt="Featured preview"
+                    className="w-full max-w-sm h-40 rounded object-cover border"
+                  />
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-status">Status *</Label>

@@ -169,9 +169,11 @@ def send_reset_password(user_email, reset_link):
         template_name="reset_password.html",
         context=context
     )
-def send_verify_email(user_email, verify_link):
+def send_verify_email(user_email, verify_link, expires_in_minutes=30):
     context = {
-        "verify_link": verify_link
+        "verify_link": verify_link,
+        "verification_url": verify_link,
+        "expires_in_minutes": expires_in_minutes,
     }
     return send_email(
         subject="Xác minh địa chỉ email của bạn",

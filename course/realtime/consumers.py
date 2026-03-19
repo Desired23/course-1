@@ -66,6 +66,13 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             text = content.get("content", "").strip()
             if not text:
                 return
+            receiver_allows = await self.other_user_allows_messages(self.room_id, self.user.id)
+            if not receiver_allows:
+                await self.send_json({
+                    "type": "error",
+                    "message": "This user is not accepting direct messages.",
+                })
+                return
 
             # Save to DB
             msg_data = await self.save_message(self.room_id, self.user.id, text)
@@ -81,7 +88,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
             # Also push notification to the other user
             other_user_id = await self.get_other_user_id(self.room_id, self.user.id)
-            if other_user_id:
+            should_notify = await self.should_send_chat_notification(self.room_id, self.user.id)
+            if other_user_id and should_notify:
                 await self.channel_layer.group_send(
                     f"user_{other_user_id}",
                     {
@@ -129,7 +137,12 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             "id": msg.id,
             "room": msg.room_id,
             "sender": msg.sender_id,
-            "sender_name": f"{msg.sender.first_name} {msg.sender.last_name}".strip() or str(msg.sender_id),
+            "sender_name": (
+                getattr(msg.sender, "full_name", None)
+                or getattr(msg.sender, "username", None)
+                or getattr(msg.sender, "email", None)
+                or str(msg.sender_id)
+            ),
             "content": msg.content,
             "is_read": msg.is_read,
             "created_at": msg.created_at.isoformat(),
@@ -150,6 +163,28 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         ChatMessage.objects.filter(
             room_id=room_id, is_read=False
         ).exclude(sender_id=user_id).update(is_read=True)
+
+    @database_sync_to_async
+    def other_user_allows_messages(self, room_id, user_id):
+        from .models import ChatRoom
+        from users.preferences import is_direct_message_allowed
+        try:
+            room = ChatRoom.objects.get(pk=room_id)
+        except ChatRoom.DoesNotExist:
+            return False
+        other_user_id = room.user2_id if room.user1_id == user_id else room.user1_id
+        return is_direct_message_allowed(other_user_id)
+
+    @database_sync_to_async
+    def should_send_chat_notification(self, room_id, user_id):
+        from .models import ChatRoom
+        from users.preferences import is_notification_allowed
+        try:
+            room = ChatRoom.objects.get(pk=room_id)
+        except ChatRoom.DoesNotExist:
+            return False
+        other_user_id = room.user2_id if room.user1_id == user_id else room.user1_id
+        return is_notification_allowed(other_user_id, "other", "chat_message")
 
 
 class LessonCommentConsumer(AsyncJsonWebsocketConsumer):

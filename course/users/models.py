@@ -82,3 +82,18 @@ class RefreshToken(models.Model):
         if self.revoked_at is None:
             self.revoked_at = timezone.now()
             self.save(update_fields=['revoked_at'])
+
+
+class UserSettings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='settings')
+    account_preferences = models.JSONField(default=dict, blank=True)
+    notification_preferences = models.JSONField(default=dict, blank=True)
+    privacy_preferences = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'UserSettings'
+
+    def __str__(self):
+        return f"Settings(user={self.user_id})"

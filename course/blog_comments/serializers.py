@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import BlogComment
+from utils.input_validators import MAX_COMMENT_LENGTH, validate_plain_user_text
 
 
 class BlogCommentSerializer(serializers.ModelSerializer):
@@ -33,3 +34,10 @@ class BlogCommentSerializer(serializers.ModelSerializer):
 
     def get_replies_count(self, obj):
         return obj.replies.filter(status='active').count()
+
+    def validate_content(self, value):
+        return validate_plain_user_text(
+            value,
+            field_label="Nội dung bình luận",
+            max_length=MAX_COMMENT_LENGTH,
+        )

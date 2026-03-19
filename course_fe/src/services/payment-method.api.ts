@@ -44,10 +44,33 @@ export interface InstructorPayoutMethod {
   created_at: string
 }
 
+export interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  total_pages: number
+  page_size: number
+  results: T[]
+}
+
 // ─── User Payment Methods ─────────────────────────────────────────────────────
 
-export async function getUserPaymentMethods(): Promise<UserPaymentMethod[]> {
-  return http.get<UserPaymentMethod[]>('/payment-methods/user/')
+export async function getUserPaymentMethods(params?: {
+  page?: number
+  page_size?: number
+  method_type?: UserPaymentMethod['method_type'] | 'all'
+  default_filter?: 'all' | 'default' | 'non_default'
+  search?: string
+}): Promise<PaginatedResponse<UserPaymentMethod>> {
+  const searchParams = new URLSearchParams()
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params?.method_type && params.method_type !== 'all') searchParams.set('method_type', params.method_type)
+  if (params?.default_filter && params.default_filter !== 'all') searchParams.set('default_filter', params.default_filter)
+  if (params?.search) searchParams.set('search', params.search)
+  const qs = searchParams.toString()
+  return http.get<PaginatedResponse<UserPaymentMethod>>(`/payment-methods/user/${qs ? `?${qs}` : ''}`)
 }
 
 export async function createUserPaymentMethod(data: {

@@ -31,9 +31,9 @@ interface PaginatedMessages {
 
 // ── API ────────────────────────────────────────────────────────────
 
-/** Get all chat rooms for the current user */
-export async function getChatRooms(userId: number): Promise<ChatRoom[]> {
-  return http.get<ChatRoom[]>(`/chat/rooms/?user_id=${userId}`)
+/** Get all chat rooms for the current authenticated user */
+export async function getChatRooms(): Promise<ChatRoom[]> {
+  return http.get<ChatRoom[]>('/chat/rooms/')
 }
 
 /** Create (or get existing) chat room between two users */

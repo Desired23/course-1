@@ -1,654 +1,328 @@
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Button } from "../../components/ui/button"
-import { Badge } from "../../components/ui/badge"
-import { Input } from "../../components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
-import { Textarea } from "../../components/ui/textarea"
-import { Label } from "../../components/ui/label"
-import { Separator } from "../../components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
-  Search, 
-  Filter,
-  Eye,
-  Mail,
-  Phone,
-  Globe,
-  Linkedin,
-  FileText,
-  Download,
-  User,
-  Calendar,
-  Award,
-  Target,
-  Users,
-  GraduationCap,
-  Video,
-  AlertCircle,
-  TrendingUp
-} from 'lucide-react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { Badge } from '../../components/ui/badge'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
+import { Input } from '../../components/ui/input'
+import { Label } from '../../components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Textarea } from '../../components/ui/textarea'
+import {
+  getAdminApplicationDetail,
+  getAdminApplications,
+  getApplicationStatusLabel,
+  reviewApplication,
+  type Application,
+  type ApplicationListItem,
+  type ApplicationStatus,
+} from '../../services/application.api'
 import { toast } from 'sonner'
-import { motion } from 'motion/react'
-import { getAdminApplications, reviewApplication } from '../../services/admin.api'
-import type { Application as ApiApplication } from '../../services/admin.api'
+import { Download, ExternalLink, FileImage, FileText, Loader2 } from 'lucide-react'
 
-interface InstructorApplication {
-  id: number
-  userId: number
-  fullName: string
-  email: string
-  phone?: string
-  profileImage?: string
-  headline: string
-  bio: string
-  linkedIn?: string
-  website?: string
-  teachingExperience: string
-  videoExperience: string
-  expertise: string
-  teachingGoal: string
-  existingAudience: string
-  contentReady: string
-  idType: string
-  idDocument: string
-  status: 'pending' | 'approved' | 'rejected'
-  submittedAt: string
-  reviewedAt?: string
-  reviewedBy?: string
-  reviewNotes?: string
+function getFileNameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname
+    const parts = pathname.split('/').filter(Boolean)
+    return parts[parts.length - 1] || 'download'
+  } catch {
+    return 'download'
+  }
 }
 
-
-const experienceLevels = {
-  beginner: 'Chưa từng dạy',
-  some: 'Có một chút',
-  experienced: 'Có kinh nghiệm',
-  professional: 'Chuyên nghiệp'
-}
-
-const videoExperienceLevels = {
-  no: 'Chưa từng',
-  basic: 'Cơ bản',
-  intermediate: 'Trung bình',
-  advanced: 'Nâng cao'
-}
-
-const expertiseAreas = {
-  development: 'Lập trình',
-  design: 'Thiết kế',
-  business: 'Kinh doanh',
-  marketing: 'Marketing',
-  photography: 'Nhiếp ảnh',
-  other: 'Khác'
-}
-
-const goals = {
-  hobby: 'Sở thích bán thời gian',
-  'side-business': 'Kinh doanh phụ',
-  'full-time': 'Nghề chính',
-  brand: 'Xây dựng thương hiệu'
-}
-
-const audiences = {
-  no: 'Chưa có',
-  small: 'Nhỏ (< 1,000)',
-  medium: 'Trung bình (1K - 10K)',
-  large: 'Lớn (> 10K)'
-}
-
-const contentStatus = {
-  none: 'Chưa có gì',
-  outline: 'Có outline',
-  partial: 'Một phần',
-  complete: 'Hoàn chỉnh'
+function getFileType(url: string): 'image' | 'pdf' | 'other' {
+  const lower = url.toLowerCase()
+  if (lower.endsWith('.pdf') || lower.includes('/pdf/')) return 'pdf'
+  if (/\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i.test(lower) || lower.includes('/image/')) return 'image'
+  return 'other'
 }
 
 export function AdminInstructorApplicationsPage() {
-  const [applications, setApplications] = useState<InstructorApplication[]>([])
+  const [items, setItems] = useState<ApplicationListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
+  const [statusFilter, setStatusFilter] = useState<'all' | ApplicationStatus>('all')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [count, setCount] = useState(0)
+
+  const [selected, setSelected] = useState<Application | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
+  const [showReview, setShowReview] = useState(false)
+  const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | 'request_changes'>('approve')
+  const [adminNotes, setAdminNotes] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')
 
   useEffect(() => {
-    const fetchApplications = async () => {
+    let cancelled = false
+    const loadList = async () => {
+      setLoading(true)
       try {
-        const data = await getAdminApplications()
-        setApplications(data.map((a: ApiApplication) => {
-          const responses = a.responses || []
-          const getResponse = (qId: number) => responses.find(r => r.question === qId)?.value || ''
-          return {
-            id: a.id,
-            userId: a.user,
-            fullName: a.user_name || '',
-            email: a.user_email || '',
-            headline: getResponse(1),
-            bio: getResponse(2),
-            teachingExperience: getResponse(3) || 'beginner',
-            videoExperience: getResponse(4) || 'basic',
-            expertise: getResponse(5) || 'other',
-            teachingGoal: getResponse(6) || 'hobby',
-            existingAudience: getResponse(7) || 'no',
-            contentReady: getResponse(8) || 'none',
-            idType: 'cccd',
-            idDocument: '',
-            status: a.status === 'changes_requested' ? 'pending' as const : a.status,
-            submittedAt: a.created_at,
-            reviewedAt: a.updated_at !== a.created_at ? a.updated_at : undefined,
-            reviewNotes: a.admin_notes || undefined
-          }
-        }))
-      } catch {
-        toast.error('Không thể tải danh sách đơn đăng ký')
-      }
-    }
-    fetchApplications()
-  }, [])
-  const [selectedTab, setSelectedTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedApplication, setSelectedApplication] = useState<InstructorApplication | null>(null)
-  const [showDetailDialog, setShowDetailDialog] = useState(false)
-  const [showReviewDialog, setShowReviewDialog] = useState(false)
-  const [reviewAction, setReviewAction] = useState<'approve' | 'reject'>('approve')
-  const [reviewNotes, setReviewNotes] = useState('')
-
-  const filteredApplications = applications.filter(app => {
-    const matchesSearch = app.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         app.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTab = selectedTab === 'all' || app.status === selectedTab
-    return matchesSearch && matchesTab
-  })
-
-  const stats = {
-    total: applications.length,
-    pending: applications.filter(a => a.status === 'pending').length,
-    approved: applications.filter(a => a.status === 'approved').length,
-    rejected: applications.filter(a => a.status === 'rejected').length
-  }
-
-  const handleViewDetails = (application: InstructorApplication) => {
-    setSelectedApplication(application)
-    setShowDetailDialog(true)
-  }
-
-  const handleReview = (application: InstructorApplication, action: 'approve' | 'reject') => {
-    setSelectedApplication(application)
-    setReviewAction(action)
-    setReviewNotes('')
-    setShowReviewDialog(true)
-  }
-
-  const handleSubmitReview = async () => {
-    if (!selectedApplication) return
-    try {
-      await reviewApplication(selectedApplication.id, {
-        status: reviewAction === 'approve' ? 'approved' : 'rejected',
-        admin_notes: reviewNotes
-      })
-      const updatedApplications = applications.map(app => {
-        if (app.id === selectedApplication.id) {
-          return {
-            ...app,
-            status: reviewAction === 'approve' ? 'approved' as const : 'rejected' as const,
-            reviewedAt: new Date().toISOString(),
-            reviewedBy: 'Current Admin',
-            reviewNotes
-          }
+        const res = await getAdminApplications({ page, page_size: 10, status: statusFilter })
+        if (cancelled) return
+        let data = res.results
+        if (search.trim()) {
+          const q = search.trim().toLowerCase()
+          data = data.filter((it) => (it.user_full_name || '').toLowerCase().includes(q) || (it.user_email || '').toLowerCase().includes(q))
         }
-        return app
-      })
-      setApplications(updatedApplications)
-      if (reviewAction === 'approve') {
-        toast.success(`Đã phê duyệt đơn đăng ký của ${selectedApplication.fullName}`)
-      } else {
-        toast.success(`Đã từ chối đơn đăng ký của ${selectedApplication.fullName}`)
+        setItems(data)
+        setTotalPages(res.total_pages || 1)
+        setCount(res.count || 0)
+      } catch (err: any) {
+        toast.error(err?.message || 'Không thể tải danh sách đơn đăng ký')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setShowReviewDialog(false)
-      setShowDetailDialog(false)
-    } catch { toast.error('Thao tác thất bại') }
-  }
+    }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge className="bg-yellow-500 hover:bg-yellow-600"><Clock className="w-3 h-3 mr-1" /> Chờ duyệt</Badge>
-      case 'approved':
-        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" /> Đã duyệt</Badge>
-      case 'rejected':
-        return <Badge className="bg-red-500 hover:bg-red-600"><XCircle className="w-3 h-3 mr-1" /> Từ chối</Badge>
-      default:
-        return null
+    loadList()
+    return () => {
+      cancelled = true
+    }
+  }, [page, statusFilter, search])
+
+  const openDetail = async (item: ApplicationListItem) => {
+    try {
+      const detail = await getAdminApplicationDetail(item.id)
+      setSelected(detail)
+      setShowDetail(true)
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể tải chi tiết hồ sơ')
     }
   }
+
+  const openReview = (action: 'approve' | 'reject' | 'request_changes') => {
+    setReviewAction(action)
+    setAdminNotes('')
+    setRejectionReason('')
+    setShowReview(true)
+  }
+
+  const submitReview = async () => {
+    if (!selected) return
+    if (reviewAction === 'reject' && !rejectionReason.trim()) {
+      toast.error('Vui lòng nhập lý do từ chối')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const updated = await reviewApplication(selected.id, {
+        action: reviewAction,
+        admin_notes: adminNotes.trim() || undefined,
+        rejection_reason: reviewAction === 'reject' ? rejectionReason.trim() : undefined,
+      })
+      setSelected(updated)
+      setItems((prev) => prev.map((it) => (it.id === updated.id ? { ...it, status: updated.status, reviewed_at: updated.reviewed_at } : it)))
+      setShowReview(false)
+      toast.success('Đã cập nhật trạng thái hồ sơ')
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể xử lý hồ sơ')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDownloadFile = (url: string) => {
+    const link = document.createElement('a')
+    link.href = url
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    link.download = getFileNameFromUrl(url)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const statusCounts = useMemo(() => ({
+    pending: items.filter((i) => i.status === 'pending').length,
+    approved: items.filter((i) => i.status === 'approved').length,
+    rejected: items.filter((i) => i.status === 'rejected').length,
+    changes_requested: items.filter((i) => i.status === 'changes_requested').length,
+  }), [items])
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
-      <div className="mb-6 md:mb-8">
-        <h1 className="mb-2">Quản lý đăng ký giảng viên</h1>
-        <p className="text-muted-foreground">Xem xét và phê duyệt các đơn đăng ký giảng viên</p>
+    <div className="container mx-auto px-4 py-6 space-y-5">
+      <div>
+        <h1 className="text-2xl font-semibold">Quản lý đăng ký giảng viên</h1>
+        <p className="text-sm text-muted-foreground">Duyệt hồ sơ instructor application theo dữ liệu thật từ backend.</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Tổng đơn</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl">{stats.total}</div>
-                <FileText className="w-8 h-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card className="border-yellow-200 dark:border-yellow-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Chờ duyệt</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl">{stats.pending}</div>
-                <Clock className="w-8 h-8 text-yellow-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card className="border-green-200 dark:border-green-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Đã duyệt</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl">{stats.approved}</div>
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="border-red-200 dark:border-red-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Từ chối</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-2xl">{stats.rejected}</div>
-                <XCircle className="w-8 h-8 text-red-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Filters */}
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Tìm kiếm theo tên, email..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+      <Card>
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo tên/email" />
+          <Select value={statusFilter} onValueChange={(v) => { setPage(1); setStatusFilter(v as any) }}>
+            <SelectTrigger><SelectValue placeholder="Trạng thái" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="pending">Đang chờ duyệt</SelectItem>
+              <SelectItem value="approved">Đã duyệt</SelectItem>
+              <SelectItem value="rejected">Bị từ chối</SelectItem>
+              <SelectItem value="changes_requested">Cần chỉnh sửa</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-sm text-muted-foreground flex items-center">Tổng: {count}</div>
+          <div className="text-sm text-muted-foreground flex items-center gap-3">
+            <span>Pending: {statusCounts.pending}</span>
+            <span>Approved: {statusCounts.approved}</span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
-          <TabsTrigger value="pending">Chờ duyệt ({stats.pending})</TabsTrigger>
-          <TabsTrigger value="approved">Đã duyệt ({stats.approved})</TabsTrigger>
-          <TabsTrigger value="rejected">Từ chối ({stats.rejected})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={selectedTab} className="space-y-4">
-          {filteredApplications.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">Không tìm thấy đơn đăng ký nào</p>
+      {loading ? (
+        <div className="min-h-[180px] flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : items.length === 0 ? (
+        <Card><CardContent className="py-10 text-center text-muted-foreground">Không có hồ sơ phù hợp.</CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item) => (
+            <Card key={item.id}>
+              <CardContent className="p-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{item.user_full_name || `User #${item.user}`}</p>
+                  <p className="text-xs text-muted-foreground truncate">{item.user_email}</p>
+                  <p className="text-xs text-muted-foreground">Nộp lúc: {new Date(item.submitted_at).toLocaleString('vi-VN')}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{getApplicationStatusLabel(item.status)}</Badge>
+                  <Button variant="outline" size="sm" onClick={() => openDetail(item)}>Chi tiết</Button>
+                </div>
               </CardContent>
             </Card>
-          ) : (
-            filteredApplications.map((application) => (
-              <motion.div
-                key={application.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                      <div className="flex items-start gap-4 flex-1">
-                        <Avatar className="w-16 h-16">
-                          <AvatarImage src={application.profileImage} />
-                          <AvatarFallback>{application.fullName.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-4 mb-2">
-                            <div>
-                              <h3 className="font-semibold text-lg">{application.fullName}</h3>
-                              <p className="text-sm text-muted-foreground">{application.headline}</p>
-                            </div>
-                            {getStatusBadge(application.status)}
-                          </div>
+          ))}
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm mt-4">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Mail className="w-4 h-4" />
-                              <span>{application.email}</span>
-                            </div>
-                            {application.phone && (
-                              <div className="flex items-center gap-2 text-muted-foreground">
-                                <Phone className="w-4 h-4" />
-                                <span>{application.phone}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <GraduationCap className="w-4 h-4" />
-                              <span>{expertiseAreas[application.expertise as keyof typeof expertiseAreas]}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="w-4 h-4" />
-                              <span>{new Date(application.submittedAt).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-sm text-muted-foreground">Trang {page}/{totalPages}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Trang trước</Button>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Trang sau</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
-                      <div className="flex flex-row md:flex-col gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewDetails(application)}
-                          className="flex-1 md:flex-none"
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Chi tiết
-                        </Button>
-                        
-                        {application.status === 'pending' && (
-                          <>
-                            <Button
-                              size="sm"
-                              className="bg-green-600 hover:bg-green-700 flex-1 md:flex-none"
-                              onClick={() => handleReview(application, 'approve')}
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Duyệt
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="flex-1 md:flex-none"
-                              onClick={() => handleReview(application, 'reject')}
-                            >
-                              <XCircle className="w-4 h-4 mr-2" />
-                              Từ chối
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Detail Dialog */}
-      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={showDetail} onOpenChange={setShowDetail}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Chi tiết đơn đăng ký</DialogTitle>
-            <DialogDescription>
-              Thông tin đầy đủ về đơn đăng ký giảng viên
-            </DialogDescription>
+            <DialogTitle>Chi tiết hồ sơ</DialogTitle>
+            <DialogDescription>Thông tin câu trả lời theo form đăng ký từ backend.</DialogDescription>
           </DialogHeader>
-
-          {selectedApplication && (
-            <div className="space-y-6">
-              {/* Profile Section */}
-              <div>
-                <h4 className="font-semibold mb-4">Thông tin cá nhân</h4>
-                <div className="flex items-start gap-4 mb-4">
-                  <Avatar className="w-20 h-20">
-                    <AvatarImage src={selectedApplication.profileImage} />
-                    <AvatarFallback>{selectedApplication.fullName.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold">{selectedApplication.fullName}</h3>
-                    <p className="text-muted-foreground mb-2">{selectedApplication.headline}</p>
-                    {getStatusBadge(selectedApplication.status)}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-muted-foreground" />
-                    <span>{selectedApplication.email}</span>
-                  </div>
-                  {selectedApplication.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span>{selectedApplication.phone}</span>
-                    </div>
-                  )}
-                  {selectedApplication.linkedIn && (
-                    <div className="flex items-center gap-2">
-                      <Linkedin className="w-4 h-4 text-blue-600" />
-                      <a href={selectedApplication.linkedIn} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        LinkedIn Profile
-                      </a>
-                    </div>
-                  )}
-                  {selectedApplication.website && (
-                    <div className="flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-muted-foreground" />
-                      <a href={selectedApplication.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        Website
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4">
-                  <Label>Tiểu sử</Label>
-                  <p className="text-sm mt-2 p-4 bg-muted rounded-lg">{selectedApplication.bio}</p>
-                </div>
+          {selected && (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <p><strong>Người dùng:</strong> {selected.user_full_name || selected.user_email || selected.user}</p>
+                <p><strong>Trạng thái:</strong> {getApplicationStatusLabel(selected.status)}</p>
+                <p><strong>Nộp lúc:</strong> {new Date(selected.submitted_at).toLocaleString('vi-VN')}</p>
+                {selected.reviewed_at && <p><strong>Duyệt lúc:</strong> {new Date(selected.reviewed_at).toLocaleString('vi-VN')}</p>}
+                {selected.admin_notes && <p><strong>Ghi chú admin:</strong> {selected.admin_notes}</p>}
+                {selected.rejection_reason && <p className="text-red-600"><strong>Lý do từ chối:</strong> {selected.rejection_reason}</p>}
               </div>
 
-              <Separator />
-
-              {/* Experience Section */}
-              <div>
-                <h4 className="font-semibold mb-4">Kinh nghiệm & Chuyên môn</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <GraduationCap className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Kinh nghiệm giảng dạy</Label>
-                      <p className="text-sm mt-1">{experienceLevels[selectedApplication.teachingExperience as keyof typeof experienceLevels]}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <Video className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Kinh nghiệm làm video</Label>
-                      <p className="text-sm mt-1">{videoExperienceLevels[selectedApplication.videoExperience as keyof typeof videoExperienceLevels]}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <Award className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Lĩnh vực chuyên môn</Label>
-                      <p className="text-sm mt-1">{expertiseAreas[selectedApplication.expertise as keyof typeof expertiseAreas]}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <Target className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Mục đích giảng dạy</Label>
-                      <p className="text-sm mt-1">{goals[selectedApplication.teachingGoal as keyof typeof goals]}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <Users className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Cộng đồng hiện tại</Label>
-                      <p className="text-sm mt-1">{audiences[selectedApplication.existingAudience as keyof typeof audiences]}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-4 bg-muted rounded-lg">
-                    <TrendingUp className="w-5 h-5 text-purple-600 mt-0.5" />
-                    <div>
-                      <Label className="text-xs text-muted-foreground">Tình trạng nội dung</Label>
-                      <p className="text-sm mt-1">{contentStatus[selectedApplication.contentReady as keyof typeof contentStatus]}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Verification Section */}
-              <div>
-                <h4 className="font-semibold mb-4">Xác minh danh tính</h4>
-                <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-                  <FileText className="w-8 h-8 text-muted-foreground" />
-                  <div className="flex-1">
-                    <Label>Loại giấy tờ</Label>
-                    <p className="text-sm mt-1">{selectedApplication.idType.toUpperCase()}</p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Tải về
-                  </Button>
-                </div>
-              </div>
-
-              {selectedApplication.reviewedAt && (
-                <>
-                  <Separator />
-                  <div>
-                    <h4 className="font-semibold mb-4">Thông tin đánh giá</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Người đánh giá:</span>
-                        <span>{selectedApplication.reviewedBy}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Thời gian:</span>
-                        <span>{new Date(selectedApplication.reviewedAt).toLocaleString('vi-VN')}</span>
-                      </div>
-                      {selectedApplication.reviewNotes && (
-                        <div>
-                          <Label>Ghi chú:</Label>
-                          <p className="mt-2 p-3 bg-muted rounded-lg">{selectedApplication.reviewNotes}</p>
+              <Card>
+                <CardHeader><CardTitle className="text-base">Câu trả lời</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  {selected.responses.map((resp) => (
+                    <div key={resp.id} className="rounded border p-3">
+                      <p className="text-sm font-medium">{resp.question_detail?.label || `Question #${resp.id}`}</p>
+                      <p className="text-xs text-muted-foreground mb-2">Loại: {resp.question_detail?.type || 'unknown'}</p>
+                      {typeof resp.value === 'string' && resp.value.startsWith('http') ? (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(resp.value, '_blank', 'noopener,noreferrer')}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                              Mở file
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownloadFile(resp.value)}
+                            >
+                              <Download className="h-3.5 w-3.5 mr-2" />
+                              Tải xuống
+                            </Button>
+                          </div>
+                          <a href={resp.value} target="_blank" rel="noreferrer" className="text-xs text-primary underline break-all block">
+                            {resp.value}
+                          </a>
+                          {getFileType(resp.value) === 'image' && (
+                            <div className="rounded border p-2 bg-muted/30">
+                              <p className="text-xs mb-2 flex items-center gap-1 text-muted-foreground">
+                                <FileImage className="h-3.5 w-3.5" /> Preview ảnh
+                              </p>
+                              <img
+                                src={resp.value}
+                                alt={resp.question_detail?.label || 'Uploaded file'}
+                                className="max-h-72 w-auto rounded object-contain"
+                              />
+                            </div>
+                          )}
+                          {getFileType(resp.value) === 'pdf' && (
+                            <div className="rounded border p-2 bg-muted/30">
+                              <p className="text-xs mb-2 flex items-center gap-1 text-muted-foreground">
+                                <FileText className="h-3.5 w-3.5" /> Preview PDF
+                              </p>
+                              <iframe
+                                src={resp.value}
+                                title={`pdf-preview-${resp.id}`}
+                                className="w-full h-80 rounded border bg-white"
+                              />
+                            </div>
+                          )}
                         </div>
+                      ) : (
+                        <pre className="text-xs whitespace-pre-wrap break-all">{typeof resp.value === 'string' ? resp.value : JSON.stringify(resp.value, null, 2)}</pre>
                       )}
                     </div>
-                  </div>
-                </>
-              )}
+                  ))}
+                </CardContent>
+              </Card>
             </div>
           )}
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
-              Đóng
-            </Button>
-            {selectedApplication?.status === 'pending' && (
+            <Button variant="outline" onClick={() => setShowDetail(false)}>Đóng</Button>
+            {selected && (selected.status === 'pending' || selected.status === 'changes_requested') && (
               <>
-                <Button
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => {
-                    setShowDetailDialog(false)
-                    handleReview(selectedApplication, 'approve')
-                  }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Phê duyệt
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setShowDetailDialog(false)
-                    handleReview(selectedApplication, 'reject')
-                  }}
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Từ chối
-                </Button>
+                <Button variant="outline" onClick={() => openReview('request_changes')}>Yêu cầu chỉnh sửa</Button>
+                <Button variant="destructive" onClick={() => openReview('reject')}>Từ chối</Button>
+                <Button onClick={() => openReview('approve')}>Duyệt</Button>
               </>
             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Review Dialog */}
-      <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>
+      <Dialog open={showReview} onOpenChange={setShowReview}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {reviewAction === 'approve' ? 'Phê duyệt' : 'Từ chối'} đơn đăng ký
-            </DialogTitle>
+            <DialogTitle>Xử lý hồ sơ</DialogTitle>
             <DialogDescription>
-              {selectedApplication?.fullName}
+              Hành động: {reviewAction === 'approve' ? 'Duyệt' : reviewAction === 'reject' ? 'Từ chối' : 'Yêu cầu chỉnh sửa'}
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
-              <Label htmlFor="reviewNotes">Ghi chú (tùy chọn)</Label>
-              <Textarea
-                id="reviewNotes"
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                placeholder={
-                  reviewAction === 'approve' 
-                    ? 'Lý do phê duyệt, gợi ý cải thiện...'
-                    : 'Lý do từ chối, hướng dẫn cải thiện...'
-                }
-                rows={4}
-              />
+              <Label>Ghi chú admin</Label>
+              <Textarea value={adminNotes} onChange={(e) => setAdminNotes(e.target.value)} rows={3} />
             </div>
+            {reviewAction === 'reject' && (
+              <div>
+                <Label>Lý do từ chối *</Label>
+                <Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={3} />
+              </div>
+            )}
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowReviewDialog(false)}>
-              Hủy
-            </Button>
-            <Button
-              className={reviewAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
-              variant={reviewAction === 'reject' ? 'destructive' : 'default'}
-              onClick={handleSubmitReview}
-            >
-              {reviewAction === 'approve' ? 'Xác nhận phê duyệt' : 'Xác nhận từ chối'}
+            <Button variant="outline" onClick={() => setShowReview(false)} disabled={submitting}>Hủy</Button>
+            <Button onClick={submitReview} disabled={submitting}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Xác nhận
             </Button>
           </DialogFooter>
         </DialogContent>

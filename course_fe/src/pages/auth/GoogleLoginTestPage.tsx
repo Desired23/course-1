@@ -3,7 +3,7 @@ import { GoogleLoginButton } from '../../components/GoogleLoginButton'
 import { GoogleUserInfo } from '../../components/GoogleUserInfo'
 import { Button } from '../../components/ui/button'
 import { useRouter } from '../../components/Router'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { GOOGLE_OAUTH_CONFIG, validateGoogleOAuthConfig } from '../../config/googleOAuth'
 

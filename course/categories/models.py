@@ -7,6 +7,7 @@ class Category(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(null=True, blank=True)
+    icon = models.CharField(max_length=50, null=True, blank=True)
     parent_category = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories'
     )

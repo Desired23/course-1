@@ -1,6 +1,7 @@
 from rest_framework.exceptions import ValidationError
 from .models import LessonComment
 from .serializers import LessonCommentSerializer
+from utils.input_validators import MAX_COMMENT_LENGTH, validate_plain_user_text
 
 def create_lesson_comment(user_id, lesson_id, content, parent_comment=None):
     try:
@@ -21,7 +22,11 @@ def update_lesson_comment(comment_id, content, votes=None):
     try:
         comment = LessonComment.objects.get(id=comment_id)
         if content:
-            comment.content = content
+            comment.content = validate_plain_user_text(
+                content,
+                field_label="Nội dung bình luận",
+                max_length=MAX_COMMENT_LENGTH,
+            )
         if votes is not None:
             comment.votes = votes
         comment.save()

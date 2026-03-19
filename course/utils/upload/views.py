@@ -11,8 +11,17 @@ class UploadFileView(APIView):
         if not file:
             return Response({"detail": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
 
+        folder = request.data.get("folder") or "uploads"
+        resource_type = request.data.get("resource_type") or "auto"
+        delivery_type = request.data.get("delivery_type") or "upload"
+
         try:
-            upload_result = upload_file_to_cloudinary(file)
+            upload_result = upload_file_to_cloudinary(
+                file,
+                folder=folder,
+                resource_type=resource_type,
+                delivery_type=delivery_type,
+            )
             return Response(upload_result, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -164,7 +164,7 @@ def get_refund_details(payment_id, payment_details_ids, user):
         raise ValidationError(f"Error retrieving refund details: {str(e)}")
 
 
-def get_user_refunds(user, refund_status_filter=None):
+def get_user_refunds(user, refund_status_filter=None, search=None, date_from=None, date_to=None):
     """
     Returns all payment_details where user has requested a refund.
     Optionally filter by refund_status.
@@ -180,6 +180,12 @@ def get_user_refunds(user, refund_status_filter=None):
 
     if refund_status_filter:
         qs = qs.filter(refund_status=refund_status_filter)
+    if search:
+        qs = qs.filter(course__title__icontains=search)
+    if date_from:
+        qs = qs.filter(refund_request_time__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(refund_request_time__date__lte=date_to)
 
     result = []
     for detail in qs.order_by('-refund_request_time'):

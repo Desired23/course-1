@@ -40,6 +40,10 @@ class SubscriptionPlan(models.Model):
     instructor_share_percent = models.DecimalField(
         max_digits=5, decimal_places=2, default=Decimal('60.00')
     )
+    yearly_discount_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('0.00'),
+        help_text="Percent discount when user pays yearly, e.g. 15 = 15%"
+    )
     thumbnail = models.CharField(max_length=500, blank=True, null=True)
     features = models.JSONField(
         default=list, blank=True,

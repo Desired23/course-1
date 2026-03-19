@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Bell, X, Check, Trash2, Settings } from "lucide-react"
-import { Button } from "./ui/button"
 import { useRouter } from "./Router"
-import { getNotificationsByUser, markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead, type Notification as ApiNotification } from "../services/notification.api"
+import { markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead } from "../services/notification.api"
 import { useAuth } from "../contexts/AuthContext"
 import { useNotifications } from "../contexts/NotificationContext"
 
@@ -23,7 +22,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
   // Note: notifications now come from context; no REST fetch on mount.
   // We still keep the effect in case the sidebar wants to auto-refresh when
   // the logged-in user ID changes, but it will call the context helper.
-  const { state: notifState, refreshNotifications } = useNotifications() as any
+  const { state: notifState } = useNotifications() as any
 
   // sidebar does not trigger its own refresh; context handles loading and WS updates
   useEffect(() => {
@@ -71,7 +70,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     apiMarkAsRead(notificationId).catch(() => {})
     setNotifications(notifs =>
       notifs.map(n =>
-        n.notification_id === notificationId ? { ...n, is_read: true } : n
+        (n.notification_id ?? Number(n.id)) === notificationId ? { ...n, is_read: true, read: true } : n
       )
     )
     setUnreadCount(prev => Math.max(0, prev - 1))
@@ -81,14 +80,14 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     if (user?.id) {
       markAllNotificationsAsRead(parseInt(user.id)).catch(() => {})
     }
-    setNotifications(notifs => notifs.map(n => ({ ...n, is_read: true })))
+    setNotifications(notifs => notifs.map(n => ({ ...n, is_read: true, read: true })))
     setUnreadCount(0)
   }
 
   const deleteNotification = (notificationId: number) => {
-    setNotifications(notifs => notifs.filter(n => n.notification_id !== notificationId))
-    const notification = notifications.find(n => n.notification_id === notificationId)
-    if (notification && !notification.is_read) {
+    setNotifications(notifs => notifs.filter(n => (n.notification_id ?? Number(n.id)) !== notificationId))
+    const notification = notifications.find(n => (n.notification_id ?? Number(n.id)) === notificationId)
+    if (notification && !(notification.is_read ?? notification.read)) {
       setUnreadCount(prev => Math.max(0, prev - 1))
     }
   }
@@ -108,7 +107,11 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     }
   }
 
-  const formatTimeAgo = (date: Date) => {
+  const formatTimeAgo = (value: Date | string | number | undefined | null) => {
+    if (!value) return 'Just now'
+    const date = value instanceof Date ? value : new Date(value)
+    if (Number.isNaN(date.getTime())) return 'Just now'
+
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const minutes = Math.floor(diff / 60000)
@@ -201,14 +204,16 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
               <div>
                 {notifications.map((notification) => (
                   <div
-                    key={notification.notification_id}
+                    key={String(notification.notification_id ?? notification.id)}
                     className={`flex gap-3 p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
-                      !notification.is_read ? 'bg-blue-50 dark:bg-blue-900/10' : ''
+                      !(notification.is_read ?? notification.read) ? 'bg-blue-50 dark:bg-blue-900/10' : ''
                     }`}
                     onClick={() => {
-                      markAsRead(notification.notification_id)
-                      if (notification.related_id) {
-                        navigate(`/course/${notification.related_id}`)
+                      const notificationId = Number(notification.notification_id ?? notification.id)
+                      markAsRead(notificationId)
+                      const relatedId = notification.related_id ?? notification.relatedId
+                      if (relatedId) {
+                        navigate(`/course/${relatedId}`)
                         setIsOpen(false)
                       }
                     }}
@@ -226,9 +231,9 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                       </p>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-xs text-gray-400">
-                          {formatTimeAgo(notification.created_at)}
+                          {formatTimeAgo(notification.created_at ?? notification.timestamp)}
                         </span>
-                        {!notification.is_read && (
+                        {!(notification.is_read ?? notification.read) && (
                           <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                         )}
                       </div>
@@ -236,11 +241,11 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
 
                     {/* Actions */}
                     <div className="flex flex-col gap-1 flex-shrink-0">
-                      {!notification.is_read && (
+                      {!(notification.is_read ?? notification.read) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            markAsRead(notification.notification_id)
+                            markAsRead(Number(notification.notification_id ?? notification.id))
                           }}
                           className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
                           title="Mark as read"
@@ -251,7 +256,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          deleteNotification(notification.notification_id)
+                          deleteNotification(Number(notification.notification_id ?? notification.id))
                         }}
                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                         title="Delete notification"

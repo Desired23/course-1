@@ -26,6 +26,7 @@ interface SectionTreeItemProps {
   isExpanded: boolean
   selectedLesson: Lesson | null
   onToggle: () => void
+  onSelectSection?: (sectionId: number) => void
   onSelectLesson: (lesson: Lesson) => void
   showCheckboxes?: boolean
   selectedLessonIds?: Set<number>
@@ -38,6 +39,7 @@ export function SectionTreeItem({
   isExpanded,
   selectedLesson,
   onToggle,
+  onSelectSection,
   onSelectLesson,
   showCheckboxes,
   selectedLessonIds,
@@ -50,7 +52,10 @@ export function SectionTreeItem({
     <div className="space-y-1">
       {/* Section Header */}
       <button
-        onClick={onToggle}
+        onClick={() => {
+          onToggle()
+          onSelectSection?.(section.id)
+        }}
         className={cn(
           "w-full flex items-center gap-2 px-2 py-2.5 rounded-lg transition-all group",
           "hover:bg-muted/70 active:scale-[0.98]"

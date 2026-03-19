@@ -13,9 +13,12 @@ import {
   Trash2, 
   GripVertical, 
   Code2, 
+  Play,
+  Loader2,
   Save,
   AlertCircle,
   CheckCircle2,
+  XCircle,
   BookOpen,
   Target,
   Lightbulb,
@@ -29,7 +32,7 @@ import {
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Alert, AlertDescription } from './ui/alert'
-import { SUPPORTED_LANGUAGES } from '../utils/judge0'
+import { SUPPORTED_LANGUAGES, runTestCases, wrapUserCode, shouldWrapUserCode, type TestResult } from '../utils/judge0'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 
@@ -218,7 +221,7 @@ function DraggableTestCase({
                     <Textarea
                       value={testCase.input}
                       onChange={(e) => onUpdate(index, { ...testCase, input: e.target.value })}
-                      placeholder="e.g., 2,7,11,15&#10;9"
+                      placeholder="e.g., [2,7,11,15]&#10;9"
                       className="mt-1 font-mono text-sm"
                       rows={3}
                     />
@@ -227,11 +230,12 @@ function DraggableTestCase({
                   {/* Expected Output */}
                   <div>
                     <Label className="text-xs text-muted-foreground">Expected Output</Label>
-                    <Input
+                    <Textarea
                       value={testCase.expectedOutput}
                       onChange={(e) => onUpdate(index, { ...testCase, expectedOutput: e.target.value })}
-                      placeholder="e.g., 0,1"
+                      placeholder="e.g., [0,1] or 0,1"
                       className="mt-1 font-mono text-sm"
+                      rows={2}
                     />
                   </div>
 
@@ -302,6 +306,10 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
 
   const [currentTag, setCurrentTag] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isRunningSolutionTests, setIsRunningSolutionTests] = useState(false)
+  const [solutionTestResults, setSolutionTestResults] = useState<TestResult[]>([])
+  const [solutionRunError, setSolutionRunError] = useState<string | null>(null)
+  const [runProgress, setRunProgress] = useState({ current: 0, total: 0 })
 
   // ==================== VALIDATION ====================
   
@@ -495,6 +503,49 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
         ...formData,
         allowedLanguages: [...formData.allowedLanguages, languageId]
       })
+    }
+  }
+
+  const handleRunSolutionTests = async () => {
+    const code = formData.solution?.code?.trim() || ''
+    if (!code) {
+      setSolutionRunError('Please provide solution code before running tests.')
+      return
+    }
+
+    if (formData.testCases.length === 0) {
+      setSolutionRunError('Please add at least one test case before running tests.')
+      return
+    }
+
+    setIsRunningSolutionTests(true)
+    setSolutionRunError(null)
+    setSolutionTestResults([])
+    setRunProgress({ current: 0, total: formData.testCases.length })
+
+    try {
+      const languageId = formData.solution?.codeLanguage || formData.allowedLanguages[0] || 63
+      const languageValue = SUPPORTED_LANGUAGES.find((lang) => lang.id === languageId)?.value || 'javascript'
+      const executableCode = shouldWrapUserCode(code, languageValue)
+        ? wrapUserCode(code, languageValue, '')
+        : code
+
+      const results = await runTestCases(
+        executableCode,
+        languageId,
+        formData.testCases,
+        {
+          timeLimit: formData.timeLimit,
+          memoryLimit: formData.memoryLimit,
+        },
+        (current, total) => setRunProgress({ current, total })
+      )
+      setSolutionTestResults(results)
+    } catch (error) {
+      setSolutionRunError(error instanceof Error ? error.message : 'Failed to run tests')
+    } finally {
+      setIsRunningSolutionTests(false)
+      setRunProgress({ current: 0, total: 0 })
     }
   }
 
@@ -1230,24 +1281,43 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label>Solution Code</Label>
-                    <Select
-                      value={formData.solution?.codeLanguage.toString()}
-                      onValueChange={(value) => setFormData({ 
-                        ...formData, 
-                        solution: { ...formData.solution!, codeLanguage: parseInt(value) }
-                      })}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SUPPORTED_LANGUAGES.map((lang) => (
-                          <SelectItem key={lang.id} value={lang.id.toString()}>
-                            {lang.value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={formData.solution?.codeLanguage.toString()}
+                        onValueChange={(value) => setFormData({ 
+                          ...formData, 
+                          solution: { ...formData.solution!, codeLanguage: parseInt(value) }
+                        })}
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SUPPORTED_LANGUAGES.map((lang) => (
+                            <SelectItem key={lang.id} value={lang.id.toString()}>
+                              {lang.value}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="secondary"
+                        onClick={handleRunSolutionTests}
+                        disabled={isRunningSolutionTests}
+                      >
+                        {isRunningSolutionTests ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Running...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Run Test
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <Textarea
                     value={formData.solution?.code}
@@ -1259,6 +1329,47 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     className="font-mono text-sm"
                     rows={15}
                   />
+                  {isRunningSolutionTests && runProgress.total > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Running {runProgress.current}/{runProgress.total} test cases...
+                    </p>
+                  )}
+                  {solutionRunError && (
+                    <Alert variant="destructive" className="mt-3">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{solutionRunError}</AlertDescription>
+                    </Alert>
+                  )}
+                  {solutionTestResults.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">
+                          Passed {solutionTestResults.filter((result) => result.passed).length}/{solutionTestResults.length}
+                        </Badge>
+                      </div>
+                      {solutionTestResults.map((result, index) => (
+                        <Card key={result.id ?? index}>
+                          <CardContent className="p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">Test Case {index + 1}</span>
+                              <Badge variant={result.passed ? 'default' : 'destructive'} className="flex items-center gap-1">
+                                {result.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                                {result.passed ? 'Passed' : 'Failed'}
+                              </Badge>
+                            </div>
+                            <div className="text-xs space-y-1 font-mono">
+                              <p><span className="font-semibold">Input:</span> {result.input || '(empty)'}</p>
+                              <p><span className="font-semibold">Expected:</span> {result.expectedOutput || '(empty)'}</p>
+                              <p><span className="font-semibold">Actual:</span> {result.actualOutput?.trim() || '(empty)'}</p>
+                              {result.error && (
+                                <p className="text-destructive"><span className="font-semibold">Error:</span> {result.error}</p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <Separator />

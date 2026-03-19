@@ -110,19 +110,24 @@ def create_enrollments_from_payment(payment):
     from enrollments.models import Enrollment
     details = Payment_Details.objects.filter(payment=payment, is_deleted=False).select_related('course')
     for detail in details:
+        course_obj = detail.course
+        if not course_obj:
+            # course was deleted; log and continue
+            print(f"[WARN] PaymentDetail {detail.id} has no course, skipping enrollment")
+            continue
         # Skip if already enrolled
         existing = Enrollment.objects.filter(
-            user=payment.user, course=detail.course, is_deleted=False
+            user=payment.user, course=course_obj, is_deleted=False
         ).first()
         if existing:
             continue
         try:
             create_enrollment({
                 'user_id': payment.user.id,
-                'course_id': detail.course.id,
+                'course_id': course_obj.id,
             })
         except Exception as e:
-            print(f"[WARN] Failed to create enrollment for course {detail.course.id}: {e}")
+            print(f"[WARN] Failed to create enrollment for course {course_obj.id}: {e}")
 
 
 def payment_return(request):
@@ -169,86 +174,84 @@ def payment_return(request):
 
 
 def payment_ipn(request):
-    inputData = request.GET
-    if inputData:
+    """Handle VNPay IPN callback. Always return a JSON response with
+    `RspCode` so VNPay knows whether to retry.
+
+    The entire processing is wrapped in a broad try/except; if anything
+    raises an exception we log the stack trace and return `'99'` so the
+    gateway will retry later.  Transactional updates and enrollment/earning
+    generation are performed inside an atomic block to ensure consistency.
+    """
+    try:
+        inputData = request.GET
+        if not inputData:
+            return JsonResponse({'RspCode': '99', 'Message': 'Invalid request'})
+
         vnp = vnpay()
         vnp.responseData = inputData.dict()
-        order_id = inputData['vnp_TxnRef']
-        amount = Decimal(inputData['vnp_Amount']) / Decimal(100)
-        order_desc = inputData['vnp_OrderInfo']
-        vnp_TransactionNo = inputData['vnp_TransactionNo']
-        vnp_ResponseCode = inputData['vnp_ResponseCode']
-        vnp_TmnCode = inputData['vnp_TmnCode']
-        vnp_PayDate = inputData['vnp_PayDate']
-        vnp_BankCode = inputData['vnp_BankCode']
-        vnp_CardType = inputData['vnp_CardType']
-        if vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
-            # Check & Update Order Status in your Database
-            try:
-                payment = Payment.objects.get(id=order_id)
-            except Payment.DoesNotExist:
-                return JsonResponse({'RspCode': '01', 'Message': 'Order not found'})
+        order_id = inputData.get('vnp_TxnRef')
+        amount = Decimal(inputData.get('vnp_Amount', '0')) / Decimal(100)
+        vnp_TransactionNo = inputData.get('vnp_TransactionNo', '')
+        vnp_ResponseCode = inputData.get('vnp_ResponseCode', '')
 
-            # Verify amount matches
-            if Decimal(payment.total_amount) != Decimal(amount):
-                return JsonResponse({'RspCode': '04', 'Message': 'invalid amount'})
+        # validate signature first
+        if not vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
+            return JsonResponse({'RspCode': '97', 'Message': 'Invalid Signature'})
 
-            # Check if already processed
-            if payment.payment_status != Payment.PaymentStatus.PENDING:
-                return JsonResponse({'RspCode': '02', 'Message': 'Order Already Update'})
+        # load payment record
+        try:
+            payment = Payment.objects.get(id=order_id)
+        except Payment.DoesNotExist:
+            return JsonResponse({'RspCode': '01', 'Message': 'Order not found'})
 
-            if vnp_ResponseCode == "00":
+        if Decimal(payment.total_amount) != Decimal(amount):
+            return JsonResponse({'RspCode': '04', 'Message': 'invalid amount'})
 
-                with transaction.atomic():
-                    # Lock the payment row to avoid concurrent processing
-                    payment = Payment.objects.select_for_update().get(id=payment.id)
-                    payment.payment_status = Payment.PaymentStatus.COMPLETED
-                    payment.transaction_id = vnp_TransactionNo
-                    payment.gateway_response = vnp_ResponseCode
-                    payment.payment_gateway = 'vnpay'
-                    payment.save()
+        if payment.payment_status != Payment.PaymentStatus.PENDING:
+            return JsonResponse({'RspCode': '02', 'Message': 'Order Already Update'})
 
-                    # Log payment success
-                    log_activity(
-                        user_id=payment.user.id,
-                        action="PAYMENT_SUCCESS",
-                        entity_type="Payment",
-                        entity_id=payment.id,
-                        description=f"Thanh toán thành công: {payment.total_amount} VND qua VNPay"
-                    )
-
-                    # Generate instructor earnings from the payment only if not already created
-                    from instructor_earnings.models import InstructorEarning
-                    if not InstructorEarning.objects.filter(payment=payment).exists():
-                        generate_instructor_earnings_from_payment(payment.id)
-
-                    # Create enrollments for purchased courses
-                    create_enrollments_from_payment(payment)
-
-                # Send invoice email (outside transaction - best effort)
-                try:
-                    details = payment.payment_details.all()
-                    if details.exists():
-                        send_payment_invoice(payment.user.email, payment)
-                except Exception:
-                    pass  # Email sending is best-effort
-
-            else:
-                # Payment failed at VNPAY
-                payment.payment_status = Payment.PaymentStatus.FAILED
+        if vnp_ResponseCode == "00":
+            with transaction.atomic():
+                payment = Payment.objects.select_for_update().get(id=payment.id)
+                payment.payment_status = Payment.PaymentStatus.COMPLETED
                 payment.transaction_id = vnp_TransactionNo
                 payment.gateway_response = vnp_ResponseCode
+                payment.payment_gateway = 'vnpay'
                 payment.save()
 
-            # Return VNPAY: Merchant update success
-            result = JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
-        else:
-            # Invalid Signature
-            result = JsonResponse({'RspCode': '97', 'Message': 'Invalid Signature'})
-    else:
-        result = JsonResponse({'RspCode': '99', 'Message': 'Invalid request'})
+                log_activity(
+                    user_id=payment.user.id,
+                    action="PAYMENT_SUCCESS",
+                    entity_type="Payment",
+                    entity_id=payment.id,
+                    description=f"Thanh toán thành công: {payment.total_amount} VND qua VNPay"
+                )
 
-    return result
+                from instructor_earnings.models import InstructorEarning
+                if not InstructorEarning.objects.filter(payment=payment).exists():
+                    generate_instructor_earnings_from_payment(payment.id)
+
+                create_enrollments_from_payment(payment)
+
+            try:
+                details = payment.payment_details.all()
+                if details.exists():
+                    send_payment_invoice(payment.user.email, payment)
+            except Exception:
+                pass
+
+        else:
+            payment.payment_status = Payment.PaymentStatus.FAILED
+            payment.transaction_id = vnp_TransactionNo
+            payment.gateway_response = vnp_ResponseCode
+            payment.save()
+
+        return JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
+
+    except Exception as e:
+        import logging, traceback
+        logging.error(f"IPN error for order {locals().get('order_id')} : {e}\n" + traceback.format_exc())
+        return JsonResponse({'RspCode': '99', 'Message': 'Internal error'})
 
 # def local_ipn()
 def send_vnpay_refund_request(payment_detail_id, reason):

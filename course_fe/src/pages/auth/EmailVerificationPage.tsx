@@ -1,92 +1,75 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from '../../components/Router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Alert, AlertDescription } from '../../components/ui/alert'
-import { CheckCircle2, XCircle, Mail, Loader2 } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
-import { toast } from 'sonner@2.0.3'
+import { CheckCircle2, Mail, Loader2, XCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import { confirmEmail, resendConfirmEmail } from '../../services/auth.api'
+
+type VerifyState = 'verifying' | 'verified' | 'already_verified' | 'expired' | 'invalid'
 
 export function EmailVerificationPage() {
-  const { navigate, params } = useRouter()
-  const { user } = useAuth()
-  const [verificationCode, setVerificationCode] = useState('')
-  const [isVerifying, setIsVerifying] = useState(false)
-  const [isVerified, setIsVerified] = useState(false)
-  const [error, setError] = useState('')
-  const [countdown, setCountdown] = useState(0)
+  const { navigate } = useRouter()
+  const [state, setState] = useState<VerifyState>('verifying')
+  const [message, setMessage] = useState('Verifying your email...')
+  const [email, setEmail] = useState('')
+  const [resending, setResending] = useState(false)
 
-  // Check if email is already verified
+  const token = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    return new URLSearchParams(window.location.search).get('token') || ''
+  }, [])
+
   useEffect(() => {
-    if (user?.email_verified) {
-      navigate('/')
-    }
-  }, [user])
+    const run = async () => {
+      if (!token) {
+        setState('invalid')
+        setMessage('Missing verification token.')
+        return
+      }
 
-  // Countdown timer for resend button
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
+      try {
+        const result = await confirmEmail(token)
+        if (result.status === 'already_verified') {
+          setState('already_verified')
+          setMessage(result.message || 'Email already verified.')
+          return
+        }
+        setState('verified')
+        setMessage(result.message || 'Email verified successfully.')
+      } catch (error: any) {
+        const details = error?.errors || {}
+        const code = details?.code
+        if (code === 'email_verification_expired') {
+          setState('expired')
+          setMessage(details?.error || 'Verification link has expired.')
+          return
+        }
+        setState('invalid')
+        setMessage(details?.error || error?.message || 'Invalid verification link.')
+      }
     }
-  }, [countdown])
 
-  const handleVerify = async () => {
-    if (!verificationCode.trim()) {
-      setError('Please enter verification code')
+    run()
+  }, [token])
+
+  const handleResend = async () => {
+    if (!email.trim()) {
+      toast.error('Please enter your email.')
       return
     }
-
-    setIsVerifying(true)
-    setError('')
-
-    // Simulate API call
-    setTimeout(() => {
-      // In production, verify with backend
-      if (verificationCode === '123456') {
-        setIsVerified(true)
-        toast.success('Email verified successfully!')
-        setTimeout(() => {
-          navigate('/')
-        }, 2000)
-      } else {
-        setError('Invalid verification code')
-      }
-      setIsVerifying(false)
-    }, 1500)
-  }
-
-  const handleResendCode = async () => {
-    if (countdown > 0) return
-
-    // Simulate API call
-    setTimeout(() => {
-      toast.success('Verification code sent to your email')
-      setCountdown(60) // 60 seconds cooldown
-    }, 1000)
-  }
-
-  if (isVerified) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="w-10 h-10 text-green-600" />
-                </div>
-              </div>
-              <h2 className="text-2xl">Email Verified!</h2>
-              <p className="text-muted-foreground">
-                Your email has been successfully verified. Redirecting...
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    setResending(true)
+    try {
+      const result = await resendConfirmEmail(email.trim())
+      toast.success(result.message || 'Verification email sent.')
+    } catch (error: any) {
+      const details = error?.errors || {}
+      toast.error(details?.error || error?.message || 'Failed to resend verification email.')
+    } finally {
+      setResending(false)
+    }
   }
 
   return (
@@ -95,73 +78,52 @@ export function EmailVerificationPage() {
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
-              <Mail className="w-8 h-8 text-primary" />
+              {state === 'verified' || state === 'already_verified' ? (
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              ) : state === 'verifying' ? (
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              ) : (
+                <Mail className="w-8 h-8 text-primary" />
+              )}
             </div>
           </div>
-          <CardTitle>Verify Your Email</CardTitle>
-          <CardDescription>
-            We've sent a verification code to {user?.email || 'your email'}
-          </CardDescription>
+          <CardTitle>Email Verification</CardTitle>
+          <CardDescription>{message}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && (
+          {(state === 'invalid' || state === 'expired') && (
             <Alert variant="destructive">
               <XCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{message}</AlertDescription>
             </Alert>
           )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Verification Code</label>
-            <Input
-              type="text"
-              placeholder="Enter 6-digit code"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
-              maxLength={6}
-              className="text-center text-2xl tracking-widest"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleVerify()
-                }
-              }}
-            />
-            <p className="text-xs text-muted-foreground text-center">
-              For demo: use code <span className="font-mono font-bold">123456</span>
-            </p>
-          </div>
+          {state === 'expired' && (
+            <div className="space-y-3">
+              <Input
+                type="email"
+                placeholder="Enter your email to resend"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Button onClick={handleResend} disabled={resending} className="w-full">
+                {resending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  'Resend verification email'
+                )}
+              </Button>
+            </div>
+          )}
 
-          <Button 
-            onClick={handleVerify} 
-            disabled={isVerifying || !verificationCode.trim()}
-            className="w-full"
-          >
-            {isVerifying ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Verifying...
-              </>
-            ) : (
-              'Verify Email'
-            )}
-          </Button>
-
-          <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Didn't receive the code?
-            </p>
-            <Button
-              variant="link"
-              onClick={handleResendCode}
-              disabled={countdown > 0}
-              className="p-0 h-auto"
-            >
-              {countdown > 0 
-                ? `Resend code in ${countdown}s` 
-                : 'Resend verification code'
-              }
+          {(state === 'verified' || state === 'already_verified') && (
+            <Button className="w-full" onClick={() => navigate('/login')}>
+              Go to login
             </Button>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

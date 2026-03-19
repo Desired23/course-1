@@ -1,5 +1,9 @@
 from rest_framework import serializers
 from .models import ForumTopic
+from utils.input_validators import (
+    MAX_TOPIC_CONTENT_LENGTH,
+    validate_plain_user_text,
+)
 
 
 class ForumTopicSerializer(serializers.ModelSerializer):
@@ -44,3 +48,18 @@ class ForumTopicSerializer(serializers.ModelSerializer):
 
     def get_forum_title(self, obj):
         return obj.forum.title if obj.forum else None
+
+    def validate_title(self, value):
+        # Model already has max_length=255; keep a strict trim + payload check here.
+        return validate_plain_user_text(
+            value,
+            field_label="Tiêu đề",
+            max_length=255,
+        )
+
+    def validate_content(self, value):
+        return validate_plain_user_text(
+            value,
+            field_label="Nội dung chủ đề",
+            max_length=MAX_TOPIC_CONTENT_LENGTH,
+        )

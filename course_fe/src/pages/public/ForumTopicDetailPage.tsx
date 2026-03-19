@@ -306,10 +306,9 @@ export function ForumTopicDetailPage() {
               </header>
 
               {/* Topic content */}
-              <div 
-                className="prose prose-slate max-w-none dark:prose-invert mb-8"
-                dangerouslySetInnerHTML={{ __html: topic.content }}
-              />
+              <div className="prose prose-slate max-w-none dark:prose-invert mb-8 whitespace-pre-wrap break-words">
+                {topic.content}
+              </div>
 
               {/* Action buttons */}
               <div className="flex items-center justify-between py-6 border-t border-b">

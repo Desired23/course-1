@@ -12,7 +12,7 @@ import { useRouter } from '../../components/Router'
 import { DashboardSidebar } from '../../components/DashboardSidebar'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNotifications } from '../../contexts/NotificationContext'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import {
   type QnA as ApiQnA,
   type QnAAnswer as ApiQnAAnswer,

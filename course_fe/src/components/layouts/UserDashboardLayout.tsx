@@ -1,5 +1,6 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import { UserDashboardSidebar } from '../UserDashboardSidebar'
+import { useUIStore } from '../../stores'
 
 interface UserDashboardLayoutProps {
   children: ReactNode
@@ -10,6 +11,12 @@ interface UserDashboardLayoutProps {
  * Automatically includes the user dashboard sidebar
  */
 export function UserDashboardLayout({ children }: UserDashboardLayoutProps) {
+  const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
+
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [setSidebarOpen])
+
   return (
     <div className="flex min-h-screen bg-background">
       <UserDashboardSidebar />

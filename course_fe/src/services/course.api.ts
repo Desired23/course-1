@@ -13,7 +13,7 @@
  */
 
 import { http } from './http'
-import type { PaginatedResponse } from './category.api'
+import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -58,6 +58,14 @@ export interface CourseListItem {
   subcategory_name: string | null
 }
 
+export interface CourseUpdateData extends Partial<CourseListItem> {
+  // Optional moderation metadata (primarily for admin status changes)
+  status_reason?: string
+  send_notification?: boolean
+  notify_title?: string
+  notify_message?: string
+}
+
 /** Instructor summary in course detail */
 export interface InstructorSummary {
   instructor_id: number
@@ -82,6 +90,10 @@ export interface LessonSummary {
   lesson_id: number
   title: string
   content_type: string
+  video_url?: string | null
+  video_public_id?: string | null
+  signed_video_url?: string | null
+  signed_video_expires_at?: string | null
   duration: number | null
   is_free: boolean
   order: number
@@ -163,15 +175,20 @@ export interface CourseListParams {
   instructor_id?: number
   category_id?: number
   subcategory_id?: number
+  subcategory_ids?: string
   status?: string
   is_featured?: boolean
   level?: string
+  levels?: string
   search?: string
   ordering?: string
   rating_min?: number
   language?: string
+  languages?: string
   price_min?: number
   price_max?: number
+  duration_buckets?: string
+  certificate?: boolean
 }
 
 // ─── API functions ──────────────────────────────────────────
@@ -187,22 +204,27 @@ export interface CourseListParams {
 export async function getCourses(
   params?: CourseListParams
 ): Promise<PaginatedResponse<CourseListItem>> {
-  const query: Record<string, string | number> = {
+  const query = buildListQuery({
     page: params?.page ?? 1,
     page_size: params?.page_size ?? 20,
-  }
-  if (params?.instructor_id) query.instructor_id = params.instructor_id
-  if (params?.category_id) query.category_id = params.category_id
-  if (params?.subcategory_id) query.subcategory_id = params.subcategory_id
-  if (params?.status) query.status = params.status
-  if (params?.is_featured !== undefined) query.is_featured = String(params.is_featured)
-  if (params?.level) query.level = params.level
-  if (params?.search) query.search = params.search
-  if (params?.ordering) query.ordering = params.ordering
-  if (params?.rating_min !== undefined) query.rating_min = params.rating_min
-  if (params?.language) query.language = params.language
-  if (params?.price_min !== undefined) query.price_min = params.price_min
-  if (params?.price_max !== undefined) query.price_max = params.price_max
+    instructor_id: params?.instructor_id,
+    category_id: params?.category_id,
+    subcategory_id: params?.subcategory_id,
+    subcategory_ids: params?.subcategory_ids,
+    status: params?.status,
+    is_featured: params?.is_featured !== undefined ? String(params.is_featured) : undefined,
+    level: params?.level,
+    levels: params?.levels,
+    search: params?.search,
+    ordering: params?.ordering,
+    rating_min: params?.rating_min,
+    language: params?.language,
+    languages: params?.languages,
+    price_min: params?.price_min,
+    price_max: params?.price_max,
+    duration_buckets: params?.duration_buckets,
+    certificate: params?.certificate !== undefined ? String(params.certificate) : undefined,
+  })
   return http.get<PaginatedResponse<CourseListItem>>('/courses/', query)
 }
 
@@ -251,7 +273,7 @@ export async function createCourse(
  */
 export async function updateCourse(
   courseId: number,
-  data: Partial<CourseListItem>
+  data: CourseUpdateData
 ): Promise<CourseListItem> {
   return http.patch<CourseListItem>(`/courses/${courseId}/update`, data)
 }
@@ -361,4 +383,9 @@ export async function getPublicStats(): Promise<PublicStats> {
   __publicStatsCache = promise
   __publicStatsCacheTime = now
   return promise
+}
+
+export function clearCoursePublicStatsCache(): void {
+  __publicStatsCache = null
+  __publicStatsCacheTime = 0
 }

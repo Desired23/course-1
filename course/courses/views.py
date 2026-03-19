@@ -16,6 +16,7 @@ from utils.pagination import paginate_queryset
 from django.conf import settings
 import jwt
 from users.models import User
+from utils.list_params import get_search_param
 
 
 class CourseStatsView(APIView):
@@ -36,12 +37,17 @@ class CourseListView(APIView):
             status_filter = params.get('status')
             is_featured = params.get('is_featured')
             level = params.get('level')
-            search = params.get('search')
+            search = get_search_param(request)
             ordering = params.get('ordering')
             rating_min = params.get('rating_min')
             language = params.get('language')
             price_min = params.get('price_min')
             price_max = params.get('price_max')
+            subcategory_ids = params.get('subcategory_ids')
+            levels = params.get('levels')
+            languages = params.get('languages')
+            duration_buckets = params.get('duration_buckets')
+            certificate = params.get('certificate')
 
             kwargs = {}
             if instructor_id:
@@ -68,6 +74,16 @@ class CourseListView(APIView):
                 kwargs['price_min'] = float(price_min)
             if price_max:
                 kwargs['price_max'] = float(price_max)
+            if subcategory_ids:
+                kwargs['subcategory_ids'] = [int(v.strip()) for v in subcategory_ids.split(',') if v.strip().isdigit()]
+            if levels:
+                kwargs['levels'] = [v.strip() for v in levels.split(',') if v.strip()]
+            if languages:
+                kwargs['languages'] = [v.strip() for v in languages.split(',') if v.strip()]
+            if duration_buckets:
+                kwargs['duration_buckets'] = [v.strip() for v in duration_buckets.split(',') if v.strip()]
+            if certificate is not None and certificate != '':
+                kwargs['certificate'] = str(certificate).lower() in ('true', '1', 'yes')
 
             courses = get_all_courses(**kwargs)
             return paginate_queryset(courses, request, CourseSerializer)
@@ -78,7 +94,12 @@ class CourseListView(APIView):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
         self.check_permissions(request)
         try:
-            course = create_course(request.data)
+            payload = request.data.copy()
+            # Security/data consistency: instructor-created courses must always
+            # belong to the authenticated instructor (not client-provided id).
+            if hasattr(request.user, 'instructor') and request.user.instructor:
+                payload['instructor'] = request.user.instructor.id
+            course = create_course(payload)
             return Response(course, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)

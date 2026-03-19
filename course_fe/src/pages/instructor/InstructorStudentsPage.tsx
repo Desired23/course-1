@@ -1,23 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Progress } from '../../components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { UserPagination } from '../../components/UserPagination'
 import { Users, GraduationCap, TrendingUp, Search, Loader2, Star, BookOpen } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
 import { useRouter } from '../../components/Router'
 import { getInstructorDashboardStats, type InstructorDashboardStats } from '../../services/instructor.api'
 import { formatPrice } from '../../services/course.api'
 
 export function InstructorStudentsPage() {
-  const { user } = useAuth()
   const { navigate } = useRouter()
   const [stats, setStats] = useState<InstructorDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('students')
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -36,6 +39,49 @@ export function InstructorStudentsPage() {
     return () => { cancelled = true }
   }, [])
 
+  const courseStats = useMemo(() => {
+    if (!stats) return []
+    return [...stats.course_stats]
+      .filter(c =>
+        c.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        (
+          statusFilter === 'all' ||
+          (statusFilter === 'published' && c.is_published) ||
+          (statusFilter === 'draft' && !c.is_published)
+        )
+      )
+      .sort((a, b) => {
+        if (sortBy === 'rating') return b.rating - a.rating
+        if (sortBy === 'completion') return b.completion_rate - a.completion_rate
+        if (sortBy === 'new_students') return b.new_students_this_month - a.new_students_this_month
+        return b.total_students - a.total_students
+      })
+  }, [stats, searchQuery, statusFilter, sortBy])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, statusFilter, sortBy])
+
+  const ITEMS_PER_PAGE = 10
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(courseStats.length / ITEMS_PER_PAGE)), [courseStats.length])
+  const paginatedCourseStats = useMemo(() => {
+    return courseStats.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+    )
+  }, [courseStats, currentPage])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
+
+  const totalCompleters = useMemo(() => {
+    return courseStats.reduce((sum, c) => {
+      const completed = Math.round(c.total_students * c.completion_rate / 100)
+      return sum + completed
+    }, 0)
+  }, [courseStats])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -52,15 +98,6 @@ export function InstructorStudentsPage() {
       </div>
     )
   }
-
-  const courseStats = stats.course_stats.filter(c =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const totalCompleters = courseStats.reduce((sum, c) => {
-    const completed = Math.round(c.total_students * c.completion_rate / 100)
-    return sum + completed
-  }, 0)
 
   return (
     <div className="container mx-auto px-4 py-6 md:py-8 space-y-6">
@@ -128,14 +165,37 @@ export function InstructorStudentsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search courses by title..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="relative md:col-span-2">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search courses by title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="md:col-start-3">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="students">Most Students</SelectItem>
+                <SelectItem value="new_students">Most New Students</SelectItem>
+                <SelectItem value="completion">Highest Completion</SelectItem>
+                <SelectItem value="rating">Highest Rating</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -160,7 +220,7 @@ export function InstructorStudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {courseStats.map((course) => (
+              {paginatedCourseStats.map((course) => (
                 <TableRow key={course.course_id}>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -218,6 +278,22 @@ export function InstructorStudentsPage() {
               <p className="text-muted-foreground">
                 {searchQuery ? 'No courses match your search' : 'No courses with students yet'}
               </p>
+            </div>
+          )}
+
+          {courseStats.length > 0 && (
+            <div className="mt-4">
+              <div className="text-sm text-muted-foreground mb-2">
+                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                -
+                {Math.min(currentPage * ITEMS_PER_PAGE, courseStats.length)}
+                {' '}of {courseStats.length} courses
+              </div>
+              <UserPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </CardContent>

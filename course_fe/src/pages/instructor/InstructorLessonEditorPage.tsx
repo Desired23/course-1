@@ -22,7 +22,7 @@ import {
   ArrowLeft
 } from 'lucide-react'
 import { cn } from '../../components/ui/utils'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { BasicTab } from '../../components/BasicTab'
 import { ContentTab } from '../../components/ContentTab'
 import { ResourcesTab } from '../../components/ResourcesTab'
@@ -32,6 +32,7 @@ import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { EnhancedCodeQuizCreator } from '../../components/EnhancedCodeQuizCreator'
 import { InstructorLayout } from '../../components/layouts'
 import { getLessonById, updateLesson as updateLessonApi } from '../../services/lessons.api'
+import { getCourseModuleById } from '../../services/course-modules.api'
 import { getQuestionsByLesson } from '../../services/quiz-questions.api'
 import { getAttachmentsByLesson } from '../../services/lesson-attachments.api'
 
@@ -45,7 +46,11 @@ interface Lesson {
   is_free?: boolean
   description?: string
   videoUrl?: string
+  videoPublicId?: string
   content?: string
+  filePath?: string
+  externalUrl?: string
+  settings?: Record<string, any>
   resources?: string[]
   questions?: number
   quizData?: any
@@ -82,6 +87,30 @@ export function InstructorLessonEditorPage() {
   const [isDirty, setIsDirty] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [returnCourseId, setReturnCourseId] = useState<number | null>(null)
+
+  const parseDurationToSeconds = (raw?: string): number | undefined => {
+    if (!raw) return undefined
+    const normalized = raw.trim().toLowerCase()
+    if (!normalized) return undefined
+
+    const mmss = normalized.match(/^(\d+):(\d{1,2})$/)
+    if (mmss) {
+      return Number(mmss[1]) * 60 + Number(mmss[2])
+    }
+
+    const minText = normalized.match(/^(\d+)\s*min/)
+    if (minText) {
+      return Number(minText[1]) * 60
+    }
+
+    const asNumber = Number(normalized)
+    if (!Number.isNaN(asNumber) && asNumber >= 0) {
+      return asNumber
+    }
+
+    return undefined
+  }
 
   // Fetch lesson data from API
   useEffect(() => {
@@ -99,15 +128,19 @@ export function InstructorLessonEditorPage() {
           title: lesson.title,
           type: lesson.content_type || 'video',
           content_type: lesson.content_type || 'video',
-          duration: lesson.duration ? `${Math.floor(lesson.duration / 60)} min` : '5 min',
+          duration: lesson.duration ? `${Math.floor(lesson.duration / 60)}:${String(lesson.duration % 60).padStart(2, '0')}` : '5:00',
           status: lesson.status || 'draft',
           is_free: lesson.is_free || false,
           description: lesson.description || '',
           videoUrl: lesson.video_url || '',
+          videoPublicId: lesson.video_public_id || '',
           content: lesson.content || '',
+          filePath: lesson.file_path || '',
+          externalUrl: lesson.content_type === 'link' ? (lesson.file_path || '') : '',
           resources: [],
           questions: 0,
           quizData: undefined,
+          settings: {},
         }
 
         // Fetch quiz data if it's a quiz or code type
@@ -136,6 +169,21 @@ export function InstructorLessonEditorPage() {
           // No attachments yet
         }
 
+        // Resolve where to navigate back to
+        const queryCourseId = new URLSearchParams(window.location.search).get('courseId')
+        if (queryCourseId && /^\d+$/.test(queryCourseId)) {
+          setReturnCourseId(Number(queryCourseId))
+        } else if (lesson.coursemodule) {
+          try {
+            const module = await getCourseModuleById(lesson.coursemodule)
+            if (typeof module.course === 'number') {
+              setReturnCourseId(module.course)
+            }
+          } catch {
+            // keep fallback
+          }
+        }
+
         setEditedLesson(mapped)
         setIsDirty(false)
         setCurrentStep(0)
@@ -147,13 +195,6 @@ export function InstructorLessonEditorPage() {
     fetchLesson()
     return () => { cancelled = true }
   }, [params?.lessonId])
-
-  // Track changes
-  useEffect(() => {
-    if (editedLesson) {
-       setIsDirty(true)
-    }
-  }, [editedLesson])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -175,7 +216,11 @@ export function InstructorLessonEditorPage() {
       )
       if (!confirmed) return
     }
-    navigate('/instructor/lessons') // Or back to specific course lessons
+    if (returnCourseId) {
+      navigate(`/instructor/lessons/${returnCourseId}`)
+      return
+    }
+    navigate('/instructor/lessons')
   }
 
   const handleSave = async () => {
@@ -196,9 +241,17 @@ export function InstructorLessonEditorPage() {
         description: editedLesson.description,
         content_type: editedLesson.content_type || editedLesson.type,
         video_url: editedLesson.videoUrl,
+        video_public_id: editedLesson.videoPublicId || undefined,
+        file_path: editedLesson.filePath || undefined,
+        duration: parseDurationToSeconds(editedLesson.duration),
         is_free: editedLesson.is_free,
         status: editedLesson.status,
         content: editedLesson.content,
+      }
+
+      if ((editedLesson.content_type || editedLesson.type) === 'link') {
+        updateData.file_path = editedLesson.externalUrl || editedLesson.filePath || undefined
+        updateData.content = editedLesson.content || editedLesson.description || ''
       }
 
       // Store quiz data as JSON in content field
@@ -221,6 +274,7 @@ export function InstructorLessonEditorPage() {
 
   const handleUpdate = (updates: Partial<Lesson>) => {
     if (!editedLesson) return
+    setIsDirty(true)
     setEditedLesson({ ...editedLesson, ...updates })
   }
 

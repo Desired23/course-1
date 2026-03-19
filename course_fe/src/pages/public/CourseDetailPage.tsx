@@ -192,6 +192,8 @@ export function CourseDetailPage() {
   const courseRating = courseData ? parseDecimal(courseData.rating) : 0
   const hasDiscount = !discountExpired && effectivePrice < regularPrice
   const discountEndDate = courseData?.discount_end_date || null
+  const needsSubscriptionEnrollment = canAccessCourse && accessType === 'subscription' && !enrolled
+  const canGoToPlayerDirectly = canAccessCourse && !needsSubscriptionEnrollment
 
   const handleAddToCart = async () => {
     if (!courseData) return
@@ -290,10 +292,20 @@ export function CourseDetailPage() {
         courseTitle={courseData.title}
         price={canAccessCourse || isFree ? 0 : effectivePrice}
         originalPrice={canAccessCourse || isFree ? undefined : regularPrice}
-        isInCart={false}
+        isInCart={isInCartByCourseId(courseData.id)}
         isWishlisted={isWishlisted}
-        onAddToCart={enrolled ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleAddToCart}
-        onBuyNow={enrolled ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleBuyNow}
+        primaryActionLabel={
+          canGoToPlayerDirectly
+            ? 'Vào học'
+            : needsSubscriptionEnrollment
+              ? 'Đăng ký học'
+              : isFree
+                ? 'Đăng ký miễn phí'
+                : 'Buy Now'
+        }
+        showAddToCart={!(canGoToPlayerDirectly || needsSubscriptionEnrollment || isFree)}
+        onAddToCart={canGoToPlayerDirectly ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleAddToCart}
+        onBuyNow={canGoToPlayerDirectly ? () => navigate(`/course-player/${courseData.id}`) : needsSubscriptionEnrollment ? () => handleEnroll('subscription') : isFree ? () => handleEnroll('purchase') : handleBuyNow}
         onToggleWishlist={handleWishlist}
         sidebarCardRef={sidebarCardInnerRef}
       />
@@ -376,7 +388,7 @@ export function CourseDetailPage() {
                   </div>
 
                   <CardContent className="p-6 space-y-6">
-                     {canAccessCourse && enrolled ? (
+                     {canGoToPlayerDirectly ? (
                         /* VIEW: Already enrolled — go to player */
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
@@ -395,7 +407,7 @@ export function CourseDetailPage() {
                               Vào học
                            </Button>
                         </div>
-                     ) : canAccessCourse && !enrolled && accessType === 'subscription' ? (
+                     ) : needsSubscriptionEnrollment ? (
                         /* VIEW: Has subscription access but not enrolled yet */
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
@@ -524,7 +536,7 @@ export function CourseDetailPage() {
                    </div>
                </div>
                <CardContent className="p-6 space-y-6">
-                  {canAccessCourse && enrolled ? (
+                  {canGoToPlayerDirectly ? (
                       /* Mobile: Already enrolled */
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">
@@ -540,7 +552,7 @@ export function CourseDetailPage() {
                             Vào học
                           </Button>
                       </div>
-                  ) : canAccessCourse && !enrolled && accessType === 'subscription' ? (
+                  ) : needsSubscriptionEnrollment ? (
                       /* Mobile: Has subscription but not enrolled */
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">

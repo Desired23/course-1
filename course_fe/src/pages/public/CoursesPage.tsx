@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { getCourses, type CourseListItem, type CourseListParams, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from '../../services/course.api'
-import type { PaginatedResponse } from '../../services/category.api'
+import type { PaginatedResponse } from '../../services/common/pagination'
 import { getActiveCategories, buildCategoryTree, type CategoryTreeNode } from '../../services/category.api'
 import { getQueryParams } from '../../utils/navigation'
 import { useTranslation } from 'react-i18next'
@@ -212,10 +212,7 @@ export function CoursesPage() {
   }
 
   // Stable key of params actually sent to the API.
-  // The fetch useEffect only fires when this key changes, so client-only
-  // filter changes (subcategory, level, duration, language, features) do NOT
-  // trigger a new API call — they're handled by the filteredCourses useMemo.
-  // Subcategory is always a subset of category data, so no API call needed.
+  // All list filters in this page are sent to API to keep FE/BE totals aligned.
   const apiParamsKey = useMemo(() => {
     const p: Record<string, unknown> = {
       page: currentPage,
@@ -223,17 +220,31 @@ export function CoursesPage() {
       status: 'published',
     }
     if (selectedCategory) p.category_id = selectedCategory
-    // subcategory & level are NOT sent to API — always filtered client-side
-    // because they only narrow the category/all data already fetched
+    if (selectedSubcategories.length > 0) p.subcategory_ids = selectedSubcategories.join(',')
+    if (selectedLevels.length > 0) p.levels = selectedLevels.map(levelLabelToValue).join(',')
     if (searchTerm) p.search = searchTerm
     const ordering = sortToOrdering(sortBy)
     if (ordering) p.ordering = ordering
     if (selectedRatings.length > 0) p.rating_min = Math.min(...selectedRatings)
+    if (selectedLanguages.length > 0) p.languages = selectedLanguages.join(',')
+    if (selectedDurations.length > 0) {
+      p.duration_buckets = selectedDurations
+        .map((dur) => {
+          if (dur === '0-2 hours') return 'short'
+          if (dur === '2-6 hours') return 'medium'
+          if (dur === '6+ hours') return 'long'
+          return ''
+        })
+        .filter(Boolean)
+        .join(',')
+    }
+    if (selectedFeatures.includes('Certificate of completion')) p.certificate = true
     if (priceRange[0] > PRICE_MIN) p.price_min = priceRange[0]
     if (priceRange[1] < PRICE_MAX) p.price_max = priceRange[1]
     return JSON.stringify(p)
   }, [
-    currentPage, itemsPerPage, selectedCategory,
+    currentPage, itemsPerPage, selectedCategory, selectedSubcategories,
+    selectedLevels, selectedLanguages, selectedDurations, selectedFeatures,
     searchTerm, sortBy,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     selectedRatings.length > 0 ? Math.min(...selectedRatings) : null,
@@ -266,54 +277,7 @@ export function CoursesPage() {
     return () => { cancelled = true }
   }, [apiParamsKey])
 
-  // Client-side filter — applies ALL filter criteria to server results.
-  // Covers both: (1) filters the BE doesn't support (duration, features), and
-  // (2) refinement filters skipped from API for efficiency (subcategory, level, rating, price)
   const serverCourses = coursesPage?.results ?? []
-  const filteredCourses = useMemo(() => {
-    return serverCourses.filter(course => {
-      // Subcategory
-      if (selectedSubcategories.length > 0) {
-        if (!course.subcategory || !selectedSubcategories.includes(course.subcategory)) return false
-      }
-      // Level
-      if (selectedLevels.length > 0) {
-        if (!selectedLevels.includes(getLevelLabel(course.level))) return false
-      }
-      // Rating
-      if (selectedRatings.length > 0) {
-        const courseRating = parseDecimal(course.rating)
-        if (!selectedRatings.some(r => courseRating >= r)) return false
-      }
-      // Price
-      const price = getEffectivePrice(course)
-      if (price < priceRange[0] || price > priceRange[1]) return false
-      // Duration
-      if (selectedDurations.length > 0) {
-        const hrs = (course.duration || 0) / 60
-        if (!selectedDurations.some(dur => {
-          if (dur === '0-2 hours') return hrs < 2
-          if (dur === '2-6 hours') return hrs >= 2 && hrs <= 6
-          if (dur === '6+ hours') return hrs > 6
-          return true
-        })) return false
-      }
-      // Language
-      if (selectedLanguages.length > 0) {
-        if (!selectedLanguages.includes(course.language)) return false
-      }
-      // Features
-      if (selectedFeatures.length > 0) {
-        if (!selectedFeatures.every(f => {
-          if (f === 'Certificate of completion') return course.certificate
-          return true
-        })) return false
-      }
-      return true
-    })
-  }, [serverCourses, selectedSubcategories, selectedLevels, selectedRatings, priceRange, selectedDurations, selectedLanguages, selectedFeatures])
-
-  // Total count — use server count as primary (client filter may reduce it slightly)
   const totalCount = coursesPage?.count ?? 0
 
   // Convert categories to CourseFilterSidebar format
@@ -366,7 +330,7 @@ export function CoursesPage() {
   const durationOptions = ['0-2 hours', '2-6 hours', '6+ hours']
   const levelOptions = ['All Levels', 'Beginner', 'Intermediate', 'Advanced']
   const languageOptions = ['Tiếng Việt', 'English', 'Español']
-  const featureOptions = ['Certificate of completion', 'Subtitles', 'Quizzes']
+  const featureOptions = ['Certificate of completion']
 
   // Prepare filter state for CourseFilterSidebar
   const filterState = {
@@ -424,7 +388,7 @@ export function CoursesPage() {
   const startIndex = (currentPage - 1) * itemsPerPage
 
   // Convert to CourseCard props
-  const courseCardData = filteredCourses.map(course => {
+  const courseCardData = serverCourses.map(course => {
     const effectivePrice = getEffectivePrice(course)
     const regularPrice = parseDecimal(course.price)
     const hasDiscount = effectivePrice < regularPrice
@@ -694,7 +658,7 @@ export function CoursesPage() {
               <p className="text-sm text-muted-foreground">
                 {t('courses_page.showing_results', {
                   from: totalCount > 0 ? startIndex + 1 : 0,
-                  to: Math.min(startIndex + filteredCourses.length, totalCount),
+                  to: Math.min(startIndex + serverCourses.length, totalCount),
                   total: totalCount
                 })}
               </p>
@@ -705,7 +669,7 @@ export function CoursesPage() {
               <div className="flex justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            ) : filteredCourses.length > 0 ? (
+            ) : serverCourses.length > 0 ? (
               <div className={
                 viewMode === 'grid' 
                   ? `grid grid-cols-1 ${gridCols === 2 ? 'md:grid-cols-2' : gridCols === 3 ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-4'} gap-6` 
@@ -767,3 +731,8 @@ export function CoursesPage() {
     </div>
   )
 }
+
+
+
+
+

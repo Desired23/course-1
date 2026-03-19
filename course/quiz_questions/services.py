@@ -41,16 +41,17 @@ def create_quiz_question(data):
 
 def get_quiz_questions_by_lesson(lesson_id):
     try:
-        quiz_questions = QuizQuestion.objects.filter(lesson=lesson_id)
-        if not quiz_questions.exists():
-            raise ValidationError({"error": "No quiz questions found."})
-        return quiz_questions
+        # Return empty queryset instead of 400 so editor can initialize cleanly.
+        return QuizQuestion.objects.filter(
+            lesson_id=lesson_id,
+            is_deleted=False,
+        ).order_by('order_number', 'id')
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
 def find_quiz_question_by_id(question_id):
     try:
-        quiz_question = QuizQuestion.objects.get(id=question_id)
+        quiz_question = QuizQuestion.objects.get(id=question_id, is_deleted=False)
         serializer = QuizQuestionSerializer(quiz_question)
         return serializer.data
     except QuizQuestion.DoesNotExist:
@@ -109,10 +110,7 @@ def delete_quiz_question(question_id):
 
 def get_all_quiz_questions():
     try:
-        quiz_questions = QuizQuestion.objects.all()
-        if not quiz_questions.exists():
-            raise ValidationError({"error": "No quiz questions found."})
-        return quiz_questions
+        return QuizQuestion.objects.filter(is_deleted=False).order_by('lesson_id', 'order_number', 'id')
     except Exception as e:
         raise ValidationError({"error": str(e)})
 

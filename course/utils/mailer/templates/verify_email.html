@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Xác minh email</title>
+<title>Xac minh email</title>
 <style>
 body { font-family: Arial, sans-serif; background: #f4f4f4; }
 .container { max-width: 600px; margin: auto; background: #fff; border-radius: 10px; overflow: hidden; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -16,15 +16,15 @@ body { font-family: Arial, sans-serif; background: #f4f4f4; }
 <body>
 <div class="container">
   <div class="header">
-    <h2>Xác minh email của bạn</h2>
+    <h2>Xac minh email cua ban</h2>
   </div>
   <div class="content">
-    <p>Xin chào <strong>{{ user.full_name }}</strong>,</p>
-    <p>Bấm vào nút bên dưới để xác nhận email và kích hoạt tài khoản.</p>
-    <a href="{{ verification_url }}" class="button">Xác nhận email</a>
+    <p>Xin chao,</p>
+    <p>Bam vao nut ben duoi de xac nhan email va kich hoat tai khoan.</p>
+    <a href="{{ verify_link|default:verification_url }}" class="button">Xac nhan email</a>
   </div>
   <div class="footer">
-    Email này sẽ hết hạn sau 24h.
+    Link nay se het han sau {{ expires_in_minutes|default:30 }} phut.
   </div>
 </div>
 </body>

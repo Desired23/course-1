@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Badge } from '../../components/ui/badge'
 import { Code2, Eye, Edit, Plus } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 // Sample quiz data - Two Sum problem
 const sampleTwoSumQuiz: EnhancedCodeQuizData = {

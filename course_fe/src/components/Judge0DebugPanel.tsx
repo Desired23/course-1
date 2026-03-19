@@ -20,7 +20,7 @@ import {
   getRequestStats,
   resetRequestStats
 } from '../utils/judge0'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 export function Judge0DebugPanel() {
   const [apiStatus, setApiStatus] = useState(getApiStatus())

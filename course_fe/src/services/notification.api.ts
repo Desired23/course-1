@@ -35,11 +35,23 @@ interface PaginatedResponse<T> {
 export async function getNotificationsByUser(
   userId: number,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  params?: {
+    type?: NotificationType | 'all'
+    is_read?: boolean
+    search?: string
+    sort_by?: 'newest' | 'oldest'
+  }
 ): Promise<PaginatedResponse<Notification>> {
-  return http.get<PaginatedResponse<Notification>>(
-    `/notifications/?user_id=${userId}&page=${page}&page_size=${pageSize}`
-  )
+  const searchParams = new URLSearchParams()
+  searchParams.set('user_id', String(userId))
+  searchParams.set('page', String(page))
+  searchParams.set('page_size', String(pageSize))
+  if (params?.type && params.type !== 'all') searchParams.set('type', params.type)
+  if (params?.is_read !== undefined) searchParams.set('is_read', params.is_read ? 'true' : 'false')
+  if (params?.search) searchParams.set('search', params.search)
+  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
+  return http.get<PaginatedResponse<Notification>>(`/notifications/?${searchParams.toString()}`)
 }
 
 /**

@@ -1,24 +1,37 @@
-from config import cloudinary_config  # Chỉ cần import là config đã chạy
+from config import cloudinary_config  # noqa: F401 - ensure Cloudinary config is initialized
 import cloudinary.uploader
 from cloudinary.exceptions import Error as CloudinaryError
 
-def upload_file_to_cloudinary(files, folder="uploads"):
+
+def upload_file_to_cloudinary(
+    files,
+    folder="uploads",
+    resource_type="auto",
+    delivery_type="upload",
+):
     try:
-        result =[]
+        results = []
         for file in files:
             upload_result = cloudinary.uploader.upload(
                 file,
                 folder=folder,
-                resource_type="auto"  # Tự động nhận diện loại tệp (hình ảnh, video, v.v.)
+                resource_type=resource_type,
+                type=delivery_type,
             )
-            result.append({
-                "url": upload_result.get("secure_url"),
-                "public_id": upload_result.get("public_id"),
-                "format": upload_result.get("format")
-            })
-        return result  # Trả về danh sách nếu có nhiều tệp, ngược lại trả về đối tượng đơn
+            results.append(
+                {
+                    "url": upload_result.get("secure_url"),
+                    "public_id": upload_result.get("public_id"),
+                    "format": upload_result.get("format"),
+                    "resource_type": upload_result.get("resource_type"),
+                    "type": upload_result.get("type"),
+                }
+            )
+        return results
     except CloudinaryError as e:
         raise Exception(f"Upload to Cloudinary failed: {str(e)}")
+
+
 def delete_file_from_cloudinary(public_ids):
     results = []
     for public_id in public_ids:

@@ -1,4 +1,5 @@
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -32,6 +33,28 @@ class ReviewListView(APIView):
                 reviews = get_reviews_by_instructor(instructor_id)
             else:
                 reviews = get_reviews_by_course(request.query_params.get('course_id'))
+
+            search = (request.query_params.get('search') or '').strip()
+            rating = request.query_params.get('rating')
+            sort_by = request.query_params.get('sort_by')
+
+            if search:
+                reviews = reviews.filter(
+                    Q(comment__icontains=search)
+                    | Q(course__title__icontains=search)
+                )
+            if rating:
+                reviews = reviews.filter(rating=rating)
+
+            if sort_by == 'oldest':
+                reviews = reviews.order_by('created_at')
+            elif sort_by == 'rating_desc':
+                reviews = reviews.order_by('-rating', '-created_at')
+            elif sort_by == 'rating_asc':
+                reviews = reviews.order_by('rating', '-created_at')
+            else:
+                reviews = reviews.order_by('-created_at')
+
             return paginate_queryset(reviews, request, ReviewSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)

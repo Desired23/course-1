@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
@@ -8,6 +8,10 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Input } from "../../components/ui/input"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+import { UserPagination } from "../../components/UserPagination"
 import { 
   BookOpen, 
   Users, 
@@ -18,8 +22,8 @@ import {
   Edit, 
   Loader2
 } from 'lucide-react'
-import { getInstructorDashboardStats, type InstructorDashboardStats } from '../../services/instructor.api'
-import { formatPrice } from '../../services/course.api'
+import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
+import { getCourses, type CourseListItem, formatPrice, parseDecimal } from '../../services/course.api'
 
 export function InstructorDashboard() {
   const { user, hasRole } = useAuth()
@@ -28,7 +32,17 @@ export function InstructorDashboard() {
 
   const [stats, setStats] = useState<InstructorDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [listLoading, setListLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('students')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [courses, setCourses] = useState<CourseListItem[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [editCourseId, setEditCourseId] = useState<number | null>(null)
 
   useEffect(() => {
     if (!hasRole('instructor')) return
@@ -36,8 +50,14 @@ export function InstructorDashboard() {
     async function load() {
       try {
         setLoading(true)
-        const data = await getInstructorDashboardStats()
-        if (!cancelled) setStats(data)
+        const [profile, data] = await Promise.all([
+          user?.id ? getMyInstructorProfile(user.id) : Promise.resolve(null),
+          getInstructorDashboardStats(),
+        ])
+        if (!cancelled) {
+          setStats(data)
+          setInstructorId(profile?.id ?? null)
+        }
       } catch (err: any) {
         if (!cancelled) setError(err.message || 'Failed to load dashboard')
       } finally {
@@ -46,7 +66,80 @@ export function InstructorDashboard() {
     }
     load()
     return () => { cancelled = true }
-  }, [hasRole])
+  }, [hasRole, user?.id])
+
+  const courseStatsMap = useMemo(() => {
+    const map = new Map<number, InstructorDashboardStats['course_stats'][number]>()
+    for (const c of stats?.course_stats ?? []) map.set(c.course_id, c)
+    return map
+  }, [stats?.course_stats])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, statusFilter, sortBy])
+
+  const ITEMS_PER_PAGE = 5
+
+  const effectiveStatus = useMemo(() => {
+    if (statusFilter === 'all') return undefined
+    return statusFilter
+  }, [statusFilter])
+
+  const ordering = useMemo(() => {
+    if (sortBy === 'rating') return '-rating'
+    if (sortBy === 'earnings') return '-price'
+    return '-total_students'
+  }, [sortBy])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadCourses() {
+      try {
+        setListLoading(true)
+        const res = await getCourses({
+          instructor_id: instructorId ?? undefined,
+          page: currentPage,
+          page_size: ITEMS_PER_PAGE,
+          status: effectiveStatus,
+          search: searchQuery || undefined,
+          ordering,
+        })
+        if (cancelled) return
+        setCourses(res.results || [])
+        setTotalCount(res.count || 0)
+        setTotalPages(res.total_pages || 1)
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || 'Failed to load courses')
+      } finally {
+        if (!cancelled) setListLoading(false)
+      }
+    }
+    if (hasRole('instructor') && instructorId) loadCourses()
+    return () => { cancelled = true }
+  }, [hasRole, instructorId, currentPage, effectiveStatus, searchQuery, ordering])
+
+  const handleCloseEditChoice = () => {
+    setEditCourseId(null)
+    // Prevent stale body lock when closing dialog during route changes
+    if (typeof document !== 'undefined') {
+      requestAnimationFrame(() => {
+        document.body.style.pointerEvents = ''
+      })
+    }
+  }
+
+  const handleNavigateFromEditChoice = (target: 'lessons' | 'landing') => {
+    if (!editCourseId) return
+    const selectedCourseId = editCourseId
+    handleCloseEditChoice()
+    requestAnimationFrame(() => {
+      if (target === 'lessons') {
+        navigate(`/instructor/lessons/${selectedCourseId}`)
+        return
+      }
+      navigate(`/instructor/course-landing/${selectedCourseId}`)
+    })
+  }
 
   if (!hasRole('instructor')) {
     return (
@@ -130,7 +223,7 @@ export function InstructorDashboard() {
             <CardContent>
               <div className="text-2xl">{stats.average_rating.toFixed(1)}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.total_reviews} {t('instructor_dashboard.reviews_suffix')} • {stats.pending_questions} Q&A pending
+                {stats.total_reviews} {t('instructor_dashboard.reviews_suffix')} â€¢ {stats.pending_questions} Q&A pending
               </p>
             </CardContent>
           </Card>
@@ -155,35 +248,71 @@ export function InstructorDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search courses..."
+                  />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All status</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="draft">Draft</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="students">Most Students</SelectItem>
+                      <SelectItem value="earnings">Highest Earnings</SelectItem>
+                      <SelectItem value="rating">Highest Rating</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-4">
-                  {stats.course_stats.length === 0 ? (
+                  {listLoading ? (
+                    <div className="min-h-[160px] flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : courses.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">No courses yet. Create your first course!</p>
                   ) : (
-                    stats.course_stats.map((course) => (
-                      <div key={course.course_id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg">
+                    courses.map((course) => {
+                      const extra = courseStatsMap.get(course.id)
+                      const completionRate = extra?.completion_rate ?? 0
+                      const newStudentsThisMonth = extra?.new_students_this_month ?? 0
+                      const earnings = extra?.earnings ?? parseDecimal(course.price)
+                      return (
+                      <div key={course.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg">
                         <div className="flex-1 w-full">
                           <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-2 gap-2">
                             <div>
                               <h3 className="font-medium text-lg sm:text-base">{course.title}</h3>
                               <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground mt-1 sm:mt-0">
                                 <span>{course.total_students.toLocaleString()} {t('instructor_dashboard.students_suffix')}</span>
-                                {course.rating > 0 && (
+                                {parseDecimal(course.rating) > 0 && (
                                   <div className="flex items-center gap-1">
                                     <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                    <span>{course.rating}</span>
+                                    <span>{parseDecimal(course.rating).toFixed(1)}</span>
                                     <span className="hidden sm:inline">({course.total_reviews} {t('instructor_dashboard.reviews_suffix')})</span>
                                   </div>
                                 )}
-                                <span className="font-medium text-green-600">{formatPrice(course.earnings)}</span>
+                                <span className="font-medium text-green-600">{formatPrice(earnings)}</span>
                               </div>
                             </div>
                             
                             <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => navigate(`/course/${course.course_id}`)}>
+                              <Button variant="ghost" size="sm" onClick={() => navigate(`/course/${course.id}`)}>
                                 <Eye className="h-4 w-4 mr-1" />
                                 {t('instructor_dashboard.view_course')}
                               </Button>
-                              <Button variant="ghost" size="sm" onClick={() => navigate(`/instructor/courses/${course.course_id}`)}>
+                              <Button variant="ghost" size="sm" onClick={() => setEditCourseId(course.id)}>
                                 <Edit className="h-4 w-4 mr-1" />
                                 {t('instructor_dashboard.edit_course')}
                               </Button>
@@ -193,21 +322,36 @@ export function InstructorDashboard() {
                           <div className="flex items-center gap-2 text-sm">
                             <span>{t('instructor_dashboard.completion_rate_label')}</span>
                             <div className="flex-1 max-w-[200px]">
-                              <Progress value={course.completion_rate} className="h-2" />
+                              <Progress value={completionRate} className="h-2" />
                             </div>
-                            <span>{course.completion_rate}%</span>
+                            <span>{completionRate}%</span>
                           </div>
                           
-                          {course.new_students_this_month > 0 && (
+                          {newStudentsThisMonth > 0 && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              +{course.new_students_this_month} new students this month
+                              +{newStudentsThisMonth} new students this month
                             </p>
                           )}
                         </div>
                       </div>
-                    ))
+                    )})
                   )}
                 </div>
+                {courses.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Showing {totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+                      -
+                      {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)}
+                      {' '}of {totalCount} courses
+                    </div>
+                    <UserPagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -297,6 +441,31 @@ export function InstructorDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={editCourseId !== null} onOpenChange={(open) => !open && handleCloseEditChoice()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Chá»n kiá»ƒu chá»‰nh sá»­a</DialogTitle>
+              <DialogDescription>
+                Báº¡n muá»‘n chá»‰nh sá»­a danh sÃ¡ch bÃ i há»c hay thÃ´ng tin khÃ³a há»c?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="sm:justify-start">
+              <Button
+                variant="outline"
+                onClick={() => handleNavigateFromEditChoice('lessons')}
+              >
+                Chá»‰nh sá»­a list bÃ i há»c
+              </Button>
+              <Button
+                onClick={() => handleNavigateFromEditChoice('landing')}
+              >
+                Chá»‰nh sá»­a thÃ´ng tin khÃ³a há»c
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </div>
   )
 }
+

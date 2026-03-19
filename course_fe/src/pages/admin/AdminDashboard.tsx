@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 import { StatDetailDialog } from "../../components/StatDetailDialog"
 import { PendingTasks } from "../../components/PendingTasks"
 import { formatCurrency } from "../../utils/formatters"
-import { getAdminDashboardStats, getAllUsers, type AdminDashboardStats, type UserItem } from '../../services/admin.api'
-import { getAllCourses, type CourseListItem } from '../../services/course.api'
+import { getAdminDashboardStats, getUsers, type AdminDashboardStats, type UserItem } from '../../services/admin.api'
+import { getCourses, type CourseListItem } from '../../services/course.api'
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
@@ -44,7 +44,8 @@ export function AdminDashboard() {
   const { user, hasRole } = useAuth()
   const { navigate } = useRouter()
   const { t } = useTranslation()
-  const [searchTerm, setSearchTerm] = useState('')
+  const [userSearch, setUserSearch] = useState('')
+  const [courseSearch, setCourseSearch] = useState('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [mockUsers, setMockUsers] = useState<any[]>([])
   const [mockCourses, setMockCourses] = useState<any[]>([])
@@ -63,43 +64,71 @@ export function AdminDashboard() {
 
   const fetchDashboard = async () => {
     try {
-      const [stats, users, courses] = await Promise.all([
-        getAdminDashboardStats(),
-        getAllUsers(),
-        getAllCourses(),
-      ])
+      const stats = await getAdminDashboardStats()
       setMockStats({
         totalUsers: stats.total_users,
         totalCourses: stats.total_courses,
         monthlyRevenue: stats.this_month_revenue,
         courseCompletions: stats.total_enrollments,
       })
-      setMockUsers(users.slice(0, 10).map((u: UserItem) => ({
-        id: u.id,
-        name: u.full_name || u.username,
-        email: u.email,
-        role: u.user_type || 'student',
-        joinDate: u.created_at?.split('T')[0] || '',
-        coursesEnrolled: 0,
-        status: u.status || 'active',
-      })))
-      setMockCourses(courses.slice(0, 10).map((c: CourseListItem) => ({
-        id: c.id,
-        title: c.title,
-        instructor: c.instructor_name || 'Unknown',
-        category: c.category_name || 'Uncategorized',
-        students: c.total_students || 0,
-        rating: c.rating || 0,
-        price: parseFloat(String(c.price || 0)),
-        status: c.status || 'draft',
-        createdDate: c.created_at?.split('T')[0] || '',
-      })))
     } catch (err) {
       console.error('Failed to fetch dashboard:', err)
     }
   }
 
   useEffect(() => { fetchDashboard() }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const usersRes = await getUsers({ page: 1, page_size: 10, search: userSearch || undefined })
+        if (cancelled) return
+        setMockUsers((usersRes.results || []).map((u: UserItem) => ({
+          id: u.id,
+          name: u.full_name || u.username,
+          email: u.email,
+          role: u.user_type || 'student',
+          joinDate: u.created_at?.split('T')[0] || '',
+          coursesEnrolled: 0,
+          status: u.status || 'active',
+        })))
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch users list:', err)
+      }
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [userSearch])
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      try {
+        const coursesRes = await getCourses({ page: 1, page_size: 10, search: courseSearch || undefined })
+        if (cancelled) return
+        setMockCourses((coursesRes.results || []).map((c: CourseListItem) => ({
+          id: c.id,
+          title: c.title,
+          instructor: c.instructor_name || 'Unknown',
+          category: c.category_name || 'Uncategorized',
+          students: c.total_students || 0,
+          rating: c.rating || 0,
+          price: parseFloat(String(c.price || 0)),
+          status: c.status || 'draft',
+          createdDate: c.created_at?.split('T')[0] || '',
+        })))
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch courses list:', err)
+      }
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [courseSearch])
 
   const handleRefreshStats = async () => {
     setIsRefreshing(true)
@@ -241,8 +270,8 @@ export function AdminDashboard() {
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder={t('admin_dashboard.search_users')}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
                         className="pl-8 text-sm"
                       />
                     </div>
@@ -343,6 +372,8 @@ export function AdminDashboard() {
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         placeholder={t('admin_dashboard.search_courses')}
+                        value={courseSearch}
+                        onChange={(e) => setCourseSearch(e.target.value)}
                         className="pl-8 text-sm"
                       />
                     </div>

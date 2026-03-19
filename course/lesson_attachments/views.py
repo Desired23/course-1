@@ -61,7 +61,18 @@ class LessonAttachmentListView(APIView):
 
     def get(self, request):
         try:
-            lesson_attachments = get_all_lesson_attachments()
+            filters = {}
+            if request.query_params.get('instructor_id'):
+                filters['instructor_id'] = request.query_params.get('instructor_id')
+            if request.query_params.get('course_id'):
+                filters['course_id'] = request.query_params.get('course_id')
+            if request.query_params.get('file_type'):
+                filters['file_type'] = request.query_params.get('file_type')
+            if request.query_params.get('search'):
+                filters['search'] = request.query_params.get('search')
+            if request.query_params.get('sort_by'):
+                filters['sort_by'] = request.query_params.get('sort_by')
+            lesson_attachments = get_all_lesson_attachments(filters if filters else None)
             return paginate_queryset(lesson_attachments, request, LessonAttachmentSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

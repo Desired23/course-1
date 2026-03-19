@@ -97,8 +97,15 @@ export async function getForumById(forumId: number): Promise<Forum> {
 }
 
 export async function getAllForums(): Promise<Forum[]> {
-  const res = await getForums({ page_size: 1000 })
-  return res.results
+  const all: Forum[] = []
+  let page = 1
+  while (true) {
+    const res = await getForums({ page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 export async function createForum(data: {
@@ -141,10 +148,17 @@ export async function getForumTopicById(topicId: number): Promise<ForumTopic> {
 }
 
 export async function getAllForumTopics(forumId?: number): Promise<ForumTopic[]> {
-  const q: { forum_id?: number; page_size: number } = { page_size: 1000 }
-  if (forumId) q.forum_id = forumId
-  const res = await getForumTopics(q)
-  return res.results
+  const all: ForumTopic[] = []
+  let page = 1
+  while (true) {
+    const q: { forum_id?: number; page: number; page_size: number } = { page, page_size: 100 }
+    if (forumId) q.forum_id = forumId
+    const res = await getForumTopics(q)
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 export async function createForumTopic(data: {
@@ -186,8 +200,15 @@ export async function getForumCommentById(commentId: number): Promise<ForumComme
 }
 
 export async function getAllForumComments(topicId: number): Promise<ForumComment[]> {
-  const res = await getForumComments({ topic_id: topicId, page_size: 1000 })
-  return res.results
+  const all: ForumComment[] = []
+  let page = 1
+  while (true) {
+    const res = await getForumComments({ topic_id: topicId, page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 export async function createForumComment(data: {

@@ -3,7 +3,7 @@ from .views import (
     CreateVnpayPaymentView, VnpayPaymentReturnView, RefundDetailView,
     CreatePaymentRecordView, VnpayIPNView, PaymentStatusView,
     CheckEnrollmentView, AdminRefundUpdateView, UserRefundListView,
-    UserPaymentListView,
+    UserPaymentListView, AdminPaymentFixView, AdminPaymentListView,
 )
 
 urlpatterns = [
@@ -12,6 +12,8 @@ urlpatterns = [
     path('vnpay/payment-return/', VnpayPaymentReturnView.as_view(), name='vnpay-payment-return'),
     path('payment/create/', CreatePaymentRecordView.as_view(), name='payment-create'),
     path('payments/status/<int:payment_id>/', PaymentStatusView.as_view(), name='payment-status'),
+    path('payments/', AdminPaymentListView.as_view(), name='payment-list'),
+    path('payments/fix/', AdminPaymentFixView.as_view(), name='payment-fix'),
     path('payments/check-enrollment/<int:course_id>/', CheckEnrollmentView.as_view(), name='check-enrollment'),
     path('payments/refund/admin/', AdminRefundUpdateView.as_view(), name='admin-refund-update'),
 

@@ -1060,15 +1060,72 @@ GET /api/payments/status/{payment_id}/
 ```
 🔑 Student / Instructor / Admin
 
+### 13.4.1 (Admin) Liệt kê payment
+```
+GET /api/payments/
+```
+🔑 Admin only — danh sách tất cả payment cùng thông tin đơn giản. Optional query param `?problematic=true` lọc những giao dịch đã hoàn thành nhưng không có enrollment (các record mà reconciliation/alert command sẽ báo).
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "payment_id": 1,
+    "user_id": 45,
+    "user_email": "student@example.com",
+    "payment_status": "completed",
+    "total_amount": "250000.00",
+    "created_at": "2025-01-01T00:00:00Z",
+    "has_problem": true,
+    "courses": [
+      {"course_id": 10, "course_title": "Lập trình Python", "enrollment_status": null}
+    ]
+  }
+]
+```
+
+### 13.4.2 (Admin) Sửa payment
+```
+POST /api/payments/fix/
+```
+🔑 Admin only — cố gắng lại việc tạo enrollments/earnings cho payment đã hoàn thành. Yêu cầu body JSON `{ "payment_id": <number> }`.
+
+**Response:** `200 OK`
+```json
+{ "message": "Fix applied", "result": { "enrollments_created": 1, "earnings_created": 1 } }
+```
+
+
 **Response:** `200 OK`
 ```json
 {
-  "id": 1,
+  "payment_id": 1,
   "payment_status": "pending | completed | failed | refunded | cancelled",
+  "transaction_id": "abc123",
   "amount": "500000.00",
+  "discount_amount": "50000.00",
   "total_amount": "450000.00",
   "payment_method": "vnpay",
-  "payment_date": "2025-01-01T00:00:00Z"
+  "payment_date": "2025-01-01T00:00:00Z",
+  "courses": [
+    {
+      "course_id": 10,
+      "course_title": "Lập trình Python",
+      "course_thumbnail": "https://...",
+      "course_slug": null,   # slug not used; FE can build URL from course_id
+      "instructor_name": "Nguyễn Văn A",
+      "level": "beginner",
+      "duration": 120,
+      "total_lessons": 20,
+      "price": "100000.00",
+      "discount": "0.00",
+      "final_price": "100000.00",
+      "enrollment_status": "active",
+      "enrollment_id": 42
+    }
+  ],
+  "created_at": "2025-01-01T00:00:00Z",
+  "completed_at": "2025-01-01T00:05:00Z"
 }
 ```
 

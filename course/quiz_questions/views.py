@@ -31,9 +31,12 @@ class QuizQuestionManagementView(APIView):
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request):
+    def get(self, request, question_id=None):
         try:
-            if 'question_id' in request.query_params:
+            if question_id is not None:
+                quiz_question = find_quiz_question_by_id(question_id)
+                return Response(quiz_question, status=status.HTTP_200_OK)
+            elif 'question_id' in request.query_params:
                 question_id = request.query_params.get('question_id')
                 quiz_question = find_quiz_question_by_id(question_id)
                 return Response(quiz_question, status=status.HTTP_200_OK)

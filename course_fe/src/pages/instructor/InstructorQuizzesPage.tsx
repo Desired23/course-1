@@ -12,7 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
-import { toast } from 'sonner@2.0.3'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { UserPagination } from "../../components/UserPagination"
+import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
 import { getMyInstructorProfile } from '../../services/instructor.api'
 import { getLessons, createLesson, updateLesson as updateLessonApi, deleteLesson as deleteLessonApi } from '../../services/lessons.api'
@@ -35,6 +37,8 @@ interface Quiz {
   avgScore: number
   createdAt: string
 }
+
+const ITEMS_PER_PAGE = 8
 
 // Quiz data is now fetched from API — quiz lessons + their questions
 
@@ -88,6 +92,9 @@ export function InstructorQuizzesPage() {
   const { user } = useAuth()
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null)
+  const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
   
   // Quiz Dialog State
   const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false)
@@ -102,22 +109,37 @@ export function InstructorQuizzesPage() {
 
   // Cache the first coursemodule id for creating new quizzes
   const [defaultModuleId, setDefaultModuleId] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
-  // Fetch quiz-type lessons from API
+  // Debounce search to avoid refetching every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim())
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, statusFilter, sortBy])
+
+  // Resolve instructor profile + default module for creating quizzes
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
 
-    async function fetchQuizzes() {
+    async function bootstrapInstructorData() {
       try {
         const profile = await getMyInstructorProfile(user!.id)
         if (cancelled) return
+        setInstructorId(profile.id)
 
-        // Get quiz-type lessons for this instructor
-        const res = await getLessons({ content_type: 'quiz', instructor_id: profile.id })
-        if (cancelled) return
-
-        // Also get a default module id for creating new quizzes
         const courses = await getAllCourses({ instructor_id: profile.id })
         if (cancelled) return
         if (courses.length > 0) {
@@ -125,8 +147,36 @@ export function InstructorQuizzesPage() {
           if (cancelled) return
           if (modules.length > 0) setDefaultModuleId(modules[0].id)
         }
+      } catch (err) {
+        console.error('Failed to initialize quiz page:', err)
+      }
+    }
+    bootstrapInstructorData()
+    return () => { cancelled = true }
+  }, [user?.id])
 
-        // Fetch questions for each quiz lesson
+  // Fetch paginated quizzes using server-side filters
+  useEffect(() => {
+    if (!instructorId) return
+    let cancelled = false
+
+    async function fetchQuizzesPage() {
+      try {
+        setIsLoading(true)
+        const status = statusFilter === 'all' ? undefined : statusFilter
+        const ordering = sortBy === 'title' ? 'title' : '-created_at'
+
+        const res = await getLessons({
+          content_type: 'quiz',
+          instructor_id: instructorId,
+          status: status as any,
+          search: debouncedSearch || undefined,
+          ordering,
+          page: currentPage,
+          page_size: ITEMS_PER_PAGE,
+        })
+        if (cancelled) return
+
         const quizData = await Promise.all(
           res.results.map(async (lesson) => {
             try {
@@ -138,14 +188,32 @@ export function InstructorQuizzesPage() {
           })
         )
         if (cancelled) return
-        setQuizzes(quizData)
+
+        const normalized = sortBy === 'questions'
+          ? [...quizData].sort((a, b) => b.questions.length - a.questions.length)
+          : quizData
+        setQuizzes(normalized)
+        setTotalCount(res.count || 0)
+        setTotalPages(Math.max(1, res.total_pages || Math.ceil((res.count || 0) / ITEMS_PER_PAGE)))
       } catch (err) {
         console.error('Failed to load quizzes:', err)
+        if (!cancelled) {
+          setQuizzes([])
+          setTotalCount(0)
+          setTotalPages(1)
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
     }
-    fetchQuizzes()
+
+    fetchQuizzesPage()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [instructorId, currentPage, debouncedSearch, statusFilter, sortBy, refreshKey])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   const handleCreateQuiz = async () => {
     if (!defaultModuleId) {
@@ -159,11 +227,13 @@ export function InstructorQuizzesPage() {
         description: quizDescription,
         content_type: 'quiz',
         content: JSON.stringify({ passingScore, timeLimit, attempts: 0, totalTakers: 0, avgScore: 0 }),
-        order: quizzes.length + 1,
+        order: (currentPage - 1) * ITEMS_PER_PAGE + quizzes.length + 1,
         status: 'draft',
       })
-      const newQuiz = lessonToQuiz(lesson, [])
-      setQuizzes([...quizzes, newQuiz])
+      if (lesson) {
+        setCurrentPage(1)
+        setRefreshKey((prev) => prev + 1)
+      }
       setIsQuizDialogOpen(false)
       resetQuizForm()
       toast.success('Quiz created successfully')
@@ -181,7 +251,7 @@ export function InstructorQuizzesPage() {
     if (confirm('Are you sure you want to delete this quiz?')) {
       try {
         await deleteLessonApi(Number(quizId))
-        setQuizzes(quizzes.filter(q => q.id !== quizId))
+        setRefreshKey((prev) => prev + 1)
         if (selectedQuiz?.id === quizId) setSelectedQuiz(null)
         toast.success('Quiz deleted')
       } catch (err) {
@@ -196,9 +266,7 @@ export function InstructorQuizzesPage() {
       const quiz = quizzes.find(q => q.id === quizId)
       const newStatus = quiz?.isPublished ? 'draft' : 'published'
       await updateLessonApi(Number(quizId), { status: newStatus as any })
-      setQuizzes(quizzes.map(q => 
-        q.id === quizId ? { ...q, isPublished: !q.isPublished } : q
-      ))
+      setRefreshKey((prev) => prev + 1)
       if (selectedQuiz?.id === quizId) {
         setSelectedQuiz(prev => prev ? { ...prev, isPublished: !prev.isPublished } : null)
       }
@@ -483,7 +551,43 @@ export function InstructorQuizzesPage() {
         ) : (
           // Quizzes List
           <div className="space-y-4">
-            {quizzes.map((quiz) => (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="md:col-span-2">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by quiz title or description..."
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="questions">Most Questions</SelectItem>
+                  <SelectItem value="title">Title A-Z</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isLoading ? (
+              <Card>
+                <CardContent className="text-center py-12 text-muted-foreground">
+                  Loading quizzes...
+                </CardContent>
+              </Card>
+            ) : quizzes.map((quiz) => (
               <Card key={quiz.id} className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
@@ -540,18 +644,36 @@ export function InstructorQuizzesPage() {
               </Card>
             ))}
 
-            {quizzes.length === 0 && (
+            {!isLoading && totalCount === 0 && (
               <Card>
                 <CardContent className="text-center py-12">
                   <FileQuestion className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-semibold mb-2">No Quizzes Yet</h3>
-                  <p className="text-muted-foreground mb-4">Create your first quiz to assess student learning</p>
+                  <h3 className="font-semibold mb-2">No Quizzes Found</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {debouncedSearch ? 'Try another search keyword.' : 'Create your first quiz to assess student learning'}
+                  </p>
                   <Button onClick={() => setIsQuizDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Create First Quiz
                   </Button>
                 </CardContent>
               </Card>
+            )}
+
+            {totalCount > 0 && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-3">
+                  Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount)}
+                  -
+                  {Math.min((currentPage - 1) * ITEMS_PER_PAGE + quizzes.length, totalCount)}
+                  {' '}of {totalCount} quizzes
+                </div>
+                <UserPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             )}
           </div>
         )}

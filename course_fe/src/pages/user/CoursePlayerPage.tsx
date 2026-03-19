@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from "../../components/Router"
 import { QuizPlayer } from "../../components/QuizPlayer"
-import { VideoPlayer } from "../../components/VideoPlayer"
+import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
 import { Button } from "../../components/ui/button"
 import { Progress } from "../../components/ui/progress"
 import { Separator } from "../../components/ui/separator"
@@ -21,6 +21,7 @@ import {
   HelpCircle,
   PlayCircle,
   Clock,
+  Lock,
   Trash2,
   MessageSquare,
   FileText,
@@ -30,7 +31,7 @@ import {
   Loader2,
   AlertCircle
 } from "lucide-react"
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 import { CommentItem } from "../../components/CommentItem"
 import { getCourseById, type CourseDetail, type ModuleSummary, formatDuration } from "../../services/course.api"
 import { getCourseProgress, updateLessonProgress, type CourseProgress, type LessonProgress } from "../../services/enrollment.api"
@@ -57,12 +58,16 @@ interface CurriculumSection {
 interface CurriculumLesson {
   id: number
   title: string
+  videoUrl: string | null
   duration: string
   type: 'video' | 'quiz' | 'text'
   isFree: boolean
   isCompleted: boolean
   order: number
 }
+
+const LESSON_COMPLETION_THRESHOLD_PERCENT = 85
+const LESSON_PROGRESS_SYNC_STEP = 10
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -86,6 +91,7 @@ function buildCurriculum(
           return {
             id: lesson.lesson_id,
             title: lesson.title,
+            videoUrl: lesson.signed_video_url || lesson.video_url || null,
             duration: lesson.duration ? formatDuration(lesson.duration) : '',
             type: lesson.has_quiz ? 'quiz' as const : lesson.content_type === 'text' ? 'text' as const : 'video' as const,
             isFree: lesson.is_free,
@@ -116,6 +122,10 @@ function findLesson(curriculum: CurriculumSection[], lessonId: number): Curricul
   return null
 }
 
+function flattenLessons(curriculum: CurriculumSection[]): CurriculumLesson[] {
+  return curriculum.flatMap(section => section.lessons)
+}
+
 export function CoursePlayerPage() {
   const { navigate, params } = useRouter()
   const courseId = Number(params.courseId)
@@ -128,6 +138,7 @@ export function CoursePlayerPage() {
 
   const [currentLessonId, setCurrentLessonId] = useState<number | null>(null)
   const [progress, setProgress] = useState([0])
+  const [currentPlaybackTimeSec, setCurrentPlaybackTimeSec] = useState(0)
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({})
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isCurriculumCollapsed, setIsCurriculumCollapsed] = useState(() => {
@@ -162,6 +173,9 @@ export function CoursePlayerPage() {
     try { const s = localStorage.getItem('quizProgress'); return s ? JSON.parse(s) : {} }
     catch { return {} }
   })
+  const [locallyCompletedLessons, setLocallyCompletedLessons] = useState<Record<number, boolean>>({})
+  const completionInFlightRef = useRef(new Set<number>())
+  const lastProgressSyncRef = useRef(new Map<number, number>())
 
   // ── Build curriculum from API data ──
   const lessonProgressMap = useMemo(() => {
@@ -176,11 +190,44 @@ export function CoursePlayerPage() {
     if (!course?.modules) return []
     return buildCurriculum(course.modules, lessonProgressMap)
   }, [course, lessonProgressMap])
+  const orderedLessons = useMemo(() => flattenLessons(curriculum), [curriculum])
+
+  const completedLessonIds = useMemo(() => {
+    const done = new Set<number>()
+    lessonProgressMap.forEach((lp, lessonId) => {
+      if (lp.is_completed) done.add(lessonId)
+    })
+    Object.entries(locallyCompletedLessons).forEach(([lessonId, completed]) => {
+      if (completed) done.add(Number(lessonId))
+    })
+    return done
+  }, [lessonProgressMap, locallyCompletedLessons])
+
+  const furthestUnlockedIndex = useMemo(() => {
+    if (orderedLessons.length === 0) return -1
+    let furthest = 0
+    for (let i = 0; i < orderedLessons.length - 1; i++) {
+      if (completedLessonIds.has(orderedLessons[i].id)) {
+        furthest = i + 1
+      } else {
+        break
+      }
+    }
+    return furthest
+  }, [orderedLessons, completedLessonIds])
+
+  const isLessonUnlocked = (lessonId: number): boolean => {
+    const lessonIndex = orderedLessons.findIndex(l => l.id === lessonId)
+    if (lessonIndex === -1) return false
+    if (completedLessonIds.has(lessonId)) return true
+    return lessonIndex <= furthestUnlockedIndex
+  }
 
   const currentLesson = useMemo(() => {
     if (!currentLessonId || curriculum.length === 0) return null
     return findLesson(curriculum, currentLessonId)
   }, [curriculum, currentLessonId])
+  const currentLessonCompleted = currentLessonId ? completedLessonIds.has(currentLessonId) : false
 
   const overallProgress = courseProgress?.overall_progress ?? 0
   const completedLessons = courseProgress?.completed_lessons ?? 0
@@ -226,11 +273,12 @@ export function CoursePlayerPage() {
   useEffect(() => {
     if (curriculum.length > 0 && currentLessonId === null) {
       setExpandedSections({ [curriculum[0].id]: true })
-      const flat = curriculum.flatMap(s => s.lessons)
-      const firstIncomplete = flat.find(l => !l.isCompleted)
-      setCurrentLessonId(firstIncomplete?.id ?? flat[0]?.id ?? null)
+      const firstUnlocked = orderedLessons.find((lesson, index) =>
+        completedLessonIds.has(lesson.id) || index <= furthestUnlockedIndex
+      )
+      setCurrentLessonId(firstUnlocked?.id ?? orderedLessons[0]?.id ?? null)
     }
-  }, [curriculum, currentLessonId])
+  }, [curriculum, currentLessonId, orderedLessons, furthestUnlockedIndex, completedLessonIds])
 
   // Save states to localStorage
   useEffect(() => {
@@ -304,7 +352,7 @@ export function CoursePlayerPage() {
   // ── Handlers ──
   const handleAddNote = () => {
     if (!newNote.trim()) { toast.error('Please write a note'); return }
-    const currentTime = Math.floor(progress[0] * 0.45 * 60)
+    const currentTime = Math.floor(currentPlaybackTimeSec)
     const minutes = Math.floor(currentTime / 60)
     const seconds = currentTime % 60
     const timestamp = `${minutes}:${String(seconds).padStart(2, '0')}`
@@ -366,21 +414,43 @@ export function CoursePlayerPage() {
     toast.success(`Downloading ${resourceName}...`)
   }
 
+  const getSavedProgressForLesson = (lessonId: number): number => {
+    const apiProgressRaw = lessonProgressMap.get(lessonId)?.progress_percentage
+    const apiProgress = apiProgressRaw ? parseFloat(apiProgressRaw) : 0
+    let localProgress = 0
+    try {
+      const saved = localStorage.getItem(`video_progress_${lessonId}`)
+      localProgress = saved ? parseFloat(saved) : 0
+    } catch {
+      localProgress = 0
+    }
+    return Math.min(100, Math.max(apiProgress || 0, localProgress || 0))
+  }
+
   const toggleSection = (sectionId: number) => {
     setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }))
   }
 
   const handleLessonChange = (lessonId: number) => {
+    if (!isLessonUnlocked(lessonId)) {
+      toast.error(`Bạn cần hoàn thành tối thiểu ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bài trước để mở bài này`)
+      return
+    }
     setCurrentLessonId(lessonId)
-    setProgress([0])
+    setProgress([getSavedProgressForLesson(lessonId)])
+    setCurrentPlaybackTimeSec(0)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setIsSidebarOpen(false)
   }
 
   const goToNextLesson = () => {
     if (!currentLessonId) return
+    if (!currentLessonCompleted) {
+      toast.error(`Bạn cần hoàn thành tối thiểu ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bài hiện tại`)
+      return
+    }
     const next = findNextLesson(curriculum, currentLessonId)
-    if (next) { handleLessonChange(next.id); toast.success(`Playing: ${next.title}`) }
+    if (next && isLessonUnlocked(next.id)) { handleLessonChange(next.id); toast.success(`Playing: ${next.title}`) }
     else toast.info('You have reached the end of the course!')
   }
 
@@ -391,30 +461,57 @@ export function CoursePlayerPage() {
     else toast.info('This is the first lesson')
   }
 
-  const handleLessonComplete = async () => {
-    if (!currentLessonId) return
+  const handleLessonComplete = async (lessonId: number = currentLessonId || 0) => {
+    if (!lessonId || completedLessonIds.has(lessonId) || completionInFlightRef.current.has(lessonId)) return
+    completionInFlightRef.current.add(lessonId)
+    setLocallyCompletedLessons(prev => ({ ...prev, [lessonId]: true }))
     toast.success('Lesson completed!')
     try {
-      await updateLessonProgress({ lesson_id: currentLessonId, progress_percentage: 100, is_completed: true })
+      await updateLessonProgress({ lesson_id: lessonId, progress_percentage: 100, is_completed: true })
       try { const updated = await getCourseProgress(courseId); setCourseProgress(updated) } catch {}
-    } catch (err) { console.error('Failed to update lesson progress:', err) }
+    } catch (err) {
+      console.error('Failed to update lesson progress:', err)
+      setLocallyCompletedLessons(prev => {
+        const next = { ...prev }
+        delete next[lessonId]
+        return next
+      })
+    } finally {
+      completionInFlightRef.current.delete(lessonId)
+    }
     setTimeout(() => {
-      const next = findNextLesson(curriculum, currentLessonId)
+      const next = findNextLesson(curriculum, lessonId)
       if (next) { toast.info(`Auto-playing next lesson: ${next.title}`); handleLessonChange(next.id) }
     }, 3000)
   }
 
-  const handleVideoProgress = async (prog: number) => {
-    setProgress([prog])
-    try { localStorage.setItem(`video_progress_${currentLessonId}`, prog.toString()) } catch {}
-    if (currentLessonId && (Math.floor(prog) % 25 === 0) && prog > 0) {
+  const handleVideoProgress = async (payload: VideoProgressPayload) => {
+    if (!currentLessonId) return
+    const normalized = Math.min(payload.percentage, 100)
+    setCurrentPlaybackTimeSec(payload.currentTime)
+    setProgress(prev => [Math.max(prev[0] || 0, normalized)])
+    try {
+      const existing = localStorage.getItem(`video_progress_${currentLessonId}`)
+      const existingValue = existing ? parseFloat(existing) : 0
+      localStorage.setItem(`video_progress_${currentLessonId}`, String(Math.max(existingValue || 0, normalized)))
+    } catch {}
+
+    const milestone = Math.floor(normalized / LESSON_PROGRESS_SYNC_STEP) * LESSON_PROGRESS_SYNC_STEP
+    const lastSyncedMilestone = lastProgressSyncRef.current.get(currentLessonId) || 0
+    if (milestone >= LESSON_PROGRESS_SYNC_STEP && milestone > lastSyncedMilestone) {
+      lastProgressSyncRef.current.set(currentLessonId, milestone)
       try {
         await updateLessonProgress({
           lesson_id: currentLessonId,
-          progress_percentage: Math.min(prog, 100),
-          last_position: Math.floor(prog * 0.45 * 60),
+          progress_percentage: normalized,
+          last_position: Math.floor(payload.maxWatchedTime),
+          is_completed: normalized >= LESSON_COMPLETION_THRESHOLD_PERCENT,
         })
       } catch {}
+    }
+
+    if (normalized >= LESSON_COMPLETION_THRESHOLD_PERCENT) {
+      handleLessonComplete(currentLessonId)
     }
   }
 
@@ -487,12 +584,16 @@ export function CoursePlayerPage() {
                   <button
                     key={lesson.id}
                     onClick={() => handleLessonChange(lesson.id)}
-                    className={`w-full px-4 py-3 pl-12 flex items-center justify-between hover:bg-accent/50 transition-colors ${
+                    disabled={!isLessonUnlocked(lesson.id)}
+                    className={`w-full px-4 py-3 pl-12 flex items-center justify-between transition-colors ${
                       lesson.id === currentLessonId ? 'bg-accent' : ''
-                    }`}
+                    } ${isLessonUnlocked(lesson.id) ? 'hover:bg-accent/50' : 'opacity-50 cursor-not-allowed'}`}
+                    title={!isLessonUnlocked(lesson.id) ? `Cần hoàn thành bài trước (>=${LESSON_COMPLETION_THRESHOLD_PERCENT}%)` : undefined}
                   >
                     <div className="flex items-center gap-3 flex-1 text-left">
-                      {lesson.isCompleted ? (
+                      {!isLessonUnlocked(lesson.id) ? (
+                        <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      ) : lesson.isCompleted || completedLessonIds.has(lesson.id) ? (
                         <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
                       ) : lesson.type === 'quiz' ? (
                         <HelpCircle className="w-4 h-4 text-purple-500 flex-shrink-0" />
@@ -582,15 +683,14 @@ export function CoursePlayerPage() {
             <div className="flex-shrink-0">
               <VideoPlayer
                 key={currentLessonId}
-                url={'https://www.youtube.com/watch?v=qz0aGYrrlhU'}
+                url={currentLesson.videoUrl || 'https://www.youtube.com/watch?v=qz0aGYrrlhU'}
                 title={currentLesson.title}
                 lessonId={currentLessonId!}
                 onProgress={handleVideoProgress}
-                onComplete={() => handleLessonComplete()}
-                savedProgress={(() => {
-                  try { const saved = localStorage.getItem(`video_progress_${currentLessonId}`); return saved ? parseFloat(saved) : 0 }
-                  catch { return 0 }
-                })()}
+                onComplete={() => handleLessonComplete(currentLessonId!)}
+                savedProgress={getSavedProgressForLesson(currentLessonId!)}
+                completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
+                restrictForwardSeeking={true}
               />
             </div>
           )}
@@ -615,7 +715,13 @@ export function CoursePlayerPage() {
                 <p className="text-sm font-medium truncate">{currentLesson.title}</p>
                 <p className="text-xs text-muted-foreground">{currentLesson.duration}</p>
               </div>
-              <Button variant="default" onClick={goToNextLesson} disabled={!findNextLesson(curriculum, currentLessonId!)} className="flex-1">
+              <Button
+                variant="default"
+                onClick={goToNextLesson}
+                disabled={!findNextLesson(curriculum, currentLessonId!) || !currentLessonCompleted}
+                className="flex-1"
+                title={!currentLessonCompleted ? `Cần hoàn thành ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bài hiện tại` : undefined}
+              >
                 Next Lesson
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>

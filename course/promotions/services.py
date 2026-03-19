@@ -4,6 +4,7 @@ from .models import Promotion
 from admins.models import Admin
 from courses.models import Course
 from django.utils.timezone import make_aware
+from django.db.models import Q
 from instructors.models import Instructor
 from users.models import User
 from django.utils import timezone
@@ -125,7 +126,7 @@ def get_promotions_by_admin(admin_id):
     except Exception as e:
         raise ValidationError({"error": f"Error retrieving promotions: {str(e)}"})
 
-def get_promotions_by_instructor(instructor_id):
+def get_promotions_by_instructor(instructor_id, status=None, search=None, course_id=None):
     try:
         if not instructor_id:
             raise ValidationError({"error": "instructor_id is required"})
@@ -141,6 +142,22 @@ def get_promotions_by_instructor(instructor_id):
             .select_related('admin', 'instructor')
             .prefetch_related('applicable_courses', 'applicable_categories')
         )
+
+        if status:
+            promotions = promotions.filter(status=status)
+
+        if search:
+            promotions = promotions.filter(
+                Q(code__icontains=search) | Q(description__icontains=search)
+            )
+
+        if course_id:
+            try:
+                promotions = promotions.filter(applicable_courses__id=int(course_id))
+            except (TypeError, ValueError):
+                raise ValidationError({"error": "course_id must be a valid integer"})
+
+        promotions = promotions.distinct().order_by('-created_at')
         return promotions
 
     except ValidationError:

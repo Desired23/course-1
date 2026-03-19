@@ -31,7 +31,7 @@ import {
   Info,
   Database
 } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import { useUIStore } from '../stores/ui.store'
 import { useQuizStore } from '../stores/quiz.store'
@@ -42,6 +42,7 @@ import {
   getStarterCode,
   getLanguageById,
   wrapUserCode,
+  shouldWrapUserCode,
   STATUS_DESCRIPTIONS,
   type TestCase,
   type TestResult
@@ -94,6 +95,21 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
   // ✅ Calculate score early (before useEffect that depends on it)
   const score = testResults.length > 0 ? calculateScore(testResults) : null
   const currentLang = getLanguageById(selectedLanguage)
+
+  const normalizeOutput = (value?: string | null) => (value || '').replace(/\r\n/g, '\n').trim()
+  const getDebugHint = (result: TestResult) => {
+    const error = (result.error || '').toLowerCase()
+    if (error.includes('compilation') || error.includes('compile')) {
+      return 'Compilation error: Check syntax, missing imports, and function/class signatures.'
+    }
+    if (error.includes('runtime') || error.includes('exception') || error.includes('traceback')) {
+      return 'Runtime error: Inspect edge cases, null/undefined access, array bounds, and division by zero.'
+    }
+    if (!result.passed) {
+      return 'Wrong answer: Compare Expected vs Your Output. Pay attention to spaces, line breaks, and output format.'
+    }
+    return ''
+  }
 
   // Filter allowed languages
   const allowedLanguages = question.allowedLanguages
@@ -167,14 +183,17 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
     setTestResults([])
 
     try {
-      // Wrap user code with stdin/stdout handler (LeetCode-style)
       const lang = getLanguageById(selectedLanguage)
-      const wrappedCode = wrapUserCode(code, lang?.value || 'javascript', '')
-      
-      console.log('🔧 Wrapped code:', wrappedCode)
+      const languageValue = lang?.value || 'javascript'
+      const shouldWrap = shouldWrapUserCode(code, languageValue)
+      const executableCode = shouldWrap
+        ? wrapUserCode(code, languageValue, '')
+        : code
+
+      console.log('Execution mode:', shouldWrap ? 'function-wrapper' : 'raw-stdin')
       
       const results = await runTestCases(
-        wrappedCode,
+        executableCode,
         selectedLanguage,
         question.testCases,
         (current, total) => setRunProgress({ current, total })
@@ -692,6 +711,15 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                           </div>
                         ))}
                       </div>
+
+                      {testResults.some((result) => !result.passed) && (
+                        <Alert>
+                          <Info className="h-4 w-4" />
+                          <AlertDescription>
+                            Debug tip: Open each failed test tab to see full logs (stderr/compile output/message).
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </div>
                   </TabsContent>
                   
@@ -773,6 +801,37 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                               </pre>
                             </div>
                           )}
+
+                          {(result.debugLogs?.length || result.stderr || result.compileOutput || result.message || result.statusDescription) && (
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium text-muted-foreground mb-1 block">Debug Logs:</label>
+                              {result.debugLogs && result.debugLogs.length > 0 && (
+                                <pre className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-md p-3 text-sm font-mono overflow-x-auto text-slate-900 dark:text-slate-100">
+                                  {result.debugLogs.join('\n')}
+                                </pre>
+                              )}
+                              {result.statusDescription && (
+                                <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono overflow-x-auto border border-border/30">
+                                  Status: {result.statusDescription}{result.statusId ? ` (${result.statusId})` : ''}
+                                </pre>
+                              )}
+                              {result.compileOutput && (
+                                <pre className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md p-3 text-sm font-mono overflow-x-auto text-amber-900 dark:text-amber-100">
+                                  {result.compileOutput}
+                                </pre>
+                              )}
+                              {result.stderr && (
+                                <pre className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm font-mono overflow-x-auto text-red-900 dark:text-red-100">
+                                  {result.stderr}
+                                </pre>
+                              )}
+                              {result.message && (
+                                <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono overflow-x-auto border border-border/30">
+                                  {result.message}
+                                </pre>
+                              )}
+                            </div>
+                          )}
                           
                           {/* Comparison Hint - Only for failed tests */}
                           {!result.passed && !result.error && (
@@ -783,6 +842,30 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                                   <strong>Hint:</strong> Your output doesn't match the expected result. 
                                   Check for typos, wrong data types, or incorrect logic.
                                 </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {!result.passed && (
+                            <Alert>
+                              <Info className="h-4 w-4" />
+                              <AlertDescription>{getDebugHint(result)}</AlertDescription>
+                            </Alert>
+                          )}
+
+                          {!result.passed && (
+                            <div className="grid md:grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground mb-1 block">Normalized Expected</label>
+                                <pre className="bg-muted/50 rounded-md p-3 text-xs font-mono overflow-x-auto border border-border/30">
+                                  {normalizeOutput(result.expectedOutput) || '(empty)'}
+                                </pre>
+                              </div>
+                              <div>
+                                <label className="text-sm font-medium text-muted-foreground mb-1 block">Normalized Actual</label>
+                                <pre className="bg-muted/50 rounded-md p-3 text-xs font-mono overflow-x-auto border border-border/30">
+                                  {normalizeOutput(result.actualOutput) || '(empty)'}
+                                </pre>
                               </div>
                             </div>
                           )}

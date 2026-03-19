@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 export interface Enrollment {
   enrollment_id: number
@@ -64,27 +64,38 @@ export function EnrollmentProvider({ children }: { children: React.ReactNode }) 
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
 
   useEffect(() => {
-    // Load enrollments from localStorage
+    // whenever the user object changes we should reinitialise the cache
+    // clear old enrollments if user switched or logged out
+    if (!user) {
+      localStorage.removeItem('enrollments')
+      setEnrollments([])
+      return
+    }
+
+    // if there is saved data but it belongs to a different user, wipe it
     const saved = localStorage.getItem('enrollments')
     if (saved) {
       try {
-        const parsed = JSON.parse(saved)
-        setEnrollments(parsed)
+        const parsed: Enrollment[] = JSON.parse(saved)
+        const belongsToCurrent = parsed.every(e => e.user_id === user.id)
+        if (!belongsToCurrent) {
+          // stale cache from another account
+          localStorage.removeItem('enrollments')
+          setEnrollments([])
+        } else {
+          setEnrollments(parsed)
+          return
+        }
       } catch (error) {
         console.error('Error loading enrollments:', error)
-        // Use mock data if parsing fails
-        if (user) {
-          const userEnrollments = MOCK_ENROLLMENTS.filter(e => e.user_id === user.id)
-          setEnrollments(userEnrollments)
-          localStorage.setItem('enrollments', JSON.stringify(userEnrollments))
-        }
+        localStorage.removeItem('enrollments')
       }
-    } else if (user) {
-      // Initialize with mock data for logged-in users
-      const userEnrollments = MOCK_ENROLLMENTS.filter(e => e.user_id === user.id)
-      setEnrollments(userEnrollments)
-      localStorage.setItem('enrollments', JSON.stringify(userEnrollments))
     }
+
+    // if we get here we either had no cache or it was cleared; initialize
+    const userEnrollments = MOCK_ENROLLMENTS.filter(e => e.user_id === user.id)
+    setEnrollments(userEnrollments)
+    localStorage.setItem('enrollments', JSON.stringify(userEnrollments))
   }, [user])
 
   useEffect(() => {

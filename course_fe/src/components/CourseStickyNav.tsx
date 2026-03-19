@@ -9,6 +9,8 @@ interface CourseStickyNavProps {
   originalPrice?: number
   isInCart: boolean
   isWishlisted: boolean
+  primaryActionLabel?: string
+  showAddToCart?: boolean
   onAddToCart: () => void
   onBuyNow: () => void
   onToggleWishlist: () => void
@@ -21,6 +23,8 @@ export function CourseStickyNav({
   originalPrice,
   isInCart,
   isWishlisted,
+  primaryActionLabel = 'Buy Now',
+  showAddToCart = true,
   onAddToCart,
   onBuyNow,
   onToggleWishlist,
@@ -98,27 +102,29 @@ export function CourseStickyNav({
                   <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
                 </Button>
 
-                {/* Add to Cart / Buy Now */}
+                {/* Add to Cart / primary action */}
                 {isInCart ? (
                   <Button onClick={onBuyNow} size="lg">
                     Go to Cart
                   </Button>
                 ) : (
                   <>
-                    <Button 
-                      onClick={onAddToCart} 
-                      variant="outline"
-                      size="lg"
-                      className="hidden md:flex"
-                    >
-                      <ShoppingCart className="w-5 h-5 mr-2" />
-                      Add to Cart
-                    </Button>
+                    {showAddToCart && (
+                      <Button 
+                        onClick={onAddToCart} 
+                        variant="outline"
+                        size="lg"
+                        className="hidden md:flex"
+                      >
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        Add to Cart
+                      </Button>
+                    )}
                     <Button 
                       onClick={onBuyNow}
                       size="lg"
                     >
-                      Buy Now
+                      {primaryActionLabel}
                     </Button>
                   </>
                 )}

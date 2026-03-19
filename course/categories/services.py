@@ -1,4 +1,5 @@
 from rest_framework.exceptions import ValidationError
+from django.db.models import Count, Q
 from .models import Category
 from .serializers import CategoriesSerializer
 
@@ -50,4 +51,23 @@ def get_subcategories(category_id):
         raise ValidationError({"error": "Category not found."})
 def get_active_categories():
     return Category.objects.filter(status='active')
+
+
+def get_top_categories(limit=6):
+    return (
+        Category.objects
+        .filter(status='active', parent_category__isnull=True)
+        .annotate(
+            course_count=Count(
+                'category_courses',
+                filter=Q(
+                    category_courses__status='published',
+                    category_courses__is_public=True,
+                    category_courses__is_deleted=False,
+                ),
+            )
+        )
+        .filter(course_count__gt=0)
+        .order_by('-course_count', 'name')[:limit]
+    )
 

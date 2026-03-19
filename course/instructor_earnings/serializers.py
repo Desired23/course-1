@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import serializers
 from .models import InstructorEarning
 
@@ -31,7 +32,27 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'earning_date', 'net_amount', 'earning_source']
 
     def get_earning_source(self, obj):
-        """retail = bán lẻ; subscription = revenue sharing từ plan"""
         if obj.user_subscription_id:
             return 'subscription'
         return 'retail'
+
+
+class SubscriptionRevenueBreakdownSerializer(serializers.Serializer):
+    course_id = serializers.IntegerField()
+    course_title = serializers.CharField()
+    earnings = serializers.DecimalField(max_digits=12, decimal_places=2)
+    records_count = serializers.IntegerField()
+    total_minutes = serializers.SerializerMethodField()
+    share_pct = serializers.SerializerMethodField()
+
+    def get_total_minutes(self, obj):
+        earnings = obj.get('earnings') or Decimal('0')
+        return int(round(float(earnings) * 100))
+
+    def get_share_pct(self, obj):
+        total_earnings = self.context.get('total_earnings') or Decimal('0')
+        earnings = obj.get('earnings') or Decimal('0')
+        if not total_earnings:
+            return '0.0000'
+        share = (Decimal(earnings) / Decimal(total_earnings)) * Decimal('100')
+        return f"{share.quantize(Decimal('0.0001'))}"

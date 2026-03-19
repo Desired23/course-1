@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 export interface WishlistItem {
   wishlist_id: number
@@ -33,17 +33,24 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Load wishlist from localStorage
-    if (user) {
-      const saved = localStorage.getItem(`wishlist_${user.id}`)
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved)
-          setWishlist(parsed)
-        } catch (error) {
-          console.error('Error loading wishlist:', error)
-        }
-      }
+    if (!user) {
+      setWishlist([])
+      return
     }
+
+    const saved = localStorage.getItem(`wishlist_${user.id}`)
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        setWishlist(parsed)
+      } catch (error) {
+        console.error('Error loading wishlist:', error)
+        setWishlist([])
+      }
+      return
+    }
+
+    setWishlist([])
   }, [user])
 
   useEffect(() => {

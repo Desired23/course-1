@@ -9,9 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Switch } from "../../components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Plus, Edit, Trash2, Folder, Eye, Search, Tag, Layers } from 'lucide-react'
+import { Plus, Edit, Trash2, Folder, Eye, Search, Tag, Layers, Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen } from 'lucide-react'
 import { toast } from "sonner"
-import { getAllCategories, createCategory as createCategoryApi, updateCategory as updateCategoryApi, deleteCategory as deleteCategoryApi, getSubcategories as getSubcategoriesApi } from '../../services/category.api'
+import { getAllCategories, createCategory as createCategoryApi, updateCategory as updateCategoryApi, deleteCategory as deleteCategoryApi } from '../../services/category.api'
 import type { Category as ApiCategory } from '../../services/category.api'
 
 interface Category {
@@ -37,6 +37,17 @@ interface Subcategory {
   isActive: boolean
 }
 
+const ICON_MAP: Record<string, any> = {
+  Code,
+  Briefcase,
+  Palette,
+  Megaphone,
+  Database,
+  Music,
+  BookOpen,
+  Folder,
+}
+
 
 
 export function AdminCategoriesPage() {
@@ -49,7 +60,7 @@ export function AdminCategoriesPage() {
     slug: c.name.toLowerCase().replace(/\s+/g, '-'),
     description: c.description || '',
     parentId: c.parent_category ? String(c.parent_category) : null,
-    icon: '📁',
+    icon: c.icon || 'Folder',
     color: '#3b82f6',
     isActive: c.status === 'active',
     coursesCount: 0,
@@ -79,7 +90,6 @@ export function AdminCategoriesPage() {
     }
     fetchData()
   }, [])
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubcategoryDialogOpen, setIsSubcategoryDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -89,7 +99,7 @@ export function AdminCategoriesPage() {
   const [categoryName, setCategoryName] = useState('')
   const [categorySlug, setCategorySlug] = useState('')
   const [categoryDescription, setCategoryDescription] = useState('')
-  const [categoryIcon, setCategoryIcon] = useState('📁')
+  const [categoryIcon, setCategoryIcon] = useState('Folder')
   const [categoryColor, setCategoryColor] = useState('#3b82f6')
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
@@ -104,7 +114,7 @@ export function AdminCategoriesPage() {
       return
     }
     try {
-      const created = await createCategoryApi({ name: categoryName, description: categoryDescription, status: 'active' })
+      const created = await createCategoryApi({ name: categoryName, description: categoryDescription, icon: categoryIcon, status: 'active' })
       setCategories(prev => [...prev, mapApiCategory(created, prev.length)])
       toast.success('Category created successfully')
       resetCategoryForm()
@@ -115,7 +125,7 @@ export function AdminCategoriesPage() {
   const handleUpdateCategory = async () => {
     if (!editingCategory) return
     try {
-      await updateCategoryApi(Number(editingCategory.id), { name: categoryName, description: categoryDescription })
+      await updateCategoryApi(Number(editingCategory.id), { name: categoryName, description: categoryDescription, icon: categoryIcon })
       setCategories(categories.map(cat => 
         cat.id === editingCategory.id 
           ? { ...cat, name: categoryName, slug: categorySlug, description: categoryDescription, icon: categoryIcon, color: categoryColor }
@@ -195,7 +205,7 @@ export function AdminCategoriesPage() {
     setCategoryName('')
     setCategorySlug('')
     setCategoryDescription('')
-    setCategoryIcon('📁')
+    setCategoryIcon('Folder')
     setCategoryColor('#3b82f6')
     setEditingCategory(null)
   }
@@ -273,13 +283,12 @@ export function AdminCategoriesPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="category-icon">Icon (Emoji)</Label>
+                    <Label htmlFor="category-icon">Icon name</Label>
                     <Input
                       id="category-icon"
                       value={categoryIcon}
                       onChange={(e) => setCategoryIcon(e.target.value)}
-                      placeholder="📁"
-                      maxLength={2}
+                      placeholder="e.g., Code, Briefcase, Folder"
                     />
                   </div>
                   <div>
@@ -418,6 +427,7 @@ export function AdminCategoriesPage() {
             <TableBody>
               {filteredCategories.map((category) => {
                 const categorySubcats = subcategories.filter(s => s.categoryId === category.id)
+                const CategoryIcon = ICON_MAP[category.icon] || BookOpen
                 return (
                   <TableRow key={category.id}>
                     <TableCell>{category.order}</TableCell>
@@ -427,7 +437,7 @@ export function AdminCategoriesPage() {
                           className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
                           style={{ backgroundColor: category.color + '20' }}
                         >
-                          {category.icon}
+                          <CategoryIcon className="h-5 w-5" />
                         </div>
                         <div>
                           <p className="font-medium">{category.name}</p>
@@ -512,11 +522,17 @@ export function AdminCategoriesPage() {
                   <SelectValue placeholder="Select parent category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
+                  {categories.map(cat => {
+                    const ParentIcon = ICON_MAP[cat.icon] || BookOpen
+                    return (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <ParentIcon className="h-4 w-4" />
+                          {cat.name}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>

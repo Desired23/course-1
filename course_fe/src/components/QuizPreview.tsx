@@ -20,9 +20,9 @@ import { cn } from './ui/utils'
 interface QuizQuestion {
   id: number
   question: string
-  type: 'single' | 'multiple'
+  type: 'single' | 'multiple' | 'text'
   options: string[]
-  correctAnswer?: number | number[]
+  correctAnswer?: number | number[] | string
   explanation?: string
   image?: string
   code?: string
@@ -46,63 +46,32 @@ export function QuizPreview({
   className 
 }: QuizPreviewProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [answers, setAnswers] = useState<Record<number, number | number[]>>({})
+  const [answers, setAnswers] = useState<Record<number, number | number[] | string>>({})
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(timeLimit || 0)
 
-  // Mock questions if none provided
-  const mockQuestions: QuizQuestion[] = questions.length > 0 ? questions : [
-    {
-      id: 1,
-      question: 'What is React?',
-      type: 'single',
-      options: [
-        'A JavaScript library for building user interfaces',
-        'A programming language',
-        'A database',
-        'An operating system'
-      ],
-      correctAnswer: 0,
-      explanation: 'React is a JavaScript library developed by Facebook for building user interfaces.'
-    },
-    {
-      id: 2,
-      question: 'Which of the following are React Hooks? (Select all that apply)',
-      type: 'multiple',
-      options: [
-        'useState',
-        'useEffect',
-        'componentDidMount',
-        'useContext'
-      ],
-      correctAnswer: [0, 1, 3],
-      explanation: 'componentDidMount is a lifecycle method, not a Hook.'
-    },
-    {
-      id: 3,
-      question: 'What does JSX stand for?',
-      type: 'single',
-      options: [
-        'JavaScript XML',
-        'Java Syntax Extension',
-        'JavaScript Extra',
-        'None of the above'
-      ],
-      correctAnswer: 0
-    }
-  ]
+  if (questions.length === 0) {
+    return (
+      <Card className={cn("p-8", className)}>
+        <div className="text-center space-y-2">
+          <h3 className="font-semibold">{title}</h3>
+          <p className="text-sm text-muted-foreground">This quiz does not have any questions yet.</p>
+        </div>
+      </Card>
+    )
+  }
 
-  const currentQ = mockQuestions[currentQuestion]
-  const totalQuestions = mockQuestions.length
+  const currentQ = questions[currentQuestion]
+  const totalQuestions = questions.length
   const progress = ((currentQuestion + 1) / totalQuestions) * 100
 
-  const handleAnswer = (questionId: number, answer: number | number[]) => {
+  const handleAnswer = (questionId: number, answer: number | number[] | string) => {
     setAnswers({ ...answers, [questionId]: answer })
   }
 
   const isCorrect = (questionId: number) => {
     if (!isSubmitted || !showAnswers) return null
-    const question = mockQuestions.find(q => q.id === questionId)
+    const question = questions.find(q => q.id === questionId)
     if (!question) return null
     
     const userAnswer = answers[questionId]
@@ -116,7 +85,7 @@ export function QuizPreview({
 
   const calculateScore = () => {
     let correct = 0
-    mockQuestions.forEach(q => {
+    questions.forEach(q => {
       if (isCorrect(q.id)) correct++
     })
     return Math.round((correct / totalQuestions) * 100)
@@ -183,13 +152,13 @@ export function QuizPreview({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
-                {mockQuestions.filter(q => isCorrect(q.id)).length}
+                {questions.filter(q => isCorrect(q.id)).length}
               </div>
               <div className="text-sm text-muted-foreground">Correct</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">
-                {mockQuestions.filter(q => isCorrect(q.id) === false).length}
+                {questions.filter(q => isCorrect(q.id) === false).length}
               </div>
               <div className="text-sm text-muted-foreground">Incorrect</div>
             </div>
@@ -317,7 +286,7 @@ export function QuizPreview({
                   )
                 })}
               </RadioGroup>
-            ) : (
+            ) : currentQ.type === 'multiple' ? (
               <div className="space-y-3">
                 {currentQ.options.map((option, index) => {
                   const selected = (answers[currentQ.id] as number[] || []).includes(index)
@@ -362,6 +331,17 @@ export function QuizPreview({
                     </div>
                   )
                 })}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor={`q-${currentQ.id}-text`} className="text-sm text-muted-foreground">Answer</Label>
+                <textarea
+                  id={`q-${currentQ.id}-text`}
+                  className="w-full min-h-[120px] rounded-md border bg-background p-3 text-sm"
+                  value={String(answers[currentQ.id] || '')}
+                  onChange={(e) => handleAnswer(currentQ.id, e.target.value)}
+                  placeholder="Enter your answer..."
+                />
               </div>
             )}
           </div>

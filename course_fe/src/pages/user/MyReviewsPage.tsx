@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import { Card, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -8,19 +8,23 @@ import { Badge } from '../../components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog'
 import { Star, Edit2, Trash2, Search, MessageSquare, ThumbsUp, Calendar, Loader2 } from 'lucide-react'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { useRouter } from '../../components/Router'
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback'
 import { useAuth } from '../../contexts/AuthContext'
+import { UserPagination } from '../../components/UserPagination'
 import {
   type Review,
-  getAllReviewsByUser,
+  getReviewsByUser,
   updateReview as updateReviewApi,
   deleteReview as deleteReviewApi,
   formatReviewDate,
   calcAverageRating,
   isEdited,
 } from '../../services/review.api'
+
+type RatingFilter = 'all' | '5' | '4' | '3' | '2' | '1'
+type SortBy = 'newest' | 'oldest' | 'rating_desc' | 'rating_asc'
 
 export function MyReviewsPage() {
   const { navigate } = useRouter()
@@ -29,34 +33,46 @@ export function MyReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all')
+  const [sortBy, setSortBy] = useState<SortBy>('newest')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(5)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [editingReview, setEditingReview] = useState<Review | null>(null)
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null)
 
-  // Form state
   const [formData, setFormData] = useState({
     rating: 5,
-    comment: ''
+    comment: '',
   })
 
-  // ── Fetch reviews from API ───────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
     setLoading(true)
-    getAllReviewsByUser(user.id)
-      .then((data) => {
-        if (!cancelled) setReviews(data)
+    getReviewsByUser(user.id, currentPage, pageSize, {
+      search: searchTerm || undefined,
+      rating: ratingFilter !== 'all' ? ratingFilter : undefined,
+      sort_by: sortBy,
+    })
+      .then((res) => {
+        if (cancelled) return
+        setReviews(res.results)
+        setTotalCount(res.count || 0)
+        setTotalPages(res.total_pages || 1)
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Không thể tải đánh giá')
+        if (!cancelled) setError(err?.message || 'Cannot load reviews')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-    return () => { cancelled = true }
-  }, [user?.id])
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, currentPage, pageSize, searchTerm, ratingFilter, sortBy])
 
-  // ── Handlers ─────────────────────────────────────────────────────
   const resetForm = () => {
     setFormData({ rating: 5, comment: '' })
   }
@@ -64,7 +80,7 @@ export function MyReviewsPage() {
   const handleEditReview = async () => {
     if (!editingReview) return
     if (!formData.comment.trim()) {
-      toast.error('Vui lòng nhập nội dung đánh giá')
+      toast.error('Please enter review content')
       return
     }
     try {
@@ -72,14 +88,12 @@ export function MyReviewsPage() {
         rating: formData.rating,
         comment: formData.comment,
       })
-      setReviews((prev) =>
-        prev.map((r) => (r.review_id === editingReview.review_id ? updated : r))
-      )
-      toast.success('Đã cập nhật đánh giá')
+      setReviews((prev) => prev.map((r) => (r.review_id === editingReview.review_id ? updated : r)))
+      toast.success('Review updated')
       setEditingReview(null)
       resetForm()
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể cập nhật đánh giá')
+      toast.error(err?.message || 'Cannot update review')
     }
   }
 
@@ -96,27 +110,21 @@ export function MyReviewsPage() {
     try {
       await deleteReviewApi(deletingReviewId)
       setReviews((prev) => prev.filter((r) => r.review_id !== deletingReviewId))
-      toast.success('Đã xóa đánh giá')
+      toast.success('Review deleted')
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể xóa đánh giá')
+      toast.error(err?.message || 'Cannot delete review')
     } finally {
       setDeletingReviewId(null)
     }
   }
 
-  // ── Derived data ─────────────────────────────────────────────────
-  const filteredReviews = reviews.filter((review) => {
-    const term = searchTerm.toLowerCase()
-    return (
-      (review.course_detail?.title || '').toLowerCase().includes(term) ||
-      (review.comment || '').toLowerCase().includes(term)
-    )
-  })
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, ratingFilter, sortBy, pageSize])
 
   const avgRating = calcAverageRating(reviews).toFixed(1)
   const totalLikes = reviews.reduce((sum, r) => sum + (r.likes || 0), 0)
 
-  // ── Loading / error states ───────────────────────────────────────
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[60vh]">
@@ -129,7 +137,7 @@ export function MyReviewsPage() {
     return (
       <div className="p-8 text-center">
         <p className="text-destructive mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>Thử lại</Button>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     )
   }
@@ -137,15 +145,11 @@ export function MyReviewsPage() {
   return (
     <div className="p-8">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl mb-2">Đánh giá của tôi</h1>
-          <p className="text-muted-foreground">
-            Quản lý đánh giá và xếp hạng khóa học
-          </p>
+          <h1 className="text-3xl mb-2">My Reviews</h1>
+          <p className="text-muted-foreground">Manage your course ratings and feedback</p>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="p-6">
@@ -154,7 +158,7 @@ export function MyReviewsPage() {
                   <MessageSquare className="h-6 w-6 text-purple-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Tổng đánh giá</p>
+                  <p className="text-sm text-muted-foreground">Total reviews</p>
                   <p className="text-2xl">{reviews.length}</p>
                 </div>
               </div>
@@ -167,7 +171,7 @@ export function MyReviewsPage() {
                   <Star className="h-6 w-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Điểm trung bình</p>
+                  <p className="text-sm text-muted-foreground">Average rating</p>
                   <p className="text-2xl">{avgRating}</p>
                 </div>
               </div>
@@ -180,7 +184,7 @@ export function MyReviewsPage() {
                   <ThumbsUp className="h-6 w-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Lượt thích</p>
+                  <p className="text-sm text-muted-foreground">Total likes</p>
                   <p className="text-2xl">{totalLikes}</p>
                 </div>
               </div>
@@ -188,155 +192,177 @@ export function MyReviewsPage() {
           </Card>
         </div>
 
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm đánh giá..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+        <Card className="mb-6">
+          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="relative lg:col-span-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search reviews..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <select
+              className="h-9 rounded-md border px-3 text-sm"
+              value={ratingFilter}
+              onChange={(e) => setRatingFilter(e.target.value as RatingFilter)}
+            >
+              <option value="all">All ratings</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+            <select
+              className="h-9 rounded-md border px-3 text-sm"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="rating_desc">Rating high to low</option>
+              <option value="rating_asc">Rating low to high</option>
+            </select>
+            <select
+              className="h-9 rounded-md border px-3 text-sm"
+              value={String(pageSize)}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+            >
+              <option value="5">5 / page</option>
+              <option value="10">10 / page</option>
+              <option value="15">15 / page</option>
+            </select>
+          </CardContent>
+        </Card>
 
-        {/* Reviews List */}
         <div className="space-y-4">
-          {filteredReviews.length === 0 ? (
+          {reviews.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
                 <MessageSquare className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl mb-2">Chưa có đánh giá</h3>
-                <p className="text-muted-foreground mb-6">
-                  Bắt đầu đánh giá các khóa học bạn đã hoàn thành
-                </p>
-                <Button onClick={() => navigate('/my-learning')}>
-                  Đi đến khóa học của tôi
-                </Button>
+                <h3 className="text-xl mb-2">No reviews found</h3>
+                <p className="text-muted-foreground mb-6">Try changing filters or review your courses first.</p>
+                <Button onClick={() => navigate('/my-learning')}>Go to My Learning</Button>
               </CardContent>
             </Card>
           ) : (
-            filteredReviews.map((review) => (
-              <Card key={review.review_id}>
-                <CardContent className="p-6">
-                  <div className="flex gap-4">
-                    {/* Course Image */}
-                    <div className="flex-shrink-0">
-                      <ImageWithFallback
-                        src={review.course_detail?.thumbnail || ''}
-                        alt={review.course_detail?.title || ''}
-                        className="w-32 h-20 object-cover rounded"
-                      />
-                    </div>
+            <>
+              {reviews.map((review) => (
+                <Card key={review.review_id}>
+                  <CardContent className="p-6">
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0">
+                        <ImageWithFallback
+                          src={review.course_detail?.thumbnail || ''}
+                          alt={review.course_detail?.title || ''}
+                          className="w-32 h-20 object-cover rounded"
+                        />
+                      </div>
 
-                    {/* Review Content */}
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-medium mb-1">{review.course_detail?.title}</h3>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex items-center">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-4 w-4 ${
-                                    i < review.rating
-                                      ? 'fill-yellow-400 text-yellow-400'
-                                      : 'text-gray-300'
-                                  }`}
-                                />
-                              ))}
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-medium mb-1">{review.course_detail?.title}</h3>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-4 w-4 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-sm text-muted-foreground">{review.rating}.0</span>
                             </div>
-                            <span className="text-sm text-muted-foreground">
-                              {review.rating}.0
-                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(review)}>
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setDeletingReviewId(review.review_id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDialog(review)}
-                          >
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Sửa
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setDeletingReviewId(review.review_id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Xóa
-                          </Button>
-                        </div>
-                      </div>
 
-                      <p className="text-muted-foreground mb-3">{review.comment}</p>
+                        <p className="text-muted-foreground mb-3">{review.comment}</p>
 
-                      {review.instructor_response && (
-                        <div className="bg-muted/50 rounded-lg p-3 mb-3">
-                          <p className="text-sm font-medium mb-1">Phản hồi từ giảng viên:</p>
-                          <p className="text-sm text-muted-foreground">{review.instructor_response}</p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <ThumbsUp className="h-4 w-4" />
-                          {review.likes} lượt thích
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {formatReviewDate(review.review_date)}
-                        </div>
-                        {isEdited(review) && (
-                          <Badge variant="outline" className="text-xs">
-                            Đã chỉnh sửa
-                          </Badge>
+                        {review.instructor_response && (
+                          <div className="bg-muted/50 rounded-lg p-3 mb-3">
+                            <p className="text-sm font-medium mb-1">Instructor response:</p>
+                            <p className="text-sm text-muted-foreground">{review.instructor_response}</p>
+                          </div>
                         )}
+
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <ThumbsUp className="h-4 w-4" />
+                            {review.likes} likes
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {formatReviewDate(review.review_date)}
+                          </div>
+                          {isEdited(review) && (
+                            <Badge variant="outline" className="text-xs">
+                              Edited
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </CardContent>
+                </Card>
+              ))}
+
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Page {currentPage}/{totalPages} - Total {totalCount} reviews
+                </p>
+                <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+              </div>
+            </>
           )}
         </div>
 
-        {/* Delete Confirmation Dialog */}
         <AlertDialog open={!!deletingReviewId} onOpenChange={() => setDeletingReviewId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Xóa đánh giá</AlertDialogTitle>
+              <AlertDialogTitle>Delete review</AlertDialogTitle>
               <AlertDialogDescription>
-                Bạn có chắc chắn muốn xóa đánh giá này? Hành động này không thể hoàn tác.
+                This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Hủy</AlertDialogCancel>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteReview} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Xóa
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Edit Dialog */}
         {editingReview && (
           <Dialog open={!!editingReview} onOpenChange={() => setEditingReview(null)}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Chỉnh sửa đánh giá</DialogTitle>
+                <DialogTitle>Edit review</DialogTitle>
                 <DialogDescription>
-                  Cập nhật đánh giá cho {editingReview.course_detail?.title}
+                  Update your feedback for {editingReview.course_detail?.title}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Xếp hạng *</Label>
+                  <Label>Rating *</Label>
                   <div className="flex items-center gap-2">
                     {[1, 2, 3, 4, 5].map((rating) => (
                       <button
@@ -347,39 +373,31 @@ export function MyReviewsPage() {
                       >
                         <Star
                           className={`h-8 w-8 cursor-pointer transition-colors ${
-                            rating <= formData.rating
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'text-gray-300 hover:text-yellow-200'
+                            rating <= formData.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 hover:text-yellow-200'
                           }`}
                         />
                       </button>
                     ))}
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      {formData.rating}.0
-                    </span>
+                    <span className="ml-2 text-sm text-muted-foreground">{formData.rating}.0</span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-comment">Đánh giá của bạn *</Label>
+                  <Label htmlFor="edit-comment">Your review *</Label>
                   <Textarea
                     id="edit-comment"
                     value={formData.comment}
                     onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-                    placeholder="Chia sẻ trải nghiệm của bạn về khóa học..."
+                    placeholder="Share your learning experience..."
                     rows={6}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {formData.comment.length} / 500 ký tự
-                  </p>
+                  <p className="text-xs text-muted-foreground">{formData.comment.length} / 500 characters</p>
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditingReview(null)}>
-                  Hủy
+                  Cancel
                 </Button>
-                <Button onClick={handleEditReview}>
-                  Lưu thay đổi
-                </Button>
+                <Button onClick={handleEditReview}>Save</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

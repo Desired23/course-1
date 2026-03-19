@@ -15,12 +15,12 @@ interface InstructorLayoutProps {
  */
 export function InstructorLayout({ children, showHeader = true, headerTitle, headerSubtitle }: InstructorLayoutProps) {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-screen overflow-hidden bg-background">
       <DashboardSidebar type="instructor" />
       
-      <main className="flex-1 overflow-y-auto w-full md:w-auto">
+      <main className="flex-1 h-screen overflow-y-auto w-full md:w-auto">
         {showHeader && <InstructorHeader title={headerTitle} subtitle={headerSubtitle} />}
-        <div className="min-h-screen">
+        <div className="min-h-full">
           {children}
         </div>
       </main>

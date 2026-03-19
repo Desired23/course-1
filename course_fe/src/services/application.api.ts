@@ -1,93 +1,143 @@
-/**
- * Applications API Service
- * Instructor onboarding applications
- *
- * Endpoints:
- *   POST   /api/applications/submit/                   — Submit application
- *   GET    /api/applications/me/                       — Get current user's application
- *   PUT    /api/applications/:id/resubmit/             — Resubmit after changes_requested
- *   GET    /api/applications/admin/                    — Admin list
- *   PATCH  /api/applications/:id/review/               — Admin review
- */
+﻿import { http } from './http'
 
-import { http } from './http'
+export interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  total_pages: number
+  page_size: number
+  results: T[]
+}
 
-// ─── Types ────────────────────────────────────────────────────
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested'
 
-export interface ApplicationResponse {
-  question: number
-  value: string
+export interface RegistrationFormQuestion {
+  id: number
+  form: number
+  order: number
+  label: string
+  type: 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'file' | 'url'
+  placeholder?: string | null
+  help_text?: string | null
+  required: boolean
+  options?: any
+  validation_regex?: string | null
+  file_config?: any
+}
+
+export interface RegistrationForm {
+  id: number
+  type: string
+  title: string
+  description: string | null
+  is_active: boolean
+  version: number
+  questions: RegistrationFormQuestion[]
+}
+
+export interface ApplicationResponseItem {
+  id: number
+  value: any
+  question_detail?: RegistrationFormQuestion
 }
 
 export interface Application {
   id: number
   user: number
   form: number
-  status: 'pending' | 'approved' | 'rejected' | 'changes_requested'
+  status: ApplicationStatus
   submitted_at: string
   reviewed_at: string | null
   reviewed_by: number | null
   admin_notes: string | null
   rejection_reason: string | null
   updated_at: string
-  user_email: string
-  user_full_name: string
-  form_title: string
-  reviewed_by_name: string | null
-  responses: Array<{
-    id: number
-    value: string
-    question_detail?: {
-      id: number
-      question_text: string
-      question_type: string
-    }
-  }>
+  user_email?: string
+  user_full_name?: string
+  form_title?: string
+  reviewed_by_name?: string | null
+  responses: ApplicationResponseItem[]
+}
+
+export interface ApplicationListItem {
+  id: number
+  user: number
+  form: number
+  status: ApplicationStatus
+  submitted_at: string
+  reviewed_at: string | null
+  user_email?: string
+  user_full_name?: string
+  form_title?: string
 }
 
 export interface SubmitApplicationData {
   form_id: number
-  responses: ApplicationResponse[]
+  responses: Array<{
+    question_id: number
+    value: any
+  }>
 }
 
-// ─── API Functions ────────────────────────────────────────────
+export async function getActiveRegistrationForm(type: 'instructor_application' | 'user_registration'): Promise<RegistrationForm> {
+  return http.get<RegistrationForm>('/registration-forms/active/', { type })
+}
 
-/** Submit an instructor application */
 export async function submitApplication(data: SubmitApplicationData): Promise<Application> {
   return http.post<Application>('/applications/submit/', data)
 }
 
-/** Get current user's application status */
-export async function getMyApplication(): Promise<Application> {
-  return http.get<Application>('/applications/me/')
+export async function getMyApplications(params?: {
+  page?: number
+  page_size?: number
+}): Promise<PaginatedResponse<ApplicationListItem>> {
+  return http.get<PaginatedResponse<ApplicationListItem>>('/applications/me/', params)
 }
 
-/** Resubmit after changes requested */
-export async function resubmitApplication(
-  applicationId: number,
-  data: SubmitApplicationData
-): Promise<Application> {
+export async function getMyApplicationDetail(applicationId: number): Promise<Application> {
+  return http.get<Application>('/applications/me/', { application_id: applicationId })
+}
+
+export async function resubmitApplication(applicationId: number, data: SubmitApplicationData): Promise<Application> {
   return http.put<Application>(`/applications/${applicationId}/resubmit/`, data)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
+export async function getAdminApplications(params?: {
+  page?: number
+  page_size?: number
+  status?: ApplicationStatus | 'all'
+  form_id?: number
+  user_id?: number
+}): Promise<PaginatedResponse<ApplicationListItem>> {
+  const query = {
+    page: params?.page,
+    page_size: params?.page_size,
+    status: params?.status && params.status !== 'all' ? params.status : undefined,
+    form_id: params?.form_id,
+    user_id: params?.user_id,
+  }
+  return http.get<PaginatedResponse<ApplicationListItem>>('/applications/admin/', query)
+}
 
-export function getApplicationStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
+export async function getAdminApplicationDetail(applicationId: number): Promise<Application> {
+  return http.get<Application>('/applications/admin/', { application_id: applicationId })
+}
+
+export async function reviewApplication(applicationId: number, data: {
+  action: 'approve' | 'reject' | 'request_changes'
+  admin_notes?: string
+  rejection_reason?: string
+}): Promise<Application> {
+  return http.post<Application>(`/applications/${applicationId}/review/`, data)
+}
+
+export function getApplicationStatusLabel(status: ApplicationStatus): string {
+  const labels: Record<ApplicationStatus, string> = {
     pending: 'Đang chờ duyệt',
     approved: 'Đã duyệt',
     rejected: 'Bị từ chối',
     changes_requested: 'Cần chỉnh sửa',
   }
   return labels[status] || status
-}
-
-export function getApplicationStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    pending: 'text-yellow-600',
-    approved: 'text-green-600',
-    rejected: 'text-red-600',
-    changes_requested: 'text-orange-600',
-  }
-  return colors[status] || ''
 }

@@ -104,10 +104,26 @@ export interface StudentStats {
 export async function getMyEnrollments(params?: {
   page?: number
   page_size?: number
+  status?: string
+  source?: string
+  search?: string
+  enrollment_date_from?: string
+  enrollment_date_to?: string
+  purchase_date_from?: string
+  purchase_date_to?: string
+  sort_by?: string
 }): Promise<PaginatedResponse<Enrollment>> {
   const searchParams = new URLSearchParams()
-  if (params?.page) searchParams.set('page', String(params.page))
-  if (params?.page_size) searchParams.set('page_size', String(params.page_size))
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params?.status) searchParams.set('status', params.status)
+  if (params?.source) searchParams.set('source', params.source)
+  if (params?.search) searchParams.set('search', params.search)
+  if (params?.enrollment_date_from) searchParams.set('enrollment_date_from', params.enrollment_date_from)
+  if (params?.enrollment_date_to) searchParams.set('enrollment_date_to', params.enrollment_date_to)
+  if (params?.purchase_date_from) searchParams.set('purchase_date_from', params.purchase_date_from)
+  if (params?.purchase_date_to) searchParams.set('purchase_date_to', params.purchase_date_to)
+  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
   const qs = searchParams.toString()
   return http.get<PaginatedResponse<Enrollment>>(
     `/enrollments/${qs ? `?${qs}` : ''}`
@@ -116,8 +132,15 @@ export async function getMyEnrollments(params?: {
 
 /** Get ALL enrollments for current user (no pagination limit). */
 export async function getAllMyEnrollments(): Promise<Enrollment[]> {
-  const res = await getMyEnrollments({ page_size: 1000 })
-  return res.results
+  const all: Enrollment[] = []
+  let page = 1
+  while (true) {
+    const res = await getMyEnrollments({ page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /** Get single enrollment by ID. */

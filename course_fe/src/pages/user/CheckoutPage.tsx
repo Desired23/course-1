@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next"
 import { createPaymentRecord, createVnpayPayment } from "../../services/payment.api"
 import { formatCartPrice } from "../../services/cart.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 
 export function CheckoutPage() {
   const { t } = useTranslation()

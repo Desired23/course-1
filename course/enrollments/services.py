@@ -1,3 +1,4 @@
+import logging
 from rest_framework.exceptions import ValidationError
 from .serializers import EnrollmentSerializer, EnrollmentCreateSerializer
 from .models import Enrollment
@@ -6,6 +7,8 @@ from courses.models import Course
 from django.db import IntegrityError
 from django.db.models import F
 from activity_logs.services import log_activity
+    
+logger = logging.getLogger(__name__)
 
 def create_enrollment(data):
     try: 
@@ -63,14 +66,15 @@ def create_enrollment(data):
         # Unexpected error — include message for debugging
         raise ValidationError({"error": f"Lỗi khi tạo enrollment: {str(e)}"})
 def get_enrollment_by_user(user_id):
+    logger = logging.getLogger(__name__)
+    logger.info(f"service.get_enrollment_by_user called for user_id={user_id}")
     try:
         enrollments = Enrollment.objects.select_related(
             'course__instructor__user', 'course__category'
-        ).filter(user=user_id)
-        if not enrollments.exists():
-            raise ValidationError({"error": "No enrollments found."})
+        ).filter(user=user_id, is_deleted=False)
         return enrollments
     except Exception as e:
+        logger.error(f"error in get_enrollment_by_user: {e}")
         raise ValidationError({"error": str(e)})
 def find_enrollment_by_id(enrollment_id):
     try:

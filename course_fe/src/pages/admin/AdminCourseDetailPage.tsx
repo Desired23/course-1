@@ -244,19 +244,34 @@ export function AdminCourseDetailPage() {
     }
     return colors[status as keyof typeof colors] || 'bg-gray-500'
   }
-
+  const collectAdminStatusMeta = (targetStatusLabel: string) => {
+    const reason = window.prompt(`Reason for changing status to "${targetStatusLabel}" (optional):`, '') || ''
+    const sendNotification = window.confirm('Send notification to instructor?')
+    let notifyMessage = ''
+    if (sendNotification) {
+      notifyMessage = window.prompt('Notification message (leave blank to use default):', '') || ''
+    }
+    return {
+      status_reason: reason || undefined,
+      send_notification: sendNotification,
+      notify_message: notifyMessage || undefined,
+    }
+  }
   const handleCourseAction = async (action: string) => {
     const numId = Number(courseId)
     if (!numId) return
     try {
       if (action === 'approve') {
-        await updateCourseApi(numId, { status: 'published' })
+        const meta = collectAdminStatusMeta('published')
+        await updateCourseApi(numId, { status: 'published', ...meta })
         toast.success('Đã phê duyệt khóa học')
       } else if (action === 'reject') {
-        await updateCourseApi(numId, { status: 'rejected' })
+        const meta = collectAdminStatusMeta('rejected')
+        await updateCourseApi(numId, { status: 'rejected', ...meta })
         toast.success('Đã từ chối khóa học')
       } else if (action === 'archive') {
-        await updateCourseApi(numId, { status: 'archived' })
+        const meta = collectAdminStatusMeta('archived')
+        await updateCourseApi(numId, { status: 'archived', ...meta })
         toast.success('Đã lưu trữ khóa học')
       } else if (action === 'delete') {
         await deleteCourseApi(numId)

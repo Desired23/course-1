@@ -42,6 +42,16 @@ export interface PayoutRequestData {
   period: string // e.g. "2025-07"
 }
 
+export interface PaginatedPayoutResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  total_pages: number
+  page_size: number
+  results: T[]
+}
+
 // ─── API Functions ────────────────────────────────────────────
 
 /** List payouts */
@@ -51,13 +61,69 @@ export async function getInstructorPayouts(params?: {
   instructor_id?: number
   payout_id?: number
 }): Promise<InstructorPayout[]> {
-  const search = new URLSearchParams()
-  if (params?.status) search.set('status', params.status)
-  if (params?.period) search.set('period', params.period)
-  if (params?.instructor_id) search.set('instructor_id', String(params.instructor_id))
-  if (params?.payout_id) search.set('payout_id', String(params.payout_id))
-  const qs = search.toString()
-  return http.get<InstructorPayout[]>(`/instructor-payouts/${qs ? `?${qs}` : ''}`)
+  const query: Record<string, string | number> = {}
+  if (params?.status) query.status = params.status
+  if (params?.period) query.period = params.period
+  if (params?.instructor_id) query.instructor_id = params.instructor_id
+  if (params?.payout_id) query.payout_id = params.payout_id
+
+  const all: InstructorPayout[] = []
+  let page = 1
+  while (true) {
+    const res: any = await http.get<any>('/instructor-payouts/', {
+      ...query,
+      page,
+      page_size: 100,
+    })
+
+    if (Array.isArray(res)) return res
+
+    if (res && typeof res === 'object' && Array.isArray(res.results)) {
+      all.push(...(res.results as InstructorPayout[]))
+      if (!res.next) break
+      page++
+      continue
+    }
+
+    console.warn('getInstructorPayouts returned unexpected data', res)
+    break
+  }
+
+  return all
+}
+
+/** List payouts with server pagination */
+export async function getInstructorPayoutsPage(params?: {
+  status?: PayoutStatus
+  period?: string
+  instructor_id?: number
+  payout_id?: number
+  page?: number
+  page_size?: number
+}): Promise<PaginatedPayoutResponse<InstructorPayout>> {
+  const query: Record<string, string | number> = {}
+  if (params?.status) query.status = params.status
+  if (params?.period) query.period = params.period
+  if (params?.instructor_id) query.instructor_id = params.instructor_id
+  if (params?.payout_id) query.payout_id = params.payout_id
+  if (params?.page) query.page = params.page
+  if (params?.page_size) query.page_size = params.page_size
+
+  const res: any = await http.get<any>('/instructor-payouts/', query)
+  if (Array.isArray(res)) {
+    const page = params?.page ?? 1
+    const pageSize = params?.page_size ?? res.length
+    return {
+      count: res.length,
+      next: null,
+      previous: null,
+      page,
+      total_pages: 1,
+      page_size: pageSize,
+      results: res as InstructorPayout[],
+    }
+  }
+  return res as PaginatedPayoutResponse<InstructorPayout>
 }
 
 /** Get my payouts (for current instructor) */

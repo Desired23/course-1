@@ -2,6 +2,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from django.db.models import Q
 from .services import (
     create_wishlist,
     get_wishlist_by_id,
@@ -22,6 +23,26 @@ class WishlistListView(APIView):
             if 'user_id' in request.query_params:
                 user_id = request.query_params.get('user_id')
                 wishlists = get_wishlists_by_user(user_id)
+
+                search = (request.query_params.get('search') or '').strip()
+                level = request.query_params.get('level')
+                sort_by = request.query_params.get('sort_by')
+
+                if search:
+                    wishlists = wishlists.filter(
+                        Q(course__title__icontains=search)
+                        | Q(course__instructor__user__full_name__icontains=search)
+                    )
+                if level:
+                    wishlists = wishlists.filter(course__level=level)
+
+                if sort_by == 'title_asc':
+                    wishlists = wishlists.order_by('course__title')
+                elif sort_by == 'oldest':
+                    wishlists = wishlists.order_by('created_at')
+                else:
+                    wishlists = wishlists.order_by('-created_at')
+
                 return paginate_queryset(wishlists, request, WishlistSerializer)
             elif 'wishlist_id' in request.query_params:
                 wishlist_id = request.query_params.get('wishlist_id')

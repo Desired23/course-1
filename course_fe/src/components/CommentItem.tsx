@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
+import { SafeCommentContent } from "./SafeCommentContent"
 
 interface CommentItemProps {
   comment: any
@@ -173,7 +174,9 @@ export function CommentItem({
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground mt-1 mb-2 whitespace-pre-wrap">{comment.content}</p>
+              <div className="mt-1 mb-2">
+                <SafeCommentContent content={comment.content} />
+              </div>
             )}
             
             {!isEditing && (

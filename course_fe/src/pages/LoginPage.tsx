@@ -7,7 +7,7 @@ import { useRouter } from '../components/Router'
 import { useAuth } from '../contexts/AuthContext'
 import { GoogleLoginButton } from '../components/GoogleLoginButton'
 import { GoogleOAuthSetupBanner } from '../components/GoogleOAuthSetupBanner'
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { debugGoogleOAuthConfig } from '../utils/debugGoogleOAuth'
 import { AuthLayout } from '../components/auth/AuthLayout'
 import { motion } from 'motion/react'
@@ -20,6 +20,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<{username?: string, password?: string}>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem('remember_me') === 'true')
   
   const { navigate } = useRouter()
   const { login, error: authError, clearError } = useAuth()
@@ -56,8 +57,9 @@ export function LoginPage() {
     setIsSubmitting(true)
     
     try {
-      const success = await login(username.trim(), password)
+      const success = await login(username.trim(), password, rememberMe)
       if (success) {
+        localStorage.setItem('remember_me', String(rememberMe))
         toast.success(t('auth.login_success'))
         navigate('/')
       } else {
@@ -87,7 +89,7 @@ export function LoginPage() {
       author="B.B. King"
     >
       <div className="grid gap-6">
-        <GoogleOAuthSetupBanner />
+        {/* <GoogleOAuthSetupBanner /> */}
         
         <form onSubmit={handleSubmit} className="space-y-5">
           <motion.div 
@@ -188,6 +190,8 @@ export function LoginPage() {
               id="remember-me"
               name="remember-me"
               type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer"
             />
             <label htmlFor="remember-me" className="text-sm font-medium text-gray-600 dark:text-gray-400 cursor-pointer">

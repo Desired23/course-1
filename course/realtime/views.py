@@ -7,6 +7,7 @@ from .models import ChatRoom, ChatMessage
 from .serializers import ChatRoomSerializer, ChatMessageSerializer
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
+from users.preferences import is_direct_message_allowed
 
 
 class ChatRoomListView(APIView):
@@ -15,10 +16,8 @@ class ChatRoomListView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-        user_id = int(user_id)
+        # Always scope by authenticated user to avoid IDOR and malformed query crashes.
+        user_id = request.user.id
         rooms = (
             ChatRoom.objects
             .filter(Q(user1_id=user_id) | Q(user2_id=user_id))
@@ -35,6 +34,11 @@ class ChatRoomListView(APIView):
             return Response({"error": "user1_id and user2_id are required"}, status=status.HTTP_400_BAD_REQUEST)
 
         user1_id, user2_id = int(user1_id), int(user2_id)
+        if request.user.id not in [user1_id, user2_id]:
+            return Response({"error": "You can only create chats for yourself."}, status=status.HTTP_403_FORBIDDEN)
+        other_user_id = user2_id if user1_id == request.user.id else user1_id
+        if not is_direct_message_allowed(other_user_id):
+            return Response({"error": "This user is not accepting direct messages."}, status=status.HTTP_403_FORBIDDEN)
         # Ensure consistent ordering
         small, big = min(user1_id, user2_id), max(user1_id, user2_id)
 
@@ -52,14 +56,26 @@ class ChatMessageListView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request, room_id):
+        is_member = ChatRoom.objects.filter(pk=room_id).filter(Q(user1_id=request.user.id) | Q(user2_id=request.user.id)).exists()
+        if not is_member:
+            return Response({"error": "You do not have access to this room."}, status=status.HTTP_403_FORBIDDEN)
         messages = ChatMessage.objects.filter(room_id=room_id).select_related('sender').order_by('-created_at')
         return paginate_queryset(messages, request, ChatMessageSerializer)
 
     def post(self, request, room_id):
         """REST fallback for sending messages (WebSocket preferred)."""
+        try:
+            room = ChatRoom.objects.get(pk=room_id)
+        except ChatRoom.DoesNotExist:
+            return Response({"error": "Chat room not found."}, status=status.HTTP_404_NOT_FOUND)
+        if request.user.id not in [room.user1_id, room.user2_id]:
+            return Response({"error": "You do not have access to this room."}, status=status.HTTP_403_FORBIDDEN)
+        receiver_id = room.user2_id if room.user1_id == request.user.id else room.user1_id
+        if not is_direct_message_allowed(receiver_id):
+            return Response({"error": "This user is not accepting direct messages."}, status=status.HTTP_403_FORBIDDEN)
         data = {
             'room': room_id,
-            'sender': request.data.get('sender_id'),
+            'sender': request.user.id,
             'content': request.data.get('content', ''),
         }
         serializer = ChatMessageSerializer(data=data)
@@ -88,10 +104,10 @@ class ChatMarkReadView(APIView):
     throttle_scope = 'burst'
 
     def put(self, request, room_id):
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({"error": "user_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        is_member = ChatRoom.objects.filter(pk=room_id).filter(Q(user1_id=request.user.id) | Q(user2_id=request.user.id)).exists()
+        if not is_member:
+            return Response({"error": "You do not have access to this room."}, status=status.HTTP_403_FORBIDDEN)
         updated = ChatMessage.objects.filter(
             room_id=room_id, is_read=False
-        ).exclude(sender_id=user_id).update(is_read=True)
+        ).exclude(sender_id=request.user.id).update(is_read=True)
         return Response({"marked_read": updated})

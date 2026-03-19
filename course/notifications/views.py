@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 from .services import (
     create_notification,
     get_notification_by_id,
@@ -15,6 +16,7 @@ from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 from .serializers import NotificationSerializer
 class NotificationView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'notification'
     def post(self, request):
         try:
@@ -24,8 +26,9 @@ class NotificationView(APIView):
             message = request.data.get('message')
             type = request.data.get('type')
             related_id = request.data.get('related_id')
+            notification_code = request.data.get('notification_code')
 
-            notification = create_notification(receiver_id, title, message, type, related_id, sender)
+            notification = create_notification(receiver_id, title, message, type, related_id, sender, notification_code)
             return Response(notification, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -34,11 +37,30 @@ class NotificationView(APIView):
     def get(self, request, notification_id=None):
         try:
             if notification_id:
-                notification = get_notification_by_id(notification_id)
+                notification = get_notification_by_id(notification_id, request.user.id)
                 return Response(notification, status=status.HTTP_200_OK)
             else:
-                user_id = request.query_params.get('user_id')
+                user_id = request.user.id
                 notifications = get_notifications_by_user(user_id)
+                type_filter = request.query_params.get('type')
+                is_read = request.query_params.get('is_read')
+                search = (request.query_params.get('search') or '').strip()
+                sort_by = request.query_params.get('sort_by')
+
+                if type_filter:
+                    notifications = notifications.filter(type=type_filter)
+                if is_read in ['true', 'false']:
+                    notifications = notifications.filter(is_read=(is_read == 'true'))
+                if search:
+                    notifications = notifications.filter(
+                        Q(title__icontains=search) | Q(message__icontains=search)
+                    )
+
+                if sort_by == 'oldest':
+                    notifications = notifications.order_by('created_at')
+                else:
+                    notifications = notifications.order_by('-created_at')
+
                 return paginate_queryset(notifications, request, NotificationSerializer)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -48,11 +70,10 @@ class NotificationView(APIView):
         try:
             notification_id = request.query_params.get('notification_id')
             if notification_id:
-                notification = mark_notification_as_read(notification_id)
+                notification = mark_notification_as_read(notification_id, request.user.id)
                 return Response(notification, status=status.HTTP_200_OK)
-            elif request.query_params.get('user_id'):
-                notification = mark_all_notifications_as_read(request.query_params.get('user_id'))
-                return Response(notification, status=status.HTTP_200_OK)
+            notification = mark_all_notifications_as_read(request.user.id)
+            return Response(notification, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

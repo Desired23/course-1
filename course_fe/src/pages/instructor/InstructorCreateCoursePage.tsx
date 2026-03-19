@@ -7,7 +7,7 @@ import { Textarea } from "../../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
-import { ArrowLeft, ArrowRight, Save, Upload, Image as ImageIcon, Check, BookOpen, Settings, DollarSign, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Image as ImageIcon, Check, BookOpen, Settings, DollarSign, Users } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { toast } from 'sonner@2.0.3'
 import { motion, AnimatePresence } from 'motion/react'
@@ -15,6 +15,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { createCourse } from "../../services/course.api"
 import { getMyInstructorProfile } from "../../services/instructor.api"
 import { getActiveCategories, getSubcategories, type Category } from "../../services/category.api"
+import { uploadFiles } from "../../services/upload.api"
 
 interface CourseData {
   title: string
@@ -54,6 +55,7 @@ export function InstructorCreateCoursePage() {
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
   const [direction, setDirection] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false)
   
   // API-fetched data
   const [apiCategories, setApiCategories] = useState<Category[]>([])
@@ -173,9 +175,9 @@ export function InstructorCreateCoursePage() {
         category: data.category ? Number(data.category) : null,
         subcategory: data.subcategory ? Number(data.subcategory) : null,
         level: data.level === 'all' ? 'all_levels' : (data.level || 'all_levels'),
-        language: data.language || 'Tiếng Việt',
+        language: data.language || 'Vietnamese',
         price: parseFloat(data.price) || 0,
-        thumbnail: thumbnailPreview || undefined,
+        thumbnail: data.thumbnail || undefined,
         learning_objectives: data.whatYouWillLearn.filter(x => x.trim()),
         requirements: data.requirements.filter(x => x.trim()).join('\n'),
         target_audience: data.targetAudience.filter(x => x.trim()),
@@ -202,14 +204,32 @@ export function InstructorCreateCoursePage() {
     }
   }
 
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleThumbnailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setThumbnailPreview(reader.result as string)
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please choose a valid image file')
+        return
       }
-      reader.readAsDataURL(file)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size must be <= 5MB')
+        return
+      }
+
+      try {
+        setIsUploadingThumbnail(true)
+        const uploaded = await uploadFiles([file])
+        if (!uploaded?.length) throw new Error('Upload failed')
+        const uploadedUrl = uploaded[0].url
+        setThumbnailPreview(uploadedUrl)
+        setData((prev) => ({ ...prev, thumbnail: uploadedUrl }))
+        toast.success('Upload image successfully')
+      } catch (err) {
+        console.error('Thumbnail upload failed:', err)
+        toast.error('Upload image failed')
+      } finally {
+        setIsUploadingThumbnail(false)
+      }
     }
   }
 
@@ -632,16 +652,9 @@ export function InstructorCreateCoursePage() {
                       </div>
                     )}
 
-                    <div className="mt-4">
-                      <Label htmlFor="thumbnailUrl">Hoặc nhập URL hình ảnh</Label>
-                      <Input
-                        id="thumbnailUrl"
-                        value={data.thumbnail}
-                        onChange={(e) => setData({ ...data, thumbnail: e.target.value })}
-                        placeholder="https://example.com/image.jpg"
-                        className="mt-2"
-                      />
-                    </div>
+                    {isUploadingThumbnail && (
+                      <p className="mt-4 text-sm text-muted-foreground">Uploading image...</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

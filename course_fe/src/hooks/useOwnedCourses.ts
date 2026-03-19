@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { getAllMyEnrollments, type Enrollment } from '../services/enrollment.api'
+import { registerCacheClearer } from '../services/cacheRegistry'
 
 /**
  * Hook that loads enrolled course IDs for the current user.
@@ -9,6 +10,10 @@ import { getAllMyEnrollments, type Enrollment } from '../services/enrollment.api
  */
 
 let _cache: { userId: string; courseIds: Set<number>; enrollmentMap: Map<number, Enrollment> } | null = null
+
+registerCacheClearer(() => {
+  _cache = null
+})
 
 export function useOwnedCourses() {
   const { user, isAuthenticated } = useAuth()

@@ -65,8 +65,15 @@ export async function getLessonComments(
 
 /** Get all root comments for a lesson (auto-paginate). */
 export async function getAllLessonComments(lessonId: number): Promise<LessonComment[]> {
-  const res = await getLessonComments(lessonId, { page_size: 1000 })
-  return res.results
+  const all: LessonComment[] = []
+  let page = 1
+  while (true) {
+    const res = await getLessonComments(lessonId, { page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /**
@@ -90,8 +97,15 @@ export async function getLessonCommentReplies(
 
 /** Get all replies for a comment. */
 export async function getAllReplies(commentId: number): Promise<LessonComment[]> {
-  const res = await getLessonCommentReplies(commentId, { page_size: 1000 })
-  return res.results
+  const all: LessonComment[] = []
+  let page = 1
+  while (true) {
+    const res = await getLessonCommentReplies(commentId, { page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
 }
 
 /** Update comment content and/or votes. */

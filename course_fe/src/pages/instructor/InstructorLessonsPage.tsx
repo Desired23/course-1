@@ -13,7 +13,7 @@ import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { DraggableSectionCard } from "../../components/SectionDragDrop"
 import { QuizEditor } from "../../components/QuizEditor"
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { CourseOutlineSidebar } from "../../components/CourseOutlineSidebar"
 import { QuickStatsPanel } from "../../components/QuickStatsPanel"
 import { LessonEditorMain } from "../../components/LessonEditorMain"

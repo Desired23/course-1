@@ -33,6 +33,7 @@ interface CourseOutlineSidebarProps {
   sections: Section[]
   selectedLesson: Lesson | null
   onSelectLesson: (lesson: Lesson) => void
+  onSelectSection?: (sectionId: number) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   showCheckboxes?: boolean
@@ -54,6 +55,7 @@ export function CourseOutlineSidebar({
   sections,
   selectedLesson,
   onSelectLesson,
+  onSelectSection,
   isCollapsed,
   onToggleCollapse,
   showCheckboxes,
@@ -240,6 +242,7 @@ export function CourseOutlineSidebar({
                   isExpanded={expandedSections.has(section.id)}
                   selectedLesson={selectedLesson}
                   onToggle={() => toggleSection(section.id)}
+                  onSelectSection={onSelectSection}
                   onSelectLesson={onSelectLesson}
                   showCheckboxes={showCheckboxes}
                   selectedLessonIds={selectedLessonIds}

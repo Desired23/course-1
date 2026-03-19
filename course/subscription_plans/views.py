@@ -1,4 +1,5 @@
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -190,6 +191,25 @@ class UserSubscriptionView(APIView):
                 result = get_user_subscription_detail(int(subscription_id), request.user)
                 return Response(result, status=status.HTTP_200_OK)
             results = get_user_subscriptions(request.user)
+
+            status_filter = request.query_params.get('status')
+            search = (request.query_params.get('search') or '').strip()
+            sort_by = request.query_params.get('sort_by')
+
+            if status_filter:
+                results = results.filter(status=status_filter)
+            if search:
+                results = results.filter(plan__name__icontains=search)
+
+            if sort_by == 'oldest':
+                results = results.order_by('created_at')
+            elif sort_by == 'end_date_desc':
+                results = results.order_by('-end_date', '-created_at')
+            elif sort_by == 'end_date_asc':
+                results = results.order_by('end_date', '-created_at')
+            else:
+                results = results.order_by('-created_at')
+
             return paginate_queryset(results, request, UserSubscriptionListSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)

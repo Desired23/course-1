@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
@@ -8,17 +8,18 @@ import { Label } from "../../components/ui/label"
 import { Bell, BookOpen, CreditCard, Gift, Info, Check, Loader2, Settings } from 'lucide-react'
 import { useTranslation } from "react-i18next"
 import { useAuth } from '../../contexts/AuthContext'
+import { UserPagination } from '../../components/UserPagination'
+import { getMyUserSettings, updateMyUserSettings } from '../../services/user-settings.api'
 import {
   type Notification as NotifType,
   type NotificationType,
-  getAllNotificationsByUser,
+  getNotificationsByUser,
   markNotificationAsRead,
   markAllNotificationsAsRead,
   getNotificationColor,
   formatRelativeTime,
 } from '../../services/notification.api'
 
-/** Map notification type -> Lucide icon component. */
 const typeIconMap: Record<NotificationType, React.ComponentType<{ className?: string }>> = {
   system: Bell,
   course: BookOpen,
@@ -27,72 +28,117 @@ const typeIconMap: Record<NotificationType, React.ComponentType<{ className?: st
   other: Info,
 }
 
+const notificationSettingsDefaults = {
+  course_updates: true,
+  promotions: true,
+  discussions: true,
+  reminders: true,
+  achievements: true,
+}
+
+type NotificationSettingKey = keyof typeof notificationSettingsDefaults
+
 export function NotificationsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const [notifications, setNotifications] = useState<NotifType[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedTab, setSelectedTab] = useState('all')
+  const [selectedTab, setSelectedTab] = useState<'all' | 'unread'>('all')
 
-  // Static notification settings (for future API integration)
-  const [notificationSettings, setNotificationSettings] = useState({
-    course_updates: true,
-    promotions: true,
-    discussions: true,
-    reminders: true,
-    achievements: true,
-  })
+  const [searchTerm, setSearchTerm] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'all' | NotificationType>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(8)
 
-  const settingsLabels: Record<string, { label: string; description: string }> = {
+  const [notificationSettings, setNotificationSettings] = useState(notificationSettingsDefaults)
+  const [savingSettings, setSavingSettings] = useState(false)
+
+  const settingsLabels: Record<NotificationSettingKey, { label: string; description: string }> = {
     course_updates: {
-      label: 'Cập nhật khóa học',
-      description: 'Nhận thông báo khi khóa học bạn đăng ký có nội dung mới',
+      label: 'Course updates',
+      description: 'Get notified when enrolled courses have new content',
     },
     promotions: {
-      label: 'Khuyến mãi',
-      description: 'Nhận thông báo về ưu đãi và khuyến mãi mới',
+      label: 'Promotions',
+      description: 'Receive discount and campaign updates',
     },
     discussions: {
-      label: 'Thảo luận',
-      description: 'Nhận thông báo khi có người trả lời bình luận của bạn',
+      label: 'Discussions',
+      description: 'Get replies to your comments and Q&A',
     },
     reminders: {
-      label: 'Nhắc nhở học tập',
-      description: 'Nhận nhắc nhở để duy trì tiến độ học tập',
+      label: 'Learning reminders',
+      description: 'Keep your study progress on track',
     },
     achievements: {
-      label: 'Thành tựu',
-      description: 'Nhận thông báo khi đạt được thành tựu mới',
+      label: 'Achievements',
+      description: 'Get notified when you unlock milestones',
     },
   }
 
-  // Fetch notifications
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
     setLoading(true)
-    getAllNotificationsByUser(user.id)
-      .then((data) => {
-        if (!cancelled) setNotifications(data)
+    Promise.all([
+      getNotificationsByUser(user.id, currentPage, pageSize, {
+        type: typeFilter,
+        is_read: selectedTab === 'unread' ? false : undefined,
+        search: searchTerm || undefined,
+        sort_by: 'newest',
+      }),
+      getNotificationsByUser(user.id, 1, 1, { is_read: false }),
+    ])
+      .then(([listRes, unreadRes]) => {
+        if (cancelled) return
+        setNotifications(listRes.results)
+        setUnreadCount(unreadRes.count || 0)
+        setTotalPages(listRes.total_pages || 1)
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Khong the tai thong bao')
+        if (!cancelled) setError(err?.message || 'Cannot load notifications')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
-    return () => { cancelled = true }
-  }, [user?.id])
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, currentPage, pageSize, selectedTab, typeFilter, searchTerm])
 
-  // Handlers
+  useEffect(() => {
+    let cancelled = false
+    getMyUserSettings()
+      .then((res) => {
+        if (cancelled) return
+        const incoming = (res.notification_preferences || {}) as Record<string, unknown>
+        const merged = { ...notificationSettingsDefaults }
+
+        for (const key of Object.keys(notificationSettingsDefaults) as NotificationSettingKey[]) {
+          if (typeof incoming[key] === 'boolean') {
+            merged[key] = incoming[key] as boolean
+          }
+        }
+
+        setNotificationSettings(merged)
+      })
+      .catch(() => {
+        // Keep local defaults
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const handleMarkAsRead = async (id: number) => {
     try {
       await markNotificationAsRead(id)
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      )
-    } catch { /* silent */ }
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
+    } catch {
+      // ignore
+    }
   }
 
   const handleMarkAllAsRead = async () => {
@@ -100,17 +146,28 @@ export function NotificationsPage() {
     try {
       await markAllNotificationsAsRead(user.id)
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-    } catch { /* silent */ }
+    } catch {
+      // ignore
+    }
   }
 
-  // Derived
-  const unreadCount = notifications.filter((n) => !n.is_read).length
-  const filteredNotifications =
-    selectedTab === 'unread'
-      ? notifications.filter((n) => !n.is_read)
-      : notifications
+  const handleSaveNotificationSettings = async () => {
+    setSavingSettings(true)
+    try {
+      await updateMyUserSettings({ notification_preferences: notificationSettings })
+    } catch {
+      // ignore explicit error banner, keep UX soft
+    } finally {
+      setSavingSettings(false)
+    }
+  }
 
-  // Loading / Error
+  const [totalPages, setTotalPages] = useState(1)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedTab, typeFilter, searchTerm, pageSize])
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[60vh]">
@@ -123,7 +180,7 @@ export function NotificationsPage() {
     return (
       <div className="p-8 text-center">
         <p className="text-destructive mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>Thu lai</Button>
+        <Button onClick={() => window.location.reload()}>Retry</Button>
       </div>
     )
   }
@@ -134,9 +191,7 @@ export function NotificationsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="mb-2">{t('notifications_page.title')}</h1>
-            <p className="text-muted-foreground">
-              Cap nhat moi nhat tu hanh trinh hoc tap
-            </p>
+            <p className="text-muted-foreground">Latest updates from your learning journey</p>
           </div>
           <Button variant="outline" onClick={handleMarkAllAsRead} className="gap-2">
             <Check className="h-4 w-4" />
@@ -144,53 +199,91 @@ export function NotificationsPage() {
           </Button>
         </div>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="mb-6">
+        <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as 'all' | 'unread')}>
+          <TabsList className="mb-4">
             <TabsTrigger value="all">
               {t('notifications_page.all')}
               {unreadCount > 0 && (
-                <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">
-                  {unreadCount}
-                </Badge>
+                <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">{unreadCount}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="unread">{t('notifications_page.unread')}</TabsTrigger>
           </TabsList>
 
+          <Card className="mb-6">
+            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <input
+                className="h-9 rounded-md border px-3 text-sm"
+                placeholder="Search notifications"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <select
+                className="h-9 rounded-md border px-3 text-sm"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as 'all' | NotificationType)}
+              >
+                <option value="all">All types</option>
+                <option value="system">System</option>
+                <option value="course">Course</option>
+                <option value="payment">Payment</option>
+                <option value="promotion">Promotion</option>
+                <option value="other">Other</option>
+              </select>
+              <select
+                className="h-9 rounded-md border px-3 text-sm"
+                value={String(pageSize)}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                <option value="8">8 / page</option>
+                <option value="12">12 / page</option>
+                <option value="20">20 / page</option>
+              </select>
+              <Button
+                variant="ghost"
+                className="h-9"
+                onClick={() => {
+                  setSearchTerm('')
+                  setTypeFilter('all')
+                }}
+              >
+                Clear filters
+              </Button>
+            </CardContent>
+          </Card>
+
           <TabsContent value={selectedTab}>
-            {filteredNotifications.length === 0 ? (
+            {notifications.length === 0 ? (
               <div className="text-center py-12">
                 <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="mb-2">{t('notifications_page.empty')}</h3>
                 <p className="text-muted-foreground">{t('notifications_page.empty_subtitle')}</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredNotifications.map((notification) => {
-                  const Icon = typeIconMap[notification.type] || Bell
-                  const colorClass = getNotificationColor(notification.type)
-                  return (
-                    <Card
-                      key={notification.id}
-                      className={`transition-all hover:shadow-md ${!notification.is_read ? 'border-primary/30 bg-primary/5' : ''}`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className={`w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 ${colorClass}`}>
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className={`font-medium ${!notification.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                  {notification.title}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {formatRelativeTime(notification.created_at)}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
+              <>
+                <div className="space-y-3">
+                  {notifications.map((notification) => {
+                    const Icon = typeIconMap[notification.type] || Bell
+                    const colorClass = getNotificationColor(notification.type)
+                    return (
+                      <Card
+                        key={notification.id}
+                        className={`transition-all hover:shadow-md ${!notification.is_read ? 'border-primary/30 bg-primary/5' : ''}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            <div className={`w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 ${colorClass}`}>
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className={`font-medium ${!notification.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                    {notification.title}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{formatRelativeTime(notification.created_at)}</p>
+                                </div>
                                 {!notification.is_read && (
                                   <Button
                                     variant="ghost"
@@ -204,27 +297,33 @@ export function NotificationsPage() {
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">Page {currentPage}/{totalPages}</p>
+                  <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+                </div>
+              </>
             )}
           </TabsContent>
         </Tabs>
 
-        {/* Notification Settings — static UI for future development */}
         <Card className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
-              Cài đặt thông báo
+              Notification settings
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {Object.entries(notificationSettings).map(([key, enabled]) => {
+            {Object.entries(notificationSettings).map(([rawKey, enabled]) => {
+              const key = rawKey as NotificationSettingKey
               const info = settingsLabels[key]
+              if (!info) return null
               return (
                 <div key={key} className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -236,13 +335,17 @@ export function NotificationsPage() {
                   <Switch
                     id={`setting-${key}`}
                     checked={enabled}
-                    onCheckedChange={(checked) =>
-                      setNotificationSettings((prev) => ({ ...prev, [key]: checked }))
-                    }
+                    onCheckedChange={(checked) => setNotificationSettings((prev) => ({ ...prev, [key]: checked }))}
                   />
                 </div>
               )
             })}
+            <div className="pt-2">
+              <Button onClick={handleSaveNotificationSettings} disabled={savingSettings}>
+                {savingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save notification settings
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

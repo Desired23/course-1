@@ -214,9 +214,9 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
                       <DropdownMenuItem onClick={() => navigate('/admin')}>{t('common.admin')}</DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/profile')}>{t('common.account_settings')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/admin/payments/methods')}>{t('sidebar.payment_methods') || 'Payment methods'}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/admin/subscriptions')}>{t('sidebar.subscriptions') || 'Subscriptions'}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/account-settings')}>{t('common.account_settings')}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/user/payment-methods')}>{t('sidebar.payment_methods') || 'Payment methods'}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/user/subscriptions')}>{t('sidebar.subscriptions') || 'Subscriptions'}</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout}>{t('common.log_out')}</DropdownMenuItem>
                   </>

@@ -39,7 +39,12 @@ class PromotionManagementView(APIView):
                 return paginate_queryset(promotions, request, PromotionSerializer)
             elif 'instructor_id' in request.query_params:
                 instructor_id = request.query_params.get('instructor_id')
-                promotions = get_promotions_by_instructor(instructor_id)
+                promotions = get_promotions_by_instructor(
+                    instructor_id=instructor_id,
+                    status=request.query_params.get('status'),
+                    search=request.query_params.get('search'),
+                    course_id=request.query_params.get('course_id'),
+                )
                 return paginate_queryset(promotions, request, PromotionSerializer)
             else:
                 return Response({"error": "promotion_id or admin_id is required"}, status=status.HTTP_400_BAD_REQUEST)
