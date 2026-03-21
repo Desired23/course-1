@@ -16,6 +16,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
+import { useTranslation } from 'react-i18next'
 
 
 interface PlatformSettings {
@@ -87,6 +88,7 @@ interface PaymentMethod {
 
 export function PlatformSettingsPage() {
   const { canAccess } = useAuth()
+  const { t } = useTranslation()
   const [platformSettingId, setPlatformSettingId] = useState<number | null>(null)
   const defaultSettings: PlatformSettings = {
     general: { siteName: 'EduPlatform', siteDescription: 'Learn new skills with expert-led courses', siteUrl: 'https://eduplatform.com', supportEmail: 'support@eduplatform.com', logoUrl: '/logo.png', faviconUrl: '/favicon.ico', defaultLanguage: 'en', timezone: 'UTC' },
@@ -127,7 +129,7 @@ export function PlatformSettingsPage() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>You don't have permission to access platform settings.</p>
+            <p>{t('platform_settings.permission_denied')}</p>
           </CardContent>
         </Card>
       </div>
@@ -143,9 +145,9 @@ export function PlatformSettingsPage() {
         const created = await createSystemSetting({ key: 'platform_settings', value })
         setPlatformSettingId(created.id)
       }
-      toast.success('Cài đặt đã lưu thành công')
+      toast.success(t('platform_settings.save_success'))
     } catch {
-      toast.error('Lưu thất bại')
+      toast.error(t('platform_settings.save_failed'))
     }
   }
 
@@ -176,23 +178,23 @@ export function PlatformSettingsPage() {
     <div className="p-6 space-y-6 overflow-x-hidden">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Platform Settings</h1>
-          <p className="text-muted-foreground">Configure your platform settings and policies</p>
+          <h1 className="text-3xl font-bold">{t('platform_settings.title')}</h1>
+          <p className="text-muted-foreground">{t('platform_settings.subtitle')}</p>
         </div>
         <Button onClick={handleSaveSettings}>
           <Save className="h-4 w-4 mr-2" />
-          Save Changes
+          {t('platform_settings.save_changes')}
         </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="policies">Policies</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="general">{t('platform_settings.tabs.general')}</TabsTrigger>
+          <TabsTrigger value="financial">{t('platform_settings.tabs.financial')}</TabsTrigger>
+          <TabsTrigger value="policies">{t('platform_settings.tabs.policies')}</TabsTrigger>
+          <TabsTrigger value="features">{t('platform_settings.tabs.features')}</TabsTrigger>
+          <TabsTrigger value="notifications">{t('platform_settings.tabs.notifications')}</TabsTrigger>
+          <TabsTrigger value="security">{t('platform_settings.tabs.security')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -200,14 +202,14 @@ export function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="h-5 w-5" />
-                General Information
+                {t('platform_settings.general.title')}
               </CardTitle>
-              <CardDescription>Basic platform configuration and branding</CardDescription>
+              <CardDescription>{t('platform_settings.general.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="siteName">Site Name</Label>
+                  <Label htmlFor="siteName">{t('platform_settings.general.site_name')}</Label>
                   <Input
                     id="siteName"
                     value={settings.general.siteName}
@@ -215,7 +217,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="siteUrl">Site URL</Label>
+                  <Label htmlFor="siteUrl">{t('platform_settings.general.site_url')}</Label>
                   <Input
                     id="siteUrl"
                     value={settings.general.siteUrl}
@@ -225,7 +227,7 @@ export function PlatformSettingsPage() {
               </div>
               
               <div>
-                <Label htmlFor="siteDescription">Site Description</Label>
+                <Label htmlFor="siteDescription">{t('platform_settings.general.site_description')}</Label>
                 <Textarea
                   id="siteDescription"
                   value={settings.general.siteDescription}
@@ -236,7 +238,7 @@ export function PlatformSettingsPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="supportEmail">Support Email</Label>
+                  <Label htmlFor="supportEmail">{t('platform_settings.general.support_email')}</Label>
                   <Input
                     id="supportEmail"
                     type="email"
@@ -245,17 +247,17 @@ export function PlatformSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="defaultLanguage">Default Language</Label>
+                  <Label htmlFor="defaultLanguage">{t('platform_settings.general.default_language')}</Label>
                   <Select value={settings.general.defaultLanguage} onValueChange={(value) => updateSettings('general', 'defaultLanguage', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Spanish</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
-                      <SelectItem value="de">German</SelectItem>
-                      <SelectItem value="vi">Vietnamese</SelectItem>
+                      <SelectItem value="en">{t('language_switcher.english')}</SelectItem>
+                      <SelectItem value="es">{t('platform_settings.languages.spanish')}</SelectItem>
+                      <SelectItem value="fr">{t('platform_settings.languages.french')}</SelectItem>
+                      <SelectItem value="de">{t('platform_settings.languages.german')}</SelectItem>
+                      <SelectItem value="vi">{t('language_switcher.vietnamese')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -263,7 +265,7 @@ export function PlatformSettingsPage() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="logoUrl">Logo URL</Label>
+                  <Label htmlFor="logoUrl">{t('platform_settings.general.logo_url')}</Label>
                   <Input
                     id="logoUrl"
                     value={settings.general.logoUrl}
@@ -271,17 +273,17 @@ export function PlatformSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="timezone">Timezone</Label>
+                  <Label htmlFor="timezone">{t('platform_settings.general.timezone')}</Label>
                   <Select value={settings.general.timezone} onValueChange={(value) => updateSettings('general', 'timezone', value)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="UTC">UTC</SelectItem>
-                      <SelectItem value="America/New_York">Eastern Time</SelectItem>
-                      <SelectItem value="America/Los_Angeles">Pacific Time</SelectItem>
-                      <SelectItem value="Europe/London">London</SelectItem>
-                      <SelectItem value="Asia/Ho_Chi_Minh">Ho Chi Minh City</SelectItem>
+                      <SelectItem value="America/New_York">{t('platform_settings.timezones.eastern')}</SelectItem>
+                      <SelectItem value="America/Los_Angeles">{t('platform_settings.timezones.pacific')}</SelectItem>
+                      <SelectItem value="Europe/London">{t('platform_settings.timezones.london')}</SelectItem>
+                      <SelectItem value="Asia/Ho_Chi_Minh">{t('platform_settings.timezones.ho_chi_minh')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -295,14 +297,14 @@ export function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Financial Settings
+                {t('platform_settings.financial.title')}
               </CardTitle>
-              <CardDescription>Configure commission rates, payouts, and payment methods</CardDescription>
+              <CardDescription>{t('platform_settings.financial.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="commissionPercentage">Commission Percentage (%)</Label>
+                  <Label htmlFor="commissionPercentage">{t('platform_settings.financial.commission_percentage')}</Label>
                   <Input
                     id="commissionPercentage"
                     type="number"
@@ -311,10 +313,10 @@ export function PlatformSettingsPage() {
                     value={settings.financial.commissionPercentage}
                     onChange={(e) => updateSettings('financial', 'commissionPercentage', parseInt(e.target.value))}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Platform commission on each sale</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('platform_settings.financial.commission_hint')}</p>
                 </div>
                 <div>
-                  <Label htmlFor="payoutMinimum">Minimum Payout ($)</Label>
+                  <Label htmlFor="payoutMinimum">{t('platform_settings.financial.minimum_payout')}</Label>
                   <Input
                     id="payoutMinimum"
                     type="number"
@@ -322,13 +324,13 @@ export function PlatformSettingsPage() {
                     value={settings.financial.payoutMinimum}
                     onChange={(e) => updateSettings('financial', 'payoutMinimum', parseInt(e.target.value))}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Minimum amount for instructor payouts</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('platform_settings.financial.minimum_payout_hint')}</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="refundPeriod">Refund Period (days)</Label>
+                  <Label htmlFor="refundPeriod">{t('platform_settings.financial.refund_period')}</Label>
                   <Input
                     id="refundPeriod"
                     type="number"
@@ -338,7 +340,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                  <Label htmlFor="taxRate">{t('platform_settings.financial.tax_rate')}</Label>
                   <Input
                     id="taxRate"
                     type="number"
@@ -350,7 +352,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="currency">Currency</Label>
+                  <Label htmlFor="currency">{t('platform_settings.financial.currency')}</Label>
                   <Select value={settings.financial.currency} onValueChange={(value) => updateSettings('financial', 'currency', value)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -370,20 +372,20 @@ export function PlatformSettingsPage() {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <div>
-                    <h3 className="text-lg font-semibold">Payment Methods</h3>
-                    <p className="text-sm text-muted-foreground">Configure available payment options</p>
+                    <h3 className="text-lg font-semibold">{t('platform_settings.financial.payment_methods')}</h3>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.financial.payment_methods_description')}</p>
                   </div>
                   <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm">
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Method
+                        {t('platform_settings.financial.add_method')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Add Payment Method</DialogTitle>
-                        <DialogDescription>Configure a new payment method for your platform</DialogDescription>
+                        <DialogTitle>{t('platform_settings.financial.add_method')}</DialogTitle>
+                        <DialogDescription>{t('platform_settings.financial.add_method_description')}</DialogDescription>
                       </DialogHeader>
                       {/* Payment method form would go here */}
                     </DialogContent>
@@ -393,12 +395,12 @@ export function PlatformSettingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Method</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Fees (%)</TableHead>
-                      <TableHead>Processing Time</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead>{t('platform_settings.financial.table.method')}</TableHead>
+                      <TableHead>{t('platform_settings.financial.table.type')}</TableHead>
+                      <TableHead>{t('platform_settings.financial.table.fees')}</TableHead>
+                      <TableHead>{t('platform_settings.financial.table.processing_time')}</TableHead>
+                      <TableHead>{t('platform_settings.financial.table.status')}</TableHead>
+                      <TableHead>{t('platform_settings.financial.table.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -408,14 +410,14 @@ export function PlatformSettingsPage() {
                         <TableCell>
                           <Badge variant="outline">
                             {method.type === 'card' && <CreditCard className="h-3 w-3 mr-1" />}
-                            {method.type}
+                            {t(`platform_settings.financial.method_types.${method.type}`)}
                           </Badge>
                         </TableCell>
                         <TableCell>{method.fees}%</TableCell>
                         <TableCell>{method.processingTime}</TableCell>
                         <TableCell>
                           <Badge variant={method.enabled ? 'default' : 'secondary'}>
-                            {method.enabled ? 'Enabled' : 'Disabled'}
+                            {method.enabled ? t('platform_settings.common.enabled') : t('platform_settings.common.disabled')}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -442,52 +444,52 @@ export function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Platform Policies
+                {t('platform_settings.policies.title')}
               </CardTitle>
-              <CardDescription>Legal documents and community guidelines</CardDescription>
+              <CardDescription>{t('platform_settings.policies.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="termsOfService">Terms of Service</Label>
+                <Label htmlFor="termsOfService">{t('platform_settings.policies.terms_of_service')}</Label>
                 <Textarea
                   id="termsOfService"
                   value={settings.policies.termsOfService}
                   onChange={(e) => updateSettings('policies', 'termsOfService', e.target.value)}
                   rows={8}
-                  placeholder="Enter your terms of service..."
+                  placeholder={t('platform_settings.policies.terms_placeholder')}
                 />
               </div>
               
               <div>
-                <Label htmlFor="privacyPolicy">Privacy Policy</Label>
+                <Label htmlFor="privacyPolicy">{t('platform_settings.policies.privacy_policy')}</Label>
                 <Textarea
                   id="privacyPolicy"
                   value={settings.policies.privacyPolicy}
                   onChange={(e) => updateSettings('policies', 'privacyPolicy', e.target.value)}
                   rows={8}
-                  placeholder="Enter your privacy policy..."
+                  placeholder={t('platform_settings.policies.privacy_placeholder')}
                 />
               </div>
               
               <div>
-                <Label htmlFor="refundPolicy">Refund Policy</Label>
+                <Label htmlFor="refundPolicy">{t('platform_settings.policies.refund_policy')}</Label>
                 <Textarea
                   id="refundPolicy"
                   value={settings.policies.refundPolicy}
                   onChange={(e) => updateSettings('policies', 'refundPolicy', e.target.value)}
                   rows={6}
-                  placeholder="Enter your refund policy..."
+                  placeholder={t('platform_settings.policies.refund_placeholder')}
                 />
               </div>
               
               <div>
-                <Label htmlFor="communityGuidelines">Community Guidelines</Label>
+                <Label htmlFor="communityGuidelines">{t('platform_settings.policies.community_guidelines')}</Label>
                 <Textarea
                   id="communityGuidelines"
                   value={settings.policies.communityGuidelines}
                   onChange={(e) => updateSettings('policies', 'communityGuidelines', e.target.value)}
                   rows={6}
-                  placeholder="Enter community guidelines..."
+                  placeholder={t('platform_settings.policies.community_placeholder')}
                 />
               </div>
             </CardContent>
@@ -499,16 +501,16 @@ export function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Platform Features
+                {t('platform_settings.features.title')}
               </CardTitle>
-              <CardDescription>Enable or disable platform features</CardDescription>
+              <CardDescription>{t('platform_settings.features.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>User Registration</Label>
-                    <p className="text-sm text-muted-foreground">Allow new users to register</p>
+                    <Label>{t('platform_settings.features.user_registration')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.user_registration_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.allowUserRegistration}
@@ -518,8 +520,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Email Verification</Label>
-                    <p className="text-sm text-muted-foreground">Require email verification for new accounts</p>
+                    <Label>{t('platform_settings.features.email_verification')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.email_verification_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.requireEmailVerification}
@@ -529,8 +531,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Course Reviews</Label>
-                    <p className="text-sm text-muted-foreground">Allow students to review courses</p>
+                    <Label>{t('platform_settings.features.course_reviews')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.course_reviews_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.enableCourseReviews}
@@ -540,8 +542,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Q&A Section</Label>
-                    <p className="text-sm text-muted-foreground">Enable Q&A for courses</p>
+                    <Label>{t('platform_settings.features.qa_section')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.qa_section_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.enableQA}
@@ -551,8 +553,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Blog Posts</Label>
-                    <p className="text-sm text-muted-foreground">Allow instructors to create blog posts</p>
+                    <Label>{t('platform_settings.features.blog_posts')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.blog_posts_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.enableBlog}
@@ -562,8 +564,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Certificates</Label>
-                    <p className="text-sm text-muted-foreground">Generate completion certificates</p>
+                    <Label>{t('platform_settings.features.certificates')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.certificates_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.enableCertificates}
@@ -573,8 +575,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Discussions</Label>
-                    <p className="text-sm text-muted-foreground">Enable course discussions</p>
+                    <Label>{t('platform_settings.features.discussions')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.discussions_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.enableDiscussions}
@@ -584,8 +586,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Live Streaming</Label>
-                    <p className="text-sm text-muted-foreground">Allow live streaming sessions</p>
+                    <Label>{t('platform_settings.features.live_streaming')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.live_streaming_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.features.enableLiveStreaming}
@@ -602,16 +604,16 @@ export function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
-                Notification Settings
+                {t('platform_settings.notifications.title')}
               </CardTitle>
-              <CardDescription>Configure platform notification preferences</CardDescription>
+              <CardDescription>{t('platform_settings.notifications.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Send notifications via email</p>
+                    <Label>{t('platform_settings.notifications.email_notifications')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.notifications.email_notifications_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.notifications.emailNotifications}
@@ -621,8 +623,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Push Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Send browser push notifications</p>
+                    <Label>{t('platform_settings.notifications.push_notifications')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.notifications.push_notifications_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.notifications.pushNotifications}
@@ -632,8 +634,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>SMS Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Send notifications via SMS</p>
+                    <Label>{t('platform_settings.notifications.sms_notifications')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.notifications.sms_notifications_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.notifications.smsNotifications}
@@ -643,8 +645,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Marketing Emails</Label>
-                    <p className="text-sm text-muted-foreground">Send promotional and marketing emails</p>
+                    <Label>{t('platform_settings.notifications.marketing_emails')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.notifications.marketing_emails_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.notifications.marketingEmails}
@@ -661,14 +663,14 @@ export function PlatformSettingsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Security Settings
+                {t('platform_settings.security.title')}
               </CardTitle>
-              <CardDescription>Configure platform security and authentication</CardDescription>
+              <CardDescription>{t('platform_settings.security.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="passwordMinLength">Minimum Password Length</Label>
+                  <Label htmlFor="passwordMinLength">{t('platform_settings.security.minimum_password_length')}</Label>
                   <Input
                     id="passwordMinLength"
                     type="number"
@@ -679,7 +681,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="sessionTimeout">Session Timeout (seconds)</Label>
+                  <Label htmlFor="sessionTimeout">{t('platform_settings.security.session_timeout')}</Label>
                   <Input
                     id="sessionTimeout"
                     type="number"
@@ -691,7 +693,7 @@ export function PlatformSettingsPage() {
               </div>
               
               <div>
-                <Label htmlFor="maxLoginAttempts">Max Login Attempts</Label>
+                <Label htmlFor="maxLoginAttempts">{t('platform_settings.security.max_login_attempts')}</Label>
                 <Input
                   id="maxLoginAttempts"
                   type="number"
@@ -701,14 +703,14 @@ export function PlatformSettingsPage() {
                   onChange={(e) => updateSettings('security', 'maxLoginAttempts', parseInt(e.target.value))}
                   className="w-32"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Maximum failed login attempts before account lockout</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('platform_settings.security.max_login_attempts_hint')}</p>
               </div>
               
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Strong Password Required</Label>
-                    <p className="text-sm text-muted-foreground">Require passwords with special characters and numbers</p>
+                    <Label>{t('platform_settings.security.strong_password')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.security.strong_password_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.security.requireStrongPassword}
@@ -718,8 +720,8 @@ export function PlatformSettingsPage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label>Two-Factor Authentication</Label>
-                    <p className="text-sm text-muted-foreground">Enable 2FA for enhanced security</p>
+                    <Label>{t('platform_settings.security.two_factor')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('platform_settings.security.two_factor_hint')}</p>
                   </div>
                   <Switch
                     checked={settings.security.enableTwoFactor}
@@ -729,15 +731,15 @@ export function PlatformSettingsPage() {
               </div>
               
               <div>
-                <Label htmlFor="ipWhitelist">IP Whitelist</Label>
+                <Label htmlFor="ipWhitelist">{t('platform_settings.security.ip_whitelist')}</Label>
                 <Textarea
                   id="ipWhitelist"
-                  placeholder="Enter IP addresses (one per line) to restrict admin access"
+                  placeholder={t('platform_settings.security.ip_whitelist_placeholder')}
                   value={settings.security.ipWhitelist.join('\n')}
                   onChange={(e) => updateSettings('security', 'ipWhitelist', e.target.value.split('\n').filter(ip => ip.trim()))}
                   rows={4}
                 />
-                <p className="text-xs text-muted-foreground mt-1">Leave empty to allow access from any IP</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('platform_settings.security.ip_whitelist_hint')}</p>
               </div>
             </CardContent>
           </Card>

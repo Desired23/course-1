@@ -33,7 +33,7 @@ export function HeroSection() {
     }
   }
 
-  const popularSearches = ["Web Development", "Python", "React", "UI/UX Design", "Digital Marketing"]
+  const popularSearches = t('hero.popular_searches', { returnObjects: true }) as string[]
 
   return (
     <section className="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-blue-900 dark:to-purple-900 py-16 md:py-24 px-4">

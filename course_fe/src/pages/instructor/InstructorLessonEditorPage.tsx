@@ -338,6 +338,7 @@ export function InstructorLessonEditorPage() {
                 <div className="p-0 h-full overflow-y-auto">
                    <EnhancedCodeQuizCreator 
                       initialData={editedLesson.quizData}
+                      onChange={(data) => handleUpdate({ quizData: data })}
                       onSave={(data) => handleUpdate({ quizData: data })}
                       onCancel={undefined} 
                    />

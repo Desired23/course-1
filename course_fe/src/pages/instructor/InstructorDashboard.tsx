@@ -445,9 +445,9 @@ export function InstructorDashboard() {
         <Dialog open={editCourseId !== null} onOpenChange={(open) => !open && handleCloseEditChoice()}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Chá»n kiá»ƒu chá»‰nh sá»­a</DialogTitle>
+              <DialogTitle>{t('instructor_dashboard.edit_mode_title')}</DialogTitle>
               <DialogDescription>
-                Báº¡n muá»‘n chá»‰nh sá»­a danh sÃ¡ch bÃ i há»c hay thÃ´ng tin khÃ³a há»c?
+                {t('instructor_dashboard.edit_mode_description')}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="sm:justify-start">
@@ -455,12 +455,12 @@ export function InstructorDashboard() {
                 variant="outline"
                 onClick={() => handleNavigateFromEditChoice('lessons')}
               >
-                Chá»‰nh sá»­a list bÃ i há»c
+                {t('instructor_dashboard.edit_lesson_list')}
               </Button>
               <Button
                 onClick={() => handleNavigateFromEditChoice('landing')}
               >
-                Chá»‰nh sá»­a thÃ´ng tin khÃ³a há»c
+                {t('instructor_dashboard.edit_course_info')}
               </Button>
             </DialogFooter>
           </DialogContent>

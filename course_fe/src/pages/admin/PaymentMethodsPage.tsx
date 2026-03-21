@@ -35,6 +35,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
+import { useTranslation } from 'react-i18next'
 
 interface PaymentMethod {
   id: string
@@ -88,6 +89,7 @@ interface PaymentSettings {
 
 export function PaymentMethodsPage() {
   const { canAccess } = useAuth()
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('methods')
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [settings, setSettings] = useState<PaymentSettings>({
@@ -138,7 +140,7 @@ export function PaymentMethodsPage() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>You don't have permission to manage payment methods.</p>
+            <p>{t('payment_methods_admin.permission_denied')}</p>
           </CardContent>
         </Card>
       </div>
@@ -160,10 +162,10 @@ export function PaymentMethodsPage() {
       if (methodsSettingId) { await updateSystemSetting(methodsSettingId, { value }) }
       else { const c = await createSystemSetting({ key: 'payment_methods_config', value }); setMethodsSettingId(c.id) }
       setPaymentMethods(updated)
-      toast.success('Phương thức thanh toán đã được thêm')
+      toast.success(t('payment_methods_admin.add_success'))
       setIsAddMethodOpen(false)
       setNewMethod({ name: '', type: 'credit_card', provider: '', apiKey: '', secretKey: '', webhookUrl: '' })
-    } catch { toast.error('Thao tác thất bại') }
+    } catch { toast.error(t('payment_methods_admin.action_failed')) }
   }
 
   const handleToggleMethod = async (methodId: string) => {
@@ -172,8 +174,8 @@ export function PaymentMethodsPage() {
       const value = JSON.stringify(updated)
       if (methodsSettingId) await updateSystemSetting(methodsSettingId, { value })
       setPaymentMethods(updated)
-      toast.success('Cập nhật thành công')
-    } catch { toast.error('Thao tác thất bại') }
+      toast.success(t('payment_methods_admin.update_success'))
+    } catch { toast.error(t('payment_methods_admin.action_failed')) }
   }
 
   const handleDeleteMethod = async (methodId: string) => {
@@ -182,8 +184,8 @@ export function PaymentMethodsPage() {
       const value = JSON.stringify(updated)
       if (methodsSettingId) await updateSystemSetting(methodsSettingId, { value })
       setPaymentMethods(updated)
-      toast.success('Đã xóa phương thức thanh toán')
-    } catch { toast.error('Thao tác thất bại') }
+      toast.success(t('payment_methods_admin.delete_success'))
+    } catch { toast.error(t('payment_methods_admin.action_failed')) }
   }
 
   const handleSaveSettings = async () => {
@@ -191,8 +193,8 @@ export function PaymentMethodsPage() {
       const value = JSON.stringify(settings)
       if (settingsSettingId) { await updateSystemSetting(settingsSettingId, { value }) }
       else { const c = await createSystemSetting({ key: 'payment_settings_config', value }); setSettingsSettingId(c.id) }
-      toast.success('Cài đặt đã lưu thành công')
-    } catch { toast.error('Lưu thất bại') }
+      toast.success(t('payment_methods_admin.save_success'))
+    } catch { toast.error(t('payment_methods_admin.save_failed')) }
   }
 
   const getMethodIcon = (type: PaymentMethod['type']) => {
@@ -224,73 +226,73 @@ export function PaymentMethodsPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Payment Methods</h1>
-          <p className="text-muted-foreground">Manage payment processors and gateway settings</p>
+          <h1 className="text-3xl font-bold">{t('payment_methods_admin.title')}</h1>
+          <p className="text-muted-foreground">{t('payment_methods_admin.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={handleSaveSettings}>
             <Save className="h-4 w-4 mr-2" />
-            Save Settings
+            {t('payment_methods_admin.save_settings')}
           </Button>
           <Dialog open={isAddMethodOpen} onOpenChange={setIsAddMethodOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Method
+                {t('payment_methods_admin.add_method')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Add Payment Method</DialogTitle>
-                <DialogDescription>Configure a new payment processor</DialogDescription>
+                <DialogTitle>{t('payment_methods_admin.add_method')}</DialogTitle>
+                <DialogDescription>{t('payment_methods_admin.add_method_description')}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Method Name</Label>
+                    <Label>{t('payment_methods_admin.method_name')}</Label>
                     <Input
                       value={newMethod.name}
                       onChange={(e) => setNewMethod({...newMethod, name: e.target.value})}
-                      placeholder="e.g., Stripe Credit Cards"
+                      placeholder={t('payment_methods_admin.method_name_placeholder')}
                     />
                   </div>
                   <div>
-                    <Label>Payment Type</Label>
+                    <Label>{t('payment_methods_admin.payment_type')}</Label>
                     <Select value={newMethod.type} onValueChange={(value) => setNewMethod({...newMethod, type: value as PaymentMethod['type']})}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="credit_card">Credit Card</SelectItem>
-                        <SelectItem value="debit_card">Debit Card</SelectItem>
+                        <SelectItem value="credit_card">{t('payment_methods_admin.types.credit_card')}</SelectItem>
+                        <SelectItem value="debit_card">{t('payment_methods_admin.types.debit_card')}</SelectItem>
                         <SelectItem value="paypal">PayPal</SelectItem>
-                        <SelectItem value="apple_pay">Apple Pay</SelectItem>
-                        <SelectItem value="google_pay">Google Pay</SelectItem>
-                        <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                        <SelectItem value="crypto">Cryptocurrency</SelectItem>
+                        <SelectItem value="apple_pay">{t('payment_methods_admin.types.apple_pay')}</SelectItem>
+                        <SelectItem value="google_pay">{t('payment_methods_admin.types.google_pay')}</SelectItem>
+                        <SelectItem value="bank_transfer">{t('payment_methods_admin.types.bank_transfer')}</SelectItem>
+                        <SelectItem value="crypto">{t('payment_methods_admin.types.crypto')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 
                 <div>
-                  <Label>Provider</Label>
+                  <Label>{t('payment_methods_admin.provider')}</Label>
                   <Input
                     value={newMethod.provider}
                     onChange={(e) => setNewMethod({...newMethod, provider: e.target.value})}
-                    placeholder="e.g., Stripe, PayPal, Square"
+                    placeholder={t('payment_methods_admin.provider_placeholder')}
                   />
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>API Key</Label>
+                    <Label>{t('payment_methods_admin.api_key')}</Label>
                     <div className="relative">
                       <Input
                         type={showApiKeys ? 'text' : 'password'}
                         value={newMethod.apiKey}
                         onChange={(e) => setNewMethod({...newMethod, apiKey: e.target.value})}
-                        placeholder="Enter API key"
+                        placeholder={t('payment_methods_admin.api_key_placeholder')}
                       />
                       <Button
                         type="button"
@@ -304,31 +306,31 @@ export function PaymentMethodsPage() {
                     </div>
                   </div>
                   <div>
-                    <Label>Secret Key</Label>
+                    <Label>{t('payment_methods_admin.secret_key')}</Label>
                     <Input
                       type="password"
                       value={newMethod.secretKey}
                       onChange={(e) => setNewMethod({...newMethod, secretKey: e.target.value})}
-                      placeholder="Enter secret key"
+                      placeholder={t('payment_methods_admin.secret_key_placeholder')}
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <Label>Webhook URL</Label>
+                  <Label>{t('payment_methods_admin.webhook_url')}</Label>
                   <Input
                     value={newMethod.webhookUrl}
                     onChange={(e) => setNewMethod({...newMethod, webhookUrl: e.target.value})}
-                    placeholder="https://yoursite.com/webhooks/payment"
+                    placeholder={t('payment_methods_admin.webhook_placeholder')}
                   />
                 </div>
                 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsAddMethodOpen(false)}>
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button onClick={handleAddMethod}>
-                    Add Method
+                    {t('payment_methods_admin.add_method')}
                   </Button>
                 </div>
               </div>
@@ -339,17 +341,17 @@ export function PaymentMethodsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="methods">Payment Methods</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="fees">Fees & Limits</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="methods">{t('payment_methods_admin.tabs.methods')}</TabsTrigger>
+          <TabsTrigger value="settings">{t('payment_methods_admin.tabs.settings')}</TabsTrigger>
+          <TabsTrigger value="fees">{t('payment_methods_admin.tabs.fees')}</TabsTrigger>
+          <TabsTrigger value="security">{t('payment_methods_admin.tabs.security')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="methods" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Active Payment Methods</CardTitle>
-              <CardDescription>Manage your payment processors and gateways</CardDescription>
+              <CardTitle>{t('payment_methods_admin.active_methods_title')}</CardTitle>
+              <CardDescription>{t('payment_methods_admin.active_methods_description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -362,25 +364,25 @@ export function PaymentMethodsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold">{method.name}</h3>
-                          {method.isDefault && <Badge variant="default">Default</Badge>}
+                          {method.isDefault && <Badge variant="default">{t('payment_methods_admin.default')}</Badge>}
                           {method.isVerified ? (
                             <Badge variant="outline" className="text-green-600 border-green-600">
                               <CheckCircle className="h-3 w-3 mr-1" />
-                              Verified
+                              {t('payment_methods_admin.verified')}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-yellow-600 border-yellow-600">
                               <AlertCircle className="h-3 w-3 mr-1" />
-                              Pending
+                              {t('payment_methods_admin.pending')}
                             </Badge>
                           )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Provider: {method.provider}</span>
-                          <span>Fee: {method.fees.percentage}% + ${method.fees.fixed}</span>
-                          <span>Processing: {method.processingTime}</span>
+                          <span>{t('payment_methods_admin.provider_label', { provider: method.provider })}</span>
+                          <span>{t('payment_methods_admin.fee_label', { percentage: method.fees.percentage, fixed: method.fees.fixed })}</span>
+                          <span>{t('payment_methods_admin.processing_label', { time: method.processingTime })}</span>
                           {method.lastUsed && (
-                            <span>Last used: {method.lastUsed.toLocaleDateString()}</span>
+                            <span>{t('payment_methods_admin.last_used', { date: method.lastUsed.toLocaleDateString() })}</span>
                           )}
                         </div>
                       </div>
@@ -410,14 +412,14 @@ export function PaymentMethodsPage() {
         <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Payment Settings</CardTitle>
-              <CardDescription>Configure payment processing behavior</CardDescription>
+              <CardTitle>{t('payment_methods_admin.settings_title')}</CardTitle>
+              <CardDescription>{t('payment_methods_admin.settings_description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">Auto Retry Failed Payments</Label>
-                  <p className="text-sm text-muted-foreground">Automatically retry failed payment attempts</p>
+                  <Label className="text-base">{t('payment_methods_admin.auto_retry')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.auto_retry_description')}</p>
                 </div>
                 <Switch
                   checked={settings.autoRetry}
@@ -428,30 +430,30 @@ export function PaymentMethodsPage() {
               {settings.autoRetry && (
                 <div className="grid grid-cols-2 gap-4 ml-6">
                   <div>
-                    <Label>Retry Attempts</Label>
+                    <Label>{t('payment_methods_admin.retry_attempts')}</Label>
                     <Select value={settings.retryAttempts.toString()} onValueChange={(value) => setSettings({...settings, retryAttempts: parseInt(value)})}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 attempt</SelectItem>
-                        <SelectItem value="2">2 attempts</SelectItem>
-                        <SelectItem value="3">3 attempts</SelectItem>
-                        <SelectItem value="5">5 attempts</SelectItem>
+                        <SelectItem value="1">{t('payment_methods_admin.retry_attempts_option', { count: 1 })}</SelectItem>
+                        <SelectItem value="2">{t('payment_methods_admin.retry_attempts_option', { count: 2 })}</SelectItem>
+                        <SelectItem value="3">{t('payment_methods_admin.retry_attempts_option', { count: 3 })}</SelectItem>
+                        <SelectItem value="5">{t('payment_methods_admin.retry_attempts_option', { count: 5 })}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Retry Delay (hours)</Label>
+                    <Label>{t('payment_methods_admin.retry_delay')}</Label>
                     <Select value={settings.retryDelay.toString()} onValueChange={(value) => setSettings({...settings, retryDelay: parseInt(value)})}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">1 hour</SelectItem>
-                        <SelectItem value="6">6 hours</SelectItem>
-                        <SelectItem value="24">24 hours</SelectItem>
-                        <SelectItem value="72">72 hours</SelectItem>
+                        <SelectItem value="1">{t('payment_methods_admin.retry_hours_option', { count: 1 })}</SelectItem>
+                        <SelectItem value="6">{t('payment_methods_admin.retry_hours_option', { count: 6 })}</SelectItem>
+                        <SelectItem value="24">{t('payment_methods_admin.retry_hours_option', { count: 24 })}</SelectItem>
+                        <SelectItem value="72">{t('payment_methods_admin.retry_hours_option', { count: 72 })}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -462,8 +464,8 @@ export function PaymentMethodsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">Send Email Receipts</Label>
-                  <p className="text-sm text-muted-foreground">Automatically send payment receipts to customers</p>
+                  <Label className="text-base">{t('payment_methods_admin.send_receipts')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.send_receipts_description')}</p>
                 </div>
                 <Switch
                   checked={settings.sendReceipts}
@@ -473,8 +475,8 @@ export function PaymentMethodsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">Require CVV</Label>
-                  <p className="text-sm text-muted-foreground">Always require CVV verification for card payments</p>
+                  <Label className="text-base">{t('payment_methods_admin.require_cvv')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.require_cvv_description')}</p>
                 </div>
                 <Switch
                   checked={settings.requireCVV}
@@ -484,8 +486,8 @@ export function PaymentMethodsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">Save Payment Methods</Label>
-                  <p className="text-sm text-muted-foreground">Allow customers to save payment methods for future use</p>
+                  <Label className="text-base">{t('payment_methods_admin.save_payment_methods')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.save_payment_methods_description')}</p>
                 </div>
                 <Switch
                   checked={settings.savePaymentMethods}
@@ -499,20 +501,20 @@ export function PaymentMethodsPage() {
         <TabsContent value="fees" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Fee Comparison</CardTitle>
-              <CardDescription>Compare fees and limits across payment methods</CardDescription>
+              <CardTitle>{t('payment_methods_admin.fee_comparison_title')}</CardTitle>
+              <CardDescription>{t('payment_methods_admin.fee_comparison_description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Method</TableHead>
-                    <TableHead>Fixed Fee</TableHead>
-                    <TableHead>Percentage</TableHead>
-                    <TableHead>Min Amount</TableHead>
-                    <TableHead>Max Amount</TableHead>
-                    <TableHead>Daily Limit</TableHead>
-                    <TableHead>Processing Time</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.method')}</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.fixed_fee')}</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.percentage')}</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.min_amount')}</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.max_amount')}</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.daily_limit')}</TableHead>
+                    <TableHead>{t('payment_methods_admin.fees_table.processing_time')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -541,14 +543,14 @@ export function PaymentMethodsPage() {
         <TabsContent value="security" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
-              <CardDescription>Configure payment security and fraud prevention</CardDescription>
+              <CardTitle>{t('payment_methods_admin.security_title')}</CardTitle>
+              <CardDescription>{t('payment_methods_admin.security_description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">Two-Factor Authentication</Label>
-                  <p className="text-sm text-muted-foreground">Require 2FA for payment configuration changes</p>
+                  <Label className="text-base">{t('payment_methods_admin.two_factor')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.two_factor_description')}</p>
                 </div>
                 <Switch
                   checked={settings.twoFactorAuth}
@@ -558,8 +560,8 @@ export function PaymentMethodsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">Fraud Detection</Label>
-                  <p className="text-sm text-muted-foreground">Enable automatic fraud detection and prevention</p>
+                  <Label className="text-base">{t('payment_methods_admin.fraud_detection')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.fraud_detection_description')}</p>
                 </div>
                 <Switch
                   checked={settings.fraudDetection}
@@ -569,8 +571,8 @@ export function PaymentMethodsPage() {
               
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-base">IP Whitelist</Label>
-                  <p className="text-sm text-muted-foreground">Restrict payment processing to specific IP addresses</p>
+                  <Label className="text-base">{t('payment_methods_admin.ip_whitelist')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.ip_whitelist_description')}</p>
                 </div>
                 <Switch
                   checked={settings.ipWhitelist}
@@ -583,7 +585,7 @@ export function PaymentMethodsPage() {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Shield className="h-5 w-5" />
-                  Security Features by Method
+                  {t('payment_methods_admin.security_features_by_method')}
                 </h3>
                 <div className="grid gap-4">
                   {paymentMethods.map((method) => (
@@ -618,17 +620,17 @@ export function PaymentMethodsPage() {
                 {getMethodIcon(selectedMethod.type)}
                 {selectedMethod.name}
               </DialogTitle>
-              <DialogDescription>Payment method details and configuration</DialogDescription>
+              <DialogDescription>{t('payment_methods_admin.method_detail_description')}</DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Provider</Label>
+                  <Label>{t('payment_methods_admin.provider')}</Label>
                   <p className="font-medium">{selectedMethod.provider}</p>
                 </div>
                 <div>
-                  <Label>Type</Label>
+                  <Label>{t('payment_methods_admin.type')}</Label>
                   <p className="font-medium capitalize">{selectedMethod.type.replace('_', ' ')}</p>
                 </div>
               </div>
@@ -636,22 +638,22 @@ export function PaymentMethodsPage() {
               <Separator />
               
               <div>
-                <Label className="text-base font-semibold">Fees & Limits</Label>
+                <Label className="text-base font-semibold">{t('payment_methods_admin.detail.fees_limits')}</Label>
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
-                    <Label className="text-sm">Transaction Fee</Label>
+                    <Label className="text-sm">{t('payment_methods_admin.detail.transaction_fee')}</Label>
                     <p>{selectedMethod.fees.percentage}% + ${selectedMethod.fees.fixed}</p>
                   </div>
                   <div>
-                    <Label className="text-sm">Processing Time</Label>
+                    <Label className="text-sm">{t('payment_methods_admin.detail.processing_time')}</Label>
                     <p>{selectedMethod.processingTime}</p>
                   </div>
                   <div>
-                    <Label className="text-sm">Min/Max Amount</Label>
+                    <Label className="text-sm">{t('payment_methods_admin.detail.min_max_amount')}</Label>
                     <p>${selectedMethod.limits.min} - ${selectedMethod.limits.max.toLocaleString()}</p>
                   </div>
                   <div>
-                    <Label className="text-sm">Daily Limit</Label>
+                    <Label className="text-sm">{t('payment_methods_admin.detail.daily_limit')}</Label>
                     <p>${selectedMethod.limits.daily.toLocaleString()}</p>
                   </div>
                 </div>
@@ -660,7 +662,7 @@ export function PaymentMethodsPage() {
               <Separator />
               
               <div>
-                <Label className="text-base font-semibold">Supported Regions</Label>
+                <Label className="text-base font-semibold">{t('payment_methods_admin.detail.supported_regions')}</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {selectedMethod.countries.map((country) => (
                     <Badge key={country} variant="outline">{country}</Badge>
@@ -669,7 +671,7 @@ export function PaymentMethodsPage() {
               </div>
               
               <div>
-                <Label className="text-base font-semibold">Supported Currencies</Label>
+                <Label className="text-base font-semibold">{t('payment_methods_admin.detail.supported_currencies')}</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {selectedMethod.currencies.map((currency) => (
                     <Badge key={currency} variant="outline">{currency}</Badge>
@@ -678,7 +680,7 @@ export function PaymentMethodsPage() {
               </div>
               
               <div>
-                <Label className="text-base font-semibold">Security Features</Label>
+                <Label className="text-base font-semibold">{t('payment_methods_admin.detail.security_features')}</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {selectedMethod.securityFeatures.map((feature, index) => (
                     <Badge key={index} variant="outline" className="text-green-600 border-green-600">

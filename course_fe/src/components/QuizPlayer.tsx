@@ -20,6 +20,7 @@ import {
   HelpCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { CodeQuizPlayer, type CodeQuestion } from './CodeQuizPlayer'
 import { useQuizStore } from '../stores/quiz.store'
 
@@ -52,6 +53,7 @@ export interface Quiz {
 interface QuizPlayerProps {
   quiz: Quiz
   lessonId?: number // ✅ Add lessonId to track which lesson
+  enrollmentId?: number
   onComplete?: (score: number, passed: boolean) => void
   onClose?: () => void
   onNext?: () => void // ✅ Callback to move to next lesson
@@ -59,7 +61,8 @@ interface QuizPlayerProps {
   onProgressChange?: (answers: Record<number, number | number[]>) => void
 }
 
-export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedProgress, onProgressChange }: QuizPlayerProps) {
+export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, onNext, savedProgress, onProgressChange }: QuizPlayerProps) {
+  const { t } = useTranslation()
   const { saveQuizAnswer, getQuizAnswer } = useQuizStore()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<number, number | number[]>>(savedProgress || {})
@@ -74,10 +77,10 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
         <Card>
           <CardContent className="p-8 text-center">
             <HelpCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-xl mb-2">No Questions Available</h3>
-            <p className="text-muted-foreground mb-4">This quiz doesn't have any questions yet.</p>
+            <h3 className="text-xl mb-2">{t('quiz_player.no_questions')}</h3>
+            <p className="text-muted-foreground mb-4">{t('quiz_player.no_questions_desc')}</p>
             {onClose && (
-              <Button onClick={onClose}>Go Back</Button>
+              <Button onClick={onClose}>{t('quiz_player.go_back')}</Button>
             )}
           </CardContent>
         </Card>
@@ -195,7 +198,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
     console.log('Unanswered questions:', unansweredQuestions) // Debug log
     
     if (unansweredQuestions.length > 0) {
-      toast.error(`Please answer all questions (${unansweredQuestions.length} remaining)`)
+      toast.error(t('quiz_player.answer_all', { remaining: unansweredQuestions.length }))
       return
     }
 
@@ -209,9 +212,9 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
     }
 
     if (passed) {
-      toast.success(`Congratulations! You passed with ${score}%`)
+      toast.success(t('quiz_player.congratulations', { score }))
     } else {
-      toast.error(`You scored ${score}%. Passing score is ${quiz.passingScore}%`)
+      toast.error(t('quiz_player.failed_score', { score, passingScore: quiz.passingScore }))
     }
   }
 
@@ -268,7 +271,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Quiz Results</CardTitle>
+              <CardTitle>{t('quiz_player.results')}</CardTitle>
               <CardDescription>{quiz.title}</CardDescription>
             </div>
             {onClose && (
@@ -293,18 +296,18 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
             <div>
               <h3 className="text-4xl mb-2">{score}%</h3>
               <p className="text-muted-foreground">
-                {passed ? 'Congratulations! You passed!' : `You need ${quiz.passingScore}% to pass`}
+                {passed ? t('quiz_player.pass_message') : t('quiz_player.need_to_pass', { passingScore: quiz.passingScore })}
               </p>
             </div>
             <div className="flex items-center justify-center gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Correct: </span>
+                <span className="text-muted-foreground">{t('quiz_player.correct')} </span>
                 <span className="font-medium text-green-600">
                   {Math.round((score / 100) * totalQuestions)}/{totalQuestions}
                 </span>
               </div>
               <div>
-                <span className="text-muted-foreground">Score: </span>
+                <span className="text-muted-foreground">{t('quiz_player.score')} </span>
                 <span className="font-medium">{score}%</span>
               </div>
             </div>
@@ -312,7 +315,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
 
           {/* Question Review */}
           <div className="space-y-4">
-            <h4 className="font-medium">Question Review</h4>
+            <h4 className="font-medium">{t('quiz_player.review_title')}</h4>
             {quiz.questions.map((question, index) => {
               const correct = isAnswerCorrect(question.id)
               return (
@@ -323,7 +326,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
                     <XCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                   )}
                   <div className="flex-1">
-                    <p className="text-sm">Question {index + 1}: {question.question}</p>
+                    <p className="text-sm">{t('quiz_player.review_question', { index: index + 1, question: question.question })}</p>
                   </div>
                   <Button
                     variant="ghost"
@@ -333,7 +336,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
                       setCurrentQuestionIndex(index)
                     }}
                   >
-                    Review
+                    {t('quiz_player.review')}
                   </Button>
                 </div>
               )
@@ -344,11 +347,11 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
           <div className="flex gap-2">
             <Button onClick={handleRetry} className="flex-1">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Retry Quiz
+              {t('quiz_player.retry_quiz')}
             </Button>
             {onClose && (
               <Button variant="outline" onClick={onClose} className="flex-1">
-                Close
+                {t('quiz_player.close')}
               </Button>
             )}
           </div>
@@ -377,7 +380,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
           <div className="flex items-center justify-between text-xs">
             <span className="font-medium">Q {currentQuestionIndex + 1}/{totalQuestions}</span>
             <div className="flex items-center gap-3 text-muted-foreground">
-              <span>Pass: {quiz.passingScore}%</span>
+              <span>{t('quiz_player.pass_label', { passingScore: quiz.passingScore })}</span>
               {quiz.timeLimit && timeRemaining && (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -397,7 +400,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>
-                You have saved progress ({answeredCount}/{totalQuestions} questions answered)
+                {t('quiz_player.saved_progress', { answeredCount, totalQuestions })}
               </span>
               <Button
                 variant="ghost"
@@ -407,11 +410,11 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
                   if (onProgressChange) {
                     onProgressChange({})
                   }
-                  toast.info('Progress cleared. Starting fresh.')
+                  toast.info(t('quiz_player.progress_cleared'))
                 }}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
-                Clear & Start Fresh
+                {t('quiz_player.clear_start_fresh')}
               </Button>
             </AlertDescription>
           </Alert>
@@ -424,10 +427,11 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
             <CodeQuizPlayer
               question={currentQuestion.codeQuestion}
               lessonId={lessonId} // ✅ Pass lessonId to save code state
+              enrollmentId={enrollmentId}
               onComplete={(passed, score) => {
                 handleAnswerChange(currentQuestion.id, passed ? 1 : 0)
                 if (passed) {
-                  toast.success('Code solution accepted!')
+                  toast.success(t('quiz_player.code_solution_accepted'))
                   
                   // ✅ Auto-advance to next question after 2 seconds
                   setTimeout(() => {
@@ -472,7 +476,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
                       </pre>
                       {currentQuestion.codeLanguage && (
                         <div className="mt-2 text-xs text-slate-400">
-                          Language: {currentQuestion.codeLanguage}
+                          {t('common.language')}: {currentQuestion.codeLanguage}
                         </div>
                       )}
                     </div>
@@ -485,12 +489,12 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
                         {isAnswerCorrect(currentQuestion.id) ? (
                           <>
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <span>Correct!</span>
+                            <span>{t('quiz_player.correct_label')}</span>
                           </>
                         ) : (
                           <>
                             <XCircle className="h-4 w-4 text-red-600" />
-                            <span>Incorrect</span>
+                            <span>{t('quiz_player.incorrect_label')}</span>
                           </>
                         )}
                       </AlertDescription>
@@ -591,7 +595,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
                   })}
                   <p className="text-sm text-muted-foreground">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
-                    Select all correct answers
+                    {t('quiz_player.select_all_correct')}
                   </p>
                 </div>
               )}
@@ -600,7 +604,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
               {isSubmitted && currentQuestion.explanation && (
                 <Alert>
                   <AlertDescription>
-                    <strong>Explanation:</strong> {currentQuestion.explanation}
+                    <strong>{t('quiz_player.explanation')}</strong> {currentQuestion.explanation}
                   </AlertDescription>
                 </Alert>
               )}
@@ -616,7 +620,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
             disabled={currentQuestionIndex === 0 || isSubmitted}
           >
             <ChevronLeft className="h-4 w-4 mr-2" />
-            Previous
+            {t('quiz_player.previous')}
           </Button>
 
           <div className="flex items-center gap-2">
@@ -629,7 +633,7 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
               return isAnswered && (
                 <Badge variant="secondary">
                   <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Answered
+                  {t('quiz_player.answered')}
                 </Badge>
               )
             })()}
@@ -640,14 +644,14 @@ export function QuizPlayer({ quiz, lessonId, onComplete, onClose, onNext, savedP
               onClick={handleSubmit}
               disabled={isSubmitted}
             >
-              Submit Quiz
+              {t('quiz_player.submit_quiz')}
             </Button>
           ) : (
             <Button
               onClick={goToNextQuestion}
               disabled={isSubmitted}
             >
-              Next
+              {t('quiz_player.next')}
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
           )}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -32,9 +32,11 @@ import {
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Alert, AlertDescription } from './ui/alert'
-import { SUPPORTED_LANGUAGES, runTestCases, wrapUserCode, shouldWrapUserCode, type TestResult } from '../utils/judge0'
+import { CodeExecutionDebugPanel, type DebugExecutionResult } from './CodeExecutionDebugPanel'
+import { SUPPORTED_LANGUAGES, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, shouldWrapUserCode, type TestResult } from '../utils/judge0'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import { toast } from 'sonner'
 
 // ==================== INTERFACES ====================
 
@@ -128,7 +130,46 @@ export interface EnhancedCodeQuizData {
 interface EnhancedCodeQuizCreatorProps {
   initialData?: EnhancedCodeQuizData
   onSave: (data: EnhancedCodeQuizData) => void
+  onChange?: (data: EnhancedCodeQuizData) => void
   onCancel?: () => void
+}
+
+function createDefaultEnhancedCodeQuizData(): EnhancedCodeQuizData {
+  return {
+    title: '',
+    problemStatement: {
+      description: '',
+      inputFormat: '',
+      outputFormat: '',
+      notes: ''
+    },
+    examples: [],
+    constraints: [],
+    learningObjectives: {
+      algorithm: [],
+      dataStructure: [],
+      skills: [],
+      difficulty: 'medium',
+      estimatedTime: 30
+    },
+    solution: {
+      approach: '',
+      timeComplexity: '',
+      spaceComplexity: '',
+      code: '',
+      codeLanguage: 63,
+      explanation: ''
+    },
+    allowedLanguages: [63],
+    starterCode: {},
+    functionSignature: {},
+    testCases: [],
+    timeLimit: 2,
+    memoryLimit: 128000,
+    points: 100,
+    hints: [],
+    tags: []
+  }
 }
 
 // ==================== SUB-COMPONENTS ====================
@@ -221,10 +262,13 @@ function DraggableTestCase({
                     <Textarea
                       value={testCase.input}
                       onChange={(e) => onUpdate(index, { ...testCase, input: e.target.value })}
-                      placeholder="e.g., [2,7,11,15]&#10;9"
+                      placeholder="Vi du, moi tham so mot dong:&#10;[2,7,11,15]&#10;9"
                       className="mt-1 font-mono text-sm"
                       rows={3}
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Moi dong la mot tham so dau vao.
+                    </p>
                   </div>
 
                   {/* Expected Output */}
@@ -233,7 +277,7 @@ function DraggableTestCase({
                     <Textarea
                       value={testCase.expectedOutput}
                       onChange={(e) => onUpdate(index, { ...testCase, expectedOutput: e.target.value })}
-                      placeholder="e.g., [0,1] or 0,1"
+                      placeholder="Vi du: [0,1]"
                       className="mt-1 font-mono text-sm"
                       rows={2}
                     />
@@ -267,42 +311,9 @@ function DraggableTestCase({
 
 // ==================== MAIN COMPONENT ====================
 
-export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: EnhancedCodeQuizCreatorProps) {
-  const [formData, setFormData] = useState<EnhancedCodeQuizData>(initialData || {
-    title: '',
-    problemStatement: {
-      description: '',
-      inputFormat: '',
-      outputFormat: '',
-      notes: ''
-    },
-    examples: [],
-    constraints: [],
-    learningObjectives: {
-      algorithm: [],
-      dataStructure: [],
-      skills: [],
-      difficulty: 'medium',
-      estimatedTime: 30
-    },
-    solution: {
-      approach: '',
-      timeComplexity: '',
-      spaceComplexity: '',
-      code: '',
-      codeLanguage: 63,
-      explanation: ''
-    },
-    allowedLanguages: [63], // JavaScript default
-    starterCode: {},
-    functionSignature: {},
-    testCases: [],
-    timeLimit: 2,
-    memoryLimit: 128000,
-    points: 100,
-    hints: [],
-    tags: []
-  })
+export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCancel }: EnhancedCodeQuizCreatorProps) {
+  const RUN_ACTION_DEBOUNCE_MS = 1000
+  const [formData, setFormData] = useState<EnhancedCodeQuizData>(initialData || createDefaultEnhancedCodeQuizData())
 
   const [currentTag, setCurrentTag] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -310,6 +321,41 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
   const [solutionTestResults, setSolutionTestResults] = useState<TestResult[]>([])
   const [solutionRunError, setSolutionRunError] = useState<string | null>(null)
   const [runProgress, setRunProgress] = useState({ current: 0, total: 0 })
+  const [customInput, setCustomInput] = useState('[2,7,11,15]\n9')
+  const [isRunningCustomInput, setIsRunningCustomInput] = useState(false)
+  const [customRunResult, setCustomRunResult] = useState<DebugExecutionResult | null>(null)
+  const [customRunError, setCustomRunError] = useState<string | null>(null)
+  const isSyncingFromPropsRef = useRef(false)
+  const lastEmittedRef = useRef<EnhancedCodeQuizData | null>(null)
+  const lastSolutionRunAtRef = useRef(0)
+  const lastCustomRunAtRef = useRef(0)
+
+  useEffect(() => {
+    if (initialData && initialData !== formData) {
+      isSyncingFromPropsRef.current = true
+      setFormData(initialData)
+    }
+  }, [initialData])
+
+  useEffect(() => {
+    if (isSyncingFromPropsRef.current) {
+      isSyncingFromPropsRef.current = false
+      return
+    }
+
+    if (lastEmittedRef.current === formData) {
+      return
+    }
+
+    lastEmittedRef.current = formData
+    onChange?.(formData)
+  }, [formData, onChange])
+
+  const updateFormData = (
+    updater: EnhancedCodeQuizData | ((prev: EnhancedCodeQuizData) => EnhancedCodeQuizData)
+  ) => {
+    setFormData((prev) => (typeof updater === 'function' ? updater(prev) : updater))
+  }
 
   // ==================== VALIDATION ====================
   
@@ -349,10 +395,10 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
   // ==================== EXAMPLES MANAGEMENT ====================
   
   const addExample = () => {
-    setFormData({
-      ...formData,
+    updateFormData((prev) => ({
+      ...prev,
       examples: [
-        ...formData.examples,
+        ...prev.examples,
         {
           id: Date.now(),
           input: '',
@@ -360,57 +406,61 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
           explanation: ''
         }
       ]
-    })
+    }))
   }
 
   const updateExample = (index: number, updated: Partial<ProblemExample>) => {
-    const newExamples = [...formData.examples]
-    newExamples[index] = { ...newExamples[index], ...updated }
-    setFormData({ ...formData, examples: newExamples })
+    updateFormData((prev) => {
+      const newExamples = [...prev.examples]
+      newExamples[index] = { ...newExamples[index], ...updated }
+      return { ...prev, examples: newExamples }
+    })
   }
 
   const deleteExample = (index: number) => {
-    setFormData({
-      ...formData,
-      examples: formData.examples.filter((_, i) => i !== index)
-    })
+    updateFormData((prev) => ({
+      ...prev,
+      examples: prev.examples.filter((_, i) => i !== index)
+    }))
   }
 
   // ==================== CONSTRAINTS MANAGEMENT ====================
   
   const addConstraint = () => {
-    setFormData({
-      ...formData,
+    updateFormData((prev) => ({
+      ...prev,
       constraints: [
-        ...formData.constraints,
+        ...prev.constraints,
         {
           id: Date.now(),
           description: ''
         }
       ]
-    })
+    }))
   }
 
   const updateConstraint = (index: number, description: string) => {
-    const newConstraints = [...formData.constraints]
-    newConstraints[index] = { ...newConstraints[index], description }
-    setFormData({ ...formData, constraints: newConstraints })
+    updateFormData((prev) => {
+      const newConstraints = [...prev.constraints]
+      newConstraints[index] = { ...newConstraints[index], description }
+      return { ...prev, constraints: newConstraints }
+    })
   }
 
   const deleteConstraint = (index: number) => {
-    setFormData({
-      ...formData,
-      constraints: formData.constraints.filter((_, i) => i !== index)
-    })
+    updateFormData((prev) => ({
+      ...prev,
+      constraints: prev.constraints.filter((_, i) => i !== index)
+    }))
   }
 
   // ==================== TEST CASES MANAGEMENT ====================
   
   const addTestCase = () => {
-    setFormData({
-      ...formData,
+    updateFormData((prev) => ({
+      ...prev,
       testCases: [
-        ...formData.testCases,
+        ...prev.testCases,
         {
           id: Date.now(),
           input: '',
@@ -418,74 +468,79 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
           isHidden: false
         }
       ]
-    })
+    }))
   }
 
   const updateTestCase = (index: number, updated: TestCase) => {
-    const newTestCases = [...formData.testCases]
-    newTestCases[index] = updated
-    setFormData({ ...formData, testCases: newTestCases })
-  }
-
-  const deleteTestCase = (index: number) => {
-    setFormData({
-      ...formData,
-      testCases: formData.testCases.filter((_, i) => i !== index)
+    updateFormData((prev) => {
+      const newTestCases = [...prev.testCases]
+      newTestCases[index] = updated
+      return { ...prev, testCases: newTestCases }
     })
   }
 
+  const deleteTestCase = (index: number) => {
+    updateFormData((prev) => ({
+      ...prev,
+      testCases: prev.testCases.filter((_, i) => i !== index)
+    }))
+  }
+
   const moveTestCase = (fromIndex: number, toIndex: number) => {
-    const newTestCases = [...formData.testCases]
-    const [moved] = newTestCases.splice(fromIndex, 1)
-    newTestCases.splice(toIndex, 0, moved)
-    setFormData({ ...formData, testCases: newTestCases })
+    updateFormData((prev) => {
+      const newTestCases = [...prev.testCases]
+      const [moved] = newTestCases.splice(fromIndex, 1)
+      newTestCases.splice(toIndex, 0, moved)
+      return { ...prev, testCases: newTestCases }
+    })
   }
 
   // ==================== HINTS MANAGEMENT ====================
   
   const addHint = (type: 'idea' | 'data-structure' | 'algorithm' | 'pseudocode', content: string) => {
     if (content.trim()) {
-      setFormData({
-        ...formData,
+      updateFormData((prev) => ({
+        ...prev,
         hints: [
-          ...formData.hints,
+          ...prev.hints,
           {
-            level: formData.hints.length + 1,
+            level: prev.hints.length + 1,
             content: content.trim(),
             type
           }
         ]
-      })
+      }))
     }
   }
 
   const deleteHint = (index: number) => {
-    const newHints = formData.hints.filter((_, i) => i !== index)
-    // Re-number levels
-    const renumberedHints = newHints.map((hint, idx) => ({
-      ...hint,
-      level: idx + 1
-    }))
-    setFormData({ ...formData, hints: renumberedHints })
+    updateFormData((prev) => {
+      const newHints = prev.hints.filter((_, i) => i !== index)
+      const renumberedHints = newHints.map((hint, idx) => ({
+        ...hint,
+        level: idx + 1
+      }))
+      return { ...prev, hints: renumberedHints }
+    })
   }
 
   // ==================== TAGS MANAGEMENT ====================
   
   const addTag = () => {
     if (currentTag.trim() && !formData.tags?.includes(currentTag.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...(formData.tags || []), currentTag.trim()]
-      })
+      updateFormData((prev) => ({
+        ...prev,
+        tags: [...(prev.tags || []), currentTag.trim()]
+      }))
       setCurrentTag('')
     }
   }
 
   const deleteTag = (tag: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags?.filter(t => t !== tag)
-    })
+    updateFormData((prev) => ({
+      ...prev,
+      tags: prev.tags?.filter(t => t !== tag)
+    }))
   }
 
   // ==================== LANGUAGE MANAGEMENT ====================
@@ -493,20 +548,29 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
   const toggleLanguage = (languageId: number) => {
     if (formData.allowedLanguages.includes(languageId)) {
       if (formData.allowedLanguages.length > 1) {
-        setFormData({
-          ...formData,
-          allowedLanguages: formData.allowedLanguages.filter(id => id !== languageId)
-        })
+        updateFormData((prev) => ({
+          ...prev,
+          allowedLanguages: prev.allowedLanguages.filter(id => id !== languageId)
+        }))
       }
     } else {
-      setFormData({
-        ...formData,
-        allowedLanguages: [...formData.allowedLanguages, languageId]
-      })
+      updateFormData((prev) => ({
+        ...prev,
+        allowedLanguages: [...prev.allowedLanguages, languageId]
+      }))
     }
   }
 
   const handleRunSolutionTests = async () => {
+    if (isRunningSolutionTests) return
+
+    const now = Date.now()
+    if (now - lastSolutionRunAtRef.current < RUN_ACTION_DEBOUNCE_MS) {
+      toast.warning('Please wait a moment before running tests again.')
+      return
+    }
+    lastSolutionRunAtRef.current = now
+
     const code = formData.solution?.code?.trim() || ''
     if (!code) {
       setSolutionRunError('Please provide solution code before running tests.')
@@ -546,6 +610,66 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
     } finally {
       setIsRunningSolutionTests(false)
       setRunProgress({ current: 0, total: 0 })
+    }
+  }
+
+  const handleRunCustomInput = async () => {
+    if (isRunningCustomInput) return
+
+    const now = Date.now()
+    if (now - lastCustomRunAtRef.current < RUN_ACTION_DEBOUNCE_MS) {
+      toast.warning('Please wait a moment before running custom input again.')
+      return
+    }
+    lastCustomRunAtRef.current = now
+
+    const code = formData.solution?.code?.trim() || ''
+    if (!code) {
+      setCustomRunError('Please provide solution code before running custom input.')
+      return
+    }
+
+    const trimmedInput = customInput.trim()
+    if (!trimmedInput) {
+      setCustomRunError('Please enter custom input before running.')
+      return
+    }
+
+    setIsRunningCustomInput(true)
+    setCustomRunError(null)
+    setCustomRunResult(null)
+
+    try {
+      const languageId = formData.solution?.codeLanguage || formData.allowedLanguages[0] || 63
+      const languageValue = SUPPORTED_LANGUAGES.find((lang) => lang.id === languageId)?.value || 'javascript'
+      const executableCode = shouldWrapUserCode(code, languageValue)
+        ? wrapUserCode(code, languageValue, '')
+        : code
+
+      const result = await submitAndWait({
+        source_code: executableCode,
+        language_id: languageId,
+        stdin: customInput,
+        cpu_time_limit: formData.timeLimit || 3,
+        memory_limit: formData.memoryLimit || 256000,
+      })
+
+      const { cleanStderr, debugLogs } = extractDebugLogs(result.stderr)
+      setCustomRunResult({
+        stdout: result.stdout,
+        stderr: cleanStderr,
+        compileOutput: result.compile_output,
+        message: result.message,
+        statusId: result.status?.id,
+        statusDescription: result.status?.description,
+        time: result.time,
+        memory: result.memory,
+        debugLogs,
+      })
+    } catch (error) {
+      setCustomRunError(error instanceof Error ? error.message : 'Failed to run custom input')
+    } finally {
+      setIsRunningCustomInput(false)
     }
   }
 
@@ -662,7 +786,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Problem Title *</Label>
                   <Input
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) => updateFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g., Two Sum"
                     className={errors.title ? 'border-red-500' : ''}
                   />
@@ -679,7 +803,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Label>Difficulty Level *</Label>
                     <Select
                       value={formData.learningObjectives.difficulty}
-                      onValueChange={(value: any) => setFormData({ 
+                      onValueChange={(value: any) => updateFormData({ 
                         ...formData, 
                         learningObjectives: { ...formData.learningObjectives, difficulty: value }
                       })}
@@ -700,7 +824,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Input
                       type="number"
                       value={formData.learningObjectives.estimatedTime || ''}
-                      onChange={(e) => setFormData({ 
+                      onChange={(e) => updateFormData({ 
                         ...formData, 
                         learningObjectives: { 
                           ...formData.learningObjectives, 
@@ -716,7 +840,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Input
                       type="number"
                       value={formData.points}
-                      onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) })}
+                      onChange={(e) => updateFormData({ ...formData, points: parseInt(e.target.value) })}
                       min={1}
                     />
                   </div>
@@ -760,7 +884,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Label>🧮 Algorithms Taught</Label>
                     <Textarea
                       value={formData.learningObjectives.algorithm?.join('\n') || ''}
-                      onChange={(e) => setFormData({ 
+                      onChange={(e) => updateFormData({ 
                         ...formData, 
                         learningObjectives: { 
                           ...formData.learningObjectives, 
@@ -776,7 +900,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Label>📊 Data Structures Used</Label>
                     <Textarea
                       value={formData.learningObjectives.dataStructure?.join('\n') || ''}
-                      onChange={(e) => setFormData({ 
+                      onChange={(e) => updateFormData({ 
                         ...formData, 
                         learningObjectives: { 
                           ...formData.learningObjectives, 
@@ -792,7 +916,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Label>💡 Skills Developed</Label>
                     <Textarea
                       value={formData.learningObjectives.skills?.join('\n') || ''}
-                      onChange={(e) => setFormData({ 
+                      onChange={(e) => updateFormData({ 
                         ...formData, 
                         learningObjectives: { 
                           ...formData.learningObjectives, 
@@ -823,7 +947,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Problem Description *</Label>
                   <Textarea
                     value={formData.problemStatement.description}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       problemStatement: { ...formData.problemStatement, description: e.target.value }
                     })}
@@ -846,7 +970,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Input Format</Label>
                   <Textarea
                     value={formData.problemStatement.inputFormat}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       problemStatement: { ...formData.problemStatement, inputFormat: e.target.value }
                     })}
@@ -863,7 +987,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Output Format</Label>
                   <Textarea
                     value={formData.problemStatement.outputFormat}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       problemStatement: { ...formData.problemStatement, outputFormat: e.target.value }
                     })}
@@ -882,7 +1006,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Notes / Assumptions (Optional)</Label>
                   <Textarea
                     value={formData.problemStatement.notes}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       problemStatement: { ...formData.problemStatement, notes: e.target.value }
                     })}
@@ -1100,8 +1224,9 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 <p className="font-medium mb-2">📝 Test Case Best Practices:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li><strong>Basic Tests:</strong> Cover example cases from the problem statement</li>
+                  <ul className="list-disc list-inside space-y-1 text-sm">
+                    <li><strong>Input format:</strong> Moi dong la mot tham so. Vi du Two Sum: dong 1 la nums, dong 2 la target</li>
+                    <li><strong>Basic Tests:</strong> Cover example cases from the problem statement</li>
                   <li><strong>Edge Cases:</strong> Minimum input, maximum input, empty/null cases</li>
                   <li><strong>Corner Cases:</strong> Negative numbers, duplicates, special values</li>
                   <li><strong>Stress Tests:</strong> Large inputs to test performance (optional stress test marker)</li>
@@ -1192,7 +1317,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                               onChange={(e) => {
                                 const newHints = [...formData.hints]
                                 newHints[index] = { ...hint, content: e.target.value }
-                                setFormData({ ...formData, hints: newHints })
+                                updateFormData({ ...formData, hints: newHints })
                               }}
                               rows={3}
                               placeholder="Enter hint content..."
@@ -1238,7 +1363,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Approach / Strategy</Label>
                   <Textarea
                     value={formData.solution?.approach}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       solution: { ...formData.solution!, approach: e.target.value }
                     })}
@@ -1253,7 +1378,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Label>Time Complexity</Label>
                     <Input
                       value={formData.solution?.timeComplexity}
-                      onChange={(e) => setFormData({ 
+                      onChange={(e) => updateFormData({ 
                         ...formData, 
                         solution: { ...formData.solution!, timeComplexity: e.target.value }
                       })}
@@ -1265,7 +1390,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Label>Space Complexity</Label>
                     <Input
                       value={formData.solution?.spaceComplexity}
-                      onChange={(e) => setFormData({ 
+                      onChange={(e) => updateFormData({ 
                         ...formData, 
                         solution: { ...formData.solution!, spaceComplexity: e.target.value }
                       })}
@@ -1284,7 +1409,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <div className="flex items-center gap-2">
                       <Select
                         value={formData.solution?.codeLanguage.toString()}
-                        onValueChange={(value) => setFormData({ 
+                        onValueChange={(value) => updateFormData({ 
                           ...formData, 
                           solution: { ...formData.solution!, codeLanguage: parseInt(value) }
                         })}
@@ -1321,7 +1446,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   </div>
                   <Textarea
                     value={formData.solution?.code}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       solution: { ...formData.solution!, code: e.target.value }
                     })}
@@ -1340,37 +1465,22 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                       <AlertDescription>{solutionRunError}</AlertDescription>
                     </Alert>
                   )}
-                  {solutionTestResults.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">
-                          Passed {solutionTestResults.filter((result) => result.passed).length}/{solutionTestResults.length}
-                        </Badge>
-                      </div>
-                      {solutionTestResults.map((result, index) => (
-                        <Card key={result.id ?? index}>
-                          <CardContent className="p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">Test Case {index + 1}</span>
-                              <Badge variant={result.passed ? 'default' : 'destructive'} className="flex items-center gap-1">
-                                {result.passed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                                {result.passed ? 'Passed' : 'Failed'}
-                              </Badge>
-                            </div>
-                            <div className="text-xs space-y-1 font-mono">
-                              <p><span className="font-semibold">Input:</span> {result.input || '(empty)'}</p>
-                              <p><span className="font-semibold">Expected:</span> {result.expectedOutput || '(empty)'}</p>
-                              <p><span className="font-semibold">Actual:</span> {result.actualOutput?.trim() || '(empty)'}</p>
-                              {result.error && (
-                                <p className="text-destructive"><span className="font-semibold">Error:</span> {result.error}</p>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
                 </div>
+
+                <Separator />
+
+                <CodeExecutionDebugPanel
+                  results={solutionTestResults}
+                  isRunningTests={isRunningSolutionTests}
+                  runProgress={runProgress}
+                  runError={solutionRunError}
+                  customInput={customInput}
+                  onCustomInputChange={setCustomInput}
+                  onRunCustom={handleRunCustomInput}
+                  isRunningCustom={isRunningCustomInput}
+                  customResult={customRunResult}
+                  customError={customRunError}
+                />
 
                 <Separator />
 
@@ -1379,7 +1489,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                   <Label>Detailed Explanation</Label>
                   <Textarea
                     value={formData.solution?.explanation}
-                    onChange={(e) => setFormData({ 
+                    onChange={(e) => updateFormData({ 
                       ...formData, 
                       solution: { ...formData.solution!, explanation: e.target.value }
                     })}
@@ -1441,7 +1551,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Input
                       type="number"
                       value={formData.timeLimit}
-                      onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
+                      onChange={(e) => updateFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
                       min={1}
                       max={10}
                     />
@@ -1455,7 +1565,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                     <Input
                       type="number"
                       value={formData.memoryLimit}
-                      onChange={(e) => setFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
+                      onChange={(e) => updateFormData({ ...formData, memoryLimit: parseInt(e.target.value) })}
                       min={64000}
                       max={512000}
                       step={64000}
@@ -1486,7 +1596,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onCancel }: Enhan
                       <Label>{lang.value}</Label>
                       <Textarea
                         value={formData.functionSignature?.[langId] || ''}
-                        onChange={(e) => setFormData({ 
+                        onChange={(e) => updateFormData({ 
                           ...formData, 
                           functionSignature: { 
                             ...formData.functionSignature, 

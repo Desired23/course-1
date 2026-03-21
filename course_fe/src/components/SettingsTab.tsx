@@ -14,6 +14,7 @@ import {
   Eye,
   Download
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
@@ -39,6 +40,7 @@ interface SettingsTabProps {
 }
 
 export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
+  const { t } = useTranslation()
   const settings = lesson.settings || {}
 
   const handleSettingUpdate = (key: string, value: any) => {
@@ -57,12 +59,12 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-semibold">Access Control</h4>
+            <h4 className="font-semibold">{t('settings_tab.access_control')}</h4>
           </div>
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="access-level">Access Level</Label>
+              <Label htmlFor="access-level">{t('settings_tab.access_level')}</Label>
               <Select
                 value={settings.accessLevel || 'enrolled'}
                 onValueChange={(value) => handleSettingUpdate('accessLevel', value)}
@@ -71,18 +73,18 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Users (Free Preview)</SelectItem>
-                  <SelectItem value="enrolled">Enrolled Students Only</SelectItem>
-                  <SelectItem value="premium">Premium Members Only</SelectItem>
+                  <SelectItem value="all">{t('settings_tab.access_all')}</SelectItem>
+                  <SelectItem value="enrolled">{t('settings_tab.access_enrolled')}</SelectItem>
+                  <SelectItem value="premium">{t('settings_tab.access_premium')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm">Require Previous Lesson</Label>
+                <Label className="text-sm">{t('settings_tab.require_previous')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Students must complete previous lesson first
+                  {t('settings_tab.require_previous_hint')}
                 </p>
               </div>
               <Switch
@@ -101,12 +103,12 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-semibold">Publishing</h4>
+            <h4 className="font-semibold">{t('settings_tab.publishing')}</h4>
           </div>
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="scheduled-publish">Scheduled Publish Date</Label>
+              <Label htmlFor="scheduled-publish">{t('settings_tab.scheduled_publish')}</Label>
               <Input
                 id="scheduled-publish"
                 type="datetime-local"
@@ -114,7 +116,7 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
                 onChange={(e) => handleSettingUpdate('scheduledPublish', e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Leave empty to publish immediately when status is changed
+                {t('settings_tab.scheduled_publish_hint')}
               </p>
             </div>
 
@@ -122,10 +124,10 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
               <div className="space-y-0.5">
                 <Label className="text-sm flex items-center gap-2">
                   <Bell className="h-3.5 w-3.5" />
-                  Notify Students
+                  {t('settings_tab.notify_students')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Send notification when lesson is published
+                  {t('settings_tab.notify_students_hint')}
                 </p>
               </div>
               <Switch
@@ -144,7 +146,7 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-semibold">Student Features</h4>
+            <h4 className="font-semibold">{t('settings_tab.student_features')}</h4>
           </div>
 
           <div className="space-y-3">
@@ -152,10 +154,10 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
               <div className="space-y-0.5">
                 <Label className="text-sm flex items-center gap-2">
                   <Download className="h-3.5 w-3.5" />
-                  Allow Downloads
+                  {t('settings_tab.allow_downloads')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Let students download lesson resources
+                  {t('settings_tab.allow_downloads_hint')}
                 </p>
               </div>
               <Switch
@@ -166,9 +168,9 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm">Allow Comments</Label>
+                <Label className="text-sm">{t('settings_tab.allow_comments')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Enable Q&A and discussion for this lesson
+                  {t('settings_tab.allow_comments_hint')}
                 </p>
               </div>
               <Switch
@@ -179,9 +181,9 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm">Show Transcript</Label>
+                <Label className="text-sm">{t('settings_tab.show_transcript')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Display video transcript/captions
+                  {t('settings_tab.show_transcript_hint')}
                 </p>
               </div>
               <Switch
@@ -192,9 +194,9 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-sm">Auto-play Next</Label>
+                <Label className="text-sm">{t('settings_tab.autoplay_next')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Automatically play next lesson when complete
+                  {t('settings_tab.autoplay_next_hint')}
                 </p>
               </div>
               <Switch
@@ -213,30 +215,30 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <SettingsIcon className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-semibold">Additional Settings</h4>
+            <h4 className="font-semibold">{t('settings_tab.additional_settings')}</h4>
           </div>
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="seo-keywords">SEO Keywords</Label>
+              <Label htmlFor="seo-keywords">{t('settings_tab.seo_keywords')}</Label>
               <Input
                 id="seo-keywords"
-                placeholder="keyword1, keyword2, keyword3"
+                placeholder={t('settings_tab.seo_keywords_placeholder')}
               />
               <p className="text-xs text-muted-foreground">
-                Comma-separated keywords for search optimization
+                {t('settings_tab.seo_keywords_hint')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="instructor-notes">Instructor Notes (Private)</Label>
+              <Label htmlFor="instructor-notes">{t('settings_tab.instructor_notes')}</Label>
               <Textarea
                 id="instructor-notes"
-                placeholder="Private notes for instructors only..."
+                placeholder={t('settings_tab.instructor_notes_placeholder')}
                 rows={3}
               />
               <p className="text-xs text-muted-foreground">
-                These notes are only visible to course instructors
+                {t('settings_tab.instructor_notes_hint')}
               </p>
             </div>
           </div>

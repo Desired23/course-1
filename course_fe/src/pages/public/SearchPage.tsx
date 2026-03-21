@@ -13,10 +13,6 @@ import { getAllCourses, type CourseListItem, parseDecimal, getEffectivePrice, fo
 import { getActiveCategories, type Category } from '../../services/category.api'
 import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
-const levels = ["Beginner", "Intermediate", "Expert", "All Levels"]
-const languages = ["English", "Spanish", "French", "German", "Portuguese", "Japanese"]
-const durations = ["0-1 Hour", "1-3 Hours", "3-6 Hours", "6-17 Hours", "17+ Hours"]
-
 export function SearchPage() {
   const { t } = useTranslation()
   const { params } = useRouter()
@@ -74,6 +70,22 @@ export function SearchPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [sortBy, setSortBy] = useState("relevance")
   const [showFilters, setShowFilters] = useState(false)
+  const levels = [t('common.beginner'), t('common.intermediate'), t('search_page.expert'), t('common.all_levels')]
+  const languages = [
+    t('language_switcher.english'),
+    t('search_page.language_spanish'),
+    t('search_page.language_french'),
+    t('search_page.language_german'),
+    t('search_page.language_portuguese'),
+    t('search_page.language_japanese'),
+  ]
+  const durations = [
+    t('search_page.duration_very_short'),
+    t('search_page.duration_short'),
+    t('search_page.duration_medium'),
+    t('search_page.duration_long'),
+    t('search_page.duration_very_long'),
+  ]
   
   // Filter and search courses from API data
   const courses = allCourses.filter(course => {
@@ -296,7 +308,7 @@ export function SearchPage() {
                   key={course.id}
                   courseId={`course-${course.id}`}
                   title={course.title}
-                  instructor={course.instructor_name || 'Instructor'}
+                  instructor={course.instructor_name || t('course_detail.by_instructor')}
                   image={course.thumbnail || ''}
                   rating={parseDecimal(course.rating)}
                   reviews={course.total_reviews}

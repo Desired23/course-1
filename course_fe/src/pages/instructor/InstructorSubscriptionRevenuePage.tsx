@@ -16,8 +16,10 @@ import {
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip"
 import { getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount } from '../../services/instructor-earnings.api'
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from '../../services/instructor.api'
+import { useTranslation } from 'react-i18next'
 
 export function InstructorSubscriptionRevenuePage() {
+  const { t } = useTranslation()
   const [period, setPeriod] = useState('7d')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -96,11 +98,11 @@ export function InstructorSubscriptionRevenuePage() {
           const earnings = parseEarningAmount(row.earnings)
           return {
             id: row.course_id,
-            title: row.course_title || 'Unknown',
+            title: row.course_title || t('instructor_subscription_revenue.unknown_course'),
             totalMinutes: row.total_minutes ?? Math.round(earnings * 100),
             share: row.share_pct || '0.0000',
             earnings,
-            engagementType: 'Video + Quizzes',
+            engagementType: t('instructor_subscription_revenue.engagement_type'),
           }
         })
 
@@ -125,13 +127,13 @@ export function InstructorSubscriptionRevenuePage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold">Subscription Revenue</h1>
+            <h1 className="text-3xl font-bold">{t('instructor_subscription_revenue.title')}</h1>
             <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">
-              New 2026 Model
+              {t('instructor_subscription_revenue.new_model_badge')}
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1">
-            Track your earnings from the Revenue Pool (15% Share)
+            {t('instructor_subscription_revenue.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -140,13 +142,13 @@ export function InstructorSubscriptionRevenuePage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7d">Last 7 Days</SelectItem>
-              <SelectItem value="30d">Last 30 Days</SelectItem>
-              <SelectItem value="90d">Last 3 Months</SelectItem>
+              <SelectItem value="7d">{t('instructor_subscription_revenue.period_7d')}</SelectItem>
+              <SelectItem value="30d">{t('instructor_subscription_revenue.period_30d')}</SelectItem>
+              <SelectItem value="90d">{t('instructor_subscription_revenue.period_90d')}</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" /> Export Report
+            <Download className="w-4 h-4 mr-2" /> {t('instructor_subscription_revenue.export_report')}
           </Button>
         </div>
       </div>
@@ -159,27 +161,28 @@ export function InstructorSubscriptionRevenuePage() {
           </div>
           <div>
             <h4 className="text-lg font-bold text-blue-900 dark:text-blue-100 flex items-center gap-2">
-               Revenue Pool Model (2026)
+               {t('instructor_subscription_revenue.pool_model_title')}
             </h4>
             <div className="mt-2 text-sm text-blue-800 dark:text-blue-300 space-y-2">
                <p>
-                 As of January 1, 2026, instructor revenue is calculated based on a <strong>15% Revenue Pool</strong>.
-                 Your earnings are determined by your share of total student engagement.
+                 {t('instructor_subscription_revenue.pool_model_intro_before')}
+                 <strong>{t('instructor_subscription_revenue.pool_model_intro_highlight')}</strong>
+                 {t('instructor_subscription_revenue.pool_model_intro_after')}
                </p>
                
                <div className="bg-white/60 dark:bg-black/20 p-3 rounded border border-blue-100 dark:border-blue-800/50 flex flex-wrap gap-4 items-center font-mono text-xs md:text-sm">
-                  <span className="font-bold">Your Revenue = </span>
+                  <span className="font-bold">{t('instructor_subscription_revenue.formula_revenue')}</span>
                   <div className="flex flex-col items-center">
-                     <span className="border-b border-black dark:border-white px-2">Your Course Minutes</span>
-                     <span>Total System Minutes</span>
+                     <span className="border-b border-black dark:border-white px-2">{t('instructor_subscription_revenue.formula_your_minutes')}</span>
+                     <span>{t('instructor_subscription_revenue.formula_total_minutes')}</span>
                   </div>
-                  <span>×</span>
-                  <span className="font-bold text-green-600 dark:text-green-400">Total Pool (15%)</span>
+                  <span>?</span>
+                  <span className="font-bold text-green-600 dark:text-green-400">{t('instructor_subscription_revenue.formula_total_pool')}</span>
                </div>
                
                <p className="text-xs mt-2 italic flex items-center gap-1">
                  <Info className="w-3 h-3" />
-                 Engagement includes: Video Watch Time, Coding Exercises, Quizzes, and AI Assistant usage.
+                 {t('instructor_subscription_revenue.engagement_includes')}
                </p>
             </div>
           </div>
@@ -190,31 +193,31 @@ export function InstructorSubscriptionRevenuePage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Subscription Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.total_earnings')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center text-green-600">
               ${totalEarnings.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-               {(totalEarnings / totalMinutes * 100).toFixed(4)} cents / min
+               {t('instructor_subscription_revenue.cents_per_minute', { value: (totalEarnings / totalMinutes * 100).toFixed(4) })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Engagement</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.total_engagement')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center">
               {totalMinutes.toLocaleString()}
-              <span className="text-sm font-normal text-muted-foreground ml-1">mins</span>
+              <span className="text-sm font-normal text-muted-foreground ml-1">{t('instructor_subscription_revenue.minutes_short')}</span>
             </div>
             <div className="flex gap-1 mt-1">
-               <Badge variant="secondary" className="text-[10px] h-4">Video</Badge>
-               <Badge variant="secondary" className="text-[10px] h-4">Coding</Badge>
-               <Badge variant="secondary" className="text-[10px] h-4">Quiz</Badge>
+               <Badge variant="secondary" className="text-[10px] h-4">{t('instructor_subscription_revenue.video')}</Badge>
+               <Badge variant="secondary" className="text-[10px] h-4">{t('instructor_subscription_revenue.coding')}</Badge>
+               <Badge variant="secondary" className="text-[10px] h-4">{t('instructor_subscription_revenue.quiz')}</Badge>
             </div>
           </CardContent>
         </Card>
@@ -224,11 +227,11 @@ export function InstructorSubscriptionRevenuePage() {
              <TooltipProvider>
                <UITooltip>
                   <TooltipTrigger className="cursor-help flex items-center gap-1">
-                     <CardTitle className="text-sm font-medium text-muted-foreground">Pool Share</CardTitle>
+                     <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.pool_share')}</CardTitle>
                      <HelpCircle className="w-3 h-3 text-muted-foreground" />
                   </TooltipTrigger>
                   <TooltipContent>
-                     <p>Your contribution to the global learning time</p>
+                     <p>{t('instructor_subscription_revenue.pool_share_tooltip')}</p>
                   </TooltipContent>
                </UITooltip>
              </TooltipProvider>
@@ -237,17 +240,17 @@ export function InstructorSubscriptionRevenuePage() {
             <div className="text-2xl font-bold">
                {((totalMinutes / TOTAL_SYSTEM_MINUTES) * 100).toFixed(4)}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1">of total platform usage</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('instructor_subscription_revenue.platform_usage_share')}</p>
           </CardContent>
         </Card>
 
          <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Qualifying Students</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.qualifying_students')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{qualifyingStudents.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">Paid subscribers only</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('instructor_subscription_revenue.paid_subscribers_only')}</p>
           </CardContent>
         </Card>
       </div>
@@ -256,8 +259,8 @@ export function InstructorSubscriptionRevenuePage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="col-span-1">
           <CardHeader>
-            <CardTitle>Earnings vs Engagement</CardTitle>
-            <CardDescription>Direct correlation between minutes taught and payout</CardDescription>
+            <CardTitle>{t('instructor_subscription_revenue.earnings_vs_engagement')}</CardTitle>
+            <CardDescription>{t('instructor_subscription_revenue.earnings_vs_engagement_desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full min-w-0">
@@ -275,13 +278,13 @@ export function InstructorSubscriptionRevenuePage() {
                   <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
                   <Tooltip 
                      formatter={(value: any, name: any) => [
-                        name === 'Earnings ($)' ? `$${value.toFixed(2)}` : value, 
+                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value, 
                         name
                      ]}
                   />
                   <Legend />
-                  <Area yAxisId="left" type="monotone" dataKey="earnings" name="Earnings ($)" stroke="#3b82f6" fillOpacity={1} fill="url(#colorEarnings)" />
-                  <Area yAxisId="right" type="monotone" dataKey="minutes" name="Engagement (Mins)" stroke="#10b981" fill="transparent" strokeDasharray="5 5" />
+                  <Area yAxisId="left" type="monotone" dataKey="earnings" name={t('instructor_subscription_revenue.chart_earnings')} stroke="#3b82f6" fillOpacity={1} fill="url(#colorEarnings)" />
+                  <Area yAxisId="right" type="monotone" dataKey="minutes" name={t('instructor_subscription_revenue.chart_engagement')} stroke="#10b981" fill="transparent" strokeDasharray="5 5" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -290,8 +293,8 @@ export function InstructorSubscriptionRevenuePage() {
 
         <Card className="col-span-1">
           <CardHeader>
-            <CardTitle>Course Contribution</CardTitle>
-            <CardDescription>Which courses are driving your pool share</CardDescription>
+            <CardTitle>{t('instructor_subscription_revenue.course_contribution')}</CardTitle>
+            <CardDescription>{t('instructor_subscription_revenue.course_contribution_desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full min-w-0">
@@ -302,11 +305,11 @@ export function InstructorSubscriptionRevenuePage() {
                   <YAxis dataKey="title" type="category" width={150} style={{ fontSize: '12px' }} />
                   <Tooltip 
                      formatter={(value: any, name: any) => [
-                        name === 'Earnings ($)' ? `$${value.toFixed(2)}` : value, 
+                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value, 
                         name
                      ]}
                   />
-                  <Bar dataKey="earnings" name="Earnings ($)" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                  <Bar dataKey="earnings" name={t('instructor_subscription_revenue.chart_earnings')} fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -317,46 +320,46 @@ export function InstructorSubscriptionRevenuePage() {
       {/* Breakdown Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Engagement Details</CardTitle>
-          <CardDescription>Breakdown by course including Coding Exercises & Quizzes</CardDescription>
+          <CardTitle>{t('instructor_subscription_revenue.engagement_details')}</CardTitle>
+          <CardDescription>{t('instructor_subscription_revenue.engagement_details_desc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <Input
               className="md:col-span-2"
-              placeholder="Search by course name..."
+              placeholder={t('instructor_subscription_revenue.search_placeholder')}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
             <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'earnings_desc' | 'earnings_asc' | 'share_desc' | 'share_asc' | 'course_asc' | 'course_desc')}>
               <SelectTrigger>
-                <SelectValue placeholder="Sort By" />
+                <SelectValue placeholder={t('instructor_subscription_revenue.sort_by')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="earnings_desc">Highest Revenue</SelectItem>
-                <SelectItem value="earnings_asc">Lowest Revenue</SelectItem>
-                <SelectItem value="share_desc">Highest Share %</SelectItem>
-                <SelectItem value="share_asc">Lowest Share %</SelectItem>
-                <SelectItem value="course_asc">Course Name A-Z</SelectItem>
-                <SelectItem value="course_desc">Course Name Z-A</SelectItem>
+                <SelectItem value="earnings_desc">{t('instructor_subscription_revenue.sort_highest_revenue')}</SelectItem>
+                <SelectItem value="earnings_asc">{t('instructor_subscription_revenue.sort_lowest_revenue')}</SelectItem>
+                <SelectItem value="share_desc">{t('instructor_subscription_revenue.sort_highest_share')}</SelectItem>
+                <SelectItem value="share_asc">{t('instructor_subscription_revenue.sort_lowest_share')}</SelectItem>
+                <SelectItem value="course_asc">{t('instructor_subscription_revenue.sort_course_asc')}</SelectItem>
+                <SelectItem value="course_desc">{t('instructor_subscription_revenue.sort_course_desc')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Course Name</TableHead>
-                <TableHead>Included Activities</TableHead>
-                <TableHead className="text-right">Minutes (Total)</TableHead>
-                <TableHead className="text-right">Pool Share %</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
+                <TableHead>{t('instructor_subscription_revenue.course_name')}</TableHead>
+                <TableHead>{t('instructor_subscription_revenue.included_activities')}</TableHead>
+                <TableHead className="text-right">{t('instructor_subscription_revenue.minutes_total')}</TableHead>
+                <TableHead className="text-right">{t('instructor_subscription_revenue.pool_share_percent')}</TableHead>
+                <TableHead className="text-right">{t('instructor_subscription_revenue.revenue')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {!listLoading && courseBreakdown.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
-                    No data found.
+                    {t('instructor_subscription_revenue.no_data')}
                   </TableCell>
                 </TableRow>
               )}
@@ -378,12 +381,12 @@ export function InstructorSubscriptionRevenuePage() {
             </TableBody>
           </Table>
           {listLoading && (
-            <div className="mt-4 text-sm text-muted-foreground">Loading data...</div>
+            <div className="mt-4 text-sm text-muted-foreground">{t('instructor_subscription_revenue.loading_data')}</div>
           )}
           {totalCount > 0 && (
             <div className="mt-4">
               <div className="text-sm text-muted-foreground mb-2">
-                Showing page {currentPage} of {totalPages} ({totalCount} total records)
+                {t('instructor_subscription_revenue.pagination_summary', { currentPage, totalPages, totalCount })}
               </div>
               <UserPagination
                 currentPage={currentPage}

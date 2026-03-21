@@ -16,11 +16,13 @@ import {
   getDurationLabel,
   getSubscriptionStatusLabel,
 } from "../../services/subscription.api"
+import { useTranslation } from "react-i18next"
 
 type StatusFilter = 'all' | 'active' | 'cancelled' | 'expired'
 type SortBy = 'newest' | 'oldest' | 'end_date_desc' | 'end_date_asc'
 
 export function UserSubscriptionsPage() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([])
   const [loading, setLoading] = useState(true)
@@ -100,11 +102,11 @@ export function UserSubscriptionsPage() {
     setIsCancelling(true)
     try {
       await cancelSubscription(activeSubscription.id)
-      toast.success("Auto-renew has been cancelled. Access remains until the current period ends.")
+      toast.success(t('subscriptions_page.cancel_success'))
       setShowCancelDialog(false)
       fetchSubscriptions()
     } catch {
-      toast.error("Failed to cancel subscription. Please try again.")
+      toast.error(t('subscriptions_page.cancel_failed'))
     } finally {
       setIsCancelling(false)
     }
@@ -128,7 +130,7 @@ export function UserSubscriptionsPage() {
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-4 md:p-8">
-        <p className="text-muted-foreground">Loading subscription data...</p>
+        <p className="text-muted-foreground">{t('subscriptions_page.loading')}</p>
       </div>
     )
   }
@@ -140,8 +142,8 @@ export function UserSubscriptionsPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Subscription Management</h1>
-        <p className="text-muted-foreground mt-2">View your plan details, payment cycle, and subscription history.</p>
+        <h1 className="text-2xl font-bold">{t('subscriptions_page.title')}</h1>
+        <p className="text-muted-foreground mt-2">{t('subscriptions_page.subtitle')}</p>
       </div>
 
       {activeSubscription ? (
@@ -166,7 +168,7 @@ export function UserSubscriptionsPage() {
 
                 <div className="text-right">
                   <p className="text-2xl font-bold">{formatCurrency(planPrice)}</p>
-                  <p className="text-sm text-muted-foreground">/ cycle</p>
+                  <p className="text-sm text-muted-foreground">{t('subscriptions_page.per_cycle')}</p>
                 </div>
               </div>
             </div>
@@ -174,24 +176,24 @@ export function UserSubscriptionsPage() {
             <CardContent className="p-6 space-y-6">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm font-medium">
-                  <span className="text-muted-foreground">Remaining period</span>
-                  <span className={getDaysRemaining() < 7 ? "text-red-500" : "text-green-600"}>{getDaysRemaining()} days</span>
+                  <span className="text-muted-foreground">{t('subscriptions_page.remaining_period')}</span>
+                  <span className={getDaysRemaining() < 7 ? "text-red-500" : "text-green-600"}>{t('subscriptions_page.days_remaining', { count: getDaysRemaining() })}</span>
                 </div>
                 <Progress value={getProgressPercentage()} className="h-2.5" />
                 <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>Start: {formatDate(activeSubscription.start_date)}</span>
-                  <span>End: {activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Lifetime'}</span>
+                  <span>{t('subscriptions_page.start_label', { date: formatDate(activeSubscription.start_date) })}</span>
+                  <span>{t('subscriptions_page.end_label', { date: activeSubscription.end_date ? formatDate(activeSubscription.end_date) : t('subscriptions_page.lifetime') })}</span>
                 </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6 pt-4">
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Details</h3>
+                  <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{t('subscriptions_page.details')}</h3>
 
                   <div className="flex items-center justify-between py-2 border-b border-dashed">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>Start date</span>
+                      <span>{t('subscriptions_page.start_date')}</span>
                     </div>
                     <span className="text-sm font-medium">{formatDate(activeSubscription.start_date)}</span>
                   </div>
@@ -199,18 +201,18 @@ export function UserSubscriptionsPage() {
                   <div className="flex items-center justify-between py-2 border-b border-dashed">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>End date</span>
+                      <span>{t('subscriptions_page.end_date')}</span>
                     </div>
-                    <span className="text-sm font-medium">{activeSubscription.end_date ? formatDate(activeSubscription.end_date) : 'Lifetime'}</span>
+                    <span className="text-sm font-medium">{activeSubscription.end_date ? formatDate(activeSubscription.end_date) : t('subscriptions_page.lifetime')}</span>
                   </div>
 
                   <div className="flex items-center justify-between py-2 border-b border-dashed">
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                      <span>Auto renew</span>
+                      <span>{t('subscriptions_page.auto_renew')}</span>
                     </div>
                     <Badge variant={activeSubscription.auto_renew ? "outline" : "secondary"}>
-                      {activeSubscription.auto_renew ? "Enabled" : "Disabled"}
+                      {activeSubscription.auto_renew ? t('subscriptions_page.enabled') : t('subscriptions_page.disabled')}
                     </Badge>
                   </div>
 
@@ -218,7 +220,7 @@ export function UserSubscriptionsPage() {
                     <div className="flex items-center justify-between py-2 border-b border-dashed">
                       <div className="flex items-center gap-2 text-sm">
                         <X className="h-4 w-4 text-muted-foreground" />
-                        <span>Cancelled at</span>
+                        <span>{t('subscriptions_page.cancelled_at')}</span>
                       </div>
                       <span className="text-sm font-medium">{formatDate(activeSubscription.cancelled_at)}</span>
                     </div>
@@ -226,13 +228,13 @@ export function UserSubscriptionsPage() {
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4">
-                  <h3 className="font-semibold text-sm mb-3">Plan benefits</h3>
+                  <h3 className="font-semibold text-sm mb-3">{t('subscriptions_page.plan_benefits')}</h3>
                   <ul className="space-y-2.5">
                     {(planFeatures.length > 0 ? planFeatures : [
-                      'Unlimited course access',
-                      'Certificate support',
-                      'Downloadable resources',
-                      'Priority support',
+                      t('subscriptions_page.default_benefit_1'),
+                      t('subscriptions_page.default_benefit_2'),
+                      t('subscriptions_page.default_benefit_3'),
+                      t('subscriptions_page.default_benefit_4'),
                     ]).map((benefit: string, i: number) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
                         <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
@@ -243,7 +245,7 @@ export function UserSubscriptionsPage() {
 
                   <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/pricing')}>
                     <ArrowUpRight className="w-4 h-4 mr-2" />
-                    View other plans
+                    {t('subscriptions_page.view_other_plans')}
                   </Button>
                 </div>
               </div>
@@ -252,13 +254,13 @@ export function UserSubscriptionsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Subscription History</CardTitle>
+              <CardTitle>{t('subscriptions_page.history_title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                 <input
                   className="h-9 rounded-md border px-3 text-sm"
-                  placeholder="Search by plan name"
+                  placeholder={t('subscriptions_page.search_placeholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -267,29 +269,29 @@ export function UserSubscriptionsPage() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
                 >
-                  <option value="all">All status</option>
-                  <option value="active">Active</option>
-                  <option value="cancelled">Cancelled</option>
-                  <option value="expired">Expired</option>
+                  <option value="all">{t('subscriptions_page.all_status')}</option>
+                  <option value="active">{t('subscriptions_page.active')}</option>
+                  <option value="cancelled">{t('subscriptions_page.cancelled')}</option>
+                  <option value="expired">{t('subscriptions_page.expired')}</option>
                 </select>
                 <select
                   className="h-9 rounded-md border px-3 text-sm"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortBy)}
                 >
-                  <option value="newest">Newest created</option>
-                  <option value="oldest">Oldest created</option>
-                  <option value="end_date_desc">Latest end date</option>
-                  <option value="end_date_asc">Earliest end date</option>
+                  <option value="newest">{t('subscriptions_page.sort_newest')}</option>
+                  <option value="oldest">{t('subscriptions_page.sort_oldest')}</option>
+                  <option value="end_date_desc">{t('subscriptions_page.sort_latest_end')}</option>
+                  <option value="end_date_asc">{t('subscriptions_page.sort_earliest_end')}</option>
                 </select>
                 <select
                   className="h-9 rounded-md border px-3 text-sm"
                   value={String(pageSize)}
                   onChange={(e) => setPageSize(Number(e.target.value))}
                 >
-                  <option value="5">5 / page</option>
-                  <option value="10">10 / page</option>
-                  <option value="20">20 / page</option>
+                  <option value="5">{t('subscriptions_page.per_page', { count: 5 })}</option>
+                  <option value="10">{t('subscriptions_page.per_page', { count: 10 })}</option>
+                  <option value="20">{t('subscriptions_page.per_page', { count: 20 })}</option>
                 </select>
                 <Button
                   variant="ghost"
@@ -299,12 +301,12 @@ export function UserSubscriptionsPage() {
                     setSortBy('newest')
                   }}
                 >
-                  Clear filters
+                  {t('subscriptions_page.clear_filters')}
                 </Button>
               </div>
 
               {subscriptions.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No subscriptions match your filters.</div>
+                <div className="text-center py-8 text-muted-foreground">{t('subscriptions_page.no_results')}</div>
               ) : (
                 <>
                   <div className="space-y-2">
@@ -313,13 +315,13 @@ export function UserSubscriptionsPage() {
                         <div>
                           <p className="font-medium">{sub.plan_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Start: {formatDate(sub.start_date)}
-                            {' '}| End: {sub.end_date ? formatDate(sub.end_date) : 'Lifetime'}
+                            {t('subscriptions_page.start_label', { date: formatDate(sub.start_date) })}
+                            {' '}| {t('subscriptions_page.end_label', { date: sub.end_date ? formatDate(sub.end_date) : t('subscriptions_page.lifetime') })}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{getSubscriptionStatusLabel(sub.status)}</Badge>
-                          {sub.auto_renew && <Badge>Auto renew</Badge>}
+                          {sub.auto_renew && <Badge>{t('subscriptions_page.auto_renew')}</Badge>}
                         </div>
                       </div>
                     ))}
@@ -327,7 +329,7 @@ export function UserSubscriptionsPage() {
 
                   <div className="flex items-center justify-between pt-2">
                     <p className="text-sm text-muted-foreground">
-                      Page {currentPage}/{totalPages} - Total {totalCount} subscriptions
+                      {t('subscriptions_page.pagination_summary', { current: currentPage, totalPages, totalCount })}
                     </p>
                     <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                   </div>
@@ -339,10 +341,10 @@ export function UserSubscriptionsPage() {
           <div className="flex gap-3">
             {activeSubscription.status === 'active' && activeSubscription.auto_renew && (
               <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setShowCancelDialog(true)}>
-                Cancel auto-renew
+                {t('subscriptions_page.cancel_auto_renew')}
               </Button>
             )}
-            <Button variant="outline" onClick={() => navigate('/user/payment-methods')}>Manage payment methods</Button>
+            <Button variant="outline" onClick={() => navigate('/user/payment-methods')}>{t('subscriptions_page.manage_payment_methods')}</Button>
           </div>
 
           <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
@@ -350,16 +352,16 @@ export function UserSubscriptionsPage() {
               <DialogHeader>
                 <DialogTitle className="text-destructive flex items-center gap-2">
                   <AlertCircle className="w-5 h-5" />
-                  Confirm cancel auto-renew
+                  {t('subscriptions_page.confirm_cancel_title')}
                 </DialogTitle>
                 <DialogDescription>
-                  You will keep access until current cycle ends.
+                  {t('subscriptions_page.confirm_cancel_description')}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowCancelDialog(false)}>Close</Button>
+                <Button variant="outline" onClick={() => setShowCancelDialog(false)}>{t('common.close')}</Button>
                 <Button variant="destructive" onClick={handleCancelSubscription} disabled={isCancelling}>
-                  {isCancelling ? 'Processing...' : 'Cancel auto-renew'}
+                  {isCancelling ? t('subscriptions_page.processing') : t('subscriptions_page.cancel_auto_renew')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -371,11 +373,11 @@ export function UserSubscriptionsPage() {
             <div className="h-20 w-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-6">
               <Crown className="h-10 w-10 text-slate-400" />
             </div>
-            <h2 className="text-xl font-bold mb-2">No active subscription yet</h2>
-            <p className="text-muted-foreground max-w-md mb-8">Upgrade to unlock full catalog access and premium benefits.</p>
+            <h2 className="text-xl font-bold mb-2">{t('subscriptions_page.no_active_title')}</h2>
+            <p className="text-muted-foreground max-w-md mb-8">{t('subscriptions_page.no_active_description')}</p>
             <Button size="lg" onClick={() => navigate('/pricing')}>
               <Zap className="w-4 h-4 mr-2" />
-              View plans
+              {t('subscriptions_page.view_plans')}
             </Button>
           </CardContent>
         </Card>

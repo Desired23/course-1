@@ -105,6 +105,19 @@ def get_quiz_results_by_enrollment(enrollment_id):
     except Exception as e:
         raise ValidationError(f"Error retrieving quiz results: {str(e)}")
 
+def get_quiz_result_by_enrollment_and_lesson(enrollment_id, lesson_id):
+    try:
+        quiz_result = QuizResult.objects.filter(
+            enrollment=enrollment_id,
+            lesson=lesson_id,
+            is_deleted=False
+        ).first()
+        if not quiz_result:
+            return None
+        return QuizResultSerializer(quiz_result).data
+    except Exception as e:
+        raise ValidationError(f"Error retrieving quiz result: {str(e)}")
+
 def get_all_quiz_results():
     try:
         quiz_results = QuizResult.objects.all()

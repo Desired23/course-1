@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from './ui/utils'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { uploadFiles } from '../services/upload.api'
 import {
   createAttachment,
@@ -67,6 +68,7 @@ function formatFileSize(bytes?: number | null): string {
 }
 
 export function ResourcesTab({ lesson }: ResourcesTabProps) {
+  const { t } = useTranslation()
   const [resources, setResources] = useState<LessonAttachment[]>([])
   const [showAddLink, setShowAddLink] = useState(false)
   const [linkName, setLinkName] = useState('')
@@ -82,7 +84,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
       setResources(list)
     } catch (error) {
       console.error(error)
-      toast.error('Failed to load resources')
+      toast.error(t('lesson_editor.load_resources_failed'))
     } finally {
       setIsLoading(false)
     }
@@ -115,12 +117,12 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
         )
       )
 
-      toast.success(`Uploaded ${uploaded.length} resource(s)`)
+      toast.success(t('lesson_editor.uploaded_resources', { count: uploaded.length }))
       await loadResources()
       e.target.value = ''
     } catch (error) {
       console.error(error)
-      toast.error('Upload failed. Please try again.')
+      toast.error(t('lesson_editor.upload_failed_retry'))
     } finally {
       setIsUploading(false)
     }
@@ -128,7 +130,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
 
   const handleAddLink = async () => {
     if (!linkName.trim() || !linkUrl.trim()) {
-      toast.error('Please enter both name and URL')
+      toast.error(t('lesson_editor.enter_link_name_and_url'))
       return
     }
 
@@ -139,14 +141,14 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
         file_path: linkUrl.trim(),
         file_type: 'link',
       })
-      toast.success('Link added successfully')
+      toast.success(t('lesson_editor.link_added'))
       setLinkName('')
       setLinkUrl('')
       setShowAddLink(false)
       await loadResources()
     } catch (error) {
       console.error(error)
-      toast.error('Failed to add link')
+      toast.error(t('lesson_editor.link_add_failed'))
     }
   }
 
@@ -154,17 +156,17 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
     try {
       await deleteAttachment(id)
       setResources(prev => prev.filter(r => r.id !== id))
-      toast.success('Resource removed')
+      toast.success(t('lesson_editor.resource_removed'))
     } catch (error) {
       console.error(error)
-      toast.error('Failed to remove resource')
+      toast.error(t('lesson_editor.resource_remove_failed'))
     }
   }
 
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>Attach Resources</Label>
+        <Label>{t('lesson_editor.attach_resources')}</Label>
         <Card className="p-6 border-2 border-dashed">
           <div className="text-center space-y-4">
             <div className="flex justify-center">
@@ -174,8 +176,8 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
             </div>
 
             <div className="space-y-2">
-              <h4 className="font-semibold text-sm">Upload Files</h4>
-              <p className="text-sm text-muted-foreground">PDFs, documents, images, archives or links</p>
+              <h4 className="font-semibold text-sm">{t('lesson_editor.upload_files')}</h4>
+              <p className="text-sm text-muted-foreground">{t('lesson_editor.upload_files_hint')}</p>
             </div>
 
             <div className="flex justify-center gap-2">
@@ -186,7 +188,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
                 onClick={() => document.getElementById('resource-upload')?.click()}
               >
                 {isUploading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                Choose Files
+                {t('lesson_editor.choose_files')}
               </Button>
               <input
                 id="resource-upload"
@@ -198,7 +200,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
 
               <Button variant="outline" size="sm" onClick={() => setShowAddLink(!showAddLink)}>
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Add Link
+                {t('lesson_editor.add_link')}
               </Button>
             </div>
           </div>
@@ -209,7 +211,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
         <Card className="p-4 border-primary/50">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="font-semibold">Add External Link</Label>
+              <Label className="font-semibold">{t('lesson_editor.add_external_link')}</Label>
               <Button variant="ghost" size="sm" onClick={() => setShowAddLink(false)}>
                 <X className="h-4 w-4" />
               </Button>
@@ -217,8 +219,8 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
 
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="link-name">Link Name</Label>
-                <Input id="link-name" value={linkName} onChange={(e) => setLinkName(e.target.value)} placeholder="e.g., Official Documentation" />
+                <Label htmlFor="link-name">{t('lesson_editor.link_name')}</Label>
+                <Input id="link-name" value={linkName} onChange={(e) => setLinkName(e.target.value)} placeholder={t('lesson_editor.link_name_placeholder')} />
               </div>
 
               <div className="space-y-2">
@@ -228,7 +230,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
 
               <Button onClick={handleAddLink} className="w-full">
                 <Paperclip className="h-4 w-4 mr-2" />
-                Add Link
+                {t('lesson_editor.add_link')}
               </Button>
             </div>
           </div>
@@ -237,7 +239,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
 
       {resources.length > 0 && (
         <div className="space-y-2">
-          <Label>Attached Resources ({resources.length})</Label>
+          <Label>{t('lesson_editor.attached_resources', { count: resources.length })}</Label>
           <div className="space-y-2">
             {resources.map((resource) => {
               const resourceType = (resource.file_type || getFileType(resource.file_path || '')).toLowerCase()
@@ -283,7 +285,7 @@ export function ResourcesTab({ lesson }: ResourcesTabProps) {
         <Card className="p-8 bg-muted/30">
           <div className="text-center text-muted-foreground">
             {isLoading ? <Loader2 className="h-8 w-8 mx-auto mb-2 opacity-70 animate-spin" /> : <Paperclip className="h-8 w-8 mx-auto mb-2 opacity-20" />}
-            <p className="text-sm">{isLoading ? 'Loading resources...' : 'No resources attached yet'}</p>
+            <p className="text-sm">{isLoading ? t('lesson_editor.loading_resources') : t('lesson_editor.no_resources')}</p>
           </div>
         </Card>
       )}

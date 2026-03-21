@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
+import { useTranslation } from 'react-i18next'
 
 interface BannerConfig {
   id: string
@@ -37,6 +38,7 @@ interface SocialLinks {
 }
 
 export function AdminWebsiteSettingsPage() {
+  const { t } = useTranslation()
   const [settingsMap, setSettingsMap] = useState<Record<string, SystemSetting>>({})
   const [siteName, setSiteName] = useState('Udemy Clone')
   const [siteDescription, setSiteDescription] = useState('Learn anything, anytime, anywhere')
@@ -82,7 +84,7 @@ export function AdminWebsiteSettingsPage() {
           try { setBanners(JSON.parse(map['banners'].value)) } catch {}
         }
       } catch {
-        toast.error('Không thể tải cài đặt hệ thống')
+        toast.error(t('admin_website_settings.load_failed'))
       }
     }
     loadSettings()
@@ -108,8 +110,8 @@ export function AdminWebsiteSettingsPage() {
         saveSetting('site_name', siteName),
         saveSetting('site_description', siteDescription)
       ])
-      toast.success('General settings saved successfully!')
-    } catch { toast.error('Lưu thất bại') }
+      toast.success(t('admin_website_settings.general_saved'))
+    } catch { toast.error(t('admin_website_settings.save_failed')) }
   }
 
   const handleSaveBranding = async () => {
@@ -120,8 +122,8 @@ export function AdminWebsiteSettingsPage() {
         saveSetting('primary_color', primaryColor),
         saveSetting('secondary_color', secondaryColor)
       ])
-      toast.success('Branding settings saved successfully!')
-    } catch { toast.error('Lưu thất bại') }
+      toast.success(t('admin_website_settings.branding_saved'))
+    } catch { toast.error(t('admin_website_settings.save_failed')) }
   }
 
   const handleSaveContact = async () => {
@@ -131,22 +133,22 @@ export function AdminWebsiteSettingsPage() {
         saveSetting('contact_phone', contactPhone),
         saveSetting('contact_address', contactAddress)
       ])
-      toast.success('Contact information saved successfully!')
-    } catch { toast.error('Lưu thất bại') }
+      toast.success(t('admin_website_settings.contact_saved'))
+    } catch { toast.error(t('admin_website_settings.save_failed')) }
   }
 
   const handleSaveSocial = async () => {
     try {
       await saveSetting('social_links', JSON.stringify(socialLinks))
-      toast.success('Social links saved successfully!')
-    } catch { toast.error('Lưu thất bại') }
+      toast.success(t('admin_website_settings.social_saved'))
+    } catch { toast.error(t('admin_website_settings.save_failed')) }
   }
 
   const handleSaveBanners = async () => {
     try {
       await saveSetting('banners', JSON.stringify(banners))
-      toast.success('Banners saved successfully!')
-    } catch { toast.error('Lưu thất bại') }
+      toast.success(t('admin_website_settings.banners_saved'))
+    } catch { toast.error(t('admin_website_settings.save_failed')) }
   }
 
   const handleToggleBanner = (id: string) => {
@@ -181,37 +183,37 @@ export function AdminWebsiteSettingsPage() {
     }))
     
     setBanners(reorderedBanners)
-    toast.success('Banner order updated!')
+    toast.success(t('admin_website_settings.banner_order_updated'))
   }
 
   return (
     <div className="p-6 space-y-6">
       <AdminHeader
-        title="Website Settings"
-        subtitle="Manage your website configuration, branding, and content"
+        title={t('admin_website_settings.title')}
+        subtitle={t('admin_website_settings.subtitle')}
       />
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">
             <Settings className="w-4 h-4 mr-2" />
-            General
+            {t('admin_website_settings.tabs.general')}
           </TabsTrigger>
           <TabsTrigger value="branding">
             <Palette className="w-4 h-4 mr-2" />
-            Branding
+            {t('admin_website_settings.tabs.branding')}
           </TabsTrigger>
           <TabsTrigger value="contact">
             <Phone className="w-4 h-4 mr-2" />
-            Contact
+            {t('admin_website_settings.tabs.contact')}
           </TabsTrigger>
           <TabsTrigger value="social">
             <Globe className="w-4 h-4 mr-2" />
-            Social Media
+            {t('admin_website_settings.tabs.social')}
           </TabsTrigger>
           <TabsTrigger value="banners">
             <ImageIcon className="w-4 h-4 mr-2" />
-            Banners
+            {t('admin_website_settings.tabs.banners')}
           </TabsTrigger>
         </TabsList>
 
@@ -219,36 +221,34 @@ export function AdminWebsiteSettingsPage() {
         <TabsContent value="general" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>General Information</CardTitle>
-              <CardDescription>
-                Basic information about your website
-              </CardDescription>
+              <CardTitle>{t('admin_website_settings.general.title')}</CardTitle>
+              <CardDescription>{t('admin_website_settings.general.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="siteName">Site Name</Label>
+                <Label htmlFor="siteName">{t('admin_website_settings.general.site_name')}</Label>
                 <Input
                   id="siteName"
                   value={siteName}
                   onChange={(e) => setSiteName(e.target.value)}
-                  placeholder="Enter site name"
+                  placeholder={t('admin_website_settings.general.site_name_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="siteDescription">Site Description</Label>
+                <Label htmlFor="siteDescription">{t('admin_website_settings.general.site_description')}</Label>
                 <Textarea
                   id="siteDescription"
                   value={siteDescription}
                   onChange={(e) => setSiteDescription(e.target.value)}
-                  placeholder="Enter site description"
+                  placeholder={t('admin_website_settings.general.site_description_placeholder')}
                   rows={3}
                 />
               </div>
 
               <Button onClick={handleSaveGeneral} className="gap-2">
                 <Save className="w-4 h-4" />
-                Save General Settings
+                {t('admin_website_settings.general.save')}
               </Button>
             </CardContent>
           </Card>
@@ -258,15 +258,13 @@ export function AdminWebsiteSettingsPage() {
         <TabsContent value="branding" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Brand Identity</CardTitle>
-              <CardDescription>
-                Customize your brand logo and colors
-              </CardDescription>
+              <CardTitle>{t('admin_website_settings.branding.title')}</CardTitle>
+              <CardDescription>{t('admin_website_settings.branding.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="siteLogo">Site Logo</Label>
+                  <Label htmlFor="siteLogo">{t('admin_website_settings.branding.site_logo')}</Label>
                   <div className="flex items-center gap-4">
                     <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted">
                       <ImageIcon className="w-8 h-8 text-muted-foreground" />
@@ -276,21 +274,21 @@ export function AdminWebsiteSettingsPage() {
                         id="siteLogo"
                         value={siteLogo}
                         onChange={(e) => setSiteLogo(e.target.value)}
-                        placeholder="Logo URL"
+                        placeholder={t('admin_website_settings.branding.logo_placeholder')}
                       />
                       <Button variant="outline" size="sm" className="gap-2">
                         <Upload className="w-4 h-4" />
-                        Upload Logo
+                        {t('admin_website_settings.branding.upload_logo')}
                       </Button>
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Recommended: 256x256px, PNG format
+                    {t('admin_website_settings.branding.logo_recommendation')}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="favicon">Favicon</Label>
+                  <Label htmlFor="favicon">{t('admin_website_settings.branding.favicon')}</Label>
                   <div className="flex items-center gap-4">
                     <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted">
                       <ImageIcon className="w-8 h-8 text-muted-foreground" />
@@ -300,23 +298,23 @@ export function AdminWebsiteSettingsPage() {
                         id="favicon"
                         value={favicon}
                         onChange={(e) => setFavicon(e.target.value)}
-                        placeholder="Favicon URL"
+                        placeholder={t('admin_website_settings.branding.favicon_placeholder')}
                       />
                       <Button variant="outline" size="sm" className="gap-2">
                         <Upload className="w-4 h-4" />
-                        Upload Favicon
+                        {t('admin_website_settings.branding.upload_favicon')}
                       </Button>
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Recommended: 32x32px, ICO or PNG format
+                    {t('admin_website_settings.branding.favicon_recommendation')}
                   </p>
                 </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="primaryColor">Primary Color</Label>
+                  <Label htmlFor="primaryColor">{t('admin_website_settings.branding.primary_color')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="primaryColor"
@@ -334,7 +332,7 @@ export function AdminWebsiteSettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="secondaryColor">Secondary Color</Label>
+                  <Label htmlFor="secondaryColor">{t('admin_website_settings.branding.secondary_color')}</Label>
                   <div className="flex gap-2">
                     <Input
                       id="secondaryColor"
@@ -354,7 +352,7 @@ export function AdminWebsiteSettingsPage() {
 
               <Button onClick={handleSaveBranding} className="gap-2">
                 <Save className="w-4 h-4" />
-                Save Branding Settings
+                {t('admin_website_settings.branding.save')}
               </Button>
             </CardContent>
           </Card>
@@ -364,56 +362,54 @@ export function AdminWebsiteSettingsPage() {
         <TabsContent value="contact" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
-              <CardDescription>
-                How users can reach you
-              </CardDescription>
+              <CardTitle>{t('admin_website_settings.contact.title')}</CardTitle>
+              <CardDescription>{t('admin_website_settings.contact.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="contactEmail" className="flex items-center gap-2">
                   <Mail className="w-4 h-4" />
-                  Email Address
+                  {t('admin_website_settings.contact.email')}
                 </Label>
                 <Input
                   id="contactEmail"
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
-                  placeholder="support@example.com"
+                  placeholder={t('admin_website_settings.contact.email_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="contactPhone" className="flex items-center gap-2">
                   <Phone className="w-4 h-4" />
-                  Phone Number
+                  {t('admin_website_settings.contact.phone')}
                 </Label>
                 <Input
                   id="contactPhone"
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
-                  placeholder="+84 123 456 789"
+                  placeholder={t('admin_website_settings.contact.phone_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="contactAddress" className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
-                  Address
+                  {t('admin_website_settings.contact.address')}
                 </Label>
                 <Textarea
                   id="contactAddress"
                   value={contactAddress}
                   onChange={(e) => setContactAddress(e.target.value)}
-                  placeholder="Enter your business address"
+                  placeholder={t('admin_website_settings.contact.address_placeholder')}
                   rows={3}
                 />
               </div>
 
               <Button onClick={handleSaveContact} className="gap-2">
                 <Save className="w-4 h-4" />
-                Save Contact Information
+                {t('admin_website_settings.contact.save')}
               </Button>
             </CardContent>
           </Card>
@@ -423,10 +419,8 @@ export function AdminWebsiteSettingsPage() {
         <TabsContent value="social" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Social Media Links</CardTitle>
-              <CardDescription>
-                Connect your social media accounts
-              </CardDescription>
+              <CardTitle>{t('admin_website_settings.social.title')}</CardTitle>
+              <CardDescription>{t('admin_website_settings.social.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -445,7 +439,7 @@ export function AdminWebsiteSettingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="twitter" className="flex items-center gap-2">
                   <Twitter className="w-4 h-4" />
-                  Twitter / X
+                  {t('admin_website_settings.social.twitter')}
                 </Label>
                 <Input
                   id="twitter"
@@ -496,7 +490,7 @@ export function AdminWebsiteSettingsPage() {
 
               <Button onClick={handleSaveSocial} className="gap-2">
                 <Save className="w-4 h-4" />
-                Save Social Links
+                {t('admin_website_settings.social.save')}
               </Button>
             </CardContent>
           </Card>
@@ -506,10 +500,8 @@ export function AdminWebsiteSettingsPage() {
         <TabsContent value="banners" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Homepage Banners</CardTitle>
-              <CardDescription>
-                Manage promotional banners on your homepage. Drag to reorder.
-              </CardDescription>
+              <CardTitle>{t('admin_website_settings.banners.title')}</CardTitle>
+              <CardDescription>{t('admin_website_settings.banners.description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {banners.map((banner, index) => (
@@ -533,10 +525,10 @@ export function AdminWebsiteSettingsPage() {
                               newBanners[index].title = e.target.value
                               setBanners(newBanners)
                             }}
-                            placeholder="Banner title"
+                            placeholder={t('admin_website_settings.banners.banner_title_placeholder')}
                           />
                           <Badge variant={banner.enabled ? "default" : "secondary"}>
-                            Order: {banner.order}
+                            {t('admin_website_settings.banners.order_label', { order: banner.order })}
                           </Badge>
                         </div>
                         <Input
@@ -546,7 +538,7 @@ export function AdminWebsiteSettingsPage() {
                             newBanners[index].description = e.target.value
                             setBanners(newBanners)
                           }}
-                          placeholder="Banner description"
+                          placeholder={t('admin_website_settings.banners.banner_description_placeholder')}
                         />
                         <div className="grid grid-cols-2 gap-2">
                           <Input
@@ -556,7 +548,7 @@ export function AdminWebsiteSettingsPage() {
                               newBanners[index].cta = e.target.value
                               setBanners(newBanners)
                             }}
-                            placeholder="Button text"
+                            placeholder={t('admin_website_settings.banners.button_text_placeholder')}
                           />
                           <Input
                             value={banner.link}
@@ -565,7 +557,7 @@ export function AdminWebsiteSettingsPage() {
                               newBanners[index].link = e.target.value
                               setBanners(newBanners)
                             }}
-                            placeholder="Button link"
+                            placeholder={t('admin_website_settings.banners.button_link_placeholder')}
                           />
                         </div>
                         <Input
@@ -575,7 +567,7 @@ export function AdminWebsiteSettingsPage() {
                             newBanners[index].image = e.target.value
                             setBanners(newBanners)
                           }}
-                          placeholder="Image URL"
+                          placeholder={t('admin_website_settings.banners.image_placeholder')}
                         />
                       </div>
                     </div>
@@ -602,10 +594,10 @@ export function AdminWebsiteSettingsPage() {
                   onClick={() => {
                     const newBanner: BannerConfig = {
                       id: Date.now().toString(),
-                      title: 'New Banner',
-                      description: 'Banner description',
+                      title: t('admin_website_settings.banners.new_banner_title'),
+                      description: t('admin_website_settings.banners.new_banner_description'),
                       image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=300&fit=crop',
-                      cta: 'Learn More',
+                      cta: t('admin_website_settings.banners.learn_more'),
                       link: '/courses',
                       enabled: false,
                       order: banners.length + 1
@@ -615,12 +607,12 @@ export function AdminWebsiteSettingsPage() {
                   className="gap-2"
                 >
                   <ImageIcon className="w-4 h-4" />
-                  Add Banner
+                  {t('admin_website_settings.banners.add_banner')}
                 </Button>
 
                 <Button onClick={handleSaveBanners} className="gap-2">
                   <Save className="w-4 h-4" />
-                  Save Banners
+                  {t('admin_website_settings.banners.save')}
                 </Button>
               </div>
             </CardContent>

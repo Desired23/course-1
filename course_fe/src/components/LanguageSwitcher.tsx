@@ -25,17 +25,17 @@ export function LanguageSwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => changeLanguage('vi')}
           className={currentLanguage === 'vi' ? 'bg-accent' : ''}
         >
-          🇻🇳 Tiếng Việt
+          {t('language_switcher.vietnamese')}
         </DropdownMenuItem>
-        <DropdownMenuItem 
+        <DropdownMenuItem
           onClick={() => changeLanguage('en')}
           className={currentLanguage === 'en' ? 'bg-accent' : ''}
         >
-          🇺🇸 English
+          {t('language_switcher.english')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

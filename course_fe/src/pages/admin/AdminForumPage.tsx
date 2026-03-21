@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { QuickTopicPreview } from "../../components/QuickTopicPreview"
 import { getAllForums, createForum, deleteForum, getAllForumTopics, createForumTopic, updateForumTopic, deleteForumTopic } from '../../services/forum.api'
 import type { Forum, ForumTopic as ApiForumTopic } from '../../services/forum.api'
+import { useTranslation } from 'react-i18next'
 
 interface ForumTopic {
   id: string
@@ -43,6 +44,7 @@ interface ForumCategory {
 
 export function AdminForumPage() {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
   const [topics, setTopics] = useState<ForumTopic[]>([])
   const [categories, setCategories] = useState<ForumCategory[]>([])
 
@@ -160,8 +162,8 @@ export function AdminForumPage() {
     try {
       await updateForumTopic(Number(topicId), { status: newStatus })
       setTopics(topics.map(t => t.id === topicId ? { ...t, status: newStatus === 'locked' ? 'locked' : 'active' } : t))
-      toast.success('Topic status updated')
-    } catch { toast.error('Thao tác thất bại') }
+      toast.success(t('forum.admin.topic_status_updated'))
+    } catch { toast.error(t('forum.admin.action_failed')) }
   }
 
   const handlePinTopic = async (topicId: string) => {
@@ -170,8 +172,8 @@ export function AdminForumPage() {
     try {
       await updateForumTopic(Number(topicId), { is_pinned: topic.status !== 'pinned' })
       setTopics(topics.map(t => t.id === topicId ? { ...t, status: t.status === 'pinned' ? 'active' : 'pinned' } : t))
-      toast.success('Topic status updated')
-    } catch { toast.error('Thao tác thất bại') }
+      toast.success(t('forum.admin.topic_status_updated'))
+    } catch { toast.error(t('forum.admin.action_failed')) }
   }
 
   const handleDeleteTopic = async (topicId: string) => {
@@ -186,7 +188,7 @@ export function AdminForumPage() {
 
   const handleCreateCategory = async () => {
     if (!categoryForm.name) {
-      toast.error('Category name is required')
+      toast.error(t('forum.admin.category_name_required'))
       return
     }
     try {
@@ -200,14 +202,14 @@ export function AdminForumPage() {
       }])
       setIsCreateCategoryOpen(false)
       setCategoryForm({ name: '', description: '', order: 1 })
-      toast.success('Category created successfully')
-    } catch { toast.error('Tạo danh mục thất bại') }
+      toast.success(t('forum.admin.category_created'))
+    } catch { toast.error(t('forum.admin.category_create_failed')) }
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
     const category = categories.find(c => c.id === categoryId)
     if (category && category.topicsCount > 0) {
-      toast.error('Cannot delete category with existing topics')
+      toast.error(t('forum.admin.category_delete_blocked'))
       return
     }
     if (window.confirm('Are you sure you want to delete this category?')) {
@@ -221,7 +223,7 @@ export function AdminForumPage() {
 
   const handleCreateTopic = async () => {
     if (!topicForm.title || !topicForm.category || !topicForm.content) {
-      toast.error('Please fill all required fields')
+      toast.error(t('forum.admin.fill_required_fields'))
       return
     }
     try {
@@ -280,7 +282,7 @@ export function AdminForumPage() {
       } else if (action === 'ban') {
         toast.success(`User ${selectedTopicForModeration.author} has been banned`)
       }
-    } catch { toast.error('Thao tác thất bại') }
+    } catch { toast.error(t('forum.admin.action_failed')) }
 
     setIsModerationDialogOpen(false)
     setSelectedTopicForModeration(null)
@@ -292,8 +294,8 @@ export function AdminForumPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Forum Management</h1>
-          <p className="text-muted-foreground">Manage forum topics, categories, and moderation</p>
+          <h1 className="text-3xl font-bold">{t('forum.admin.title')}</h1>
+          <p className="text-muted-foreground">{t('forum.admin.subtitle')}</p>
         </div>
         <Dialog open={isCreateTopicOpen} onOpenChange={setIsCreateTopicOpen}>
           <DialogTrigger asChild>
@@ -373,56 +375,56 @@ export function AdminForumPage() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardDescription>Total Topics</CardDescription>
+              <CardDescription>{t('forum.admin.total_topics')}</CardDescription>
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalTopics}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Across all categories
+              {t('forum.admin.across_all_categories')}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardDescription>Total Replies</CardDescription>
+              <CardDescription>{t('forum.admin.total_replies')}</CardDescription>
               <MessageSquare className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalReplies}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Community engagement
+              {t('forum.admin.community_engagement')}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardDescription>Total Views</CardDescription>
+              <CardDescription>{t('forum.admin.total_views')}</CardDescription>
               <Eye className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalViews.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Forum reach
+              {t('forum.admin.forum_reach')}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardDescription>Reported Topics</CardDescription>
+              <CardDescription>{t('forum.admin.reported_topics')}</CardDescription>
               <AlertTriangle className="h-4 w-4 text-destructive" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{reportedTopics.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Needs moderation
+              {t('forum.admin.needs_moderation')}
             </p>
           </CardContent>
         </Card>
@@ -431,10 +433,10 @@ export function AdminForumPage() {
       {/* Main Content */}
       <Tabs defaultValue="topics" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="topics">Topics</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="topics">{t('forum.topics_tab')}</TabsTrigger>
+          <TabsTrigger value="categories">{t('forum.forums_tab')}</TabsTrigger>
           <TabsTrigger value="reported">
-            Reported ({reportedTopics.length})
+            {t('forum.admin.reported_tab', { count: reportedTopics.length })}
           </TabsTrigger>
         </TabsList>
 
@@ -442,13 +444,13 @@ export function AdminForumPage() {
           {/* Filters */}
           <Card>
             <CardHeader>
-              <CardTitle>Filter Topics</CardTitle>
+              <CardTitle>{t('forum.filter_topics')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Input
-                    placeholder="Search topics..."
+                    placeholder={t('forum.search_topic_placeholder')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -458,11 +460,11 @@ export function AdminForumPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="locked">Locked</SelectItem>
-                    <SelectItem value="pinned">Pinned</SelectItem>
-                    <SelectItem value="reported">Reported</SelectItem>
+                    <SelectItem value="all">{t('forum.all_status')}</SelectItem>
+                    <SelectItem value="active">{t('forum.active_status')}</SelectItem>
+                    <SelectItem value="locked">{t('forum.locked_status')}</SelectItem>
+                    <SelectItem value="pinned">{t('forum.pinned_label')}</SelectItem>
+                    <SelectItem value="reported">{t('forum.admin.reported_label')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -472,20 +474,20 @@ export function AdminForumPage() {
           {/* Topics Table */}
           <Card>
             <CardHeader>
-              <CardTitle>All Topics ({filteredTopics.length})</CardTitle>
+              <CardTitle>{t('forum.topics_count', { count: filteredTopics.length })}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Topic</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Replies</TableHead>
-                    <TableHead>Views</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Activity</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t('forum.topic_col')}</TableHead>
+                    <TableHead>{t('forum.category')}</TableHead>
+                    <TableHead>{t('forum.author_col')}</TableHead>
+                    <TableHead>{t('forum.replies_col')}</TableHead>
+                    <TableHead>{t('forum.views_col')}</TableHead>
+                    <TableHead>{t('forum.status_label')}</TableHead>
+                    <TableHead>{t('forum.last_activity_col')}</TableHead>
+                    <TableHead className="text-right">{t('subscriptions_page.admin.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -589,19 +591,19 @@ export function AdminForumPage() {
                 <DialogTrigger asChild>
                   <Button className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Add Category
+                    {t('forum.admin.add_category')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Create New Category</DialogTitle>
+                    <DialogTitle>{t('forum.admin.create_new_category')}</DialogTitle>
                     <DialogDescription>
-                      Add a new discussion category
+                      {t('forum.admin.add_new_discussion_category')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Category Name *</Label>
+                      <Label htmlFor="name">{t('forum.admin.category_name')} *</Label>
                       <Input
                         id="name"
                         placeholder="e.g., React, JavaScript"
@@ -613,14 +615,14 @@ export function AdminForumPage() {
                       <Label htmlFor="description">Description</Label>
                       <Textarea
                         id="description"
-                        placeholder="Brief description of this category"
+                        placeholder="{t('forum.admin.category_description_placeholder')}"
                         rows={3}
                         value={categoryForm.description}
                         onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="order">Display Order</Label>
+                      <Label htmlFor="order">{t('forum.admin.display_order')}</Label>
                       <Input
                         id="order"
                         type="number"
@@ -635,7 +637,7 @@ export function AdminForumPage() {
                       Cancel
                     </Button>
                     <Button onClick={handleCreateCategory}>
-                      Create Category
+                      {t('forum.admin.create_category')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -987,3 +989,4 @@ export function AdminForumPage() {
     </div>
   )
 }
+

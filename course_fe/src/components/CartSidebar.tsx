@@ -3,12 +3,14 @@ import { ShoppingCart, X, Trash2, Tag } from "lucide-react"
 import { Button } from "./ui/button"
 import { useRouter } from "./Router"
 import { useCart } from "../contexts/CartContext"
+import { useTranslation } from "react-i18next"
 
 interface CartSidebarProps {
   onHover?: (isHovered: boolean) => void
 }
 
 export function CartSidebar({ onHover }: CartSidebarProps) {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const { cartItems, removeFromCart, getTotalPrice, getSavings } = useCart()
   const { navigate } = useRouter()
@@ -73,7 +75,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
               <ShoppingCart className="w-5 h-5" />
-              Shopping Cart ({cartItems.length})
+              {t('cart.title')} ({cartItems.length})
             </h3>
             <button
               onClick={() => setIsOpen(false)}
@@ -88,7 +90,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
             {cartItems.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-sm">Your cart is empty</p>
+                <p className="text-sm">{t('cart.empty_title')}</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -98,7 +100,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                     setIsOpen(false)
                   }}
                 >
-                  Browse Courses
+                  {t('wishlist.browse_courses')}
                 </Button>
               </div>
             ) : (
@@ -159,7 +161,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                     <button
                       onClick={() => removeFromCart(item.id)}
                       className="text-gray-400 hover:text-red-500 transition-colors p-1 flex-shrink-0"
-                      title="Remove from cart"
+                      title={t('cart.remove')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -175,7 +177,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
               {/* Savings */}
               {getSavings() > 0 && (
                 <div className="flex items-center justify-between text-sm text-green-600 dark:text-green-400">
-                  <span>You save:</span>
+                  <span>{t('cart.you_save')}:</span>
                   <span className="font-semibold">
                     ₫{getSavings().toLocaleString('vi-VN')}
                   </span>
@@ -184,7 +186,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
 
               {/* Total */}
               <div className="flex items-center justify-between">
-                <span className="font-semibold">Total:</span>
+                <span className="font-semibold">{t('cart.total')}:</span>
                 <span className="text-xl font-bold text-primary">
                   ₫{getTotalPrice().toLocaleString('vi-VN')}
                 </span>
@@ -198,7 +200,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                   setIsOpen(false)
                 }}
               >
-                Go to Checkout
+                {t('cart.checkout')}
               </Button>
 
               {/* View Cart Link */}
@@ -209,7 +211,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                 }}
                 className="w-full text-sm text-center text-gray-600 dark:text-gray-400 hover:text-primary transition-colors"
               >
-                View full cart
+                {t('cart_sidebar.view_full_cart')}
               </button>
             </div>
           )}

@@ -19,10 +19,14 @@ class QuizResultSerializer(serializers.ModelSerializer):
             'score',
             'answers',
             'passed',
-            'attempt'
+            'attempt',
+            'created_at',
+            'updated_at',
         ]
         read_only_fields = [
-            'id'
+            'id',
+            'created_at',
+            'updated_at',
         ]
     
     def validate_enrollment(self, value):

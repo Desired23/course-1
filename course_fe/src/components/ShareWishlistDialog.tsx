@@ -12,6 +12,7 @@ import {
   Check
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface ShareWishlistDialogProps {
   open: boolean
@@ -26,6 +27,7 @@ export function ShareWishlistDialog({
   wishlistUrl = window.location.origin + '/wishlist/shared/',
   coursesCount
 }: ShareWishlistDialogProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   
   // Generate shareable link
@@ -35,15 +37,15 @@ export function ShareWishlistDialog({
     try {
       await navigator.clipboard.writeText(shareableLink)
       setCopied(true)
-      toast.success('Link copied to clipboard!')
+      toast.success(t('share_wishlist.link_copied'))
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      toast.error('Failed to copy link')
+      toast.error(t('share_wishlist.copy_failed'))
     }
   }
 
   const shareToSocial = (platform: string) => {
-    const text = `Check out my wishlist with ${coursesCount} courses on Udemy!`
+    const text = t('share_wishlist.share_text', { count: coursesCount })
     let url = ''
 
     switch (platform) {
@@ -57,7 +59,7 @@ export function ShareWishlistDialog({
         url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareableLink)}`
         break
       case 'email':
-        url = `mailto:?subject=${encodeURIComponent('My Udemy Wishlist')}&body=${encodeURIComponent(text + '\n\n' + shareableLink)}`
+        url = `mailto:?subject=${encodeURIComponent(t('share_wishlist.email_subject'))}&body=${encodeURIComponent(text + '\n\n' + shareableLink)}`
         break
     }
 
@@ -70,16 +72,16 @@ export function ShareWishlistDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Share Your Wishlist</DialogTitle>
+          <DialogTitle>{t('share_wishlist.title')}</DialogTitle>
           <DialogDescription>
-            Share your wishlist with friends and family
+            {t('share_wishlist.description')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Copy Link */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Shareable Link</label>
+            <label className="text-sm font-medium">{t('share_wishlist.shareable_link')}</label>
             <div className="flex gap-2">
               <Input
                 value={shareableLink}
@@ -99,13 +101,13 @@ export function ShareWishlistDialog({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Anyone with this link can view your wishlist
+              {t('share_wishlist.link_hint')}
             </p>
           </div>
 
           {/* Social Share Buttons */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Share via</label>
+            <label className="text-sm font-medium">{t('share_wishlist.share_via')}</label>
             <div className="grid grid-cols-4 gap-2">
               <Button
                 variant="outline"

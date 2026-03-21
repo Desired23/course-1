@@ -8,6 +8,7 @@ import {
   Move
 } from 'lucide-react'
 import { motion } from 'motion/react'
+import { useTranslation } from "react-i18next"
 
 interface BulkActionsBarProps {
   selectedCount: number
@@ -26,6 +27,7 @@ export function BulkActionsBar({
   onMoveAll,
   onClearSelection
 }: BulkActionsBarProps) {
+  const { t } = useTranslation()
   if (selectedCount === 0) return null
 
   return (
@@ -41,7 +43,7 @@ export function BulkActionsBar({
           {/* Selection Info */}
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="text-sm px-3 py-1">
-              {selectedCount} {selectedCount === 1 ? 'lesson' : 'lessons'} selected
+              {t('bulk_actions.selected_lessons', { count: selectedCount })}
             </Badge>
             
             <Button
@@ -63,7 +65,7 @@ export function BulkActionsBar({
               className="h-8 gap-1.5"
             >
               <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-              <span className="text-xs">Publish</span>
+              <span className="text-xs">{t('bulk_actions.publish')}</span>
             </Button>
             
             <Button
@@ -73,7 +75,7 @@ export function BulkActionsBar({
               className="h-8 gap-1.5"
             >
               <XCircle className="h-3.5 w-3.5 text-gray-600" />
-              <span className="text-xs">Unpublish</span>
+              <span className="text-xs">{t('bulk_actions.unpublish')}</span>
             </Button>
             
             {onMoveAll && (
@@ -84,7 +86,7 @@ export function BulkActionsBar({
                 className="h-8 gap-1.5"
               >
                 <Move className="h-3.5 w-3.5 text-blue-600" />
-                <span className="text-xs">Move to...</span>
+                <span className="text-xs">{t('bulk_actions.move_to')}</span>
               </Button>
             )}
             
@@ -97,7 +99,7 @@ export function BulkActionsBar({
               className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span className="text-xs">Delete</span>
+              <span className="text-xs">{t('bulk_actions.delete')}</span>
             </Button>
           </div>
         </div>

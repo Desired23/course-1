@@ -76,6 +76,11 @@ export interface SubmissionResult {
   token: string
 }
 
+interface BatchSubmissionCreateItem {
+  token?: string
+  [key: string]: unknown
+}
+
 export interface TestCase {
   id: number
   input: string
@@ -231,7 +236,7 @@ function outputsMatch(expectedRaw: string, actualRaw?: string | null): boolean {
   return false
 }
 
-function extractDebugLogs(stderr?: string | null): { cleanStderr: string | null; debugLogs: string[] } {
+export function extractDebugLogs(stderr?: string | null): { cleanStderr: string | null; debugLogs: string[] } {
   const content = stderr || ''
   if (!content.includes(DEBUG_STDERR_START)) {
     const normalized = normalizeText(content)
@@ -693,6 +698,195 @@ export async function submitAndWait(
 }
 
 // ✅ Run code against multiple test cases (with sequential execution)
+async function submitBatch(payloads: SubmissionPayload[]): Promise<{ token: string }[]> {
+  if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
+    return payloads.map((_, index) => ({ token: `mock_batch_${Date.now()}_${index}` }))
+  }
+
+  return new Promise((resolve, reject) => {
+    requestQueue = requestQueue.then(async () => {
+      try {
+        await waitForRateLimit()
+
+        const result = await retryWithBackoff(async () => {
+          const response = await fetch(
+            `${JUDGE0_API_URL}/submissions/batch?base64_encoded=false`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-RapidAPI-Key': RAPIDAPI_KEY,
+                'X-RapidAPI-Host': RAPIDAPI_HOST,
+              },
+              body: JSON.stringify({ submissions: payloads }),
+            }
+          )
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => response.statusText)
+            throw new Error(`Judge0 batch create error: ${response.status} - ${errorText}`)
+          }
+
+          const data = await response.json()
+          const items: BatchSubmissionCreateItem[] = Array.isArray(data) ? data : (data?.submissions || [])
+          if (!Array.isArray(items) || items.length !== payloads.length) {
+            throw new Error('Judge0 batch create returned an unexpected response shape')
+          }
+
+          return items.map((item, index) => {
+            if (!item?.token || typeof item.token !== 'string') {
+              throw new Error(`Judge0 batch create failed for submission ${index + 1}`)
+            }
+            return { token: item.token }
+          })
+        }, 3, 2000)
+
+        if (apiFailureCount > 0) {
+          apiFailureCount = 0
+        }
+
+        requestCounter.submissions++
+        resolve(result)
+      } catch (error) {
+        console.error('Judge0 batch submission error:', error)
+        apiFailureCount++
+        reject(error)
+      }
+    })
+  })
+}
+
+async function getBatchSubmissionResults(tokens: string[]): Promise<SubmissionResult[]> {
+  if (tokens.some((token) => token.startsWith('mock_batch_')) || apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
+    return tokens.map((token) => ({
+      stdout: 'Mock output',
+      stderr: null,
+      compile_output: null,
+      message: null,
+      time: '0.01',
+      memory: 1024,
+      status: { id: 3, description: 'Accepted' },
+      token,
+    }))
+  }
+
+  await waitForRateLimit()
+
+  const response = await fetch(
+    `${JUDGE0_API_URL}/submissions/batch?base64_encoded=false&tokens=${tokens.join(',')}`,
+    {
+      method: 'GET',
+      headers: {
+        'X-RapidAPI-Key': RAPIDAPI_KEY,
+        'X-RapidAPI-Host': RAPIDAPI_HOST,
+      },
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => response.statusText)
+    throw new Error(`Judge0 batch get error: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  const items = Array.isArray(data) ? data : (data?.submissions || [])
+  if (!Array.isArray(items)) {
+    throw new Error('Judge0 batch get returned an unexpected response shape')
+  }
+
+  requestCounter.polls++
+
+  return items.map((item: any, index: number) => ({
+    stdout: item?.stdout ?? null,
+    stderr: item?.stderr ?? null,
+    compile_output: item?.compile_output ?? null,
+    message: item?.message ?? null,
+    time: item?.time ?? null,
+    memory: item?.memory ?? null,
+    status: item?.status ?? {
+      id: typeof item?.status_id === 'number' ? item.status_id : 13,
+      description: 'Unknown',
+    },
+    token: item?.token ?? tokens[index] ?? '',
+  }))
+}
+
+function mapSubmissionResultToTestResult(testCase: TestCase, result: SubmissionResult): TestResult {
+  const { cleanStderr, debugLogs } = extractDebugLogs(result.stderr)
+  const passed = outputsMatch(testCase.expectedOutput, result.stdout) && result.status.id === 3
+
+  return {
+    ...testCase,
+    actualOutput: result.stdout,
+    passed,
+    error: cleanStderr || result.compile_output || result.message || undefined,
+    debugLogs,
+    time: result.time || undefined,
+    memory: result.memory || undefined,
+    statusId: result.status?.id,
+    statusDescription: result.status?.description,
+    stderr: cleanStderr,
+    compileOutput: result.compile_output,
+    message: result.message,
+  }
+}
+
+async function runTestCasesSequential(
+  sourceCode: string,
+  languageId: number,
+  testCases: TestCase[],
+  options: RunTestOptions,
+  onProgress?: (current: number, total: number) => void
+): Promise<TestResult[]> {
+  const results: TestResult[] = []
+
+  for (let i = 0; i < testCases.length; i++) {
+    const testCase = testCases[i]
+
+    onProgress?.(i + 1, testCases.length)
+
+    try {
+      const result = await submitAndWait({
+        source_code: sourceCode,
+        language_id: languageId,
+        stdin: testCase.input,
+        cpu_time_limit: options.timeLimit || 3,
+        memory_limit: options.memoryLimit || 256000,
+      })
+
+      results.push(mapSubmissionResultToTestResult(testCase, result))
+
+      if (i < testCases.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 800))
+      }
+    } catch (error) {
+      console.error(`Test case ${i + 1} failed:`, error)
+
+      if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
+        const remainingTests = testCases.slice(i)
+        const mockResults = await mockRunTestCases(
+          sourceCode,
+          languageId,
+          remainingTests,
+          (current) => onProgress?.(i + current, testCases.length)
+        )
+        results.push(...mockResults)
+        break
+      }
+
+      results.push({
+        ...testCase,
+        actualOutput: null,
+        passed: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        statusDescription: 'Execution failed',
+      })
+    }
+  }
+
+  return results
+}
+
 export async function runTestCases(
   sourceCode: string,
   languageId: number,
@@ -705,85 +899,59 @@ export async function runTestCases(
   const onProgress =
     typeof optionsOrProgress === 'function' ? optionsOrProgress : maybeOnProgress
 
-  // Check if we should use mock mode immediately
   if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
-    console.warn('⚠️ Using mock mode for test execution')
     return mockRunTestCases(sourceCode, languageId, testCases, onProgress)
   }
-  
-  const results: TestResult[] = []
-  
-  // Execute test cases sequentially (not parallel) to avoid rate limits
-  for (let i = 0; i < testCases.length; i++) {
-    const testCase = testCases[i]
-    
-    if (onProgress) {
-      onProgress(i + 1, testCases.length)
+
+  if (testCases.length === 0) return []
+
+  try {
+    const payloads: SubmissionPayload[] = testCases.map((testCase) => ({
+      source_code: sourceCode,
+      language_id: languageId,
+      stdin: testCase.input,
+      cpu_time_limit: options.timeLimit || 3,
+      memory_limit: options.memoryLimit || 256000,
+    }))
+
+    const tokenResponses = await submitBatch(payloads)
+    const tokens = tokenResponses.map((item) => item.token)
+
+    if (tokens.some((token) => token.startsWith('mock_batch_'))) {
+      return mockRunTestCases(sourceCode, languageId, testCases, onProgress)
     }
-    
-    try {
-      const result = await submitAndWait({
-        source_code: sourceCode,
-        language_id: languageId,
-        stdin: testCase.input,
-        cpu_time_limit: options.timeLimit || 3, // Generous default
-        memory_limit: options.memoryLimit || 256000, // 256MB default
-      })
-      
-      const { cleanStderr, debugLogs } = extractDebugLogs(result.stderr)
-      const passed = outputsMatch(testCase.expectedOutput, result.stdout) && result.status.id === 3
-      
-      results.push({
-        ...testCase,
-        actualOutput: result.stdout,
-        passed,
-        error: cleanStderr || result.compile_output || result.message || undefined,
-        debugLogs,
-        time: result.time || undefined,
-        memory: result.memory || undefined,
-        statusId: result.status?.id,
-        statusDescription: result.status?.description,
-        stderr: cleanStderr,
-        compileOutput: result.compile_output,
-        message: result.message,
-      })
-      
-      // Small delay between test cases to avoid hitting rate limits
-      if (i < testCases.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 800))
+
+    let pollInterval = INITIAL_POLL_INTERVAL
+
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, pollInterval))
+
+      try {
+        const batchResults = await getBatchSubmissionResults(tokens)
+        const completedCount = batchResults.filter((result) => result.status?.id > 2).length
+        onProgress?.(completedCount, testCases.length)
+
+        if (completedCount === testCases.length) {
+          return testCases.map((testCase, index) =>
+            mapSubmissionResultToTestResult(testCase, batchResults[index])
+          )
+        }
+
+        pollInterval = Math.min(pollInterval * POLL_BACKOFF_MULTIPLIER, MAX_POLL_INTERVAL)
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('429')) {
+          pollInterval = Math.min(pollInterval * 2, MAX_POLL_INTERVAL)
+        } else {
+          throw error
+        }
       }
-    } catch (error) {
-      console.error(`Test case ${i + 1} failed:`, error)
-      
-      // If we've hit too many failures, switch to mock mode for remaining tests
-      if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
-        console.warn('⚠️ Switching to mock mode for remaining tests')
-        const remainingTests = testCases.slice(i)
-        const mockResults = await mockRunTestCases(
-          sourceCode,
-          languageId,
-          remainingTests,
-          (current, total) => {
-            if (onProgress) {
-              onProgress(i + current, testCases.length)
-            }
-          }
-        )
-        results.push(...mockResults)
-        break
-      }
-      
-      results.push({
-        ...testCase,
-        actualOutput: null,
-        passed: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        statusDescription: 'Execution failed',
-      })
     }
+
+    throw new Error(`Batch submission timeout - took longer than ${Math.round(MAX_POLL_ATTEMPTS * INITIAL_POLL_INTERVAL / 1000)}s to execute`)
+  } catch (error) {
+    console.warn('Batch mode failed, falling back to sequential execution:', error)
+    return runTestCasesSequential(sourceCode, languageId, testCases, options, onProgress)
   }
-  
-  return results
 }
 
 // Calculate score based on test results

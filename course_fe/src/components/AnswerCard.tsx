@@ -3,6 +3,7 @@ import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { cn } from './ui/utils'
+import { useTranslation } from 'react-i18next'
 
 interface AnswerCardProps {
   answer: {
@@ -32,6 +33,8 @@ export function AnswerCard({
   onVote,
   hasVoted = false
 }: AnswerCardProps) {
+  const { t } = useTranslation()
+
   return (
     <div 
       className={cn(
@@ -51,13 +54,13 @@ export function AnswerCard({
               <span className="font-medium">{answer.answeredBy.name}</span>
               {answer.isInstructor && (
                 <Badge variant="secondary" className="text-xs">
-                  Instructor
+                  {t('answer_card.instructor')}
                 </Badge>
               )}
               {answer.isAccepted && (
                 <Badge variant="default" className="text-xs bg-green-600">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Best Answer
+                  {t('answer_card.best_answer')}
                 </Badge>
               )}
             </div>
@@ -88,7 +91,7 @@ export function AnswerCard({
             onClick={() => onMarkBestAnswer?.(answer.id)}
           >
             <CheckCircle2 className="w-4 h-4 mr-1" />
-            Mark as Best Answer
+            {t('answer_card.mark_best_answer')}
           </Button>
         )}
       </div>

@@ -25,6 +25,7 @@ import {
   RefreshCw,
   ChevronDown
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 interface AdminHeaderProps {
   title?: string
@@ -43,6 +44,7 @@ export function AdminHeader({
   onRefresh,
   isRefreshing = false
 }: AdminHeaderProps) {
+  const { t } = useTranslation()
   const { user, logout } = useAuth()
   const { navigate } = useRouter()
   const { toggleSidebar } = useUIStore()
@@ -62,7 +64,7 @@ export function AdminHeader({
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            title="Toggle sidebar"
+            title={t('admin_header.toggle_sidebar')}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -95,7 +97,7 @@ export function AdminHeader({
           <div className="hidden md:block relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search users, courses..." 
+              placeholder={t('admin_header.search_placeholder')} 
               className="pl-9 w-64"
             />
           </div>
@@ -117,21 +119,21 @@ export function AdminHeader({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('admin_header.admin_account')}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate('/admin/profile')}>
                 <User className="mr-2 h-4 w-4" />
-                Profile
+                {t('common.profile')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/admin/settings')}>
-                Settings
+                {t('sidebar.settings')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/')}>
-                View Platform
+                {t('admin_header.view_platform')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                Log out
+                {t('common.log_out')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -213,6 +213,7 @@ export function LessonEditorDialog({
                 <div className="p-4 h-full overflow-y-auto">
                    <EnhancedCodeQuizCreator 
                       initialData={editedLesson.quizData}
+                      onChange={(data) => handleUpdate({ quizData: data })}
                       onSave={(data) => handleUpdate({ quizData: data })}
                       // Hide cancel button in embedded mode
                       onCancel={undefined} 

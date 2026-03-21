@@ -16,6 +16,7 @@ import {
   ChevronLeft
 } from 'lucide-react'
 import { cn } from './ui/utils'
+import { useTranslation } from 'react-i18next'
 
 interface QuizQuestion {
   id: number
@@ -45,6 +46,7 @@ export function QuizPreview({
   showAnswers = false,
   className 
 }: QuizPreviewProps) {
+  const { t } = useTranslation()
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState<Record<number, number | number[] | string>>({})
   const [isSubmitted, setIsSubmitted] = useState(false)
@@ -55,7 +57,7 @@ export function QuizPreview({
       <Card className={cn("p-8", className)}>
         <div className="text-center space-y-2">
           <h3 className="font-semibold">{title}</h3>
-          <p className="text-sm text-muted-foreground">This quiz does not have any questions yet.</p>
+          <p className="text-sm text-muted-foreground">{t('quiz_preview.no_questions')}</p>
         </div>
       </Card>
     )
@@ -148,19 +150,19 @@ export function QuizPreview({
           <div className="grid grid-cols-3 gap-4 py-4">
             <div className="text-center">
               <div className="text-2xl font-bold">{totalQuestions}</div>
-              <div className="text-sm text-muted-foreground">Questions</div>
+              <div className="text-sm text-muted-foreground">{t('quiz_preview.questions')}</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
                 {questions.filter(q => isCorrect(q.id)).length}
               </div>
-              <div className="text-sm text-muted-foreground">Correct</div>
+              <div className="text-sm text-muted-foreground">{t('quiz_preview.correct')}</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">
                 {questions.filter(q => isCorrect(q.id) === false).length}
               </div>
-              <div className="text-sm text-muted-foreground">Incorrect</div>
+              <div className="text-sm text-muted-foreground">{t('quiz_preview.incorrect')}</div>
             </div>
           </div>
 
@@ -170,10 +172,10 @@ export function QuizPreview({
               setCurrentQuestion(0)
               setAnswers({})
             }}>
-              Retry Quiz
+              {t('quiz_preview.retry_quiz')}
             </Button>
             <Button variant="outline" onClick={() => setCurrentQuestion(0)}>
-              Review Answers
+              {t('quiz_preview.review_answers')}
             </Button>
           </div>
         </div>
@@ -192,7 +194,7 @@ export function QuizPreview({
               {title}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              Question {currentQuestion + 1} of {totalQuestions}
+              {t('quiz_preview.question_progress', { current: currentQuestion + 1, total: totalQuestions })}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -203,7 +205,7 @@ export function QuizPreview({
               </div>
             )}
             <Badge variant="secondary">
-              {passingScore}% to pass
+              {t('quiz_preview.passing_score', { score: passingScore })}
             </Badge>
           </div>
         </div>
@@ -228,7 +230,7 @@ export function QuizPreview({
                 {currentQ.image && (
                   <img 
                     src={currentQ.image} 
-                    alt="Question" 
+                    alt={t('quiz_preview.question_image_alt')} 
                     className="rounded-lg border mb-4 max-h-48 object-cover"
                   />
                 )}
@@ -334,13 +336,13 @@ export function QuizPreview({
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor={`q-${currentQ.id}-text`} className="text-sm text-muted-foreground">Answer</Label>
+                <Label htmlFor={`q-${currentQ.id}-text`} className="text-sm text-muted-foreground">{t('quiz_preview.answer')}</Label>
                 <textarea
                   id={`q-${currentQ.id}-text`}
                   className="w-full min-h-[120px] rounded-md border bg-background p-3 text-sm"
                   value={String(answers[currentQ.id] || '')}
                   onChange={(e) => handleAnswer(currentQ.id, e.target.value)}
-                  placeholder="Enter your answer..."
+                  placeholder={t('quiz_preview.enter_answer')}
                 />
               </div>
             )}
@@ -350,7 +352,7 @@ export function QuizPreview({
           {isSubmitted && currentQ.explanation && (
             <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 p-4">
               <h5 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">
-                Explanation:
+                {t('quiz_preview.explanation')}
               </h5>
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 {currentQ.explanation}
@@ -368,16 +370,16 @@ export function QuizPreview({
           disabled={currentQuestion === 0}
         >
           <ChevronLeft className="h-4 w-4 mr-2" />
-          Previous
+          {t('common.previous')}
         </Button>
 
         <div className="text-sm text-muted-foreground">
-          {Object.keys(answers).length} of {totalQuestions} answered
+          {t('quiz_preview.answered_progress', { answered: Object.keys(answers).length, total: totalQuestions })}
         </div>
 
         {currentQuestion < totalQuestions - 1 ? (
           <Button onClick={nextQuestion}>
-            Next
+            {t('common.next')}
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         ) : (
@@ -385,7 +387,7 @@ export function QuizPreview({
             onClick={submitQuiz}
             disabled={Object.keys(answers).length < totalQuestions}
           >
-            Submit Quiz
+            {t('quiz_preview.submit_quiz')}
           </Button>
         )}
       </div>

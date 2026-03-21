@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Textarea } from '../../components/ui/textarea'
@@ -31,8 +30,8 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
 import { toast } from 'sonner'
-import { getSupportTickets, updateSupportTicket, deleteSupportTicket } from '../../services/support.api'
-import type { SupportTicket } from '../../services/support.api'
+import { getSupportTickets } from '../../services/support.api'
+import { useTranslation } from 'react-i18next'
 
 interface Report {
   id: string
@@ -61,6 +60,7 @@ interface Report {
 
 export function ReportManagementPage() {
   const { user, hasPermission } = useAuth()
+  const { t } = useTranslation()
   const [reports, setReports] = useState<Report[]>([])
   const [filteredReports, setFilteredReports] = useState<Report[]>([])
   const [selectedReport, setSelectedReport] = useState<Report | null>(null)
@@ -88,7 +88,7 @@ export function ReportManagementPage() {
         setReports(mapped)
         setFilteredReports(mapped)
       } catch {
-        toast.error('Không thể tải danh sách báo cáo')
+        toast.error(t('report_management.load_failed'))
       }
     }
     load()
@@ -98,47 +98,47 @@ export function ReportManagementPage() {
   const filterConfigs: FilterConfig[] = [
     {
       key: 'search',
-      label: 'Tìm kiếm',
+      label: t('report_management.filters.search'),
       type: 'search',
-      placeholder: 'Tìm theo tên, email, nội dung...'
+      placeholder: t('report_management.filters.search_placeholder')
     },
     {
       key: 'status',
-      label: 'Trạng thái',
+      label: t('report_management.filters.status'),
       type: 'select',
       options: [
-        { label: 'Chờ xử lý', value: 'pending', count: reports.filter(r => r.status === 'pending').length },
-        { label: 'Đang xem xét', value: 'reviewing', count: reports.filter(r => r.status === 'reviewing').length },
-        { label: 'Đã giải quyết', value: 'resolved', count: reports.filter(r => r.status === 'resolved').length },
-        { label: 'Đã bỏ qua', value: 'dismissed', count: reports.filter(r => r.status === 'dismissed').length }
+        { label: t('report_management.status.pending'), value: 'pending', count: reports.filter(r => r.status === 'pending').length },
+        { label: t('report_management.status.reviewing'), value: 'reviewing', count: reports.filter(r => r.status === 'reviewing').length },
+        { label: t('report_management.status.resolved'), value: 'resolved', count: reports.filter(r => r.status === 'resolved').length },
+        { label: t('report_management.status.dismissed'), value: 'dismissed', count: reports.filter(r => r.status === 'dismissed').length }
       ]
     },
     {
       key: 'type',
-      label: 'Loại báo cáo',
+      label: t('report_management.filters.type'),
       type: 'select',
       options: [
-        { label: 'Người dùng', value: 'user', count: reports.filter(r => r.reported_type === 'user').length },
-        { label: 'Khóa học', value: 'course', count: reports.filter(r => r.reported_type === 'course').length },
-        { label: 'Đánh giá', value: 'review', count: reports.filter(r => r.reported_type === 'review').length },
-        { label: 'Bài viết diễn đàn', value: 'forum_post', count: reports.filter(r => r.reported_type === 'forum_post').length },
-        { label: 'Câu trả lời Q&A', value: 'qa_answer', count: reports.filter(r => r.reported_type === 'qa_answer').length }
+        { label: t('report_management.types.user'), value: 'user', count: reports.filter(r => r.reported_type === 'user').length },
+        { label: t('report_management.types.course'), value: 'course', count: reports.filter(r => r.reported_type === 'course').length },
+        { label: t('report_management.types.review'), value: 'review', count: reports.filter(r => r.reported_type === 'review').length },
+        { label: t('report_management.types.forum_post'), value: 'forum_post', count: reports.filter(r => r.reported_type === 'forum_post').length },
+        { label: t('report_management.types.qa_answer'), value: 'qa_answer', count: reports.filter(r => r.reported_type === 'qa_answer').length }
       ]
     },
     {
       key: 'priority',
-      label: 'Độ ưu tiên',
+      label: t('report_management.filters.priority'),
       type: 'select',
       options: [
-        { label: 'Khẩn cấp', value: 'critical', count: reports.filter(r => r.priority === 'critical').length },
-        { label: 'Cao', value: 'high', count: reports.filter(r => r.priority === 'high').length },
-        { label: 'Trung bình', value: 'medium', count: reports.filter(r => r.priority === 'medium').length },
-        { label: 'Thấp', value: 'low', count: reports.filter(r => r.priority === 'low').length }
+        { label: t('report_management.priority.critical'), value: 'critical', count: reports.filter(r => r.priority === 'critical').length },
+        { label: t('report_management.priority.high'), value: 'high', count: reports.filter(r => r.priority === 'high').length },
+        { label: t('report_management.priority.medium'), value: 'medium', count: reports.filter(r => r.priority === 'medium').length },
+        { label: t('report_management.priority.low'), value: 'low', count: reports.filter(r => r.priority === 'low').length }
       ]
     },
     {
       key: 'date',
-      label: 'Ngày báo cáo',
+      label: t('report_management.filters.date'),
       type: 'daterange'
     }
   ]
@@ -213,10 +213,10 @@ export function ReportManagementPage() {
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      pending: { variant: 'secondary' as const, label: 'Chờ xử lý', icon: Flag },
-      reviewing: { variant: 'default' as const, label: 'Đang xem xét', icon: Eye },
-      resolved: { variant: 'default' as const, label: 'Đã giải quyết', icon: CheckCircle },
-      dismissed: { variant: 'outline' as const, label: 'Đã bỏ qua', icon: XCircle }
+      pending: { variant: 'secondary' as const, label: t('report_management.status.pending'), icon: Flag },
+      reviewing: { variant: 'default' as const, label: t('report_management.status.reviewing'), icon: Eye },
+      resolved: { variant: 'default' as const, label: t('report_management.status.resolved'), icon: CheckCircle },
+      dismissed: { variant: 'outline' as const, label: t('report_management.status.dismissed'), icon: XCircle }
     }
     const config = variants[status as keyof typeof variants] || variants.pending
     const Icon = config.icon
@@ -230,10 +230,10 @@ export function ReportManagementPage() {
 
   const getPriorityBadge = (priority: string) => {
     const variants = {
-      low: { variant: 'outline' as const, label: 'Thấp', className: 'border-blue-500 text-blue-600' },
-      medium: { variant: 'outline' as const, label: 'Trung bình', className: 'border-yellow-500 text-yellow-600' },
-      high: { variant: 'outline' as const, label: 'Cao', className: 'border-orange-500 text-orange-600' },
-      critical: { variant: 'outline' as const, label: 'Khẩn cấp', className: 'border-red-500 text-red-600' }
+      low: { variant: 'outline' as const, label: t('report_management.priority.low'), className: 'border-blue-500 text-blue-600' },
+      medium: { variant: 'outline' as const, label: t('report_management.priority.medium'), className: 'border-yellow-500 text-yellow-600' },
+      high: { variant: 'outline' as const, label: t('report_management.priority.high'), className: 'border-orange-500 text-orange-600' },
+      critical: { variant: 'outline' as const, label: t('report_management.priority.critical'), className: 'border-red-500 text-red-600' }
     }
     const config = variants[priority as keyof typeof variants] || variants.low
     return <Badge variant={config.variant} className={config.className}>{config.label}</Badge>
@@ -249,16 +249,16 @@ export function ReportManagementPage() {
       message: Mail
     }
     const labels = {
-      user: 'Người dùng',
-      course: 'Khóa học',
-      review: 'Đánh giá',
-      forum_post: 'Diễn đàn',
-      qa_answer: 'Q&A',
-      message: 'Tin nhắn'
+      user: t('report_management.types.user'),
+      course: t('report_management.types.course'),
+      review: t('report_management.types.review'),
+      forum_post: t('report_management.types.forum_post'),
+      qa_answer: t('report_management.types.qa_answer'),
+      message: t('report_management.types.message')
     }
     const Icon = icons[type as keyof typeof icons] || MessageSquare
     const label = labels[type as keyof typeof labels] || type
-    
+
     return (
       <Badge variant="secondary" className="gap-1">
         <Icon className="h-3 w-3" />
@@ -269,16 +269,16 @@ export function ReportManagementPage() {
 
   const getActionBadge = (action?: string) => {
     if (!action || action === 'none') return null
-    
+
     const variants = {
-      warning: { label: 'Cảnh báo', className: 'bg-yellow-500/10 text-yellow-600' },
-      content_removed: { label: 'Đã gỡ nội dung', className: 'bg-orange-500/10 text-orange-600' },
-      user_suspended: { label: 'Đình chỉ user', className: 'bg-red-500/10 text-red-600' },
-      user_banned: { label: 'Cấm vĩnh viễn', className: 'bg-red-500/10 text-red-600' }
+      warning: { label: t('report_management.actions.warning'), className: 'bg-yellow-500/10 text-yellow-600' },
+      content_removed: { label: t('report_management.actions.content_removed'), className: 'bg-orange-500/10 text-orange-600' },
+      user_suspended: { label: t('report_management.actions.user_suspended'), className: 'bg-red-500/10 text-red-600' },
+      user_banned: { label: t('report_management.actions.user_banned'), className: 'bg-red-500/10 text-red-600' }
     }
     const config = variants[action as keyof typeof variants]
     if (!config) return null
-    
+
     return <Badge className={config.className}>{config.label}</Badge>
   }
 
@@ -286,8 +286,8 @@ export function ReportManagementPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Không có quyền truy cập</h2>
-          <p className="text-muted-foreground">Bạn không có quyền quản lý báo cáo.</p>
+          <h2 className="text-2xl mb-4">{t('report_management.access_denied_title')}</h2>
+          <p className="text-muted-foreground">{t('report_management.access_denied_description')}</p>
         </div>
       </div>
     )
@@ -298,8 +298,8 @@ export function ReportManagementPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl mb-2">Quản lý báo cáo</h1>
-          <p className="text-muted-foreground">Xử lý các báo cáo vi phạm từ cộng đồng</p>
+          <h1 className="text-3xl mb-2">{t('report_management.title')}</h1>
+          <p className="text-muted-foreground">{t('report_management.subtitle')}</p>
         </div>
       </div>
 
@@ -307,52 +307,52 @@ export function ReportManagementPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng báo cáo</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('report_management.stats.total')}</CardTitle>
             <Flag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.length}</div>
             <p className="text-xs text-muted-foreground">
-              Tất cả các báo cáo
+              {t('report_management.stats.total_hint')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Chờ xử lý</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('report_management.stats.pending')}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.filter(r => r.status === 'pending').length}</div>
             <p className="text-xs text-muted-foreground">
-              Cần xem xét ngay
+              {t('report_management.stats.pending_hint')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Khẩn cấp</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('report_management.stats.critical')}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.filter(r => r.priority === 'critical' || r.priority === 'high').length}</div>
             <p className="text-xs text-muted-foreground">
-              Ưu tiên cao
+              {t('report_management.stats.critical_hint')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Đã giải quyết</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('report_management.stats.resolved')}</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.filter(r => r.status === 'resolved').length}</div>
             <p className="text-xs text-muted-foreground">
-              Trong tháng này
+              {t('report_management.stats.resolved_hint')}
             </p>
           </CardContent>
         </Card>
@@ -360,35 +360,35 @@ export function ReportManagementPage() {
 
       <Tabs defaultValue="all" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="all">Tất cả ({reports.length})</TabsTrigger>
-          <TabsTrigger value="pending">Chờ xử lý ({reports.filter(r => r.status === 'pending').length})</TabsTrigger>
-          <TabsTrigger value="reviewing">Đang xem xét ({reports.filter(r => r.status === 'reviewing').length})</TabsTrigger>
-          <TabsTrigger value="critical">Khẩn cấp ({reports.filter(r => r.priority === 'critical').length})</TabsTrigger>
+          <TabsTrigger value="all">{t('report_management.tabs.all', { count: reports.length })}</TabsTrigger>
+          <TabsTrigger value="pending">{t('report_management.tabs.pending', { count: reports.filter(r => r.status === 'pending').length })}</TabsTrigger>
+          <TabsTrigger value="reviewing">{t('report_management.tabs.reviewing', { count: reports.filter(r => r.status === 'reviewing').length })}</TabsTrigger>
+          <TabsTrigger value="critical">{t('report_management.tabs.critical', { count: reports.filter(r => r.priority === 'critical').length })}</TabsTrigger>
         </TabsList>
 
         {/* All Reports Tab */}
         <TabsContent value="all" className="space-y-6">
           <TableFilter
-            title="Bộ lọc báo cáo"
+            title={t('report_management.filter_title')}
             configs={filterConfigs}
             onFilterChange={handleFilter}
           />
 
           <Card>
             <CardHeader>
-              <CardTitle>Danh sách báo cáo ({filteredReports.length})</CardTitle>
+              <CardTitle>{t('report_management.list_title', { count: filteredReports.length })}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Người báo cáo</TableHead>
-                    <TableHead>Loại</TableHead>
-                    <TableHead>Đối tượng</TableHead>
-                    <TableHead>Lý do</TableHead>
-                    <TableHead>Độ ưu tiên</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày báo cáo</TableHead>
+                    <TableHead>{t('report_management.table.reporter')}</TableHead>
+                    <TableHead>{t('report_management.table.type')}</TableHead>
+                    <TableHead>{t('report_management.table.target')}</TableHead>
+                    <TableHead>{t('report_management.table.reason')}</TableHead>
+                    <TableHead>{t('report_management.table.priority')}</TableHead>
+                    <TableHead>{t('report_management.table.status')}</TableHead>
+                    <TableHead>{t('report_management.table.date')}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -428,13 +428,13 @@ export function ReportManagementPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setSelectedReport(report)}>
                               <Eye className="h-4 w-4 mr-2" />
-                              Xem chi tiết
+                              {t('report_management.view_details')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {report.status === 'pending' && (
                               <DropdownMenuItem onClick={() => handleStatusChange(report.id, 'reviewing')}>
                                 <Eye className="h-4 w-4 mr-2" />
-                                Bắt đầu xem xét
+                                {t('report_management.start_review')}
                               </DropdownMenuItem>
                             )}
                             {(report.status === 'pending' || report.status === 'reviewing') && (
@@ -443,20 +443,20 @@ export function ReportManagementPage() {
                                   setSelectedReport(report)
                                 }}>
                                   <CheckCircle className="h-4 w-4 mr-2" />
-                                  Giải quyết
+                                  {t('report_management.resolve')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleStatusChange(report.id, 'dismissed')}>
                                   <XCircle className="h-4 w-4 mr-2" />
-                                  Bỏ qua
+                                  {t('report_management.dismiss')}
                                 </DropdownMenuItem>
                               </>
                             )}
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               onClick={() => handleDeleteReport(report.id)}
                               className="text-red-600"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Xóa báo cáo
+                              {t('report_management.delete_report')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -473,7 +473,7 @@ export function ReportManagementPage() {
         <TabsContent value="pending" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Báo cáo chờ xử lý</CardTitle>
+              <CardTitle>{t('report_management.pending_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -489,36 +489,33 @@ export function ReportManagementPage() {
                           </span>
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Người báo cáo:</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.reporter_label')}</p>
                           <p className="font-medium">{report.reporter_name}</p>
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Đối tượng bị báo cáo:</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.reported_target_label')}</p>
                           <p className="font-medium">{report.reported_user_name || report.reported_content_title}</p>
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Lý do:</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.reason_label')}</p>
                           <p className="font-medium">{report.reason}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Mô tả:</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.description_label')}</p>
                           <p className="text-sm">{report.description}</p>
                         </div>
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={() => setSelectedReport(report)}
-                        >
+                        <Button size="sm" onClick={() => setSelectedReport(report)}>
                           <Eye className="h-4 w-4 mr-2" />
-                          Chi tiết
+                          {t('report_management.details_short')}
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleStatusChange(report.id, 'reviewing')}
                         >
-                          Xem xét
+                          {t('report_management.review')}
                         </Button>
                       </div>
                     </div>
@@ -533,7 +530,7 @@ export function ReportManagementPage() {
         <TabsContent value="reviewing" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Đang xem xét</CardTitle>
+              <CardTitle>{t('report_management.reviewing_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -547,32 +544,29 @@ export function ReportManagementPage() {
                           {getTypeBadge(report.reported_type)}
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Đối tượng:</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.target_label')}</p>
                           <p className="font-medium">{report.reported_user_name || report.reported_content_title}</p>
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Lý do: {report.reason}</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.reason_label')} {report.reason}</p>
                           <p className="text-sm">{report.description}</p>
                         </div>
                         {report.assigned_to && (
                           <p className="text-xs text-muted-foreground">
-                            Được xử lý bởi: {report.assigned_to}
+                            {t('report_management.assigned_to_label')}: {report.assigned_to}
                           </p>
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={() => setSelectedReport(report)}
-                        >
-                          Giải quyết
+                        <Button size="sm" onClick={() => setSelectedReport(report)}>
+                          {t('report_management.resolve')}
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
                           onClick={() => handleStatusChange(report.id, 'dismissed')}
                         >
-                          Bỏ qua
+                          {t('report_management.dismiss')}
                         </Button>
                       </div>
                     </div>
@@ -587,7 +581,7 @@ export function ReportManagementPage() {
         <TabsContent value="critical" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Báo cáo khẩn cấp</CardTitle>
+              <CardTitle>{t('report_management.critical_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -602,26 +596,26 @@ export function ReportManagementPage() {
                           {getStatusBadge(report.status)}
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Đối tượng:</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.target_label')}</p>
                           <p className="font-medium">{report.reported_user_name || report.reported_content_title}</p>
                         </div>
                         <div className="mb-2">
-                          <p className="text-sm text-muted-foreground">Lý do: {report.reason}</p>
+                          <p className="text-sm text-muted-foreground">{t('report_management.reason_label')} {report.reason}</p>
                           <p className="text-sm">{report.description}</p>
                         </div>
                         {report.evidence_urls && report.evidence_urls.length > 0 && (
                           <div className="mt-2">
-                            <p className="text-xs text-muted-foreground mb-1">Bằng chứng:</p>
+                            <p className="text-xs text-muted-foreground mb-1">{t('report_management.evidence_label')}</p>
                             <div className="flex gap-2">
                               {report.evidence_urls.map((url, idx) => (
-                                <a 
-                                  key={idx} 
-                                  href={url} 
-                                  target="_blank" 
+                                <a
+                                  key={idx}
+                                  href={url}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-xs text-blue-600 hover:underline"
                                 >
-                                  Xem bằng chứng {idx + 1}
+                                  {t('report_management.view_evidence')} {idx + 1}
                                 </a>
                               ))}
                             </div>
@@ -629,13 +623,9 @@ export function ReportManagementPage() {
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => setSelectedReport(report)}
-                        >
+                        <Button size="sm" variant="destructive" onClick={() => setSelectedReport(report)}>
                           <Flag className="h-4 w-4 mr-2" />
-                          Xử lý ngay
+                          {t('report_management.handle_now')}
                         </Button>
                       </div>
                     </div>
@@ -655,7 +645,7 @@ export function ReportManagementPage() {
         }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Chi tiết báo cáo</DialogTitle>
+              <DialogTitle>{t('report_management.detail_title')}</DialogTitle>
               <DialogDescription>ID: {selectedReport.id}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -668,18 +658,18 @@ export function ReportManagementPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium mb-1">Người báo cáo</p>
+                  <p className="text-sm font-medium mb-1">{t('report_management.reporter')}</p>
                   <p className="text-sm">{selectedReport.reporter_name}</p>
                   <p className="text-xs text-muted-foreground">{selectedReport.reporter_email}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium mb-1">Ngày báo cáo</p>
+                  <p className="text-sm font-medium mb-1">{t('report_management.report_date')}</p>
                   <p className="text-sm">{selectedReport.created_at.toLocaleString()}</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-1">Đối tượng bị báo cáo</p>
+                <p className="text-sm font-medium mb-1">{t('report_management.reported_target')}</p>
                 <p className="text-sm font-medium">{selectedReport.reported_user_name}</p>
                 {selectedReport.reported_content_title && (
                   <p className="text-sm text-muted-foreground">{selectedReport.reported_content_title}</p>
@@ -687,28 +677,28 @@ export function ReportManagementPage() {
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-1">Lý do</p>
+                <p className="text-sm font-medium mb-1">{t('report_management.reason')}</p>
                 <Badge variant="outline">{selectedReport.reason}</Badge>
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-1">Mô tả chi tiết</p>
+                <p className="text-sm font-medium mb-1">{t('report_management.detailed_description')}</p>
                 <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description}</p>
               </div>
 
               {selectedReport.evidence_urls && selectedReport.evidence_urls.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Bằng chứng đính kèm</p>
+                  <p className="text-sm font-medium mb-2">{t('report_management.attached_evidence')}</p>
                   <div className="space-y-1">
                     {selectedReport.evidence_urls.map((url, idx) => (
-                      <a 
-                        key={idx} 
-                        href={url} 
-                        target="_blank" 
+                      <a
+                        key={idx}
+                        href={url}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="block text-sm text-blue-600 hover:underline"
                       >
-                        📎 Bằng chứng {idx + 1}: {url}
+                        {t('report_management.evidence_item', { index: idx + 1 })}: {url}
                       </a>
                     ))}
                   </div>
@@ -717,11 +707,11 @@ export function ReportManagementPage() {
 
               {selectedReport.resolution && (
                 <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg">
-                  <p className="text-sm font-medium mb-1 text-green-600 dark:text-green-400">Kết quả xử lý</p>
+                  <p className="text-sm font-medium mb-1 text-green-600 dark:text-green-400">{t('report_management.resolution_result')}</p>
                   <p className="text-sm">{selectedReport.resolution}</p>
                   {selectedReport.resolved_at && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Giải quyết lúc: {selectedReport.resolved_at.toLocaleString()}
+                      {t('report_management.resolved_at')}: {selectedReport.resolved_at.toLocaleString()}
                     </p>
                   )}
                 </div>
@@ -730,27 +720,27 @@ export function ReportManagementPage() {
               {(selectedReport.status === 'pending' || selectedReport.status === 'reviewing') && (
                 <div className="space-y-4 pt-4 border-t">
                   <div>
-                    <p className="text-sm font-medium mb-2">Hành động xử lý</p>
+                    <p className="text-sm font-medium mb-2">{t('report_management.resolution_action')}</p>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button 
+                      <Button
                         variant="outline"
                         onClick={() => {
                           handleStatusChange(selectedReport.id, 'resolved', 'warning')
                           setSelectedReport(null)
                         }}
                       >
-                        Cảnh báo
+                        {t('report_management.actions.warning')}
                       </Button>
-                      <Button 
+                      <Button
                         variant="outline"
                         onClick={() => {
                           handleStatusChange(selectedReport.id, 'resolved', 'content_removed')
                           setSelectedReport(null)
                         }}
                       >
-                        Gỡ nội dung
+                        {t('report_management.remove_content')}
                       </Button>
-                      <Button 
+                      <Button
                         variant="outline"
                         onClick={() => {
                           handleStatusChange(selectedReport.id, 'resolved', 'user_suspended')
@@ -758,9 +748,9 @@ export function ReportManagementPage() {
                         }}
                       >
                         <Ban className="h-4 w-4 mr-2" />
-                        Đình chỉ user
+                        {t('report_management.actions.user_suspended')}
                       </Button>
-                      <Button 
+                      <Button
                         variant="destructive"
                         onClick={() => {
                           handleStatusChange(selectedReport.id, 'resolved', 'user_banned')
@@ -768,23 +758,23 @@ export function ReportManagementPage() {
                         }}
                       >
                         <Ban className="h-4 w-4 mr-2" />
-                        Cấm vĩnh viễn
+                        {t('report_management.actions.user_banned')}
                       </Button>
                     </div>
                   </div>
 
                   <div>
-                    <p className="text-sm font-medium mb-2">Ghi chú xử lý</p>
+                    <p className="text-sm font-medium mb-2">{t('report_management.resolution_notes')}</p>
                     <Textarea
                       value={resolutionText}
                       onChange={(e) => setResolutionText(e.target.value)}
-                      placeholder="Nhập ghi chú về cách xử lý báo cáo này..."
+                      placeholder={t('report_management.resolution_notes_placeholder')}
                       rows={3}
                     />
                   </div>
 
                   <div className="flex gap-2">
-                    <Button 
+                    <Button
                       onClick={() => {
                         handleStatusChange(selectedReport.id, 'resolved', 'none')
                         setSelectedReport(null)
@@ -792,9 +782,9 @@ export function ReportManagementPage() {
                       }}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Đánh dấu đã giải quyết
+                      {t('report_management.mark_resolved')}
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => {
                         handleStatusChange(selectedReport.id, 'dismissed')
@@ -803,7 +793,7 @@ export function ReportManagementPage() {
                       }}
                     >
                       <XCircle className="h-4 w-4 mr-2" />
-                      Bỏ qua báo cáo
+                      {t('report_management.dismiss_report')}
                     </Button>
                   </div>
                 </div>
@@ -815,3 +805,9 @@ export function ReportManagementPage() {
     </div>
   )
 }
+
+
+
+
+
+

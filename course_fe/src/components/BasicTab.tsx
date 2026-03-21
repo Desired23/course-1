@@ -7,6 +7,7 @@ import { Badge } from './ui/badge'
 import { Card } from './ui/card'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Video,
   FileText,
@@ -53,6 +54,7 @@ const CONTENT_TYPES = [
 ]
 
 export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
+  const { t } = useTranslation()
   const [isQuizInfoOpen, setIsQuizInfoOpen] = useState(false)
   const [isVideoInfoOpen, setIsVideoInfoOpen] = useState(false)
   
@@ -63,22 +65,22 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
     <div className="space-y-6">
       {/* Lesson Title */}
       <div className="space-y-2">
-        <Label htmlFor="title">Lesson Title *</Label>
+        <Label htmlFor="title">{t('lesson_editor.lesson_title')}</Label>
         <Input
           id="title"
           value={lesson.title}
           onChange={(e) => onUpdate({ title: e.target.value })}
-          placeholder="Enter lesson title..."
+          placeholder={t('lesson_editor.lesson_title_placeholder')}
           className="text-base"
         />
         <p className="text-xs text-muted-foreground">
-          Choose a clear, descriptive title for your lesson
+          {t('lesson_editor.lesson_title_hint')}
         </p>
       </div>
 
       {/* Content Type */}
       <div className="space-y-2">
-        <Label htmlFor="content-type">Content Type *</Label>
+        <Label htmlFor="content-type">{t('lesson_editor.content_type')}</Label>
         <Select
           value={contentType}
           onValueChange={(value) => onUpdate({ content_type: value, type: value })}
@@ -110,22 +112,22 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         <div className="space-y-2">
           <Label htmlFor="duration">
             <Clock className="h-3.5 w-3.5 inline mr-1" />
-            Duration
+            {t('lesson_editor.duration')}
           </Label>
           <Input
             id="duration"
             value={lesson.duration}
             onChange={(e) => onUpdate({ duration: e.target.value })}
-            placeholder="e.g., 10:30"
+            placeholder={t('lesson_editor.duration_placeholder')}
           />
           <p className="text-xs text-muted-foreground">
-            Format: MM:SS or "X min"
+            {t('lesson_editor.duration_hint')}
           </p>
         </div>
 
         {/* Status */}
         <div className="space-y-2">
-          <Label htmlFor="status">Publication Status *</Label>
+          <Label htmlFor="status">{t('lesson_editor.publication_status')}</Label>
           <Select
             value={lesson.status}
             onValueChange={(value) => onUpdate({ status: value })}
@@ -137,13 +139,13 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
               <SelectItem value="draft">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-gray-500" />
-                  <span>Draft</span>
+                  <span>{t('lesson_editor.draft')}</span>
                 </div>
               </SelectItem>
               <SelectItem value="published">
                 <div className="flex items-center gap-2">
                   <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>Published</span>
+                  <span>{t('lesson_editor.published')}</span>
                 </div>
               </SelectItem>
             </SelectContent>
@@ -153,12 +155,12 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
 
       {/* Description */}
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <Label htmlFor="description">{t('lesson_editor.description')}</Label>
         <Textarea
           id="description"
           value={lesson.description || ''}
           onChange={(e) => onUpdate({ description: e.target.value })}
-          placeholder="Provide a brief description of what students will learn..."
+          placeholder={t('lesson_editor.description_placeholder')}
           rows={4}
           className="resize-none"
         />
@@ -177,10 +179,10 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
               ) : (
                 <EyeOff className="h-4 w-4 text-muted-foreground" />
               )}
-              Free Preview
+              {t('lesson_editor.free_preview')}
             </Label>
             <p className="text-sm text-muted-foreground">
-              Allow non-enrolled students to view this lesson
+              {t('lesson_editor.free_preview_hint')}
             </p>
           </div>
           <Switch
@@ -200,10 +202,10 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
                 <div className="flex items-center gap-2">
                   <HelpCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
                   <h4 className="font-semibold text-sm text-orange-900 dark:text-orange-100">
-                    Quiz Settings
+                    {t('lesson_editor.quiz_settings')}
                   </h4>
                   <Badge variant="secondary" className="text-xs h-5 px-2">
-                    {lesson.questions || 0} questions
+                    {t('lesson_editor.questions_count', { count: lesson.questions || 0 })}
                   </Badge>
                 </div>
                 {isQuizInfoOpen ? (
@@ -218,7 +220,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
               <div className="px-3 pb-3 pt-1">
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p className="break-words leading-relaxed">
-                    Configure quiz questions, passing score, time limits, and other quiz-specific settings in the <strong>Quiz</strong> tab.
+                    {t('lesson_editor.quiz_settings_hint')}
                   </p>
                 </div>
               </div>
@@ -234,12 +236,12 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
             <div className="flex items-center gap-2 mb-2">
               <Video className="h-4 w-4 text-purple-600 flex-shrink-0" />
               <h4 className="font-semibold text-sm text-purple-900 dark:text-purple-100">
-                Video Content
+                {t('lesson_editor.video_content')}
               </h4>
             </div>
             <div className="text-xs text-muted-foreground space-y-1">
               <p className="break-words leading-relaxed">
-                Upload your video file, add transcripts, and configure video-specific settings in the <strong>Content</strong> tab.
+                {t('lesson_editor.video_content_hint')}
               </p>
             </div>
           </div>

@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 
 export function Footer() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const [apiCategories, setApiCategories] = useState<Category[]>([])
   
@@ -111,7 +111,7 @@ export function Footer() {
               className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 w-full justify-start"
             >
               <Globe className="w-4 h-4 mr-2" />
-              English
+              {i18n.language === 'vi' ? t('language_switcher.vietnamese') : t('language_switcher.english')}
             </Button>
             
             {/* Social Links */}

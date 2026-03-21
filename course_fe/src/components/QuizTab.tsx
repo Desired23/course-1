@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Loader2, Plus, Trash2, GripVertical, CheckCircle, Circle, HelpCircle, Edit2, X, Save, Code2 } from 'lucide-react'
 import { cn } from './ui/utils'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import {
   createQuizQuestion,
   createTestCase,
@@ -100,7 +101,16 @@ function toOptionsPayload(options: string[]): Record<string, string>[] {
     .map((text) => ({ text }))
 }
 
+function getQuestionTypeLabel(type: QuizQuestion['type'], t: (key: string) => string): string {
+  if (type === 'multiple-choice') return t('lesson_editor.multiple_choice')
+  if (type === 'true-false') return t('lesson_editor.true_false')
+  if (type === 'short-answer') return t('lesson_editor.short_answer')
+  if (type === 'essay') return t('lesson_editor.essay')
+  return t('lesson_editor.code')
+}
+
 export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
+  const { t } = useTranslation()
   const [quizData, setQuizData] = useState<QuizData>(
     lesson.quizData || {
       title: lesson.title,
@@ -169,7 +179,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
       })
     } catch (error) {
       console.error(error)
-      toast.error('Failed to load quiz questions')
+      toast.error(t('lesson_editor.load_questions_failed'))
     } finally {
       setIsLoading(false)
     }
@@ -224,14 +234,14 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
   }
 
   const validateQuestion = (q: QuizQuestion): string | null => {
-    if (!q.question.trim()) return 'Please enter a question'
+    if (!q.question.trim()) return t('lesson_editor.enter_question')
     if (q.type === 'multiple-choice') {
       const validOptions = q.options.map((o) => o.trim()).filter(Boolean)
-      if (validOptions.length < 2) return 'Please provide at least 2 answer options'
+      if (validOptions.length < 2) return t('lesson_editor.need_two_options')
     }
     if (q.type === 'code') {
       const validTests = q.testCases.filter((tc) => tc.input_data.trim() || tc.expected_output.trim())
-      if (validTests.length === 0) return 'Code question needs at least one test case'
+      if (validTests.length === 0) return t('lesson_editor.need_test_case')
     }
     return null
   }
@@ -306,10 +316,10 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
       await loadQuestions()
       setEditingQuestion(null)
       setShowQuestionEditor(false)
-      toast.success('Question saved')
+      toast.success(t('lesson_editor.save_question'))
     } catch (error) {
       console.error(error)
-      toast.error('Failed to save question')
+      toast.error(t('lesson_editor.save_question_failed'))
     } finally {
       setIsSavingQuestion(false)
     }
@@ -320,10 +330,10 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
     try {
       await deleteQuizQuestion(id)
       await loadQuestions()
-      toast.success('Question deleted')
+      toast.success(t('lesson_editor.delete_question'))
     } catch (error) {
       console.error(error)
-      toast.error('Failed to delete question')
+      toast.error(t('lesson_editor.delete_question_failed'))
     }
   }
 
@@ -346,17 +356,17 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
         <>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="quiz-title">Quiz Title</Label>
+              <Label htmlFor="quiz-title">{t('lesson_editor.quiz_title')}</Label>
               <Input id="quiz-title" value={quizData.title} onChange={(e) => handleUpdateQuizMeta({ title: e.target.value })} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="quiz-description">Description</Label>
+              <Label htmlFor="quiz-description">{t('lesson_editor.description')}</Label>
               <Textarea id="quiz-description" value={quizData.description} onChange={(e) => handleUpdateQuizMeta({ description: e.target.value })} rows={3} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="passing-score">Passing Score (%)</Label>
+              <Label htmlFor="passing-score">{t('lesson_editor.passing_score')}</Label>
               <Input
                 id="passing-score"
                 type="number"
@@ -372,25 +382,25 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-2xl font-bold">{quizData.questions.length}</p>
-                <p className="text-xs text-muted-foreground">Questions</p>
+                <p className="text-xs text-muted-foreground">{t('lesson_editor.questions')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold">{totalPoints}</p>
-                <p className="text-xs text-muted-foreground">Total Points</p>
+                <p className="text-xs text-muted-foreground">{t('lesson_editor.total_points')}</p>
               </div>
               <div>
                 <p className="text-2xl font-bold">{quizData.passingScore}%</p>
-                <p className="text-xs text-muted-foreground">Passing</p>
+                <p className="text-xs text-muted-foreground">{t('lesson_editor.passing')}</p>
               </div>
             </div>
           </Card>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Questions</Label>
+              <Label>{t('lesson_editor.questions')}</Label>
               <Button size="sm" onClick={handleAddQuestion}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Question
+                {t('lesson_editor.add_question')}
               </Button>
             </div>
 
@@ -398,7 +408,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
               <Card className="p-8 bg-muted/30">
                 <div className="text-center text-muted-foreground">
                   <HelpCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">No questions yet</p>
+                  <p className="text-sm">{t('lesson_editor.no_questions_yet')}</p>
                 </div>
               </Card>
             ) : (
@@ -415,13 +425,13 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                                 Q{index + 1}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
-                                {question.type}
+                                {getQuestionTypeLabel(question.type, t)}
                               </Badge>
                               <Badge variant="outline" className="text-xs">
-                                {question.points} pts
+                                {question.points} {t('lesson_editor.points')}
                               </Badge>
                             </div>
-                            <p className="font-medium text-sm">{question.question || 'Untitled Question'}</p>
+                            <p className="font-medium text-sm">{question.question || t('lesson_editor.untitled_question')}</p>
                           </div>
                         </div>
 
@@ -444,7 +454,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
 
                         {question.type === 'code' && (
                           <div className="mt-2 text-xs text-muted-foreground">
-                            <span>{question.testCases.length} test case(s)</span>
+                            <span>{t('lesson_editor.test_cases_count', { count: question.testCases.length })}</span>
                           </div>
                         )}
                       </div>
@@ -474,7 +484,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
       {showQuestionEditor && editingQuestion && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold">{editingQuestion.id ? 'Edit' : 'Add'} Question</h3>
+            <h3 className="font-semibold">{editingQuestion.id ? t('lesson_editor.edit_question') : t('lesson_editor.add_new_question')}</h3>
             <Button variant="ghost" size="sm" onClick={() => { setShowQuestionEditor(false); setEditingQuestion(null) }}>
               <X className="h-4 w-4" />
             </Button>
@@ -482,27 +492,27 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Question Type</Label>
+              <Label>{t('lesson_editor.question_type')}</Label>
               <Select value={editingQuestion.type} onValueChange={(value: any) => handleQuestionUpdate({ type: value })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                  <SelectItem value="true-false">True/False</SelectItem>
-                  <SelectItem value="short-answer">Short Answer</SelectItem>
-                  <SelectItem value="essay">Essay</SelectItem>
-                  <SelectItem value="code">Code</SelectItem>
+                  <SelectItem value="multiple-choice">{t('lesson_editor.multiple_choice')}</SelectItem>
+                  <SelectItem value="true-false">{t('lesson_editor.true_false')}</SelectItem>
+                  <SelectItem value="short-answer">{t('lesson_editor.short_answer')}</SelectItem>
+                  <SelectItem value="essay">{t('lesson_editor.essay')}</SelectItem>
+                  <SelectItem value="code">{t('lesson_editor.code')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label>Question *</Label>
+              <Label>{t('lesson_editor.question_required')}</Label>
               <Textarea value={editingQuestion.question} onChange={(e) => handleQuestionUpdate({ question: e.target.value })} rows={3} />
             </div>
 
             {editingQuestion.type === 'multiple-choice' && (
               <div className="space-y-2">
-                <Label>Answer Options *</Label>
+                <Label>{t('lesson_editor.answer_options')}</Label>
                 {editingQuestion.options.map((option, index) => (
                   <div key={index} className="flex items-center gap-2">
                     <Button
@@ -520,7 +530,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                         next[index] = e.target.value
                         handleQuestionUpdate({ options: next })
                       }}
-                      placeholder={`Option ${index + 1}`}
+                      placeholder={t('lesson_editor.option_placeholder', { index: index + 1 })}
                     />
                   </div>
                 ))}
@@ -530,14 +540,14 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                   onClick={() => handleQuestionUpdate({ options: [...editingQuestion.options, ''] })}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Option
+                  {t('lesson_editor.add_option')}
                 </Button>
               </div>
             )}
 
             {editingQuestion.type === 'true-false' && (
               <div className="space-y-2">
-                <Label>Correct Answer</Label>
+                <Label>{t('lesson_editor.correct_answer')}</Label>
                 <Select value={editingQuestion.correctAnswer || 'true'} onValueChange={(value) => handleQuestionUpdate({ correctAnswer: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -550,7 +560,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
 
             {(editingQuestion.type === 'short-answer' || editingQuestion.type === 'essay') && (
               <div className="space-y-2">
-                <Label>Reference Answer</Label>
+                <Label>{t('lesson_editor.reference_answer')}</Label>
                 <Textarea value={editingQuestion.correctAnswer || ''} onChange={(e) => handleQuestionUpdate({ correctAnswer: e.target.value })} rows={3} />
               </div>
             )}
@@ -560,11 +570,11 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                 <Card className="p-4 bg-muted/30">
                   <div className="flex items-center gap-2 mb-3">
                     <Code2 className="h-4 w-4" />
-                    <p className="font-medium text-sm">Code Question Settings</p>
+                    <p className="font-medium text-sm">{t('lesson_editor.code_settings')}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label>Time Limit (seconds)</Label>
+                      <Label>{t('lesson_editor.time_limit_seconds')}</Label>
                       <Input
                         type="number"
                         min="1"
@@ -573,7 +583,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Memory Limit (KB)</Label>
+                      <Label>{t('lesson_editor.memory_limit_kb')}</Label>
                       <Input
                         type="number"
                         min="1024"
@@ -585,7 +595,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                 </Card>
 
                 <div className="space-y-2">
-                  <Label>Starter Code</Label>
+                  <Label>{t('lesson_editor.starter_code')}</Label>
                   <Textarea
                     rows={8}
                     value={editingQuestion.codeStarter || ''}
@@ -594,12 +604,12 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Test Cases</Label>
+                  <Label>{t('lesson_editor.test_cases')}</Label>
                   {editingQuestion.testCases.map((tc, idx) => (
                     <Card key={tc.id || idx} className="p-3">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">Case #{idx + 1}</p>
+                          <p className="text-sm font-medium">{t('lesson_editor.case_number', { index: idx + 1 })}</p>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -613,7 +623,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                           </Button>
                         </div>
                         <Input
-                          placeholder="Input"
+                          placeholder={t('lesson_editor.input_placeholder')}
                           value={tc.input_data}
                           onChange={(e) => {
                             const next = [...editingQuestion.testCases]
@@ -622,7 +632,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                           }}
                         />
                         <Input
-                          placeholder="Expected Output"
+                          placeholder={t('lesson_editor.expected_output_placeholder')}
                           value={tc.expected_output}
                           onChange={(e) => {
                             const next = [...editingQuestion.testCases]
@@ -651,25 +661,25 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Test Case
+                    {t('lesson_editor.add_test_case')}
                   </Button>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Points</Label>
+              <Label>{t('lesson_editor.points')}</Label>
               <Input type="number" min="1" value={editingQuestion.points} onChange={(e) => handleQuestionUpdate({ points: parseInt(e.target.value) || 1 })} />
             </div>
 
             <div className="space-y-2">
-              <Label>Explanation (Optional)</Label>
+              <Label>{t('lesson_editor.explanation_optional')}</Label>
               <Textarea value={editingQuestion.explanation || ''} onChange={(e) => handleQuestionUpdate({ explanation: e.target.value })} rows={2} />
             </div>
 
             <Button onClick={handleSaveQuestion} className="w-full" disabled={isSavingQuestion}>
               {isSavingQuestion ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-              {editingQuestion.id ? 'Update' : 'Add'} Question
+              {editingQuestion.id ? t('lesson_editor.update_question') : t('lesson_editor.add_new_question')}
             </Button>
           </div>
         </div>

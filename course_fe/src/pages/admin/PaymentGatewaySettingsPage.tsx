@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
+import { useTranslation } from 'react-i18next'
 
 interface PaymentGateway {
   id: string
@@ -37,6 +38,7 @@ interface PaymentGateway {
 }
 
 export function PaymentGatewaySettingsPage() {
+  const { t } = useTranslation()
   const [gatewaySettingId, setGatewaySettingId] = useState<number | null>(null)
   const [gateways, setGateways] = useState<PaymentGateway[]>([
     {
@@ -104,7 +106,14 @@ export function PaymentGatewaySettingsPage() {
     setGateways(prev => prev.map(g =>
       g.id === gatewayId ? { ...g, enabled: !g.enabled } : g
     ))
-    toast.success(`${gatewayId.toUpperCase()} ${gateways.find(g => g.id === gatewayId)?.enabled ? 'disabled' : 'enabled'}`)
+    toast.success(
+      t('payment_gateway_settings.gateway_toggle', {
+        gateway: gateways.find(g => g.id === gatewayId)?.name ?? gatewayId.toUpperCase(),
+        status: gateways.find(g => g.id === gatewayId)?.enabled
+          ? t('platform_settings.common.disabled')
+          : t('platform_settings.common.enabled')
+      })
+    )
   }
 
   const toggleTestMode = (gatewayId: string) => {
@@ -130,18 +139,22 @@ export function PaymentGatewaySettingsPage() {
         const created = await createSystemSetting({ key: 'payment_gateways', value: serialized })
         setGatewaySettingId(created.id)
       }
-      toast.success('Settings saved successfully!')
+      toast.success(t('payment_gateway_settings.save_success'))
     } catch {
-      toast.error('Lưu thất bại')
+      toast.error(t('payment_gateway_settings.save_failed'))
     }
   }
 
   const testConnection = async (gatewayId: string) => {
-    toast.loading('Testing connection...')
+    toast.loading(t('payment_gateway_settings.testing_connection'))
     // Simulate API call
     setTimeout(() => {
       toast.dismiss()
-      toast.success(`${gatewayId.toUpperCase()} connection successful!`)
+      toast.success(
+        t('payment_gateway_settings.connection_success', {
+          gateway: gateways.find(g => g.id === gatewayId)?.name ?? gatewayId.toUpperCase()
+        })
+      )
     }, 2000)
   }
 
@@ -154,17 +167,15 @@ export function PaymentGatewaySettingsPage() {
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl mb-2">Payment Gateway Settings</h1>
-          <p className="text-muted-foreground">
-            Configure payment gateways for your platform
-          </p>
+          <h1 className="text-3xl mb-2">{t('payment_gateway_settings.title')}</h1>
+          <p className="text-muted-foreground">{t('payment_gateway_settings.subtitle')}</p>
         </div>
 
         {/* Info Alert */}
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Keep your API keys secure. Never share them publicly or commit them to version control.
+            {t('payment_gateway_settings.security_notice')}
           </AlertDescription>
         </Alert>
 
@@ -185,12 +196,12 @@ export function PaymentGatewaySettingsPage() {
                     )}
                   </div>
                   <CardDescription>
-                    {gateway.enabled ? 'Active' : 'Inactive'}
+                    {gateway.enabled ? t('payment_gateway_settings.active') : t('payment_gateway_settings.inactive')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Enable Gateway</span>
+                    <span className="text-sm">{t('payment_gateway_settings.enable_gateway')}</span>
                     <Switch
                       checked={gateway.enabled}
                       onCheckedChange={() => toggleGateway(gateway.id)}
@@ -216,18 +227,18 @@ export function PaymentGatewaySettingsPage() {
             <TabsContent key={gateway.id} value={gateway.id} className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>{gateway.name} Configuration</CardTitle>
+                  <CardTitle>{t('payment_gateway_settings.configuration_title', { gateway: gateway.name })}</CardTitle>
                   <CardDescription>
-                    Configure your {gateway.name} payment gateway credentials
+                    {t('payment_gateway_settings.configuration_description', { gateway: gateway.name })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Test Mode */}
                   <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <p className="font-medium">Test Mode</p>
+                      <p className="font-medium">{t('payment_gateway_settings.test_mode')}</p>
                       <p className="text-sm text-muted-foreground">
-                        Use test credentials for development
+                        {t('payment_gateway_settings.test_mode_description')}
                       </p>
                     </div>
                     <Switch
@@ -244,14 +255,16 @@ export function PaymentGatewaySettingsPage() {
                       <div key={key} className="space-y-2">
                         <Label className="capitalize">
                           {key.replace(/([A-Z])/g, ' $1').trim()}
-                          {key.includes('secret') && ' (Keep Secure)'}
+                          {key.includes('secret') && ` ${t('payment_gateway_settings.keep_secure')}`}
                         </Label>
                         <div className="relative">
                           <Input
                             type={key.includes('secret') && !showSecrets[`${gateway.id}_${key}`] ? 'password' : 'text'}
                             value={value as string}
                             onChange={(e) => updateCredential(gateway.id, key, e.target.value)}
-                            placeholder={`Enter ${key.replace(/([A-Z])/g, ' $1').toLowerCase()}`}
+                            placeholder={t('payment_gateway_settings.enter_value', {
+                              field: key.replace(/([A-Z])/g, ' $1').toLowerCase()
+                            })}
                             className={key.includes('secret') ? 'font-mono' : ''}
                           />
                           {key.includes('secret') && (
@@ -281,28 +294,28 @@ export function PaymentGatewaySettingsPage() {
                       className="flex-1"
                     >
                       <Save className="w-4 h-4 mr-2" />
-                      Save Settings
+                      {t('payment_gateway_settings.save_settings')}
                     </Button>
                     <Button 
                       variant="outline"
                       onClick={() => testConnection(gateway.id)}
                       disabled={!gateway.enabled}
                     >
-                      Test Connection
+                      {t('payment_gateway_settings.test_connection')}
                     </Button>
                   </div>
 
                   {/* Documentation Link */}
                   <Alert>
                     <AlertDescription className="flex items-center justify-between">
-                      <span>Need help? Check the documentation</span>
+                      <span>{t('payment_gateway_settings.need_help')}</span>
                       <Button variant="link" size="sm" asChild>
                         <a 
                           href={`https://docs.${gateway.id}.com`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                         >
-                          View Docs →
+                          {t('payment_gateway_settings.view_docs')}
                         </a>
                       </Button>
                     </AlertDescription>
@@ -313,26 +326,26 @@ export function PaymentGatewaySettingsPage() {
               {/* Webhooks Configuration */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Webhook Configuration</CardTitle>
+                  <CardTitle>{t('payment_gateway_settings.webhook_title')}</CardTitle>
                   <CardDescription>
-                    Configure webhooks for payment notifications
+                    {t('payment_gateway_settings.webhook_description')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Webhook URL</Label>
+                    <Label>{t('payment_gateway_settings.webhook_url')}</Label>
                     <Input
                       value={`${window.location.origin}/api/webhooks/${gateway.id}`}
                       readOnly
                       className="font-mono text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Add this URL to your {gateway.name} dashboard
+                      {t('payment_gateway_settings.webhook_url_hint', { gateway: gateway.name })}
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Webhook Events</Label>
+                    <Label>{t('payment_gateway_settings.webhook_events')}</Label>
                     <div className="border rounded-lg p-4 space-y-2 text-sm">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-green-600" />
@@ -357,3 +370,5 @@ export function PaymentGatewaySettingsPage() {
     </div>
   )
 }
+
+

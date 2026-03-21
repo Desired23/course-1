@@ -38,6 +38,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getAdminSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan, getPlanSubscribers, getAdminRevenueAnalytics } from '../../services/admin.api'
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { useTranslation } from 'react-i18next'
 
 interface SubscriptionPlan {
   id: string
@@ -105,6 +106,7 @@ const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe']
 
 export function SubscriptionsPage() {
   const { canAccess } = useAuth()
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('overview')
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null)
@@ -234,7 +236,7 @@ export function SubscriptionsPage() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>You don't have permission to manage subscriptions.</p>
+            <p>{t('subscriptions_page.admin.access_denied')}</p>
           </CardContent>
         </Card>
       </div>
@@ -251,13 +253,13 @@ export function SubscriptionsPage() {
         features: newPlan.features,
         is_active: true
       })
-      toast.success('Tạo gói thành công')
+      toast.success(t('subscriptions_page.admin.create_success'))
       setIsCreatePlanOpen(false)
       setNewPlan({ name: '', description: '', type: 'monthly', price: 0, currency: 'USD', features: '', trialDays: 7, isPopular: false })
       // Reload
       window.location.reload()
     } catch (e) {
-      toast.error('Tạo gói thất bại')
+      toast.error(t('subscriptions_page.admin.create_failed'))
     }
   }
 
@@ -267,15 +269,15 @@ export function SubscriptionsPage() {
       if (plan) {
         await updateSubscriptionPlan(Number(planId), { is_active: !plan.isActive })
         setPlans(prev => prev.map(p => p.id === planId ? { ...p, isActive: !p.isActive } : p))
-        toast.success('Cập nhật thành công')
+        toast.success(t('subscriptions_page.admin.update_success'))
       }
     } catch (e) {
-      toast.error('Cập nhật thất bại')
+      toast.error(t('subscriptions_page.admin.update_failed'))
     }
   }
 
   const handleCancelSubscription = (subscriptionId: string) => {
-    toast.info('Chức năng hủy đăng ký đang được phát triển')
+    toast.info(t('subscriptions_page.admin.cancel_in_progress'))
   }
 
   const getStatusColor = (status: Subscription['status']) => {
@@ -300,63 +302,83 @@ export function SubscriptionsPage() {
     }
   }
 
+  const getStatusLabel = (status: Subscription['status']) => {
+    switch (status) {
+      case 'active': return t('subscriptions_page.admin.status.active')
+      case 'trialing': return t('subscriptions_page.admin.status.trialing')
+      case 'past_due': return t('subscriptions_page.admin.status.past_due')
+      case 'canceled': return t('subscriptions_page.admin.status.canceled')
+      case 'paused': return t('subscriptions_page.admin.status.paused')
+      default: return status
+    }
+  }
+
+  const getPlanTypeLabel = (type: SubscriptionPlan['type']) => {
+    switch (type) {
+      case 'monthly': return t('subscriptions_page.admin.plan_type.monthly')
+      case 'yearly': return t('subscriptions_page.admin.plan_type.yearly')
+      case 'lifetime': return t('subscriptions_page.admin.plan_type.lifetime')
+      default: return type
+    }
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Subscription Management</h1>
-          <p className="text-muted-foreground">Manage subscription plans and customer subscriptions</p>
+          <h1 className="text-3xl font-bold">{t('subscriptions_page.admin.title')}</h1>
+          <p className="text-muted-foreground">{t('subscriptions_page.admin.subtitle')}</p>
         </div>
         <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Create Plan
+              {t('subscriptions_page.admin.create_plan')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Subscription Plan</DialogTitle>
-              <DialogDescription>Configure a new subscription plan for your platform</DialogDescription>
+              <DialogTitle>{t('subscriptions_page.admin.create_plan_dialog_title')}</DialogTitle>
+              <DialogDescription>{t('subscriptions_page.admin.create_plan_dialog_description')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Plan Name</Label>
+                  <Label>{t('subscriptions_page.admin.plan_name')}</Label>
                   <Input
                     value={newPlan.name}
                     onChange={(e) => setNewPlan({...newPlan, name: e.target.value})}
-                    placeholder="e.g., Premium"
+                    placeholder={t('subscriptions_page.admin.plan_name_placeholder')}
                   />
                 </div>
                 <div>
-                  <Label>Billing Type</Label>
+                  <Label>{t('subscriptions_page.admin.billing_type')}</Label>
                   <Select value={newPlan.type} onValueChange={(value) => setNewPlan({...newPlan, type: value as SubscriptionPlan['type']})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                      <SelectItem value="lifetime">Lifetime</SelectItem>
+                      <SelectItem value="monthly">{t('subscriptions_page.admin.plan_type.monthly')}</SelectItem>
+                      <SelectItem value="yearly">{t('subscriptions_page.admin.plan_type.yearly')}</SelectItem>
+                      <SelectItem value="lifetime">{t('subscriptions_page.admin.plan_type.lifetime')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               
               <div>
-                <Label>Description</Label>
+                <Label>{t('subscriptions_page.admin.description')}</Label>
                 <Textarea
                   value={newPlan.description}
                   onChange={(e) => setNewPlan({...newPlan, description: e.target.value})}
-                  placeholder="Describe what this plan offers"
+                  placeholder={t('subscriptions_page.admin.description_placeholder')}
                   rows={3}
                 />
               </div>
               
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>Price</Label>
+                  <Label>{t('subscriptions_page.admin.price')}</Label>
                   <Input
                     type="number"
                     value={newPlan.price}
@@ -365,7 +387,7 @@ export function SubscriptionsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Currency</Label>
+                  <Label>{t('subscriptions_page.admin.currency')}</Label>
                   <Select value={newPlan.currency} onValueChange={(value) => setNewPlan({...newPlan, currency: value})}>
                     <SelectTrigger>
                       <SelectValue />
@@ -378,7 +400,7 @@ export function SubscriptionsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label>Trial Days</Label>
+                  <Label>{t('subscriptions_page.admin.trial_days')}</Label>
                   <Input
                     type="number"
                     value={newPlan.trialDays}
@@ -389,11 +411,11 @@ export function SubscriptionsPage() {
               </div>
               
               <div>
-                <Label>Features (one per line)</Label>
+                <Label>{t('subscriptions_page.admin.features')}</Label>
                 <Textarea
                   value={newPlan.features}
                   onChange={(e) => setNewPlan({...newPlan, features: e.target.value})}
-                  placeholder="Access to all courses&#10;HD video quality&#10;Priority support"
+                  placeholder={t('subscriptions_page.admin.features_placeholder')}
                   rows={5}
                 />
               </div>
@@ -404,15 +426,15 @@ export function SubscriptionsPage() {
                   checked={newPlan.isPopular}
                   onCheckedChange={(checked) => setNewPlan({...newPlan, isPopular: checked})}
                 />
-                <Label htmlFor="popular">Mark as popular plan</Label>
+                <Label htmlFor="popular">{t('subscriptions_page.admin.mark_popular')}</Label>
               </div>
               
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsCreatePlanOpen(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleCreatePlan}>
-                  Create Plan
+                  {t('subscriptions_page.admin.create_plan')}
                 </Button>
               </div>
             </div>
@@ -422,11 +444,11 @@ export function SubscriptionsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="plans">Plans</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="overview">{t('subscriptions_page.admin.tabs.overview')}</TabsTrigger>
+          <TabsTrigger value="plans">{t('subscriptions_page.admin.tabs.plans')}</TabsTrigger>
+          <TabsTrigger value="subscriptions">{t('subscriptions_page.admin.tabs.subscriptions')}</TabsTrigger>
+          <TabsTrigger value="analytics">{t('subscriptions_page.admin.tabs.analytics')}</TabsTrigger>
+          <TabsTrigger value="billing">{t('subscriptions_page.admin.tabs.billing')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -434,56 +456,56 @@ export function SubscriptionsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Monthly Recurring Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.metrics.mrr')}</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">${metrics.monthlyRecurringRevenue.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +12.3% from last month
+                  {t('subscriptions_page.admin.metrics.from_last_month_12')}
                 </p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Subscribers</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.metrics.active_subscribers')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.activeSubscribers.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +8.1% from last month
+                  {t('subscriptions_page.admin.metrics.from_last_month_8')}
                 </p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Churn Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.metrics.churn_rate')}</CardTitle>
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.churnRate}%</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1 text-red-500" />
-                  +0.2% from last month
+                  {t('subscriptions_page.admin.metrics.from_last_month_02')}
                 </p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Revenue Per User</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.metrics.arpu')}</CardTitle>
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">${metrics.averageRevenuePerUser}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +5.7% from last month
+                  {t('subscriptions_page.admin.metrics.from_last_month_57')}
                 </p>
               </CardContent>
             </Card>
@@ -493,8 +515,8 @@ export function SubscriptionsPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Revenue Growth</CardTitle>
-                <CardDescription>Monthly recurring revenue over time</CardDescription>
+                <CardTitle>{t('subscriptions_page.admin.revenue_growth')}</CardTitle>
+                <CardDescription>{t('subscriptions_page.admin.revenue_growth_description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -511,8 +533,8 @@ export function SubscriptionsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Plan Distribution</CardTitle>
-                <CardDescription>Subscriber distribution across plans</CardDescription>
+                <CardTitle>{t('subscriptions_page.admin.plan_distribution')}</CardTitle>
+                <CardDescription>{t('subscriptions_page.admin.plan_distribution_description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -547,7 +569,7 @@ export function SubscriptionsPage() {
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-blue-500 hover:bg-blue-600">
                       <Star className="h-3 w-3 mr-1" />
-                      Most Popular
+                      {t('subscriptions_page.admin.most_popular')}
                     </Badge>
                   </div>
                 )}
@@ -569,20 +591,20 @@ export function SubscriptionsPage() {
                     {plan.originalPrice && (
                       <span className="text-lg text-muted-foreground line-through">${plan.originalPrice}</span>
                     )}
-                    <span className="text-muted-foreground">/{plan.type}</span>
+                    <span className="text-muted-foreground">/{getPlanTypeLabel(plan.type)}</span>
                   </div>
                   
                   {plan.trialDays > 0 && (
                     <Badge variant="outline" className="w-fit">
                       <Gift className="h-3 w-3 mr-1" />
-                      {plan.trialDays} days free trial
+                      {t('subscriptions_page.admin.free_trial_days', { count: plan.trialDays })}
                     </Badge>
                   )}
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
                   <div>
-                    <h4 className="font-semibold mb-2">Features</h4>
+                    <h4 className="font-semibold mb-2">{t('subscriptions_page.admin.features_title')}</h4>
                     <ul className="space-y-1">
                       {plan.features.map((feature, index) => (
                         <li key={index} className="flex items-center gap-2 text-sm">
@@ -595,7 +617,7 @@ export function SubscriptionsPage() {
                   
                   {plan.limitations.length > 0 && (
                     <div>
-                      <h4 className="font-semibold mb-2">Limitations</h4>
+                      <h4 className="font-semibold mb-2">{t('subscriptions_page.admin.limitations_title')}</h4>
                       <ul className="space-y-1">
                         {plan.limitations.map((limitation, index) => (
                           <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -609,19 +631,19 @@ export function SubscriptionsPage() {
                   
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div>
-                      <p className="text-sm text-muted-foreground">Subscribers</p>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.subscribers')}</p>
                       <p className="font-semibold">{plan.subscriberCount.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Monthly Revenue</p>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.monthly_revenue')}</p>
                       <p className="font-semibold">${plan.revenue.toLocaleString()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Churn Rate</p>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.metrics.churn_rate')}</p>
                       <p className="font-semibold">{plan.churnRate}%</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Support Level</p>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.support_level')}</p>
                       <p className="font-semibold capitalize">{plan.supportLevel}</p>
                     </div>
                   </div>
@@ -629,11 +651,11 @@ export function SubscriptionsPage() {
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => setSelectedPlan(plan)}>
                       <Edit className="h-4 w-4 mr-1" />
-                      Edit
+                      {t('common.edit')}
                     </Button>
                     <Button size="sm" variant="outline">
                       <BarChart3 className="h-4 w-4 mr-1" />
-                      Analytics
+                      {t('subscriptions_page.admin.tabs.analytics')}
                     </Button>
                   </div>
                 </CardContent>
@@ -645,20 +667,20 @@ export function SubscriptionsPage() {
         <TabsContent value="subscriptions" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Active Subscriptions</CardTitle>
-              <CardDescription>Manage customer subscriptions and billing</CardDescription>
+              <CardTitle>{t('subscriptions_page.admin.active_subscriptions')}</CardTitle>
+              <CardDescription>{t('subscriptions_page.admin.active_subscriptions_description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Next Billing</TableHead>
-                    <TableHead>Payment Method</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t('subscriptions_page.admin.customer')}</TableHead>
+                    <TableHead>{t('subscriptions_page.admin.plan')}</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
+                    <TableHead>{t('subscriptions_page.admin.amount')}</TableHead>
+                    <TableHead>{t('subscriptions_page.admin.next_billing')}</TableHead>
+                    <TableHead>{t('subscriptions_page.admin.payment_method')}</TableHead>
+                    <TableHead>{t('subscriptions_page.admin.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -681,13 +703,13 @@ export function SubscriptionsPage() {
                         <TableCell>
                           <Badge className={getStatusColor(subscription.status)}>
                             {getStatusIcon(subscription.status)}
-                            <span className="ml-1 capitalize">{subscription.status}</span>
+                            <span className="ml-1">{getStatusLabel(subscription.status)}</span>
                           </Badge>
                         </TableCell>
-                        <TableCell>${subscription.amount}/{plan?.type}</TableCell>
+                        <TableCell>${subscription.amount}/{plan ? getPlanTypeLabel(plan.type) : ''}</TableCell>
                         <TableCell>
                           {subscription.status === 'trialing' && subscription.trialEnd
-                            ? `Trial ends ${subscription.trialEnd.toLocaleDateString()}`
+                            ? t('subscriptions_page.admin.trial_ends', { date: subscription.trialEnd.toLocaleDateString() })
                             : subscription.nextBillingDate.toLocaleDateString()
                           }
                         </TableCell>
@@ -715,45 +737,45 @@ export function SubscriptionsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.analytics_metrics.conversion_rate')}</CardTitle>
                 <Percent className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.conversionRate}%</div>
-                <p className="text-xs text-muted-foreground">Visitor to subscriber</p>
+                <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.analytics_metrics.visitor_to_subscriber')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Trial Conversion</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.analytics_metrics.trial_conversion')}</CardTitle>
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.trialConversion}%</div>
-                <p className="text-xs text-muted-foreground">Trial to paid</p>
+                <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.analytics_metrics.trial_to_paid')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Lifetime Value</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.analytics_metrics.lifetime_value')}</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">${metrics.lifetimeValue}</div>
-                <p className="text-xs text-muted-foreground">Average customer LTV</p>
+                <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.analytics_metrics.average_customer_ltv')}</p>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Annual Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.analytics_metrics.annual_revenue')}</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">${metrics.annualRecurringRevenue.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">ARR projection</p>
+                <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.analytics_metrics.arr_projection')}</p>
               </CardContent>
             </Card>
           </div>
@@ -761,8 +783,8 @@ export function SubscriptionsPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Subscriber Growth</CardTitle>
-                <CardDescription>New subscribers over time</CardDescription>
+                <CardTitle>{t('subscriptions_page.admin.subscriber_growth')}</CardTitle>
+                <CardDescription>{t('subscriptions_page.admin.subscriber_growth_description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -779,8 +801,8 @@ export function SubscriptionsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Churn Analysis</CardTitle>
-                <CardDescription>Churn rates by plan type</CardDescription>
+                <CardTitle>{t('subscriptions_page.admin.churn_analysis')}</CardTitle>
+                <CardDescription>{t('subscriptions_page.admin.churn_analysis_description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -802,32 +824,32 @@ export function SubscriptionsPage() {
         <TabsContent value="billing" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Billing Configuration</CardTitle>
-              <CardDescription>Configure billing cycles, invoicing, and payment retries</CardDescription>
+              <CardTitle>{t('subscriptions_page.admin.billing_configuration')}</CardTitle>
+              <CardDescription>{t('subscriptions_page.admin.billing_configuration_description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Invoice Settings</h3>
+                  <h3 className="text-lg font-semibold">{t('subscriptions_page.admin.invoice_settings')}</h3>
                   
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-base">Auto-send Invoices</Label>
-                      <p className="text-sm text-muted-foreground">Automatically send invoices to customers</p>
+                      <Label className="text-base">{t('subscriptions_page.admin.auto_send_invoices')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.auto_send_invoices_description')}</p>
                     </div>
                     <Switch defaultChecked />
                   </div>
                   
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-base">Payment Reminders</Label>
-                      <p className="text-sm text-muted-foreground">Send payment reminder emails</p>
+                      <Label className="text-base">{t('subscriptions_page.admin.payment_reminders')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.payment_reminders_description')}</p>
                     </div>
                     <Switch defaultChecked />
                   </div>
                   
                   <div>
-                    <Label>Invoice Due Days</Label>
+                    <Label>{t('subscriptions_page.admin.invoice_due_days')}</Label>
                     <Select defaultValue="7">
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -844,18 +866,18 @@ export function SubscriptionsPage() {
                 </div>
                 
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Retry Settings</h3>
+                  <h3 className="text-lg font-semibold">{t('subscriptions_page.admin.retry_settings')}</h3>
                   
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label className="text-base">Auto Retry Failed Payments</Label>
-                      <p className="text-sm text-muted-foreground">Automatically retry failed payments</p>
+                      <Label className="text-base">{t('subscriptions_page.admin.auto_retry_failed_payments')}</Label>
+                      <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.auto_retry_failed_payments_description')}</p>
                     </div>
                     <Switch defaultChecked />
                   </div>
                   
                   <div>
-                    <Label>Retry Attempts</Label>
+                    <Label>{t('subscriptions_page.admin.retry_attempts')}</Label>
                     <Select defaultValue="3">
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -870,7 +892,7 @@ export function SubscriptionsPage() {
                   </div>
                   
                   <div>
-                    <Label>Grace Period (days)</Label>
+                    <Label>{t('subscriptions_page.admin.grace_period')}</Label>
                     <Select defaultValue="3">
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -895,44 +917,44 @@ export function SubscriptionsPage() {
         <Dialog open={!!selectedPlan} onOpenChange={() => setSelectedPlan(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedPlan.name} Plan Details</DialogTitle>
-              <DialogDescription>View and edit plan configuration</DialogDescription>
+              <DialogTitle>{t('subscriptions_page.admin.plan_details_title', { name: selectedPlan.name })}</DialogTitle>
+              <DialogDescription>{t('subscriptions_page.admin.plan_details_description')}</DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Plan Name</Label>
+                  <Label>{t('subscriptions_page.admin.plan_name')}</Label>
                   <Input value={selectedPlan.name} readOnly />
                 </div>
                 <div>
-                  <Label>Price</Label>
-                  <Input value={`$${selectedPlan.price}/${selectedPlan.type}`} readOnly />
+                  <Label>{t('subscriptions_page.admin.price')}</Label>
+                  <Input value={`$${selectedPlan.price}/${getPlanTypeLabel(selectedPlan.type)}`} readOnly />
                 </div>
               </div>
               
               <div>
-                <Label>Description</Label>
+                <Label>{t('subscriptions_page.admin.description')}</Label>
                 <Textarea value={selectedPlan.description} readOnly rows={2} />
               </div>
               
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>Subscribers</Label>
+                  <Label>{t('subscriptions_page.admin.subscribers')}</Label>
                   <p className="text-2xl font-bold">{selectedPlan.subscriberCount.toLocaleString()}</p>
                 </div>
                 <div>
-                  <Label>Monthly Revenue</Label>
+                  <Label>{t('subscriptions_page.admin.monthly_revenue')}</Label>
                   <p className="text-2xl font-bold">${selectedPlan.revenue.toLocaleString()}</p>
                 </div>
                 <div>
-                  <Label>Churn Rate</Label>
+                  <Label>{t('subscriptions_page.admin.metrics.churn_rate')}</Label>
                   <p className="text-2xl font-bold">{selectedPlan.churnRate}%</p>
                 </div>
               </div>
               
               <div>
-                <Label>Features</Label>
+                <Label>{t('subscriptions_page.admin.features_title')}</Label>
                 <div className="mt-2 space-y-1">
                   {selectedPlan.features.map((feature, index) => (
                     <div key={index} className="flex items-center gap-2">
@@ -949,3 +971,4 @@ export function SubscriptionsPage() {
     </div>
   )
 }
+

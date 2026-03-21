@@ -8,8 +8,10 @@ import { Separator } from "./ui/separator"
 import { MessageCircle, Send, X, Search, Phone, Video, MoreVertical, Paperclip, Smile } from 'lucide-react'
 import { useChat } from "../contexts/ChatContext"
 import { useAuth } from "../contexts/AuthContext"
+import { useTranslation } from 'react-i18next'
 
 export function Chat() {
+  const { t } = useTranslation()
   const { state, toggleChat, closeChat, setActiveConversation, sendMessage, markConversationAsRead } = useChat()
   const { user } = useAuth()
   const [messageInput, setMessageInput] = useState('')
@@ -68,10 +70,10 @@ export function Chat() {
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
 
-    if (minutes < 1) return 'Just now'
-    if (minutes < 60) return `${minutes}m ago`
-    if (hours < 24) return `${hours}h ago`
-    return `${days}d ago`
+    if (minutes < 1) return t('chat.just_now')
+    if (minutes < 60) return t('chat.minutes_ago', { count: minutes })
+    if (hours < 24) return t('chat.hours_ago', { count: hours })
+    return t('chat.days_ago', { count: days })
   }
 
   if (!state.isOpen) return null
@@ -82,7 +84,7 @@ export function Chat() {
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
-          <span className="font-medium">Messages</span>
+          <span className="font-medium">{t('chat.messages')}</span>
           {state.totalUnreadCount > 0 && (
             <Badge variant="destructive" className="h-5 w-5 rounded-full p-0 text-xs">
               {state.totalUnreadCount}
@@ -103,7 +105,7 @@ export function Chat() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search conversations..."
+                  placeholder={t('chat.search_conversations')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-8"
@@ -145,7 +147,7 @@ export function Chat() {
                         </div>
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-muted-foreground truncate">
-                            {conversation.lastMessage?.content || 'No messages yet'}
+                            {conversation.lastMessage?.content || t('chat.no_messages_yet')}
                           </p>
                           {conversation.unreadCount > 0 && (
                             <Badge variant="destructive" className="h-4 w-4 rounded-full p-0 text-xs">
@@ -189,10 +191,10 @@ export function Chat() {
                   <p className="font-medium text-sm">{otherParticipant?.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {otherParticipant?.online 
-                      ? 'Online' 
+                      ? t('chat.online') 
                       : otherParticipant?.lastSeen 
-                        ? `Last seen ${formatLastSeen(otherParticipant.lastSeen)}`
-                        : 'Offline'
+                        ? t('chat.last_seen', { time: formatLastSeen(otherParticipant.lastSeen) })
+                        : t('chat.offline')
                     }
                   </p>
                 </div>
@@ -252,7 +254,7 @@ export function Chat() {
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <div className="flex-1 relative">
                   <Input
-                    placeholder="Type a message..."
+                    placeholder={t('chat.type_message')}
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     className="pr-20"

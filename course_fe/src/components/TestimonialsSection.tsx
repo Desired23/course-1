@@ -22,62 +22,7 @@ export function TestimonialsSection() {
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
 
-  const testimonials: Testimonial[] = [
-    {
-      id: 1,
-      name: 'Sarah Johnson',
-      role: 'Software Developer',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-      rating: 5,
-      content: 'This platform completely changed my career. The courses are well-structured and the instructors are top-notch. I landed my dream job after completing the Full Stack Development course!',
-      course: 'Full Stack Web Development'
-    },
-    {
-      id: 2,
-      name: 'Michael Chen',
-      role: 'Data Scientist',
-      avatar: 'https://i.pravatar.cc/150?img=13',
-      rating: 5,
-      content: 'The Machine Learning course exceeded all my expectations. The practical projects helped me apply what I learned immediately in my work. Highly recommended!',
-      course: 'Machine Learning Masterclass'
-    },
-    {
-      id: 3,
-      name: 'Emily Rodriguez',
-      role: 'UX Designer',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      rating: 5,
-      content: 'As someone transitioning into UX design, I found the courses incredibly helpful. The community support and feedback from instructors made all the difference.',
-      course: 'UX/UI Design Bootcamp'
-    },
-    {
-      id: 4,
-      name: 'David Kim',
-      role: 'Marketing Manager',
-      avatar: 'https://i.pravatar.cc/150?img=14',
-      rating: 5,
-      content: 'The Digital Marketing course gave me practical skills I could use right away. My company saw a 40% increase in engagement within 3 months!',
-      course: 'Digital Marketing Pro'
-    },
-    {
-      id: 5,
-      name: 'Lisa Patel',
-      role: 'Product Manager',
-      avatar: 'https://i.pravatar.cc/150?img=9',
-      rating: 5,
-      content: 'Best investment in my career. The Product Management course was comprehensive and taught by industry experts. The case studies were particularly valuable.',
-      course: 'Product Management Essentials'
-    },
-    {
-      id: 6,
-      name: 'James Wilson',
-      role: 'Business Analyst',
-      avatar: 'https://i.pravatar.cc/150?img=12',
-      rating: 5,
-      content: 'The instructors are amazing and the course content is always up-to-date. I learned more here than in my university degree!',
-      course: 'Business Analytics & Data Visualization'
-    }
-  ]
+  const testimonials = t('testimonials.items', { returnObjects: true }) as Testimonial[]
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return
@@ -123,7 +68,7 @@ export function TestimonialsSection() {
             <button
               onClick={() => scroll('left')}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 -ml-6"
-              aria-label="Scroll left"
+              aria-label={t('common.scroll_left')}
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -180,7 +125,7 @@ export function TestimonialsSection() {
             <button
               onClick={() => scroll('right')}
               className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 -mr-6"
-              aria-label="Scroll right"
+              aria-label={t('common.scroll_right')}
             >
               <ChevronRight className="w-6 h-6" />
             </button>

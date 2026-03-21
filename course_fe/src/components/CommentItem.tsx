@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { SafeCommentContent } from "./SafeCommentContent"
+import { useTranslation } from 'react-i18next'
 
 interface CommentItemProps {
   comment: any
@@ -39,6 +40,7 @@ export function CommentItem({
   currentUser = 'You', // Default to 'You' for demo purposes
   isReply = false 
 }: CommentItemProps) {
+  const { t } = useTranslation()
   const [replyContent, setReplyContent] = useState('')
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(comment.content)
@@ -63,8 +65,8 @@ export function CommentItem({
     setIsEditing(false)
   }
 
-  const isOwner = comment.user === currentUser || comment.user === 'You' // Simple check
-  const isAdminOrInstructor = currentUser === 'Instructor Team' // Mock role check
+  const isOwner = comment.user === currentUser || comment.user === t('comment_item.you') // Simple check
+  const isAdminOrInstructor = currentUser === t('comment_item.instructor_team') // Mock role check
 
   // Can delete if owner OR admin/instructor
   const canDelete = isOwner || isAdminOrInstructor
@@ -79,8 +81,8 @@ export function CommentItem({
                 <Trash2 className="h-3 w-3" />
              </div>
              <div className="flex-1">
-                <div className="text-sm text-muted-foreground italic bg-muted/20 p-2 rounded">
-                   Comment deleted
+                   <div className="text-sm text-muted-foreground italic bg-muted/20 p-2 rounded">
+                   {t('comment_item.deleted')}
                 </div>
                 
                 {/* Still show nested replies even if parent is deleted */}
@@ -113,7 +115,7 @@ export function CommentItem({
          <div className={`rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-xs select-none ${
            isReply ? "h-6 w-6 text-[10px]" : "h-8 w-8"
          } ${
-           comment.user === 'Instructor Team' 
+           comment.user === t('comment_item.instructor_team') 
              ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" 
              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
          }`}>
@@ -123,8 +125,8 @@ export function CommentItem({
             <div className="flex items-baseline justify-between">
               <span className="font-semibold text-sm">
                 {comment.user}
-                {comment.user === 'Instructor Team' && (
-                  <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-normal">Instructor</span>
+                {comment.user === t('comment_item.instructor_team') && (
+                  <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-normal">{t('comment_item.instructor')}</span>
                 )}
               </span>
               <div className="flex items-center gap-2">
@@ -140,7 +142,7 @@ export function CommentItem({
                     <DropdownMenuContent align="end">
                       {canEdit && (
                         <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                          <Pencil className="h-3 w-3 mr-2" /> Edit
+                          <Pencil className="h-3 w-3 mr-2" /> {t('common.edit')}
                         </DropdownMenuItem>
                       )}
                       {canDelete && (
@@ -148,7 +150,7 @@ export function CommentItem({
                           className="text-destructive focus:text-destructive"
                           onClick={() => onDeleteComment && onDeleteComment(comment.id)}
                         >
-                          <Trash2 className="h-3 w-3 mr-2" /> Delete
+                          <Trash2 className="h-3 w-3 mr-2" /> {t('common.delete')}
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -166,10 +168,10 @@ export function CommentItem({
                 />
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-7 px-3">
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                   <Button size="sm" onClick={handleSaveEdit} className="h-7 px-3">
-                    Save
+                    {t('common.save')}
                   </Button>
                 </div>
               </div>
@@ -188,7 +190,7 @@ export function CommentItem({
                    onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                    className="flex items-center gap-1 hover:text-foreground transition-colors"
                  >
-                    <Reply className="h-3 w-3" /> Reply
+                    <Reply className="h-3 w-3" /> {t('comment_item.reply')}
                  </button>
               </div>
             )}
@@ -201,7 +203,7 @@ export function CommentItem({
                      autoFocus
                      value={replyContent}
                      onChange={(e) => setReplyContent(e.target.value)}
-                     placeholder="Write a reply..."
+                     placeholder={t('comment_item.write_reply')}
                      className="w-full bg-muted/30 border rounded-md p-2 text-xs min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary resize-none mb-2"
                    />
                    <div className="flex justify-end gap-2">
@@ -214,7 +216,7 @@ export function CommentItem({
                          setReplyContent('')
                        }}
                      >
-                       Cancel
+                       {t('common.cancel')}
                      </Button>
                      <Button 
                        size="sm" 
@@ -222,7 +224,7 @@ export function CommentItem({
                        disabled={!replyContent.trim()}
                        onClick={handleSubmitReply}
                      >
-                       Reply
+                       {t('comment_item.reply')}
                      </Button>
                    </div>
                  </div>

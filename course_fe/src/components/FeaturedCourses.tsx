@@ -97,7 +97,7 @@ export function FeaturedCourses() {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : featuredCoursesData.length === 0 ? (
-            <p className="text-center text-gray-500 py-12">No featured courses yet</p>
+            <p className="text-center text-gray-500 py-12">{t('featured_courses.empty')}</p>
           ) : (
           <>
           {/* Left Arrow */}
@@ -105,7 +105,7 @@ export function FeaturedCourses() {
             <button
               onClick={() => scroll('left')}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-full p-2 shadow-lg opacity-0 group-hover/slider:opacity-100 transition-opacity hover:scale-110 -ml-4"
-              aria-label="Scroll left"
+              aria-label={t('common.scroll_left')}
             >
               <ChevronLeft className="w-6 h-6" />
             </button>
@@ -130,7 +130,7 @@ export function FeaturedCourses() {
             <button
               onClick={() => scroll('right')}
               className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-full p-2 shadow-lg opacity-0 group-hover/slider:opacity-100 transition-opacity hover:scale-110 -mr-4"
-              aria-label="Scroll right"
+              aria-label={t('common.scroll_right')}
             >
               <ChevronRight className="w-6 h-6" />
             </button>

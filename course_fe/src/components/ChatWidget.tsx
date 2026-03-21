@@ -14,8 +14,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
+import { useTranslation } from 'react-i18next'
 
 export function ChatWidget() {
+  const { t } = useTranslation()
   const { state, toggleChat, sendMessage, setActiveConversation } = useChat()
   const { user } = useAuth()
   const [messageInput, setMessageInput] = useState('')
@@ -69,7 +71,7 @@ export function ChatWidget() {
     
     sendMessage(conversationId, {
       senderId: user.id,
-      senderName: user.name || 'You',
+        senderName: user.name || t('chat.you'),
       content: text,
       type: 'text'
     })
@@ -147,15 +149,15 @@ export function ChatWidget() {
                   <MessageCircle className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm">Support Chat</h3>
+                  <h3 className="font-bold text-sm">{t('chat_widget.support_chat')}</h3>
                   {activeConversation ? (
                     <p className="text-xs text-blue-100 flex items-center gap-1">
                       <span className={`w-1.5 h-1.5 rounded-full ${isTyping ? 'bg-white animate-pulse' : 'bg-green-400'}`} />
-                      {isTyping ? 'Typing...' : activeConversation.participants.map(p => p.name).join(', ')}
+                      {isTyping ? t('chat_widget.typing') : activeConversation.participants.map(p => p.name).join(', ')}
                     </p>
                   ) : (
                     <p className="text-xs text-blue-100">
-                      We reply immediately
+                      {t('chat_widget.reply_immediately')}
                     </p>
                   )}
                 </div>
@@ -169,10 +171,10 @@ export function ChatWidget() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={handleBackToConversations}>
-                      Close Conversation
+                      {t('chat_widget.close_conversation')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={toggleChat}>
-                      Minimize Chat
+                      {t('chat_widget.minimize_chat')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -198,9 +200,9 @@ export function ChatWidget() {
                         <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
                           <MessageCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                         </div>
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">No messages yet</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">{t('chat.no_messages_yet')}</h4>
                         <p className="text-sm text-muted-foreground mt-1 max-w-[200px]">
-                          Start a conversation with our support team or instructors.
+                          {t('chat_widget.start_conversation')}
                         </p>
                       </div>
                     ) : (
@@ -226,14 +228,14 @@ export function ChatWidget() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-0.5">
                                 <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-blue-600 transition-colors">
-                                  {conversation.participants[1]?.name || 'Unknown'}
+                                  {conversation.participants[1]?.name || t('chat_widget.unknown')}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
                                   {new Date(conversation.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </div>
                               <p className="text-xs text-muted-foreground truncate font-medium">
-                                {conversation.lastMessage?.content || "No messages yet"}
+                                {conversation.lastMessage?.content || t('chat.no_messages_yet')}
                               </p>
                             </div>
                           </div>
@@ -260,7 +262,7 @@ export function ChatWidget() {
                     {messages.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full space-y-2 opacity-50">
                         <MessageCircle className="w-8 h-8" />
-                        <p className="text-sm">Start chatting now</p>
+                        <p className="text-sm">{t('chat_widget.start_chatting')}</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -337,7 +339,7 @@ export function ChatWidget() {
                       <Input
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
-                        placeholder="Type a message..."
+                        placeholder={t('chat.type_message')}
                         className="flex-1 min-h-[44px] bg-gray-50 dark:bg-gray-900 border-0 focus-visible:ring-1 focus-visible:ring-blue-500 rounded-xl px-4"
                       />
                       

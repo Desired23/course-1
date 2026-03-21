@@ -44,7 +44,7 @@ export function LearningGoals() {
           <div className="relative">
             <ImageWithFallback
               src="https://images.unsplash.com/photo-1610540604745-3e96fba9ccef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsZWFybmluZyUyMGdvYWxzJTIwZWR1Y2F0aW9uJTIwdGFyZ2V0fGVufDF8fHx8MTc1OTE1NjA0NHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-              alt="Learning goals illustration"
+              alt={t('learning_goals.image_alt')}
               className="w-full h-auto rounded-lg"
             />
           </div>

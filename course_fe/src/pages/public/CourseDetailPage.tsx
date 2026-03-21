@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from "../../components/Router"
 import { useCart } from "../../contexts/CartContext"
 import { useAuth } from "../../contexts/AuthContext"
@@ -60,7 +60,7 @@ export function CourseDetailPage() {
   const { navigate, currentRoute } = useRouter()
   const { isOwned: isEnrolled, refresh: refreshOwned } = useOwnedCourses()
 
-  // Scroll listener: manage sidebar card position (natural → fixed → docked)
+  // Scroll listener: manage sidebar card position (natural â†’ fixed â†’ docked)
   useEffect(() => {
     const handleScroll = () => {
       const container = sidebarCardRef.current
@@ -105,18 +105,18 @@ export function CourseDetailPage() {
   const handleEnroll = async (source: 'purchase' | 'subscription' = 'purchase') => {
     if (!courseData || enrolling) return
     if (!isAuthenticated) {
-      toast.error('Vui lòng đăng nhập để đăng ký khóa học')
+      toast.error(t('course_detail.login_to_enroll'))
       navigate('/login')
       return
     }
     setEnrolling(true)
     try {
       await createEnrollment({ course_id: courseData.id, source })
-      toast.success('Đăng ký khóa học thành công!', { description: courseData.title })
+      toast.success(t('course_detail.enroll_success'), { description: courseData.title })
       refreshOwned()
       navigate(`/course-player/${courseData.id}`)
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể đăng ký khóa học')
+      toast.error(err?.message || t('course_detail.enroll_failed'))
     } finally {
       setEnrolling(false)
     }
@@ -201,7 +201,7 @@ export function CourseDetailPage() {
     // If logged in, use API to persist cart on server
     if (isAuthenticated && user?.id) {
       if (isInCartByCourseId(courseData.id)) {
-        toast.info('Khóa học này đã có trong giỏ hàng')
+        toast.info(t('course_detail.already_in_cart'))
         return
       }
       await addToCartFromApi(parseInt(user.id), courseData.id, {})
@@ -211,7 +211,7 @@ export function CourseDetailPage() {
         id: String(courseData.id),
         courseId: courseData.id,
         title: courseData.title,
-        instructor: courseData.instructor?.full_name || 'Instructor',
+        instructor: courseData.instructor?.full_name || t('course_detail.by_instructor'),
         originalPrice: regularPrice,
         currentPrice: effectivePrice,
         image: courseData.thumbnail || '',
@@ -244,7 +244,7 @@ export function CourseDetailPage() {
         toast.success(t('course_detail.wishlist_added'))
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Lỗi khi cập nhật wishlist')
+      toast.error(err?.message || 'Lá»—i khi cáº­p nháº­t wishlist')
     } finally {
       setWishlistLoading(false)
     }
@@ -255,12 +255,12 @@ export function CourseDetailPage() {
     setSubmittingReview(true)
     try {
       await createReview({ course: courseData.id, rating: newRating, comment: newComment || undefined })
-      toast.success('Đánh giá đã được gửi!')
+      toast.success(t('course_detail.review_submitted'))
       setNewComment('')
       setNewRating(5)
       loadReviews(courseData.id)
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể gửi đánh giá.')
+      toast.error(err?.message || t('course_detail.review_submit_failed'))
     } finally {
       setSubmittingReview(false)
     }
@@ -280,7 +280,7 @@ export function CourseDetailPage() {
       {error && !loading && (
         <div className="flex flex-col items-center justify-center py-32">
           <p className="text-red-500 text-lg mb-4">{error}</p>
-          <Button onClick={() => navigate('/courses')}>Back to Courses</Button>
+          <Button onClick={() => navigate('/courses')}>{t('course_detail.back_to_courses')}</Button>
         </div>
       )}
 
@@ -296,12 +296,12 @@ export function CourseDetailPage() {
         isWishlisted={isWishlisted}
         primaryActionLabel={
           canGoToPlayerDirectly
-            ? 'Vào học'
+            ? t('common.go_to_course')
             : needsSubscriptionEnrollment
-              ? 'Đăng ký học'
+              ? t('course_detail.enroll_course')
               : isFree
-                ? 'Đăng ký miễn phí'
-                : 'Buy Now'
+                ? t('course_detail.enroll_free')
+                : t('course_detail.buy_now')
         }
         showAddToCart={!(canGoToPlayerDirectly || needsSubscriptionEnrollment || isFree)}
         onAddToCart={canGoToPlayerDirectly ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleAddToCart}
@@ -322,7 +322,7 @@ export function CourseDetailPage() {
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-4">
               <CourseBreadcrumb items={[
-                { label: 'Home', href: '/' },
+                { label: t('sidebar.home'), href: '/' },
                 ...(courseData.category ? [{ label: courseData.category.name, href: `/courses?category=${courseData.category.category_id}` }] : []),
                 ...(courseData.subcategory ? [{ label: courseData.subcategory.name, href: `/courses?category=${courseData.subcategory.category_id}` }] : []),
               ]} />
@@ -373,7 +373,7 @@ export function CourseDetailPage() {
                >
                   {/* Video Preview Area */}
                   <div className="relative h-48 bg-black group cursor-pointer overflow-hidden">
-                    <img src={courseData.thumbnail || ''} alt="Preview" className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+                    <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
                     
                     {/* Render Lock Overlay if it's a paid course and user is NOT subscribed */}
                     {/* Just for demo: We lock it if it's NOT a free preview logic, but here we just show play button */}
@@ -389,14 +389,14 @@ export function CourseDetailPage() {
 
                   <CardContent className="p-6 space-y-6">
                      {canGoToPlayerDirectly ? (
-                        /* VIEW: Already enrolled — go to player */
+                        /* VIEW: Already enrolled â€” go to player */
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
                               <span className="text-2xl font-bold text-green-600">
-                                {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Gói đăng ký' : 'Đã sở hữu'}
+                                {accessType === 'purchase' ? t('course_detail.purchased') : accessType === 'subscription' ? t('course_detail.subscription_plan') : t('course_detail.owned')}
                               </span>
                               <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">
-                                {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Subscription' : 'Active'}
+                                {accessType === 'purchase' ? t('course_detail.purchased') : accessType === 'subscription' ? t('course_detail.subscription_plan') : t('course_detail.active')}
                               </Badge>
                            </div>
                            <p className="text-sm text-muted-foreground">
@@ -404,18 +404,18 @@ export function CourseDetailPage() {
                            </p>
                            <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={() => navigate(`/course-player/${courseData.id}`)}>
                               <Play className="w-5 h-5 mr-2" />
-                              Vào học
+                              {t('course_detail.start_learning_now')}
                            </Button>
                         </div>
                      ) : needsSubscriptionEnrollment ? (
                         /* VIEW: Has subscription access but not enrolled yet */
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
-                              <span className="text-2xl font-bold text-blue-600">Đã bao gồm trong gói</span>
-                              <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">Subscription</Badge>
+                              <span className="text-2xl font-bold text-blue-600">{t('course_detail.included_in_subscription')}</span>
+                              <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">{t('course_detail.subscription_plan')}</Badge>
                            </div>
                            <p className="text-sm text-muted-foreground">
-                              Khóa học này nằm trong gói đăng ký của bạn. Đăng ký để bắt đầu học.
+                              {t('course_detail.subscription_enroll_desc')}
                            </p>
                            <Button 
                               className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700" 
@@ -423,18 +423,18 @@ export function CourseDetailPage() {
                               disabled={enrolling}
                            >
                               {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
-                              Đăng ký học
+                              {t('course_detail.enroll_course')}
                            </Button>
                         </div>
                      ) : !canAccessCourse && isFree ? (
-                        /* VIEW: Free course — enroll for free */
+                        /* VIEW: Free course â€” enroll for free */
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
-                              <span className="text-2xl font-bold text-green-600">Miễn phí</span>
-                              <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">Free</Badge>
+                              <span className="text-2xl font-bold text-green-600">{t('common.free')}</span>
+                              <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">{t('common.free')}</Badge>
                            </div>
                            <p className="text-sm text-muted-foreground">
-                              Khóa học này hoàn toàn miễn phí. Đăng ký ngay để bắt đầu học!
+                              {t('course_detail.free_course_desc')}
                            </p>
                            <Button 
                               className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
@@ -442,7 +442,7 @@ export function CourseDetailPage() {
                               disabled={enrolling}
                            >
                               {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
-                              Đăng ký miễn phí
+                              {t('course_detail.enroll_free')}
                            </Button>
                         </div>
                      ) : (
@@ -527,7 +527,7 @@ export function CourseDetailPage() {
           <div className="lg:hidden mb-8">
             <Card className="overflow-hidden">
                <div className="relative aspect-video bg-black group cursor-pointer overflow-hidden">
-                  <img src={courseData.thumbnail || ''} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className="w-full h-full object-cover" />
                   {/* Play Button Overlay */}
                    <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
@@ -541,23 +541,23 @@ export function CourseDetailPage() {
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="text-2xl font-bold text-green-600">
-                              {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Gói đăng ký' : 'Đã sở hữu'}
+                              {accessType === 'purchase' ? t('course_detail.purchased') : accessType === 'subscription' ? t('course_detail.subscription_plan') : t('course_detail.owned')}
                             </span>
                             <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">
-                              {accessType === 'purchase' ? 'Đã mua' : accessType === 'subscription' ? 'Subscription' : 'Active'}
+                              {accessType === 'purchase' ? t('course_detail.purchased') : accessType === 'subscription' ? t('course_detail.subscription_plan') : t('course_detail.active')}
                             </Badge>
                           </div>
                           <Button className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" onClick={() => navigate(`/course-player/${courseData.id}`)}>
                             <Play className="w-5 h-5 mr-2" />
-                            Vào học
+                            {t('common.go_to_course')}
                           </Button>
                       </div>
                   ) : needsSubscriptionEnrollment ? (
                       /* Mobile: Has subscription but not enrolled */
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold text-blue-600">Đã bao gồm trong gói</span>
-                            <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">Subscription</Badge>
+                            <span className="text-2xl font-bold text-blue-600">{t('course_detail.included_in_subscription')}</span>
+                            <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">{t('course_detail.subscription_plan')}</Badge>
                           </div>
                           <Button 
                             className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700" 
@@ -565,14 +565,14 @@ export function CourseDetailPage() {
                             disabled={enrolling}
                           >
                             {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
-                            Đăng ký học
+                            {t('course_detail.enroll_course')}
                           </Button>
                       </div>
                   ) : !canAccessCourse && isFree ? (
                       /* Mobile: Free course */
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold text-green-600">Miễn phí</span>
+                            <span className="text-2xl font-bold text-green-600">Miá»…n phÃ­</span>
                             <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">Free</Badge>
                           </div>
                           <Button 
@@ -581,7 +581,7 @@ export function CourseDetailPage() {
                             disabled={enrolling}
                           >
                             {enrolling ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <BookOpen className="w-5 h-5 mr-2" />}
-                            Đăng ký miễn phí
+                            {t('course_detail.enroll_free')}
                           </Button>
                       </div>
                   ) : (
@@ -661,7 +661,13 @@ export function CourseDetailPage() {
                <CardHeader>
                  <CardTitle>{t('course_detail.course_content')}</CardTitle>
                  <CardDescription>
-                   {courseData.total_modules} modules • {courseData.total_lessons} {t('course_detail.lectures_count')} • {formatDuration(courseData.duration)}
+                   {t('course_detail.content_summary', {
+                     modules: courseData.total_modules,
+                     modulesLabel: t('course_detail.modules_count'),
+                     lessons: courseData.total_lessons,
+                     lecturesLabel: t('course_detail.lectures_count'),
+                     duration: formatDuration(courseData.duration),
+                   })}
                  </CardDescription>
                </CardHeader>
                <CardContent className="space-y-2">
@@ -672,7 +678,11 @@ export function CourseDetailPage() {
                         <div className="flex justify-between items-center w-full pr-4">
                           <span className="font-medium">{mod.title}</span>
                           <span className="text-sm text-muted-foreground">
-                            {mod.lessons.length} {t('course_detail.lectures_count')} • {formatDuration(mod.duration)}
+                            {t('course_detail.module_summary', {
+                              lessons: mod.lessons.length,
+                              lecturesLabel: t('course_detail.lectures_count'),
+                              duration: formatDuration(mod.duration),
+                            })}
                           </span>
                         </div>
                       </AccordionTrigger>
@@ -755,7 +765,7 @@ export function CourseDetailPage() {
                {isAuthenticated && canAccessCourse && (
                  <Card className="mb-4">
                    <CardContent className="p-4 space-y-3">
-                     <p className="font-medium">Viết đánh giá</p>
+                     <p className="font-medium">{t('course_detail.write_review')}</p>
                      <div className="flex items-center gap-1">
                        {[1, 2, 3, 4, 5].map((s) => (
                          <button key={s} onClick={() => setNewRating(s)} className="focus:outline-none">
@@ -767,12 +777,12 @@ export function CourseDetailPage() {
                      <textarea
                        value={newComment}
                        onChange={(e) => setNewComment(e.target.value)}
-                       placeholder="Nhận xét của bạn..."
+                       placeholder={t('course_detail.review_placeholder')}
                        className="w-full border rounded-md p-2 text-sm min-h-[80px] resize-y"
                      />
                      <Button size="sm" onClick={handleSubmitReview} disabled={submittingReview}>
                        {submittingReview ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <MessageSquare className="h-4 w-4 mr-1" />}
-                       Gửi đánh giá
+                       {t('course_detail.submit_review')}
                      </Button>
                    </CardContent>
                  </Card>
@@ -782,7 +792,7 @@ export function CourseDetailPage() {
                {reviewsLoading ? (
                  <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
                ) : reviews.length === 0 ? (
-                 <p className="text-muted-foreground text-sm py-4">Chưa có đánh giá nào cho khóa học này.</p>
+                 <p className="text-muted-foreground text-sm py-4">{t('course_detail.no_reviews')}</p>
                ) : (
                  <div className="space-y-4">
                    {reviews.map((r) => (
@@ -790,11 +800,11 @@ export function CourseDetailPage() {
                        <CardContent className="p-4">
                          <div className="flex items-start gap-3">
                            <Avatar className="w-10 h-10">
-                             <img src={r.user_info?.avatar || ''} alt={r.user_info?.full_name || 'User'} />
+                             <img src={r.user_info?.avatar || ''} alt={r.user_info?.full_name || t('course_detail.user_fallback')} />
                            </Avatar>
                            <div className="flex-1">
                              <div className="flex items-center gap-2">
-                               <span className="font-medium text-sm">{r.user_info?.full_name || 'Học viên'}</span>
+                               <span className="font-medium text-sm">{r.user_info?.full_name || t('course_detail.user_fallback')}</span>
                                <div className="flex">
                                  {[1, 2, 3, 4, 5].map((s) => (
                                    <Star key={s} className={`h-3.5 w-3.5 ${s <= r.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
@@ -807,7 +817,7 @@ export function CourseDetailPage() {
                              {r.comment && <p className="text-sm mt-1">{r.comment}</p>}
                              {r.instructor_response && (
                                <div className="mt-2 ml-4 p-2 bg-muted rounded text-sm">
-                                 <p className="font-medium text-xs text-primary mb-1">Phản hồi từ giảng viên:</p>
+                                 <p className="font-medium text-xs text-primary mb-1">{t('course_detail.instructor_response')}</p>
                                  <p>{r.instructor_response}</p>
                                </div>
                              )}
@@ -827,3 +837,4 @@ export function CourseDetailPage() {
     </div>
   )
 }
+

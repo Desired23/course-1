@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Plus, Edit2, Trash2, Search, Upload, FileText, Download, File, Link as LinkIcon, Video, Image as ImageIcon, Archive } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   getAttachmentsPage,
@@ -69,6 +70,7 @@ function attachmentToResource(att: LessonAttachment): Resource {
 }
 
 export function InstructorResourcesPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
 
   const [resources, setResources] = useState<Resource[]>([])
@@ -126,7 +128,7 @@ export function InstructorResourcesPage() {
         setCourses(coursesData.map(c => ({ id: String(c.id), name: c.title })))
       } catch (err) {
         console.error('Failed to load resources base data:', err)
-        toast.error('Failed to load resources')
+        toast.error(t('instructor_resources.load_failed'))
       }
     }
 
@@ -192,7 +194,7 @@ export function InstructorResourcesPage() {
 
   const handleCreateResource = async () => {
     if (!formData.title || !formData.url || !formData.lessonId) {
-      toast.error('Please fill title, URL and lesson ID')
+      toast.error(t('instructor_resources.fill_required'))
       return
     }
 
@@ -208,19 +210,19 @@ export function InstructorResourcesPage() {
         setCurrentPage(1)
         setRefreshKey((prev) => prev + 1)
       }
-      toast.success('Resource uploaded successfully')
+      toast.success(t('instructor_resources.create_success'))
       setIsCreateDialogOpen(false)
       resetForm()
     } catch (err) {
       console.error(err)
-      toast.error('Failed to create resource')
+      toast.error(t('instructor_resources.create_failed'))
     }
   }
 
   const handleEditResource = async () => {
     if (!editingResource) return
     if (!formData.title || !formData.url) {
-      toast.error('Please fill in all required fields')
+      toast.error(t('instructor_resources.edit_fill_required'))
       return
     }
 
@@ -232,12 +234,12 @@ export function InstructorResourcesPage() {
         file_size: formData.fileSize || undefined,
       })
       setRefreshKey((prev) => prev + 1)
-      toast.success('Resource updated successfully')
+      toast.success(t('instructor_resources.update_success'))
       setEditingResource(null)
       resetForm()
     } catch (err) {
       console.error(err)
-      toast.error('Failed to update resource')
+      toast.error(t('instructor_resources.update_failed'))
     }
   }
 
@@ -247,11 +249,11 @@ export function InstructorResourcesPage() {
     try {
       await deleteAttachment(Number(deletingResource.id))
       setRefreshKey((prev) => prev + 1)
-      toast.success('Resource deleted successfully')
+      toast.success(t('instructor_resources.delete_success'))
       setDeletingResource(null)
     } catch (err) {
       console.error(err)
-      toast.error('Failed to delete resource')
+      toast.error(t('instructor_resources.delete_failed'))
     }
   }
 
@@ -304,28 +306,28 @@ export function InstructorResourcesPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl mb-2">Course Resources</h1>
-              <p className="text-muted-foreground">Manage downloadable resources for your courses</p>
+              <h1 className="text-3xl mb-2">{t('instructor_resources.title')}</h1>
+              <p className="text-muted-foreground">{t('instructor_resources.subtitle')}</p>
             </div>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={resetForm}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Upload Resource
+                  {t('instructor_resources.upload_resource')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Upload New Resource</DialogTitle>
-                  <DialogDescription>Add a downloadable resource for your students</DialogDescription>
+                  <DialogTitle>{t('instructor_resources.upload_new_resource')}</DialogTitle>
+                  <DialogDescription>{t('instructor_resources.upload_description')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="course">Course</Label>
+                      <Label htmlFor="course">{t('instructor_resources.course')}</Label>
                       <Select value={formData.courseId} onValueChange={(value) => setFormData({ ...formData, courseId: value })}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select course" />
+                          <SelectValue placeholder={t('instructor_resources.select_course')} />
                         </SelectTrigger>
                         <SelectContent>
                           {courses.map(course => (
@@ -335,47 +337,47 @@ export function InstructorResourcesPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lessonId">Lesson ID *</Label>
+                      <Label htmlFor="lessonId">{t('instructor_resources.lesson_id')}</Label>
                       <Input
                         id="lessonId"
                         value={formData.lessonId}
                         onChange={(e) => setFormData({ ...formData, lessonId: e.target.value })}
-                        placeholder="e.g. 123"
+                        placeholder={t('instructor_resources.lesson_id_placeholder')}
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="type">Resource Type *</Label>
+                    <Label htmlFor="type">{t('instructor_resources.resource_type')}</Label>
                     <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pdf">PDF Document</SelectItem>
-                        <SelectItem value="document">Document</SelectItem>
-                        <SelectItem value="video">Video</SelectItem>
-                        <SelectItem value="image">Image</SelectItem>
-                        <SelectItem value="archive">Archive (ZIP)</SelectItem>
-                        <SelectItem value="link">External Link</SelectItem>
+                        <SelectItem value="pdf">{t('instructor_resources.type_pdf')}</SelectItem>
+                        <SelectItem value="document">{t('instructor_resources.type_document')}</SelectItem>
+                        <SelectItem value="video">{t('instructor_resources.type_video')}</SelectItem>
+                        <SelectItem value="image">{t('instructor_resources.type_image')}</SelectItem>
+                        <SelectItem value="archive">{t('instructor_resources.type_archive')}</SelectItem>
+                        <SelectItem value="link">{t('instructor_resources.type_link')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="title">Title *</Label>
+                    <Label htmlFor="title">{t('instructor_resources.resource_title')}</Label>
                     <Input id="title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">{t('common.description')}</Label>
                     <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="url">File URL *</Label>
+                    <Label htmlFor="url">{t('instructor_resources.file_url')}</Label>
                     <Input id="url" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreateResource}>Upload Resource</Button>
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>{t('common.cancel')}</Button>
+                  <Button onClick={handleCreateResource}>{t('instructor_resources.upload_resource')}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -386,7 +388,7 @@ export function InstructorResourcesPage() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg"><File className="h-6 w-6 text-purple-600" /></div>
-                  <div><p className="text-sm text-muted-foreground">Total Resources</p><p className="text-2xl">{totalResources}</p></div>
+                  <div><p className="text-sm text-muted-foreground">{t('instructor_resources.total_resources')}</p><p className="text-2xl">{totalResources}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -394,7 +396,7 @@ export function InstructorResourcesPage() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg"><Download className="h-6 w-6 text-blue-600" /></div>
-                  <div><p className="text-sm text-muted-foreground">Downloads (Current Page)</p><p className="text-2xl">{totalDownloads}</p></div>
+                  <div><p className="text-sm text-muted-foreground">{t('instructor_resources.downloads_current_page')}</p><p className="text-2xl">{totalDownloads}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -402,7 +404,7 @@ export function InstructorResourcesPage() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg"><Upload className="h-6 w-6 text-green-600" /></div>
-                  <div><p className="text-sm text-muted-foreground">Public Resources</p><p className="text-2xl">{publicResources}</p></div>
+                  <div><p className="text-sm text-muted-foreground">{t('instructor_resources.public_resources')}</p><p className="text-2xl">{publicResources}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -411,35 +413,35 @@ export function InstructorResourcesPage() {
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search resources..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+              <Input placeholder={t('instructor_resources.search_placeholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
             </div>
             <Select value={filterCourse} onValueChange={setFilterCourse}>
-              <SelectTrigger className="w-56"><SelectValue placeholder="All Courses" /></SelectTrigger>
+              <SelectTrigger className="w-56"><SelectValue placeholder={t('instructor_resources.all_courses')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Courses</SelectItem>
+                <SelectItem value="all">{t('instructor_resources.all_courses')}</SelectItem>
                 {courses.map(course => (
                   <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="All Types" /></SelectTrigger>
+              <SelectTrigger className="w-48"><SelectValue placeholder={t('instructor_resources.all_types')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">{t('instructor_resources.all_types')}</SelectItem>
                 <SelectItem value="pdf">PDF</SelectItem>
-                <SelectItem value="document">Document</SelectItem>
-                <SelectItem value="video">Video</SelectItem>
-                <SelectItem value="image">Image</SelectItem>
-                <SelectItem value="archive">Archive</SelectItem>
-                <SelectItem value="link">Link</SelectItem>
+                <SelectItem value="document">{t('instructor_resources.type_document_short')}</SelectItem>
+                <SelectItem value="video">{t('instructor_resources.type_video_short')}</SelectItem>
+                <SelectItem value="image">{t('instructor_resources.type_image_short')}</SelectItem>
+                <SelectItem value="archive">{t('instructor_resources.type_archive_short')}</SelectItem>
+                <SelectItem value="link">{t('instructor_resources.type_link_short')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Sort By" /></SelectTrigger>
+              <SelectTrigger className="w-44"><SelectValue placeholder={t('instructor_resources.sort_by')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="downloads">Most Downloads</SelectItem>
-                <SelectItem value="title">Title A-Z</SelectItem>
+                <SelectItem value="newest">{t('instructor_resources.sort_newest')}</SelectItem>
+                <SelectItem value="downloads">{t('instructor_resources.sort_downloads')}</SelectItem>
+                <SelectItem value="title">{t('instructor_resources.sort_title')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -450,22 +452,22 @@ export function InstructorResourcesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Resource</TableHead>
-                  <TableHead>Course</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Downloads</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('instructor_resources.table_resource')}</TableHead>
+                  <TableHead>{t('instructor_resources.table_course')}</TableHead>
+                  <TableHead>{t('instructor_resources.table_type')}</TableHead>
+                  <TableHead>{t('instructor_resources.table_size')}</TableHead>
+                  <TableHead>{t('instructor_resources.table_downloads')}</TableHead>
+                  <TableHead className="text-right">{t('instructor_resources.table_actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading resources...</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t('instructor_resources.loading_resources')}</TableCell>
                   </TableRow>
                 ) : resources.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No resources found.</TableCell>
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t('instructor_resources.no_resources')}</TableCell>
                   </TableRow>
                 ) : resources.map((resource) => (
                   <TableRow key={resource.id}>
@@ -503,7 +505,11 @@ export function InstructorResourcesPage() {
         {totalCount > 0 && (
           <div className="mt-4">
             <div className="text-sm text-muted-foreground mb-3">
-              Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount)}-{Math.min((currentPage - 1) * ITEMS_PER_PAGE + resources.length, totalCount)} of {totalCount} resources
+              {t('instructor_resources.pagination_summary', {
+                from: Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount),
+                to: Math.min((currentPage - 1) * ITEMS_PER_PAGE + resources.length, totalCount),
+                total: totalCount,
+              })}
             </div>
             <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
           </div>
@@ -513,36 +519,36 @@ export function InstructorResourcesPage() {
           <Dialog open={!!editingResource} onOpenChange={() => setEditingResource(null)}>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Edit Resource</DialogTitle>
-                <DialogDescription>Update resource information</DialogDescription>
+                <DialogTitle>{t('instructor_resources.edit_resource')}</DialogTitle>
+                <DialogDescription>{t('instructor_resources.edit_description')}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-type">Resource Type *</Label>
+                  <Label htmlFor="edit-type">{t('instructor_resources.resource_type')}</Label>
                   <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pdf">PDF Document</SelectItem>
-                      <SelectItem value="document">Document</SelectItem>
-                      <SelectItem value="video">Video</SelectItem>
-                      <SelectItem value="image">Image</SelectItem>
-                      <SelectItem value="archive">Archive (ZIP)</SelectItem>
-                      <SelectItem value="link">External Link</SelectItem>
+                      <SelectItem value="pdf">{t('instructor_resources.type_pdf')}</SelectItem>
+                      <SelectItem value="document">{t('instructor_resources.type_document')}</SelectItem>
+                      <SelectItem value="video">{t('instructor_resources.type_video')}</SelectItem>
+                      <SelectItem value="image">{t('instructor_resources.type_image')}</SelectItem>
+                      <SelectItem value="archive">{t('instructor_resources.type_archive')}</SelectItem>
+                      <SelectItem value="link">{t('instructor_resources.type_link')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-title">Title *</Label>
+                  <Label htmlFor="edit-title">{t('instructor_resources.resource_title')}</Label>
                   <Input id="edit-title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-url">File URL *</Label>
+                  <Label htmlFor="edit-url">{t('instructor_resources.file_url')}</Label>
                   <Input id="edit-url" value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setEditingResource(null)}>Cancel</Button>
-                <Button onClick={handleEditResource}>Save Changes</Button>
+                <Button variant="outline" onClick={() => setEditingResource(null)}>{t('common.cancel')}</Button>
+                <Button onClick={handleEditResource}>{t('instructor_resources.save_changes')}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -551,14 +557,14 @@ export function InstructorResourcesPage() {
         <AlertDialog open={!!deletingResource} onOpenChange={() => setDeletingResource(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Resource</AlertDialogTitle>
+              <AlertDialogTitle>{t('instructor_resources.delete_resource')}</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete "{deletingResource?.title}"? This action cannot be undone.
+                {t('instructor_resources.delete_description', { title: deletingResource?.title || '' })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteResource} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteResource} className="bg-destructive hover:bg-destructive/90">{t('common.delete')}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

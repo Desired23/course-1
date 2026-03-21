@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -16,6 +16,7 @@ import { useAuth, UserRole, Permission, PERMISSIONS } from '../../contexts/AuthC
 import { toast } from 'sonner'
 import { getAllUsers, adminUpdateUser, getAdmins, updateAdmin } from '../../services/admin.api'
 import type { UserItem, AdminUser } from '../../services/admin.api'
+import { useTranslation } from 'react-i18next'
 
 
 interface UserWithPermissions {
@@ -43,6 +44,7 @@ interface RoleTemplate {
 
 export function PermissionsPage() {
   const { canAccess, user: currentUser } = useAuth()
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('users')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedUser, setSelectedUser] = useState<UserWithPermissions | null>(null)
@@ -84,7 +86,7 @@ export function PermissionsPage() {
           }
         }))
       } catch {
-        toast.error('Không thể tải danh sách người dùng')
+        toast.error(t('permissions_page.load_failed'))
       }
     }
     load()
@@ -95,7 +97,7 @@ export function PermissionsPage() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>You don't have permission to manage permissions.</p>
+            <p>{t('permissions_page.permission_denied')}</p>
           </CardContent>
         </Card>
       </div>
@@ -119,10 +121,10 @@ export function PermissionsPage() {
         user_type: editingUser.roles.includes('admin') ? 'admin' : editingUser.roles.includes('instructor') ? 'instructor' : 'student'
       })
       setUsers(prev => prev.map(u => u.id === editingUser.id ? editingUser : u))
-      toast.success('Cập nhật quyền thành công')
+      toast.success(t('permissions_page.update_success'))
       setIsUserDialogOpen(false)
       setEditingUser(null)
-    } catch { toast.error('Cập nhật thất bại') }
+    } catch { toast.error(t('permissions_page.update_failed')) }
   }
 
   const handleTogglePermission = (permissionId: string) => {
@@ -172,21 +174,21 @@ export function PermissionsPage() {
     <div className="p-6 space-y-6 overflow-x-hidden">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Permissions Management</h1>
-          <p className="text-muted-foreground">Manage user roles and permissions</p>
+          <h1 className="text-3xl font-bold">{t('permissions_page.title')}</h1>
+          <p className="text-muted-foreground">{t('permissions_page.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
-                Create Role
+                {t('permissions_page.create_role')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Create Role Template</DialogTitle>
-                <DialogDescription>Create a reusable role template with predefined permissions</DialogDescription>
+                <DialogTitle>{t('permissions_page.create_role_dialog_title')}</DialogTitle>
+                <DialogDescription>{t('permissions_page.create_role_dialog_description')}</DialogDescription>
               </DialogHeader>
               {/* Role creation form would go here */}
             </DialogContent>
@@ -194,17 +196,17 @@ export function PermissionsPage() {
           
           <Button>
             <UserCheck className="h-4 w-4 mr-2" />
-            Bulk Actions
+            {t('permissions_page.bulk_actions')}
           </Button>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="roles">Role Templates</TabsTrigger>
-          <TabsTrigger value="permissions">Permissions</TabsTrigger>
-          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="users">{t('permissions_page.tabs.users')}</TabsTrigger>
+          <TabsTrigger value="roles">{t('permissions_page.tabs.roles')}</TabsTrigger>
+          <TabsTrigger value="permissions">{t('permissions_page.tabs.permissions')}</TabsTrigger>
+          <TabsTrigger value="audit">{t('permissions_page.tabs.audit')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
@@ -212,7 +214,7 @@ export function PermissionsPage() {
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search users..."
+                placeholder={t('permissions_page.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -220,13 +222,13 @@ export function PermissionsPage() {
             </div>
             <Select>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter by role" />
+                <SelectValue placeholder={t('permissions_page.filter_by_role')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="instructor">Instructor</SelectItem>
-                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="all">{t('permissions_page.all_roles')}</SelectItem>
+                <SelectItem value="admin">{t('common.admin')}</SelectItem>
+                <SelectItem value="instructor">{t('common.instructor')}</SelectItem>
+                <SelectItem value="user">{t('permissions_page.user_role')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -236,12 +238,12 @@ export function PermissionsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead>Permissions</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t('permissions_page.table.user')}</TableHead>
+                    <TableHead>{t('permissions_page.table.roles')}</TableHead>
+                    <TableHead>{t('permissions_page.table.permissions')}</TableHead>
+                    <TableHead>{t('permissions_page.table.status')}</TableHead>
+                    <TableHead>{t('permissions_page.table.last_login')}</TableHead>
+                    <TableHead>{t('permissions_page.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -271,7 +273,7 @@ export function PermissionsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {user.permissions.length} permissions
+                          {t('permissions_page.permissions_assigned', { count: user.permissions.length })}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -311,13 +313,13 @@ export function PermissionsPage() {
                       <CardTitle className="text-lg">{role.name}</CardTitle>
                       <CardDescription className="mt-1">{role.description}</CardDescription>
                     </div>
-                    {role.isDefault && <Badge variant="outline">Default</Badge>}
+                    {role.isDefault && <Badge variant="outline">{t('permissions_page.default')}</Badge>}
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm font-medium mb-2">Permissions ({role.permissions.length})</p>
+                      <p className="text-sm font-medium mb-2">{t('permissions_page.role_permissions_count', { count: role.permissions.length })}</p>
                       <div className="flex flex-wrap gap-1">
                         {role.permissions.slice(0, 3).map((permissionId) => {
                           const permission = PERMISSIONS.find(p => p.id === permissionId)
@@ -329,7 +331,7 @@ export function PermissionsPage() {
                         })}
                         {role.permissions.length > 3 && (
                           <Badge variant="outline" className="text-xs">
-                            +{role.permissions.length - 3} more
+                            {t('permissions_page.more_permissions', { count: role.permissions.length - 3 })}
                           </Badge>
                         )}
                       </div>
@@ -337,11 +339,11 @@ export function PermissionsPage() {
                     <div className="flex gap-2 pt-2">
                       <Button size="sm" variant="outline" onClick={() => setSelectedRole(role)}>
                         <Eye className="h-3 w-3 mr-1" />
-                        View
+                        {t('permissions_page.view')}
                       </Button>
                       <Button size="sm" variant="outline">
                         <Edit className="h-3 w-3 mr-1" />
-                        Edit
+                        {t('common.edit')}
                       </Button>
                     </div>
                   </div>
@@ -354,8 +356,8 @@ export function PermissionsPage() {
         <TabsContent value="permissions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>All Permissions</CardTitle>
-              <CardDescription>Complete list of available permissions in the system</CardDescription>
+              <CardTitle>{t('permissions_page.all_permissions_title')}</CardTitle>
+              <CardDescription>{t('permissions_page.all_permissions_description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -388,39 +390,39 @@ export function PermissionsPage() {
         <TabsContent value="audit" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Permission Audit Log</CardTitle>
-              <CardDescription>Track permission changes and user activities</CardDescription>
+              <CardTitle>{t('permissions_page.audit_title')}</CardTitle>
+              <CardDescription>{t('permissions_page.audit_description')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 border rounded-lg">
                   <div className="flex-1">
-                    <p className="font-medium">Admin permissions granted to Jane Smith</p>
+                    <p className="font-medium">{t('permissions_page.audit_sample_1_title')}</p>
                     <p className="text-sm text-muted-foreground">
-                      User elevated to admin role by {currentUser?.name} • 2 hours ago
+                      {t('permissions_page.audit_sample_1_desc', { name: currentUser?.name })}
                     </p>
                   </div>
-                  <Badge variant="default">Role Change</Badge>
+                  <Badge variant="default">{t('permissions_page.audit_role_change')}</Badge>
                 </div>
                 
                 <div className="flex items-center gap-4 p-4 border rounded-lg">
                   <div className="flex-1">
-                    <p className="font-medium">Blog creation permission removed from John Doe</p>
+                    <p className="font-medium">{t('permissions_page.audit_sample_2_title')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Permission revoked by {currentUser?.name} • 1 day ago
+                      {t('permissions_page.audit_sample_2_desc', { name: currentUser?.name })}
                     </p>
                   </div>
-                  <Badge variant="destructive">Permission Removed</Badge>
+                  <Badge variant="destructive">{t('permissions_page.audit_permission_removed')}</Badge>
                 </div>
                 
                 <div className="flex items-center gap-4 p-4 border rounded-lg">
                   <div className="flex-1">
-                    <p className="font-medium">New user registered: Mike Johnson</p>
+                    <p className="font-medium">{t('permissions_page.audit_sample_3_title')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Automatically assigned user role • 3 days ago
+                      {t('permissions_page.audit_sample_3_desc')}
                     </p>
                   </div>
-                  <Badge variant="secondary">User Created</Badge>
+                  <Badge variant="secondary">{t('permissions_page.audit_user_created')}</Badge>
                 </div>
               </div>
             </CardContent>
@@ -433,15 +435,15 @@ export function PermissionsPage() {
         <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit User Permissions</DialogTitle>
+              <DialogTitle>{t('permissions_page.edit_user_permissions')}</DialogTitle>
               <DialogDescription>
-                Manage roles and permissions for {editingUser.name}
+                {t('permissions_page.manage_roles_permissions', { name: editingUser.name })}
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-6">
               <div>
-                <Label className="text-base font-semibold">User Roles</Label>
+                <Label className="text-base font-semibold">{t('permissions_page.user_roles')}</Label>
                 <div className="grid grid-cols-2 gap-4 mt-3">
                   {(['user', 'instructor', 'admin'] as UserRole[]).map((role) => (
                     <div key={role} className="flex items-center space-x-2">
@@ -457,7 +459,7 @@ export function PermissionsPage() {
                 
                 {editingUser.roles.includes('admin') && (
                   <div className="mt-4">
-                    <Label>Admin Level</Label>
+                    <Label>{t('permissions_page.admin_level')}</Label>
                     <Select 
                       value={editingUser.adminLevel || 'sub'} 
                       onValueChange={(value: 'super' | 'sub') => 
@@ -468,8 +470,8 @@ export function PermissionsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sub">Sub Admin</SelectItem>
-                        <SelectItem value="super">Super Admin</SelectItem>
+                        <SelectItem value="sub">{t('permissions_page.sub_admin')}</SelectItem>
+                        <SelectItem value="super">{t('permissions_page.super_admin')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -479,7 +481,7 @@ export function PermissionsPage() {
               <Separator />
               
               <div>
-                <Label className="text-base font-semibold">Individual Permissions</Label>
+                <Label className="text-base font-semibold">{t('permissions_page.individual_permissions')}</Label>
                 <div className="space-y-4 mt-3">
                   {Object.entries(getPermissionsByCategory()).map(([category, permissions]) => (
                     <div key={category}>
@@ -506,11 +508,11 @@ export function PermissionsPage() {
             
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setIsUserDialogOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleSaveUser}>
                 <Save className="h-4 w-4 mr-2" />
-                Save Changes
+                {t('common.save')}
               </Button>
             </div>
           </DialogContent>
@@ -522,9 +524,9 @@ export function PermissionsPage() {
         <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>User Details</DialogTitle>
+              <DialogTitle>{t('permissions_page.user_details')}</DialogTitle>
               <DialogDescription>
-                View detailed information about this user
+                {t('permissions_page.user_details_description')}
               </DialogDescription>
             </DialogHeader>
             
@@ -554,29 +556,29 @@ export function PermissionsPage() {
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <Label>Created</Label>
+                  <Label>{t('permissions_page.created')}</Label>
                   <p>{selectedUser.createdAt.toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <Label>Last Login</Label>
+                  <Label>{t('permissions_page.table.last_login')}</Label>
                   <p>{selectedUser.lastLogin.toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <Label>Status</Label>
+                  <Label>{t('permissions_page.table.status')}</Label>
                   <Badge variant={selectedUser.status === 'active' ? 'default' : 'secondary'}>
                     {selectedUser.status}
                   </Badge>
                 </div>
                 <div>
-                  <Label>Permissions</Label>
-                  <p>{selectedUser.permissions.length} permissions assigned</p>
+                  <Label>{t('permissions_page.table.permissions')}</Label>
+                  <p>{t('permissions_page.permissions_assigned', { count: selectedUser.permissions.length })}</p>
                 </div>
               </div>
               
               <Separator />
               
               <div>
-                <Label className="font-semibold">Assigned Permissions</Label>
+                <Label className="font-semibold">{t('permissions_page.assigned_permissions')}</Label>
                 <div className="grid grid-cols-1 gap-2 mt-2 max-h-40 overflow-y-auto">
                   {selectedUser.permissions.map((permissionId) => {
                     const permission = PERMISSIONS.find(p => p.id === permissionId)
@@ -596,3 +598,4 @@ export function PermissionsPage() {
     </div>
   )
 }
+

@@ -104,7 +104,7 @@ export function SupportPage() {
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!ticketForm.subject || !ticketForm.description) {
-      toast.error('Please fill in subject and description')
+      toast.error(t('support.fill_subject_description'))
       return
     }
     setIsSubmitting(true)
@@ -114,12 +114,12 @@ export function SupportPage() {
         message: ticketForm.description,
         priority: (ticketForm.priority || 'medium') as any,
       })
-      toast.success('Support ticket submitted successfully!')
+      toast.success(t('support.ticket_submitted'))
       setTicketForm({ subject: '', category: '', priority: '', description: '' })
       setSelectedTab('tickets')
       fetchTickets()
     } catch {
-      toast.error('Failed to submit ticket. Please try again.')
+      toast.error(t('support.ticket_submit_failed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -262,7 +262,7 @@ export function SupportPage() {
                   <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                     <Input
                       className="h-9"
-                      placeholder="Search tickets"
+                      placeholder={t('support.search_tickets')}
                       value={ticketSearch}
                       onChange={(e) => setTicketSearch(e.target.value)}
                     />
@@ -271,30 +271,30 @@ export function SupportPage() {
                       value={ticketStatus}
                       onChange={(e) => setTicketStatus(e.target.value as "all" | "open" | "in_progress" | "resolved")}
                     >
-                      <option value="all">All status</option>
-                      <option value="open">Open</option>
-                      <option value="in_progress">In progress</option>
-                      <option value="resolved">Resolved</option>
+                      <option value="all">{t('support.all_status')}</option>
+                      <option value="open">{t('support.status_open')}</option>
+                      <option value="in_progress">{t('support.status_in_progress')}</option>
+                      <option value="resolved">{t('support.status_resolved')}</option>
                     </select>
                     <select
                       className="h-9 rounded-md border px-3 text-sm"
                       value={ticketPriority}
                       onChange={(e) => setTicketPriority(e.target.value as "all" | "low" | "medium" | "high" | "urgent")}
                     >
-                      <option value="all">All priority</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
+                      <option value="all">{t('support.all_priority')}</option>
+                      <option value="low">{t('support.low')}</option>
+                      <option value="medium">{t('support.medium')}</option>
+                      <option value="high">{t('support.high')}</option>
+                      <option value="urgent">{t('support.urgent')}</option>
                     </select>
                     <select
                       className="h-9 rounded-md border px-3 text-sm"
                       value={String(ticketPageSize)}
                       onChange={(e) => setTicketPageSize(Number(e.target.value))}
                     >
-                      <option value="5">5 / page</option>
-                      <option value="10">10 / page</option>
-                      <option value="20">20 / page</option>
+                      <option value="5">{t('support.page_size', { count: 5 })}</option>
+                      <option value="10">{t('support.page_size', { count: 10 })}</option>
+                      <option value="20">{t('support.page_size', { count: 20 })}</option>
                     </select>
                     <Button
                       variant="ghost"
@@ -304,7 +304,7 @@ export function SupportPage() {
                         setTicketPriority("all")
                       }}
                     >
-                      Clear filters
+                      {t('support.clear_filters')}
                     </Button>
                   </CardContent>
                 </Card>
@@ -355,7 +355,7 @@ export function SupportPage() {
                 {filteredTickets.length > 0 && (
                   <div className="mt-4 flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
-                      Page {ticketPage}/{ticketTotalPages} - Total {ticketTotalCount} tickets
+                      {t('support.pagination_summary', { page: ticketPage, totalPages: ticketTotalPages, total: ticketTotalCount })}
                     </p>
                     <UserPagination currentPage={ticketPage} totalPages={ticketTotalPages} onPageChange={setTicketPage} />
                   </div>
@@ -436,7 +436,7 @@ export function SupportPage() {
 
                   <Button type="submit" className="w-full gap-2" disabled={isSubmitting}>
                     <Send className="h-4 w-4" />
-                    {isSubmitting ? t('support.submitting', 'Submitting...') : t('support.submit_ticket')}
+                    {isSubmitting ? t('support.submitting') : t('support.submit_ticket')}
                   </Button>
                 </form>
               </CardContent>

@@ -83,7 +83,7 @@ export function WishlistPage() {
       setWishlistItems((items) => items.filter((item) => item.id !== wishlistId))
       toast.success(t('wishlist.removed'))
     } catch {
-      toast.error('Cannot remove from wishlist')
+      toast.error(t('wishlist.remove_failed'))
     } finally {
       setRemovingId(null)
     }
@@ -146,7 +146,7 @@ export function WishlistPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="mb-2">{t('wishlist.title')}</h1>
-            <p className="text-muted-foreground">{totalCount} courses in wishlist</p>
+            <p className="text-muted-foreground">{t('wishlist.count_summary', { count: totalCount })}</p>
           </div>
 
           {wishlistItems.length > 0 && (
@@ -161,7 +161,7 @@ export function WishlistPage() {
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <input
               className="h-9 rounded-md border px-3 text-sm"
-              placeholder="Search by course or instructor"
+              placeholder={t('wishlist.search_placeholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -170,19 +170,19 @@ export function WishlistPage() {
               value={levelFilter}
               onChange={(e) => setLevelFilter(e.target.value as 'all' | 'beginner' | 'intermediate' | 'advanced')}
             >
-              <option value="all">All levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
+              <option value="all">{t('common.all_levels')}</option>
+              <option value="beginner">{t('common.beginner')}</option>
+              <option value="intermediate">{t('common.intermediate')}</option>
+              <option value="advanced">{t('common.advanced')}</option>
             </select>
             <select
               className="h-9 rounded-md border px-3 text-sm"
               value={String(pageSize)}
               onChange={(e) => setPageSize(Number(e.target.value))}
             >
-              <option value="6">6 / page</option>
-              <option value="9">9 / page</option>
-              <option value="12">12 / page</option>
+              <option value="6">{t('wishlist.per_page', { count: 6 })}</option>
+              <option value="9">{t('wishlist.per_page', { count: 9 })}</option>
+              <option value="12">{t('wishlist.per_page', { count: 12 })}</option>
             </select>
             <Button
               variant="ghost"
@@ -192,17 +192,17 @@ export function WishlistPage() {
                 setLevelFilter('all')
               }}
             >
-              Clear filters
+              {t('wishlist.clear_filters')}
             </Button>
           </CardContent>
         </Card>
 
         {wishlistItems.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center text-muted-foreground">
-              No courses match your filters.
-            </CardContent>
-          </Card>
+            <Card>
+              <CardContent className="p-12 text-center text-muted-foreground">
+              {t('wishlist.no_results')}
+              </CardContent>
+            </Card>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -242,7 +242,7 @@ export function WishlistPage() {
                       <CardTitle className="line-clamp-2 cursor-pointer hover:text-primary" onClick={() => navigate(`/courses/${item.course}`)}>
                         {course.title}
                       </CardTitle>
-                      <CardDescription>By {course.instructor_name || 'Instructor'}</CardDescription>
+                      <CardDescription>{t('wishlist.by_instructor', { name: course.instructor_name || t('course_detail.by_instructor') })}</CardDescription>
                     </CardHeader>
 
                     <CardContent className="space-y-4">
@@ -285,7 +285,9 @@ export function WishlistPage() {
             </div>
 
             <div className="mt-6 flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Page {currentPage}/{totalPages} - Total {totalCount} courses</p>
+              <p className="text-sm text-muted-foreground">
+                {t('wishlist.pagination_summary', { current: currentPage, totalPages, totalCount })}
+              </p>
               <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
             </div>
           </>

@@ -1,12 +1,13 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Upload, Video, FileText, X, CheckCircle, Play, File } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from './ui/button'
 import { Label } from './ui/label'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Card } from './ui/card'
 import { Progress } from './ui/progress'
-import { Upload, Video, FileText, X, CheckCircle, Play, File } from 'lucide-react'
-import { toast } from 'sonner'
 import { uploadFiles } from '../services/upload.api'
 
 interface Lesson {
@@ -31,6 +32,7 @@ interface ContentTabProps {
 }
 
 export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
+  const { t } = useTranslation()
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(lesson.videoUrl || lesson.filePath || null)
@@ -57,7 +59,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
         resource_type: mode === 'video' ? 'video' : 'raw',
         delivery_type: mode === 'video' ? 'authenticated' : 'upload',
       })
-      if (!uploaded?.length) throw new Error('Upload failed')
+      if (!uploaded?.length) throw new Error(t('lesson_editor.upload_failed'))
 
       clearInterval(interval)
       setUploadProgress(100)
@@ -75,10 +77,12 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
         })
       }
 
-      toast.success(`${mode === 'video' ? 'Video' : 'File'} uploaded successfully!`)
+      toast.success(
+        t(mode === 'video' ? 'lesson_editor.video_uploaded_success' : 'lesson_editor.file_uploaded_success')
+      )
     } catch (error) {
       console.error(error)
-      toast.error('Upload failed. Please try again.')
+      toast.error(t('lesson_editor.upload_failed_retry'))
     } finally {
       setIsUploading(false)
       setTimeout(() => setUploadProgress(0), 900)
@@ -91,11 +95,11 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
 
     if (contentType === 'video') {
       if (!file.type.startsWith('video/')) {
-        toast.error('Please upload a video file')
+        toast.error(t('lesson_editor.upload_video_file_only'))
         return
       }
       if (file.size > 500 * 1024 * 1024) {
-        toast.error('Video file size must be less than 500MB')
+        toast.error(t('lesson_editor.video_max_size'))
         return
       }
       await handleUpload(file, 'video')
@@ -112,7 +116,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
     } else {
       onUpdate({ filePath: '' })
     }
-    toast.success('File removed')
+    toast.success(t('lesson_editor.file_removed'))
   }
 
   if (contentType === 'video' || contentType === 'file') {
@@ -120,7 +124,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
     return (
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label>{isVideo ? 'Video Upload' : 'File Upload'}</Label>
+          <Label>{isVideo ? t('lesson_editor.video_upload') : t('lesson_editor.file_upload')}</Label>
 
           {!uploadedFile ? (
             <Card className="p-8 border-2 border-dashed">
@@ -132,17 +136,21 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-semibold">{isVideo ? 'Upload Video' : 'Upload File'}</h4>
-                  <p className="text-sm text-muted-foreground">Drag and drop or click to browse</p>
+                  <h4 className="font-semibold">{isVideo ? t('lesson_editor.upload_video') : t('lesson_editor.upload_file')}</h4>
+                  <p className="text-sm text-muted-foreground">{t('lesson_editor.drag_drop')}</p>
                   <p className="text-xs text-muted-foreground">
-                    {isVideo ? 'Supported: MP4, WebM, AVI • Max: 500MB' : 'Supported: PDF, ZIP, DOCX, XLSX, images'}
+                    {isVideo ? t('lesson_editor.supported_video') : t('lesson_editor.supported_file')}
                   </p>
                 </div>
 
                 <div className="flex justify-center">
-                  <Button variant="outline" onClick={() => document.getElementById('lesson-content-upload')?.click()} disabled={isUploading}>
+                  <Button
+                    variant="outline"
+                    onClick={() => document.getElementById('lesson-content-upload')?.click()}
+                    disabled={isUploading}
+                  >
                     <Upload className="h-4 w-4 mr-2" />
-                    Choose File
+                    {t('lesson_editor.choose_file')}
                   </Button>
                   <input
                     id="lesson-content-upload"
@@ -156,7 +164,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
                 {isUploading && (
                   <div className="space-y-2 pt-4">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Uploading...</span>
+                      <span className="text-muted-foreground">{t('lesson_editor.uploading')}</span>
                       <span className="font-semibold">{uploadProgress}%</span>
                     </div>
                     <Progress value={uploadProgress} className="h-2" />
@@ -173,7 +181,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="space-y-1">
-                      <h4 className="font-semibold">{isVideo ? 'Video Uploaded' : 'File Uploaded'}</h4>
+                      <h4 className="font-semibold">{isVideo ? t('lesson_editor.video_uploaded') : t('lesson_editor.file_uploaded')}</h4>
                       <p className="text-sm text-muted-foreground truncate">{uploadedFile}</p>
                     </div>
                     <Button variant="ghost" size="sm" onClick={handleRemoveFile} className="text-destructive hover:text-destructive">
@@ -183,7 +191,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
 
                   <Button variant="outline" size="sm" className="mt-3" onClick={() => window.open(uploadedFile, '_blank')}>
                     <Play className="h-3.5 w-3.5 mr-2" />
-                    {isVideo ? 'Preview Video' : 'Open File'}
+                    {isVideo ? t('lesson_editor.preview_video') : t('lesson_editor.open_file')}
                   </Button>
                 </div>
               </div>
@@ -198,15 +206,19 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>{contentType === 'text' ? 'Article Content' : 'Assignment Instructions'}</Label>
+          <Label>{contentType === 'text' ? t('lesson_editor.article_content') : t('lesson_editor.assignment_instructions')}</Label>
           <Textarea
             value={lesson.content || ''}
             onChange={(e) => onUpdate({ content: e.target.value })}
-            placeholder={contentType === 'text' ? 'Write lesson content here...' : 'Describe assignment objectives, requirements, and grading criteria...'}
+            placeholder={
+              contentType === 'text'
+                ? t('lesson_editor.article_placeholder')
+                : t('lesson_editor.assignment_placeholder')
+            }
             rows={16}
           />
           <p className="text-xs text-muted-foreground">
-            {contentType === 'text' ? 'This content will be shown as lesson article.' : 'Students will see these instructions before submitting assignment.'}
+            {contentType === 'text' ? t('lesson_editor.article_hint') : t('lesson_editor.assignment_hint')}
           </p>
         </div>
       </div>
@@ -217,7 +229,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
     return (
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="link-url">External Resource URL *</Label>
+          <Label htmlFor="link-url">{t('lesson_editor.external_resource_url')}</Label>
           <Input
             id="link-url"
             value={lesson.externalUrl || ''}
@@ -225,7 +237,7 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
             placeholder="https://example.com"
             type="url"
           />
-          <p className="text-xs text-muted-foreground">Link to external documentation, resources, or websites.</p>
+          <p className="text-xs text-muted-foreground">{t('lesson_editor.external_resource_hint')}</p>
         </div>
       </div>
     )
@@ -234,8 +246,8 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
   return (
     <div className="text-center py-12 text-muted-foreground">
       <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-      <p className="text-sm font-medium mb-2">Content Editor</p>
-      <p className="text-xs">No specialized editor required for this lesson type.</p>
+      <p className="text-sm font-medium mb-2">{t('lesson_editor.content_editor')}</p>
+      <p className="text-xs">{t('lesson_editor.no_special_editor')}</p>
     </div>
   )
 }

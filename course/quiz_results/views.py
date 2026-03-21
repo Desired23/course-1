@@ -14,12 +14,14 @@ from .services import (
     update_quiz_result,
     delete_quiz_result,
     get_quiz_results_by_enrollment,
+    get_quiz_result_by_enrollment_and_lesson,
     submit_quiz,
     get_user_quiz_history,
     get_quiz_result_detail,
 )
 
 class QuizResultListView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
     def post(self, request):
         try:
@@ -32,7 +34,14 @@ class QuizResultListView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     def get(self, request):
         try:
-            if 'enrollment_id' in request.query_params:
+            if 'enrollment_id' in request.query_params and 'lesson_id' in request.query_params:
+                enrollment_id = request.query_params.get('enrollment_id')
+                lesson_id = request.query_params.get('lesson_id')
+                quiz_result = get_quiz_result_by_enrollment_and_lesson(enrollment_id, lesson_id)
+                if not quiz_result:
+                    return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(quiz_result, status=status.HTTP_200_OK)
+            elif 'enrollment_id' in request.query_params:
                 enrollment_id = request.query_params.get('enrollment_id')
                 quiz_results = get_quiz_results_by_enrollment(enrollment_id)
                 return paginate_queryset(quiz_results, request, QuizResultSerializer)

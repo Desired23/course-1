@@ -38,12 +38,14 @@ function Pagination({
   current, 
   total, 
   pageSize, 
-  onChange 
+  onChange,
+  t,
 }: { 
   current: number
   total: number
   pageSize: number
   onChange: (page: number) => void 
+  t: (key: string, options?: any) => string
 }) {
   const totalPages = Math.ceil(total / pageSize)
   const pages = []
@@ -72,7 +74,7 @@ function Pagination({
         disabled={current === 1}
         onClick={() => onChange(current - 1)}
       >
-        Previous
+        {t('common.previous')}
       </Button>
       
       {startPage > 1 && (
@@ -118,7 +120,7 @@ function Pagination({
         disabled={current === totalPages}
         onClick={() => onChange(current + 1)}
       >
-        Next
+        {t('common.next')}
       </Button>
     </div>
   )
@@ -203,10 +205,10 @@ export function CoursesPage() {
   // Map FE level label to BE level value
   const levelLabelToValue = (label: string): string => {
     const map: Record<string, string> = {
-      'All Levels': 'all_levels',
-      'Beginner': 'beginner',
-      'Intermediate': 'intermediate',
-      'Advanced': 'advanced',
+      [t('common.all_levels')]: 'all_levels',
+      [t('common.beginner')]: 'beginner',
+      [t('common.intermediate')]: 'intermediate',
+      [t('common.advanced')]: 'advanced',
     }
     return map[label] || label.toLowerCase()
   }
@@ -230,15 +232,15 @@ export function CoursesPage() {
     if (selectedDurations.length > 0) {
       p.duration_buckets = selectedDurations
         .map((dur) => {
-          if (dur === '0-2 hours') return 'short'
-          if (dur === '2-6 hours') return 'medium'
-          if (dur === '6+ hours') return 'long'
+          if (dur === t('courses_page.duration_short')) return 'short'
+          if (dur === t('courses_page.duration_medium')) return 'medium'
+          if (dur === t('courses_page.duration_long')) return 'long'
           return ''
         })
         .filter(Boolean)
         .join(',')
     }
-    if (selectedFeatures.includes('Certificate of completion')) p.certificate = true
+    if (selectedFeatures.includes(t('courses_page.certificate_feature'))) p.certificate = true
     if (priceRange[0] > PRICE_MIN) p.price_min = priceRange[0]
     if (priceRange[1] < PRICE_MAX) p.price_max = priceRange[1]
     return JSON.stringify(p)
@@ -327,10 +329,14 @@ export function CoursesPage() {
   }, [currentPage])
 
   // Map duration values to labels for CourseFilterSidebar
-  const durationOptions = ['0-2 hours', '2-6 hours', '6+ hours']
-  const levelOptions = ['All Levels', 'Beginner', 'Intermediate', 'Advanced']
-  const languageOptions = ['Tiếng Việt', 'English', 'Español']
-  const featureOptions = ['Certificate of completion']
+  const durationOptions = [t('courses_page.duration_short'), t('courses_page.duration_medium'), t('courses_page.duration_long')]
+  const levelOptions = [t('common.all_levels'), t('common.beginner'), t('common.intermediate'), t('common.advanced')]
+  const languageOptions = [
+    t('language_switcher.vietnamese'),
+    t('language_switcher.english'),
+    t('search_page.language_spanish'),
+  ]
+  const featureOptions = [t('courses_page.certificate_feature')]
 
   // Prepare filter state for CourseFilterSidebar
   const filterState = {
@@ -722,6 +728,7 @@ export function CoursesPage() {
                   total={totalCount}
                   pageSize={itemsPerPage}
                   onChange={(page) => setCurrentPage(page)}
+                  t={t}
                 />
               </div>
             )}

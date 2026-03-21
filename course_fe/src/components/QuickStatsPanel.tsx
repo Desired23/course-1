@@ -12,6 +12,7 @@ import {
   PlayCircle
 } from 'lucide-react'
 import { cn } from './ui/utils'
+import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
@@ -35,6 +36,7 @@ interface QuickStatsPanelProps {
 }
 
 export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
+  const { t } = useTranslation()
   // Calculate stats
   const allLessons = sections.flatMap(s => s.lessons)
   const totalLessons = allLessons.length
@@ -71,32 +73,32 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
   }, {} as Record<string, number>)
   
   const contentTypeStats = [
-    { type: 'video', label: 'Videos', icon: Video, count: contentTypeCounts.video || 0, color: 'text-purple-600 dark:text-purple-400' },
-    { type: 'text', label: 'Articles', icon: FileText, count: contentTypeCounts.text || 0, color: 'text-blue-600 dark:text-blue-400' },
-    { type: 'quiz', label: 'Quizzes', icon: HelpCircle, count: contentTypeCounts.quiz || 0, color: 'text-orange-600 dark:text-orange-400' },
-    { type: 'assignment', label: 'Assignments', icon: ClipboardList, count: contentTypeCounts.assignment || 0, color: 'text-green-600 dark:text-green-400' },
-    { type: 'file', label: 'Files', icon: File, count: contentTypeCounts.file || 0, color: 'text-gray-600 dark:text-gray-400' },
-    { type: 'link', label: 'Links', icon: Link, count: contentTypeCounts.link || 0, color: 'text-cyan-600 dark:text-cyan-400' }
+    { type: 'video', label: t('quick_stats.video'), icon: Video, count: contentTypeCounts.video || 0, color: 'text-purple-600 dark:text-purple-400' },
+    { type: 'text', label: t('quick_stats.article'), icon: FileText, count: contentTypeCounts.text || 0, color: 'text-blue-600 dark:text-blue-400' },
+    { type: 'quiz', label: t('quick_stats.quiz'), icon: HelpCircle, count: contentTypeCounts.quiz || 0, color: 'text-orange-600 dark:text-orange-400' },
+    { type: 'assignment', label: t('quick_stats.assignment'), icon: ClipboardList, count: contentTypeCounts.assignment || 0, color: 'text-green-600 dark:text-green-400' },
+    { type: 'file', label: t('quick_stats.file'), icon: File, count: contentTypeCounts.file || 0, color: 'text-gray-600 dark:text-gray-400' },
+    { type: 'link', label: t('quick_stats.link'), icon: Link, count: contentTypeCounts.link || 0, color: 'text-cyan-600 dark:text-cyan-400' }
   ].filter(stat => stat.count > 0)
   
   return (
     <Card className={cn("p-4 space-y-4", className)}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Quick Stats</h3>
+        <h3 className="font-semibold">{t('quick_stats.title')}</h3>
         <PlayCircle className="h-4 w-4 text-muted-foreground" />
       </div>
       
       {/* Total Lessons */}
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
-          <p className="text-sm text-muted-foreground">Total Lessons</p>
+          <p className="text-sm text-muted-foreground">{t('quick_stats.total_lessons')}</p>
           <p className="text-2xl font-bold">{totalLessons}</p>
         </div>
         
         {/* Duration */}
         <div className="flex items-baseline justify-between">
-          <p className="text-sm text-muted-foreground">Total Duration</p>
+          <p className="text-sm text-muted-foreground">{t('quick_stats.total_duration')}</p>
           <p className="text-lg font-semibold">
             {hours > 0 && <span>{hours}h </span>}
             {minutes}m
@@ -106,12 +108,12 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
       
       {/* Status Breakdown */}
       <div className="space-y-2 pt-2 border-t">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('quick_stats.status')}</p>
         
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <span className="text-sm">Published</span>
+            <span className="text-sm">{t('quick_stats.published')}</span>
           </div>
           <Badge 
             variant="outline" 
@@ -124,7 +126,7 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <span className="text-sm">Draft</span>
+            <span className="text-sm">{t('quick_stats.draft')}</span>
           </div>
           <Badge 
             variant="outline" 
@@ -138,7 +140,7 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
       {/* Content Type Breakdown */}
       {contentTypeStats.length > 0 && (
         <div className="space-y-2 pt-2 border-t">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Content Types</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('quick_stats.content_types')}</p>
           
           {contentTypeStats.map(stat => (
             <div key={stat.type} className="flex items-center justify-between">
@@ -157,7 +159,7 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
       {/* Completion Progress */}
       <div className="space-y-2 pt-2 border-t">
         <div className="flex items-baseline justify-between">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Completion</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('quick_stats.completion')}</p>
           <p className="text-sm font-semibold">
             {totalLessons > 0 ? Math.round((publishedLessons / totalLessons) * 100) : 0}%
           </p>

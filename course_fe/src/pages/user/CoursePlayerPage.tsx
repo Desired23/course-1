@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from "../../components/Router"
 import { QuizPlayer } from "../../components/QuizPlayer"
 import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
@@ -42,8 +42,9 @@ import {
 } from "../../services/lesson-comments.api"
 import { getUserById, type UserProfile } from "../../services/auth.api"
 import { useAuth } from "../../contexts/AuthContext"
+import { useTranslation } from "react-i18next"
 
-// ── Types ──────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface CurriculumSection {
   id: number
@@ -69,7 +70,7 @@ interface CurriculumLesson {
 const LESSON_COMPLETION_THRESHOLD_PERCENT = 85
 const LESSON_PROGRESS_SYNC_STEP = 10
 
-// ── Helpers ──────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildCurriculum(
   modules: ModuleSummary[],
@@ -127,10 +128,11 @@ function flattenLessons(curriculum: CurriculumSection[]): CurriculumLesson[] {
 }
 
 export function CoursePlayerPage() {
+  const { t } = useTranslation()
   const { navigate, params } = useRouter()
   const courseId = Number(params.courseId)
 
-  // ── Core State ──
+  // â”€â”€ Core State â”€â”€
   const [course, setCourse] = useState<CourseDetail | null>(null)
   const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null)
   const [loading, setLoading] = useState(true)
@@ -177,7 +179,7 @@ export function CoursePlayerPage() {
   const completionInFlightRef = useRef(new Set<number>())
   const lastProgressSyncRef = useRef(new Map<number, number>())
 
-  // ── Build curriculum from API data ──
+  // â”€â”€ Build curriculum from API data â”€â”€
   const lessonProgressMap = useMemo(() => {
     const map = new Map<number, LessonProgress>()
     if (courseProgress?.lessons) {
@@ -233,7 +235,7 @@ export function CoursePlayerPage() {
   const completedLessons = courseProgress?.completed_lessons ?? 0
   const totalLessons = courseProgress?.total_lessons ?? course?.total_lessons ?? 0
 
-  // ── Fetch course & progress ──
+  // â”€â”€ Fetch course & progress â”€â”€
   useEffect(() => {
     if (!courseId || isNaN(courseId)) {
       setError('Invalid course ID')
@@ -253,14 +255,14 @@ export function CoursePlayerPage() {
         if (courseData.status === 'fulfilled') {
           setCourse(courseData.value)
         } else {
-          setError('Failed to load course')
+          setError(t('course_player.load_failed'))
           return
         }
         if (progressData.status === 'fulfilled') {
           setCourseProgress(progressData.value)
         }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load course')
+        if (!cancelled) setError(err.message || t('course_player.load_failed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -291,7 +293,7 @@ export function CoursePlayerPage() {
     try { localStorage.setItem('quizProgress', JSON.stringify(quizProgress)) } catch {}
   }, [quizProgress])
 
-  // ── Load comments from API when lesson changes ──
+  // â”€â”€ Load comments from API when lesson changes â”€â”€
   const resolveCommentUser = async (userId: number): Promise<{ name: string; initials: string }> => {
     if (commentUserCache.current.has(userId)) {
       const u = commentUserCache.current.get(userId)!
@@ -349,7 +351,7 @@ export function CoursePlayerPage() {
     if (currentLessonId) loadComments(currentLessonId)
   }, [currentLessonId])
 
-  // ── Handlers ──
+  // â”€â”€ Handlers â”€â”€
   const handleAddNote = () => {
     if (!newNote.trim()) { toast.error('Please write a note'); return }
     const currentTime = Math.floor(currentPlaybackTimeSec)
@@ -371,10 +373,10 @@ export function CoursePlayerPage() {
     try {
       await createLessonComment({ lesson: currentLessonId, content: newComment.trim() })
       setNewComment('')
-      toast.success('Đã đăng bình luận!')
+      toast.success(t('course_player.comment_posted'))
       loadComments(currentLessonId)
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể đăng bình luận')
+      toast.error(err?.message || t('course_player.comment_post_failed'))
     }
   }
 
@@ -383,30 +385,30 @@ export function CoursePlayerPage() {
     try {
       await createLessonComment({ lesson: currentLessonId, content: content.trim(), parent_comment: parentId })
       setReplyingTo(null)
-      toast.success('Đã gửi phản hồi!')
+      toast.success(t('course_player.reply_posted'))
       loadComments(currentLessonId)
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể gửi phản hồi')
+      toast.error(err?.message || t('course_player.reply_post_failed'))
     }
   }
 
   const handleEditComment = async (commentId: number, newContent: string) => {
     try {
       await updateLessonComment(commentId, { content: newContent })
-      toast.success('Đã cập nhật bình luận')
+      toast.success(t('course_player.comment_updated'))
       if (currentLessonId) loadComments(currentLessonId)
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể cập nhật')
+      toast.error(err?.message || t('course_player.update_failed'))
     }
   }
 
   const handleDeleteComment = async (commentId: number) => {
     try {
       await deleteLessonComment(commentId)
-      toast.success('Đã xóa bình luận')
+      toast.success(t('course_player.comment_deleted'))
       if (currentLessonId) loadComments(currentLessonId)
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể xóa bình luận')
+      toast.error(err?.message || t('course_player.comment_delete_failed'))
     }
   }
 
@@ -433,7 +435,7 @@ export function CoursePlayerPage() {
 
   const handleLessonChange = (lessonId: number) => {
     if (!isLessonUnlocked(lessonId)) {
-      toast.error(`Bạn cần hoàn thành tối thiểu ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bài trước để mở bài này`)
+      toast.error(t('course_player.unlock_previous_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT }))
       return
     }
     setCurrentLessonId(lessonId)
@@ -446,26 +448,26 @@ export function CoursePlayerPage() {
   const goToNextLesson = () => {
     if (!currentLessonId) return
     if (!currentLessonCompleted) {
-      toast.error(`Bạn cần hoàn thành tối thiểu ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bài hiện tại`)
+      toast.error(t('course_player.complete_current_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT }))
       return
     }
     const next = findNextLesson(curriculum, currentLessonId)
     if (next && isLessonUnlocked(next.id)) { handleLessonChange(next.id); toast.success(`Playing: ${next.title}`) }
-    else toast.info('You have reached the end of the course!')
+    else toast.info(t('course_player.end_of_course'))
   }
 
   const goToPreviousLesson = () => {
     if (!currentLessonId) return
     const prev = findPrevLesson(curriculum, currentLessonId)
-    if (prev) { handleLessonChange(prev.id); toast.success(`Playing: ${prev.title}`) }
-    else toast.info('This is the first lesson')
+    if (prev) { handleLessonChange(prev.id); toast.success(t('course_player.playing_lesson', { title: prev.title })) }
+    else toast.info(t('course_player.first_lesson'))
   }
 
   const handleLessonComplete = async (lessonId: number = currentLessonId || 0) => {
     if (!lessonId || completedLessonIds.has(lessonId) || completionInFlightRef.current.has(lessonId)) return
     completionInFlightRef.current.add(lessonId)
     setLocallyCompletedLessons(prev => ({ ...prev, [lessonId]: true }))
-    toast.success('Lesson completed!')
+    toast.success(t('course_player.lesson_completed'))
     try {
       await updateLessonProgress({ lesson_id: lessonId, progress_percentage: 100, is_completed: true })
       try { const updated = await getCourseProgress(courseId); setCourseProgress(updated) } catch {}
@@ -481,7 +483,7 @@ export function CoursePlayerPage() {
     }
     setTimeout(() => {
       const next = findNextLesson(curriculum, lessonId)
-      if (next) { toast.info(`Auto-playing next lesson: ${next.title}`); handleLessonChange(next.id) }
+      if (next) { toast.info(t('course_player.auto_playing_next', { title: next.title })); handleLessonChange(next.id) }
     }, 3000)
   }
 
@@ -515,13 +517,13 @@ export function CoursePlayerPage() {
     }
   }
 
-  // ── Loading / Error ──
+  // â”€â”€ Loading / Error â”€â”€
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading course...</p>
+          <p className="text-muted-foreground">{t('course_player.loading')}</p>
         </div>
       </div>
     )
@@ -532,11 +534,11 @@ export function CoursePlayerPage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md">
           <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-          <h2 className="text-xl font-semibold mb-2">Failed to load course</h2>
-          <p className="text-muted-foreground mb-4">{error || 'Course not found'}</p>
+          <h2 className="text-xl font-semibold mb-2">{t('course_player.load_failed')}</h2>
+          <p className="text-muted-foreground mb-4">{error || t('course_player.not_found')}</p>
           <div className="flex gap-2 justify-center">
-            <Button variant="outline" onClick={() => navigate('/my-learning')}>Back to My Learning</Button>
-            <Button onClick={() => window.location.reload()}>Retry</Button>
+            <Button variant="outline" onClick={() => navigate('/my-learning')}>{t('course_player.back_to_my_learning')}</Button>
+            <Button onClick={() => window.location.reload()}>{t('course_player.retry')}</Button>
           </div>
         </div>
       </div>
@@ -547,20 +549,20 @@ export function CoursePlayerPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-muted-foreground">No lessons available in this course.</p>
-          <Button className="mt-4" onClick={() => navigate('/my-learning')}>Back to My Learning</Button>
+          <p className="text-muted-foreground">{t('course_player.no_lessons')}</p>
+          <Button className="mt-4" onClick={() => navigate('/my-learning')}>{t('course_player.back_to_my_learning')}</Button>
         </div>
       </div>
     )
   }
 
-  // ── Curriculum Sidebar Component ──
+  // â”€â”€ Curriculum Sidebar Component â”€â”€
   const CurriculumSidebar = () => (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b bg-card/50">
-        <h3 className="font-semibold">Course Content</h3>
+        <h3 className="font-semibold">{t('course_player.course_content')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          {curriculum.length} sections • {curriculum.reduce((acc, s) => acc + s.lectures, 0)} lectures
+          {curriculum.length} sections â€¢ {curriculum.reduce((acc, s) => acc + s.lectures, 0)} lectures
         </p>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -574,7 +576,7 @@ export function CoursePlayerPage() {
                 {expandedSections[section.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 <div>
                   <p className="font-medium text-sm">{section.title}</p>
-                  <p className="text-xs text-muted-foreground">{section.lectures} lectures • {section.duration}</p>
+                  <p className="text-xs text-muted-foreground">{section.lectures} lectures â€¢ {section.duration}</p>
                 </div>
               </div>
             </button>
@@ -588,7 +590,7 @@ export function CoursePlayerPage() {
                     className={`w-full px-4 py-3 pl-12 flex items-center justify-between transition-colors ${
                       lesson.id === currentLessonId ? 'bg-accent' : ''
                     } ${isLessonUnlocked(lesson.id) ? 'hover:bg-accent/50' : 'opacity-50 cursor-not-allowed'}`}
-                    title={!isLessonUnlocked(lesson.id) ? `Cần hoàn thành bài trước (>=${LESSON_COMPLETION_THRESHOLD_PERCENT}%)` : undefined}
+                    title={!isLessonUnlocked(lesson.id) ? `Cáº§n hoÃ n thÃ nh bÃ i trÆ°á»›c (>=${LESSON_COMPLETION_THRESHOLD_PERCENT}%)` : undefined}
                   >
                     <div className="flex items-center gap-3 flex-1 text-left">
                       {!isLessonUnlocked(lesson.id) ? (
@@ -602,7 +604,7 @@ export function CoursePlayerPage() {
                       )}
                       <span className={`text-sm ${lesson.id === currentLessonId ? 'font-medium' : ''}`}>{lesson.title}</span>
                       {lesson.type === 'quiz' && (
-                        <Badge variant="secondary" className="text-xs ml-auto">Quiz</Badge>
+                        <Badge variant="secondary" className="text-xs ml-auto">{t('course_player.quiz_badge')}</Badge>
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground ml-2">{lesson.duration}</span>
@@ -628,7 +630,7 @@ export function CoursePlayerPage() {
             <Separator orientation="vertical" className="h-6" />
             <div className="flex items-center gap-2">
               <h1 className="font-semibold truncate max-w-[300px] hidden sm:block">{course.title}</h1>
-              <h1 className="font-semibold truncate max-w-[150px] sm:hidden">Course Player</h1>
+              <h1 className="font-semibold truncate max-w-[150px] sm:hidden">{t('course_player.title')}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -640,14 +642,14 @@ export function CoursePlayerPage() {
               </SheetTrigger>
               <SheetContent side="right" className="w-80 sm:w-96 p-0">
                 <SheetHeader className="sr-only">
-                  <SheetTitle>Course Curriculum</SheetTitle>
-                  <SheetDescription>Browse and navigate through course lessons</SheetDescription>
+                  <SheetTitle>{t('course_player.curriculum_title')}</SheetTitle>
+                  <SheetDescription>{t('course_player.curriculum_description')}</SheetDescription>
                 </SheetHeader>
                 <CurriculumSidebar />
               </SheetContent>
             </Sheet>
             <Progress value={overallProgress} className="w-24 hidden sm:block" />
-            <span className="text-sm text-muted-foreground hidden sm:inline">{Math.round(overallProgress)}% complete</span>
+            <span className="text-sm text-muted-foreground hidden sm:inline">{t('course_player.progress_complete', { percent: Math.round(overallProgress) })}</span>
           </div>
         </div>
       </header>
@@ -662,6 +664,7 @@ export function CoursePlayerPage() {
               <QuizPlayer
                 quiz={{ id: currentLessonId!, title: currentLesson.title, questions: [] }}
                 lessonId={currentLessonId!}
+                enrollmentId={course.user_enrollment?.enrollment_id}
                 savedProgress={quizProgress[currentLessonId!]?.answers}
                 onProgressChange={(answers) => {
                   setQuizProgress(prev => ({
@@ -674,7 +677,7 @@ export function CoursePlayerPage() {
                     ...prev,
                     [currentLessonId!]: { ...prev[currentLessonId!], score, passed, completedAt: new Date().toISOString(), lessonId: currentLessonId }
                   }))
-                  if (passed) { toast.success('Quiz passed! Lesson marked as complete.'); handleLessonComplete() }
+                  if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete() }
                 }}
                 onNext={() => goToNextLesson()}
               />
@@ -700,16 +703,16 @@ export function CoursePlayerPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-medium">{course.title}</h2>
-                <p className="text-sm text-muted-foreground">by {course.instructor?.full_name || 'Instructor'}</p>
+                <p className="text-sm text-muted-foreground">{t('course_player.by_instructor', { name: course.instructor?.full_name || t('course_detail.by_instructor') })}</p>
               </div>
               <Button variant="outline" onClick={() => navigate(`/course/${courseId}`)}>
-                Course Overview
+                {t('course_player.course_overview')}
               </Button>
             </div>
             <div className="flex items-center justify-between gap-4 pt-4 border-t">
               <Button variant="outline" onClick={goToPreviousLesson} disabled={!findPrevLesson(curriculum, currentLessonId!)} className="flex-1">
                 <ChevronLeft className="w-4 h-4 mr-2" />
-                Previous Lesson
+                {t('course_player.previous_lesson')}
               </Button>
               <div className="text-center min-w-0">
                 <p className="text-sm font-medium truncate">{currentLesson.title}</p>
@@ -720,9 +723,9 @@ export function CoursePlayerPage() {
                 onClick={goToNextLesson}
                 disabled={!findNextLesson(curriculum, currentLessonId!) || !currentLessonCompleted}
                 className="flex-1"
-                title={!currentLessonCompleted ? `Cần hoàn thành ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bài hiện tại` : undefined}
+                title={!currentLessonCompleted ? `Cáº§n hoÃ n thÃ nh ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bÃ i hiá»‡n táº¡i` : undefined}
               >
-                Next Lesson
+                {t('course_player.next_lesson')}
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -733,30 +736,30 @@ export function CoursePlayerPage() {
             <Tabs defaultValue="overview" className="h-full flex flex-col">
               <div className="border-b flex-shrink-0">
                 <TabsList className="w-full justify-start h-12 rounded-none bg-transparent">
-                  <TabsTrigger value="overview" className="rounded-none">Overview</TabsTrigger>
-                  <TabsTrigger value="notes" className="rounded-none">Notes</TabsTrigger>
-                  <TabsTrigger value="comments" className="rounded-none">Comments</TabsTrigger>
-                  <TabsTrigger value="resources" className="rounded-none">Resources</TabsTrigger>
+                  <TabsTrigger value="overview" className="rounded-none">{t('course_player.tab_overview')}</TabsTrigger>
+                  <TabsTrigger value="notes" className="rounded-none">{t('course_player.tab_notes')}</TabsTrigger>
+                  <TabsTrigger value="comments" className="rounded-none">{t('course_player.tab_comments')}</TabsTrigger>
+                  <TabsTrigger value="resources" className="rounded-none">{t('course_player.tab_resources')}</TabsTrigger>
                 </TabsList>
               </div>
               <div className="flex-1 overflow-y-auto p-6">
                 <TabsContent value="overview" className="mt-0">
                   <div className="space-y-6">
                     <div>
-                      <h3 className="font-medium mb-2">About this lesson</h3>
+                      <h3 className="font-medium mb-2">{t('course_player.about_lesson')}</h3>
                       <p className="text-muted-foreground">{currentLesson.title}</p>
                     </div>
                     <Separator />
                     <div>
-                      <h3 className="font-medium mb-4">Course Progress</h3>
+                      <h3 className="font-medium mb-4">{t('course_player.course_progress')}</h3>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm">Overall Progress</span>
+                          <span className="text-sm">{t('course_player.overall_progress')}</span>
                           <span className="text-sm font-medium">{Math.round(overallProgress)}%</span>
                         </div>
                         <Progress value={overallProgress} className="h-2" />
                         <div className="flex justify-between text-sm text-muted-foreground">
-                          <span>{completedLessons} of {totalLessons} lessons completed</span>
+                          <span>{t('course_player.lessons_completed', { completed: completedLessons, total: totalLessons })}</span>
                         </div>
                       </div>
                     </div>
@@ -764,7 +767,7 @@ export function CoursePlayerPage() {
                       <>
                         <Separator />
                         <div>
-                          <h3 className="font-medium mb-2">About this course</h3>
+                          <h3 className="font-medium mb-2">{t('course_player.about_course')}</h3>
                           <p className="text-muted-foreground text-sm">{course.description}</p>
                         </div>
                       </>
@@ -775,15 +778,15 @@ export function CoursePlayerPage() {
                 <TabsContent value="notes" className="mt-0">
                   <div className="space-y-4">
                     <div>
-                      <h3 className="font-medium mb-2">Add a Note</h3>
-                      <Textarea placeholder="Add a note at current timestamp..." value={newNote} onChange={(e) => setNewNote(e.target.value)} className="mb-2" />
-                      <Button size="sm" onClick={handleAddNote}>Save Note</Button>
+                      <h3 className="font-medium mb-2">{t('course_player.add_note')}</h3>
+                      <Textarea placeholder={t('course_player.note_placeholder')} value={newNote} onChange={(e) => setNewNote(e.target.value)} className="mb-2" />
+                      <Button size="sm" onClick={handleAddNote}>{t('course_player.save_note')}</Button>
                     </div>
                     <Separator />
                     <div className="space-y-3">
-                      <h4 className="font-medium">Your Notes for this Lesson</h4>
+                      <h4 className="font-medium">{t('course_player.notes_for_lesson')}</h4>
                       {notes.filter(n => n.lessonId === currentLessonId).length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No notes yet. Add your first note above!</p>
+                        <p className="text-sm text-muted-foreground">{t('course_player.no_notes')}</p>
                       ) : (
                         notes.filter(n => n.lessonId === currentLessonId).map((note) => (
                           <div key={note.id} className="p-3 border rounded space-y-2">
@@ -791,7 +794,7 @@ export function CoursePlayerPage() {
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Clock className="w-3 h-3" />
                                 <span>{note.timestamp}</span>
-                                <span>•</span>
+                                <span>â€¢</span>
                                 <span>{note.created}</span>
                               </div>
                               <Button size="sm" variant="ghost" onClick={() => handleDeleteNote(note.id)}>
@@ -809,7 +812,7 @@ export function CoursePlayerPage() {
                 <TabsContent value="comments" className="mt-0">
                    <div className="flex flex-col h-full">
                       <div className="mb-6">
-                         <h3 className="font-medium mb-2">Thêm bình luận</h3>
+                         <h3 className="font-medium mb-2">{t('course_player.add_comment')}</h3>
                          <div className="flex gap-3">
                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                              <Avatar><AvatarFallback>{user?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback></Avatar>
@@ -818,12 +821,12 @@ export function CoursePlayerPage() {
                              <Textarea
                                value={newComment}
                                onChange={(e) => setNewComment(e.target.value)}
-                               placeholder="Viết bình luận..."
+                               placeholder={t('course_player.comment_placeholder')}
                                className="w-full bg-muted/30 border rounded-md p-2 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-primary resize-none mb-2"
                              />
                              <div className="flex justify-end">
                                <Button size="sm" disabled={!newComment.trim()} onClick={handlePostComment}>
-                                 Đăng bình luận
+                                 {t('course_player.post_comment')}
                                </Button>
                              </div>
                            </div>
@@ -831,11 +834,11 @@ export function CoursePlayerPage() {
                       </div>
                       <Separator className="mb-6" />
                       <div className="space-y-6">
-                        <h4 className="font-medium">Bình luận gần đây</h4>
+                        <h4 className="font-medium">{t('course_player.recent_comments')}</h4>
                         {commentsLoading ? (
                           <div className="flex items-center justify-center py-10">
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                            <span className="ml-2 text-sm text-muted-foreground">Đang tải bình luận...</span>
+                            <span className="ml-2 text-sm text-muted-foreground">{t('course_player.loading_comments')}</span>
                           </div>
                         ) : comments.length > 0 ? (
                           comments.map((comment) => (
@@ -847,13 +850,13 @@ export function CoursePlayerPage() {
                               onPostReply={handlePostReply}
                               onEditComment={handleEditComment}
                               onDeleteComment={handleDeleteComment}
-                              currentUser={user?.username || 'You'}
+                              currentUser={user?.username || t('course_player.you')}
                             />
                           ))
                         ) : (
                           <div className="text-center text-muted-foreground py-10 border rounded-lg border-dashed">
                             <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                            <p>Chưa có bình luận. Hãy là người đầu tiên bắt đầu thảo luận!</p>
+                            <p>{t('course_player.no_comments')}</p>
                           </div>
                         )}
                       </div>
@@ -862,13 +865,13 @@ export function CoursePlayerPage() {
 
                 <TabsContent value="resources" className="mt-0">
                   <div className="space-y-4">
-                    <h3 className="font-medium">Lesson Resources</h3>
+                    <h3 className="font-medium">{t('course_player.lesson_resources')}</h3>
                     <div className="space-y-2">
                       <div className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50 cursor-pointer transition-colors">
                         <FileText className="w-5 h-5 text-muted-foreground" />
                         <div className="flex-1">
-                          <p className="font-medium text-sm">Course Slides</p>
-                          <p className="text-xs text-muted-foreground">PDF • Available soon</p>
+                          <p className="font-medium text-sm">{t('course_player.course_slides')}</p>
+                          <p className="text-xs text-muted-foreground">PDF â€¢ Available soon</p>
                         </div>
                         <Button size="sm" variant="ghost" onClick={() => handleDownloadResource('Course Slides')}>
                           <Download className="w-4 h-4" />
@@ -912,7 +915,7 @@ export function CoursePlayerPage() {
                 <div className="text-center space-y-4">
                   <div className="text-2xl font-bold">{curriculum.reduce((acc, s) => acc + s.lectures, 0)}</div>
                   <div className="h-32" />
-                  <p className="rotate-90 text-xl font-bold tracking-wider whitespace-nowrap mt-16">Lessons</p>
+                  <p className="rotate-90 text-xl font-bold tracking-wider whitespace-nowrap mt-16">{t('course_player.lessons_label')}</p>
                 </div>
               </motion.div>
             ) : (
@@ -933,3 +936,4 @@ export function CoursePlayerPage() {
     </div>
   )
 }
+

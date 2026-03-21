@@ -33,8 +33,10 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { useUIStore } from '../stores/ui.store'
 import { useQuizStore } from '../stores/quiz.store'
+import { getQuizResultByEnrollmentAndLesson, upsertQuizResultDraft } from '../services/quiz-results.api'
 import { 
   SUPPORTED_LANGUAGES, 
   runTestCases, 
@@ -67,13 +69,16 @@ export interface CodeQuestion {
 interface CodeQuizPlayerProps {
   question: CodeQuestion
   lessonId?: number // ✅ Add lessonId to track which lesson this belongs to
+  enrollmentId?: number
   onComplete?: (passed: boolean, score: number) => void
   onSubmit?: (code: string, language: number) => void
   className?: string
 }
 
-export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, className }: CodeQuizPlayerProps) {
+export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, onSubmit, className }: CodeQuizPlayerProps) {
+  const { t } = useTranslation()
   const { saveQuizAnswer, getQuizAnswer } = useQuizStore()
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(enrollmentId ? 'saved' : 'idle')
   
   // ✅ Try to load saved answer first
   const savedAnswer = lessonId ? getQuizAnswer(question.id, lessonId) : undefined
@@ -97,16 +102,23 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
   const currentLang = getLanguageById(selectedLanguage)
 
   const normalizeOutput = (value?: string | null) => (value || '').replace(/\r\n/g, '\n').trim()
+  const saveStatusLabel = saveStatus === 'saving'
+    ? t('code_quiz_player.saving')
+    : saveStatus === 'saved'
+      ? t('code_quiz_player.saved_cloud')
+      : saveStatus === 'error'
+        ? t('code_quiz_player.save_failed')
+        : t('code_quiz_player.saved_local')
   const getDebugHint = (result: TestResult) => {
     const error = (result.error || '').toLowerCase()
     if (error.includes('compilation') || error.includes('compile')) {
-      return 'Compilation error: Check syntax, missing imports, and function/class signatures.'
+      return t('code_quiz_player.compile_error_hint')
     }
     if (error.includes('runtime') || error.includes('exception') || error.includes('traceback')) {
-      return 'Runtime error: Inspect edge cases, null/undefined access, array bounds, and division by zero.'
+      return t('code_quiz_player.runtime_error_hint')
     }
     if (!result.passed) {
-      return 'Wrong answer: Compare Expected vs Your Output. Pay attention to spaces, line breaks, and output format.'
+      return t('code_quiz_player.wrong_answer_hint')
     }
     return ''
   }
@@ -132,6 +144,43 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
     setRunProgress({ current: 0, total: 0 })
   }, [question.id]) // Reset when question ID changes
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadServerDraft() {
+      if (!lessonId || !enrollmentId) return
+
+      try {
+        const existing = await getQuizResultByEnrollmentAndLesson(enrollmentId, lessonId)
+        if (cancelled || !existing) return
+
+        const answer = existing.answers?.[String(question.id)]
+        if (!answer) return
+
+        if (typeof answer.code_answer === 'string' && answer.code_answer.trim()) {
+          setCode(answer.code_answer)
+        }
+        if (typeof answer.language === 'number') {
+          setSelectedLanguage(answer.language)
+        }
+        if (typeof answer.is_submitted === 'boolean') {
+          setIsSubmitted(answer.is_submitted)
+        }
+        if (enrollmentId) {
+          setSaveStatus('saved')
+        }
+      } catch (error) {
+        console.error('Failed to load server draft:', error)
+        if (enrollmentId) {
+          setSaveStatus('error')
+        }
+      }
+    }
+
+    loadServerDraft()
+    return () => { cancelled = true }
+  }, [lessonId, enrollmentId, question.id])
+
   // Update starter code when language changes
   useEffect(() => {
     if (!code || code === question.starterCode) {
@@ -143,6 +192,9 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
   // ✅ Auto-save code whenever it changes (debounced)
   useEffect(() => {
     if (!lessonId) return // Don't save if no lesson ID
+    if (enrollmentId) {
+      setSaveStatus('saving')
+    }
     
     const timer = setTimeout(() => {
       saveQuizAnswer({
@@ -156,15 +208,35 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
         score: score?.percentage,
         lastUpdated: new Date().toISOString()
       })
+
+      if (enrollmentId) {
+        void upsertQuizResultDraft(enrollmentId, lessonId, {
+          answers: {
+            [String(question.id)]: {
+              code_answer: code,
+              language: selectedLanguage,
+              is_submitted: isSubmitted,
+            }
+          },
+          submit_time: isSubmitted ? new Date().toISOString() : null,
+        }).then(() => {
+          setSaveStatus('saved')
+        }).catch((error) => {
+          console.error('Failed to save quiz draft to server:', error)
+          setSaveStatus('error')
+        })
+      } else {
+        setSaveStatus('idle')
+      }
     }, 2000) // Debounce 2 seconds
 
     return () => clearTimeout(timer)
-  }, [code, selectedLanguage, lessonId, question.id, isSubmitted, score])
+  }, [code, selectedLanguage, lessonId, enrollmentId, question.id, isSubmitted, score])
 
   // Handle language change
   const handleLanguageChange = (languageId: string) => {
     const newLang = parseInt(languageId)
-    if (confirm('Changing language will reset your code. Continue?')) {
+    if (confirm('Doi ngon ngu se dat lai doan code hien tai. Ban co muon tiep tuc khong?')) {
       setSelectedLanguage(newLang)
       const lang = getLanguageById(newLang)
       setCode(question.starterCode || getStarterCode(lang?.value || 'javascript'))
@@ -174,7 +246,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
   // Run code against test cases
   const handleRun = async () => {
     if (!code.trim()) {
-      toast.error('Please write some code first')
+      toast.error(t('code_quiz_player.write_code_first'))
       return
     }
 
@@ -204,13 +276,13 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
       const { passed, total, percentage } = calculateScore(results)
       
       if (passed === total) {
-        toast.success(`All ${total} test cases passed! 🎉`)
+        toast.success(t('code_quiz_player.all_tests_passed', { total }))
       } else {
-        toast.error(`${passed}/${total} test cases passed`)
+        toast.error(t('code_quiz_player.tests_passed', { passed, total }))
       }
     } catch (error) {
       console.error('Error running tests:', error)
-      toast.error('Failed to run test cases. Please try again.')
+      toast.error(t('code_quiz_player.run_failed'))
     } finally {
       setIsRunning(false)
       setRunProgress({ current: 0, total: 0 })
@@ -220,19 +292,19 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
   // Submit solution
   const handleSubmit = async () => {
     if (!code.trim()) {
-      toast.error('Please write some code first')
+      toast.error(t('code_quiz_player.write_code_first'))
       return
     }
 
     if (testResults.length === 0) {
-      toast.error('Please run your code first before submitting')
+      toast.error(t('code_quiz_player.run_before_submit'))
       return
     }
 
     const { passed, total, percentage } = calculateScore(testResults)
     
     if (passed < total) {
-      if (!confirm(`Only ${passed}/${total} test cases passed. Submit anyway?`)) {
+      if (!confirm(t('code_quiz_player.submit_anyway', { passed, total }))) {
         return
       }
     }
@@ -248,15 +320,15 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
     }
     
     if (passed === total) {
-      toast.success('Solution submitted successfully! 🎉')
+      toast.success(t('code_quiz_player.submit_success'))
     } else {
-      toast.info('Solution submitted. You can retry later.')
+      toast.info(t('code_quiz_player.submit_info'))
     }
   }
 
   // Reset solution
   const handleReset = () => {
-    if (confirm('Reset your code to starter template?')) {
+    if (confirm(t('code_quiz_player.reset_confirm'))) {
       const lang = getLanguageById(selectedLanguage)
       setCode(question.starterCode || getStarterCode(lang?.value || 'javascript'))
       setTestResults([])
@@ -279,7 +351,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Code Submission Results</CardTitle>
+              <CardTitle>{t('code_quiz_player.submission_results')}</CardTitle>
               <CardDescription>{question.question}</CardDescription>
             </div>
             <Badge variant={score?.percentage === 100 ? 'default' : 'secondary'}>
@@ -302,14 +374,20 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
             <div>
               <h3 className="text-4xl font-bold mb-2">{score?.percentage}%</h3>
               <p className="text-muted-foreground">
-                {score?.passed} / {score?.total} test cases passed
+                {score?.passed} / {score?.total} bo test dat
               </p>
+              <div className="mt-3">
+                <Badge variant={saveStatus === 'error' ? 'destructive' : 'outline'}>
+                  {saveStatus === 'saving' && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                  {saveStatusLabel}
+                </Badge>
+              </div>
             </div>
           </div>
 
           {/* Test Results */}
           <div className="space-y-3">
-            <h4 className="font-medium">Test Results</h4>
+            <h4 className="font-medium">{t('code_quiz_player.test_results')}</h4>
             {testResults.map((result, index) => (
               <Card key={result.id} className={result.passed ? 'border-green-500' : 'border-red-500'}>
                 <CardContent className="p-4">
@@ -321,7 +399,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                         <XCircle className="h-5 w-5 text-red-600" />
                       )}
                       <span className="font-medium">
-                        {result.isHidden ? `Hidden Test ${index + 1}` : `Test Case ${index + 1}`}
+                        {result.isHidden ? t('code_quiz_player.hidden_test', { index: index + 1 }) : t('code_quiz_player.test_case', { index: index + 1 })}
                       </span>
                     </div>
                     {result.time && (
@@ -335,24 +413,24 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                   {!result.isHidden && (
                     <div className="space-y-2 mt-3 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Input:</span>
-                        <pre className="bg-muted p-2 rounded mt-1 text-xs">{result.input || '(empty)'}</pre>
+                        <span className="text-muted-foreground">{t('code_quiz_player.input')}</span>
+                        <pre className="bg-muted p-2 rounded mt-1 text-xs">{result.input || '(trong)'}</pre>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Expected:</span>
+                        <span className="text-muted-foreground">{t('code_quiz_player.expected')}</span>
                         <pre className="bg-muted p-2 rounded mt-1 text-xs">{result.expectedOutput}</pre>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Your Output:</span>
+                        <span className="text-muted-foreground">{t('code_quiz_player.your_output')}</span>
                         <pre className={`p-2 rounded mt-1 text-xs ${
                           result.passed ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
                         }`}>
-                          {result.actualOutput || '(no output)'}
+                          {result.actualOutput || '(khong co output)'}
                         </pre>
                       </div>
                       {result.error && (
                         <div>
-                          <span className="text-destructive">Error:</span>
+                          <span className="text-destructive">{t('code_quiz_player.error')}</span>
                           <pre className="bg-destructive/10 p-2 rounded mt-1 text-xs text-destructive">
                             {result.error}
                           </pre>
@@ -375,7 +453,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
               className="flex-1"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Try Again
+              {t('code_quiz_player.try_again')}
             </Button>
           </div>
         </CardContent>
@@ -416,7 +494,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
             >
               <div className="text-center space-y-6">
                 <Code2 className="h-6 w-6 mx-auto text-muted-foreground" />
-                <p className="rotate-90 text-lg font-bold tracking-wider whitespace-nowrap mt-24">Problem</p>
+                <p className="rotate-90 text-lg font-bold tracking-wider whitespace-nowrap mt-24">{t('code_quiz_player.problem')}</p>
               </div>
             </motion.div>
           ) : (
@@ -447,6 +525,10 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                   {question.points && (
                     <Badge variant="outline" className="text-xs">{question.points} pts</Badge>
                   )}
+                  <Badge variant={saveStatus === 'error' ? 'destructive' : 'outline'} className="text-xs">
+                    {saveStatus === 'saving' && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                    {saveStatusLabel}
+                  </Badge>
                 </div>
               </div>
 
@@ -455,7 +537,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                 {/* Description */}
                 {question.description && (
                   <div>
-                    <h4 className="font-medium text-sm mb-2">Description</h4>
+                    <h4 className="font-medium text-sm mb-2">{t('code_quiz_player.description')}</h4>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {question.description}
                     </p>
@@ -466,7 +548,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
 
                 {/* Constraints */}
                 <div>
-                  <h4 className="font-medium text-sm mb-2">Constraints</h4>
+                  <h4 className="font-medium text-sm mb-2">{t('code_quiz_player.constraints')}</h4>
                   <div className="space-y-2 text-xs text-muted-foreground">
                     {question.timeLimit && (
                       <div className="flex items-center gap-2">
@@ -485,16 +567,16 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
 
                 {/* Sample Test Cases */}
                 <div>
-                  <h4 className="font-medium text-sm mb-2">Sample Test Cases</h4>
+                  <h4 className="font-medium text-sm mb-2">{t('code_quiz_player.sample_test_cases')}</h4>
                   <div className="space-y-3">
                     {question.testCases.filter(tc => !tc.isHidden).slice(0, 2).map((tc, idx) => (
                       <div key={idx} className="bg-muted/50 rounded p-3 text-xs">
                         <div className="mb-2">
-                          <span className="font-medium">Input:</span>
+                          <span className="font-medium">{t('code_quiz_player.input')}</span>
                           <pre className="mt-1 bg-background p-2 rounded">{tc.input || '(empty)'}</pre>
                         </div>
                         <div>
-                          <span className="font-medium">Expected Output:</span>
+                          <span className="font-medium">{t('code_quiz_player.expected_output')}</span>
                           <pre className="mt-1 bg-background p-2 rounded">{tc.expectedOutput}</pre>
                         </div>
                       </div>
@@ -552,7 +634,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
               {/* Language Selector */}
               <div className="flex items-center gap-4">
                 <div className="w-48">
-                  <Label className="text-xs">Language</Label>
+                  <Label className="text-xs">{t('code_quiz_player.language')}</Label>
                   <Select value={selectedLanguage.toString()} onValueChange={handleLanguageChange}>
                     <SelectTrigger className="mt-1 h-9">
                       <SelectValue />
@@ -576,7 +658,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleReset}>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Reset
+                  {t('code_quiz_player.reset')}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -587,12 +669,12 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                   {isRunning ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Running...
+                      Dang chay...
                     </>
                   ) : (
                     <>
                       <Play className="h-4 w-4 mr-2" />
-                      Run Code
+                      {t('code_quiz_player.run_code')}
                     </>
                   )}
                 </Button>
@@ -601,7 +683,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                   onClick={handleSubmit}
                   disabled={isRunning || testResults.length === 0}
                 >
-                  Submit Solution
+                  {t('code_quiz_player.submit_solution')}
                 </Button>
               </div>
             </div>
@@ -627,7 +709,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Running test cases...
+                    {t('code_quiz_player.running_tests')}
                   </span>
                   <span className="font-medium">{runProgress.current}/{runProgress.total}</span>
                 </div>
@@ -665,21 +747,21 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                       <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                         <div className="text-center">
                           <div className="text-2xl font-bold">{score?.total}</div>
-                          <div className="text-xs text-muted-foreground">Total</div>
+                          <div className="text-xs text-muted-foreground">{t('code_quiz_player.total')}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-green-600">{score?.passed}</div>
-                          <div className="text-xs text-muted-foreground">Passed</div>
+                          <div className="text-xs text-muted-foreground">Dat</div>
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-red-600">
                             {score ? score.total - score.passed : 0}
                           </div>
-                          <div className="text-xs text-muted-foreground">Failed</div>
+                          <div className="text-xs text-muted-foreground">{t('code_quiz_player.failed')}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold">{score?.percentage}%</div>
-                          <div className="text-xs text-muted-foreground">Score</div>
+                          <div className="text-xs text-muted-foreground">{t('code_quiz_player.score')}</div>
                         </div>
                       </div>
                       
@@ -699,7 +781,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                                 <XCircle className="h-4 w-4 text-red-600" />
                               )}
                               <span className="text-sm font-medium">
-                                {result.isHidden ? `Hidden Test ${index + 1}` : `Test Case ${index + 1}`}
+                                {result.isHidden ? t('code_quiz_player.hidden_test', { index: index + 1 }) : t('code_quiz_player.test_case', { index: index + 1 })}
                               </span>
                             </div>
                             {result.time && (
@@ -716,7 +798,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                         <Alert>
                           <Info className="h-4 w-4" />
                           <AlertDescription>
-                            Debug tip: Open each failed test tab to see full logs (stderr/compile output/message).
+                            {t('code_quiz_player.debug_tip')}
                           </AlertDescription>
                         </Alert>
                       )}
@@ -737,10 +819,10 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                             )}
                             <div>
                               <h3 className="font-semibold">
-                                {result.isHidden ? '🔒 Hidden Test Case' : `Test Case ${index + 1}`}
+                                {result.isHidden ? t('code_quiz_player.hidden_test', { index: '' }).trim() : t('code_quiz_player.test_case', { index: index + 1 })}
                               </h3>
                               <p className={`text-sm ${result.passed ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
-                                {result.passed ? 'Passed' : 'Failed'}
+                                {result.passed ? t('code_quiz_player.passed') : t('code_quiz_player.failed')}
                               </p>
                             </div>
                           </div>
@@ -766,7 +848,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                         <div className="space-y-3">
                           {/* Input */}
                           <div>
-                            <label className="text-sm font-medium text-muted-foreground mb-1 block">Input:</label>
+                            <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.input')}</label>
                             <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono overflow-x-auto border border-border/30">
                               {result.input}
                             </pre>
@@ -774,7 +856,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                           
                           {/* Expected Output */}
                           <div>
-                            <label className="text-sm font-medium text-muted-foreground mb-1 block">Expected Output:</label>
+                            <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.expected_output')}</label>
                             <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono overflow-x-auto border border-border/30">
                               {result.expectedOutput}
                             </pre>
@@ -782,20 +864,20 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
 
                           {/* Actual Output - Always show */}
                           <div>
-                            <label className="text-sm font-medium text-muted-foreground mb-1 block">Your Output:</label>
+                            <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.your_output')}</label>
                             <pre className={`bg-muted/50 rounded-md p-3 text-sm font-mono overflow-x-auto border ${
                               result.passed 
                                 ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20' 
                                 : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
                             }`}>
-                              {result.actualOutput || '(no output)'}
+                              {result.actualOutput || '(khong co output)'}
                             </pre>
                           </div>
 
                           {/* Error Details - Always show if present */}
                           {result.error && (
                             <div>
-                              <label className="text-sm font-medium text-red-600 dark:text-red-400 mb-1 block">Error:</label>
+                              <label className="text-sm font-medium text-red-600 dark:text-red-400 mb-1 block">{t('code_quiz_player.error')}</label>
                               <pre className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm font-mono overflow-x-auto text-red-900 dark:text-red-100">
                                 {result.error}
                               </pre>
@@ -804,7 +886,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
 
                           {(result.debugLogs?.length || result.stderr || result.compileOutput || result.message || result.statusDescription) && (
                             <div className="space-y-2">
-                              <label className="text-sm font-medium text-muted-foreground mb-1 block">Debug Logs:</label>
+                              <label className="text-sm font-medium text-muted-foreground mb-1 block">Nhat ky debug:</label>
                               {result.debugLogs && result.debugLogs.length > 0 && (
                                 <pre className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-md p-3 text-sm font-mono overflow-x-auto text-slate-900 dark:text-slate-100">
                                   {result.debugLogs.join('\n')}
@@ -812,7 +894,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                               )}
                               {result.statusDescription && (
                                 <pre className="bg-muted/50 rounded-md p-3 text-sm font-mono overflow-x-auto border border-border/30">
-                                  Status: {result.statusDescription}{result.statusId ? ` (${result.statusId})` : ''}
+                                  {t('code_quiz_player.status')} {result.statusDescription}{result.statusId ? ` (${result.statusId})` : ''}
                                 </pre>
                               )}
                               {result.compileOutput && (
@@ -839,8 +921,7 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                               <div className="flex items-start gap-2">
                                 <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 mt-0.5" />
                                 <p className="text-sm text-amber-900 dark:text-amber-100">
-                                  <strong>Hint:</strong> Your output doesn't match the expected result. 
-                                  Check for typos, wrong data types, or incorrect logic.
+                                  {t('code_quiz_player.output_mismatch_hint')}
                                 </p>
                               </div>
                             </div>
@@ -856,13 +937,13 @@ export function CodeQuizPlayer({ question, lessonId, onComplete, onSubmit, class
                           {!result.passed && (
                             <div className="grid md:grid-cols-2 gap-3">
                               <div>
-                                <label className="text-sm font-medium text-muted-foreground mb-1 block">Normalized Expected</label>
+                                <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.normalized_expected')}</label>
                                 <pre className="bg-muted/50 rounded-md p-3 text-xs font-mono overflow-x-auto border border-border/30">
                                   {normalizeOutput(result.expectedOutput) || '(empty)'}
                                 </pre>
                               </div>
                               <div>
-                                <label className="text-sm font-medium text-muted-foreground mb-1 block">Normalized Actual</label>
+                                <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.normalized_actual')}</label>
                                 <pre className="bg-muted/50 rounded-md p-3 text-xs font-mono overflow-x-auto border border-border/30">
                                   {normalizeOutput(result.actualOutput) || '(empty)'}
                                 </pre>

@@ -29,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert"
 import { UserPagination } from "../../components/UserPagination"
 import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Info, Crown, Loader2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 const EARNINGS_PER_PAGE = 10
 const PAYOUTS_PER_PAGE = 10
@@ -36,6 +37,7 @@ const PAYOUTS_PER_PAGE = 10
 const isSubscriptionEarning = (e: InstructorEarning) => e.user_subscription != null
 
 export function InstructorPayoutsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
 
   const [instructorId, setInstructorId] = useState<number | null>(null)
@@ -85,7 +87,7 @@ export function InstructorPayoutsPage() {
         setPayoutMethods(methodsData)
       } catch (err) {
         console.error('error loading instructor payouts page', err)
-        toast.error('Khong the tai du lieu thu nhap')
+        toast.error(t('instructor_payouts.load_failed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -192,20 +194,20 @@ export function InstructorPayoutsPage() {
 
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {
-      pending: 'Cho duyet',
-      processed: 'Da thanh toan',
-      cancelled: 'Da huy',
-      failed: 'That bai',
+      pending: t('instructor_payouts.status_pending'),
+      processed: t('instructor_payouts.status_processed'),
+      cancelled: t('instructor_payouts.status_cancelled'),
+      failed: t('instructor_payouts.status_failed'),
     }
     return statusMap[status] || status
   }
 
   const handleRequestPayout = async () => {
-    if (!selectedMethod) return toast.error('Vui long chon phuong thuc thanh toan')
-    if (!payoutAmount || parseFloat(payoutAmount) <= 0) return toast.error('Vui long nhap so tien hop le')
+    if (!selectedMethod) return toast.error(t('instructor_payouts.select_method_error'))
+    if (!payoutAmount || parseFloat(payoutAmount) <= 0) return toast.error(t('instructor_payouts.invalid_amount_error'))
     const amount = parseFloat(payoutAmount)
-    if (amount < 50) return toast.error('So tien rut toi thieu la $50.00')
-    if (amount > availableBalance) return toast.error(`So du kha dung khong du. Ban chi co ${formatCurrency(availableBalance, 'USD')}`)
+    if (amount < 50) return toast.error(t('instructor_payouts.minimum_amount_error'))
+    if (amount > availableBalance) return toast.error(t('instructor_payouts.insufficient_balance_error', { amount: formatCurrency(availableBalance, 'USD') }))
 
     setIsSubmitting(true)
     try {
@@ -217,7 +219,7 @@ export function InstructorPayoutsPage() {
       setIsRequestDialogOpen(false)
       setSelectedMethod('')
       setPayoutAmount('')
-      toast.success('Yeu cau rut tien da duoc gui!')
+      toast.success(t('instructor_payouts.request_success'))
       if (instructorId) {
         const [sumRes, payoutsRes] = await Promise.all([
           getInstructorEarningsSummary(instructorId),
@@ -229,7 +231,7 @@ export function InstructorPayoutsPage() {
         setPayoutsTotalCount(payoutsRes.count || 0)
       }
     } catch {
-      toast.error('Khong the gui yeu cau rut tien')
+      toast.error(t('instructor_payouts.request_failed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -252,47 +254,47 @@ export function InstructorPayoutsPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Thu nhap & Rut tien</h1>
-          <p className="text-muted-foreground">Quan ly thu nhap tu Ban khoa hoc va Subscriptions</p>
+          <h1 className="text-3xl font-bold">{t('instructor_payouts.title')}</h1>
+          <p className="text-muted-foreground">{t('instructor_payouts.subtitle')}</p>
         </div>
         <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" disabled={availableBalance < 50}>
               <DollarSign className="h-4 w-4" />
-              Yeu cau rut tien
+              {t('instructor_payouts.request_button')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Yeu cau rut tien</DialogTitle>
-              <DialogDescription>Rut thu nhap kha dung cua ban</DialogDescription>
+              <DialogTitle>{t('instructor_payouts.request_dialog_title')}</DialogTitle>
+              <DialogDescription>{t('instructor_payouts.request_dialog_desc')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Tong so du kha dung</span>
+                  <span className="text-sm text-muted-foreground">{t('instructor_payouts.available_balance')}</span>
                   <span className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-muted-foreground/20">
-                  <span className="text-muted-foreground">Tu ban khoa hoc:</span>
+                  <span className="text-muted-foreground">{t('instructor_payouts.from_sales')}</span>
                   <span className="font-medium">{formatCurrency(salesEarnings, 'USD')}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">Tu Subscriptions:</span>
+                  <span className="text-muted-foreground">{t('instructor_payouts.from_subscriptions')}</span>
                   <span className="font-medium">{formatCurrency(subscriptionEarnings, 'USD')}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="amount">So tien rut *</Label>
+                <Label htmlFor="amount">{t('instructor_payouts.withdraw_amount')}</Label>
                 <Input id="amount" type="number" placeholder="0.00" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} max={availableBalance} min={50} />
-                <p className="text-xs text-muted-foreground">Toi thieu: $50.00 | Toi da: {formatCurrency(availableBalance, 'USD')}</p>
+                <p className="text-xs text-muted-foreground">{t('instructor_payouts.amount_hint', { amount: formatCurrency(availableBalance, 'USD') })}</p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="method">Phuong thuc thanh toan *</Label>
+                <Label htmlFor="method">{t('instructor_payouts.payment_method')}</Label>
                 <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-                  <SelectTrigger><SelectValue placeholder="Chon phuong thuc" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('instructor_payouts.select_method')} /></SelectTrigger>
                   <SelectContent>
                     {payoutMethods.map((method) => (
                       <SelectItem key={String(method.id)} value={String(method.id)}>
@@ -306,75 +308,75 @@ export function InstructorPayoutsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsRequestDialogOpen(false)}>Huy</Button>
-              <Button onClick={handleRequestPayout} disabled={isSubmitting}>{isSubmitting ? 'Dang gui...' : 'Gui yeu cau'}</Button>
+              <Button variant="outline" onClick={() => setIsRequestDialogOpen(false)}>{t('common.cancel')}</Button>
+              <Button onClick={handleRequestPayout} disabled={isSubmitting}>{isSubmitting ? t('instructor_payouts.submitting') : t('instructor_payouts.submit_request')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>So du kha dung</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">Sales: {formatCurrency(salesEarnings, 'USD')}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">Subs: {formatCurrency(subscriptionEarnings, 'USD')}</Badge></div></CardContent></Card>
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>Dang cho duyet</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency(pendingPayouts, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">Dang duoc xu ly</p></CardContent></Card>
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>Da thanh toan</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalPaid, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">Tong thu nhap da nhan</p></CardContent></Card>
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>Lan rut thanh cong</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">Giao dich hoan tat</p></CardContent></Card>
+        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency(salesEarnings, 'USD')}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency(subscriptionEarnings, 'USD')}</Badge></div></CardContent></Card>
+        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency(pendingPayouts, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
+        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalPaid, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
+        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.successful_requests')}</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.completed_transactions')}</p></CardContent></Card>
       </div>
 
       {availableBalance < 50 && (
         <Alert>
           <Info className="h-4 w-4" />
-          <AlertTitle>So du chua du de rut tien</AlertTitle>
-          <AlertDescription>Ban can co it nhat $50.00 trong so du kha dung de gui yeu cau rut tien.</AlertDescription>
+          <AlertTitle>{t('instructor_payouts.low_balance_title')}</AlertTitle>
+          <AlertDescription>{t('instructor_payouts.low_balance_desc')}</AlertDescription>
         </Alert>
       )}
 
       {lockedBalance > 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Thu nhap bi khoa</AlertTitle>
-          <AlertDescription>Ban co {formatCurrency(lockedBalance, 'USD')} dang bi khoa do yeu cau hoan tien.</AlertDescription>
+          <AlertTitle>{t('instructor_payouts.locked_earnings_title')}</AlertTitle>
+          <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency(lockedBalance, 'USD') })}</AlertDescription>
         </Alert>
       )}
 
       <Tabs defaultValue="earnings" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="earnings">Thu nhap chi tiet</TabsTrigger>
-          <TabsTrigger value="history">Lich su rut tien</TabsTrigger>
-          <TabsTrigger value="methods">Phuong thuc thanh toan</TabsTrigger>
+          <TabsTrigger value="earnings">{t('instructor_payouts.tab_earnings')}</TabsTrigger>
+          <TabsTrigger value="history">{t('instructor_payouts.tab_history')}</TabsTrigger>
+          <TabsTrigger value="methods">{t('instructor_payouts.tab_methods')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="earnings" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Chi tiet nguon thu</CardTitle>
-              <CardDescription>Theo doi thu nhap tu moi nguon</CardDescription>
+              <CardTitle>{t('instructor_payouts.earnings_title')}</CardTitle>
+              <CardDescription>{t('instructor_payouts.earnings_desc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-4 flex justify-end">
                 <Select value={earningsStatusFilter} onValueChange={setEarningsStatusFilter}>
-                  <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="w-44"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="available">Available</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="all">{t('instructor_payouts.all_status')}</SelectItem>
+                    <SelectItem value="available">{t('instructor_payouts.available')}</SelectItem>
+                    <SelectItem value="pending">{t('instructor_payouts.pending')}</SelectItem>
+                    <SelectItem value="paid">{t('instructor_payouts.paid')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {earningsLoading ? (
                 <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
               ) : earnings.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">Ban chua co thu nhap nao</div>
+                <div className="text-center py-8 text-muted-foreground">{t('instructor_payouts.no_earnings')}</div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nguon</TableHead>
-                      <TableHead>Noi dung</TableHead>
-                      <TableHead>Doanh thu goc</TableHead>
-                      <TableHead>Thuc nhan</TableHead>
-                      <TableHead>Trang thai</TableHead>
-                      <TableHead>Ngay</TableHead>
+                      <TableHead>{t('instructor_payouts.source')}</TableHead>
+                      <TableHead>{t('instructor_payouts.content')}</TableHead>
+                      <TableHead>{t('instructor_payouts.gross_revenue')}</TableHead>
+                      <TableHead>{t('instructor_payouts.net_revenue')}</TableHead>
+                      <TableHead>{t('common.status')}</TableHead>
+                      <TableHead>{t('instructor_payouts.date')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -383,18 +385,18 @@ export function InstructorPayoutsPage() {
                         <TableCell>
                           {isSubscriptionEarning(earning) ? (
                             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                              <Crown className="w-3 h-3 mr-1" /> Subscription
+                              <Crown className="w-3 h-3 mr-1" /> {t('instructor_payouts.subscription')}
                             </Badge>
                           ) : (
-                            <Badge variant="outline">Course Sale</Badge>
+                            <Badge variant="outline">{t('instructor_payouts.course_sale')}</Badge>
                           )}
                         </TableCell>
-                        <TableCell><div className="max-w-xs truncate text-sm font-medium">Khoa hoc #{earning.course}</div></TableCell>
+                        <TableCell><div className="max-w-xs truncate text-sm font-medium">{t('instructor_payouts.course_label', { id: earning.course })}</div></TableCell>
                         <TableCell>{formatPayoutAmount(earning.amount)}</TableCell>
                         <TableCell className="font-semibold text-green-600">{formatPayoutAmount(earning.net_amount)}</TableCell>
                         <TableCell>
                           <Badge variant={earning.status === 'available' ? 'default' : earning.status === 'pending' ? 'outline' : 'secondary'}>
-                            {earning.status === 'available' ? 'Kha dung' : earning.status === 'pending' ? 'Cho xu ly' : 'Da thanh toan'}
+                            {earning.status === 'available' ? t('instructor_payouts.available') : earning.status === 'pending' ? t('instructor_payouts.pending_processing') : t('instructor_payouts.paid')}
                           </Badge>
                         </TableCell>
                         <TableCell>{formatDate(earning.earning_date)}</TableCell>
@@ -405,7 +407,7 @@ export function InstructorPayoutsPage() {
               )}
               {earningsTotalCount > 0 && (
                 <div className="mt-4">
-                  <div className="text-sm text-muted-foreground mb-2">Showing {earningsStart}-{earningsEnd} of {earningsTotalCount} earnings</div>
+                  <div className="text-sm text-muted-foreground mb-2">{t('instructor_payouts.earnings_pagination', { from: earningsStart, to: earningsEnd, total: earningsTotalCount })}</div>
                   <UserPagination currentPage={earningsPage} totalPages={earningsTotalPages} onPageChange={setEarningsPage} />
                 </div>
               )}
@@ -416,36 +418,36 @@ export function InstructorPayoutsPage() {
         <TabsContent value="history" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lich su yeu cau rut tien</CardTitle>
-              <CardDescription>Xem tat ca cac yeu cau rut tien cua ban</CardDescription>
+              <CardTitle>{t('instructor_payouts.history_title')}</CardTitle>
+              <CardDescription>{t('instructor_payouts.history_desc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="mb-4 flex justify-end">
                 <Select value={payoutStatusFilter} onValueChange={setPayoutStatusFilter}>
-                  <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="w-44"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="processed">Processed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="all">{t('instructor_payouts.all_status')}</SelectItem>
+                    <SelectItem value="pending">{t('instructor_payouts.pending')}</SelectItem>
+                    <SelectItem value="processed">{t('instructor_payouts.processed')}</SelectItem>
+                    <SelectItem value="cancelled">{t('instructor_payouts.cancelled')}</SelectItem>
+                    <SelectItem value="failed">{t('instructor_payouts.failed')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               {payoutsLoading ? (
                 <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
               ) : payouts.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">Ban chua co yeu cau rut tien nao</div>
+                <div className="text-center py-8 text-muted-foreground">{t('instructor_payouts.no_payouts')}</div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Ma giao dich</TableHead>
-                      <TableHead>So tien</TableHead>
-                      <TableHead>Phuong thuc</TableHead>
-                      <TableHead>Trang thai</TableHead>
-                      <TableHead>Ngay yeu cau</TableHead>
-                      <TableHead>Ngay xu ly</TableHead>
+                      <TableHead>{t('instructor_payouts.transaction_id')}</TableHead>
+                      <TableHead>{t('instructor_payouts.amount')}</TableHead>
+                      <TableHead>{t('instructor_payouts.method')}</TableHead>
+                      <TableHead>{t('common.status')}</TableHead>
+                      <TableHead>{t('instructor_payouts.request_date')}</TableHead>
+                      <TableHead>{t('instructor_payouts.processed_date')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -464,7 +466,7 @@ export function InstructorPayoutsPage() {
               )}
               {payoutsTotalCount > 0 && (
                 <div className="mt-4">
-                  <div className="text-sm text-muted-foreground mb-2">Showing {payoutsStart}-{payoutsEnd} of {payoutsTotalCount} payouts</div>
+                  <div className="text-sm text-muted-foreground mb-2">{t('instructor_payouts.payouts_pagination', { from: payoutsStart, to: payoutsEnd, total: payoutsTotalCount })}</div>
                   <UserPagination currentPage={historyPage} totalPages={payoutsTotalPages} onPageChange={setHistoryPage} />
                 </div>
               )}
@@ -475,8 +477,8 @@ export function InstructorPayoutsPage() {
         <TabsContent value="methods" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Phuong thuc thanh toan</CardTitle>
-              <CardDescription>Quan ly cac phuong thuc nhan tien</CardDescription>
+              <CardTitle>{t('instructor_payouts.methods_title')}</CardTitle>
+              <CardDescription>{t('instructor_payouts.methods_desc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -492,10 +494,10 @@ export function InstructorPayoutsPage() {
                             {method.method_type === 'bank_transfer'
                               ? `${method.bank_name} - ****${method.masked_account?.slice(-4) || ''}`
                               : `${method.method_type} - ${method.masked_account || method.nickname || ''}`}
-                            {method.is_default && <Badge variant="default" className="text-xs">Mac dinh</Badge>}
+                            {method.is_default && <Badge variant="default" className="text-xs">{t('instructor_payouts.default_badge')}</Badge>}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {method.method_type === 'bank_transfer' ? 'Chuyen khoan ngan hang' : method.method_type}
+                            {method.method_type === 'bank_transfer' ? t('instructor_payouts.bank_transfer') : method.method_type}
                           </div>
                         </div>
                       </div>
@@ -503,7 +505,7 @@ export function InstructorPayoutsPage() {
                   </Card>
                 ))}
                 {payoutMethods.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">Ban chua them phuong thuc thanh toan nao</div>
+                  <div className="text-center py-8 text-muted-foreground">{t('instructor_payouts.no_methods')}</div>
                 )}
               </div>
             </CardContent>

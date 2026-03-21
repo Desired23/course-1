@@ -45,6 +45,7 @@ import type { SystemSetting } from '../../services/admin.api'
 import type { AdminPayment } from '../../services/admin.api'
 import { getPaymentStatus } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
+import { useTranslation } from 'react-i18next'
 
 
 // Payment interfaces
@@ -131,6 +132,7 @@ interface DiscountRule {
 
 export function PaymentManagementPage() {
   const { user, hasPermission } = useAuth()
+  const { t } = useTranslation()
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
@@ -150,7 +152,7 @@ export function PaymentManagementPage() {
         setPayments(p)
         setFilteredPayments(p)
       } catch (err) {
-        toast.error('Không thể tải dữ liệu thanh toán')
+        toast.error(t('payment_management.load_failed'))
       } finally {
         setLoadingPayments(false)
       }
@@ -177,50 +179,50 @@ export function PaymentManagementPage() {
   const paymentFilterConfigs: FilterConfig[] = [
     {
       key: 'search',
-      label: 'Tìm kiếm',
+      label: t('payment_management.filters.search'),
       type: 'search',
-      placeholder: 'Tìm theo tên, email, khóa học...'
+      placeholder: t('payment_management.filters.search_placeholder')
     },
     {
       key: 'has_problem',
-      label: 'Lỗi',
+      label: t('payment_management.filters.problem'),
       type: 'select',
       options: [
-        { label: 'Có lỗi', value: 'true' },
-        { label: 'Không lỗi', value: 'false' }
+        { label: t('payment_management.filters.has_problem'), value: 'true' },
+        { label: t('payment_management.filters.no_problem'), value: 'false' }
       ]
     },
     {
       key: 'status',
-      label: 'Trạng thái',
+      label: t('payment_management.filters.status'),
       type: 'select',
       options: [
-        { label: 'Đang xử lý', value: 'pending', count: payments.filter(p => p.payment_status === 'pending').length },
-        { label: 'Hoàn thành', value: 'completed', count: payments.filter(p => p.payment_status === 'completed').length },
-        { label: 'Thất bại', value: 'failed', count: payments.filter(p => p.payment_status === 'failed').length },
-        { label: 'Đã hoàn tiền', value: 'refunded', count: payments.filter(p => p.payment_status === 'refunded').length }
+        { label: t('payment_management.status.pending'), value: 'pending', count: payments.filter(p => p.payment_status === 'pending').length },
+        { label: t('payment_management.status.completed'), value: 'completed', count: payments.filter(p => p.payment_status === 'completed').length },
+        { label: t('payment_management.status.failed'), value: 'failed', count: payments.filter(p => p.payment_status === 'failed').length },
+        { label: t('payment_management.status.refunded'), value: 'refunded', count: payments.filter(p => p.payment_status === 'refunded').length }
       ]
     },
     {
       key: 'payment_method',
-      label: 'Phương thức',
+      label: t('payment_management.filters.method'),
       type: 'select',
       options: [
         { label: 'VNPAY', value: 'vnpay', count: payments.filter(p => p.payment_method === 'vnpay').length },
-        { label: 'Thẻ tín dụng', value: 'credit_card', count: payments.filter(p => p.payment_method === 'credit_card').length },
+        { label: t('payment_management.methods.credit_card'), value: 'credit_card', count: payments.filter(p => p.payment_method === 'credit_card').length },
         { label: 'PayPal', value: 'paypal', count: payments.filter(p => p.payment_method === 'paypal').length }
       ]
     },
     {
       key: 'amount',
-      label: 'Số tiền',
+      label: t('payment_management.filters.amount'),
       type: 'number',
       min: 0,
       max: 10000000
     },
     {
       key: 'date',
-      label: 'Ngày thanh toán',
+      label: t('payment_management.filters.date'),
       type: 'daterange'
     }
   ]
@@ -228,18 +230,18 @@ export function PaymentManagementPage() {
   const refundFilterConfigs: FilterConfig[] = [
     {
       key: 'search',
-      label: 'Tìm kiếm',
+      label: t('payment_management.filters.search'),
       type: 'search',
-      placeholder: 'Tìm theo tên, khóa học...'
+      placeholder: t('payment_management.refunds.search_placeholder')
     },
     {
       key: 'status',
-      label: 'Trạng thái',
+      label: t('payment_management.filters.status'),
       type: 'select',
       options: [
-        { label: 'Chờ duyệt', value: 'pending', count: refundRequests.filter(r => r.status === 'pending').length },
-        { label: 'Đã duyệt', value: 'approved', count: refundRequests.filter(r => r.status === 'approved').length },
-        { label: 'Từ chối', value: 'rejected', count: refundRequests.filter(r => r.status === 'rejected').length }
+        { label: t('payment_management.refunds.pending'), value: 'pending', count: refundRequests.filter(r => r.status === 'pending').length },
+        { label: t('payment_management.refunds.approved'), value: 'approved', count: refundRequests.filter(r => r.status === 'approved').length },
+        { label: t('payment_management.refunds.rejected'), value: 'rejected', count: refundRequests.filter(r => r.status === 'rejected').length }
       ]
     }
   ]
@@ -326,13 +328,13 @@ export function PaymentManagementPage() {
   const handleFix = async (paymentId: number) => {
     try {
       await fixPayment(paymentId)
-      toast.success('Sửa giao dịch thành công')
+      toast.success(t('payment_management.fix_success'))
       // reload payments list
       const p = await getAdminPayments()
       setPayments(p)
       setFilteredPayments(p)
     } catch (err) {
-      toast.error('Lỗi khi sửa giao dịch')
+      toast.error(t('payment_management.fix_failed'))
     }
   }
 
@@ -340,8 +342,8 @@ export function PaymentManagementPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Không có quyền truy cập</h2>
-          <p className="text-muted-foreground">Bạn không có quyền quản lý thanh toán.</p>
+          <h2 className="text-2xl mb-4">{t('payment_management.no_access_title')}</h2>
+          <p className="text-muted-foreground">{t('payment_management.no_access_description')}</p>
         </div>
       </div>
     )
@@ -352,8 +354,8 @@ export function PaymentManagementPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl mb-2">Quản lý thanh toán</h1>
-          <p className="text-muted-foreground">Quản lý các giao dịch, hoàn tiền và chính sách thanh toán</p>
+          <h1 className="text-3xl mb-2">{t('payment_management.title')}</h1>
+          <p className="text-muted-foreground">{t('payment_management.subtitle')}</p>
         </div>
       </div>
 
@@ -361,52 +363,52 @@ export function PaymentManagementPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('payment_management.stats.total_revenue')}</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{formatCurrency(1398000)}</div>
             <p className="text-xs text-muted-foreground">
-              +12% từ tháng trước
+              {t('payment_management.stats.revenue_change')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Giao dịch</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('payment_management.stats.transactions')}</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{payments.length}</div>
             <p className="text-xs text-muted-foreground">
-              {payments.filter(p => p.payment_status === 'completed').length} hoàn thành
+              {t('payment_management.stats.completed_count', { count: payments.filter(p => p.payment_status === 'completed').length })}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yêu cầu hoàn tiền</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('payment_management.stats.refund_requests')}</CardTitle>
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{refundRequests.filter(r => r.status === 'pending').length}</div>
             <p className="text-xs text-muted-foreground">
-              Chờ xử lý
+              {t('payment_management.stats.pending_review')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tỷ lệ thành công</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('payment_management.stats.success_rate')}</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">94.2%</div>
             <p className="text-xs text-muted-foreground">
-              Tỷ lệ thanh toán thành công
+              {t('payment_management.stats.success_rate_hint')}
             </p>
           </CardContent>
         </Card>
@@ -414,29 +416,29 @@ export function PaymentManagementPage() {
 
       <Tabs defaultValue="payments" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="payments">Giao dịch</TabsTrigger>
-          <TabsTrigger value="refunds">Hoàn tiền</TabsTrigger>
-          <TabsTrigger value="policies">Chính sách</TabsTrigger>
-          <TabsTrigger value="instructor-rates">Hoa hồng GV</TabsTrigger>
-          <TabsTrigger value="discounts">Mã giảm giá</TabsTrigger>
+          <TabsTrigger value="payments">{t('payment_management.tabs.payments')}</TabsTrigger>
+          <TabsTrigger value="refunds">{t('payment_management.tabs.refunds')}</TabsTrigger>
+          <TabsTrigger value="policies">{t('payment_management.tabs.policies')}</TabsTrigger>
+          <TabsTrigger value="instructor-rates">{t('payment_management.tabs.instructor_rates')}</TabsTrigger>
+          <TabsTrigger value="discounts">{t('payment_management.tabs.discounts')}</TabsTrigger>
         </TabsList>
 
         {/* Payments Tab */}
         <TabsContent value="payments" className="space-y-6">
           <TableFilter
-            title="Bộ lọc giao dịch"
+            title={t('payment_management.payments.filter_title')}
             configs={paymentFilterConfigs}
             onFilterChange={handlePaymentFilter}
           />
-          {loadingPayments && <p>Đang tải giao dịch...</p>}
+          {loadingPayments && <p>{t('payment_management.payments.loading')}</p>}
 
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Danh sách giao dịch ({filteredPayments.length})</CardTitle>
+                <CardTitle>{t('payment_management.payments.list_title', { count: filteredPayments.length })}</CardTitle>
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
-                  Xuất Excel
+                  {t('payment_management.payments.export')}
                 </Button>
               </div>
             </CardHeader>
@@ -444,13 +446,13 @@ export function PaymentManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Mã GD</TableHead>
-                    <TableHead>Học viên</TableHead>
-                    <TableHead>Khóa học</TableHead>
-                    <TableHead>Số tiền</TableHead>
-                    <TableHead>Phơng thức</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày</TableHead>
+                    <TableHead>{t('payment_management.payments.table.id')}</TableHead>
+                    <TableHead>{t('payment_management.payments.table.student')}</TableHead>
+                    <TableHead>{t('payment_management.payments.table.course')}</TableHead>
+                    <TableHead>{t('payment_management.payments.table.amount')}</TableHead>
+                    <TableHead>{t('payment_management.payments.table.method')}</TableHead>
+                    <TableHead>{t('payment_management.payments.table.status')}</TableHead>
+                    <TableHead>{t('payment_management.payments.table.date')}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -489,22 +491,22 @@ export function PaymentManagementPage() {
                                 const detail = await getPaymentStatus(payment.payment_id)
                                 setSelectedPayment(detail)
                               } catch (err) {
-                                toast.error('Không lấy được thông tin chi tiết')
+                                toast.error(t('payment_management.payments.detail_failed'))
                               }
                             }}>
                               <Eye className="h-4 w-4 mr-2" />
-                              Xem chi tiết
+                              {t('payment_management.payments.view_details')}
                             </DropdownMenuItem>
                             {payment.payment_status === 'completed' && (payment.has_problem || false) && (
                               <DropdownMenuItem onClick={() => handleFix(payment.payment_id)}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                Sửa lỗi
+                                {t('payment_management.payments.fix')}
                               </DropdownMenuItem>
                             )}
                             {payment.payment_status === 'completed' && (
                               <DropdownMenuItem>
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                Hoàn tiền
+                                {t('payment_management.payments.refund')}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -521,26 +523,26 @@ export function PaymentManagementPage() {
         {/* Refunds Tab */}
         <TabsContent value="refunds" className="space-y-6">
           <TableFilter
-            title="Bộ lọc hoàn tiền"
+            title={t('payment_management.refunds.filter_title')}
             configs={refundFilterConfigs}
             onFilterChange={() => {}}
           />
 
           <Card>
             <CardHeader>
-              <CardTitle>Yêu cầu hoàn tiền ({refundRequests.length})</CardTitle>
+              <CardTitle>{t('payment_management.refunds.list_title', { count: refundRequests.length })}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Học viên</TableHead>
-                    <TableHead>Khóa học</TableHead>
-                    <TableHead>Số tiền</TableHead>
-                    <TableHead>Tiến độ</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày yêu cầu</TableHead>
-                    <TableHead className="w-[100px]">Thao tác</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.student')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.course')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.amount')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.progress')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.status')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.request_date')}</TableHead>
+                    <TableHead className="w-[100px]">{t('payment_management.refunds.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -551,9 +553,9 @@ export function PaymentManagementPage() {
                       <TableCell>{formatCurrency(refund.amount)}</TableCell>
                       <TableCell>
                         <div>
-                          <p className="text-sm">{refund.learning_progress}% hoàn thành</p>
+                          <p className="text-sm">{t('payment_management.refunds.progress_complete', { percent: refund.learning_progress })}</p>
                           <p className="text-xs text-muted-foreground">
-                            {refund.course_completion_days} ngày học
+                            {t('payment_management.refunds.learning_days', { days: refund.course_completion_days })}
                           </p>
                         </div>
                       </TableCell>
@@ -595,10 +597,10 @@ export function PaymentManagementPage() {
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Chính sách thanh toán</CardTitle>
+                <CardTitle>{t('payment_management.policies.title')}</CardTitle>
                 <Button>
                   <Settings className="h-4 w-4 mr-2" />
-                  Cập nhật chính sách
+                  {t('payment_management.policies.update')}
                 </Button>
               </div>
             </CardHeader>
@@ -610,17 +612,17 @@ export function PaymentManagementPage() {
                       <h4 className="font-medium">{policy.name}</h4>
                       <p className="text-sm text-muted-foreground">{policy.description}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Cập nhật: {policy.updated_at.toLocaleDateString()}
+                        {t('payment_management.policies.updated_at', { date: policy.updated_at.toLocaleDateString() })}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-medium">
                         {policy.value}
                         {policy.unit === 'percentage' ? '%' : 
-                         policy.unit === 'days' ? ' ngày' : ' VND'}
+                         policy.unit === 'days' ? t('payment_management.policies.days_suffix') : ' VND'}
                       </p>
                       <Badge variant={policy.is_active ? 'default' : 'secondary'}>
-                        {policy.is_active ? 'Hoạt động' : 'Tạm dừng'}
+                        {policy.is_active ? t('payment_management.policies.active') : t('payment_management.policies.paused')}
                       </Badge>
                     </div>
                   </div>
@@ -635,10 +637,10 @@ export function PaymentManagementPage() {
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Tỷ lệ hoa hồng giảng viên</CardTitle>
+                <CardTitle>{t('payment_management.instructor_rates.title')}</CardTitle>
                 <Button>
                   <Percent className="h-4 w-4 mr-2" />
-                  Thiết lập hoa hồng
+                  {t('payment_management.instructor_rates.configure')}
                 </Button>
               </div>
             </CardHeader>
@@ -646,11 +648,11 @@ export function PaymentManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Giảng viên</TableHead>
-                    <TableHead>Tỷ lệ hoa hồng</TableHead>
-                    <TableHead>Loại</TableHead>
-                    <TableHead>Có hiệu lực từ</TableHead>
-                    <TableHead>Đến</TableHead>
+                    <TableHead>{t('payment_management.instructor_rates.table.instructor')}</TableHead>
+                    <TableHead>{t('payment_management.instructor_rates.table.rate')}</TableHead>
+                    <TableHead>{t('payment_management.instructor_rates.table.type')}</TableHead>
+                    <TableHead>{t('payment_management.instructor_rates.table.from')}</TableHead>
+                    <TableHead>{t('payment_management.instructor_rates.table.to')}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -663,11 +665,11 @@ export function PaymentManagementPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={rate.is_custom ? 'default' : 'secondary'}>
-                          {rate.is_custom ? 'Tùy chỉnh' : 'Mặc định'}
+                          {rate.is_custom ? t('payment_management.instructor_rates.custom') : t('payment_management.instructor_rates.default')}
                         </Badge>
                       </TableCell>
                       <TableCell>{rate.effective_from.toLocaleDateString()}</TableCell>
-                      <TableCell>{rate.effective_to?.toLocaleDateString() || 'Vô thời hạn'}</TableCell>
+                      <TableCell>{rate.effective_to?.toLocaleDateString() || t('payment_management.instructor_rates.no_end')}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm">
                           <MoreVertical className="h-4 w-4" />
@@ -686,10 +688,10 @@ export function PaymentManagementPage() {
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Mã giảm giá</CardTitle>
+                <CardTitle>{t('payment_management.discounts.title')}</CardTitle>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Tạo mã giảm giá
+                  {t('payment_management.discounts.create')}
                 </Button>
               </div>
             </CardHeader>
@@ -697,13 +699,13 @@ export function PaymentManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Mã</TableHead>
-                    <TableHead>Tên</TableHead>
-                    <TableHead>Giảm giá</TableHead>
-                    <TableHead>Sử dụng</TableHead>
-                    <TableHead>Thời hạn</TableHead>
-                    <TableHead>Người tạo</TableHead>
-                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.code')}</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.name')}</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.value')}</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.usage')}</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.period')}</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.created_by')}</TableHead>
+                    <TableHead>{t('payment_management.discounts.table.status')}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -723,7 +725,7 @@ export function PaymentManagementPage() {
                       <TableCell>
                         <div className="text-sm">
                           <p>{rule.valid_from.toLocaleDateString()}</p>
-                          <p className="text-muted-foreground">đến {rule.valid_to.toLocaleDateString()}</p>
+                          <p className="text-muted-foreground">{t('payment_management.discounts.until', { date: rule.valid_to.toLocaleDateString() })}</p>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -751,36 +753,36 @@ export function PaymentManagementPage() {
         <Dialog open={!!selectedPayment} onOpenChange={() => setSelectedPayment(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Chi tiết giao dịch</DialogTitle>
+              <DialogTitle>{t('payment_management.payment_detail.title')}</DialogTitle>
               <DialogDescription>
-                Thông tin chi tiết về giao dịch {selectedPayment.id}
+                {t('payment_management.payment_detail.description', { id: selectedPayment.id })}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Mã giao dịch</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.transaction_id')}</Label>
                   <p className="font-mono">{selectedPayment.id}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Trạng thái</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.status')}</Label>
                   <div className="mt-1">{getStatusBadge(selectedPayment.payment_status)}</div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Email</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.email')}</Label>
                   <p>{selectedPayment.user}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Khóa học</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.course')}</Label>
                   <p>{selectedPayment.courses[0]?.course_title}</p>
-                  <p className="text-sm text-muted-foreground">GV: {selectedPayment.courses[0]?.instructor_name}</p>
+                  <p className="text-sm text-muted-foreground">{t('payment_management.payment_detail.instructor', { name: selectedPayment.courses[0]?.instructor_name })}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Số tiền</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.amount')}</Label>
                   <p className="text-lg font-medium">{formatCurrency(selectedPayment.total_amount)}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Phương thức</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.method')}</Label>
                   <Badge variant="outline">{selectedPayment.payment_method}</Badge>
                 </div>
                 {selectedPayment.transaction_id && (
@@ -790,12 +792,12 @@ export function PaymentManagementPage() {
                   </div>
                 )}
                 <div>
-                  <Label className="text-sm font-medium">Ngày tạo</Label>
+                    <Label className="text-sm font-medium">{t('payment_management.payment_detail.created_at')}</Label>
                   <p>{new Date(selectedPayment.created_at).toLocaleString()}</p>
                 </div>
                 {selectedPayment.payment_date && (
                   <div>
-                    <Label className="text-sm font-medium">Ngày thanh toán</Label>
+                    <Label className="text-sm font-medium">{t('payment_management.payment_detail.paid_at')}</Label>
                     <p>{new Date(selectedPayment.payment_date).toLocaleString()}</p>
                   </div>
                 )}
@@ -810,40 +812,40 @@ export function PaymentManagementPage() {
         <Dialog open={!!selectedRefund} onOpenChange={() => setSelectedRefund(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Chi tiết yêu cầu hoàn tiền</DialogTitle>
+              <DialogTitle>{t('payment_management.refund_detail.title')}</DialogTitle>
               <DialogDescription>
-                Thông tin chi tiết về yêu cầu hoàn tiền
+                {t('payment_management.refund_detail.description')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">Học viên</Label>
+                <Label className="text-sm font-medium">{t('payment_management.refund_detail.student')}</Label>
                 <p>{selectedRefund.user_name}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Khóa học</Label>
+                <Label className="text-sm font-medium">{t('payment_management.refund_detail.course')}</Label>
                 <p>{selectedRefund.course_title}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Số tiền hoàn</Label>
+                <Label className="text-sm font-medium">{t('payment_management.refund_detail.amount')}</Label>
                 <p className="text-lg font-medium">{formatCurrency(selectedRefund.amount)}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Lý do</Label>
+                <Label className="text-sm font-medium">{t('payment_management.refund_detail.reason')}</Label>
                 <p className="text-sm">{selectedRefund.reason}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium">Tiến độ học</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.progress')}</Label>
                   <p>{selectedRefund.learning_progress}%</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium">Số ngày học</Label>
-                  <p>{selectedRefund.course_completion_days} ngày</p>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.days')}</Label>
+                  <p>{t('payment_management.refund_detail.days_value', { days: selectedRefund.course_completion_days })}</p>
                 </div>
               </div>
               <div>
-                <Label className="text-sm font-medium">Trạng thái</Label>
+                <Label className="text-sm font-medium">{t('payment_management.refund_detail.status')}</Label>
                 <div className="mt-1">{getStatusBadge(selectedRefund.status)}</div>
               </div>
               {selectedRefund.status === 'pending' && (
@@ -854,7 +856,7 @@ export function PaymentManagementPage() {
                       setSelectedRefund(null)
                     }}
                   >
-                    Phê duyệt
+                    {t('payment_management.refunds.approve')}
                   </Button>
                   <Button 
                     variant="destructive"
@@ -863,7 +865,7 @@ export function PaymentManagementPage() {
                       setSelectedRefund(null)
                     }}
                   >
-                    Từ chối
+                    {t('payment_management.refunds.reject')}
                   </Button>
                 </div>
               )}
