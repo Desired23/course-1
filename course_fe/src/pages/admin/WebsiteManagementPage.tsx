@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button } from '../../components/ui/button'
@@ -9,6 +9,7 @@ import { Label } from '../../components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Badge } from '../../components/ui/badge'
 import { Switch } from '../../components/ui/switch'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { 
   Upload, 
   Image, 
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
+import { uploadFiles } from '../../services/upload.api'
 import { useTranslation } from 'react-i18next'
 
 interface WebsiteConfig {
@@ -94,11 +96,54 @@ interface WebsiteConfig {
   }
 }
 
+function WebsiteImagePreview({
+  src,
+  alt,
+  className,
+}: {
+  src: string
+  alt: string
+  className: string
+}) {
+  const [failed, setFailed] = useState(false)
+
+  if (!src || failed) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-muted text-muted-foreground`}>
+        <Image className="w-5 h-5" />
+      </div>
+    )
+  }
+
+  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />
+}
+
 export function WebsiteManagementPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const [activeDevice, setActiveDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [websiteSettingId, setWebsiteSettingId] = useState<number | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const [pendingImageTarget, setPendingImageTarget] = useState<string | null>(null)
+  const [uploadingField, setUploadingField] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void> | void)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
 
   const defaultConfig: WebsiteConfig = {
     general: {
@@ -181,6 +226,7 @@ export function WebsiteManagementPage() {
 
   const handleSave = async () => {
     try {
+      setIsSaving(true)
       const payload = { key: 'website_management', value: JSON.stringify(config), description: 'Website management config' }
       if (websiteSettingId) {
         await updateSystemSetting(websiteSettingId, { value: payload.value })
@@ -191,11 +237,136 @@ export function WebsiteManagementPage() {
       toast.success(t('website_management.save_success'))
     } catch (e) {
       toast.error(t('website_management.save_failed'))
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleImageUpload = (field: string, category: string) => {
-    toast.info(t('website_management.image_upload_soon'))
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void> | void,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState((prev) => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
+  const updateFeatureToggle = (feature: keyof WebsiteConfig['features'], checked: boolean) => {
+    if (feature === 'maintenanceMode' && checked) {
+      openConfirm(
+        'Enable maintenance mode',
+        'Bat maintenance mode se anh huong den truy cap cua nguoi dung. Ban co chac muon tiep tuc?',
+        'Enable maintenance mode',
+        () => {
+          setConfig((prev) => ({
+            ...prev,
+            features: { ...prev.features, maintenanceMode: true },
+          }))
+          toast.success('Maintenance mode da duoc bat trong cau hinh hien tai')
+        },
+        true,
+      )
+      return
+    }
+
+    setConfig((prev) => ({
+      ...prev,
+      features: { ...prev.features, [feature]: checked },
+    }))
+  }
+
+  const updateImageTarget = (target: string, url: string) => {
+    setConfig((prev) => {
+      switch (target) {
+        case 'general.logo':
+          return { ...prev, general: { ...prev.general, logo: url } }
+        case 'general.favicon':
+          return { ...prev, general: { ...prev.general, favicon: url } }
+        case 'banners.hero.image':
+          return {
+            ...prev,
+            banners: {
+              ...prev.banners,
+              hero: { ...prev.banners.hero, image: url },
+            },
+          }
+        case 'banners.promotional.image':
+          return {
+            ...prev,
+            banners: {
+              ...prev.banners,
+              promotional: { ...prev.banners.promotional, image: url },
+            },
+          }
+        default:
+          return prev
+      }
+    })
+  }
+
+  const openImageUpload = (target: string) => {
+    setPendingImageTarget(target)
+    imageInputRef.current?.click()
+  }
+
+  const handleImageSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    const target = pendingImageTarget
+    event.target.value = ''
+
+    if (!file || !target) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui long chon file anh hop le')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kich thuoc anh khong duoc vuot qua 5MB')
+      return
+    }
+
+    try {
+      setUploadingField(target)
+      const uploaded = await uploadFiles([file], { folder: 'website-management', resource_type: 'image' })
+      if (!uploaded?.length) {
+        throw new Error('Upload failed')
+      }
+      updateImageTarget(target, uploaded[0].url)
+      toast.success('Tai anh len thanh cong')
+    } catch (error) {
+      console.error('Website image upload failed:', error)
+      toast.error('Tai anh that bai')
+    } finally {
+      setUploadingField(null)
+      setPendingImageTarget(null)
+    }
   }
 
   const getDeviceIcon = (device: string) => {
@@ -207,7 +378,15 @@ export function WebsiteManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <div className="min-h-screen bg-background">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => void handleImageSelected(event)}
+      />
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -230,9 +409,9 @@ export function WebsiteManagementPage() {
                 </Button>
               ))}
             </div>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={isSaving}>
               <Save className="w-4 h-4 mr-2" />
-              {t('website_management.save_changes')}
+              {isSaving ? 'Dang luu...' : t('website_management.save_changes')}
             </Button>
           </div>
         </div>
@@ -313,17 +492,18 @@ export function WebsiteManagementPage() {
                   <div>
                     <Label>{t('website_management.logo')}</Label>
                     <div className="flex items-center gap-4">
-                      <img 
-                        src={config.general.logo} 
+                      <WebsiteImagePreview
+                        src={config.general.logo}
                         alt={t('website_management.logo')}
-                        className="h-12 w-auto rounded border"
+                        className="h-12 w-24 rounded border object-contain"
                       />
                       <Button 
                         variant="outline" 
-                        onClick={() => handleImageUpload('logo', 'general')}
+                        onClick={() => openImageUpload('general.logo')}
+                        disabled={uploadingField === 'general.logo'}
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        {t('website_management.upload_logo')}
+                        {uploadingField === 'general.logo' ? 'Dang tai len...' : t('website_management.upload_logo')}
                       </Button>
                     </div>
                   </div>
@@ -331,17 +511,18 @@ export function WebsiteManagementPage() {
                   <div>
                     <Label>{t('website_management.favicon')}</Label>
                     <div className="flex items-center gap-4">
-                      <img 
-                        src={config.general.favicon} 
+                      <WebsiteImagePreview
+                        src={config.general.favicon}
                         alt={t('website_management.favicon')}
-                        className="h-8 w-8 rounded border"
+                        className="h-8 w-8 rounded border object-contain"
                       />
                       <Button 
                         variant="outline"
-                        onClick={() => handleImageUpload('favicon', 'general')}
+                        onClick={() => openImageUpload('general.favicon')}
+                        disabled={uploadingField === 'general.favicon'}
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        {t('website_management.upload_favicon')}
+                        {uploadingField === 'general.favicon' ? 'Dang tai len...' : t('website_management.upload_favicon')}
                       </Button>
                     </div>
                   </div>
@@ -436,18 +617,19 @@ export function WebsiteManagementPage() {
                 <div>
                   <Label>{t('website_management.hero_image')}</Label>
                   <div className="mt-2">
-                    <img 
-                      src={config.banners.hero.image} 
+                    <WebsiteImagePreview
+                      src={config.banners.hero.image}
                       alt={t('website_management.hero_banner')}
                       className="w-full h-40 object-cover rounded border mb-4"
                     />
                     <Button 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => handleImageUpload('image', 'banners.hero')}
+                      onClick={() => openImageUpload('banners.hero.image')}
+                      disabled={uploadingField === 'banners.hero.image'}
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {t('website_management.upload_image')}
+                      {uploadingField === 'banners.hero.image' ? 'Dang tai len...' : t('website_management.upload_image')}
                     </Button>
                   </div>
                 </div>
@@ -536,18 +718,19 @@ export function WebsiteManagementPage() {
                 <div>
                   <Label>{t('website_management.promotional_image')}</Label>
                   <div className="mt-2">
-                    <img 
-                      src={config.banners.promotional.image} 
+                    <WebsiteImagePreview
+                      src={config.banners.promotional.image}
                       alt={t('website_management.promotional_banner')}
                       className="w-full h-32 object-cover rounded border mb-4"
                     />
                     <Button 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => handleImageUpload('image', 'banners.promotional')}
+                      onClick={() => openImageUpload('banners.promotional.image')}
+                      disabled={uploadingField === 'banners.promotional.image'}
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {t('website_management.upload_image')}
+                      {uploadingField === 'banners.promotional.image' ? 'Dang tai len...' : t('website_management.upload_image')}
                     </Button>
                   </div>
                 </div>
@@ -860,10 +1043,7 @@ export function WebsiteManagementPage() {
                       </div>
                       <Switch
                         checked={enabled}
-                        onCheckedChange={(checked) => setConfig(prev => ({
-                          ...prev,
-                          features: { ...prev.features, [feature]: checked }
-                        }))}
+                        onCheckedChange={(checked) => updateFeatureToggle(feature as keyof WebsiteConfig['features'], checked)}
                       />
                     </div>
                   ))}
@@ -915,6 +1095,17 @@ export function WebsiteManagementPage() {
         </Tabs>
       </div>
     </div>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
+    </>
   )
 }
 

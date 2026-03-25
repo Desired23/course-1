@@ -420,7 +420,7 @@ export function InstructorCourseLandingPage() {
   }
 
   // Handle save
-  const handleSave = async (saveStatus: 'draft' | 'publish') => {
+  const handleSave = async (saveStatus: 'draft' | 'submit_review') => {
     // Validation
     if (!data.title.trim()) {
       toast.error('Vui lòng nhập tiêu đề khóa học')
@@ -475,7 +475,7 @@ export function InstructorCourseLandingPage() {
         requirements: data.requirements.map(r => r.text).join('\n'),
         target_audience: data.targetAudience.map(a => a.text),
         tags: data.tags,
-        status: saveStatus === 'publish' ? 'pending' : 'draft',
+        status: saveStatus === 'submit_review' ? 'pending' : 'draft',
       }
 
       if (courseId === 'new') {
@@ -556,7 +556,7 @@ export function InstructorCourseLandingPage() {
               Xem trước
             </Button>
             
-            <Button onClick={() => handleSave('publish')}>
+            <Button onClick={() => handleSave('submit_review')}>
               <Save className="h-4 w-4 mr-2" />
               Lưu & Xuất bản
             </Button>
@@ -1069,7 +1069,7 @@ export function InstructorCourseLandingPage() {
             <Eye className="h-4 w-4 mr-2" />
             Xem trước
           </Button>
-          <Button onClick={() => handleSave('publish')} disabled={isSaving}>
+          <Button onClick={() => handleSave('submit_review')} disabled={isSaving}>
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? 'Đang lưu...' : 'Lưu & Xuất bản'}
           </Button>

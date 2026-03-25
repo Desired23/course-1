@@ -44,6 +44,7 @@ import {
   ClipboardList,
   Monitor,
   MessageCircle,
+  Database,
   FolderOpen,
   MousePointer2,
   LayoutTemplate
@@ -140,6 +141,7 @@ const navigationItems: NavigationItem[] = [
   { id: 'admin-permissions', label: 'Phân quyền vai trò', path: '/admin/permissions', icon: <Shield size={20} />, category: 'admin' },
   { id: 'admin-reports', label: 'Báo cáo vi phạm', path: '/admin/reports', icon: <Shield size={20} />, category: 'admin' },
   { id: 'admin-activity', label: 'Nhật ký hệ thống', path: '/admin/activity-log', icon: <Activity size={20} />, category: 'admin' },
+  { id: 'admin-backup', label: 'Sao lưu dữ liệu', path: '/admin/data-backup', icon: <Database size={20} />, category: 'admin' },
   
   // --- OTHER (Demos/Utility) ---
   { id: 'test', label: 'Trang Test', path: '/test', icon: <TestTube size={20} />, category: 'other' },

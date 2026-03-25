@@ -51,6 +51,7 @@ urlpatterns = [
     path('api/', include('forum_comments.urls')),
     path('api/', include('systems_settings.urls')),
     path('api/', include('supports.urls')),
+    path('api/', include('reports.urls')),
     path('api/', include('instructor_earnings.urls')),
     path('api/', include('instructor_payouts.urls')),
     path('api/', include('instructor_levels.urls')),

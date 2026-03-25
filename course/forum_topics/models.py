@@ -15,6 +15,9 @@ class ForumTopic(models.Model):
     is_deleted = models.BooleanField(default=False)
     views = models.IntegerField(default=0)
     likes = models.IntegerField(default=0)
+    report_count = models.PositiveIntegerField(default=0)
+    last_report_reason = models.TextField(null=True, blank=True)
+    last_reported_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=[
         ('active', 'active'),
         ('locked', 'locked'),

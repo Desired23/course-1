@@ -17,6 +17,19 @@ export interface Notification {
   notification_code: string | null
 }
 
+export interface InstructorAnnouncement {
+  notification_code: string
+  type: 'educational' | 'promotional'
+  title: string
+  content: string
+  target_course: string
+  recipient_count: number
+  open_rate: number
+  sent_at: string
+  monthly_count?: number
+  monthly_limit?: number
+}
+
 interface PaginatedResponse<T> {
   count: number
   next: string | null
@@ -93,6 +106,55 @@ export async function markAllNotificationsAsRead(
 ): Promise<{ message: string }> {
   return http.put<{ message: string }>(
     `/notifications/mark_as_read/?user_id=${userId}`
+  )
+}
+
+export async function getInstructorAnnouncements(
+  announcementType: 'educational' | 'promotional' | 'all' = 'all'
+): Promise<{ results: InstructorAnnouncement[] }> {
+  const params = new URLSearchParams()
+  if (announcementType !== 'all') params.set('announcement_type', announcementType)
+  const query = params.toString()
+  return http.get<{ results: InstructorAnnouncement[] }>(
+    query ? `/instructor/announcements/?${query}` : '/instructor/announcements/'
+  )
+}
+
+export async function createInstructorAnnouncement(data: {
+  type: 'educational' | 'promotional'
+  title: string
+  content: string
+  target_course: string
+}): Promise<InstructorAnnouncement> {
+  return http.post<InstructorAnnouncement>('/instructor/announcements/', {
+    announcement_type: data.type,
+    title: data.title,
+    message: data.content,
+    target_course: data.target_course,
+  })
+}
+
+export async function revokeInstructorAnnouncement(
+  notificationCode: string
+): Promise<{ message: string; notification_code: string; affected_users: number }> {
+  return http.delete<{ message: string; notification_code: string; affected_users: number }>(
+    `/instructor/announcements/?notification_code=${encodeURIComponent(notificationCode)}`
+  )
+}
+
+export async function updateInstructorAnnouncement(
+  notificationCode: string,
+  data: {
+    title: string
+    content: string
+  }
+): Promise<Notification> {
+  return http.patch<Notification>(
+    `/instructor/announcements/?notification_code=${encodeURIComponent(notificationCode)}`,
+    {
+      title: data.title,
+      message: data.content,
+    }
   )
 }
 

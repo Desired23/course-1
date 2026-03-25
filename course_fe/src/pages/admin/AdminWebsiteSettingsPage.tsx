@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Switch } from '../../components/ui/switch'
 import { Badge } from '../../components/ui/badge'
-import { AdminHeader } from '../../components/AdminHeader'
 import { toast } from 'sonner'
 import { 
   Upload, Save, Settings, Image as ImageIcon, Globe, 
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
+import { uploadFiles } from '../../services/upload.api'
 import { useTranslation } from 'react-i18next'
 
 interface BannerConfig {
@@ -40,6 +40,9 @@ interface SocialLinks {
 export function AdminWebsiteSettingsPage() {
   const { t } = useTranslation()
   const [settingsMap, setSettingsMap] = useState<Record<string, SystemSetting>>({})
+  const uploadInputRef = useRef<HTMLInputElement | null>(null)
+  const [pendingUploadTarget, setPendingUploadTarget] = useState<string | null>(null)
+  const [uploadingField, setUploadingField] = useState<string | null>(null)
   const [siteName, setSiteName] = useState('Udemy Clone')
   const [siteDescription, setSiteDescription] = useState('Learn anything, anytime, anywhere')
   const [siteLogo, setSiteLogo] = useState('/logo.png')
@@ -186,12 +189,71 @@ export function AdminWebsiteSettingsPage() {
     toast.success(t('admin_website_settings.banner_order_updated'))
   }
 
+  const openUploadPicker = (target: string) => {
+    setPendingUploadTarget(target)
+    uploadInputRef.current?.click()
+  }
+
+  const handleUploadedImage = (target: string, url: string) => {
+    if (target === 'site_logo') {
+      setSiteLogo(url)
+      return
+    }
+    if (target === 'favicon') {
+      setFavicon(url)
+      return
+    }
+    if (target.startsWith('banner:')) {
+      const bannerId = target.replace('banner:', '')
+      setBanners((prev) => prev.map((banner) => (
+        banner.id === bannerId ? { ...banner, image: url } : banner
+      )))
+    }
+  }
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    const target = pendingUploadTarget
+    event.target.value = ''
+
+    if (!file || !target) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui long chon file anh hop le')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kich thuoc anh khong duoc vuot qua 5MB')
+      return
+    }
+
+    try {
+      setUploadingField(target)
+      const uploaded = await uploadFiles([file], { folder: 'website-settings', resource_type: 'image' })
+      if (!uploaded?.length) throw new Error('Upload failed')
+      handleUploadedImage(target, uploaded[0].url)
+      toast.success('Tai anh len thanh cong')
+    } catch {
+      toast.error('Tai anh that bai')
+    } finally {
+      setUploadingField(null)
+      setPendingUploadTarget(null)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <AdminHeader
-        title={t('admin_website_settings.title')}
-        subtitle={t('admin_website_settings.subtitle')}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => void handleFileSelected(event)}
       />
+
+      <div>
+        <h1 className="text-3xl font-semibold">{t('admin_website_settings.title')}</h1>
+        <p className="text-muted-foreground">{t('admin_website_settings.subtitle')}</p>
+      </div>
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
@@ -267,7 +329,11 @@ export function AdminWebsiteSettingsPage() {
                   <Label htmlFor="siteLogo">{t('admin_website_settings.branding.site_logo')}</Label>
                   <div className="flex items-center gap-4">
                     <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted">
-                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      {siteLogo ? (
+                        <img src={siteLogo} alt="Site logo" className="h-full w-full rounded-lg object-contain" />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="flex-1 space-y-2">
                       <Input
@@ -276,9 +342,15 @@ export function AdminWebsiteSettingsPage() {
                         onChange={(e) => setSiteLogo(e.target.value)}
                         placeholder={t('admin_website_settings.branding.logo_placeholder')}
                       />
-                      <Button variant="outline" size="sm" className="gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => openUploadPicker('site_logo')}
+                        disabled={uploadingField === 'site_logo'}
+                      >
                         <Upload className="w-4 h-4" />
-                        {t('admin_website_settings.branding.upload_logo')}
+                        {uploadingField === 'site_logo' ? 'Dang tai len...' : t('admin_website_settings.branding.upload_logo')}
                       </Button>
                     </div>
                   </div>
@@ -291,7 +363,11 @@ export function AdminWebsiteSettingsPage() {
                   <Label htmlFor="favicon">{t('admin_website_settings.branding.favicon')}</Label>
                   <div className="flex items-center gap-4">
                     <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted">
-                      <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      {favicon ? (
+                        <img src={favicon} alt="Favicon" className="h-full w-full rounded-lg object-contain" />
+                      ) : (
+                        <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                      )}
                     </div>
                     <div className="flex-1 space-y-2">
                       <Input
@@ -300,9 +376,15 @@ export function AdminWebsiteSettingsPage() {
                         onChange={(e) => setFavicon(e.target.value)}
                         placeholder={t('admin_website_settings.branding.favicon_placeholder')}
                       />
-                      <Button variant="outline" size="sm" className="gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => openUploadPicker('favicon')}
+                        disabled={uploadingField === 'favicon'}
+                      >
                         <Upload className="w-4 h-4" />
-                        {t('admin_website_settings.branding.upload_favicon')}
+                        {uploadingField === 'favicon' ? 'Dang tai len...' : t('admin_website_settings.branding.upload_favicon')}
                       </Button>
                     </div>
                   </div>
@@ -569,6 +651,28 @@ export function AdminWebsiteSettingsPage() {
                           }}
                           placeholder={t('admin_website_settings.banners.image_placeholder')}
                         />
+                        <div className="flex items-center gap-3">
+                          <div className="h-16 w-28 overflow-hidden rounded border bg-muted">
+                            {banner.image ? (
+                              <img src={banner.image} alt={banner.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center">
+                                <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => openUploadPicker(`banner:${banner.id}`)}
+                            disabled={uploadingField === `banner:${banner.id}`}
+                          >
+                            <Upload className="w-4 h-4" />
+                            {uploadingField === `banner:${banner.id}` ? 'Dang tai len...' : 'Upload image'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-col items-center gap-2">

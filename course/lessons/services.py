@@ -5,6 +5,7 @@ from .serializers import LessonSerializer
 from users.models import User
 from notifications.services import create_notification
 from activity_logs.services import log_activity
+from courses.services import mark_course_content_changed
 
 
 def validate_lesson_data(data):
@@ -83,6 +84,9 @@ def create_lesson(data, user):
     serializer = LessonSerializer(data=modified_data, context={'request': None})
     if serializer.is_valid(raise_exception=True):
         lesson = serializer.save()
+        course = getattr(getattr(lesson, 'coursemodule', None), 'course', None)
+        if course:
+            mark_course_content_changed(course)
         return lesson
     raise ValidationError(serializer.errors)
 
@@ -127,6 +131,9 @@ def update_lesson(lesson_id, data, requesting_user=None):
     serializer = LessonSerializer(lesson, data=update_payload, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_lesson = serializer.save()
+        course = getattr(getattr(updated_lesson, 'coursemodule', None), 'course', None)
+        if not is_admin and course:
+            mark_course_content_changed(course)
 
         if old_status != updated_lesson.status:
             actor_label = 'Admin' if is_admin else 'Instructor'
@@ -174,7 +181,10 @@ def update_lesson(lesson_id, data, requesting_user=None):
 def delete_lesson(lesson_id):
     try:
         lesson = Lesson.objects.get(id=lesson_id)
+        course = getattr(getattr(lesson, 'coursemodule', None), 'course', None)
         lesson.delete()
+        if course:
+            mark_course_content_changed(course)
         return {"message": "Lesson deleted successfully."}
     except Lesson.DoesNotExist:
         raise ValidationError({"error": "Lesson not found."})

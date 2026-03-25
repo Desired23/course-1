@@ -32,6 +32,18 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             "data": event["data"],
         })
 
+    async def send_notification_removed(self, event):
+        await self.send_json({
+            "type": "notification_removed",
+            "data": event["data"],
+        })
+
+    async def send_notification_updated(self, event):
+        await self.send_json({
+            "type": "notification_updated",
+            "data": event["data"],
+        })
+
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for real-time chat between two users."""
@@ -119,15 +131,59 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def check_room_membership(self, room_id, user_id):
-        from .models import ChatRoom
+        from .models import ChatRoom, ConversationParticipant
         from django.db.models import Q
+        if ConversationParticipant.objects.filter(
+            conversation_id=room_id,
+            user_id=user_id,
+            is_active=True,
+            conversation__deleted_at__isnull=True,
+        ).exists():
+            return True
         return ChatRoom.objects.filter(
             Q(pk=room_id) & (Q(user1_id=user_id) | Q(user2_id=user_id))
         ).exists()
 
     @database_sync_to_async
     def save_message(self, room_id, sender_id, content):
-        from .models import ChatMessage, ChatRoom
+        from django.utils import timezone
+        from .models import ChatMessage, ChatRoom, Conversation, Message, MessageDeliveryState
+        conversation = Conversation.objects.filter(
+            pk=room_id,
+            deleted_at__isnull=True,
+        ).first()
+        if conversation:
+            msg = Message.objects.create(
+                conversation=conversation,
+                sender_id=sender_id,
+                type=Message.TYPE_TEXT,
+                text_content=content,
+            )
+            conversation.last_message = msg
+            conversation.last_message_at = msg.created_at
+            conversation.save(update_fields=['last_message', 'last_message_at', 'updated_at'])
+            other_participant_ids = list(
+                conversation.participants.filter(is_active=True).exclude(user_id=sender_id).values_list('user_id', flat=True)
+            )
+            MessageDeliveryState.objects.bulk_create([
+                MessageDeliveryState(message=msg, user_id=uid, delivered_at=timezone.now())
+                for uid in other_participant_ids
+            ])
+            return {
+                "id": msg.id,
+                "room": conversation.id,
+                "sender": msg.sender_id,
+                "sender_name": (
+                    getattr(msg.sender, "full_name", None)
+                    or getattr(msg.sender, "username", None)
+                    or getattr(msg.sender, "email", None)
+                    or str(msg.sender_id)
+                ),
+                "content": msg.text_content or "",
+                "is_read": False,
+                "created_at": msg.created_at.isoformat(),
+            }
+
         msg = ChatMessage.objects.create(
             room_id=room_id, sender_id=sender_id, content=content
         )
@@ -150,7 +206,15 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def get_other_user_id(self, room_id, user_id):
-        from .models import ChatRoom
+        from .models import ChatRoom, Conversation
+        conversation = Conversation.objects.filter(
+            pk=room_id,
+            type=Conversation.TYPE_DIRECT,
+            deleted_at__isnull=True,
+        ).first()
+        if conversation:
+            participant = conversation.participants.filter(is_active=True).exclude(user_id=user_id).first()
+            return participant.user_id if participant else None
         try:
             room = ChatRoom.objects.get(pk=room_id)
             return room.user2_id if room.user1_id == user_id else room.user1_id
@@ -159,15 +223,44 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def mark_messages_read(self, room_id, user_id):
-        from .models import ChatMessage
+        from django.utils import timezone
+        from .models import ChatMessage, ConversationParticipant, MessageDeliveryState, Message
+        membership = ConversationParticipant.objects.filter(
+            conversation_id=room_id,
+            user_id=user_id,
+            is_active=True,
+            conversation__deleted_at__isnull=True,
+        ).first()
+        if membership:
+            latest_message = Message.objects.filter(conversation_id=room_id).order_by('-created_at').first()
+            membership.last_read_message = latest_message
+            membership.last_read_at = timezone.now()
+            membership.save(update_fields=['last_read_message', 'last_read_at'])
+            MessageDeliveryState.objects.filter(
+                message__conversation_id=room_id,
+                user_id=user_id,
+                read_at__isnull=True,
+            ).update(read_at=timezone.now())
+            return
         ChatMessage.objects.filter(
             room_id=room_id, is_read=False
         ).exclude(sender_id=user_id).update(is_read=True)
 
     @database_sync_to_async
     def other_user_allows_messages(self, room_id, user_id):
-        from .models import ChatRoom
+        from .models import ChatRoom, Conversation
         from users.preferences import is_direct_message_allowed
+        conversation = Conversation.objects.filter(
+            pk=room_id,
+            deleted_at__isnull=True,
+        ).first()
+        if conversation:
+            if conversation.type != Conversation.TYPE_DIRECT:
+                return True
+            participant = conversation.participants.filter(is_active=True).exclude(user_id=user_id).first()
+            if not participant:
+                return False
+            return is_direct_message_allowed(participant.user_id)
         try:
             room = ChatRoom.objects.get(pk=room_id)
         except ChatRoom.DoesNotExist:
@@ -177,8 +270,19 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def should_send_chat_notification(self, room_id, user_id):
-        from .models import ChatRoom
+        from .models import ChatRoom, Conversation
         from users.preferences import is_notification_allowed
+        conversation = Conversation.objects.filter(
+            pk=room_id,
+            deleted_at__isnull=True,
+        ).first()
+        if conversation:
+            if conversation.type != Conversation.TYPE_DIRECT:
+                return False
+            participant = conversation.participants.filter(is_active=True).exclude(user_id=user_id).first()
+            if not participant:
+                return False
+            return is_notification_allowed(participant.user_id, "other", "chat_message")
         try:
             room = ChatRoom.objects.get(pk=room_id)
         except ChatRoom.DoesNotExist:

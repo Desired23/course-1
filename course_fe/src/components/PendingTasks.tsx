@@ -46,7 +46,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
           priority: 'urgent',
           status: 'pending',
           dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
-          actionUrl: '/admin/payments',
+          actionUrl: '/admin/refunds',
           category: 'Payments'
         },
         {

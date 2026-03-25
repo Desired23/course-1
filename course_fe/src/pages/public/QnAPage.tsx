@@ -20,6 +20,7 @@ import {
   getAllQnAAnswers,
   createQnA,
   createQnAAnswer,
+  reportQnA,
   updateQnA,
 } from '../../services/qna.api'
 
@@ -249,6 +250,24 @@ export function QnAPage() {
     } catch (err) {
       console.error('Failed to mark resolved:', err)
       toast.error("Failed to mark as resolved")
+    }
+  }
+
+  const handleReportQuestion = async (questionId: number) => {
+    if (!user) {
+      toast.error('Please login to report this question')
+      return
+    }
+    const reason = window.prompt('Enter the reason for reporting this Q&A')
+    if (reason === null) return
+
+    try {
+      await reportQnA(questionId, reason.trim())
+      toast.success('Report submitted successfully')
+      loadData()
+    } catch (err) {
+      console.error('Failed to report Q&A:', err)
+      toast.error('Failed to submit report')
     }
   }
 
@@ -582,9 +601,14 @@ export function QnAPage() {
                           <div className="text-sm text-muted-foreground">
                             {question.answers.length} answers • {question.votes} votes
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => setReplyingTo(question.id)}>
-                            Answer Question
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setReplyingTo(question.id)}>
+                              Answer Question
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => void handleReportQuestion(question.id)}>
+                              Report
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>

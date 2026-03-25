@@ -5,12 +5,15 @@ import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Label } from '../../components/ui/label'
 import { Textarea } from '../../components/ui/textarea'
 import { TableFilter, FilterConfig } from '../../components/FilterComponents'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Checkbox } from "../../components/ui/checkbox"
+import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { 
   CreditCard, 
   DollarSign, 
@@ -40,12 +43,13 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { toast } from 'sonner'
-import { getSystemSettings, createSystemSetting, updateSystemSetting, getAdminPayments, fixPayment } from '../../services/admin.api'
-import type { SystemSetting } from '../../services/admin.api'
+import { getAdminPayments, fixPayment } from '../../services/admin.api'
 import type { AdminPayment } from '../../services/admin.api'
-import { getPaymentStatus } from '../../services/payment.api'
+import { getPaymentStatus, getAdminRefunds, updateAdminRefundStatus, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
+import type { AdminRefundItem } from '../../services/payment.api'
 import { useTranslation } from 'react-i18next'
+import { useRouter } from '../../components/Router'
 
 
 // Payment interfaces
@@ -75,16 +79,19 @@ interface Payment {
 interface RefundRequest {
   id: string
   payment_id: string
+  payment_details_ids: number[]
   user_name: string
+  user_email?: string | null
   course_title: string
   amount: number
   reason: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
   requested_at: Date
   processed_at?: Date
-  processed_by?: string
+  processed_by?: string | null
   learning_progress: number
   course_completion_days: number
+  transaction_id?: string | null
 }
 
 interface PaymentPolicy {
@@ -128,20 +135,80 @@ interface DiscountRule {
   status: 'active' | 'inactive' | 'expired'
 }
 
+type PaymentConfigEditorType = 'policies' | 'instructor-rates' | 'discounts'
+
+function mapPolicies(value: any[]): PaymentPolicy[] {
+  return (value || []).map((item: any) => ({
+    ...item,
+    updated_at: new Date(item.updated_at || Date.now()),
+  }))
+}
+
+function mapInstructorRates(value: any[]): InstructorRate[] {
+  return (value || []).map((item: any) => ({
+    ...item,
+    effective_from: new Date(item.effective_from || Date.now()),
+    effective_to: item.effective_to ? new Date(item.effective_to) : undefined,
+  }))
+}
+
+function mapDiscountRules(value: any[]): DiscountRule[] {
+  return (value || []).map((item: any) => ({
+    ...item,
+    valid_from: new Date(item.valid_from || Date.now()),
+    valid_to: new Date(item.valid_to || Date.now()),
+  }))
+}
+
+function stringifyConfig(value: unknown) {
+  return JSON.stringify(value, (_key, item) => item instanceof Date ? item.toISOString() : item, 2)
+}
 
 
 export function PaymentManagementPage() {
   const { user, hasPermission } = useAuth()
   const { t } = useTranslation()
+  const { currentRoute } = useRouter()
+  const initialTab = (() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('tab') === 'refunds') return 'refunds'
+    }
+    return currentRoute.startsWith('/admin/refunds') ? 'refunds' : 'payments'
+  })()
+  const [activeTab, setActiveTab] = useState<'payments' | 'refunds' | 'policies' | 'instructor-rates' | 'discounts'>(initialTab)
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
+  const [filteredRefundRequests, setFilteredRefundRequests] = useState<RefundRequest[]>([])
   const [policies, setPolicies] = useState<PaymentPolicy[]>([])
   const [instructorRates, setInstructorRates] = useState<InstructorRate[]>([])
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([])
   const [filteredPayments, setFilteredPayments] = useState<AdminPayment[]>([])
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<number[]>([])
+  const [selectedRefundIds, setSelectedRefundIds] = useState<string[]>([])
   const [selectedPayment, setSelectedPayment] = useState<FullPayment | null>(null)
   const [selectedRefund, setSelectedRefund] = useState<RefundRequest | null>(null)
+  const [configEditorType, setConfigEditorType] = useState<PaymentConfigEditorType | null>(null)
+  const [configEditorValue, setConfigEditorValue] = useState('')
+  const [configSaving, setConfigSaving] = useState(false)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void>)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
 
   useEffect(() => {
     const loadData = async () => {
@@ -157,23 +224,99 @@ export function PaymentManagementPage() {
         setLoadingPayments(false)
       }
 
-      // legacy sections (refunds, policies, etc.) remain from settings data
       try {
-        const settings = await getSystemSettings()
-        const refundsS = settings.find(s => s.key === 'refund_requests')
-        const policiesS = settings.find(s => s.key === 'payment_policies')
-        const ratesS = settings.find(s => s.key === 'instructor_rates')
-        const discountsS = settings.find(s => s.key === 'discount_rules')
-        if (refundsS) { try { const r = JSON.parse(refundsS.value); setRefundRequests(r.map((x: any) => ({ ...x, requested_at: new Date(x.requested_at), processed_at: x.processed_at ? new Date(x.processed_at) : undefined }))); } catch {} }
-        if (policiesS) { try { setPolicies(JSON.parse(policiesS.value).map((x: any) => ({ ...x, updated_at: new Date(x.updated_at) }))); } catch {} }
-        if (ratesS) { try { setInstructorRates(JSON.parse(ratesS.value).map((x: any) => ({ ...x, effective_from: new Date(x.effective_from) }))); } catch {} }
-        if (discountsS) { try { setDiscountRules(JSON.parse(discountsS.value).map((x: any) => ({ ...x, valid_from: new Date(x.valid_from), valid_to: new Date(x.valid_to) }))); } catch {} }
+        const refunds = await getAdminRefunds({ page: 1, page_size: 200 })
+        setRefundRequests((refunds.results || []).map((refund: AdminRefundItem) => ({
+          id: String(refund.refund_id),
+          payment_id: String(refund.payment_id),
+          payment_details_ids: refund.payment_details_ids,
+          user_name: refund.user_name || '',
+          user_email: refund.user_email,
+          course_title: refund.course_title || '',
+          amount: refund.amount,
+          reason: refund.reason || '',
+          status: refund.status,
+          requested_at: new Date(refund.requested_at),
+          processed_at: refund.processed_at ? new Date(refund.processed_at) : undefined,
+          processed_by: refund.processed_by,
+          learning_progress: refund.learning_progress,
+          course_completion_days: refund.course_completion_days,
+          transaction_id: refund.transaction_id,
+        })))
+        setFilteredRefundRequests((refunds.results || []).map((refund: AdminRefundItem) => ({
+          id: String(refund.refund_id),
+          payment_id: String(refund.payment_id),
+          payment_details_ids: refund.payment_details_ids,
+          user_name: refund.user_name || '',
+          user_email: refund.user_email,
+          course_title: refund.course_title || '',
+          amount: refund.amount,
+          reason: refund.reason || '',
+          status: refund.status,
+          requested_at: new Date(refund.requested_at),
+          processed_at: refund.processed_at ? new Date(refund.processed_at) : undefined,
+          processed_by: refund.processed_by,
+          learning_progress: refund.learning_progress,
+          course_completion_days: refund.course_completion_days,
+          transaction_id: refund.transaction_id,
+        })))
       } catch {
-        // ignore
+        setRefundRequests([])
+        setFilteredRefundRequests([])
+      }
+
+      try {
+        const [policyConfig, rateConfig, discountConfig] = await Promise.all([
+          getPaymentAdminConfig<any[]>('policies'),
+          getPaymentAdminConfig<any[]>('instructor-rates'),
+          getPaymentAdminConfig<any[]>('discounts'),
+        ])
+        setPolicies(mapPolicies(policyConfig.value))
+        setInstructorRates(mapInstructorRates(rateConfig.value))
+        setDiscountRules(mapDiscountRules(discountConfig.value))
+      } catch {
+        setPolicies([])
+        setInstructorRates([])
+        setDiscountRules([])
       }
     }
     loadData()
   }, [])
+
+  const openConfigEditor = (type: PaymentConfigEditorType) => {
+    setConfigEditorType(type)
+    if (type === 'policies') {
+      setConfigEditorValue(stringifyConfig(policies))
+      return
+    }
+    if (type === 'instructor-rates') {
+      setConfigEditorValue(stringifyConfig(instructorRates))
+      return
+    }
+    setConfigEditorValue(stringifyConfig(discountRules))
+  }
+
+  const saveConfigEditor = async () => {
+    if (!configEditorType) return
+    try {
+      setConfigSaving(true)
+      const parsed = JSON.parse(configEditorValue)
+      if (!Array.isArray(parsed)) {
+        toast.error('Config payload must be a JSON array.')
+        return
+      }
+      const response = await updatePaymentAdminConfig(configEditorType, parsed)
+      if (configEditorType === 'policies') setPolicies(mapPolicies(response.value))
+      if (configEditorType === 'instructor-rates') setInstructorRates(mapInstructorRates(response.value))
+      if (configEditorType === 'discounts') setDiscountRules(mapDiscountRules(response.value))
+      toast.success('Payment config saved')
+      setConfigEditorType(null)
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save payment config')
+    } finally {
+      setConfigSaving(false)
+    }
+  }
 
   // Filter configurations
   const paymentFilterConfigs: FilterConfig[] = [
@@ -291,17 +434,157 @@ export function PaymentManagementPage() {
     setFilteredPayments(filtered)
   }
 
-  const handleRefundDecision = (refundId: string, decision: 'approved' | 'rejected', reason?: string) => {
-    setRefundRequests(prev => prev.map(refund => 
-      refund.id === refundId 
-        ? { 
-            ...refund, 
-            status: decision, 
-            processed_at: new Date(), 
-            processed_by: user?.id 
-          }
-        : refund
-    ))
+  const handleRefundDecision = async (refund: RefundRequest, decision: 'approved' | 'rejected') => {
+    try {
+      await updateAdminRefundStatus({
+        payment_id: Number(refund.payment_id),
+        payment_details_ids: refund.payment_details_ids,
+        status: decision,
+      })
+      setRefundRequests(prev => prev.map(item =>
+        item.id === refund.id
+          ? {
+              ...item,
+              status: decision,
+              processed_at: new Date(),
+              processed_by: user?.id,
+            }
+          : item
+      ))
+      setFilteredRefundRequests(prev => prev.map(item =>
+        item.id === refund.id
+          ? {
+              ...item,
+              status: decision,
+              processed_at: new Date(),
+              processed_by: user?.id,
+            }
+          : item
+      ))
+      toast.success(decision === 'approved' ? 'Refund approved' : 'Refund rejected')
+    } catch {
+      toast.error('Refund action failed')
+    }
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void>,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState(prev => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const handleRefundFilter = (filters: any) => {
+    let filtered = refundRequests
+
+    if (filters.search) {
+      const query = String(filters.search).toLowerCase()
+      filtered = filtered.filter(refund =>
+        refund.user_name.toLowerCase().includes(query) ||
+        (refund.user_email || '').toLowerCase().includes(query) ||
+        refund.course_title.toLowerCase().includes(query) ||
+        refund.reason.toLowerCase().includes(query)
+      )
+    }
+
+    if (filters.status) {
+      filtered = filtered.filter(refund => refund.status === filters.status)
+    }
+
+    setFilteredRefundRequests(filtered)
+    setSelectedRefundIds([])
+  }
+
+  const togglePaymentSelection = (paymentId: number, checked: boolean) => {
+    setSelectedPaymentIds(prev => checked ? [...prev, paymentId] : prev.filter(id => id !== paymentId))
+  }
+
+  const toggleAllPayments = (checked: boolean) => {
+    setSelectedPaymentIds(checked ? filteredPayments.map(payment => payment.payment_id) : [])
+  }
+
+  const toggleRefundSelection = (refundId: string, checked: boolean) => {
+    setSelectedRefundIds(prev => checked ? [...prev, refundId] : prev.filter(id => id !== refundId))
+  }
+
+  const toggleAllRefunds = (checked: boolean) => {
+    setSelectedRefundIds(checked ? filteredRefundRequests.map(refund => refund.id) : [])
+  }
+
+  const bulkFixPayments = async () => {
+    try {
+      for (const paymentId of selectedPaymentIds) {
+        const payment = filteredPayments.find(item => item.payment_id === paymentId)
+        if (payment?.payment_status === 'completed' && payment.has_problem) {
+          await fixPayment(paymentId)
+        }
+      }
+      const refreshed = await getAdminPayments()
+      setPayments(refreshed)
+      setFilteredPayments(refreshed)
+      setSelectedPaymentIds([])
+      toast.success('Da xu ly cac thanh toan da chon')
+    } catch {
+      toast.error(t('payment_management.fix_failed'))
+    }
+  }
+
+  const bulkRefundDecision = async (decision: 'approved' | 'rejected') => {
+    try {
+      for (const refundId of selectedRefundIds) {
+        const refund = filteredRefundRequests.find(item => item.id === refundId)
+        if (refund && refund.status === 'pending') {
+          await updateAdminRefundStatus({
+            payment_id: Number(refund.payment_id),
+            payment_details_ids: refund.payment_details_ids,
+            status: decision,
+          })
+        }
+      }
+      const updatedAll = refundRequests.map(item => selectedRefundIds.includes(item.id) && item.status === 'pending'
+        ? { ...item, status: decision, processed_at: new Date(), processed_by: user?.id }
+        : item
+      )
+      setRefundRequests(updatedAll)
+      setFilteredRefundRequests(prev => prev.map(item => selectedRefundIds.includes(item.id) && item.status === 'pending'
+        ? { ...item, status: decision, processed_at: new Date(), processed_by: user?.id }
+        : item
+      ))
+      setSelectedRefundIds([])
+      toast.success(decision === 'approved' ? 'Da duyet hoan tien da chon' : 'Da tu choi hoan tien da chon')
+    } catch {
+      toast.error('Bulk refund action failed')
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -310,6 +593,7 @@ export function PaymentManagementPage() {
       completed: 'default',
       failed: 'destructive',
       refunded: 'outline',
+      success: 'outline',
       cancelled: 'secondary',
       approved: 'default',
       rejected: 'destructive'
@@ -414,7 +698,7 @@ export function PaymentManagementPage() {
         </Card>
       </div>
 
-      <Tabs defaultValue="payments" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-6">
         <TabsList>
           <TabsTrigger value="payments">{t('payment_management.tabs.payments')}</TabsTrigger>
           <TabsTrigger value="refunds">{t('payment_management.tabs.refunds')}</TabsTrigger>
@@ -429,6 +713,23 @@ export function PaymentManagementPage() {
             title={t('payment_management.payments.filter_title')}
             configs={paymentFilterConfigs}
             onFilterChange={handlePaymentFilter}
+          />
+          <AdminBulkActionBar
+            count={selectedPaymentIds.length}
+            label="payments selected"
+            onClear={() => setSelectedPaymentIds([])}
+            actions={[
+              {
+                key: 'fix',
+                label: 'Fix selected',
+                onClick: () => openConfirm(
+                  'Fix selected payments',
+                  `Attempt to fix ${selectedPaymentIds.length} selected payments that are marked problematic?`,
+                  'Fix payments',
+                  bulkFixPayments,
+                ),
+              },
+            ]}
           />
           {loadingPayments && <p>{t('payment_management.payments.loading')}</p>}
 
@@ -446,6 +747,12 @@ export function PaymentManagementPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[48px]">
+                      <Checkbox
+                        checked={filteredPayments.length > 0 && selectedPaymentIds.length === filteredPayments.length}
+                        onCheckedChange={(checked) => toggleAllPayments(Boolean(checked))}
+                      />
+                    </TableHead>
                     <TableHead>{t('payment_management.payments.table.id')}</TableHead>
                     <TableHead>{t('payment_management.payments.table.student')}</TableHead>
                     <TableHead>{t('payment_management.payments.table.course')}</TableHead>
@@ -459,6 +766,12 @@ export function PaymentManagementPage() {
                 <TableBody>
                   {filteredPayments.map((payment) => (
                     <TableRow key={payment.payment_id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedPaymentIds.includes(payment.payment_id)}
+                          onCheckedChange={(checked) => togglePaymentSelection(payment.payment_id, Boolean(checked))}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-sm">{payment.payment_id}</TableCell>
                       <TableCell>
                         <div>
@@ -498,13 +811,21 @@ export function PaymentManagementPage() {
                               {t('payment_management.payments.view_details')}
                             </DropdownMenuItem>
                             {payment.payment_status === 'completed' && (payment.has_problem || false) && (
-                              <DropdownMenuItem onClick={() => handleFix(payment.payment_id)}>
+                              <DropdownMenuItem onClick={() => openConfirm(
+                                'Fix payment',
+                                `Attempt to fix payment #${payment.payment_id}?`,
+                                t('payment_management.payments.fix'),
+                                () => handleFix(payment.payment_id),
+                              )}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 {t('payment_management.payments.fix')}
                               </DropdownMenuItem>
                             )}
                             {payment.payment_status === 'completed' && (
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setActiveTab('refunds')
+                                toast.info('Chuyen sang tab Refunds de xu ly yeu cau hoan tien.')
+                              }}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 {t('payment_management.payments.refund')}
                               </DropdownMenuItem>
@@ -525,17 +846,52 @@ export function PaymentManagementPage() {
           <TableFilter
             title={t('payment_management.refunds.filter_title')}
             configs={refundFilterConfigs}
-            onFilterChange={() => {}}
+            onFilterChange={handleRefundFilter}
+          />
+          <AdminBulkActionBar
+            count={selectedRefundIds.length}
+            label="refunds selected"
+            onClear={() => setSelectedRefundIds([])}
+            actions={[
+              {
+                key: 'approve',
+                label: 'Approve',
+                onClick: () => openConfirm(
+                  'Approve selected refunds',
+                  `Approve ${selectedRefundIds.length} selected refund requests?`,
+                  'Approve refunds',
+                  () => bulkRefundDecision('approved'),
+                ),
+              },
+              {
+                key: 'reject',
+                label: 'Reject',
+                destructive: true,
+                onClick: () => openConfirm(
+                  'Reject selected refunds',
+                  `Reject ${selectedRefundIds.length} selected refund requests?`,
+                  'Reject refunds',
+                  () => bulkRefundDecision('rejected'),
+                  true,
+                ),
+              },
+            ]}
           />
 
           <Card>
             <CardHeader>
-              <CardTitle>{t('payment_management.refunds.list_title', { count: refundRequests.length })}</CardTitle>
+              <CardTitle>{t('payment_management.refunds.list_title', { count: filteredRefundRequests.length })}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[48px]">
+                      <Checkbox
+                        checked={filteredRefundRequests.length > 0 && selectedRefundIds.length === filteredRefundRequests.length}
+                        onCheckedChange={(checked) => toggleAllRefunds(Boolean(checked))}
+                      />
+                    </TableHead>
                     <TableHead>{t('payment_management.refunds.table.student')}</TableHead>
                     <TableHead>{t('payment_management.refunds.table.course')}</TableHead>
                     <TableHead>{t('payment_management.refunds.table.amount')}</TableHead>
@@ -546,8 +902,14 @@ export function PaymentManagementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {refundRequests.map((refund) => (
+                  {filteredRefundRequests.map((refund) => (
                     <TableRow key={refund.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRefundIds.includes(refund.id)}
+                          onCheckedChange={(checked) => toggleRefundSelection(refund.id, Boolean(checked))}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{refund.user_name}</TableCell>
                       <TableCell>{refund.course_title}</TableCell>
                       <TableCell>{formatCurrency(refund.amount)}</TableCell>
@@ -566,14 +928,25 @@ export function PaymentManagementPage() {
                           <div className="flex gap-1">
                             <Button 
                               size="sm" 
-                              onClick={() => handleRefundDecision(refund.id, 'approved')}
+                              onClick={() => openConfirm(
+                                'Approve refund',
+                                `Approve refund request for ${refund.user_name} on "${refund.course_title}"?`,
+                                'Approve',
+                                () => handleRefundDecision(refund, 'approved'),
+                              )}
                             >
                               <Check className="h-3 w-3" />
                             </Button>
                             <Button 
                               size="sm" 
                               variant="destructive"
-                              onClick={() => handleRefundDecision(refund.id, 'rejected')}
+                              onClick={() => openConfirm(
+                                'Reject refund',
+                                `Reject refund request for ${refund.user_name} on "${refund.course_title}"?`,
+                                'Reject',
+                                () => handleRefundDecision(refund, 'rejected'),
+                                true,
+                              )}
                             >
                               <X className="h-3 w-3" />
                             </Button>
@@ -594,11 +967,16 @@ export function PaymentManagementPage() {
 
         {/* Policies Tab */}
         <TabsContent value="policies" className="space-y-6">
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="pt-6 text-sm text-amber-900">
+              Payment policies dang duoc doc va luu qua payment-admin config API. Du lieu van persist tren he thong cau hinh hien tai, nhung contract FE da di qua payments domain.
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>{t('payment_management.policies.title')}</CardTitle>
-                <Button>
+                <Button onClick={() => openConfigEditor('policies')}>
                   <Settings className="h-4 w-4 mr-2" />
                   {t('payment_management.policies.update')}
                 </Button>
@@ -634,11 +1012,16 @@ export function PaymentManagementPage() {
 
         {/* Instructor Rates Tab */}
         <TabsContent value="instructor-rates" className="space-y-6">
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="pt-6 text-sm text-amber-900">
+              Instructor commission rates da duoc load/save qua payment-admin config API de FE khong con phu thuoc truc tiep vao generic system settings.
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>{t('payment_management.instructor_rates.title')}</CardTitle>
-                <Button>
+                <Button onClick={() => openConfigEditor('instructor-rates')}>
                   <Percent className="h-4 w-4 mr-2" />
                   {t('payment_management.instructor_rates.configure')}
                 </Button>
@@ -671,7 +1054,7 @@ export function PaymentManagementPage() {
                       <TableCell>{rate.effective_from.toLocaleDateString()}</TableCell>
                       <TableCell>{rate.effective_to?.toLocaleDateString() || t('payment_management.instructor_rates.no_end')}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => openConfigEditor('instructor-rates')}>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -685,11 +1068,16 @@ export function PaymentManagementPage() {
 
         {/* Discount Rules Tab */}
         <TabsContent value="discounts" className="space-y-6">
+          <Card className="border-amber-200 bg-amber-50/60">
+            <CardContent className="pt-6 text-sm text-amber-900">
+              Discount rules dang duoc quan ly qua payment-admin config API. Muc tieu cua batch nay la bo viec FE doc truc tiep generic system settings cho nhom payment configs.
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>{t('payment_management.discounts.title')}</CardTitle>
-                <Button>
+                <Button onClick={() => openConfigEditor('discounts')}>
                   <Plus className="h-4 w-4 mr-2" />
                   {t('payment_management.discounts.create')}
                 </Button>
@@ -735,7 +1123,7 @@ export function PaymentManagementPage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(rule.status)}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={() => openConfigEditor('discounts')}>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </TableCell>
@@ -747,6 +1135,45 @@ export function PaymentManagementPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
+
+      <Dialog open={!!configEditorType} onOpenChange={(open) => {
+        if (!open) setConfigEditorType(null)
+      }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Payment Config Editor</DialogTitle>
+            <DialogDescription>
+              Chinh sua JSON cho {configEditorType || 'payment config'} va luu qua payment-admin config API.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              value={configEditorValue}
+              onChange={(e) => setConfigEditorValue(e.target.value)}
+              rows={18}
+              className="font-mono text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfigEditorType(null)} disabled={configSaving}>
+                Cancel
+              </Button>
+              <Button onClick={saveConfigEditor} disabled={configSaving}>
+                {configSaving ? 'Saving...' : 'Save Config'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Detail Modal */}
       {selectedPayment && (
@@ -852,7 +1279,7 @@ export function PaymentManagementPage() {
                 <div className="flex gap-2 pt-4">
                   <Button 
                     onClick={() => {
-                      handleRefundDecision(selectedRefund.id, 'approved')
+                      void handleRefundDecision(selectedRefund, 'approved')
                       setSelectedRefund(null)
                     }}
                   >
@@ -861,7 +1288,7 @@ export function PaymentManagementPage() {
                   <Button 
                     variant="destructive"
                     onClick={() => {
-                      handleRefundDecision(selectedRefund.id, 'rejected')
+                      void handleRefundDecision(selectedRefund, 'rejected')
                       setSelectedRefund(null)
                     }}
                   >

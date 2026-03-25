@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Badge } from '../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
@@ -21,12 +20,7 @@ import {
   Pin,
   Lock,
   Trash2,
-  Search,
-  Filter,
-  ArrowUp,
-  ArrowDown,
   MoreVertical,
-  Edit,
   Flag,
   Star
 } from 'lucide-react'
@@ -49,7 +43,7 @@ import {
   createForum,
   createForumTopic,
   updateForumTopic,
-  deleteForumTopic,
+  moderateForumTopic,
   formatForumDate,
 } from '../../services/forum.api'
 
@@ -81,6 +75,8 @@ interface ForumTopic {
   replies: number
   status: 'active' | 'locked' | 'deleted'
   is_pinned: boolean
+  report_count: number
+  last_report_reason?: string
   last_reply?: {
     user_name: string
     date: Date
@@ -123,6 +119,8 @@ function mapApiTopic(t: ApiForumTopic): ForumTopic {
     replies: t.replies_count,
     status: t.status,
     is_pinned: t.is_pinned,
+    report_count: t.report_count,
+    last_report_reason: t.last_report_reason || undefined,
   }
 }
 
@@ -138,6 +136,7 @@ export function ForumPage() {
   const [filteredTopics, setFilteredTopics] = useState<ForumTopic[]>([])
   const [filters, setFilters] = useState({})
   const [loading, setLoading] = useState(true)
+  const [moderationBusyId, setModerationBusyId] = useState<string | null>(null)
 
   const canCreateForum = hasRole('admin') || hasRole('instructor')
   const canModerateForum = hasRole('admin') || hasPermission('admin.forum.moderate')
@@ -285,6 +284,70 @@ export function ForumPage() {
         return <Trash2 className="h-4 w-4 text-red-500" />
       default:
         return <MessageSquare className="h-4 w-4 text-green-500" />
+    }
+  }
+
+  const reportedTopics = filteredTopics.filter(topic => topic.report_count > 0)
+
+  const applyTopicUpdate = (topicId: string, updater: (topic: ForumTopic) => ForumTopic | null) => {
+    setTopics(prev => prev.map(topic => topic.topic_id === topicId ? updater(topic) : topic).filter(Boolean) as ForumTopic[])
+    setFilteredTopics(prev => prev.map(topic => topic.topic_id === topicId ? updater(topic) : topic).filter(Boolean) as ForumTopic[])
+  }
+
+  const handlePinToggle = async (topic: ForumTopic) => {
+    try {
+      setModerationBusyId(topic.topic_id)
+      const updated = await updateForumTopic(Number(topic.topic_id), { is_pinned: !topic.is_pinned })
+      applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
+    } catch (err) {
+      console.error('Failed to update topic pin status:', err)
+      window.alert('Failed to update topic pin status')
+    } finally {
+      setModerationBusyId(null)
+    }
+  }
+
+  const handleLockToggle = async (topic: ForumTopic) => {
+    try {
+      setModerationBusyId(topic.topic_id)
+      const updated = topic.status === 'locked'
+        ? await updateForumTopic(Number(topic.topic_id), { status: 'active' })
+        : await moderateForumTopic(Number(topic.topic_id), { action: 'lock', reason: 'Locked from moderation panel' })
+      applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
+    } catch (err) {
+      console.error('Failed to update topic lock status:', err)
+      window.alert('Failed to update topic lock status')
+    } finally {
+      setModerationBusyId(null)
+    }
+  }
+
+  const handleDeleteTopic = async (topic: ForumTopic) => {
+    try {
+      setModerationBusyId(topic.topic_id)
+      const updated = await moderateForumTopic(Number(topic.topic_id), { action: 'delete', reason: 'Deleted from moderation panel' })
+      applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
+    } catch (err) {
+      console.error('Failed to delete topic:', err)
+      window.alert('Failed to delete topic')
+    } finally {
+      setModerationBusyId(null)
+    }
+  }
+
+  const handleReportedTopicAction = async (topic: ForumTopic, action: 'approve' | 'dismiss' | 'lock' | 'delete') => {
+    try {
+      setModerationBusyId(topic.topic_id)
+      const updated = await moderateForumTopic(Number(topic.topic_id), {
+        action,
+        reason: topic.last_report_reason || 'Handled from forum moderation tab',
+      })
+      applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
+    } catch (err) {
+      console.error('Failed to moderate reported topic:', err)
+      window.alert('Failed to process report')
+    } finally {
+      setModerationBusyId(null)
     }
   }
 
@@ -465,16 +528,35 @@ export function ForumPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={moderationBusyId === topic.topic_id}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handlePinToggle(topic)
+                                  }}
+                                >
                                   <Pin className="h-4 w-4 mr-2" />
                                   {topic.is_pinned ? t('forum.unpin') : t('forum.pin_topic')}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={moderationBusyId === topic.topic_id}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleLockToggle(topic)
+                                  }}
+                                >
                                   <Lock className="h-4 w-4 mr-2" />
                                   {topic.status === 'locked' ? t('forum.unlock_topic') : t('forum.lock_topic')}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive">
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  disabled={moderationBusyId === topic.topic_id}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteTopic(topic)
+                                  }}
+                                >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   {t('forum.delete_topic')}
                                 </DropdownMenuItem>
@@ -555,9 +637,85 @@ export function ForumPage() {
                 <CardTitle>{t('forum.moderation_title')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
-                  {t('forum.moderation_coming_soon')}
-                </p>
+                {reportedTopics.length === 0 ? (
+                  <p className="text-muted-foreground">
+                    No reported topics match the current filters.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {reportedTopics.map((topic) => {
+                      const forum = forums.find(item => item.forum_id === topic.forum_id)
+                      return (
+                        <div key={topic.topic_id} className="rounded-lg border p-4">
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="destructive">{topic.report_count} reports</Badge>
+                                <Badge variant="outline">{forum?.title || `Forum ${topic.forum_id}`}</Badge>
+                                <Badge variant={topic.status === 'locked' ? 'secondary' : 'default'}>
+                                  {topic.status}
+                                </Badge>
+                              </div>
+                              <div>
+                                <p className="font-medium">{topic.title}</p>
+                                <p className="text-sm text-muted-foreground line-clamp-2">{topic.content}</p>
+                              </div>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <p>Author: {topic.user_name || `User ${topic.user_id}`}</p>
+                                <p>Latest report reason: {topic.last_report_reason || 'No reason provided'}</p>
+                                <p>Updated: {formatForumDate(topic.updated_date.toISOString())}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={moderationBusyId === topic.topic_id}
+                                onClick={() => navigate(`/forum/topic/${topic.topic_id}`)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={moderationBusyId === topic.topic_id}
+                                onClick={() => handleReportedTopicAction(topic, 'approve')}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={moderationBusyId === topic.topic_id}
+                                onClick={() => handleReportedTopicAction(topic, 'dismiss')}
+                              >
+                                Dismiss
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={moderationBusyId === topic.topic_id}
+                                onClick={() => handleReportedTopicAction(topic, 'lock')}
+                              >
+                                Lock
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={moderationBusyId === topic.topic_id}
+                                onClick={() => handleReportedTopicAction(topic, 'delete')}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

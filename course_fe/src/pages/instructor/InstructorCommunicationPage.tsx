@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -41,7 +41,18 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
-import { getQnAs, type QnA } from '../../services/qna.api'
+import { useChat } from '../../contexts/ChatContext'
+import { getCourses, type CourseListItem } from '../../services/course.api'
+import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
+import {
+  createInstructorAnnouncement,
+  getInstructorAnnouncements,
+  revokeInstructorAnnouncement,
+  updateInstructorAnnouncement,
+  type InstructorAnnouncement,
+} from '../../services/notification.api'
+import { getQnAs, getAllQnAAnswers, createQnAAnswer, updateQnA, type QnA, type QnAAnswer } from '../../services/qna.api'
+import { reportConversationMessage } from '../../services/chat.api'
 import { formatRelativeTime } from '../../utils/formatters'
 
 // Q&A data is now fetched from API
@@ -75,104 +86,41 @@ function qnaToQuestion(q: QnA) {
   }
 }
 
-// Mock data for Direct Messages
-const mockConversations = [
-  {
-    id: 1,
-    student: {
-      name: "Alex Thompson",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face",
-      initials: "AT"
-    },
-    lastMessage: "Thanks for the detailed explanation!",
-    timestamp: "10 minutes ago",
-    unread: 2,
-    online: true
-  },
-  {
-    id: 2,
-    student: {
-      name: "Jessica Lee",
-      avatar: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=40&h=40&fit=crop&crop=face",
-      initials: "JL"
-    },
-    lastMessage: "Can you review my project?",
-    timestamp: "1 hour ago",
-    unread: 0,
-    online: false
-  },
-  {
-    id: 3,
-    student: {
-      name: "David Park",
-      avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=40&h=40&fit=crop&crop=face",
-      initials: "DP"
-    },
-    lastMessage: "I have a question about deployment",
-    timestamp: "3 hours ago",
-    unread: 1,
-    online: true
-  }
-]
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((word) => word[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
 
-// Mock messages for selected conversation
-const mockMessages = [
-  {
-    id: 1,
-    sender: "student" as const,
-    content: "Hi! I'm having trouble with the deployment section.",
-    timestamp: "2:30 PM",
-    attachments: [] as string[]
-  },
-  {
-    id: 2,
-    sender: "instructor" as const,
-    content: "Hi there! What specific issue are you facing?",
-    timestamp: "2:32 PM",
-    attachments: [] as string[]
-  },
-  {
-    id: 3,
-    sender: "student" as const,
-    content: "My app works locally but throws errors on Vercel",
-    timestamp: "2:35 PM",
-    attachments: ["error-log.txt"]
-  },
-  {
-    id: 4,
-    sender: "instructor" as const,
-    content: "Could you share the error message you're seeing?",
-    timestamp: "2:40 PM",
-    attachments: [] as string[]
-  }
-]
+type QuestionItem = ReturnType<typeof qnaToQuestion>
 
-// Mock announcements
-const mockAnnouncements = [
-  {
-    id: 1,
-    type: "educational" as const,
-    title: "New Section Added: Advanced Hooks",
-    content: "I've just added a new section covering advanced React hooks including useReducer, useContext, and custom hooks!",
-    targetCourses: ["React Advanced Patterns"],
-    sentAt: "2 days ago",
-    recipientCount: 1250,
-    openRate: 68
-  },
-  {
-    id: 2,
-    type: "promotional" as const,
-    title: "30% Off My New TypeScript Course",
-    content: "For a limited time, get 30% off my brand new TypeScript course. Use code EARLY30",
-    targetCourses: ["All students"],
-    sentAt: "1 week ago",
-    recipientCount: 5420,
-    openRate: 42
+type AnnouncementView = InstructorAnnouncement & {
+  id: string
+  sentAt: string
+  recipientCount: number
+  openRate: number
+}
+
+function mapAnnouncementToView(item: InstructorAnnouncement): AnnouncementView {
+  return {
+    ...item,
+    id: item.notification_code,
+    sentAt: item.sent_at,
+    recipientCount: item.recipient_count,
+    openRate: item.open_rate,
   }
-]
+}
 
 export function InstructorCommunicationPage() {
   const { user } = useAuth()
+  const {
+    state: chatState,
+    setActiveConversation,
+    sendMessage,
+  } = useChat()
   const [activeTab, setActiveTab] = useState('qna')
   const [qnaFilter, setQnaFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -180,20 +128,42 @@ export function InstructorCommunicationPage() {
   const [qnaPage, setQnaPage] = useState(1)
   const [qnaTotalPages, setQnaTotalPages] = useState(1)
   const [qnaLoading, setQnaLoading] = useState(false)
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [dashboardStats, setDashboardStats] = useState<InstructorDashboardStats | null>(null)
+  const [qnaSummary, setQnaSummary] = useState({ total: 0, unanswered: 0 })
   const [conversationQuery, setConversationQuery] = useState('')
   const [conversationPage, setConversationPage] = useState(1)
   const [announcementTypeFilter, setAnnouncementTypeFilter] = useState('all')
   const [announcementPage, setAnnouncementPage] = useState(1)
-  const [selectedConversation, setSelectedConversation] = useState<number | null>(1)
+  const [announcementLoading, setAnnouncementLoading] = useState(false)
+  const [announcementSubmitting, setAnnouncementSubmitting] = useState(false)
+  const [announcementUpdating, setAnnouncementUpdating] = useState(false)
+  const [announcements, setAnnouncements] = useState<AnnouncementView[]>([])
+  const [instructorCourses, setInstructorCourses] = useState<CourseListItem[]>([])
+  const [announcementLimits, setAnnouncementLimits] = useState({
+    educational: { used: 0, limit: 4 },
+    promotional: { used: 0, limit: 2 },
+  })
   const [messageInput, setMessageInput] = useState('')
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
+  const [showEditAnnouncementDialog, setShowEditAnnouncementDialog] = useState(false)
+  const [announcementEditing, setAnnouncementEditing] = useState<AnnouncementView | null>(null)
   const [announcementData, setAnnouncementData] = useState({
     type: 'educational',
     title: '',
     content: '',
     targetCourse: 'all'
   })
+  const [editAnnouncementData, setEditAnnouncementData] = useState({
+    title: '',
+    content: '',
+  })
   const [questions, setQuestions] = useState<ReturnType<typeof qnaToQuestion>[]>([])
+  const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null)
+  const [questionAnswers, setQuestionAnswers] = useState<QnAAnswer[]>([])
+  const [questionAnswersLoading, setQuestionAnswersLoading] = useState(false)
+  const [questionReplyText, setQuestionReplyText] = useState('')
+  const [questionReplySubmitting, setQuestionReplySubmitting] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQnaSearch(searchQuery.trim()), 300)
@@ -236,9 +206,105 @@ export function InstructorCommunicationPage() {
 
   const paginatedQuestions = questions
 
-  const filteredConversations = mockConversations.filter((conv) =>
-    conv.student.name.toLowerCase().includes(conversationQuery.toLowerCase())
-  )
+  useEffect(() => {
+    let cancelled = false
+    async function fetchCommunicationSummary() {
+      try {
+        setSummaryLoading(true)
+        const [dashboard, qnaAll, qnaPending] = await Promise.all([
+          getInstructorDashboardStats(),
+          getQnAs({ page: 1, page_size: 1 }),
+          getQnAs({ page: 1, page_size: 1, status: 'Pending' }),
+        ])
+        if (cancelled) return
+        setDashboardStats(dashboard)
+        setQnaSummary({
+          total: qnaAll.count || 0,
+          unanswered: qnaPending.count || 0,
+        })
+      } catch (err) {
+        console.error('Failed to load communication summary:', err)
+      } finally {
+        if (!cancelled) setSummaryLoading(false)
+      }
+    }
+    fetchCommunicationSummary()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+    let cancelled = false
+
+    async function fetchAnnouncementData() {
+      try {
+        setAnnouncementLoading(true)
+        const [announcementRes, profile] = await Promise.all([
+          getInstructorAnnouncements(),
+          getMyInstructorProfile(user.id),
+        ])
+        const coursesRes = await getCourses({
+          instructor_id: profile.id,
+          page: 1,
+          page_size: 100,
+        })
+        if (cancelled) return
+
+        const history = (announcementRes.results || []).map(mapAnnouncementToView)
+        setAnnouncements(history)
+        setInstructorCourses(coursesRes.results || [])
+
+        const currentMonth = new Date()
+        const monthAnnouncements = history.filter((item) => {
+          const sentAt = new Date(item.sent_at)
+          return (
+            sentAt.getFullYear() === currentMonth.getFullYear() &&
+            sentAt.getMonth() === currentMonth.getMonth()
+          )
+        })
+        setAnnouncementLimits({
+          educational: {
+            used: monthAnnouncements.filter((item) => item.type === 'educational').length,
+            limit: 4,
+          },
+          promotional: {
+            used: monthAnnouncements.filter((item) => item.type === 'promotional').length,
+            limit: 2,
+          },
+        })
+      } catch (err) {
+        console.error('Failed to load announcement data:', err)
+      } finally {
+        if (!cancelled) setAnnouncementLoading(false)
+      }
+    }
+
+    fetchAnnouncementData()
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  const filteredConversations = useMemo(() => {
+    const keyword = conversationQuery.trim().toLowerCase()
+    return chatState.conversations.map((conversation) => {
+      const participant = conversation.participants.find((item) => item.id !== user?.id)
+      return {
+        ...conversation,
+        student: {
+          name: participant?.name || 'Student',
+          avatar: participant?.avatar || '',
+          initials: getInitials(participant?.name || 'Student'),
+        },
+        timestamp: conversation.lastMessage
+          ? formatRelativeTime(conversation.lastMessage.timestamp)
+          : formatRelativeTime(conversation.updatedAt),
+        unread: conversation.unreadCount,
+        online: participant?.online ?? false,
+        lastMessageText: conversation.lastMessage?.content || 'ChÆ°a cÃ³ tin nháº¯n',
+      }
+    }).filter((conversation) => {
+      return conversation.student.name.toLowerCase().includes(keyword)
+    })
+  }, [chatState.conversations, conversationQuery, user?.id])
   useEffect(() => {
     setConversationPage(1)
   }, [conversationQuery])
@@ -254,7 +320,23 @@ export function InstructorCommunicationPage() {
     if (conversationPage > conversationTotalPages) setConversationPage(conversationTotalPages)
   }, [conversationPage, conversationTotalPages])
 
-  const filteredAnnouncements = mockAnnouncements.filter((a) =>
+  useEffect(() => {
+    if (chatState.activeConversationId && chatState.conversations.some((conversation) => conversation.id === chatState.activeConversationId)) {
+      return
+    }
+
+    const firstConversationId = chatState.conversations[0]?.id ?? null
+    if (firstConversationId) {
+      setActiveConversation(firstConversationId)
+      return
+    }
+
+    if (chatState.activeConversationId) {
+      setActiveConversation(null)
+    }
+  }, [chatState.activeConversationId, chatState.conversations, setActiveConversation])
+
+  const filteredAnnouncements = announcements.filter((a) =>
     announcementTypeFilter === 'all' ? true : a.type === announcementTypeFilter
   )
   useEffect(() => {
@@ -273,46 +355,252 @@ export function InstructorCommunicationPage() {
   }, [announcementPage, announcementTotalPages])
 
   // Get selected conversation messages
-  const currentMessages = selectedConversation ? mockMessages : []
-  const currentConversation = mockConversations.find(c => c.id === selectedConversation)
+  const currentConversation = useMemo(() => {
+    const conversation = chatState.conversations.find(
+      (item) => item.id === chatState.activeConversationId
+    )
+    if (!conversation) return null
+    const participant = conversation.participants.find((item) => item.id !== user?.id)
+    return {
+      ...conversation,
+      student: {
+        name: participant?.name || 'Student',
+        avatar: participant?.avatar || '',
+        initials: getInitials(participant?.name || 'Student'),
+      },
+      online: participant?.online ?? false,
+    }
+  }, [chatState.activeConversationId, chatState.conversations, user?.id])
+  const currentParticipant = currentConversation?.participants.find((participant) => participant.id !== user?.id)
+  const currentMessages = useMemo(() => {
+    const messages = chatState.activeConversationId
+      ? (chatState.messages[chatState.activeConversationId] || [])
+      : []
+    return messages.map((message) => ({
+      ...message,
+      sender: message.senderId === String(user?.id) ? 'instructor' : 'student',
+      attachments: [] as string[],
+      timestamp: formatRelativeTime(message.timestamp),
+    }))
+  }, [chatState.activeConversationId, chatState.messages, user?.id])
+  const unansweredQuestions = dashboardStats?.pending_questions ?? qnaSummary.unanswered
+  const totalQuestions = qnaSummary.total
+  const responseRate = totalQuestions > 0
+    ? Math.round(((totalQuestions - unansweredQuestions) / totalQuestions) * 100)
+    : 0
+  const averageRating = dashboardStats?.average_rating ?? 0
 
   // Send message
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return
-    
-    toast.success('Tin nhắn đã được gửi!')
+  const handleSendMessage = async () => {
+    const content = messageInput.trim()
+    if (!content || !chatState.activeConversationId || !user) return
+
+    await sendMessage(chatState.activeConversationId, {
+      senderId: String(user.id),
+      senderName: user.name || user.username || user.email,
+      senderAvatar: user.avatar,
+      content,
+      type: 'text',
+    })
     setMessageInput('')
+    toast.success('Tin nhắn đã được gửi!')
+  }
+
+  const handleReportMessage = async (messageId: string) => {
+    const reason = window.prompt('Ly do bao cao tin nhan:', '')?.trim()
+    if (!reason) return
+    try {
+      await reportConversationMessage(Number(messageId), { reason })
+      toast.success('Da gui bao cao tin nhan')
+    } catch (err: any) {
+      toast.error(err?.message || 'Khong the bao cao tin nhan')
+    }
   }
 
   // Send announcement
-  const handleSendAnnouncement = () => {
+  const handleSendAnnouncement = async () => {
     if (!announcementData.title.trim() || !announcementData.content.trim()) {
       toast.error('Vui lòng điền đầy đủ thông tin')
       return
     }
 
-    // Check monthly limits
-    const thisMonthEducational = mockAnnouncements.filter(a => a.type === 'educational').length
-    const thisMonthPromotional = mockAnnouncements.filter(a => a.type === 'promotional').length
+    const selectedLimit = announcementData.type === 'educational'
+      ? announcementLimits.educational
+      : announcementLimits.promotional
 
-    if (announcementData.type === 'educational' && thisMonthEducational >= 4) {
+    if (announcementData.type === 'educational' && selectedLimit.used >= selectedLimit.limit) {
       toast.error('Bạn đã đạt giới hạn 4 thông báo giáo dục/tháng')
       return
     }
 
-    if (announcementData.type === 'promotional' && thisMonthPromotional >= 2) {
+    if (announcementData.type === 'promotional' && selectedLimit.used >= selectedLimit.limit) {
       toast.error('Bạn đã đạt giới hạn 2 thông báo khuyến mãi/tháng')
       return
     }
 
-    toast.success('Thông báo đã được gửi thành công!')
-    setShowAnnouncementDialog(false)
-    setAnnouncementData({
-      type: 'educational',
-      title: '',
-      content: '',
-      targetCourse: 'all'
+    try {
+      setAnnouncementUpdating(true)
+      const created = await createInstructorAnnouncement({
+        type: announcementData.type as 'educational' | 'promotional',
+        title: announcementData.title.trim(),
+        content: announcementData.content.trim(),
+        target_course: announcementData.targetCourse,
+      })
+      setAnnouncements((prev) => [mapAnnouncementToView(created), ...prev])
+      setAnnouncementLimits((prev) => ({
+        ...prev,
+        [created.type]: {
+          used: prev[created.type].used + 1,
+          limit: prev[created.type].limit,
+        },
+      }))
+      setShowAnnouncementDialog(false)
+      setAnnouncementData({
+        type: 'educational',
+        title: '',
+        content: '',
+        targetCourse: 'all'
+      })
+      return
+    } catch (err: any) {
+      toast.error(err?.message || 'KhÃ´ng thá»ƒ gá»­i thÃ´ng bÃ¡o')
+      return
+    } finally {
+      setAnnouncementSubmitting(false)
+    }
+  }
+
+  const handleRevokeAnnouncement = async (announcement: AnnouncementView) => {
+    try {
+      await revokeInstructorAnnouncement(announcement.notification_code)
+      setAnnouncements((prev) => prev.filter((item) => item.notification_code !== announcement.notification_code))
+      setAnnouncementLimits((prev) => ({
+        ...prev,
+        [announcement.type]: {
+          used: Math.max(0, prev[announcement.type].used - 1),
+          limit: prev[announcement.type].limit,
+        },
+      }))
+      toast.success('Đã thu hồi thông báo')
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể thu hồi thông báo')
+    }
+  }
+
+  const handleStartEditAnnouncement = (announcement: AnnouncementView) => {
+    setAnnouncementEditing(announcement)
+    setEditAnnouncementData({
+      title: announcement.title,
+      content: announcement.content,
     })
+    setShowEditAnnouncementDialog(true)
+  }
+
+  const handleEditDialogChange = (open: boolean) => {
+    setShowEditAnnouncementDialog(open)
+    if (!open) {
+      setAnnouncementEditing(null)
+      setEditAnnouncementData({
+        title: '',
+        content: '',
+      })
+    }
+  }
+
+  const handleUpdateAnnouncement = async () => {
+    if (!announcementEditing) return
+    const title = editAnnouncementData.title.trim()
+    const content = editAnnouncementData.content.trim()
+    if (!title || !content) {
+      toast.error('Vui lòng điền đầy đủ thông tin')
+      return
+    }
+
+    try {
+      setAnnouncementUpdating(true)
+      await updateInstructorAnnouncement(announcementEditing.notification_code, {
+        title,
+        content,
+      })
+      setAnnouncements((prev) => prev.map((item) =>
+        item.notification_code === announcementEditing.notification_code
+          ? {
+              ...item,
+              title,
+              content,
+            }
+          : item
+      ))
+      handleEditDialogChange(false)
+      toast.success('Đã cập nhật thông báo')
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể cập nhật thông báo')
+    } finally {
+      setAnnouncementUpdating(false)
+    }
+  }
+
+  const handleOpenQuestion = async (question: QuestionItem) => {
+    setSelectedQuestion(question)
+    setQuestionReplyText('')
+    setQuestionAnswers([])
+    try {
+      setQuestionAnswersLoading(true)
+      const answers = await getAllQnAAnswers(question.id)
+      setQuestionAnswers(answers)
+    } catch (err) {
+      console.error('Failed to load Q&A answers:', err)
+      toast.error('Khong the tai cau tra loi')
+    } finally {
+      setQuestionAnswersLoading(false)
+    }
+  }
+
+  const handleSubmitQuestionReply = async () => {
+    if (!selectedQuestion || !user?.id) return
+    const answer = questionReplyText.trim()
+    if (!answer) {
+      toast.error('Vui long nhap noi dung tra loi')
+      return
+    }
+
+    try {
+      setQuestionReplySubmitting(true)
+      const created = await createQnAAnswer({
+        qna: selectedQuestion.id,
+        answer,
+        user: Number(user.id),
+      })
+      await updateQnA(selectedQuestion.id, { status: 'Answered' })
+      setQuestionAnswers((prev) => [...prev, created])
+      setQuestions((prev) => prev.map((item) =>
+        item.id === selectedQuestion.id
+          ? {
+              ...item,
+              answers: item.answers + 1,
+              status: 'answered',
+              hasInstructorReply: true,
+            }
+          : item
+      ))
+      setSelectedQuestion((prev) => prev ? {
+        ...prev,
+        answers: prev.answers + 1,
+        status: 'answered',
+        hasInstructorReply: true,
+      } : prev)
+      setQnaSummary((prev) => ({
+        total: prev.total,
+        unanswered: Math.max(0, prev.unanswered - (selectedQuestion.status === 'unanswered' ? 1 : 0)),
+      }))
+      setQuestionReplyText('')
+      toast.success('Da gui cau tra loi')
+    } catch (err) {
+      console.error('Failed to submit Q&A answer:', err)
+      toast.error('Gui cau tra loi that bai')
+    } finally {
+      setQuestionReplySubmitting(false)
+    }
   }
 
   return (
@@ -332,7 +620,7 @@ export function InstructorCommunicationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Câu hỏi chưa trả lời</p>
-                <p className="text-2xl mt-1">12</p>
+                <p className="text-2xl mt-1">{summaryLoading ? '...' : unansweredQuestions}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
                 <AlertCircle className="w-6 h-6 text-red-600" />
@@ -346,7 +634,7 @@ export function InstructorCommunicationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Tin nhắn mới</p>
-                <p className="text-2xl mt-1">8</p>
+                <p className="text-2xl mt-1">{chatState.totalUnreadCount}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
                 <Mail className="w-6 h-6 text-blue-600" />
@@ -360,7 +648,7 @@ export function InstructorCommunicationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Tỷ lệ phản hồi</p>
-                <p className="text-2xl mt-1">94%</p>
+                <p className="text-2xl mt-1">{summaryLoading ? '...' : `${responseRate}%`}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
                 <TrendingUp className="w-6 h-6 text-green-600" />
@@ -374,7 +662,7 @@ export function InstructorCommunicationPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Đánh giá trung bình</p>
-                <p className="text-2xl mt-1">4.8</p>
+                <p className="text-2xl mt-1">{summaryLoading ? '...' : averageRating.toFixed(1)}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
                 <Star className="w-6 h-6 text-amber-600" />
@@ -390,12 +678,12 @@ export function InstructorCommunicationPage() {
           <TabsTrigger value="qna" className="gap-2">
             <MessageSquare className="w-4 h-4" />
             Hỏi đáp (Q&A)
-            <Badge variant="destructive" className="ml-2">12</Badge>
+            <Badge variant="destructive" className="ml-2">{unansweredQuestions}</Badge>
           </TabsTrigger>
           <TabsTrigger value="messages" className="gap-2">
             <Mail className="w-4 h-4" />
             Tin nhắn
-            <Badge variant="default" className="ml-2">8</Badge>
+            <Badge variant="default" className="ml-2">{chatState.totalUnreadCount}</Badge>
           </TabsTrigger>
           <TabsTrigger value="announcements" className="gap-2">
             <Megaphone className="w-4 h-4" />
@@ -507,11 +795,11 @@ export function InstructorCommunicationPage() {
 
                           {/* Actions */}
                           <div className="flex items-center gap-2 mt-3">
-                            <Button size="sm" variant="default">
+                            <Button size="sm" variant="default" onClick={() => void handleOpenQuestion(question)}>
                               <Reply className="w-4 h-4 mr-2" />
                               Trả lời ({question.answers})
                             </Button>
-                            <Button size="sm" variant="ghost">
+                            <Button size="sm" variant="ghost" onClick={() => toast.info('Chua co workflow flag Q&A rieng o backend.')}>
                               <Flag className="w-4 h-4 mr-2" />
                               Đánh dấu
                             </Button>
@@ -564,34 +852,32 @@ export function InstructorCommunicationPage() {
                       <div
                         key={conv.id}
                         className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                          selectedConversation === conv.id ? 'bg-muted' : ''
+                          chatState.activeConversationId === conv.id ? 'bg-muted' : ''
                         }`}
-                        onClick={() => setSelectedConversation(conv.id)}
+                        onClick={() => setActiveConversation(conv.id)}
                       >
                         <div className="flex items-start gap-3">
                           <div className="relative">
                             <Avatar>
-                              <AvatarImage src={conv.student.avatar} />
-                              <AvatarFallback>{conv.student.initials}</AvatarFallback>
+                              <AvatarFallback>{getInitials(conv.participants.find((item) => item.id !== user?.id)?.name || 'ST')}</AvatarFallback>
                             </Avatar>
-                            {conv.online && (
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
-                            )}
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm truncate">{conv.student.name}</p>
-                              <span className="text-xs text-muted-foreground">{conv.timestamp}</span>
+                              <p className="text-sm truncate">{conv.participants.find((item) => item.id !== user?.id)?.name || 'Student'}</p>
+                              <span className="text-xs text-muted-foreground">
+                                {conv.lastMessage ? formatRelativeTime(conv.lastMessage.timestamp) : formatRelativeTime(conv.updatedAt)}
+                              </span>
                             </div>
                             <p className="text-sm text-muted-foreground truncate">
-                              {conv.lastMessage}
+                              {conv.lastMessage?.content || 'ChÆ°a cÃ³ tin nháº¯n'}
                             </p>
                           </div>
 
-                          {conv.unread > 0 && (
+                          {conv.unreadCount > 0 && (
                             <Badge variant="default" className="ml-2">
-                              {conv.unread}
+                              {conv.unreadCount}
                             </Badge>
                           )}
                         </div>
@@ -611,18 +897,17 @@ export function InstructorCommunicationPage() {
 
                 {/* Chat area */}
                 <div className="md:col-span-2 flex flex-col">
-                  {selectedConversation ? (
+                  {chatState.activeConversationId ? (
                     <>
                       {/* Chat header */}
                       <div className="p-4 border-b">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <Avatar>
-                              <AvatarImage src={currentConversation?.student.avatar} />
-                              <AvatarFallback>{currentConversation?.student.initials}</AvatarFallback>
+                              <AvatarFallback>{getInitials(currentParticipant?.name || 'ST')}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="font-medium">{currentConversation?.student.name}</p>
+                              <p className="font-medium">{currentParticipant?.name || 'Student'}</p>
                               <p className="text-xs text-muted-foreground">
                                 {currentConversation?.online ? 'Đang online' : 'Offline'}
                               </p>
@@ -644,7 +929,20 @@ export function InstructorCommunicationPage() {
                               className={`flex ${msg.sender === 'instructor' ? 'justify-end' : 'justify-start'}`}
                             >
                               <div className={`max-w-[70%] ${msg.sender === 'instructor' ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg p-3`}>
-                                <p className="text-sm">{msg.content}</p>
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="text-sm flex-1">{msg.content}</p>
+                                  {msg.sender !== 'instructor' && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => void handleReportMessage(msg.id)}
+                                    >
+                                      <Flag className="w-3 h-3 mr-1" />
+                                      Report
+                                    </Button>
+                                  )}
+                                </div>
                                 {msg.attachments.length > 0 && (
                                   <div className="mt-2 pt-2 border-t border-current/10">
                                     {msg.attachments.map((file, idx) => (
@@ -659,6 +957,11 @@ export function InstructorCommunicationPage() {
                               </div>
                             </div>
                           ))}
+                          {currentMessages.length === 0 && (
+                            <div className="text-center py-10 text-sm text-muted-foreground">
+                              ChÆ°a cÃ³ tin nháº¯n nÃ o trong cuá»™c trÃ² chuyá»‡n nÃ y.
+                            </div>
+                          )}
                         </div>
                       </ScrollArea>
 
@@ -672,7 +975,7 @@ export function InstructorCommunicationPage() {
                             placeholder="Nhập tin nhắn..."
                             value={messageInput}
                             onChange={(e) => setMessageInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                            onKeyDown={(e) => e.key === 'Enter' && void handleSendMessage()}
                           />
                           <Button onClick={handleSendMessage}>
                             <Send className="w-4 h-4" />
@@ -808,9 +1111,11 @@ export function InstructorCommunicationPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Tất cả học viên</SelectItem>
-                            <SelectItem value="react-course">React Advanced Patterns</SelectItem>
-                            <SelectItem value="typescript-course">TypeScript Masterclass</SelectItem>
-                            <SelectItem value="nodejs-course">Node.js Complete Guide</SelectItem>
+                            {instructorCourses.map((course) => (
+                              <SelectItem key={course.id} value={String(course.id)}>
+                                {course.title}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -836,9 +1141,51 @@ export function InstructorCommunicationPage() {
                       <Button variant="outline" onClick={() => setShowAnnouncementDialog(false)}>
                         Hủy
                       </Button>
-                      <Button onClick={handleSendAnnouncement}>
+                      <Button onClick={handleSendAnnouncement} disabled={announcementSubmitting}>
                         <Send className="w-4 h-4 mr-2" />
                         Gửi thông báo
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={showEditAnnouncementDialog} onOpenChange={handleEditDialogChange}>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Chỉnh sửa thông báo</DialogTitle>
+                      <DialogDescription>
+                        Bạn có thể chỉnh sửa tiêu đề và nội dung của thông báo đã gửi. Đối tượng nhận sẽ được giữ nguyên.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="edit-title">Tiêu đề</Label>
+                        <Input
+                          id="edit-title"
+                          value={editAnnouncementData.title}
+                          onChange={(e) => setEditAnnouncementData({ ...editAnnouncementData, title: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="edit-content">Nội dung</Label>
+                        <Textarea
+                          id="edit-content"
+                          rows={6}
+                          value={editAnnouncementData.content}
+                          onChange={(e) => setEditAnnouncementData({ ...editAnnouncementData, content: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => handleEditDialogChange(false)}>
+                        Hủy
+                      </Button>
+                      <Button onClick={handleUpdateAnnouncement} disabled={announcementUpdating}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Lưu thay đổi
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -852,9 +1199,14 @@ export function InstructorCommunicationPage() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm">Thông báo giáo dục tháng này</span>
-                      <Badge variant="secondary">2/4</Badge>
+                      <Badge variant="secondary">
+                        {announcementLimits.educational.used}/{announcementLimits.educational.limit}
+                      </Badge>
                     </div>
-                    <Progress value={50} className="h-2" />
+                    <Progress
+                      value={(announcementLimits.educational.used / announcementLimits.educational.limit) * 100}
+                      className="h-2"
+                    />
                   </CardContent>
                 </Card>
 
@@ -862,9 +1214,14 @@ export function InstructorCommunicationPage() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm">Thông báo khuyến mãi tháng này</span>
-                      <Badge variant="secondary">1/2</Badge>
+                      <Badge variant="secondary">
+                        {announcementLimits.promotional.used}/{announcementLimits.promotional.limit}
+                      </Badge>
                     </div>
-                    <Progress value={50} className="h-2" />
+                    <Progress
+                      value={(announcementLimits.promotional.used / announcementLimits.promotional.limit) * 100}
+                      className="h-2"
+                    />
                   </CardContent>
                 </Card>
               </div>
@@ -872,7 +1229,7 @@ export function InstructorCommunicationPage() {
               {/* Announcements list */}
               <div className="space-y-4">
                 {paginatedAnnouncements.map((announcement) => (
-                  <Card key={announcement.id}>
+                  <Card key={announcement.notification_code}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
@@ -880,7 +1237,7 @@ export function InstructorCommunicationPage() {
                             <Badge variant={announcement.type === 'educational' ? 'default' : 'secondary'}>
                               {announcement.type === 'educational' ? 'Giáo dục' : 'Khuyến mãi'}
                             </Badge>
-                            <span className="text-sm text-muted-foreground">{announcement.sentAt}</span>
+                            <span className="text-sm text-muted-foreground">{formatRelativeTime(announcement.sent_at)}</span>
                           </div>
                           <h3 className="text-base mb-2">{announcement.title}</h3>
                           <p className="text-sm text-muted-foreground mb-3">
@@ -900,10 +1257,18 @@ export function InstructorCommunicationPage() {
                         </div>
 
                         <div className="flex gap-2 ml-4">
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleStartEditAnnouncement(announcement)}
+                          >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void handleRevokeAnnouncement(announcement)}
+                          >
                             <Trash2 className="w-4 h-4 text-red-600" />
                           </Button>
                         </div>
@@ -923,6 +1288,77 @@ export function InstructorCommunicationPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!selectedQuestion} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedQuestion(null)
+          setQuestionAnswers([])
+          setQuestionReplyText('')
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Tra loi cau hoi hoc vien</DialogTitle>
+            <DialogDescription>
+              {selectedQuestion?.course} {selectedQuestion?.lesson ? `• ${selectedQuestion.lesson}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedQuestion && (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm font-medium">{selectedQuestion.question}</p>
+                {selectedQuestion.description && (
+                  <p className="mt-2 text-sm text-muted-foreground">{selectedQuestion.description}</p>
+                )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {selectedQuestion.student.name} • {selectedQuestion.timestamp}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Cac cau tra loi hien co</p>
+                {questionAnswersLoading && (
+                  <p className="text-sm text-muted-foreground">Dang tai cau tra loi...</p>
+                )}
+                {!questionAnswersLoading && questionAnswers.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Chua co cau tra loi nao.</p>
+                )}
+                {!questionAnswersLoading && questionAnswers.map((answer) => (
+                  <div key={answer.id} className="rounded-lg border bg-background p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium">{answer.user_name || 'Instructor'}</p>
+                      <p className="text-xs text-muted-foreground">{formatRelativeTime(answer.created_at)}</p>
+                    </div>
+                    <p className="mt-2 text-sm whitespace-pre-wrap">{answer.answer}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <Label htmlFor="qna-reply">Tra loi</Label>
+                <Textarea
+                  id="qna-reply"
+                  rows={5}
+                  value={questionReplyText}
+                  onChange={(e) => setQuestionReplyText(e.target.value)}
+                  placeholder="Nhap cau tra loi cho hoc vien..."
+                />
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedQuestion(null)}>
+                  Dong
+                </Button>
+                <Button onClick={() => void handleSubmitQuestionReply()} disabled={questionReplySubmitting}>
+                  <Send className="w-4 h-4 mr-2" />
+                  {questionReplySubmitting ? 'Dang gui...' : 'Gui tra loi'}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

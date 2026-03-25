@@ -161,8 +161,8 @@ export function InstructorCreateCoursePage() {
     return true
   }
 
-  const handleSubmit = async (saveStatus: 'draft' | 'publish') => {
-    if (saveStatus === 'publish' && !validateCurrentStep()) {
+  const handleSubmit = async (saveStatus: 'draft' | 'submit_review') => {
+    if (saveStatus === 'submit_review' && !validateCurrentStep()) {
       return
     }
 
@@ -181,7 +181,7 @@ export function InstructorCreateCoursePage() {
         learning_objectives: data.whatYouWillLearn.filter(x => x.trim()),
         requirements: data.requirements.filter(x => x.trim()).join('\n'),
         target_audience: data.targetAudience.filter(x => x.trim()),
-        status: saveStatus === 'publish' ? 'pending' : 'draft',
+        status: saveStatus === 'submit_review' ? 'pending' : 'draft',
       }
       if (instructorId) courseData.instructor = instructorId
 
@@ -696,7 +696,7 @@ export function InstructorCreateCoursePage() {
               </Button>
             ) : (
               <Button 
-                onClick={() => handleSubmit('publish')}
+                onClick={() => handleSubmit('submit_review')}
                 className="bg-green-600 hover:bg-green-700"
                 size="lg"
                 disabled={isSaving}

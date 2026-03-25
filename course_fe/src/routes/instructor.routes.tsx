@@ -1,25 +1,26 @@
-import React from 'react'
+import React, { lazy } from 'react'
 import { RouteConfig } from './public.routes'
 import { RequireAuth } from '../components/auth/RequireAuth'
 import { InstructorLayout } from '../components/layouts'
-import { InstructorDashboard } from '../pages/instructor/InstructorDashboard'
-import { InstructorCoursesPage } from '../pages/instructor/InstructorCoursesPage'
-import { InstructorCreateCoursePage } from '../pages/instructor/InstructorCreateCoursePage'
-import { InstructorCourseDetailPage } from '../pages/instructor/InstructorCourseDetailPage'
-import { InstructorQuizzesPage } from '../pages/instructor/InstructorQuizzesPage'
-import { InstructorAnalyticsPage } from '../pages/instructor/InstructorAnalyticsPage'
-import { InstructorDiscountsPage } from '../pages/instructor/InstructorDiscountsPage'
-import { InstructorLessonsPageNew } from '../pages/instructor/InstructorLessonsPageNew'
-import { InstructorEarningsPage } from '../pages/instructor/InstructorEarningsPage'
-import { InstructorSubscriptionRevenuePage } from '../pages/instructor/InstructorSubscriptionRevenuePage'
-import { InstructorPayoutsPage } from '../pages/instructor/InstructorPayoutsPage'
-import { InstructorProfilePage } from '../pages/instructor/InstructorProfilePage'
-import { InstructorResourcesPage } from '../pages/instructor/InstructorResourcesPage'
-import { InstructorStudentsPage } from '../pages/instructor/InstructorStudentsPage'
-import { InstructorOnboardingPage } from '../pages/instructor/InstructorOnboardingPage'
-import { InstructorCourseLandingPage } from '../pages/instructor/InstructorCourseLandingPage'
-import { InstructorCommunicationPage } from '../pages/instructor/InstructorCommunicationPage'
-import { InstructorLessonEditorPage } from '../pages/instructor/InstructorLessonEditorPage'
+
+const InstructorDashboard = lazy(() => import('../pages/instructor/InstructorDashboard').then((module) => ({ default: module.InstructorDashboard })))
+const InstructorCoursesPage = lazy(() => import('../pages/instructor/InstructorCoursesPage').then((module) => ({ default: module.InstructorCoursesPage })))
+const InstructorCreateCoursePage = lazy(() => import('../pages/instructor/InstructorCreateCoursePage').then((module) => ({ default: module.InstructorCreateCoursePage })))
+const InstructorCourseDetailPage = lazy(() => import('../pages/instructor/InstructorCourseDetailPage').then((module) => ({ default: module.InstructorCourseDetailPage })))
+const InstructorQuizzesPage = lazy(() => import('../pages/instructor/InstructorQuizzesPage').then((module) => ({ default: module.InstructorQuizzesPage })))
+const InstructorAnalyticsPage = lazy(() => import('../pages/instructor/InstructorAnalyticsPage').then((module) => ({ default: module.InstructorAnalyticsPage })))
+const InstructorDiscountsPage = lazy(() => import('../pages/instructor/InstructorDiscountsPage').then((module) => ({ default: module.InstructorDiscountsPage })))
+const InstructorLessonsPageNew = lazy(() => import('../pages/instructor/InstructorLessonsPageNew').then((module) => ({ default: module.InstructorLessonsPageNew })))
+const InstructorEarningsPage = lazy(() => import('../pages/instructor/InstructorEarningsPage').then((module) => ({ default: module.InstructorEarningsPage })))
+const InstructorSubscriptionRevenuePage = lazy(() => import('../pages/instructor/InstructorSubscriptionRevenuePage').then((module) => ({ default: module.InstructorSubscriptionRevenuePage })))
+const InstructorPayoutsPage = lazy(() => import('../pages/instructor/InstructorPayoutsPage').then((module) => ({ default: module.InstructorPayoutsPage })))
+const InstructorProfilePage = lazy(() => import('../pages/instructor/InstructorProfilePage').then((module) => ({ default: module.InstructorProfilePage })))
+const InstructorResourcesPage = lazy(() => import('../pages/instructor/InstructorResourcesPage').then((module) => ({ default: module.InstructorResourcesPage })))
+const InstructorStudentsPage = lazy(() => import('../pages/instructor/InstructorStudentsPage').then((module) => ({ default: module.InstructorStudentsPage })))
+const InstructorOnboardingPage = lazy(() => import('../pages/instructor/InstructorOnboardingPage').then((module) => ({ default: module.InstructorOnboardingPage })))
+const InstructorCourseLandingPage = lazy(() => import('../pages/instructor/InstructorCourseLandingPage').then((module) => ({ default: module.InstructorCourseLandingPage })))
+const InstructorCommunicationPage = lazy(() => import('../pages/instructor/InstructorCommunicationPage').then((module) => ({ default: module.InstructorCommunicationPage })))
+const InstructorLessonEditorPage = lazy(() => import('../pages/instructor/InstructorLessonEditorPage').then((module) => ({ default: module.InstructorLessonEditorPage })))
 
 export const instructorRoutes: RouteConfig[] = [
   // Dashboard

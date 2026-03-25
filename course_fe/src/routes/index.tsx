@@ -1,9 +1,17 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { useRouter } from '../components/Router'
 import { publicRoutes } from './public.routes'
 import { userRoutes } from './user.routes'
 import { instructorRoutes } from './instructor.routes'
 import { adminRoutes } from './admin.routes'
+
+function RouteLoadingFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center p-6">
+      <div className="text-sm text-muted-foreground">Dang tai trang...</div>
+    </div>
+  )
+}
 
 export function AppRoutes() {
   const { currentRoute } = useRouter()
@@ -40,10 +48,18 @@ export function AppRoutes() {
 
   // Render matched route or 404
   if (matchedRoute) {
-    return <>{matchedRoute.element}</>
+    return (
+      <Suspense fallback={<RouteLoadingFallback />}>
+        <>{matchedRoute.element}</>
+      </Suspense>
+    )
   }
 
   // Default to home if no match
   const homeRoute = publicRoutes.find(r => r.path === '/')
-  return homeRoute ? <>{homeRoute.element}</> : <div>404 - Page Not Found</div>
+  return homeRoute ? (
+    <Suspense fallback={<RouteLoadingFallback />}>
+      <>{homeRoute.element}</>
+    </Suspense>
+  ) : <div>404 - Page Not Found</div>
 }

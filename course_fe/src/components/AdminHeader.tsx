@@ -47,11 +47,19 @@ export function AdminHeader({
   const { t } = useTranslation()
   const { user, logout } = useAuth()
   const { navigate } = useRouter()
-  const { toggleSidebar } = useUIStore()
+  const { toggleSidebar, toggleSidebarCollapsed } = useUIStore()
 
   const handleLogout = () => {
     logout()
     navigate('/login')
+  }
+
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+      toggleSidebarCollapsed()
+      return
+    }
+    toggleSidebar()
   }
 
   return (
@@ -63,7 +71,7 @@ export function AdminHeader({
           <Button
             variant="ghost"
             size="icon"
-            onClick={toggleSidebar}
+            onClick={handleToggleSidebar}
             title={t('admin_header.toggle_sidebar')}
           >
             <Menu className="h-5 w-5" />

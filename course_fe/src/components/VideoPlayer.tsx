@@ -30,6 +30,8 @@ interface VideoPlayerProps {
   onComplete?: () => void
   savedProgress?: number
   lessonId?: number
+  bookmarks?: number[]
+  onBookmarksChange?: (bookmarks: number[]) => void | Promise<void>
   completionThresholdPercent?: number
   restrictForwardSeeking?: boolean
   seekToleranceSeconds?: number
@@ -57,6 +59,8 @@ export function VideoPlayer({
   onComplete,
   savedProgress = 0,
   lessonId,
+  bookmarks = [],
+  onBookmarksChange,
   completionThresholdPercent = 85,
   restrictForwardSeeking = true,
   seekToleranceSeconds = 2
@@ -75,7 +79,6 @@ export function VideoPlayer({
   const [playbackRate, setPlaybackRate] = useState(1.0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
-  const [bookmarks, setBookmarks] = useState<number[]>([])
   const [playerReady, setPlayerReady] = useState(false)
   
   const controlsTimeoutRef = useRef<NodeJS.Timeout>()
@@ -240,31 +243,6 @@ export function VideoPlayer({
       }
     }
   }, [videoId, lessonId])
-
-  // Load saved bookmarks
-  useEffect(() => {
-    if (lessonId) {
-      try {
-        const saved = localStorage.getItem(`bookmarks_${lessonId}`)
-        if (saved) {
-          setBookmarks(JSON.parse(saved))
-        }
-      } catch (e) {
-        console.error('Error loading bookmarks:', e)
-      }
-    }
-  }, [lessonId])
-
-  // Save bookmarks
-  useEffect(() => {
-    if (lessonId && bookmarks.length > 0) {
-      try {
-        localStorage.setItem(`bookmarks_${lessonId}`, JSON.stringify(bookmarks))
-      } catch (e) {
-        console.error('Error saving bookmarks:', e)
-      }
-    }
-  }, [bookmarks, lessonId])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -453,7 +431,9 @@ export function VideoPlayer({
     
     try {
       const currentTime = playerRef.current.getCurrentTime()
-      setBookmarks(prev => [...prev, currentTime])
+      const roundedTime = Math.floor(currentTime)
+      const nextBookmarks = Array.from(new Set([...bookmarks, roundedTime])).sort((a, b) => a - b)
+      void onBookmarksChange?.(nextBookmarks)
       toast.success('Bookmark added at ' + formatTime(currentTime))
     } catch (err) {
       console.log('Bookmark not available yet')

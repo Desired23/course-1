@@ -10,6 +10,8 @@ from .services import (
     get_all_forum_topics,
     update_forum_topic,
     delete_forum_topic,
+    report_forum_topic,
+    moderate_forum_topic,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
@@ -33,7 +35,8 @@ class ForumTopicListView(APIView):
                 forum_topic = get_forum_topic_by_id(topic_id)
                 return Response(forum_topic, status=status.HTTP_200_OK)
             else:
-                forum_topics = get_all_forum_topics()
+                reported_only = request.query_params.get('reported') == 'true'
+                forum_topics = get_all_forum_topics(reported_only=reported_only)
                 return paginate_queryset(forum_topics, request, ForumTopicSerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -58,3 +61,31 @@ class ForumTopicListView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ForumTopicReportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, topic_id):
+        try:
+            result = report_forum_topic(topic_id, request.data.get('reason', ''))
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForumTopicModerationView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, topic_id):
+        try:
+            result = moderate_forum_topic(
+                topic_id,
+                request.data.get('action'),
+                request.data.get('reason', ''),
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { StatDetailDialog } from "../../components/StatDetailDialog"
 import { PendingTasks } from "../../components/PendingTasks"
 import { formatCurrency } from "../../utils/formatters"
-import { getAdminDashboardStats, getUsers, type AdminDashboardStats, type UserItem } from '../../services/admin.api'
+import { getAdminDashboardStats, getUsers, type UserItem } from '../../services/admin.api'
 import { getCourses, type CourseListItem } from '../../services/course.api'
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -21,9 +21,6 @@ import {
   TrendingUp, 
   Search, 
   MoreVertical,
-  RefreshCw,
-  UserCheck,
-  UserX,
   Eye,
   Edit,
   Trash2,
@@ -37,19 +34,20 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "../../components/ui/dropdown-menu"
-import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { useTranslation } from "react-i18next"
 
 export function AdminDashboard() {
-  const { user, hasRole } = useAuth()
+  const { hasRole } = useAuth()
   const { navigate } = useRouter()
   const { t } = useTranslation()
   const [userSearch, setUserSearch] = useState('')
   const [courseSearch, setCourseSearch] = useState('')
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [mockUsers, setMockUsers] = useState<any[]>([])
-  const [mockCourses, setMockCourses] = useState<any[]>([])
-  const [mockStats, setMockStats] = useState<any>({ totalUsers: 0, totalCourses: 0, monthlyRevenue: 0, courseCompletions: 0 })
+  const [isUsersLoading, setIsUsersLoading] = useState(true)
+  const [isCoursesLoading, setIsCoursesLoading] = useState(true)
+  const [recentUsers, setRecentUsers] = useState<any[]>([])
+  const [recentCourses, setRecentCourses] = useState<any[]>([])
+  const [dashboardStats, setDashboardStats] = useState<any>({ totalUsers: 0, totalCourses: 0, monthlyRevenue: 0, courseCompletions: 0 })
   const [selectedStat, setSelectedStat] = useState<{
     open: boolean
     title: string
@@ -65,7 +63,7 @@ export function AdminDashboard() {
   const fetchDashboard = async () => {
     try {
       const stats = await getAdminDashboardStats()
-      setMockStats({
+      setDashboardStats({
         totalUsers: stats.total_users,
         totalCourses: stats.total_courses,
         monthlyRevenue: stats.this_month_revenue,
@@ -82,9 +80,10 @@ export function AdminDashboard() {
     let cancelled = false
     const timer = setTimeout(async () => {
       try {
+        setIsUsersLoading(true)
         const usersRes = await getUsers({ page: 1, page_size: 10, search: userSearch || undefined })
         if (cancelled) return
-        setMockUsers((usersRes.results || []).map((u: UserItem) => ({
+        setRecentUsers((usersRes.results || []).map((u: UserItem) => ({
           id: u.id,
           name: u.full_name || u.username,
           email: u.email,
@@ -95,6 +94,8 @@ export function AdminDashboard() {
         })))
       } catch (err) {
         if (!cancelled) console.error('Failed to fetch users list:', err)
+      } finally {
+        if (!cancelled) setIsUsersLoading(false)
       }
     }, 300)
     return () => {
@@ -107,9 +108,10 @@ export function AdminDashboard() {
     let cancelled = false
     const timer = setTimeout(async () => {
       try {
+        setIsCoursesLoading(true)
         const coursesRes = await getCourses({ page: 1, page_size: 10, search: courseSearch || undefined })
         if (cancelled) return
-        setMockCourses((coursesRes.results || []).map((c: CourseListItem) => ({
+        setRecentCourses((coursesRes.results || []).map((c: CourseListItem) => ({
           id: c.id,
           title: c.title,
           instructor: c.instructor_name || 'Unknown',
@@ -122,6 +124,8 @@ export function AdminDashboard() {
         })))
       } catch (err) {
         if (!cancelled) console.error('Failed to fetch courses list:', err)
+      } finally {
+        if (!cancelled) setIsCoursesLoading(false)
       }
     }, 300)
     return () => {
@@ -157,18 +161,23 @@ export function AdminDashboard() {
 
   return (
     <div className="p-4 md:p-8">
+        <div className="flex items-center justify-end mb-4">
+          <Button variant="outline" size="sm" onClick={handleRefreshStats} disabled={isRefreshing}>
+            {isRefreshing ? 'Refreshing...' : 'Refresh dashboard'}
+          </Button>
+        </div>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.total_users'), 'users', mockStats.totalUsers || 0)}
+            onClick={() => openStatDetail(t('admin_dashboard.total_users'), 'users', dashboardStats.totalUsers || 0)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.total_users')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl">{(mockStats.totalUsers || 0).toLocaleString()}</div>
+              <div className="text-2xl">{(dashboardStats.totalUsers || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 {t('admin_dashboard.from_last_month_12')}
               </p>
@@ -180,14 +189,14 @@ export function AdminDashboard() {
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.total_courses'), 'courses', mockStats.totalCourses || 0)}
+            onClick={() => openStatDetail(t('admin_dashboard.total_courses'), 'courses', dashboardStats.totalCourses || 0)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.total_courses')}</CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl">{(mockStats.totalCourses || 0).toLocaleString()}</div>
+              <div className="text-2xl">{(dashboardStats.totalCourses || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 {t('admin_dashboard.from_last_month_8')}
               </p>
@@ -199,14 +208,14 @@ export function AdminDashboard() {
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.monthly_revenue'), 'revenue', mockStats.monthlyRevenue || 0)}
+            onClick={() => openStatDetail(t('admin_dashboard.monthly_revenue'), 'revenue', dashboardStats.monthlyRevenue || 0)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.monthly_revenue')}</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl">{formatCurrency(mockStats.monthlyRevenue || 0)}</div>
+              <div className="text-2xl">{formatCurrency(dashboardStats.monthlyRevenue || 0)}</div>
               <p className="text-xs text-muted-foreground">
                 {t('admin_dashboard.from_last_month_23')}
               </p>
@@ -218,14 +227,14 @@ export function AdminDashboard() {
 
           <Card 
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.completions'), 'completions', mockStats.courseCompletions || 0)}
+            onClick={() => openStatDetail(t('admin_dashboard.completions'), 'completions', dashboardStats.courseCompletions || 0)}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.completions')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl">{(mockStats.courseCompletions || 0).toLocaleString()}</div>
+              <div className="text-2xl">{(dashboardStats.courseCompletions || 0).toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 {t('admin_dashboard.from_last_month_15')}
               </p>
@@ -275,11 +284,11 @@ export function AdminDashboard() {
                         className="pl-8 text-sm"
                       />
                     </div>
-                    <Button variant="outline" size="sm" className="text-xs md:text-sm">
+                    <Button variant="outline" size="sm" className="text-xs md:text-sm" onClick={() => navigate('/admin/users')}>
                       <Filter className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                       {t('admin_dashboard.filter')}
                     </Button>
-                    <Button size="sm" className="text-xs md:text-sm">
+                    <Button size="sm" className="text-xs md:text-sm" onClick={() => navigate('/admin/users/new')}>
                       <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                       {t('admin_dashboard.add_user')}
                     </Button>
@@ -300,7 +309,19 @@ export function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockUsers.map((user) => (
+                    {isUsersLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                          Loading users...
+                        </TableCell>
+                      </TableRow>
+                    ) : recentUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                          No users match the current search.
+                        </TableCell>
+                      </TableRow>
+                    ) : recentUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
@@ -338,17 +359,17 @@ export function AdminDashboard() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/users/${user.id}`)}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.view_profile')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/users/${user.id}/edit`)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.edit_user')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem onClick={() => navigate('/admin/users')}>
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                {t('admin_dashboard.delete_user')}
+                                Open delete flow
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -377,7 +398,7 @@ export function AdminDashboard() {
                         className="pl-8 text-sm"
                       />
                     </div>
-                    <Button variant="outline" size="sm" className="text-xs md:text-sm">
+                    <Button variant="outline" size="sm" className="text-xs md:text-sm" onClick={() => navigate('/admin/courses')}>
                       <Filter className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                       {t('admin_dashboard.filter')}
                     </Button>
@@ -400,7 +421,19 @@ export function AdminDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockCourses.map((course) => (
+                    {isCoursesLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                          Loading courses...
+                        </TableCell>
+                      </TableRow>
+                    ) : recentCourses.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                          No courses match the current search.
+                        </TableCell>
+                      </TableRow>
+                    ) : recentCourses.map((course) => (
                       <TableRow key={course.id}>
                         <TableCell>
                           <div>
@@ -430,17 +463,17 @@ export function AdminDashboard() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/courses/${course.id}`)}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.view_course')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/courses/${course.id}`)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.edit_course')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">
+                              <DropdownMenuItem onClick={() => navigate('/admin/courses')}>
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                {t('admin_dashboard.delete_course')}
+                                Open delete flow
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -460,9 +493,19 @@ export function AdminDashboard() {
                 <CardTitle>{t('admin_dashboard.analytics_overview')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {t('admin_dashboard.analytics_coming_soon')}
-                </p>
+                <div className="py-4 space-y-4">
+                  <p className="text-muted-foreground">
+                    Open the dedicated analytics screens below for the full reporting experience.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Button onClick={() => navigate('/admin/analytics')}>
+                      {t('admin_dashboard.analytics_tab')}
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/admin/statistics')}>
+                      Statistics
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -473,9 +516,22 @@ export function AdminDashboard() {
                 <CardTitle>{t('admin_dashboard.platform_settings')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground text-center py-8">
-                  {t('admin_dashboard.settings_coming_soon')}
-                </p>
+                <div className="py-4 space-y-4">
+                  <p className="text-muted-foreground">
+                    Jump directly to the admin settings area you want to update.
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <Button onClick={() => navigate('/admin/settings')}>
+                      Platform Settings
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/admin/website-settings')}>
+                      Website Settings
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate('/admin/payments/methods')}>
+                      Payment Methods
+                    </Button>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

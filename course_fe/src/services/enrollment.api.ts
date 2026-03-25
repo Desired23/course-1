@@ -67,6 +67,7 @@ export interface LessonProgress {
   time_spent: number | null
   is_completed: boolean
   last_position: number | null
+  notes?: string | null
   last_access_date: string | null
   completion_date: string | null
 }
@@ -166,6 +167,7 @@ export async function updateLessonProgress(data: {
   time_spent?: number
   is_completed?: boolean
   last_position?: number
+  notes?: string | null
 }): Promise<any> {
   return http.post('/learning-progress/update/', data)
 }
@@ -178,6 +180,7 @@ export async function updateLessonProgressById(
     time_spent?: number
     is_completed?: boolean
     last_position?: number
+    notes?: string | null
   }
 ): Promise<any> {
   return http.put(`/learning-progress/${lessonId}/`, data)

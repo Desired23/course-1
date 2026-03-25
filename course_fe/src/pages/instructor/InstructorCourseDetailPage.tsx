@@ -13,7 +13,8 @@ import {
   Eye, MessageCircle, Edit, Loader2
 } from "lucide-react"
 import { PreviewCourseModal } from "../../components/PreviewCourseModal"
-import { getCourseById, type CourseDetail, formatPrice, parseDecimal, formatDuration } from '../../services/course.api'
+import { toast } from 'sonner'
+import { getCourseById, updateCourse, deleteCourse, type CourseDetail, formatPrice, parseDecimal, formatDuration } from '../../services/course.api'
 import { getInstructorCourseAnalytics, type CourseAnalytics } from '../../services/instructor.api'
 import { getReviewsByCourse } from '../../services/review.api'
 
@@ -26,7 +27,9 @@ export function InstructorCourseDetailPage() {
   const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isMutating, setIsMutating] = useState(false)
 
   useEffect(() => {
     if (isNaN(courseId)) {
@@ -47,6 +50,7 @@ export function InstructorCourseDetailPage() {
         if (courseData.status === 'fulfilled') setCourse(courseData.value)
         else throw new Error('Failed to load course')
         if (analyticsData.status === 'fulfilled') setAnalytics(analyticsData.value)
+        else setAnalyticsError('Analytics are temporarily unavailable for this course.')
         if (reviewsData.status === 'fulfilled') setReviews(reviewsData.value.results || [])
       } catch (err: any) {
         if (!cancelled) setError(err.message || 'Failed to load course')
@@ -57,6 +61,87 @@ export function InstructorCourseDetailPage() {
     load()
     return () => { cancelled = true }
   }, [courseId])
+
+  const refreshCourse = async () => {
+    const [courseData, analyticsData, reviewsData] = await Promise.allSettled([
+      getCourseById(courseId),
+      getInstructorCourseAnalytics(courseId),
+      getReviewsByCourse(courseId, 1, 10),
+    ])
+    if (courseData.status === 'fulfilled') setCourse(courseData.value)
+    if (analyticsData.status === 'fulfilled') {
+      setAnalytics(analyticsData.value)
+      setAnalyticsError(null)
+    } else {
+      setAnalytics(null)
+      setAnalyticsError('Analytics are temporarily unavailable for this course.')
+    }
+    if (reviewsData.status === 'fulfilled') setReviews(reviewsData.value.results || [])
+  }
+
+  const handleStatusChange = async (nextStatus: 'pending' | 'draft' | 'archived' | 'published', confirmation: string) => {
+    if (!course || !window.confirm(confirmation)) return
+    try {
+      setIsMutating(true)
+      await updateCourse(course.id, { status: nextStatus })
+      await refreshCourse()
+      toast.success(`Course moved to ${nextStatus.replace('_', ' ')}.`)
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update course')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
+  const handleDeleteCourse = async () => {
+    if (!course || !window.confirm(`Delete "${course.title}"?`)) return
+    try {
+      setIsMutating(true)
+      await deleteCourse(course.id)
+      toast.success('Course deleted successfully.')
+      navigate('/instructor/courses')
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete course')
+    } finally {
+      setIsMutating(false)
+    }
+  }
+
+  const renderManagementActions = () => {
+    if (!course) return null
+    const actions: Array<{ key: string; label: string; onClick: () => void; variant?: 'default' | 'outline' | 'destructive' }> = [
+      { key: 'lessons', label: 'Edit Lessons', onClick: () => navigate(`/instructor/lessons/${course.id}`), variant: 'outline' },
+      { key: 'landing', label: 'Edit Course Info', onClick: () => navigate(`/instructor/course-landing/${course.id}`), variant: 'outline' },
+    ]
+
+    if (course.status === 'draft') {
+      actions.push({ key: 'submit', label: 'Submit for Review', onClick: () => handleStatusChange('pending', 'Submit this course for review?') })
+    }
+    if (course.status === 'archived') {
+      if (!course.content_changed_since_publish) {
+        actions.push({ key: 'restore', label: 'Restore Published', onClick: () => handleStatusChange('published', 'Restore this archived course back to published?'), variant: 'outline' })
+      }
+      actions.push({ key: 'draft', label: 'Move to Draft', onClick: () => handleStatusChange('draft', 'Move this archived course back to draft for editing?'), variant: 'outline' })
+    }
+    if (['pending', 'rejected'].includes(course.status)) {
+      actions.push({ key: 'draft', label: 'Move to Draft', onClick: () => handleStatusChange('draft', 'Move this course back to draft?'), variant: 'outline' })
+    }
+    if (course.status === 'published') {
+      actions.push({ key: 'archive', label: 'Archive', onClick: () => handleStatusChange('archived', 'Archive this published course?'), variant: 'outline' })
+    }
+    actions.push({ key: 'delete', label: 'Delete', onClick: handleDeleteCourse, variant: 'destructive' })
+
+    return actions.map((action) => (
+      <Button
+        key={action.key}
+        variant={action.variant ?? 'default'}
+        onClick={action.onClick}
+        disabled={isMutating}
+      >
+        {action.label}
+      </Button>
+    ))
+  }
 
   if (loading) {
     return (
@@ -115,10 +200,19 @@ export function InstructorCourseDetailPage() {
                   <p className="text-sm text-muted-foreground line-clamp-1">
                     {course.shortdescription || course.description?.slice(0, 100)}
                   </p>
+                  {course.status === 'archived' && course.content_changed_since_publish && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      This archived course changed after its last publish, so it must return to draft and go through review again.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => navigate(`/course/${courseId}`)}>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/course/${courseId}`)}
+                  disabled={course.status !== 'published' || !course.is_public}
+                >
                   <Eye className="h-4 w-4 mr-2" />
                   View Public
                 </Button>
@@ -126,6 +220,7 @@ export function InstructorCourseDetailPage() {
                   <Eye className="h-4 w-4 mr-2" />
                   Preview
                 </Button>
+                {renderManagementActions()}
               </div>
             </div>
           </div>
@@ -282,7 +377,7 @@ export function InstructorCourseDetailPage() {
                 </div>
               ) : (
                 <Card className="p-8 text-center text-muted-foreground">
-                  <p>Analytics data not available.</p>
+                  <p>{analyticsError || 'Analytics data not available.'}</p>
                 </Card>
               )}
             </TabsContent>

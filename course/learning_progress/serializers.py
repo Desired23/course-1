@@ -9,6 +9,7 @@ class LearningProgressSerializer(serializers.ModelSerializer):
     lesson_id = serializers.IntegerField(source='lesson.id', read_only=True)
     course_id = serializers.IntegerField(source='course.id', read_only=True)
     last_access_date = serializers.DateTimeField(source='last_accessed', read_only=True)
+    notes = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     
     class Meta:
         model = LearningProgress
@@ -21,6 +22,7 @@ class LearningProgressSerializer(serializers.ModelSerializer):
             'time_spent',
             'is_completed',
             'last_position',
+            'notes',
             'last_access_date',
             'completion_date'
         ]

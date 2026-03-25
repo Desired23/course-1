@@ -9,6 +9,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Switch } from "../../components/ui/switch"
+import { Checkbox } from "../../components/ui/checkbox"
+import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Plus, Edit, Trash2, Eye, Calendar, User, Tag } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { toast } from "sonner"
@@ -16,6 +19,7 @@ import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { getAdminBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost } from '../../services/blog-posts.api'
 import type { BlogPost as ApiBlogPost } from '../../services/blog-posts.api'
 import { uploadFiles } from '../../services/upload.api'
+import { getAllCategories, type Category } from '../../services/category.api'
 
 interface BlogPost {
   id: string
@@ -37,6 +41,8 @@ interface BlogPost {
 export function AdminBlogPostsPage() {
   const { navigate } = useRouter()
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const mapApiBlogPost = (p: ApiBlogPost): BlogPost => ({
     id: String(p.id),
@@ -56,10 +62,16 @@ export function AdminBlogPostsPage() {
 
   useEffect(() => {
     const fetchPosts = async () => {
+      setIsLoading(true)
       try {
-        const res = await getAdminBlogPosts({ page_size: 200 })
+        const [res, categoriesRes] = await Promise.all([
+          getAdminBlogPosts({ page_size: 200 }),
+          getAllCategories({ page_size: 200 }),
+        ])
         setBlogPosts((res.results ?? []).map(mapApiBlogPost))
+        setCategories(categoriesRes.results ?? [])
       } catch { toast.error('Không thể tải bài viết') }
+      setIsLoading(false)
     }
     fetchPosts()
   }, [])
@@ -69,6 +81,24 @@ export function AdminBlogPostsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all')
   const [isUploadingFeaturedImage, setIsUploadingFeaturedImage] = useState(false)
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([])
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void>)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
   
   const [formData, setFormData] = useState({
     title: '',
@@ -98,6 +128,7 @@ export function AdminBlogPostsPage() {
         summary: formData.excerpt,
         slug: formData.slug || formData.title.toLowerCase().replace(/\s+/g, '-'),
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        category: formData.category ? Number(formData.category) : null,
         featured_image: formData.featuredImage || undefined,
         status: formData.status
       })
@@ -117,6 +148,7 @@ export function AdminBlogPostsPage() {
         summary: formData.excerpt,
         slug: formData.slug,
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        category: formData.category ? Number(formData.category) : null,
         featured_image: formData.featuredImage || undefined,
         status: formData.status
       })
@@ -129,12 +161,83 @@ export function AdminBlogPostsPage() {
   }
 
   const handleDeletePost = async (postId: string) => {
-    if (window.confirm('Are you sure you want to delete this blog post?')) {
-      try {
-        await deleteBlogPost(Number(postId))
-        setBlogPosts(prev => prev.filter(p => p.id !== postId))
-        toast.success('Blog post deleted successfully!')
-      } catch { toast.error('Xóa thất bại') }
+    try {
+      await deleteBlogPost(Number(postId))
+      setBlogPosts(prev => prev.filter(p => p.id !== postId))
+      toast.success('Blog post deleted successfully!')
+    } catch { toast.error('X??a th???t b???i') }
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void>,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState(prev => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const togglePostSelection = (postId: string, checked: boolean) => {
+    setSelectedPostIds(prev => checked ? [...prev, postId] : prev.filter(id => id !== postId))
+  }
+
+  const toggleAllFilteredPosts = (checked: boolean) => {
+    setSelectedPostIds(checked ? filteredPosts.map(post => post.id) : [])
+  }
+
+  const changePostStatus = async (postId: string, status: 'draft' | 'published') => {
+    const updated = await updateBlogPost(Number(postId), { status })
+    setBlogPosts(prev => prev.map(post => post.id === postId ? mapApiBlogPost(updated) : post))
+  }
+
+  const bulkDeletePosts = async (ids: string[]) => {
+    for (const id of ids) {
+      await deleteBlogPost(Number(id))
+    }
+    setBlogPosts(prev => prev.filter(post => !ids.includes(post.id)))
+  }
+
+  const bulkUpdatePosts = async (
+    ids: string[],
+    updater: (postId: string) => Promise<void>,
+    successMessage: string
+  ) => {
+    try {
+      for (const id of ids) {
+        await updater(id)
+      }
+      setSelectedPostIds([])
+      toast.success(successMessage)
+    } catch {
+      toast.error('Bulk blog action failed')
     }
   }
 
@@ -146,7 +249,7 @@ export function AdminBlogPostsPage() {
       excerpt: post.excerpt,
       content: post.content,
       author: post.author,
-      category: post.category,
+      category: categories.find(category => category.name === post.category)?.id?.toString() || '',
       tags: post.tags.join(', '),
       featuredImage: post.featuredImage,
       status: post.status
@@ -266,11 +369,11 @@ export function AdminBlogPostsPage() {
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Programming">Programming</SelectItem>
-                      <SelectItem value="Education">Education</SelectItem>
-                      <SelectItem value="Technology">Technology</SelectItem>
-                      <SelectItem value="Business">Business</SelectItem>
-                      <SelectItem value="Design">Design</SelectItem>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={String(category.id)}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -411,6 +514,50 @@ export function AdminBlogPostsPage() {
         </CardContent>
       </Card>
 
+      <AdminBulkActionBar
+        count={selectedPostIds.length}
+        label="posts selected"
+        onClear={() => setSelectedPostIds([])}
+        actions={[
+          {
+            key: 'publish',
+            label: 'Publish',
+            onClick: () => openConfirm(
+              'Publish selected posts',
+              `Publish ${selectedPostIds.length} selected blog posts?`,
+              'Publish',
+              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'published'), 'Da xuat ban bai viet da chon'),
+            ),
+          },
+          {
+            key: 'draft',
+            label: 'Move to draft',
+            onClick: () => openConfirm(
+              'Move selected posts to draft',
+              `Move ${selectedPostIds.length} selected posts back to draft?`,
+              'Move to draft',
+              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'draft'), 'Da chuyen bai viet ve draft'),
+            ),
+          },
+          {
+            key: 'delete',
+            label: 'Delete',
+            destructive: true,
+            onClick: () => openConfirm(
+              'Delete selected posts',
+              `Delete ${selectedPostIds.length} selected blog posts? This action cannot be undone.`,
+              'Delete',
+              async () => {
+                await bulkDeletePosts(selectedPostIds)
+                setSelectedPostIds([])
+                toast.success('Da xoa bai viet da chon')
+              },
+              true,
+            ),
+          },
+        ]}
+      />
+
       {/* Blog Posts Table */}
       <Card>
         <CardHeader>
@@ -420,6 +567,12 @@ export function AdminBlogPostsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[48px]">
+                  <Checkbox
+                    checked={filteredPosts.length > 0 && selectedPostIds.length === filteredPosts.length}
+                    onCheckedChange={(checked) => toggleAllFilteredPosts(Boolean(checked))}
+                  />
+                </TableHead>
                 <TableHead>Post</TableHead>
                 <TableHead>Author</TableHead>
                 <TableHead>Category</TableHead>
@@ -430,8 +583,26 @@ export function AdminBlogPostsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPosts.map((post) => (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    Loading blog posts...
+                  </TableCell>
+                </TableRow>
+              ) : filteredPosts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    No blog posts match the current filters.
+                  </TableCell>
+                </TableRow>
+              ) : filteredPosts.map((post) => (
                 <TableRow key={post.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedPostIds.includes(post.id)}
+                      onCheckedChange={(checked) => togglePostSelection(post.id, Boolean(checked))}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       {post.featuredImage && (
@@ -492,6 +663,20 @@ export function AdminBlogPostsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => openConfirm(
+                          post.status === 'published' ? 'Move post to draft' : 'Publish post',
+                          post.status === 'published'
+                            ? `Move "${post.title}" back to draft?`
+                            : `Publish "${post.title}" now?`,
+                          post.status === 'published' ? 'Move to draft' : 'Publish',
+                          () => changePostStatus(post.id, post.status === 'published' ? 'draft' : 'published'),
+                        )}
+                      >
+                        <Tag className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => openEditDialog(post)}
                       >
                         <Edit className="h-4 w-4" />
@@ -499,7 +684,13 @@ export function AdminBlogPostsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeletePost(post.id)}
+                        onClick={() => openConfirm(
+                          'Delete blog post',
+                          `Delete "${post.title}"? This action cannot be undone.`,
+                          'Delete',
+                          () => handleDeletePost(post.id),
+                          true,
+                        )}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -557,11 +748,11 @@ export function AdminBlogPostsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Programming">Programming</SelectItem>
-                    <SelectItem value="Education">Education</SelectItem>
-                    <SelectItem value="Technology">Technology</SelectItem>
-                    <SelectItem value="Business">Business</SelectItem>
-                    <SelectItem value="Design">Design</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -639,6 +830,17 @@ export function AdminBlogPostsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }
+

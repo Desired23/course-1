@@ -319,6 +319,96 @@ def cancel_subscription(subscription_id, user):
     return UserSubscriptionSerializer(sub).data
 
 
+@transaction.atomic
+def admin_extend_subscription(subscription_id, extend_days, admin_user):
+    try:
+        extend_days = int(extend_days)
+    except (TypeError, ValueError):
+        raise ValidationError({"error": "extend_days must be a positive integer."})
+
+    if extend_days <= 0:
+        raise ValidationError({"error": "extend_days must be greater than 0."})
+
+    try:
+        sub = UserSubscription.objects.select_related('user', 'plan').get(
+            id=subscription_id,
+            is_deleted=False,
+        )
+    except UserSubscription.DoesNotExist:
+        raise ValidationError({"error": "Subscription not found."})
+
+    now = timezone.now()
+    base_end_date = sub.end_date if sub.end_date and sub.end_date > now else now
+    sub.end_date = base_end_date + timedelta(days=extend_days)
+    sub.status = UserSubscription.Status.ACTIVE
+    sub.cancelled_at = None
+    sub.save(update_fields=['end_date', 'status', 'cancelled_at', 'updated_at'])
+
+    reactivate_subscription_enrollments(sub)
+
+    log_activity(
+        user_id=admin_user.id if admin_user else None,
+        action="ADMIN_SUBSCRIPTION_EXTENDED",
+        entity_type="UserSubscription",
+        entity_id=sub.id,
+        description=(
+            f"Admin extended subscription {sub.id} for user {sub.user_id} "
+            f"by {extend_days} days"
+        ),
+    )
+
+    return UserSubscriptionSerializer(sub).data
+
+
+@transaction.atomic
+def admin_cancel_subscription(subscription_id, admin_user):
+    try:
+        sub = UserSubscription.objects.select_related('user', 'plan').get(
+            id=subscription_id,
+            is_deleted=False,
+        )
+    except UserSubscription.DoesNotExist:
+        raise ValidationError({"error": "Subscription not found."})
+
+    if sub.status == UserSubscription.Status.CANCELLED:
+        raise ValidationError({"error": "Subscription is already cancelled."})
+
+    now = timezone.now()
+    sub.status = UserSubscription.Status.CANCELLED
+    sub.cancelled_at = now
+    sub.auto_renew = False
+    if sub.end_date is None or sub.end_date > now:
+        sub.end_date = now
+    sub.save(update_fields=['status', 'cancelled_at', 'auto_renew', 'end_date', 'updated_at'])
+
+    Enrollment.objects.filter(
+        subscription=sub,
+        status=Enrollment.Status.Active,
+        is_deleted=False,
+    ).update(status=Enrollment.Status.SUSPENDED)
+
+    log_activity(
+        user_id=admin_user.id if admin_user else None,
+        action="ADMIN_SUBSCRIPTION_CANCELLED",
+        entity_type="UserSubscription",
+        entity_id=sub.id,
+        description=f"Admin cancelled subscription {sub.id} for user {sub.user_id}",
+    )
+
+    _create_notification(
+        receiver=sub.user,
+        title=f"Goi {sub.plan.name} da bi huy boi quan tri vien",
+        message=(
+            f"Goi '{sub.plan.name}' cua ban da bi huy ngay lap tuc boi quan tri vien. "
+            "Ban co the lien he ho tro neu can them thong tin."
+        ),
+        notification_code='subscription_cancelled',
+        related_id=sub.id,
+    )
+
+    return UserSubscriptionSerializer(sub).data
+
+
 def user_has_plan_access(user_id, course_id):
     now = timezone.now()
     return UserSubscription.objects.filter(

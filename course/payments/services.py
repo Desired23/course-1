@@ -1,3 +1,4 @@
+import json
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
 from .serializers import PaymentSerializer, PaymentCreateSerializer
@@ -13,6 +14,23 @@ from carts.models import Cart
 from activity_logs.services import log_activity
 from instructor_earnings.services import generate_instructor_earnings_from_payment
 from payment_details.models import Payment_Details
+from systems_settings.models import SystemsSetting
+
+
+PAYMENT_ADMIN_CONFIGS = {
+    'policies': {
+        'setting_key': 'payment_policies',
+        'description': 'Payment management policies configuration',
+    },
+    'instructor-rates': {
+        'setting_key': 'instructor_rates',
+        'description': 'Payment management instructor rates configuration',
+    },
+    'discounts': {
+        'setting_key': 'discount_rules',
+        'description': 'Payment management discount rules configuration',
+    },
+}
 
 
 def create_payment(payment_data):
@@ -499,4 +517,63 @@ def check_enrollment_by_course(course_id, user):
         "enrollment_id": enrollment.id if enrollment else None,
         "created_at": payment.created_at,
         "completed_at": completed_at,
+    }
+
+
+def get_payment_admin_config(config_key):
+    config_meta = PAYMENT_ADMIN_CONFIGS.get(config_key)
+    if not config_meta:
+        raise ValidationError("Unsupported payment admin config key.")
+
+    setting, _ = SystemsSetting.objects.get_or_create(
+        setting_key=config_meta['setting_key'],
+        defaults={
+            'setting_group': 'payments',
+            'setting_value': '[]',
+            'description': config_meta['description'],
+        }
+    )
+
+    try:
+        parsed_value = json.loads(setting.setting_value or '[]')
+    except json.JSONDecodeError as exc:
+        raise ValidationError(f"Stored payment config is invalid JSON: {exc}") from exc
+
+    return {
+        'config_key': config_key,
+        'setting_id': setting.id,
+        'value': parsed_value,
+        'updated_at': setting.updated_at,
+    }
+
+
+def update_payment_admin_config(config_key, value, admin=None):
+    config_meta = PAYMENT_ADMIN_CONFIGS.get(config_key)
+    if not config_meta:
+        raise ValidationError("Unsupported payment admin config key.")
+    if not isinstance(value, list):
+        raise ValidationError("Payment admin config value must be a JSON array.")
+
+    serialized_value = json.dumps(value, ensure_ascii=False)
+    setting, _ = SystemsSetting.objects.get_or_create(
+        setting_key=config_meta['setting_key'],
+        defaults={
+            'setting_group': 'payments',
+            'setting_value': serialized_value,
+            'description': config_meta['description'],
+            'admin': admin,
+        }
+    )
+
+    setting.setting_group = 'payments'
+    setting.setting_value = serialized_value
+    setting.description = config_meta['description']
+    setting.admin = admin
+    setting.save(update_fields=['setting_group', 'setting_value', 'description', 'admin', 'updated_at'])
+
+    return {
+        'config_key': config_key,
+        'setting_id': setting.id,
+        'value': value,
+        'updated_at': setting.updated_at,
     }

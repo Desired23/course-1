@@ -28,6 +28,9 @@ class ForumTopicSerializer(serializers.ModelSerializer):
             'status',
             'views',
             'likes',
+            'report_count',
+            'last_report_reason',
+            'last_reported_at',
             'is_pinned',
             'replies_count',
         ]

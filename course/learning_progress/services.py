@@ -23,25 +23,35 @@ def update_learning_progress(user_id, lesson_id, progress_data):
         if not course:
             raise ValidationError({"lesson_id": "Lesson does not belong to any course."})
         
+        enrollment = Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
+        if not enrollment:
+            raise ValidationError({"enrollment": "User is not enrolled in the course."})
+
         learning_progress, created = LearningProgress.objects.get_or_create(
             user=user,
             lesson=lesson,
             defaults={
+                'enrollment': enrollment,
                 'course': course,
                 'progress_percentage': Decimal(str(progress_data.get('progress_percentage', 0))),
                 'time_spent': progress_data.get('time_spent', 0),
                 'is_completed': progress_data.get('is_completed', False),
                 'last_position': progress_data.get('last_position'),
+                'notes': progress_data.get('notes'),
                 'start_time': timezone.now()
             }
         )
         
         if not created:
+            learning_progress.enrollment = enrollment
+            learning_progress.course = course
             # Update existing record
             learning_progress.progress_percentage = Decimal(str(progress_data.get('progress_percentage', learning_progress.progress_percentage)))
             learning_progress.time_spent = progress_data.get('time_spent', learning_progress.time_spent)
             learning_progress.is_completed = progress_data.get('is_completed', learning_progress.is_completed)
             learning_progress.last_position = progress_data.get('last_position', learning_progress.last_position)
+            if 'notes' in progress_data:
+                learning_progress.notes = progress_data.get('notes')
             
             # Set completion date if just completed
             if learning_progress.is_completed and not learning_progress.completion_date:
@@ -79,14 +89,19 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
                 'time_spent': progress_data.get('time_spent', 0),
                 'is_completed': progress_data.get('is_completed', False),
                 'last_position': progress_data.get('last_position'),
+                'notes': progress_data.get('notes'),
                 'start_time': timezone.now()
             }
         )
         if not created:
+            learning_progress.enrollment = enrollment
+            learning_progress.course = course
             learning_progress.progress_percentage = Decimal(str(progress_data.get('progress_percentage', learning_progress.progress_percentage)))
             learning_progress.time_spent = progress_data.get('time_spent', learning_progress.time_spent)
             learning_progress.is_completed = progress_data.get('is_completed', learning_progress.is_completed)
             learning_progress.last_position = progress_data.get('last_position', learning_progress.last_position)
+            if 'notes' in progress_data:
+                learning_progress.notes = progress_data.get('notes')
             if learning_progress.is_completed and not learning_progress.completion_date:
                 learning_progress.completion_date = timezone.now()
             learning_progress.last_accessed = timezone.now()
@@ -136,7 +151,8 @@ def get_course_progress(user_id, course_id):
             'progress_percentage', 
             'is_completed',
             'last_position',
-            'last_accessed'
+            'last_accessed',
+            'notes',
         ).order_by('lesson_id'))
         
         # Format lesson data (no extra queries)
@@ -146,7 +162,8 @@ def get_course_progress(user_id, course_id):
                 'progress_percentage': p['progress_percentage'],
                 'is_completed': p['is_completed'],
                 'last_position': p['last_position'],
-                'last_access_date': p['last_accessed']
+                'last_access_date': p['last_accessed'],
+                'notes': p['notes'],
             }
             for p in progresses
         ]

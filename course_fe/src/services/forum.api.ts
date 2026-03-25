@@ -52,6 +52,9 @@ export interface ForumTopic {
   status: 'active' | 'locked' | 'deleted'
   views: number
   likes: number
+  report_count: number
+  last_report_reason: string | null
+  last_reported_at: string | null
   is_pinned: boolean
   replies_count: number
 }
@@ -151,9 +154,25 @@ export async function getAllForumTopics(forumId?: number): Promise<ForumTopic[]>
   const all: ForumTopic[] = []
   let page = 1
   while (true) {
-    const q: { forum_id?: number; page: number; page_size: number } = { page, page_size: 100 }
+    const q: { forum_id?: number; reported?: string; page: number; page_size: number } = { page, page_size: 100 }
     if (forumId) q.forum_id = forumId
     const res = await getForumTopics(q)
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
+}
+
+export async function getReportedForumTopics(): Promise<ForumTopic[]> {
+  const all: ForumTopic[] = []
+  let page = 1
+  while (true) {
+    const res = await http.get<PaginatedResponse<ForumTopic>>('/forum_topics/', {
+      reported: 'true',
+      page,
+      page_size: 100,
+    })
     all.push(...res.results)
     if (!res.next) break
     page++
@@ -172,13 +191,24 @@ export async function createForumTopic(data: {
 
 export async function updateForumTopic(
   topicId: number,
-  data: Partial<{ title: string; content: string; status: string }>
+  data: Partial<{ title: string; content: string; status: string; is_pinned: boolean }>
 ): Promise<ForumTopic> {
   return http.patch<ForumTopic>(`/forum_topics/${topicId}/update/`, data)
 }
 
 export async function deleteForumTopic(topicId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/forum_topics/${topicId}/delete/`)
+}
+
+export async function reportForumTopic(topicId: number, reason?: string): Promise<ForumTopic> {
+  return http.post<ForumTopic>(`/forum_topics/${topicId}/report/`, { reason })
+}
+
+export async function moderateForumTopic(
+  topicId: number,
+  data: { action: 'approve' | 'dismiss' | 'lock' | 'delete'; reason?: string }
+): Promise<ForumTopic> {
+  return http.post<ForumTopic>(`/forum_topics/${topicId}/moderate/`, data)
 }
 
 // ─── Forum Comments ───────────────────────────────────────────────────────────

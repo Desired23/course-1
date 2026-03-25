@@ -28,6 +28,9 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Checkbox } from "../../components/ui/checkbox"
+import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { 
   Search, 
   Plus, 
@@ -42,7 +45,7 @@ import {
 } from "lucide-react"
 import { cn } from "../../components/ui/utils"
 import { toast } from "sonner"
-import { getPromotions, createPromotion, deletePromotion } from '../../services/promotions.api'
+import { getPromotions, createPromotion, deletePromotion, updatePromotion } from '../../services/promotions.api'
 import type { Promotion } from '../../services/promotions.api'
 
 interface Discount {
@@ -66,6 +69,24 @@ export function AdminDiscountsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [selectedType, setSelectedType] = useState<string>("all")
+  const [selectedDiscountIds, setSelectedDiscountIds] = useState<string[]>([])
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void>)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
   
   const [newDiscount, setNewDiscount] = useState({
     code: '',
@@ -165,6 +186,84 @@ export function AdminDiscountsPage() {
       setDiscounts(prev => prev.filter(d => d.id !== discountId))
       toast.success('Discount code deleted')
     } catch { toast.error('Xóa thất bại') }
+  }
+
+  const handleToggleDiscountStatus = async (discount: Discount) => {
+    const nextStatus = discount.status === 'active' ? 'inactive' : 'active'
+    try {
+      const updated = await updatePromotion(Number(discount.id), { status: nextStatus })
+      setDiscounts(prev => prev.map(item => item.id === discount.id ? {
+        ...item,
+        status: updated.status === 'inactive' ? 'disabled' : updated.status === 'expired' ? 'expired' : 'active',
+      } : item))
+      toast.success(nextStatus === 'active' ? 'Da kich hoat ma giam gia' : 'Da vo hieu hoa ma giam gia')
+    } catch {
+      toast.error('Cap nhat trang thai ma giam gia that bai')
+    }
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void>,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState(prev => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const toggleDiscountSelection = (discountId: string, checked: boolean) => {
+    setSelectedDiscountIds(prev => checked ? [...prev, discountId] : prev.filter(id => id !== discountId))
+  }
+
+  const toggleAllFilteredDiscounts = (checked: boolean) => {
+    setSelectedDiscountIds(checked ? filteredDiscounts.map(discount => discount.id) : [])
+  }
+
+  const bulkUpdateDiscounts = async (
+    ids: string[],
+    updater: (discount: Discount) => Promise<void>,
+    successMessage: string
+  ) => {
+    try {
+      for (const id of ids) {
+        const discount = discounts.find(item => item.id === id)
+        if (discount) {
+          await updater(discount)
+        }
+      }
+      setSelectedDiscountIds([])
+      toast.success(successMessage)
+    } catch {
+      toast.error('Bulk discount action failed')
+    }
   }
 
   const totalRevenue = discounts.reduce((sum, d) => sum + (d.usedCount * d.value), 0)
@@ -395,11 +494,54 @@ export function AdminDiscountsPage() {
             </div>
           </div>
 
+          <AdminBulkActionBar
+            count={selectedDiscountIds.length}
+            label="discounts selected"
+            onClear={() => setSelectedDiscountIds([])}
+            actions={[
+              {
+                key: 'activate',
+                label: 'Activate',
+                onClick: () => openConfirm(
+                  'Activate selected discounts',
+                  `Activate ${selectedDiscountIds.length} selected discount codes?`,
+                  'Activate',
+                  () => bulkUpdateDiscounts(selectedDiscountIds, handleToggleDiscountStatus, 'Da cap nhat cac ma giam gia da chon'),
+                ),
+              },
+              {
+                key: 'delete',
+                label: 'Delete',
+                destructive: true,
+                onClick: () => openConfirm(
+                  'Delete selected discounts',
+                  `Delete ${selectedDiscountIds.length} selected discount codes? This action cannot be undone.`,
+                  'Delete',
+                  async () => {
+                    for (const id of selectedDiscountIds) {
+                      await deletePromotion(Number(id))
+                    }
+                    setDiscounts(prev => prev.filter(discount => !selectedDiscountIds.includes(discount.id)))
+                    setSelectedDiscountIds([])
+                    toast.success('Da xoa ma giam gia da chon')
+                  },
+                  true,
+                ),
+              },
+            ]}
+          />
+
           {/* Discounts Table */}
           <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[48px]">
+                    <Checkbox
+                      checked={filteredDiscounts.length > 0 && selectedDiscountIds.length === filteredDiscounts.length}
+                      onCheckedChange={(checked) => toggleAllFilteredDiscounts(Boolean(checked))}
+                    />
+                  </TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Value</TableHead>
@@ -424,6 +566,12 @@ export function AdminDiscountsPage() {
                     
                     return (
                       <TableRow key={discount.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedDiscountIds.includes(discount.id)}
+                            onCheckedChange={(checked) => toggleDiscountSelection(discount.id, Boolean(checked))}
+                          />
+                        </TableCell>
                         <TableCell>
                           <div>
                             <p className="font-medium">{discount.code}</p>
@@ -487,12 +635,25 @@ export function AdminDiscountsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openConfirm(
+                                discount.status === 'active' ? 'Disable discount' : 'Activate discount',
+                                discount.status === 'active'
+                                  ? `Disable "${discount.code}"?`
+                                  : `Activate "${discount.code}"?`,
+                                discount.status === 'active' ? 'Disable' : 'Activate',
+                                () => handleToggleDiscountStatus(discount),
+                              )}>
                                 <Edit className="h-4 w-4 mr-2" />
-                                Edit
+                                {discount.status === 'active' ? 'Disable' : 'Activate'}
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                onClick={() => handleDeleteDiscount(discount.id)}
+                                onClick={() => openConfirm(
+                                  'Delete discount',
+                                  `Delete "${discount.code}"? This action cannot be undone.`,
+                                  'Delete',
+                                  () => handleDeleteDiscount(discount.id),
+                                  true,
+                                )}
                                 className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
@@ -508,6 +669,16 @@ export function AdminDiscountsPage() {
               </TableBody>
             </Table>
           </div>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }

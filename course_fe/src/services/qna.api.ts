@@ -35,6 +35,9 @@ export interface QnA {
   status: 'Pending' | 'Answered' | 'Closed'
   views: number
   votes: number
+  report_count: number
+  last_report_reason: string | null
+  last_reported_at: string | null
   answers_count: number
 }
 
@@ -119,6 +122,17 @@ export async function updateQnA(
 
 export async function deleteQnA(qnaId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/qnas/${qnaId}/delete/`)
+}
+
+export async function reportQnA(qnaId: number, reason?: string): Promise<QnA> {
+  return http.post<QnA>(`/qnas/${qnaId}/report/`, { reason })
+}
+
+export async function moderateQnA(
+  qnaId: number,
+  data: { action: 'approve' | 'dismiss' | 'close' | 'delete'; reason?: string }
+): Promise<QnA> {
+  return http.post<QnA>(`/qnas/${qnaId}/moderate/`, data)
 }
 
 // ─── QnA Answers ──────────────────────────────────────────────────────────────

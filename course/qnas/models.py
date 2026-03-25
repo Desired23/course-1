@@ -25,6 +25,9 @@ class QnA(models.Model):
     description = models.TextField(null=True, blank=True)
     tags = models.JSONField(null=True, blank=True, default=list)
     votes = models.IntegerField(default=0)
+    report_count = models.PositiveIntegerField(default=0)
+    last_report_reason = models.TextField(null=True, blank=True)
+    last_reported_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'QnA'

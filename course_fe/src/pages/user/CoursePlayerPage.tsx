@@ -70,6 +70,19 @@ interface CurriculumLesson {
 const LESSON_COMPLETION_THRESHOLD_PERCENT = 85
 const LESSON_PROGRESS_SYNC_STEP = 10
 
+interface CourseNoteItem {
+  id: number
+  lessonId: number
+  timestamp: string
+  note: string
+  created: string
+}
+
+interface LessonLearningData {
+  notes: CourseNoteItem[]
+  bookmarks: number[]
+}
+
 // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function buildCurriculum(
@@ -127,6 +140,55 @@ function flattenLessons(curriculum: CurriculumSection[]): CurriculumLesson[] {
   return curriculum.flatMap(section => section.lessons)
 }
 
+function parseLessonLearningData(raw: string | null | undefined, fallbackLessonId: number): LessonLearningData {
+  if (!raw) return { notes: [], bookmarks: [] }
+
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) {
+      return {
+        notes: parsed
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => ({
+            id: Number(item.id) || Date.now(),
+            lessonId: Number(item.lessonId) || fallbackLessonId,
+            timestamp: typeof item.timestamp === 'string' ? item.timestamp : '0:00',
+            note: typeof item.note === 'string' ? item.note : '',
+            created: typeof item.created === 'string' ? item.created : '',
+          })),
+        bookmarks: [],
+      }
+    }
+
+    const noteItems = Array.isArray(parsed?.notes) ? parsed.notes : []
+    const bookmarkItems = Array.isArray(parsed?.bookmarks) ? parsed.bookmarks : []
+
+    return {
+      notes: noteItems
+        .filter((item: any) => item && typeof item === 'object')
+        .map((item: any) => ({
+          id: Number(item.id) || Date.now(),
+          lessonId: Number(item.lessonId) || fallbackLessonId,
+          timestamp: typeof item.timestamp === 'string' ? item.timestamp : '0:00',
+          note: typeof item.note === 'string' ? item.note : '',
+          created: typeof item.created === 'string' ? item.created : '',
+        })),
+      bookmarks: bookmarkItems
+        .map((item: any) => Number(item))
+        .filter((item: number) => Number.isFinite(item) && item >= 0),
+    }
+  } catch {
+    return { notes: [], bookmarks: [] }
+  }
+}
+
+function serializeLessonLearningData(data: LessonLearningData): string {
+  return JSON.stringify({
+    notes: data.notes,
+    bookmarks: data.bookmarks,
+  })
+}
+
 export function CoursePlayerPage() {
   const { t } = useTranslation()
   const { navigate, params } = useRouter()
@@ -151,12 +213,11 @@ export function CoursePlayerPage() {
   // Notes (localStorage per course)
   const notesKey = `courseNotes_${courseId}`
   const [newNote, setNewNote] = useState('')
-  const [notes, setNotes] = useState<Array<{
-    id: number; lessonId: number; timestamp: string; note: string; created: string
-  }>>(() => {
+  const [notes, setNotes] = useState<CourseNoteItem[]>(() => {
     try { const s = localStorage.getItem(notesKey); return s ? JSON.parse(s) : [] }
     catch { return [] }
   })
+  const [bookmarksByLesson, setBookmarksByLesson] = useState<Record<number, number[]>>({})
 
   // Comments (real API via lesson-comments service)
   const { user } = useAuth()
@@ -193,6 +254,23 @@ export function CoursePlayerPage() {
     return buildCurriculum(course.modules, lessonProgressMap)
   }, [course, lessonProgressMap])
   const orderedLessons = useMemo(() => flattenLessons(curriculum), [curriculum])
+
+  const serverLearningData = useMemo(() => {
+    const parsedNotes: CourseNoteItem[] = []
+    const parsedBookmarks: Record<number, number[]> = {}
+
+    if (!courseProgress?.lessons) {
+      return { notes: parsedNotes, bookmarksByLesson: parsedBookmarks }
+    }
+
+    for (const lesson of courseProgress.lessons) {
+      const lessonData = parseLessonLearningData(lesson.notes, lesson.lesson_id)
+      parsedNotes.push(...lessonData.notes)
+      parsedBookmarks[lesson.lesson_id] = lessonData.bookmarks
+    }
+
+    return { notes: parsedNotes, bookmarksByLesson: parsedBookmarks }
+  }, [courseProgress])
 
   const completedLessonIds = useMemo(() => {
     const done = new Set<number>()
@@ -351,21 +429,81 @@ export function CoursePlayerPage() {
     if (currentLessonId) loadComments(currentLessonId)
   }, [currentLessonId])
 
+  useEffect(() => {
+    setNotes(serverLearningData.notes)
+    setBookmarksByLesson(serverLearningData.bookmarksByLesson)
+  }, [serverLearningData])
+
   // â”€â”€ Handlers â”€â”€
-  const handleAddNote = () => {
-    if (!newNote.trim()) { toast.error('Please write a note'); return }
+  const persistLearningDataForLesson = async (
+    lessonId: number,
+    lessonNotes: CourseNoteItem[],
+    lessonBookmarks: number[]
+  ) => {
+    await updateLessonProgress({
+      lesson_id: lessonId,
+      notes: serializeLessonLearningData({
+        notes: lessonNotes,
+        bookmarks: lessonBookmarks,
+      }),
+    })
+  }
+
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !currentLessonId) { toast.error('Please write a note'); return }
     const currentTime = Math.floor(currentPlaybackTimeSec)
     const minutes = Math.floor(currentTime / 60)
     const seconds = currentTime % 60
     const timestamp = `${minutes}:${String(seconds).padStart(2, '0')}`
-    setNotes(prev => [{ id: Date.now(), lessonId: currentLessonId!, timestamp, note: newNote, created: 'Just now' }, ...prev])
-    setNewNote('')
-    toast.success('Note saved successfully!')
+    const createdNote: CourseNoteItem = {
+      id: Date.now(),
+      lessonId: currentLessonId,
+      timestamp,
+      note: newNote.trim(),
+      created: 'Just now',
+    }
+    const nextNotes = [createdNote, ...notes]
+    const lessonNotes = nextNotes.filter(note => note.lessonId === currentLessonId)
+    const lessonBookmarks = bookmarksByLesson[currentLessonId] || []
+
+    try {
+      await persistLearningDataForLesson(currentLessonId, lessonNotes, lessonBookmarks)
+      setNotes(nextNotes)
+      setNewNote('')
+      toast.success('Note saved successfully!')
+    } catch {
+      toast.error('Save note failed')
+    }
   }
 
-  const handleDeleteNote = (noteId: number) => {
-    setNotes(prev => prev.filter(n => n.id !== noteId))
-    toast.success('Note deleted')
+  const handleDeleteNote = async (noteId: number) => {
+    if (!currentLessonId) return
+    const nextNotes = notes.filter(n => n.id !== noteId)
+    const lessonNotes = nextNotes.filter(note => note.lessonId === currentLessonId)
+    const lessonBookmarks = bookmarksByLesson[currentLessonId] || []
+
+    try {
+      await persistLearningDataForLesson(currentLessonId, lessonNotes, lessonBookmarks)
+      setNotes(nextNotes)
+      toast.success('Note deleted')
+    } catch {
+      toast.error('Delete note failed')
+    }
+  }
+
+  const handleBookmarksChange = async (nextBookmarks: number[]) => {
+    if (!currentLessonId) return
+    const lessonNotes = notes.filter(note => note.lessonId === currentLessonId)
+
+    try {
+      await persistLearningDataForLesson(currentLessonId, lessonNotes, nextBookmarks)
+      setBookmarksByLesson(prev => ({
+        ...prev,
+        [currentLessonId]: nextBookmarks,
+      }))
+    } catch {
+      toast.error('Save bookmark failed')
+    }
   }
 
   const handlePostComment = async () => {
@@ -689,6 +827,8 @@ export function CoursePlayerPage() {
                 url={currentLesson.videoUrl || 'https://www.youtube.com/watch?v=qz0aGYrrlhU'}
                 title={currentLesson.title}
                 lessonId={currentLessonId!}
+                bookmarks={bookmarksByLesson[currentLessonId!] || []}
+                onBookmarksChange={handleBookmarksChange}
                 onProgress={handleVideoProgress}
                 onComplete={() => handleLessonComplete(currentLessonId!)}
                 savedProgress={getSavedProgressForLesson(currentLessonId!)}

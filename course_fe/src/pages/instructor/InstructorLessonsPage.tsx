@@ -354,6 +354,9 @@ export function InstructorLessonsPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Legacy page: man nay van dung du lieu local/mock. Luong chinh da chuyen sang `InstructorLessonsPageNew`.
+        </div>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">

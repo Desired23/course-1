@@ -18,9 +18,11 @@ interface UIState {
   // Sidebar
   sidebarOpen: boolean
   sidebarCollapsed: boolean
+  adminSidebarGroups: Record<string, boolean>
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
   toggleSidebarCollapsed: () => void
+  setAdminSidebarGroupOpen: (group: string, open: boolean) => void
   
   // Mobile
   mobileMenuOpen: boolean
@@ -78,6 +80,7 @@ export const useUIStore = create<UIState>()(
         // Sidebar - Default open on desktop, closed on mobile
         sidebarOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
         sidebarCollapsed: false,
+        adminSidebarGroups: {},
         
         toggleSidebar: () => set((state) => ({ 
           sidebarOpen: !state.sidebarOpen 
@@ -87,6 +90,13 @@ export const useUIStore = create<UIState>()(
         
         toggleSidebarCollapsed: () => set((state) => ({ 
           sidebarCollapsed: !state.sidebarCollapsed 
+        })),
+
+        setAdminSidebarGroupOpen: (group, open) => set((state) => ({
+          adminSidebarGroups: {
+            ...state.adminSidebarGroups,
+            [group]: open,
+          },
         })),
         
         // Mobile Menu - Default closed
@@ -128,6 +138,7 @@ export const useUIStore = create<UIState>()(
           theme: state.theme,
           darkMode: state.darkMode,
           sidebarCollapsed: state.sidebarCollapsed,
+          adminSidebarGroups: state.adminSidebarGroups,
           layoutMode: state.layoutMode
           // Don't persist: sidebarOpen, mobileMenuOpen, searchOpen, floatingNavOpen
         })

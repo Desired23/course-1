@@ -5,6 +5,49 @@ from .serializers import CourseSerializer, CourseDetailSerializer
 from activity_logs.services import log_activity
 
 
+INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS = {
+    Course.Status.DRAFT: {Course.Status.PENDING},
+    Course.Status.PENDING: {Course.Status.DRAFT},
+    Course.Status.REJECTED: {Course.Status.DRAFT},
+    Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
+    Course.Status.PUBLISHED: {Course.Status.ARCHIVED},
+}
+
+COURSE_CONTENT_FIELDS = {
+    'title',
+    'shortdescription',
+    'description',
+    'category',
+    'subcategory',
+    'thumbnail',
+    'price',
+    'discount_price',
+    'discount_start_date',
+    'discount_end_date',
+    'level',
+    'language',
+    'duration',
+    'requirements',
+    'learning_objectives',
+    'target_audience',
+    'tags',
+    'promotional_video',
+    'certificate',
+    'is_public',
+}
+
+
+def mark_course_content_changed(course, *, save=True):
+    if course.status not in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
+        return False
+    if course.content_changed_since_publish:
+        return False
+    course.content_changed_since_publish = True
+    if save:
+        course.save(update_fields=['content_changed_since_publish', 'updated_at'])
+    return True
+
+
 def create_course(data):
     try:
         serializer = CourseSerializer(data=data)
@@ -163,9 +206,35 @@ def update_course(course_id, data, requesting_user=None):
             send_notification = bool(send_notification)
 
         old_status = course.status
+        requested_status = payload.get('status')
+        content_fields_being_updated = COURSE_CONTENT_FIELDS.intersection(payload.keys())
+
+        if requested_status is not None and not is_admin:
+            normalized_status = str(requested_status).strip().lower()
+            valid_statuses = {choice for choice, _ in Course.Status.choices}
+            if normalized_status not in valid_statuses:
+                raise ValidationError("Invalid course status.")
+            if normalized_status != old_status:
+                allowed_next_statuses = INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS.get(old_status, set())
+                if normalized_status not in allowed_next_statuses:
+                    raise ValidationError(
+                        f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
+                    )
+                if (
+                    old_status == Course.Status.ARCHIVED
+                    and normalized_status == Course.Status.PUBLISHED
+                    and course.content_changed_since_publish
+                ):
+                    raise ValidationError(
+                        "This archived course has changed since it was last published. Move it to draft and submit it for review again."
+                    )
+            payload['status'] = normalized_status
+
         serializer = CourseSerializer(course, data=payload, partial=True)
         if serializer.is_valid():
             updated_course = serializer.save()
+            if not is_admin and content_fields_being_updated and old_status in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
+                mark_course_content_changed(updated_course, save=False)
             log_activity(
                 user_id=updated_course.instructor.user.id if updated_course.instructor else None,
                 action="UPDATE",
@@ -175,6 +244,19 @@ def update_course(course_id, data, requesting_user=None):
             )
 
             if old_status != updated_course.status:
+                reset_publish_tracking = False
+                update_fields = []
+                if updated_course.status == Course.Status.PUBLISHED:
+                    if not updated_course.published_date:
+                        updated_course.published_date = timezone.now()
+                        update_fields.append('published_date')
+                    if updated_course.content_changed_since_publish:
+                        updated_course.content_changed_since_publish = False
+                        update_fields.append('content_changed_since_publish')
+                    reset_publish_tracking = True
+                if update_fields:
+                    update_fields.append('updated_at')
+                    updated_course.save(update_fields=update_fields)
                 reason_text = (status_reason or '').strip()
                 actor_label = 'Admin' if is_admin else 'Instructor'
                 reason_suffix = f" | Reason: {reason_text}" if reason_text else ''
@@ -213,6 +295,9 @@ def update_course(course_id, data, requesting_user=None):
                         except Exception:
                             # Notification failures should not block status update.
                             pass
+            elif not is_admin and content_fields_being_updated and old_status in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
+                if updated_course.content_changed_since_publish:
+                    updated_course.save(update_fields=['content_changed_since_publish', 'updated_at'])
 
             return serializer.data
         raise ValidationError(serializer.errors)

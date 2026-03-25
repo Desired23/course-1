@@ -324,6 +324,9 @@ export function SubscriptionsPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Legacy page: man nay khong con duoc route su dung. Admin subscription hien da chuyen sang `AdminSubscriptionPage`.
+      </div>
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">{t('subscriptions_page.admin.title')}</h1>

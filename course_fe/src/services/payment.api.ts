@@ -193,6 +193,35 @@ export interface UserRefundItem {
   transaction_id: string | null
 }
 
+export interface AdminRefundItem {
+  refund_id: number
+  payment_id: number
+  payment_details_ids: number[]
+  user_name: string | null
+  user_email: string | null
+  course_id: number | null
+  course_title: string | null
+  amount: number
+  refund_amount: number | null
+  reason: string | null
+  status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  requested_at: string
+  processed_at: string | null
+  processed_by: string | null
+  learning_progress: number
+  course_completion_days: number
+  transaction_id: string | null
+}
+
+export type PaymentAdminConfigKey = 'policies' | 'instructor-rates' | 'discounts'
+
+export interface PaymentAdminConfigResponse<T = any[]> {
+  config_key: PaymentAdminConfigKey
+  setting_id: number
+  value: T
+  updated_at: string
+}
+
 export async function getUserRefunds(params?: {
   page?: number
   page_size?: number
@@ -216,11 +245,48 @@ export async function requestRefund(data: RefundRequest): Promise<{ message: str
   return http.post<{ message: string }>('/refunds/request/', data)
 }
 
+export async function getAdminRefunds(params?: {
+  page?: number
+  page_size?: number
+  status?: AdminRefundItem['status'] | 'all'
+  search?: string
+  date_from?: string
+  date_to?: string
+}): Promise<PaginatedResponse<AdminRefundItem>> {
+  const query = {
+    page: params?.page,
+    page_size: params?.page_size,
+    status: params?.status && params.status !== 'all' ? params.status : undefined,
+    search: params?.search?.trim() || undefined,
+    date_from: params?.date_from || undefined,
+    date_to: params?.date_to || undefined,
+  }
+  return http.get<PaginatedResponse<AdminRefundItem>>('/payments/refund/admin/', query)
+}
+
+export async function updateAdminRefundStatus(data: {
+  payment_id: number
+  payment_details_ids: number[]
+  status: 'approved' | 'success' | 'rejected' | 'failed'
+  response_code?: string
+  transaction_id?: string
+}): Promise<{ message: string }> {
+  return http.patch<{ message: string }>('/payments/refund/admin/', data)
+}
+
 export async function cancelRefundRequest(data: {
   payment_id: number
   payment_details_ids: number[]
 }): Promise<{ message: string }> {
   return http.put<{ message: string }>('/refunds/details/', data)
+}
+
+export async function getPaymentAdminConfig<T = any[]>(configKey: PaymentAdminConfigKey): Promise<PaymentAdminConfigResponse<T>> {
+  return http.get<PaymentAdminConfigResponse<T>>(`/payments/admin/config/${configKey}/`)
+}
+
+export async function updatePaymentAdminConfig<T = any[]>(configKey: PaymentAdminConfigKey, value: T): Promise<PaymentAdminConfigResponse<T>> {
+  return http.patch<PaymentAdminConfigResponse<T>>(`/payments/admin/config/${configKey}/`, { value })
 }
 
 export function getPaymentStatusLabel(status: string): string {

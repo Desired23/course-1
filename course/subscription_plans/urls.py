@@ -5,6 +5,8 @@ from .views import (
     SubscriptionPlanAdminView,
     PlanCourseAdminView,
     PlanSubscribersView,
+    AdminExtendSubscriptionView,
+    AdminCancelSubscriptionView,
     ExpireSubscriptionsView,
     UserSubscribeView,
     UserSubscriptionView,
@@ -29,6 +31,8 @@ urlpatterns = [
     path('subscription-plans/admin/<int:plan_id>/', SubscriptionPlanAdminView.as_view(), name='subscription-plan-admin-detail'),
     path('subscription-plans/admin/<int:plan_id>/courses/', PlanCourseAdminView.as_view(), name='plan-course-admin'),
     path('subscription-plans/admin/<int:plan_id>/subscribers/', PlanSubscribersView.as_view(), name='plan-subscribers'),
+    path('subscriptions/admin/<int:subscription_id>/extend/', AdminExtendSubscriptionView.as_view(), name='admin-extend-subscription'),
+    path('subscriptions/admin/<int:subscription_id>/cancel/', AdminCancelSubscriptionView.as_view(), name='admin-cancel-subscription'),
     path('subscription-plans/admin/<int:plan_id>/candidates/', PlanCandidateSuggestionView.as_view(), name='plan-candidate-suggestions'),
     path('subscription-plans/admin/expire/', ExpireSubscriptionsView.as_view(), name='expire-subscriptions'),
 

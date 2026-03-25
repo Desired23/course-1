@@ -2,7 +2,7 @@ import { ReactNode } from 'react'
 import { DashboardSidebar } from '../DashboardSidebar'
 import { AdminHeader } from '../AdminHeader'
 
-interface AdminLayoutProps {
+export interface AdminLayoutProps {
   children: ReactNode
   showHeader?: boolean
   headerTitle?: string

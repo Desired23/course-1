@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
+import { useChat } from '../../contexts/ChatContext'
 import { EnhancedCommentSystem } from '../../components/EnhancedCommentSystem'
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ import {
 import {
   type ForumTopic as ApiForumTopic,
   getForumTopicById,
+  reportForumTopic,
   updateForumTopic,
   getAllForumComments,
   createForumComment,
@@ -56,6 +58,7 @@ interface ForumTopic {
   updated_date: Date
   views: number
   likes: number
+  report_count: number
   replies: number
   status: 'active' | 'locked' | 'deleted'
   is_pinned: boolean
@@ -77,6 +80,7 @@ function mapApiTopicToDetail(t: ApiForumTopic): ForumTopic {
     updated_date: new Date(t.updated_at),
     views: t.views,
     likes: t.likes,
+    report_count: t.report_count || 0,
     replies: t.replies_count,
     status: t.status,
     is_pinned: t.is_pinned,
@@ -87,6 +91,7 @@ function mapApiTopicToDetail(t: ApiForumTopic): ForumTopic {
 export function ForumTopicDetailPage() {
   const { navigate, currentRoute } = useRouter()
   const { user, hasRole, hasPermission } = useAuth()
+  const { openChatWithUser } = useChat()
   const [topic, setTopic] = useState<ForumTopic | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
@@ -129,6 +134,18 @@ export function ForumTopicDetailPage() {
     setIsBookmarked(!isBookmarked)
   }
 
+  const handleReportTopic = async () => {
+    if (!user || !topic) return
+    const reason = window.prompt('Ly do bao cao chu de nay?', '')
+    if (reason === null) return
+    try {
+      const updated = await reportForumTopic(Number(topic.topic_id), reason)
+      setTopic(mapApiTopicToDetail(updated))
+    } catch (err) {
+      console.error('Failed to report topic:', err)
+    }
+  }
+
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
@@ -148,6 +165,16 @@ export function ForumTopicDetailPage() {
   )
 
   const canModerateTopic = hasRole('admin') || hasPermission('admin.forum.moderate')
+  const canMessageTopicAuthor = !!user && !!topic && String(user.id) !== topic.user_id
+
+  const handleMessageAuthor = async () => {
+    if (!topic) return
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    await openChatWithUser(Number(topic.user_id), topic.user_name)
+  }
 
   if (loading) {
     return (
@@ -255,7 +282,7 @@ export function ForumTopicDetailPage() {
                     </div>
                   </div>
 
-                  {(canEditTopic || canModerateTopic) && (
+                  {(canEditTopic || canModerateTopic || canMessageTopicAuthor) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="sm">
@@ -263,10 +290,25 @@ export function ForumTopicDetailPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        {canMessageTopicAuthor && (
+                          <>
+                            <DropdownMenuItem onClick={() => void handleMessageAuthor()}>
+                              <MessageCircle className="h-4 w-4 mr-2" />
+                              Nhan tin
+                            </DropdownMenuItem>
+                            {(canEditTopic || canModerateTopic) && <DropdownMenuSeparator />}
+                          </>
+                        )}
                         {canEditTopic && (
                           <DropdownMenuItem>
                             <Edit className="h-4 w-4 mr-2" />
                             Chỉnh sửa
+                          </DropdownMenuItem>
+                        )}
+                        {!canModerateTopic && user && String(user.id) !== topic.user_id && (
+                          <DropdownMenuItem onClick={() => void handleReportTopic()}>
+                            <Flag className="h-4 w-4 mr-2" />
+                            Bao cao chu de
                           </DropdownMenuItem>
                         )}
                         {canModerateTopic && (
@@ -343,7 +385,7 @@ export function ForumTopicDetailPage() {
                   </Button>
                 </div>
 
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" disabled={!user || String(user.id) === topic.user_id} onClick={() => void handleReportTopic()}>
                   <Flag className="h-4 w-4 mr-2" />
                   Báo cáo
                 </Button>
@@ -382,6 +424,10 @@ export function ForumTopicDetailPage() {
                   <div className="flex justify-between">
                     <span>Trả lời:</span>
                     <span>{topic.replies}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Bao cao:</span>
+                    <span>{topic.report_count}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">

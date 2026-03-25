@@ -2,6 +2,7 @@
 import { useRouter } from "../../components/Router"
 import { useCart } from "../../contexts/CartContext"
 import { useAuth } from "../../contexts/AuthContext"
+import { useChat } from "../../contexts/ChatContext"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { CourseCategoryTags } from "../../components/CourseCategoryTags"
 import { CourseBreadcrumb } from "../../components/CourseBreadcrumb"
@@ -9,9 +10,10 @@ import { CourseStickyNav } from "../../components/CourseStickyNav"
 import { LearningGoals } from "../../components/LearningGoals"
 import { toast } from "sonner@2.0.3"
 import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from "../../services/course.api"
+import { getInitials } from "../../services/instructor.api"
 import { extractRouteParams } from "../../utils/routeHelpers"
 import { getAllWishlistByUser, addToWishlist, removeFromWishlist, type WishlistItem } from "../../services/wishlist.api"
-import { getReviewsByCourse, createReview, type Review } from "../../services/review.api"
+import { getReviewsByCourse, createReview, reportReview, type Review } from "../../services/review.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
 import { useOwnedCourses } from "../../hooks/useOwnedCourses"
 import { createEnrollment } from "../../services/enrollment.api"
@@ -19,12 +21,12 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
-import { Avatar } from "../../components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { SubscriptionLockOverlay } from '../../components/subscription/SubscriptionLockOverlay'
 import { useTranslation } from 'react-i18next'
 import { 
   Star, Users, Clock, Globe, Languages, Play, FileText, 
-  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen
+  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen, Flag
 } from 'lucide-react'
 
 export function CourseDetailPage() {
@@ -57,6 +59,7 @@ export function CourseDetailPage() {
   
   const { addToCart, addToCartFromApi, isInCartByCourseId } = useCart()
   const { user, isAuthenticated } = useAuth()
+  const { openChatWithUser } = useChat()
   const { navigate, currentRoute } = useRouter()
   const { isOwned: isEnrolled, refresh: refreshOwned } = useOwnedCourses()
 
@@ -100,6 +103,21 @@ export function CourseDetailPage() {
   const enrolled = isEnrolled(courseId)
   // Free course = effective price is 0
   const isFree = courseData ? getEffectivePrice(courseData) === 0 : false
+
+  const handleMessageInstructor = async () => {
+    if (!courseData?.instructor) return
+    if (!isAuthenticated) {
+      toast.error(t('course_detail.login_to_enroll'))
+      navigate('/login')
+      return
+    }
+    await openChatWithUser(courseData.instructor.user_id, courseData.instructor.full_name)
+  }
+
+  const handleOpenInstructorProfile = () => {
+    if (!courseData?.instructor?.instructor_id) return
+    navigate(`/instructor/${courseData.instructor.instructor_id}/profile`)
+  }
 
   // Handle enrollment for free or subscription courses
   const handleEnroll = async (source: 'purchase' | 'subscription' = 'purchase') => {
@@ -263,6 +281,27 @@ export function CourseDetailPage() {
       toast.error(err?.message || t('course_detail.review_submit_failed'))
     } finally {
       setSubmittingReview(false)
+    }
+  }
+
+  const handleReportReview = async (review: Review) => {
+    if (!isAuthenticated) {
+      toast.error('Vui long dang nhap de bao cao review')
+      navigate('/login')
+      return
+    }
+
+    const reason = window.prompt('Nhap ly do bao cao review nay')
+    if (reason === null) return
+
+    try {
+      await reportReview(review.review_id, reason.trim())
+      toast.success('Da gui bao cao review')
+      if (courseData) {
+        loadReviews(courseData.id)
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Gui bao cao that bai')
     }
   }
 
@@ -746,11 +785,35 @@ export function CourseDetailPage() {
                <CardHeader><CardTitle>{t('course_detail.instructor_title')}</CardTitle></CardHeader>
                <CardContent>
                   <div className="flex gap-4">
-                     <Avatar className="w-20 h-20"><img src={courseData.instructor.avatar || ''} alt={courseData.instructor.full_name} /></Avatar>
+                     <button
+                       type="button"
+                       onClick={handleOpenInstructorProfile}
+                       className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                       aria-label={`Xem ho so giang vien ${courseData.instructor.full_name}`}
+                     >
+                       <Avatar className="w-20 h-20 cursor-pointer">
+                         <AvatarImage src={courseData.instructor.avatar || undefined} alt={courseData.instructor.full_name} />
+                         <AvatarFallback className="text-xl font-semibold">
+                           {getInitials(courseData.instructor.full_name)}
+                         </AvatarFallback>
+                       </Avatar>
+                     </button>
                      <div>
-                        <h3 className="font-bold text-lg text-blue-600 underline">{courseData.instructor.full_name}</h3>
+                        <button
+                          type="button"
+                          onClick={handleOpenInstructorProfile}
+                          className="font-bold text-lg text-blue-600 underline underline-offset-2 hover:text-blue-700"
+                        >
+                          {courseData.instructor.full_name}
+                        </button>
                         <p className="text-muted-foreground">{courseData.instructor.specialization || ''}</p>
                         <p className="mt-2 text-sm">{courseData.instructor.bio || ''}</p>
+                        {user?.id !== courseData.instructor.user_id && (
+                          <Button className="mt-3" variant="outline" onClick={() => void handleMessageInstructor()}>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Nhan tin
+                          </Button>
+                        )}
                      </div>
                   </div>
                </CardContent>
@@ -800,7 +863,13 @@ export function CourseDetailPage() {
                        <CardContent className="p-4">
                          <div className="flex items-start gap-3">
                            <Avatar className="w-10 h-10">
-                             <img src={r.user_info?.avatar || ''} alt={r.user_info?.full_name || t('course_detail.user_fallback')} />
+                             <AvatarImage
+                               src={r.user_info?.avatar || undefined}
+                               alt={r.user_info?.full_name || t('course_detail.user_fallback')}
+                             />
+                             <AvatarFallback className="text-xs font-medium">
+                               {getInitials(r.user_info?.full_name || t('course_detail.user_fallback'))}
+                             </AvatarFallback>
                            </Avatar>
                            <div className="flex-1">
                              <div className="flex items-center gap-2">
@@ -815,6 +884,19 @@ export function CourseDetailPage() {
                                </span>
                              </div>
                              {r.comment && <p className="text-sm mt-1">{r.comment}</p>}
+                             {isAuthenticated && user?.id !== String(r.user) && (
+                               <div className="mt-2">
+                                 <Button
+                                   size="sm"
+                                   variant="ghost"
+                                   className="h-8 px-2 text-xs text-muted-foreground"
+                                   onClick={() => void handleReportReview(r)}
+                                 >
+                                   <Flag className="h-3.5 w-3.5 mr-1" />
+                                   Bao cao review
+                                 </Button>
+                               </div>
+                             )}
                              {r.instructor_response && (
                                <div className="mt-2 ml-4 p-2 bg-muted rounded text-sm">
                                  <p className="font-medium text-xs text-primary mb-1">{t('course_detail.instructor_response')}</p>

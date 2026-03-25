@@ -11,12 +11,21 @@ from utils.permissions import RolePermissionFactory
 
 from .refund_services import (
     admin_update_refund_status,
+    get_admin_refunds,
     user_cancel_refund_request,
     get_refund_details,
     user_refund_request,
     get_user_refunds,
 )
-from .services import create_payment, get_payment_status, check_enrollment_by_course, fix_payment, list_admin_payments
+from .services import (
+    create_payment,
+    get_payment_status,
+    check_enrollment_by_course,
+    fix_payment,
+    list_admin_payments,
+    get_payment_admin_config,
+    update_payment_admin_config,
+)
 from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
 from .vnpay_services import payment_ipn, payment_return
 
@@ -115,6 +124,26 @@ class AdminRefundUpdateView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'payment'
 
+    def get(self, request):
+        try:
+            refund_status_filter = request.query_params.get('status')
+            search = (request.query_params.get('search') or '').strip()
+            date_from = request.query_params.get('date_from')
+            date_to = request.query_params.get('date_to')
+
+            data = get_admin_refunds(
+                refund_status_filter=refund_status_filter,
+                search=search,
+                date_from=date_from,
+                date_to=date_to,
+            )
+
+            paginator = StandardPagination()
+            paged_result = paginator.paginate_queryset(data, request, view=self)
+            return paginator.get_paginated_response(paged_result)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     def patch(self, request):
         try:
             payment_id = request.data.get('payment_id')
@@ -163,6 +192,27 @@ class AdminPaymentListView(APIView):
         problematic_flag = request.query_params.get('problematic') == 'true'
         data = list_admin_payments(problematic=problematic_flag)
         return Response(data, status=status.HTTP_200_OK)
+
+
+class AdminPaymentConfigView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request, config_key):
+        try:
+            data = get_payment_admin_config(config_key)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, config_key):
+        try:
+            value = request.data.get('value')
+            admin = getattr(request.user, 'admin', None)
+            data = update_payment_admin_config(config_key, value, admin=admin)
+            return Response(data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CheckEnrollmentView(APIView):

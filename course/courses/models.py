@@ -57,6 +57,7 @@ class Course(models.Model):
     deleted_by = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_courses')
     is_deleted = models.BooleanField(default=False)
     published_date = models.DateTimeField(blank=True, null=True)
+    content_changed_since_publish = models.BooleanField(default=False)
     rating = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal('0.00'))
     total_reviews = models.IntegerField(default=0)
     total_students = models.IntegerField(default=0)

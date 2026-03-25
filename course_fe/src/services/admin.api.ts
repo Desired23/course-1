@@ -275,6 +275,14 @@ export async function getPlanSubscribers(planId: number): Promise<any[]> {
   return fetchAllPages<any>(`/subscription-plans/admin/${planId}/subscribers/`)
 }
 
+export async function adminExtendSubscription(subscriptionId: number, extend_days: number): Promise<any> {
+  return http.post(`/subscriptions/admin/${subscriptionId}/extend/`, { extend_days })
+}
+
+export async function adminCancelSubscription(subscriptionId: number): Promise<any> {
+  return http.post(`/subscriptions/admin/${subscriptionId}/cancel/`, {})
+}
+
 export async function managePlanCourses(planId: number, data?: Record<string, any>): Promise<any> {
   if (data) {
     return http.post(`/subscription-plans/admin/${planId}/courses/`, data)

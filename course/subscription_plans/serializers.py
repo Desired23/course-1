@@ -104,12 +104,15 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
 class UserSubscriptionListSerializer(serializers.ModelSerializer):
     plan_name = serializers.CharField(source='plan.name', read_only=True)
     is_active = serializers.BooleanField(read_only=True)
+    user_name = serializers.CharField(source='user.full_name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
 
     class Meta:
         model = UserSubscription
         fields = [
             'id', 'plan', 'plan_name', 'status',
-            'start_date', 'end_date', 'is_active',
+            'start_date', 'end_date', 'auto_renew', 'cancelled_at',
+            'is_active', 'user', 'user_name', 'user_email',
         ]
 
 

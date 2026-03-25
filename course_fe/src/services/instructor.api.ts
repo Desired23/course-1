@@ -1,4 +1,4 @@
-import { http } from './http'
+import { API_BASE_URL, getAccessToken, http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -91,6 +91,48 @@ export interface InstructorDashboardStats {
   }>
 }
 
+export interface InstructorStudent {
+  student_id: number
+  full_name: string
+  email: string
+  avatar: string | null
+  status: string
+  enrolled_at: string | null
+  last_access_date: string | null
+  average_progress: number
+  completion_count: number
+  total_courses: number
+  courses: Array<{
+    course_id: number
+    title: string
+    status: string
+    progress: number
+    enrollment_date: string | null
+    last_access_date: string | null
+  }>
+}
+
+export interface InstructorStudentDetail extends InstructorStudent {
+  phone: string | null
+  address: string | null
+  active_course_count: number
+  courses: Array<{
+    enrollment_id: number
+    course_id: number
+    title: string
+    status: string
+    progress: number
+    enrollment_date: string | null
+    last_access_date: string | null
+    completion_date: string | null
+    certificate: string | null
+    total_lessons: number
+    completed_lessons: number
+    avg_lesson_progress: number
+    time_spent_minutes: number
+  }>
+}
+
 /** Course analytics (returned by GET /api/instructor/courses/<id>/analytics/) */
 export interface CourseAnalytics {
   course_id: number
@@ -123,6 +165,56 @@ export async function getInstructorDashboardStats(
   const query: Record<string, number> = {}
   if (instructorId) query.instructor_id = instructorId
   return http.get<InstructorDashboardStats>('/instructor/dashboard/stats/', query)
+}
+
+export async function getInstructorStudents(instructorId?: number, courseId?: number): Promise<InstructorStudent[]> {
+  const query: Record<string, number> = {}
+  if (instructorId) query.instructor_id = instructorId
+  if (courseId) query.course_id = courseId
+  return http.get<InstructorStudent[]>('/instructor/students/', query)
+}
+
+export async function getInstructorStudentDetail(studentId: number, instructorId?: number): Promise<InstructorStudentDetail> {
+  const query: Record<string, number> = {}
+  if (instructorId) query.instructor_id = instructorId
+  return http.get<InstructorStudentDetail>(`/instructor/students/${studentId}/`, query)
+}
+
+export async function exportInstructorStudents(instructorId?: number, courseId?: number): Promise<void> {
+  const params = new URLSearchParams()
+  if (instructorId) params.set('instructor_id', String(instructorId))
+  if (courseId) params.set('course_id', String(courseId))
+
+  const token = getAccessToken()
+  const response = await fetch(
+    `${API_BASE_URL}/instructor/students/export/${params.toString() ? `?${params.toString()}` : ''}`,
+    {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  )
+
+  if (!response.ok) {
+    let message = 'Failed to export students'
+    try {
+      const error = await response.json()
+      message = error.message || error.error || message
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    throw new Error(message)
+  }
+
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'instructor-students.csv'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 /**

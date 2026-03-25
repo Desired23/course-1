@@ -95,6 +95,9 @@ export const PERMISSIONS: Permission[] = [
   { id: 'admin.statistics.view', name: 'View Statistics', category: 'Admin', description: 'View platform statistics' },
   { id: 'admin.permissions.manage', name: 'Manage Permissions', category: 'Admin', description: 'Manage user permissions' },
   { id: 'admin.reports.view', name: 'View Reports', category: 'Admin', description: 'View all reports and analytics' },
+  { id: 'admin.reports.manage', name: 'Manage Reports', category: 'Admin', description: 'Moderate platform reports' },
+  { id: 'admin.reviews.manage', name: 'Manage Reviews', category: 'Admin', description: 'Moderate course reviews' },
+  { id: 'admin.logs.view', name: 'View Activity Logs', category: 'Admin', description: 'View system activity logs' },
   { id: 'admin.system.maintain', name: 'System Maintenance', category: 'Admin', description: 'Perform system maintenance' },
 ]
 
@@ -353,6 +356,9 @@ export const useAuthStore = create<AuthState>()(
 
       hasPermission: (permission) => {
         const user = get().user
+        if (user?.roles.includes('admin') && permission.startsWith('admin.')) {
+          return true
+        }
         return user?.permissions.includes(permission) ?? false
       },
 

@@ -20,6 +20,7 @@ interface Notification {
   actionUrl?: string
   icon?: string
   relatedId?: number | null
+  notificationCode?: string | null
 }
 
 interface NotificationState {
@@ -31,9 +32,11 @@ interface NotificationState {
 type NotificationAction =
   | { type: 'SET_NOTIFICATIONS'; payload: Notification[] }
   | { type: 'ADD_NOTIFICATION'; payload: Omit<Notification, 'id' | 'timestamp' | 'read'> & { id?: string } }
+  | { type: 'UPDATE_NOTIFICATIONS_BY_CODE'; payload: { notificationCode: string; title?: string; message?: string } }
   | { type: 'MARK_AS_READ'; payload: string }
   | { type: 'MARK_ALL_AS_READ' }
   | { type: 'REMOVE_NOTIFICATION'; payload: string }
+  | { type: 'REMOVE_NOTIFICATIONS_BY_CODE'; payload: string }
   | { type: 'CLEAR_ALL_NOTIFICATIONS' }
 
 const initialState: NotificationState = {
@@ -53,6 +56,7 @@ function mapApiNotification(n: ApiNotification): Notification {
     timestamp: new Date(n.created_at),
     read: n.is_read,
     relatedId: n.related_id,
+    notificationCode: n.notification_code,
   }
 }
 
@@ -81,6 +85,20 @@ const notificationReducer = (state: NotificationState, action: NotificationActio
       }
     }
 
+    case 'UPDATE_NOTIFICATIONS_BY_CODE':
+      return {
+        ...state,
+        notifications: state.notifications.map(n =>
+          n.notificationCode === action.payload.notificationCode
+            ? {
+                ...n,
+                title: action.payload.title ?? n.title,
+                message: action.payload.message ?? n.message,
+              }
+            : n
+        ),
+      }
+
     case 'MARK_AS_READ':
       return {
         ...state,
@@ -103,6 +121,15 @@ const notificationReducer = (state: NotificationState, action: NotificationActio
         ...state,
         notifications: state.notifications.filter(n => n.id !== action.payload),
         unreadCount: toRemove && !toRemove.read ? Math.max(0, state.unreadCount - 1) : state.unreadCount,
+      }
+    }
+
+    case 'REMOVE_NOTIFICATIONS_BY_CODE': {
+      const removed = state.notifications.filter(n => n.notificationCode === action.payload)
+      return {
+        ...state,
+        notifications: state.notifications.filter(n => n.notificationCode !== action.payload),
+        unreadCount: Math.max(0, state.unreadCount - removed.filter(n => !n.read).length),
       }
     }
 
@@ -164,6 +191,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           title: d.title || 'Thông báo mới',
           message: d.message || '',
           relatedId: d.related_id,
+          notificationCode: d.notification_code,
+        },
+      })
+      return
+    }
+
+    if (data.type === 'notification_removed' && data.data?.notification_code) {
+      dispatch({
+        type: 'REMOVE_NOTIFICATIONS_BY_CODE',
+        payload: String(data.data.notification_code),
+      })
+      return
+    }
+
+    if (data.type === 'notification_updated' && data.data?.notification_code) {
+      dispatch({
+        type: 'UPDATE_NOTIFICATIONS_BY_CODE',
+        payload: {
+          notificationCode: String(data.data.notification_code),
+          title: data.data.title,
+          message: data.data.message,
         },
       })
     }

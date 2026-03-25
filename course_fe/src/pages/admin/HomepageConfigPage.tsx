@@ -7,6 +7,7 @@ import { Switch } from "../../components/ui/switch"
 import { Textarea } from "../../components/ui/textarea"
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { AdminConfirmDialog } from "../../components/admin/AdminConfirmDialog"
 import { GripVertical, Plus, Trash2, Eye, Settings, Image as ImageIcon, Save } from "lucide-react"
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
 import type { SystemSetting } from '../../services/admin.api'
@@ -24,6 +25,24 @@ export function HomepageConfigPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void> | void)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
 
   useEffect(() => {
     const load = async () => {
@@ -122,6 +141,43 @@ export function HomepageConfigPage() {
     })
   }
 
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void> | void,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState((prev) => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
   const updateBanner = (bannerId: number, field: string, value: any) => {
     setConfig({
       ...config,
@@ -133,6 +189,7 @@ export function HomepageConfigPage() {
 
   const saveConfig = async () => {
     try {
+      setIsSaving(true)
       const value = JSON.stringify(config)
       if (configSettingId) {
         await updateSystemSetting(configSettingId, { value })
@@ -144,10 +201,14 @@ export function HomepageConfigPage() {
     } catch {
       toast.error('Lưu thất bại')
     }
+    setIsSaving(false)
   }
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
+      <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Legacy page: cau hinh nay khong phai nguon public homepage chinh nua. Home hien dang doc tu `homepage_layout` va website settings.
+      </div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-2">Homepage Configuration</h1>
@@ -158,9 +219,9 @@ export function HomepageConfigPage() {
             <Eye className="w-4 h-4 mr-2" />
             {showPreview ? "Hide" : "Show"} Preview
           </Button>
-          <Button onClick={saveConfig}>
+          <Button onClick={saveConfig} disabled={isSaving}>
             <Save className="w-4 h-4 mr-2" />
-            Save Changes
+            {isSaving ? "Dang luu..." : "Save Changes"}
           </Button>
         </div>
       </div>
@@ -333,7 +394,13 @@ export function HomepageConfigPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteBanner(banner.id)}
+                        onClick={() => openConfirm(
+                          'Delete homepage banner',
+                          `Delete banner "${banner.title}"?`,
+                          'Delete banner',
+                          () => deleteBanner(banner.id),
+                          true,
+                        )}
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
@@ -388,11 +455,17 @@ export function HomepageConfigPage() {
 
                   {/* Preview */}
                   <div className="border rounded-lg overflow-hidden">
-                    <img
-                      src={banner.image}
-                      alt={banner.title}
-                      className="w-full h-32 object-cover"
-                    />
+                    {banner.image ? (
+                      <img
+                        src={banner.image}
+                        alt={banner.title}
+                        className="w-full h-32 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-32 items-center justify-center bg-muted text-muted-foreground">
+                        <ImageIcon className="w-5 h-5" />
+                      </div>
+                    )}
                     <div className="p-3 bg-muted">
                       <h4 className="font-semibold">{banner.title}</h4>
                       <p className="text-sm text-muted-foreground">{banner.description}</p>
@@ -488,7 +561,13 @@ export function HomepageConfigPage() {
                   <h3 className="font-semibold p-4 bg-muted">Active Banners:</h3>
                   {config.banners.filter(b => b.enabled).map(banner => (
                     <div key={banner.id} className="border-t">
-                      <img src={banner.image} alt={banner.title} className="w-full h-24 object-cover" />
+                      {banner.image ? (
+                        <img src={banner.image} alt={banner.title} className="w-full h-24 object-cover" />
+                      ) : (
+                        <div className="flex h-24 items-center justify-center bg-muted text-muted-foreground">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                      )}
                       <div className="p-3">
                         <h4 className="font-medium">{banner.title}</h4>
                         <p className="text-sm text-muted-foreground">{banner.description}</p>
@@ -501,6 +580,16 @@ export function HomepageConfigPage() {
           </DialogContent>
         </Dialog>
       )}
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }

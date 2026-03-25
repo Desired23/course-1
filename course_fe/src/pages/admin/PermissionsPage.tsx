@@ -43,13 +43,13 @@ interface RoleTemplate {
 
 
 export function PermissionsPage() {
-  const { canAccess, user: currentUser } = useAuth()
+  const { canAccess } = useAuth()
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('users')
   const [searchQuery, setSearchQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all')
   const [selectedUser, setSelectedUser] = useState<UserWithPermissions | null>(null)
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false)
-  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState<RoleTemplate | null>(null)
   const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null)
   const [users, setUsers] = useState<UserWithPermissions[]>([])
@@ -85,6 +85,30 @@ export function PermissionsPage() {
             adminLevel: admin ? (admin.is_super_admin ? 'super' : 'sub') : undefined
           }
         }))
+        const uniqueAdminPermissions = Array.from(new Set(apiAdmins.flatMap(admin => admin.permissions || [])))
+        setRoleTemplates([
+          {
+            id: 'user',
+            name: 'Users',
+            description: 'Nguoi dung hoc vien trong he thong',
+            permissions: ['user.profile.view', 'user.profile.edit', 'user.courses.enroll', 'user.reviews.create'],
+            isDefault: true,
+          },
+          {
+            id: 'instructor',
+            name: 'Instructors',
+            description: 'Giang vien co quyen quan ly noi dung khoa hoc',
+            permissions: ['instructor.courses.create', 'instructor.courses.edit', 'instructor.earnings.view', 'instructor.students.manage'],
+            isDefault: false,
+          },
+          {
+            id: 'admin',
+            name: 'Admins',
+            description: 'Tai khoan quan tri duoc backend cap quyen',
+            permissions: uniqueAdminPermissions,
+            isDefault: false,
+          },
+        ])
       } catch {
         toast.error(t('permissions_page.load_failed'))
       }
@@ -104,10 +128,37 @@ export function PermissionsPage() {
     )
   }
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter)
+    return matchesSearch && matchesRole
+  })
+
+  const auditEntries = [
+    {
+      id: 'admins',
+      title: 'Admin accounts with explicit backend permissions',
+      description: `${users.filter((user) => user.roles.includes('admin')).length} admin account(s) currently managed from backend role assignments.`,
+      badge: 'Admin',
+      variant: 'destructive' as const,
+    },
+    {
+      id: 'instructors',
+      title: 'Instructor-capable accounts',
+      description: `${users.filter((user) => user.roles.includes('instructor')).length} instructor account(s) can access instructor surfaces and content management.`,
+      badge: 'Instructor',
+      variant: 'default' as const,
+    },
+    {
+      id: 'permissions',
+      title: 'Explicit per-admin permissions',
+      description: `${users.reduce((total, user) => total + user.permissions.length, 0)} explicit permission assignment(s) loaded from backend admin records.`,
+      badge: 'Permissions',
+      variant: 'secondary' as const,
+    },
+  ]
 
   const handleEditUser = (user: UserWithPermissions) => {
     setEditingUser({ ...user })
@@ -177,28 +228,7 @@ export function PermissionsPage() {
           <h1 className="text-3xl font-bold">{t('permissions_page.title')}</h1>
           <p className="text-muted-foreground">{t('permissions_page.subtitle')}</p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                {t('permissions_page.create_role')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('permissions_page.create_role_dialog_title')}</DialogTitle>
-                <DialogDescription>{t('permissions_page.create_role_dialog_description')}</DialogDescription>
-              </DialogHeader>
-              {/* Role creation form would go here */}
-            </DialogContent>
-          </Dialog>
-          
-          <Button>
-            <UserCheck className="h-4 w-4 mr-2" />
-            {t('permissions_page.bulk_actions')}
-          </Button>
-        </div>
+        <Badge variant="outline">Backend-backed user permission management</Badge>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -220,7 +250,7 @@ export function PermissionsPage() {
                 className="pl-10"
               />
             </div>
-            <Select>
+            <Select value={roleFilter} onValueChange={(value: 'all' | UserRole) => setRoleFilter(value)}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder={t('permissions_page.filter_by_role')} />
               </SelectTrigger>
@@ -341,9 +371,9 @@ export function PermissionsPage() {
                         <Eye className="h-3 w-3 mr-1" />
                         {t('permissions_page.view')}
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" disabled>
                         <Edit className="h-3 w-3 mr-1" />
-                        {t('common.edit')}
+                        View only
                       </Button>
                     </div>
                   </div>
@@ -395,35 +425,15 @@ export function PermissionsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center gap-4 p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{t('permissions_page.audit_sample_1_title')}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t('permissions_page.audit_sample_1_desc', { name: currentUser?.name })}
-                    </p>
+                {auditEntries.map((entry) => (
+                  <div key={entry.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium">{entry.title}</p>
+                      <p className="text-sm text-muted-foreground">{entry.description}</p>
+                    </div>
+                    <Badge variant={entry.variant}>{entry.badge}</Badge>
                   </div>
-                  <Badge variant="default">{t('permissions_page.audit_role_change')}</Badge>
-                </div>
-                
-                <div className="flex items-center gap-4 p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{t('permissions_page.audit_sample_2_title')}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t('permissions_page.audit_sample_2_desc', { name: currentUser?.name })}
-                    </p>
-                  </div>
-                  <Badge variant="destructive">{t('permissions_page.audit_permission_removed')}</Badge>
-                </div>
-                
-                <div className="flex items-center gap-4 p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{t('permissions_page.audit_sample_3_title')}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t('permissions_page.audit_sample_3_desc')}
-                    </p>
-                  </div>
-                  <Badge variant="secondary">{t('permissions_page.audit_user_created')}</Badge>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -514,6 +524,49 @@ export function PermissionsPage() {
                 <Save className="h-4 w-4 mr-2" />
                 {t('common.save')}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {selectedRole && (
+        <Dialog open={!!selectedRole} onOpenChange={() => setSelectedRole(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{selectedRole.name}</DialogTitle>
+              <DialogDescription>{selectedRole.description}</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant={selectedRole.isDefault ? 'outline' : 'secondary'}>
+                  {selectedRole.isDefault ? t('permissions_page.default') : 'Custom-backed'}
+                </Badge>
+                <Badge variant="outline">
+                  {t('permissions_page.role_permissions_count', { count: selectedRole.permissions.length })}
+                </Badge>
+              </div>
+
+              <div className="grid gap-2 max-h-72 overflow-y-auto">
+                {selectedRole.permissions.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No explicit permissions mapped for this role.</p>
+                )}
+                {selectedRole.permissions.map((permissionId) => {
+                  const permission = PERMISSIONS.find((item) => item.id === permissionId)
+
+                  return (
+                    <div key={permissionId} className="flex items-center justify-between rounded border p-3">
+                      <div>
+                        <p className="font-medium">{permission?.name || permissionId}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {permission?.description || 'Backend-provided permission mapping'}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{permission?.category || 'Backend'}</Badge>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </DialogContent>
         </Dialog>

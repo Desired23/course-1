@@ -1,50 +1,58 @@
-import { useRouter } from "./Router"
-import { useAuth } from "../contexts/AuthContext"
-import { useUIStore } from "../stores"
-import { Button } from "./ui/button"
-import { cn } from "./ui/utils"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
-import { 
-  LayoutDashboard,
-  Users,
-  GraduationCap,
-  Folder,
-  PenTool,
-  Settings,
+import { useEffect, useMemo } from 'react'
+import {
+  Award,
   BarChart3,
   BookOpen,
-  DollarSign,
-  MessageSquare,
-  Star,
-  FileText,
-  CreditCard,
-  UserCheck,
-  TrendingUp,
-  Award,
-  Bell,
+  Calendar,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  X,
-  Menu,
-  LogOut,
-  User,
+  CreditCard,
+  FileText,
   Flag,
-  Tag,
-  Shield,
-  Upload,
+  Folder,
+  Globe,
+  GraduationCap,
   Heart,
   HelpCircle,
+  LayoutDashboard,
+  MessageSquare,
   Package,
-  Globe,
-  Calendar,
-  Crown
-} from "lucide-react"
+  Settings,
+  Shield,
+  Star,
+  Tag,
+  TrendingUp,
+  Upload,
+  User,
+  UserCheck,
+  Users,
+  Bell,
+  X,
+  Activity,
+  Database,
+  Crown,
+  DollarSign,
+} from 'lucide-react'
+
+import { useAuth } from '../contexts/AuthContext'
+import { useUIStore } from '../stores'
+import { useRouter } from './Router'
+import { Button } from './ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip'
+import { cn } from './ui/utils'
 
 interface SidebarItem {
   label: string
   icon: React.ReactNode
   href: string
-  badge?: number
+}
+
+interface SidebarGroup {
+  key: string
+  label: string
+  items: SidebarItem[]
 }
 
 interface DashboardSidebarProps {
@@ -52,163 +60,295 @@ interface DashboardSidebarProps {
   className?: string
 }
 
+const adminGroups: SidebarGroup[] = [
+  {
+    key: 'overview',
+    label: 'Overview',
+    items: [
+      { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, href: '/admin' },
+      { label: 'Analytics', icon: <BarChart3 className="h-5 w-5" />, href: '/admin/analytics' },
+      { label: 'Statistics', icon: <TrendingUp className="h-5 w-5" />, href: '/admin/statistics' },
+      { label: 'Activity Log', icon: <Activity className="h-5 w-5" />, href: '/admin/activity-log' },
+    ],
+  },
+  {
+    key: 'people',
+    label: 'People',
+    items: [
+      { label: 'Users', icon: <Users className="h-5 w-5" />, href: '/admin/users' },
+      { label: 'Instructor Apps', icon: <Award className="h-5 w-5" />, href: '/admin/instructor-applications' },
+      { label: 'Permissions', icon: <Shield className="h-5 w-5" />, href: '/admin/permissions' },
+    ],
+  },
+  {
+    key: 'learning',
+    label: 'Learning',
+    items: [
+      { label: 'Courses', icon: <GraduationCap className="h-5 w-5" />, href: '/admin/courses' },
+      { label: 'Categories', icon: <Folder className="h-5 w-5" />, href: '/admin/categories' },
+      { label: 'Reviews', icon: <Star className="h-5 w-5" />, href: '/admin/reviews' },
+      { label: 'Reports', icon: <Flag className="h-5 w-5" />, href: '/admin/reports' },
+    ],
+  },
+  {
+    key: 'content',
+    label: 'Content',
+    items: [
+      { label: 'Blog Posts', icon: <FileText className="h-5 w-5" />, href: '/admin/blog' },
+      { label: 'Forum', icon: <MessageSquare className="h-5 w-5" />, href: '/admin/forum' },
+    ],
+  },
+  {
+    key: 'commerce',
+    label: 'Commerce',
+    items: [
+      { label: 'Payments', icon: <CreditCard className="h-5 w-5" />, href: '/admin/payments' },
+      { label: 'Refunds', icon: <DollarSign className="h-5 w-5" />, href: '/admin/refunds' },
+      { label: 'Payment Methods', icon: <CreditCard className="h-5 w-5" />, href: '/admin/payments/methods' },
+      { label: 'Subscriptions', icon: <Calendar className="h-5 w-5" />, href: '/admin/subscriptions' },
+      { label: 'Discounts', icon: <Tag className="h-5 w-5" />, href: '/admin/discounts' },
+    ],
+  },
+  {
+    key: 'website',
+    label: 'Website',
+    items: [
+      { label: 'Website Settings', icon: <Globe className="h-5 w-5" />, href: '/admin/website-settings' },
+      { label: 'Website Management', icon: <Package className="h-5 w-5" />, href: '/admin/website-management' },
+      { label: 'Home Layout', icon: <Package className="h-5 w-5" />, href: '/admin/home-layout' },
+    ],
+  },
+  {
+    key: 'operations',
+    label: 'Operations',
+    items: [
+      { label: 'Settings', icon: <Settings className="h-5 w-5" />, href: '/admin/settings' },
+      { label: 'Data Backup', icon: <Database className="h-5 w-5" />, href: '/admin/data-backup' },
+    ],
+  },
+]
+
+const instructorItems: SidebarItem[] = [
+  { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, href: '/instructor' },
+  { label: 'My Courses', icon: <BookOpen className="h-5 w-5" />, href: '/instructor/courses' },
+  { label: 'Communication', icon: <MessageSquare className="h-5 w-5" />, href: '/instructor/communication' },
+  { label: 'Students', icon: <UserCheck className="h-5 w-5" />, href: '/instructor/students' },
+  { label: 'Resources', icon: <Upload className="h-5 w-5" />, href: '/instructor/resources' },
+  { label: 'Quizzes', icon: <FileText className="h-5 w-5" />, href: '/instructor/quizzes' },
+  { label: 'Analytics', icon: <TrendingUp className="h-5 w-5" />, href: '/instructor/analytics' },
+  { label: 'Earnings', icon: <DollarSign className="h-5 w-5" />, href: '/instructor/earnings' },
+  { label: 'Sub. Revenue', icon: <Crown className="h-5 w-5" />, href: '/instructor/subscription-revenue' },
+  { label: 'Payouts', icon: <CreditCard className="h-5 w-5" />, href: '/instructor/payouts' },
+  { label: 'Discounts', icon: <Tag className="h-5 w-5" />, href: '/instructor/discounts' },
+  { label: 'Profile', icon: <User className="h-5 w-5" />, href: '/instructor/profile' },
+]
+
+const userItems: SidebarItem[] = [
+  { label: 'My Learning', icon: <BookOpen className="h-5 w-5" />, href: '/my-learning' },
+  { label: 'Wishlist', icon: <Heart className="h-5 w-5" />, href: '/wishlist' },
+  { label: 'Notifications', icon: <Bell className="h-5 w-5" />, href: '/notifications' },
+  { label: 'Profile', icon: <User className="h-5 w-5" />, href: '/profile' },
+  { label: 'Support', icon: <HelpCircle className="h-5 w-5" />, href: '/support' },
+]
+
+function getRoutePath(route: string) {
+  return route.split('?')[0]
+}
+
+function isRouteActive(currentRoute: string, href: string) {
+  const path = getRoutePath(currentRoute)
+  if (href === '/admin' || href === '/instructor') return path === href
+  return path === href || path.startsWith(`${href}/`)
+}
+
 export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
   const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
-  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore()
+  const {
+    sidebarOpen,
+    sidebarCollapsed,
+    adminSidebarGroups,
+    toggleSidebarCollapsed,
+    setSidebarOpen,
+    setAdminSidebarGroupOpen,
+  } = useUIStore()
 
-  const adminItems: SidebarItem[] = [
-    { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, href: '/admin' },
-    { label: 'Users', icon: <Users className="h-5 w-5" />, href: '/admin/users' },
-    { label: 'Courses', icon: <GraduationCap className="h-5 w-5" />, href: '/admin/courses' },
-    { label: 'Categories', icon: <Folder className="h-5 w-5" />, href: '/admin/categories' },
-    { label: 'Blog Posts', icon: <PenTool className="h-5 w-5" />, href: '/admin/blog' },
-    { label: 'Forum', icon: <MessageSquare className="h-5 w-5" />, href: '/admin/forum' },
-    { label: 'Reviews', icon: <Star className="h-5 w-5" />, href: '/admin/reviews' },
-    { label: 'Reports', icon: <Flag className="h-5 w-5" />, href: '/admin/reports' },
-    { label: 'Payments', icon: <CreditCard className="h-5 w-5" />, href: '/admin/payments' },
-    { label: 'Subscriptions', icon: <Calendar className="h-5 w-5" />, href: '/admin/subscriptions' },
-    { label: 'Discounts', icon: <Tag className="h-5 w-5" />, href: '/admin/discounts' },
-    { label: 'Analytics', icon: <BarChart3 className="h-5 w-5" />, href: '/admin/analytics' },
-    { label: 'Permissions', icon: <Shield className="h-5 w-5" />, href: '/admin/permissions' },
-    { label: 'Website Settings', icon: <Globe className="h-5 w-5" />, href: '/admin/website-settings' },
-    { label: 'Home Layout', icon: <Package className="h-5 w-5" />, href: '/admin/home-layout' },
-    { label: 'Settings', icon: <Settings className="h-5 w-5" />, href: '/admin/settings' },
-  ]
+  const currentPath = getRoutePath(currentRoute)
+  const activeAdminGroup = useMemo(
+    () => adminGroups.find((group) => group.items.some((item) => isRouteActive(currentPath, item.href)))?.key,
+    [currentPath]
+  )
 
-  const instructorItems: SidebarItem[] = [
-    { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, href: '/instructor' },
-    { label: 'My Courses', icon: <BookOpen className="h-5 w-5" />, href: '/instructor/courses' },
-    { label: 'Communication', icon: <MessageSquare className="h-5 w-5" />, href: '/instructor/communication' },
-    { label: 'Students', icon: <UserCheck className="h-5 w-5" />, href: '/instructor/students' },
-    { label: 'Resources', icon: <Upload className="h-5 w-5" />, href: '/instructor/resources' },
-    { label: 'Quizzes', icon: <FileText className="h-5 w-5" />, href: '/instructor/quizzes' },
-    { label: 'Analytics', icon: <TrendingUp className="h-5 w-5" />, href: '/instructor/analytics' },
-    { label: 'Earnings', icon: <DollarSign className="h-5 w-5" />, href: '/instructor/earnings' },
-    { label: 'Sub. Revenue', icon: <Crown className="h-5 w-5" />, href: '/instructor/subscription-revenue' },
-    { label: 'Payouts', icon: <CreditCard className="h-5 w-5" />, href: '/instructor/payouts' },
-    { label: 'Discounts', icon: <Tag className="h-5 w-5" />, href: '/instructor/discounts' },
-    { label: 'Profile', icon: <User className="h-5 w-5" />, href: '/instructor/profile' },
-  ]
+  useEffect(() => {
+    if (type === 'admin' && activeAdminGroup && !adminSidebarGroups[activeAdminGroup]) {
+      setAdminSidebarGroupOpen(activeAdminGroup, true)
+    }
+  }, [activeAdminGroup, adminSidebarGroups, setAdminSidebarGroupOpen, type])
 
-  const userItems: SidebarItem[] = [
-    { label: 'My Learning', icon: <BookOpen className="h-5 w-5" />, href: '/my-learning' },
-    { label: 'Wishlist', icon: <Heart className="h-5 w-5" />, href: '/wishlist' },
-    { label: 'Notifications', icon: <Bell className="h-5 w-5" />, href: '/notifications' },
-    { label: 'Profile', icon: <User className="h-5 w-5" />, href: '/profile' },
-    { label: 'Support', icon: <HelpCircle className="h-5 w-5" />, href: '/support' },
-  ]
+  const goTo = (href: string) => {
+    navigate(href)
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false)
+    }
+  }
 
-  const items = type === 'admin' ? adminItems : type === 'instructor' ? instructorItems : userItems
+  const renderItem = (item: SidebarItem) => {
+    const active = isRouteActive(currentPath, item.href)
+    return (
+      <Tooltip key={item.href}>
+        <TooltipTrigger asChild>
+          <Button
+            variant={active ? 'secondary' : 'ghost'}
+            className={cn(
+              'w-full gap-3 transition-all',
+              sidebarCollapsed ? 'justify-center px-2' : 'justify-start',
+              active && 'bg-secondary'
+            )}
+            onClick={() => goTo(item.href)}
+          >
+            {item.icon}
+            {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+          </Button>
+        </TooltipTrigger>
+        {sidebarCollapsed && (
+          <TooltipContent side="right" className="hidden md:block">
+            <p>{item.label}</p>
+          </TooltipContent>
+        )}
+      </Tooltip>
+    )
+  }
 
   return (
     <>
-      {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      <aside className={cn(
-        "fixed md:sticky top-0 left-0 h-screen bg-card border-r border-border flex flex-col transition-all duration-300 z-50 overflow-hidden",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-        sidebarOpen ? "w-64" : "w-64 md:w-16",
-        className
-      )}>
-        {/* Sidebar Header */}
-        <div className={cn(
-          "p-4 md:p-6 border-b border-border transition-all duration-300",
-          !sidebarOpen && "md:p-2"
-        )}>
-          <div className={cn(
-            "flex items-center gap-3",
-            !sidebarOpen && "md:flex-col md:gap-2"
-          )}>
-            <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
-              {type === 'admin' ? <Shield className="h-4 w-4 md:h-5 md:w-5" /> : 
-               type === 'instructor' ? <GraduationCap className="h-4 w-4 md:h-5 md:w-5" /> : 
-               <User className="h-4 w-4 md:h-5 md:w-5" />}
-            </div>
-            {sidebarOpen && (
-              <div className="min-w-0">
-                <h3 className="font-medium truncate text-sm md:text-base">
-                  {type === 'admin' ? 'Admin' : type === 'instructor' ? 'Instructor' : 'Student'} Panel
-                </h3>
-                <p className="text-xs md:text-sm text-muted-foreground truncate">{user?.name || 'User'}</p>
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-screen flex-col overflow-hidden border-r border-border bg-card transition-all duration-300 md:sticky',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          sidebarCollapsed ? 'w-20' : 'w-72',
+          className
+        )}
+      >
+        <div className={cn('border-b border-border p-4', sidebarCollapsed && 'px-3')}>
+          <div className="flex items-center justify-between gap-3">
+            <div className={cn('flex items-center gap-3', sidebarCollapsed && 'justify-center')}>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                {type === 'admin' ? (
+                  <Shield className="h-5 w-5" />
+                ) : type === 'instructor' ? (
+                  <GraduationCap className="h-5 w-5" />
+                ) : (
+                  <User className="h-5 w-5" />
+                )}
               </div>
-            )}
+              {!sidebarCollapsed && (
+                <div className="min-w-0">
+                  <h3 className="truncate font-medium">
+                    {type === 'admin' ? 'Admin' : type === 'instructor' ? 'Instructor' : 'Student'} Panel
+                  </h3>
+                  <p className="truncate text-sm text-muted-foreground">{user?.name || 'User'}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="hidden md:inline-flex"
+                onClick={toggleSidebarCollapsed}
+              >
+                {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
-      {/* Navigation Items */}
-      <nav className="flex-1 p-3 md:p-4 space-y-1 overflow-y-auto scrollbar-thin">
-        <TooltipProvider delayDuration={300}>
-          {items.map((item) => (
-            <Tooltip key={item.href}>
+        <nav className="flex-1 space-y-3 overflow-y-auto p-3">
+          <TooltipProvider delayDuration={250}>
+            {type === 'admin'
+              ? adminGroups.map((group) => {
+                  const groupOpen = sidebarCollapsed ? false : adminSidebarGroups[group.key] ?? group.key === activeAdminGroup
+                  const groupActive = group.items.some((item) => isRouteActive(currentPath, item.href))
+                  return (
+                    <Collapsible
+                      key={group.key}
+                      open={groupOpen}
+                      onOpenChange={(open) => setAdminSidebarGroupOpen(group.key, open)}
+                    >
+                      <div className="rounded-xl border border-transparent bg-background/40">
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className={cn(
+                              'w-full px-3',
+                              sidebarCollapsed ? 'justify-center' : 'justify-between',
+                              groupActive && 'bg-secondary/60'
+                            )}
+                          >
+                            {sidebarCollapsed ? (
+                              group.items[0]?.icon
+                            ) : (
+                              <>
+                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {group.label}
+                                </span>
+                                <ChevronDown className={cn('h-4 w-4 transition-transform', groupOpen && 'rotate-180')} />
+                              </>
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
+                        {sidebarCollapsed ? (
+                          <div className="mt-2 space-y-1">{group.items.map(renderItem)}</div>
+                        ) : (
+                          <CollapsibleContent className="space-y-1 px-1 pb-1">
+                            {group.items.map(renderItem)}
+                          </CollapsibleContent>
+                        )}
+                      </div>
+                    </Collapsible>
+                  )
+                })
+              : (type === 'instructor' ? instructorItems : userItems).map(renderItem)}
+          </TooltipProvider>
+        </nav>
+
+        <div className="border-t border-border p-3">
+          <TooltipProvider delayDuration={250}>
+            <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant={currentRoute === item.href ? "secondary" : "ghost"}
-                  className={cn(
-                    "w-full gap-3",
-                    sidebarOpen ? "justify-start" : "md:justify-center md:px-2",
-                    currentRoute === item.href && "bg-secondary"
-                  )}
-                  onClick={() => {
-                    navigate(item.href)
-                    if (window.innerWidth < 768) setSidebarOpen(false) // Close on mobile after navigation
-                  }}
+                  variant="outline"
+                  className={cn('w-full gap-3', sidebarCollapsed ? 'justify-center px-2' : 'justify-start')}
+                  onClick={() => goTo('/')}
                 >
-                  {item.icon}
-                  {sidebarOpen && (
-                    <>
-                      <span className="truncate">{item.label}</span>
-                      {item.badge && (
-                        <span className="ml-auto bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5">
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
+                  <Package className="h-5 w-5" />
+                  {!sidebarCollapsed && <span>Back to Platform</span>}
                 </Button>
               </TooltipTrigger>
-              {!sidebarOpen && (
+              {sidebarCollapsed && (
                 <TooltipContent side="right" className="hidden md:block">
-                  <p>{item.label}</p>
+                  <p>Back to Platform</p>
                 </TooltipContent>
               )}
             </Tooltip>
-          ))}
-        </TooltipProvider>
-      </nav>
-
-      {/* Sidebar Footer */}
-      <div className="p-3 md:p-4 border-t border-border">
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "w-full gap-2 md:gap-3 text-xs md:text-sm",
-                  sidebarOpen ? "justify-start" : "md:justify-center md:px-2"
-                )}
-                onClick={() => navigate('/')}
-              >
-                <Package className="h-4 w-4 md:h-5 md:w-5" />
-                {sidebarOpen && <span>Back to Platform</span>}
-              </Button>
-            </TooltipTrigger>
-            {!sidebarOpen && (
-              <TooltipContent side="right" className="hidden md:block">
-                <p>Back to Platform</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+          </TooltipProvider>
+        </div>
       </aside>
     </>
   )

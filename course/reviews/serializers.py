@@ -42,10 +42,21 @@ class ReviewSerializer(serializers.ModelSerializer):
             'status',
             'likes',
             'report_count',
+            'last_report_reason',
+            'last_reported_at',
             'instructor_response',
             'response_date',
         ]
-        read_only_fields = ['review_id', 'review_date', 'updated_date', 'likes', 'report_count', 'response_date']
+        read_only_fields = [
+            'review_id',
+            'review_date',
+            'updated_date',
+            'likes',
+            'report_count',
+            'last_report_reason',
+            'last_reported_at',
+            'response_date',
+        ]
 
     def validate_course(self, value):
         if value is None:

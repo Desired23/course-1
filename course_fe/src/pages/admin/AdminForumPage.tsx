@@ -10,13 +10,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert"
-import { Plus, Edit, Trash2, Eye, MessageSquare, Users, AlertTriangle, CheckCircle, Lock, Unlock, FileText, Shield, UserX, Ban, ExternalLink } from 'lucide-react'
+import { Checkbox } from "../../components/ui/checkbox"
+import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
+import { Plus, Edit, Trash2, Eye, MessageSquare, Users, AlertTriangle, CheckCircle, Lock, Unlock, FileText, Shield, UserX, ExternalLink } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { toast } from "sonner"
 import { QuickTopicPreview } from "../../components/QuickTopicPreview"
-import { getAllForums, createForum, deleteForum, getAllForumTopics, createForumTopic, updateForumTopic, deleteForumTopic } from '../../services/forum.api'
+import { getAllForums, createForum, deleteForum, getAllForumTopics, createForumTopic, updateForumTopic, deleteForumTopic, moderateForumTopic } from '../../services/forum.api'
 import type { Forum, ForumTopic as ApiForumTopic } from '../../services/forum.api'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '../../stores/auth.store'
 
 interface ForumTopic {
   id: string
@@ -30,6 +34,8 @@ interface ForumTopic {
   createdAt: string
   content?: string
   excerpt?: string
+  reportCount: number
+  lastReportReason?: string
 }
 
 interface ForumCategory {
@@ -45,6 +51,8 @@ interface ForumCategory {
 export function AdminForumPage() {
   const { navigate } = useRouter()
   const { t } = useTranslation()
+  const currentUserId = useAuthStore(state => state.user?.id)
+  const [activeTab, setActiveTab] = useState('topics')
   const [topics, setTopics] = useState<ForumTopic[]>([])
   const [categories, setCategories] = useState<ForumCategory[]>([])
 
@@ -72,10 +80,12 @@ export function AdminForumPage() {
             replies: t.replies_count,
             views: t.views,
             lastActivity: t.updated_at ? new Date(t.updated_at).toLocaleDateString() : '',
-            status: (t.is_pinned ? 'pinned' : t.status === 'locked' ? 'locked' : 'active') as ForumTopic['status'],
+            status: (t.report_count > 0 ? 'reported' : t.is_pinned ? 'pinned' : t.status === 'locked' ? 'locked' : 'active') as ForumTopic['status'],
             createdAt: t.created_at ? new Date(t.created_at).toLocaleDateString() : '',
             content: t.content,
-            excerpt: t.content ? t.content.substring(0, 100) + '...' : ''
+            excerpt: t.content ? t.content.substring(0, 100) + '...' : '',
+            reportCount: t.report_count || 0,
+            lastReportReason: t.last_report_reason || undefined,
           }
         }))
       } catch {
@@ -92,6 +102,24 @@ export function AdminForumPage() {
   const [selectedTopicForPreview, setSelectedTopicForPreview] = useState<ForumTopic | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | ForumTopic['status']>('all')
+  const [selectedReportedTopicIds, setSelectedReportedTopicIds] = useState<string[]>([])
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void>)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
@@ -177,13 +205,11 @@ export function AdminForumPage() {
   }
 
   const handleDeleteTopic = async (topicId: string) => {
-    if (window.confirm('Are you sure you want to delete this topic?')) {
-      try {
-        await deleteForumTopic(Number(topicId))
-        setTopics(topics.filter(t => t.id !== topicId))
-        toast.success('Topic deleted successfully')
-      } catch { toast.error('Xóa thất bại') }
-    }
+    try {
+      await deleteForumTopic(Number(topicId))
+      setTopics(topics.filter(t => t.id !== topicId))
+      toast.success('Topic deleted successfully')
+    } catch { toast.error('X??a th???t b???i') }
   }
 
   const handleCreateCategory = async () => {
@@ -192,7 +218,15 @@ export function AdminForumPage() {
       return
     }
     try {
-      const created = await createForum({ title: categoryForm.name, description: categoryForm.description })
+      if (!currentUserId) {
+        toast.error('Khong tim thay thong tin admin hien tai')
+        return
+      }
+      const created = await createForum({
+        title: categoryForm.name,
+        description: categoryForm.description,
+        user_id: Number(currentUserId),
+      })
       setCategories(prev => [...prev, {
         id: String(created.id),
         name: created.title,
@@ -212,13 +246,11 @@ export function AdminForumPage() {
       toast.error(t('forum.admin.category_delete_blocked'))
       return
     }
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      try {
-        await deleteForum(Number(categoryId))
-        setCategories(categories.filter(c => c.id !== categoryId))
-        toast.success('Category deleted successfully')
-      } catch { toast.error('Xóa thất bại') }
-    }
+    try {
+      await deleteForum(Number(categoryId))
+      setCategories(categories.filter(c => c.id !== categoryId))
+      toast.success('Category deleted successfully')
+    } catch { toast.error('X??a th???t b???i') }
   }
 
   const handleCreateTopic = async () => {
@@ -226,9 +258,18 @@ export function AdminForumPage() {
       toast.error(t('forum.admin.fill_required_fields'))
       return
     }
+    if (!currentUserId) {
+      toast.error('Khong tim thay thong tin admin hien tai')
+      return
+    }
     try {
       const forumId = Number(topicForm.category)
-      const created = await createForumTopic({ forum: forumId, title: topicForm.title, content: topicForm.content })
+      const created = await createForumTopic({
+        forum: forumId,
+        title: topicForm.title,
+        content: topicForm.content,
+        user: Number(currentUserId),
+      })
       const forum = categories.find(c => c.id === topicForm.category)
       setTopics(prev => [{
         id: String(created.id),
@@ -239,7 +280,8 @@ export function AdminForumPage() {
         views: 0,
         lastActivity: 'Just now',
         status: 'active',
-        createdAt: new Date().toLocaleDateString()
+        createdAt: new Date().toLocaleDateString(),
+        reportCount: 0,
       }, ...prev])
       setIsCreateTopicOpen(false)
       setTopicForm({ title: '', category: '', content: '', author: 'Admin' })
@@ -266,27 +308,89 @@ export function AdminForumPage() {
     const topicId = Number(selectedTopicForModeration.id)
     try {
       if (action === 'approve') {
-        await updateForumTopic(topicId, { status: 'active' })
-        setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'active' as const } : t))
+        await moderateForumTopic(topicId, { action: 'approve', reason: moderationAction.reason })
+        setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'active' as const, reportCount: 0 } : t))
         toast.success('Topic approved')
       } else if (action === 'delete') {
-        await deleteForumTopic(topicId)
+        await moderateForumTopic(topicId, { action: 'delete', reason: moderationAction.reason })
         setTopics(topics.filter(t => t.id !== selectedTopicForModeration.id))
         toast.success('Topic deleted')
       } else if (action === 'lock') {
-        await updateForumTopic(topicId, { status: 'locked' })
-        setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'locked' as const } : t))
+        await moderateForumTopic(topicId, { action: 'lock', reason: moderationAction.reason })
+        setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'locked' as const, reportCount: 0 } : t))
         toast.success('Topic locked')
-      } else if (action === 'warn') {
-        toast.success(`Warning sent to ${selectedTopicForModeration.author}`)
-      } else if (action === 'ban') {
-        toast.success(`User ${selectedTopicForModeration.author} has been banned`)
       }
     } catch { toast.error(t('forum.admin.action_failed')) }
 
     setIsModerationDialogOpen(false)
     setSelectedTopicForModeration(null)
     setModerationAction({ action: '', reason: '', duration: '' })
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void>,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState(prev => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState(prev => ({ ...prev, loading: false }))
+    }
+  }
+
+  const dismissReportedTopic = async (topicId: string) => {
+    await moderateForumTopic(Number(topicId), { action: 'dismiss' })
+    setTopics(prev => prev.map(item => item.id === topicId ? { ...item, status: 'active', reportCount: 0 } : item))
+  }
+
+  const toggleReportedSelection = (topicId: string, checked: boolean) => {
+    setSelectedReportedTopicIds(prev => checked ? [...prev, topicId] : prev.filter(id => id !== topicId))
+  }
+
+  const toggleAllReported = (checked: boolean) => {
+    setSelectedReportedTopicIds(checked ? reportedTopics.map(topic => topic.id) : [])
+  }
+
+  const bulkReportedAction = async (
+    ids: string[],
+    action: (topicId: string) => Promise<void>,
+    successMessage: string
+  ) => {
+    try {
+      for (const id of ids) {
+        await action(id)
+      }
+      setSelectedReportedTopicIds([])
+      toast.success(successMessage)
+    } catch {
+      toast.error(t('forum.admin.action_failed'))
+    }
   }
 
   return (
@@ -332,7 +436,7 @@ export function AdminForumPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
+                      <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
                     ))}
@@ -431,7 +535,7 @@ export function AdminForumPage() {
       </div>
 
       {/* Main Content */}
-      <Tabs defaultValue="topics" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="topics">{t('forum.topics_tab')}</TabsTrigger>
           <TabsTrigger value="categories">{t('forum.forums_tab')}</TabsTrigger>
@@ -545,7 +649,14 @@ export function AdminForumPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handlePinTopic(topic.id)}
+                            onClick={() => openConfirm(
+                              topic.status === 'pinned' ? 'Unpin topic' : 'Pin topic',
+                              topic.status === 'pinned'
+                                ? `Remove pin from "${topic.title}"?`
+                                : `Pin "${topic.title}" to highlight it?`,
+                              topic.status === 'pinned' ? 'Unpin' : 'Pin',
+                              () => handlePinTopic(topic.id),
+                            )}
                             title={topic.status === 'pinned' ? 'Unpin' : 'Pin'}
                           >
                             <CheckCircle className="h-4 w-4" />
@@ -553,7 +664,14 @@ export function AdminForumPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleLockTopic(topic.id)}
+                            onClick={() => openConfirm(
+                              topic.status === 'locked' ? 'Unlock topic' : 'Lock topic',
+                              topic.status === 'locked'
+                                ? `Unlock "${topic.title}" so the discussion can continue?`
+                                : `Lock "${topic.title}"?`,
+                              topic.status === 'locked' ? 'Unlock' : 'Lock',
+                              () => handleLockTopic(topic.id),
+                            )}
                             title={topic.status === 'locked' ? 'Unlock' : 'Lock'}
                           >
                             {topic.status === 'locked' ? (
@@ -565,7 +683,13 @@ export function AdminForumPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteTopic(topic.id)}
+                            onClick={() => openConfirm(
+                              'Delete topic',
+                              `Delete "${topic.title}"? This action cannot be undone.`,
+                              'Delete',
+                              () => handleDeleteTopic(topic.id),
+                              true,
+                            )}
                             title="Delete"
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -663,14 +787,28 @@ export function AdminForumPage() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
-                            Edit
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSearchQuery(category.name)
+                              setFilterStatus('all')
+                              setActiveTab('topics')
+                            }}
+                          >
+                            View topics
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-destructive"
-                            onClick={() => handleDeleteCategory(category.id)}
+                            onClick={() => openConfirm(
+                              'Delete category',
+                              `Delete "${category.name}"? This action cannot be undone.`,
+                              'Delete',
+                              () => handleDeleteCategory(category.id),
+                              true,
+                            )}
                           >
                             Delete
                           </Button>
@@ -685,6 +823,49 @@ export function AdminForumPage() {
         </TabsContent>
 
         <TabsContent value="reported" className="space-y-4">
+          <AdminBulkActionBar
+            count={selectedReportedTopicIds.length}
+            label="reported topics selected"
+            onClear={() => setSelectedReportedTopicIds([])}
+            actions={[
+              {
+                key: 'dismiss',
+                label: 'Dismiss reports',
+                onClick: () => openConfirm(
+                  'Dismiss selected reports',
+                  `Dismiss reports for ${selectedReportedTopicIds.length} selected topics?`,
+                  'Dismiss reports',
+                  () => bulkReportedAction(selectedReportedTopicIds, dismissReportedTopic, 'Da bo qua report da chon'),
+                ),
+              },
+              {
+                key: 'lock',
+                label: 'Lock topics',
+                onClick: () => openConfirm(
+                  'Lock selected topics',
+                  `Lock ${selectedReportedTopicIds.length} reported topics?`,
+                  'Lock topics',
+                  () => bulkReportedAction(selectedReportedTopicIds, (id) => moderateForumTopic(Number(id), { action: 'lock' }).then(() => {
+                    setTopics(prev => prev.map(item => item.id === id ? { ...item, status: 'locked', reportCount: 0 } : item))
+                  }), 'Da khoa topic da chon'),
+                ),
+              },
+              {
+                key: 'delete',
+                label: 'Delete topics',
+                destructive: true,
+                onClick: () => openConfirm(
+                  'Delete selected topics',
+                  `Delete ${selectedReportedTopicIds.length} reported topics? This action cannot be undone.`,
+                  'Delete topics',
+                  () => bulkReportedAction(selectedReportedTopicIds, (id) => deleteForumTopic(Number(id)).then(() => {
+                    setTopics(prev => prev.filter(item => item.id !== id))
+                  }), 'Da xoa topic da chon'),
+                  true,
+                ),
+              },
+            ]}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Reported Topics</CardTitle>
@@ -701,6 +882,12 @@ export function AdminForumPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[48px]">
+                        <Checkbox
+                          checked={reportedTopics.length > 0 && selectedReportedTopicIds.length === reportedTopics.length}
+                          onCheckedChange={(checked) => toggleAllReported(Boolean(checked))}
+                        />
+                      </TableHead>
                       <TableHead>Topic</TableHead>
                       <TableHead>Author</TableHead>
                       <TableHead>Reports</TableHead>
@@ -712,12 +899,18 @@ export function AdminForumPage() {
                     {reportedTopics.map((topic) => (
                       <TableRow key={topic.id} className="bg-destructive/5">
                         <TableCell>
+                          <Checkbox
+                            checked={selectedReportedTopicIds.includes(topic.id)}
+                            onCheckedChange={(checked) => toggleReportedSelection(topic.id, Boolean(checked))}
+                          />
+                        </TableCell>
+                        <TableCell>
                           <div className="font-medium">{topic.title}</div>
                           <div className="text-sm text-muted-foreground">in {topic.category}</div>
                         </TableCell>
                         <TableCell>{topic.author}</TableCell>
                         <TableCell>
-                          <Badge variant="destructive">Flagged</Badge>
+                          <Badge variant="destructive">{topic.reportCount} reports</Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {topic.lastActivity}
@@ -744,19 +937,27 @@ export function AdminForumPage() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => {
-                                setTopics(topics.map(t => 
-                                  t.id === topic.id ? { ...t, status: 'active' } : t
-                                ))
-                                toast.success('Report dismissed')
-                              }}
+                              onClick={() => openConfirm(
+                                'Dismiss report',
+                                `Dismiss reports for "${topic.title}" and keep the topic visible?`,
+                                'Dismiss report',
+                                () => dismissReportedTopic(topic.id).then(() => {
+                                  toast.success('Dismissed report')
+                                }),
+                              )}
                             >
                               Dismiss
                             </Button>
                             <Button
                               variant="destructive"
                               size="sm"
-                              onClick={() => handleDeleteTopic(topic.id)}
+                              onClick={() => openConfirm(
+                                'Delete topic',
+                                `Delete "${topic.title}"? This action cannot be undone.`,
+                                'Delete',
+                                () => handleDeleteTopic(topic.id),
+                                true,
+                              )}
                             >
                               Delete
                             </Button>
@@ -848,6 +1049,10 @@ export function AdminForumPage() {
                   <div><strong>Trả lời:</strong> {selectedTopicForModeration?.replies}</div>
                   <div><strong>Ngày tạo:</strong> {selectedTopicForModeration?.createdAt}</div>
                   <div><strong>Trạng thái:</strong> <Badge variant={getStatusColor(selectedTopicForModeration?.status || 'active')}>{selectedTopicForModeration?.status}</Badge></div>
+                  <div><strong>Số báo cáo:</strong> {selectedTopicForModeration?.reportCount || 0}</div>
+                  {selectedTopicForModeration?.lastReportReason && (
+                    <div><strong>Lý do gần nhất:</strong> {selectedTopicForModeration.lastReportReason}</div>
+                  )}
                 </div>
               </AlertDescription>
             </Alert>
@@ -895,18 +1100,6 @@ export function AdminForumPage() {
                       Khóa - Không cho phép trả lời mới
                     </div>
                   </SelectItem>
-                  <SelectItem value="warn">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-600" />
-                      Cảnh báo - Gửi cảnh báo cho tác giả
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="ban">
-                    <div className="flex items-center gap-2">
-                      <Ban className="h-4 w-4 text-red-600" />
-                      Cấm - Cấm tác giả (tạm thời/vĩnh viễn)
-                    </div>
-                  </SelectItem>
                   <SelectItem value="delete">
                     <div className="flex items-center gap-2">
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -932,30 +1125,8 @@ export function AdminForumPage() {
               </p>
             </div>
 
-            {/* Duration (for ban) */}
-            {moderationAction.action === 'ban' && (
-              <div className="space-y-2">
-                <Label htmlFor="mod-duration">Thời Gian Cấm</Label>
-                <Select 
-                  value={moderationAction.duration}
-                  onValueChange={(value) => setModerationAction({ ...moderationAction, duration: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn thời gian" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1d">1 ngày</SelectItem>
-                    <SelectItem value="3d">3 ngày</SelectItem>
-                    <SelectItem value="7d">7 ngày</SelectItem>
-                    <SelectItem value="30d">30 ngày</SelectItem>
-                    <SelectItem value="permanent">Vĩnh viễn</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
             {/* Warning Alert */}
-            {(moderationAction.action === 'delete' || moderationAction.action === 'ban') && (
+            {(moderationAction.action === 'delete') && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Cảnh Báo</AlertTitle>
@@ -979,14 +1150,26 @@ export function AdminForumPage() {
             </Button>
             <Button 
               onClick={handleModeration}
-              variant={moderationAction.action === 'delete' || moderationAction.action === 'ban' ? 'destructive' : 'default'}
+              variant={moderationAction.action === 'delete' ? 'destructive' : 'default'}
             >
               Thực Hiện
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }
+
+
 

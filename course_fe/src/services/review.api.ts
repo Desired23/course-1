@@ -1,7 +1,5 @@
 import { http } from './http'
 
-// ── Types ──────────────────────────────────────────────────────────
-
 export interface ReviewUserInfo {
   user_id: number
   full_name: string
@@ -16,17 +14,19 @@ export interface ReviewCourseDetail {
 
 export interface Review {
   review_id: number
-  course: number          // FK id (write)
-  user: number            // FK id (write)
+  course: number
+  user: number
   user_info: ReviewUserInfo
   course_detail: ReviewCourseDetail
-  rating: number          // 1-5
+  rating: number
   comment: string | null
-  review_date: string     // ISO datetime
-  updated_date: string    // ISO datetime
+  review_date: string
+  updated_date: string
   status: 'pending' | 'approved' | 'rejected'
   likes: number
   report_count: number
+  last_report_reason: string | null
+  last_reported_at: string | null
   instructor_response: string | null
   response_date: string | null
 }
@@ -41,40 +41,30 @@ interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ── API Functions ──────────────────────────────────────────────────
-
-/**
- * Get reviews for a specific course (public, paginated).
- */
 export async function getReviewsByCourse(
   courseId: number,
   page = 1,
   pageSize = 20
 ): Promise<PaginatedResponse<Review>> {
-  const res = await http.get<PaginatedResponse<Review>>(
-    `/reviews/?course_id=${courseId}&page=${page}&page_size=${pageSize}`
-  )
-  return res
+  return http.get<PaginatedResponse<Review>>('/reviews/', {
+    course_id: courseId,
+    page,
+    page_size: pageSize,
+  })
 }
 
-/**
- * Get ALL reviews across all courses (admin, auto-paginate).
- */
 export async function getAllReviews(): Promise<Review[]> {
   const all: Review[] = []
   let page = 1
   while (true) {
-    const res = await http.get<PaginatedResponse<Review>>(`/reviews/?page=${page}&page_size=100`)
+    const res = await http.get<PaginatedResponse<Review>>('/reviews/', { page, page_size: 100 })
     all.push(...res.results)
     if (!res.next) break
-    page++
+    page += 1
   }
   return all
 }
 
-/**
- * Get ALL reviews for a course (auto-paginate).
- */
 export async function getAllReviewsByCourse(courseId: number): Promise<Review[]> {
   const all: Review[] = []
   let page = 1
@@ -82,14 +72,11 @@ export async function getAllReviewsByCourse(courseId: number): Promise<Review[]>
     const res = await getReviewsByCourse(courseId, page, 100)
     all.push(...res.results)
     if (!res.next) break
-    page++
+    page += 1
   }
   return all
 }
 
-/**
- * Get reviews written by a specific user (paginated).
- */
 export async function getReviewsByUser(
   userId: number,
   page = 1,
@@ -100,20 +87,16 @@ export async function getReviewsByUser(
     sort_by?: 'newest' | 'oldest' | 'rating_desc' | 'rating_asc'
   }
 ): Promise<PaginatedResponse<Review>> {
-  const searchParams = new URLSearchParams()
-  searchParams.set('user_id', String(userId))
-  searchParams.set('page', String(page))
-  searchParams.set('page_size', String(pageSize))
-  if (params?.search) searchParams.set('search', params.search)
-  if (params?.rating) searchParams.set('rating', params.rating)
-  if (params?.sort_by) searchParams.set('sort_by', params.sort_by)
-  const res = await http.get<PaginatedResponse<Review>>(`/reviews/?${searchParams.toString()}`)
-  return res
+  return http.get<PaginatedResponse<Review>>('/reviews/', {
+    user_id: userId,
+    page,
+    page_size: pageSize,
+    search: params?.search,
+    rating: params?.rating,
+    sort_by: params?.sort_by,
+  })
 }
 
-/**
- * Get ALL reviews by a user (auto-paginate).
- */
 export async function getAllReviewsByUser(userId: number): Promise<Review[]> {
   const all: Review[] = []
   let page = 1
@@ -121,28 +104,23 @@ export async function getAllReviewsByUser(userId: number): Promise<Review[]> {
     const res = await getReviewsByUser(userId, page, 100)
     all.push(...res.results)
     if (!res.next) break
-    page++
+    page += 1
   }
   return all
 }
 
-/**
- * Get reviews for all courses taught by an instructor (public, paginated).
- */
 export async function getReviewsByInstructor(
   instructorId: number,
   page = 1,
   pageSize = 20
 ): Promise<PaginatedResponse<Review>> {
-  const res = await http.get<PaginatedResponse<Review>>(
-    `/reviews/?instructor_id=${instructorId}&page=${page}&page_size=${pageSize}`
-  )
-  return res
+  return http.get<PaginatedResponse<Review>>('/reviews/', {
+    instructor_id: instructorId,
+    page,
+    page_size: pageSize,
+  })
 }
 
-/**
- * Get ALL reviews for an instructor (auto-paginate).
- */
 export async function getAllReviewsByInstructor(instructorId: number): Promise<Review[]> {
   const all: Review[] = []
   let page = 1
@@ -150,21 +128,15 @@ export async function getAllReviewsByInstructor(instructorId: number): Promise<R
     const res = await getReviewsByInstructor(instructorId, page, 100)
     all.push(...res.results)
     if (!res.next) break
-    page++
+    page += 1
   }
   return all
 }
 
-/**
- * Get a single review by ID.
- */
 export async function getReviewById(reviewId: number): Promise<Review> {
   return http.get<Review>(`/reviews/${reviewId}/`)
 }
 
-/**
- * Create a new review (requires enrollment).
- */
 export async function createReview(data: {
   course: number
   rating: number
@@ -173,31 +145,33 @@ export async function createReview(data: {
   return http.post<Review>('/reviews/create/', data)
 }
 
-/**
- * Update an existing review (owner or admin).
- */
 export async function updateReview(
   reviewId: number,
-  data: Partial<{ rating: number; comment: string }>
+  data: Partial<{
+    rating: number
+    comment: string
+    status: 'pending' | 'approved' | 'rejected'
+    instructor_response: string
+  }>
 ): Promise<Review> {
   return http.patch<Review>(`/reviews/update/${reviewId}/`, data)
 }
 
-/**
- * Delete a review (owner or admin).
- */
 export async function deleteReview(reviewId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/reviews/delete/${reviewId}/`)
 }
 
-/**
- * Like / upvote a review — not exposed as a URL yet, placeholder.
- */
-// export async function likeReview(reviewId: number) { ... }
+export async function reportReview(reviewId: number, reason?: string): Promise<Review> {
+  return http.post<Review>(`/reviews/${reviewId}/report/`, { reason })
+}
 
-// ── Helpers ────────────────────────────────────────────────────────
+export async function moderateReview(
+  reviewId: number,
+  data: { action: 'approve' | 'dismiss' | 'hide' | 'delete'; reason?: string }
+): Promise<Review> {
+  return http.post<Review>(`/reviews/${reviewId}/moderate/`, data)
+}
 
-/** Format review date to locale string. */
 export function formatReviewDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString('vi-VN', {
     year: 'numeric',
@@ -206,17 +180,14 @@ export function formatReviewDate(isoDate: string): string {
   })
 }
 
-/** Calculate average rating from a list of reviews. */
 export function calcAverageRating(reviews: Review[]): number {
   if (reviews.length === 0) return 0
   const sum = reviews.reduce((acc, r) => acc + r.rating, 0)
   return Math.round((sum / reviews.length) * 10) / 10
 }
 
-/** Check if a review was edited (updated_date differs from review_date). */
 export function isEdited(review: Review): boolean {
   if (!review.updated_date || !review.review_date) return false
-  // Allow 1 second tolerance for auto-set timestamps
   const diff = Math.abs(
     new Date(review.updated_date).getTime() - new Date(review.review_date).getTime()
   )

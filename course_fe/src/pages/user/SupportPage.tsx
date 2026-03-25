@@ -7,14 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
-import { HelpCircle, MessageCircle, Phone, Mail, Search, Send, Clock, CheckCircle } from 'lucide-react'
+import { HelpCircle, MessageCircle, Phone, Mail, Search, Send, Clock, CheckCircle, ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   getSupportTickets,
   createSupportTicket,
+  getSupportReplies,
+  createSupportReply,
   type SupportTicket,
+  type SupportReply,
 } from '../../services/support.api'
 import { UserPagination } from "../../components/UserPagination"
 
@@ -32,6 +35,10 @@ export function SupportPage() {
   const [ticketTotalPages, setTicketTotalPages] = useState(1)
   const [ticketTotalCount, setTicketTotalCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null)
+  const [ticketReplies, setTicketReplies] = useState<Record<number, SupportReply[]>>({})
+  const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
+  const [replySubmittingId, setReplySubmittingId] = useState<number | null>(null)
   const [ticketForm, setTicketForm] = useState({
     subject: '',
     category: '',
@@ -125,6 +132,54 @@ export function SupportPage() {
     }
   }
 
+  const handleToggleTicketThread = async (ticketId: number) => {
+    if (selectedTicketId === ticketId) {
+      setSelectedTicketId(null)
+      return
+    }
+
+    setSelectedTicketId(ticketId)
+    if (ticketReplies[ticketId]) return
+
+    try {
+      const replies = await getSupportReplies(ticketId)
+      setTicketReplies(prev => ({ ...prev, [ticketId]: replies }))
+    } catch {
+      toast.error(t('support.ticket_thread_load_failed', 'Không thể tải hội thoại ticket'))
+    }
+  }
+
+  const handleSubmitReply = async (ticketId: number) => {
+    const draft = (replyDrafts[ticketId] || '').trim()
+    if (!draft) {
+      toast.error(t('support.reply_required', 'Vui lòng nhập nội dung phản hồi'))
+      return
+    }
+    if (!user?.id) {
+      toast.error(t('support.login_required', 'Vui lòng đăng nhập để phản hồi'))
+      return
+    }
+
+    setReplySubmittingId(ticketId)
+    try {
+      const created = await createSupportReply({
+        support: ticketId,
+        user: Number(user.id),
+        message: draft,
+      })
+      setTicketReplies(prev => ({
+        ...prev,
+        [ticketId]: [...(prev[ticketId] || []), created],
+      }))
+      setReplyDrafts(prev => ({ ...prev, [ticketId]: '' }))
+      toast.success(t('support.reply_sent', 'Đã gửi phản hồi'))
+    } catch {
+      toast.error(t('support.reply_send_failed', 'Gửi phản hồi thất bại'))
+    } finally {
+      setReplySubmittingId(null)
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
@@ -169,7 +224,10 @@ export function SupportPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 {t('support.live_chat_desc')}
               </p>
-              <Button className="w-full">{t('support.start_chat')}</Button>
+              <Button className="w-full" onClick={() => setSelectedTab('tickets')}>
+                {t('support.my_tickets_tab')}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
             </CardContent>
           </Card>
 
@@ -180,7 +238,9 @@ export function SupportPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 {t('support.phone_support_desc')}
               </p>
-              <Button variant="outline" className="w-full">{t('support.call_now')}</Button>
+              <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                {t('support.phone_support_real_hint', 'Ho tro dien thoai chua co realtime call. Vui long gui ticket de doi ngu lien he lai.')}
+              </div>
             </CardContent>
           </Card>
 
@@ -191,7 +251,10 @@ export function SupportPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 {t('support.email_support_desc')}
               </p>
-              <Button variant="outline" className="w-full">{t('support.send_email')}</Button>
+              <Button variant="outline" className="w-full" onClick={() => setSelectedTab('contact')}>
+                {t('support.submit_ticket')}
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -336,6 +399,68 @@ export function SupportPage() {
                         
                         {ticket.message && (
                           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{ticket.message}</p>
+                        )}
+
+                        <div className="mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleToggleTicketThread(ticket.id)}
+                          >
+                            {selectedTicketId === ticket.id
+                              ? t('support.hide_thread', 'Ẩn hội thoại')
+                              : t('support.view_thread', 'Xem hội thoại')}
+                          </Button>
+                        </div>
+
+                        {selectedTicketId === ticket.id && (
+                          <div className="mt-4 rounded-lg border bg-muted/30 p-4 space-y-4">
+                            <div className="space-y-3">
+                              <div className="rounded-md bg-background p-3 border">
+                                <p className="text-xs text-muted-foreground mb-1">{t('support.original_request', 'Yêu cầu ban đầu')}</p>
+                                <p className="text-sm whitespace-pre-wrap">{ticket.message}</p>
+                              </div>
+                              {(ticketReplies[ticket.id] || []).map((reply) => (
+                                <div key={reply.id} className="rounded-md bg-background p-3 border">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-medium">
+                                      {reply.admin ? t('support.support_team', 'Hỗ trợ viên') : t('support.you', 'Bạn')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(reply.created_at).toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <p className="text-sm mt-2 whitespace-pre-wrap">{reply.message}</p>
+                                </div>
+                              ))}
+                              {(ticketReplies[ticket.id] || []).length === 0 && (
+                                <p className="text-sm text-muted-foreground">{t('support.no_replies_yet', 'Chưa có phản hồi nào cho ticket này')}</p>
+                              )}
+                            </div>
+
+                            {(ticket.status === 'open' || ticket.status === 'in_progress') && (
+                              <div className="space-y-2">
+                                <Textarea
+                                  placeholder={t('support.reply_placeholder', 'Nhập phản hồi thêm cho ticket này')}
+                                  value={replyDrafts[ticket.id] || ''}
+                                  onChange={(e) => setReplyDrafts(prev => ({ ...prev, [ticket.id]: e.target.value }))}
+                                  className="min-h-[100px]"
+                                />
+                                <div className="flex justify-end">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handleSubmitReply(ticket.id)}
+                                    disabled={replySubmittingId === ticket.id}
+                                  >
+                                    <Send className="h-4 w-4 mr-2" />
+                                    {replySubmittingId === ticket.id
+                                      ? t('support.submitting', 'Đang gửi...')
+                                      : t('support.send_reply', 'Gửi phản hồi')}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </CardContent>
                     </Card>

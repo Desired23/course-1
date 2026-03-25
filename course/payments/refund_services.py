@@ -204,3 +204,63 @@ def get_user_refunds(user, refund_status_filter=None, search=None, date_from=Non
         })
     return result
 
+
+def get_admin_refunds(refund_status_filter=None, search=None, date_from=None, date_to=None):
+    """
+    Returns all refund requests across users for admin moderation queue.
+    """
+    qs = Payment_Details.objects.select_related(
+        'payment', 'course', 'payment__user'
+    ).filter(
+        refund_request_time__isnull=False,
+    )
+
+    if refund_status_filter:
+        qs = qs.filter(refund_status=refund_status_filter)
+    if search:
+        qs = qs.filter(course__title__icontains=search)
+    if date_from:
+        qs = qs.filter(refund_request_time__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(refund_request_time__date__lte=date_to)
+
+    course_ids = [detail.course_id for detail in qs if detail.course_id]
+    payment_ids = [detail.payment_id for detail in qs]
+    enrollments = Enrollment.objects.filter(
+        course_id__in=course_ids,
+        payment_id__in=payment_ids,
+        is_deleted=False,
+    ).select_related('course', 'user')
+    enrollment_map = {(enrollment.payment_id, enrollment.course_id): enrollment for enrollment in enrollments}
+
+    result = []
+    for detail in qs.order_by('-refund_request_time'):
+        enrollment = enrollment_map.get((detail.payment_id, detail.course_id))
+        course_completion_days = 0
+        if enrollment and enrollment.created_at and detail.refund_request_time:
+            course_completion_days = max(
+                0,
+                (detail.refund_request_time.date() - enrollment.created_at.date()).days,
+            )
+
+        result.append({
+            'refund_id': detail.id,
+            'payment_id': detail.payment_id,
+            'payment_details_ids': [detail.id],
+            'user_name': detail.payment.user.full_name if detail.payment and detail.payment.user else None,
+            'user_email': detail.payment.user.email if detail.payment and detail.payment.user else None,
+            'course_id': detail.course_id,
+            'course_title': detail.course.title if detail.course else None,
+            'amount': float(detail.final_price),
+            'refund_amount': float(detail.refund_amount) if detail.refund_amount else None,
+            'reason': detail.refund_reason,
+            'status': detail.refund_status,
+            'requested_at': detail.refund_request_time,
+            'processed_at': detail.refund_date,
+            'processed_by': None,
+            'learning_progress': float(enrollment.progress) if enrollment and enrollment.progress is not None else 0,
+            'course_completion_days': course_completion_days,
+            'transaction_id': detail.refund_transaction_id,
+        })
+    return result
+

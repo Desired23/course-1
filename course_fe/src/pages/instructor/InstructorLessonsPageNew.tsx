@@ -11,7 +11,11 @@ import { CourseStatsHorizontal } from '../../components/CourseStatsHorizontal'
 import { LessonEditorMain } from '../../components/LessonEditorMain'
 import { CourseOutlineSidebar } from '../../components/CourseOutlineSidebar'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
-import { LayoutDashboard, CheckSquare } from 'lucide-react'
+import { LayoutDashboard, CheckSquare, ArrowLeft } from 'lucide-react'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
+import { Input } from '../../components/ui/input'
+import { Textarea } from '../../components/ui/textarea'
+import { Label } from '../../components/ui/label'
 import { toast } from 'sonner'
 import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
 import { getAllLessons, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
@@ -31,6 +35,7 @@ export function InstructorLessonsPageNew() {
   const [selectedLesson, setSelectedLesson] = useState<any>(null)
   // const [editingLesson, setEditingLesson] = useState<any>(null) // No longer needed
   const [editingSection, setEditingSection] = useState<any>(null)
+  const [editingSectionForm, setEditingSectionForm] = useState({ title: '', description: '' })
   const [showAddSection, setShowAddSection] = useState(false)
   const [showAddLesson, setShowAddLesson] = useState<number | null>(null)
   const [newSection, setNewSection] = useState({ title: '', description: '' })
@@ -535,8 +540,43 @@ export function InstructorLessonsPageNew() {
 
   const handleEditSection = (section: any) => {
     setEditingSection(section)
-    toast.info('Edit section dialog (coming in next step)')
+    setEditingSectionForm({
+      title: section.title || '',
+      description: section.description || '',
+    })
   }
+
+  const handleSaveSection = useCallback(async () => {
+    if (!editingSection) return
+    if (!editingSectionForm.title.trim()) {
+      toast.error('Please enter a section title')
+      return
+    }
+
+    try {
+      const updated = await updateCourseModule(editingSection.id, {
+        title: editingSectionForm.title.trim(),
+        description: editingSectionForm.description.trim(),
+      })
+      setSections(prevSections =>
+        prevSections.map(section =>
+          section.id === editingSection.id
+            ? {
+                ...section,
+                title: updated.title,
+                description: updated.description || '',
+              }
+            : section
+        )
+      )
+      setEditingSection(null)
+      setEditingSectionForm({ title: '', description: '' })
+      toast.success('Section updated successfully')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to update section')
+    }
+  }, [editingSection, editingSectionForm, setSections])
 
   const handleEditLesson = (lesson: any) => {
     // Navigate to full-page editor
@@ -625,6 +665,17 @@ export function InstructorLessonsPageNew() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Button variant="ghost" size="sm" onClick={() => navigate('/instructor/courses')}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to My Courses
+                </Button>
+                {courseId && (
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/courses/${courseId}`)}>
+                    View Course Detail
+                  </Button>
+                )}
+              </div>
               <h1 className="mb-1">Course Curriculum</h1>
               <p className="text-muted-foreground">{courseTitle}</p>
             </div>
@@ -749,6 +800,44 @@ export function InstructorLessonsPageNew() {
           lesson={previewLesson}
         />
       )}
+      <Dialog
+        open={!!editingSection}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingSection(null)
+            setEditingSectionForm({ title: '', description: '' })
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Section</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-section-title">Section title</Label>
+              <Input
+                id="edit-section-title"
+                value={editingSectionForm.title}
+                onChange={(e) => setEditingSectionForm(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-section-description">Description</Label>
+              <Textarea
+                id="edit-section-description"
+                rows={4}
+                value={editingSectionForm.description}
+                onChange={(e) => setEditingSectionForm(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingSection(null)}>Cancel</Button>
+            <Button onClick={handleSaveSection}>Save section</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -4,6 +4,7 @@ from .models import CourseModule
 from .serializers import CourseModuleSerializer
 from activity_logs.services import log_activity
 from notifications.services import create_notification
+from courses.services import mark_course_content_changed
 
 
 def validate_course_module_data(data):
@@ -43,6 +44,8 @@ def create_course_module(data):
     serializer = CourseModuleSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
         course_module = serializer.save()
+        if getattr(course_module, 'course', None):
+            mark_course_content_changed(course_module.course)
         return course_module
     raise ValidationError(serializer.errors)
 
@@ -86,6 +89,8 @@ def update_course_module(course_module_id, data, requesting_user=None):
     serializer = CourseModuleSerializer(course_module, data=update_payload, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_course_module = serializer.save()
+        if not is_admin and getattr(updated_course_module, 'course', None):
+            mark_course_content_changed(updated_course_module.course)
 
         if old_status != updated_course_module.status:
             actor_label = 'Admin' if is_admin else 'Instructor'
@@ -142,7 +147,10 @@ def delete_course_module(course_module_id, requesting_user=None):
             owner_instructor_id = getattr(getattr(course_module.course, 'instructor', None), 'id', None)
             if not instructor or owner_instructor_id != instructor.id:
                 raise ValidationError({"error": "You do not have permission to delete this module."})
+        related_course = getattr(course_module, 'course', None)
         course_module.delete()
+        if related_course and not is_admin:
+            mark_course_content_changed(related_course)
         return {"message": "Course module deleted successfully."}
     except CourseModule.DoesNotExist:
         raise ValidationError({"error": "Course module not found."})

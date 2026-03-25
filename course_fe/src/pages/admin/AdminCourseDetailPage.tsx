@@ -6,6 +6,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Separator } from '../../components/ui/separator'
 import { Progress } from '../../components/ui/progress'
+import { Checkbox } from '../../components/ui/checkbox'
+import { Label } from '../../components/ui/label'
+import { Textarea } from '../../components/ui/textarea'
 import { 
   ArrowLeft, 
   Users, 
@@ -42,6 +45,8 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 
 interface CourseDetail {
@@ -136,6 +141,26 @@ export function AdminCourseDetailPage() {
   const { navigate, currentRoute } = useRouter()
   const { hasPermission } = useAuth()
   const [course, setCourse] = useState<CourseDetail | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [moderationState, setModerationState] = useState<{
+    open: boolean
+    nextStatus: 'published' | 'rejected' | 'archived'
+    title: string
+    description: string
+    confirmLabel: string
+    loading: boolean
+  }>({
+    open: false,
+    nextStatus: 'published',
+    title: '',
+    description: '',
+    confirmLabel: 'Save',
+    loading: false,
+  })
+  const [moderationReason, setModerationReason] = useState('')
+  const [sendNotification, setSendNotification] = useState(true)
+  const [notifyMessage, setNotifyMessage] = useState('')
   
   // Extract course ID from URL
   const courseId = currentRoute.split('/admin/courses/')[1]
@@ -244,49 +269,73 @@ export function AdminCourseDetailPage() {
     }
     return colors[status as keyof typeof colors] || 'bg-gray-500'
   }
-  const collectAdminStatusMeta = (targetStatusLabel: string) => {
-    const reason = window.prompt(`Reason for changing status to "${targetStatusLabel}" (optional):`, '') || ''
-    const sendNotification = window.confirm('Send notification to instructor?')
-    let notifyMessage = ''
-    if (sendNotification) {
-      notifyMessage = window.prompt('Notification message (leave blank to use default):', '') || ''
-    }
-    return {
-      status_reason: reason || undefined,
-      send_notification: sendNotification,
-      notify_message: notifyMessage || undefined,
-    }
+
+  const openModerationDialog = (nextStatus: 'published' | 'rejected' | 'archived') => {
+    setModerationReason('')
+    setSendNotification(true)
+    setNotifyMessage('')
+    setModerationState({
+      open: true,
+      nextStatus,
+      title:
+        nextStatus === 'published'
+          ? 'Approve course'
+          : nextStatus === 'rejected'
+            ? 'Reject course'
+            : 'Archive course',
+      description:
+        nextStatus === 'published'
+          ? 'Publish this course and optionally notify the instructor.'
+          : nextStatus === 'rejected'
+            ? 'Reject this course and include a moderation reason for the instructor.'
+            : 'Archive this course and optionally explain the change to the instructor.',
+      confirmLabel:
+        nextStatus === 'published'
+          ? 'Approve course'
+          : nextStatus === 'rejected'
+            ? 'Reject course'
+            : 'Archive course',
+      loading: false,
+    })
   }
-  const handleCourseAction = async (action: string) => {
+
+  const submitModeration = async () => {
     const numId = Number(courseId)
     if (!numId) return
     try {
-      if (action === 'approve') {
-        const meta = collectAdminStatusMeta('published')
-        await updateCourseApi(numId, { status: 'published', ...meta })
-        toast.success('Đã phê duyệt khóa học')
-      } else if (action === 'reject') {
-        const meta = collectAdminStatusMeta('rejected')
-        await updateCourseApi(numId, { status: 'rejected', ...meta })
-        toast.success('Đã từ chối khóa học')
-      } else if (action === 'archive') {
-        const meta = collectAdminStatusMeta('archived')
-        await updateCourseApi(numId, { status: 'archived', ...meta })
-        toast.success('Đã lưu trữ khóa học')
-      } else if (action === 'delete') {
-        await deleteCourseApi(numId)
-        toast.success('Đã xóa khóa học')
-        navigate('/admin')
-        return
-      } else if (action === 'edit') {
-        navigate(`/admin/courses/${courseId}/edit`)
-        return
-      }
-      // Re-fetch after status change
+      setModerationState(prev => ({ ...prev, loading: true }))
+      await updateCourseApi(numId, {
+        status: moderationState.nextStatus,
+        status_reason: moderationReason.trim() || undefined,
+        send_notification: sendNotification,
+        notify_message: sendNotification ? notifyMessage.trim() || undefined : undefined,
+      })
       const courseData = await getCourseByIdApi(numId)
       setCourse(prev => prev ? { ...prev, status: courseData.status as any } : prev)
-    } catch (err) {
-      toast.error('Thao tác thất bại')
+      setModerationState(prev => ({ ...prev, open: false, loading: false }))
+      toast.success('Course status updated')
+    } catch {
+      setModerationState(prev => ({ ...prev, loading: false }))
+      toast.error('Thao tac that bai')
+    }
+  }
+
+  const handleDeleteCourse = async () => {
+    const numId = Number(courseId)
+    if (!numId) return
+    try {
+      setIsDeleting(true)
+      await deleteCourseApi(numId)
+      toast.success('Da xoa khoa hoc')
+      navigate('/admin')
+    } catch {
+      setIsDeleting(false)
+      toast.error('Thao tac that bai')
+    }
+  }
+  const handleCourseAction = async (action: string) => {
+    if (action === 'edit') {
+      navigate(`/admin/courses/${courseId}/edit`)
     }
   }
 
@@ -396,24 +445,24 @@ export function AdminCourseDetailPage() {
                 </DropdownMenuItem>
                 {course.status === 'pending' && (
                   <>
-                    <DropdownMenuItem onClick={() => handleCourseAction('approve')}>
+                    <DropdownMenuItem onClick={() => openModerationDialog('published')}>
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Phê duyệt
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleCourseAction('reject')}>
+                    <DropdownMenuItem onClick={() => openModerationDialog('rejected')}>
                       <XCircle className="h-4 w-4 mr-2" />
                       Từ chối
                     </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleCourseAction('archive')}>
+                <DropdownMenuItem onClick={() => openModerationDialog('archived')}>
                   <AlertCircle className="h-4 w-4 mr-2" />
                   Lưu trữ
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-destructive"
-                  onClick={() => handleCourseAction('delete')}
+                  onClick={() => setConfirmDeleteOpen(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Xóa khóa học
@@ -797,7 +846,87 @@ export function AdminCourseDetailPage() {
             </div>
           </TabsContent>
         </Tabs>
+        <Dialog
+          open={moderationState.open}
+          onOpenChange={(open) => {
+            if (!moderationState.loading) {
+              setModerationState(prev => ({ ...prev, open }))
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{moderationState.title}</DialogTitle>
+              <DialogDescription>{moderationState.description}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="course-detail-reason">Moderation reason</Label>
+                <Textarea
+                  id="course-detail-reason"
+                  value={moderationReason}
+                  onChange={(event) => setModerationReason(event.target.value)}
+                  placeholder="Add context for the instructor or internal audit trail"
+                  rows={4}
+                />
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border p-3">
+                <Checkbox
+                  checked={sendNotification}
+                  onCheckedChange={(checked) => setSendNotification(Boolean(checked))}
+                  className="mt-1"
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="course-detail-message">Send notification to instructor</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Turn this off if you want to update the status quietly.
+                  </p>
+                </div>
+              </div>
+              {sendNotification && (
+                <div className="space-y-2">
+                  <Label htmlFor="course-detail-message">Notification message</Label>
+                  <Textarea
+                    id="course-detail-message"
+                    value={notifyMessage}
+                    onChange={(event) => setNotifyMessage(event.target.value)}
+                    placeholder="Optional custom message sent with this moderation action"
+                    rows={3}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setModerationState(prev => ({ ...prev, open: false }))}
+                disabled={moderationState.loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={moderationState.nextStatus === 'rejected' ? 'destructive' : 'default'}
+                onClick={submitModeration}
+                disabled={moderationState.loading}
+              >
+                {moderationState.loading ? 'Saving...' : moderationState.confirmLabel}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <AdminConfirmDialog
+          open={confirmDeleteOpen}
+          onOpenChange={setConfirmDeleteOpen}
+          title="Delete course"
+          description={`Delete "${course.title}" permanently? This action cannot be undone.`}
+          confirmLabel="Delete course"
+          destructive
+          loading={isDeleting}
+          onConfirm={handleDeleteCourse}
+        />
       </div>
     </div>
   )
 }
+
+

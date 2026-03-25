@@ -25,6 +25,8 @@ class Review(models.Model):
     status = models.CharField(max_length=10, choices=StatusChoices, default=StatusChoices.PENDING)
     likes = models.PositiveIntegerField(default=0)
     report_count = models.PositiveIntegerField(default=0)
+    last_report_reason = models.TextField(blank=True, null=True)
+    last_reported_at = models.DateTimeField(blank=True, null=True)
     instructor_response = models.TextField(blank=True, null=True)
     response_at = models.DateTimeField(blank=True, null=True)
 

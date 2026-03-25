@@ -1,38 +1,31 @@
-import React from 'react'
-import { SimpleHomePage } from '../pages/public/SimpleHomePage'
-import { CoursesPage } from '../pages/public/CoursesPage'
-import { CourseDetailPage } from '../pages/public/CourseDetailPage'
-import { SearchPage } from '../pages/public/SearchPage'
-import { EnhancedSearchPage } from '../pages/public/EnhancedSearchPage'
-import { LoginPage } from '../pages/auth/LoginPage'
-import { SignupPage } from '../pages/auth/SignupPage'
-import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage'
-import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage'
-import { EmailVerificationPage } from '../pages/auth/EmailVerificationPage'
-import { GoogleCallbackPage } from '../pages/auth/GoogleCallbackPage'
-import { GoogleLoginTestPage } from '../pages/auth/GoogleLoginTestPage'
-import { UdemyBusinessPage } from '../pages/public/UdemyBusinessPage'
-import { TeachOnUdemyPage } from '../pages/public/TeachOnUdemyPage'
-import { TestPage } from '../pages/_dev/TestPage'
-import { QuizDemoPage } from '../pages/_dev/QuizDemoPage'
-import { NavigationPage } from '../pages/_dev/NavigationPage'
-import { BlogPage } from '../pages/public/BlogPage'
-import { BlogPostDetailPage } from '../pages/public/BlogPostDetailPage'
-import { ForumPage } from '../pages/public/ForumPage'
-import { ForumTopicDetailPage } from '../pages/public/ForumTopicDetailPage'
-import { QnAPage } from '../pages/public/QnAPage'
-import { CourseReviewsPage } from '../pages/public/CourseReviewsPage'
-import CategoryPage from '../pages/public/CategoryPage'
-import TopicPage from '../pages/public/TopicPage'
-import AllTopicsPage from '../pages/public/AllTopicsPage'
-import { CategoriesPage } from '../pages/public/CategoriesPage'
-import { PreviewDemo } from '../components/PreviewDemo'
-import { AdvancedFeaturesDemo } from '../pages/_dev/AdvancedFeaturesDemo'
-import { ZustandTestPage } from '../pages/_dev/ZustandTestPage'
-import { CodeQuizTestPage } from '../pages/_dev/CodeQuizTestPage'
-import EnhancedCodeQuizTestPage from '../pages/_dev/EnhancedCodeQuizTestPage'
-import { SubscriptionPricingPage } from '../pages/public/SubscriptionPricingPage'
-import { InstructorPublicProfilePage } from '../pages/public/InstructorPublicProfilePage'
+import React, { lazy } from 'react'
+
+const SimpleHomePage = lazy(() => import('../pages/public/SimpleHomePage').then((module) => ({ default: module.SimpleHomePage })))
+const CoursesPage = lazy(() => import('../pages/public/CoursesPage').then((module) => ({ default: module.CoursesPage })))
+const CourseDetailPage = lazy(() => import('../pages/public/CourseDetailPage').then((module) => ({ default: module.CourseDetailPage })))
+const SearchPage = lazy(() => import('../pages/public/SearchPage').then((module) => ({ default: module.SearchPage })))
+const EnhancedSearchPage = lazy(() => import('../pages/public/EnhancedSearchPage').then((module) => ({ default: module.EnhancedSearchPage })))
+const LoginPage = lazy(() => import('../pages/auth/LoginPage').then((module) => ({ default: module.LoginPage })))
+const SignupPage = lazy(() => import('../pages/auth/SignupPage').then((module) => ({ default: module.SignupPage })))
+const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('../pages/auth/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })))
+const EmailVerificationPage = lazy(() => import('../pages/auth/EmailVerificationPage').then((module) => ({ default: module.EmailVerificationPage })))
+const GoogleCallbackPage = lazy(() => import('../pages/auth/GoogleCallbackPage').then((module) => ({ default: module.GoogleCallbackPage })))
+const UdemyBusinessPage = lazy(() => import('../pages/public/UdemyBusinessPage').then((module) => ({ default: module.UdemyBusinessPage })))
+const TeachOnUdemyPage = lazy(() => import('../pages/public/TeachOnUdemyPage').then((module) => ({ default: module.TeachOnUdemyPage })))
+const BlogPage = lazy(() => import('../pages/public/BlogPage').then((module) => ({ default: module.BlogPage })))
+const BlogPostDetailPage = lazy(() => import('../pages/public/BlogPostDetailPage').then((module) => ({ default: module.BlogPostDetailPage })))
+const ForumPage = lazy(() => import('../pages/public/ForumPage').then((module) => ({ default: module.ForumPage })))
+const ForumTopicDetailPage = lazy(() => import('../pages/public/ForumTopicDetailPage').then((module) => ({ default: module.ForumTopicDetailPage })))
+const QnAPage = lazy(() => import('../pages/public/QnAPage').then((module) => ({ default: module.QnAPage })))
+const CourseReviewsPage = lazy(() => import('../pages/public/CourseReviewsPage').then((module) => ({ default: module.CourseReviewsPage })))
+const CategoryPage = lazy(() => import('../pages/public/CategoryPage'))
+const TopicPage = lazy(() => import('../pages/public/TopicPage'))
+const AllTopicsPage = lazy(() => import('../pages/public/AllTopicsPage'))
+const CategoriesPage = lazy(() => import('../pages/public/CategoriesPage').then((module) => ({ default: module.CategoriesPage })))
+const PreviewDemo = lazy(() => import('../components/PreviewDemo').then((module) => ({ default: module.PreviewDemo })))
+const SubscriptionPricingPage = lazy(() => import('../pages/public/SubscriptionPricingPage').then((module) => ({ default: module.SubscriptionPricingPage })))
+const InstructorPublicProfilePage = lazy(() => import('../pages/public/InstructorPublicProfilePage').then((module) => ({ default: module.InstructorPublicProfilePage })))
 
 export interface RouteConfig {
   path: string
@@ -68,7 +61,6 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/email-verification', element: <EmailVerificationPage /> },
   { path: '/auth/google/callback', element: <GoogleCallbackPage /> },
   { path: '/google-callback', element: <GoogleCallbackPage /> },
-  { path: '/google-login-test', element: <GoogleLoginTestPage /> },
   
   // Marketing Pages
   { path: '/udemy-business', element: <UdemyBusinessPage /> },
@@ -93,13 +85,6 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/reviews/:courseId', element: <CourseReviewsPage />, dynamic: true },
   { path: '/reviews', element: <CourseReviewsPage /> },
   
-  // Demo & Test Pages
-  { path: '/test', element: <TestPage /> },
-  { path: '/quiz-demo', element: <QuizDemoPage /> },
-  { path: '/navigation', element: <NavigationPage /> },
+  // Demo Preview
   { path: '/preview-demo', element: <PreviewDemo /> },
-  { path: '/advanced-features', element: <AdvancedFeaturesDemo /> },
-  { path: '/zustand-test', element: <ZustandTestPage /> },
-  { path: '/code-quiz-test', element: <CodeQuizTestPage /> },
-  { path: '/enhanced-code-quiz-test', element: <EnhancedCodeQuizTestPage /> }
 ]

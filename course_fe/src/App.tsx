@@ -45,6 +45,7 @@ import { AuthModal } from './components/auth/AuthModal'
 function AppContent() {
   const { currentRoute } = useRouter()
   const darkMode = useUIStore((state) => state.darkMode)
+  const currentPath = currentRoute.split('?')[0]
 
   useEffect(() => {
     if (darkMode) {
@@ -55,15 +56,25 @@ function AppContent() {
   }, [darkMode])
 
   // Determine if current route needs special layout
-  const isPlayerPage = currentRoute.startsWith('/course/') && currentRoute.includes('/learn')
-  const isAuthPage = currentRoute === '/login' || currentRoute === '/signup'
-  const isCheckoutPage = currentRoute.startsWith('/checkout') || currentRoute.startsWith('/payment/result')
-  
-  // Hide main Header/Footer for Instructor and Admin pages (they have their own layouts)
-  const isInstructorPage = currentRoute.startsWith('/instructor')
-  const isAdminPage = currentRoute.startsWith('/admin')
-  
-  const hideHeaderFooter = isPlayerPage || isAuthPage || isInstructorPage || isAdminPage
+  const isPlayerPage = currentPath.startsWith('/course/') && currentPath.includes('/learn')
+  const isAuthPage = currentPath === '/login' || currentPath === '/signup'
+  const isCheckoutPage = currentPath.startsWith('/checkout') || currentPath.startsWith('/payment/result')
+
+  // Public instructor pages should keep the normal site layout.
+  const isInstructorPublicProfile =
+    /^\/instructor\/[^/]+\/profile$/.test(currentPath) ||
+    /^\/instructor\/view\/[^/]+$/.test(currentPath)
+  const isInstructorPublicPage =
+    isInstructorPublicProfile ||
+    currentPath === '/instructor/onboarding' ||
+    currentPath === '/instructor/signup'
+  const isInstructorDashboardPage =
+    currentPath.startsWith('/instructor') && !isInstructorPublicPage
+
+  // Hide main Header/Footer for dashboard-like instructor/admin pages
+  const isAdminPage = currentPath.startsWith('/admin')
+
+  const hideHeaderFooter = isPlayerPage || isAuthPage || isInstructorDashboardPage || isAdminPage
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

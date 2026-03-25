@@ -9,6 +9,9 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
 import { UserPagination } from '../../components/UserPagination'
+import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
+import { Checkbox } from "../../components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -110,6 +113,24 @@ export function AdminUsersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void>)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
   const [counts, setCounts] = useState<UserCounts>({
     total: 0,
     active: 0,
@@ -126,6 +147,10 @@ export function AdminUsersPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [selectedRole, selectedStatus, debouncedSearch])
+
+  useEffect(() => {
+    setSelectedUserIds([])
+  }, [currentPage, selectedRole, selectedStatus, debouncedSearch])
 
   const queryParams = useMemo(() => ({
     page: currentPage,
@@ -206,8 +231,48 @@ export function AdminUsersPage() {
   }
 
   async function refreshAfterMutation() {
-    setCurrentPage(1)
     await loadCounts()
+    const res = await getUsers(queryParams)
+    setUsers((res.results || []).map(mapApiUser))
+    setTotalPages(res.total_pages || 1)
+    setTotalCount(res.count || 0)
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void>,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState(prev => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState(prev => ({ ...prev, loading: false }))
+    }
   }
 
   const handleBanUser = async (userId: string) => {
@@ -237,6 +302,31 @@ export function AdminUsersPage() {
       await refreshAfterMutation()
     } catch {
       toast.error('Thao tac that bai')
+    }
+  }
+
+  const toggleUserSelection = (userId: string, checked: boolean) => {
+    setSelectedUserIds(prev => checked ? [...prev, userId] : prev.filter(id => id !== userId))
+  }
+
+  const toggleAllCurrentPage = (checked: boolean) => {
+    setSelectedUserIds(checked ? users.map(user => user.id) : [])
+  }
+
+  const bulkUpdateUsers = async (
+    ids: string[],
+    updater: (userId: string) => Promise<void>,
+    successMessage: string
+  ) => {
+    try {
+      for (const id of ids) {
+        await updater(id)
+      }
+      toast.success(successMessage)
+      setSelectedUserIds([])
+      await refreshAfterMutation()
+    } catch {
+      toast.error('Bulk action that bai')
     }
   }
 
@@ -322,10 +412,58 @@ export function AdminUsersPage() {
         </div>
       </div>
 
+      <AdminBulkActionBar
+        count={selectedUserIds.length}
+        label="users selected"
+        onClear={() => setSelectedUserIds([])}
+        actions={[
+          {
+            key: 'activate',
+            label: 'Set Active',
+            onClick: () => openConfirm(
+              'Set users active',
+              `Set ${selectedUserIds.length} selected users to active status?`,
+              'Set Active',
+              () => bulkUpdateUsers(selectedUserIds, (id) => adminUpdateUser(Number(id), { status: 'active' }), 'Da cap nhat trang thai nguoi dung'),
+            ),
+          },
+          {
+            key: 'ban',
+            label: 'Ban Users',
+            destructive: true,
+            onClick: () => openConfirm(
+              'Ban selected users',
+              `Ban ${selectedUserIds.length} selected users?`,
+              'Ban Users',
+              () => bulkUpdateUsers(selectedUserIds, (id) => adminUpdateUser(Number(id), { status: 'banned' }), 'Da cam nguoi dung'),
+              true,
+            ),
+          },
+          {
+            key: 'delete',
+            label: 'Delete Users',
+            destructive: true,
+            onClick: () => openConfirm(
+              'Delete selected users',
+              `Delete ${selectedUserIds.length} selected users? This action cannot be undone.`,
+              'Delete Users',
+              () => bulkUpdateUsers(selectedUserIds, (id) => deleteUserApi(Number(id)), 'Da xoa nguoi dung'),
+              true,
+            ),
+          },
+        ]}
+      />
+
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[48px]">
+                <Checkbox
+                  checked={users.length > 0 && selectedUserIds.length === users.length}
+                  onCheckedChange={(checked) => toggleAllCurrentPage(Boolean(checked))}
+                />
+              </TableHead>
               <TableHead>{t('admin_users.col_user')}</TableHead>
               <TableHead>{t('admin_users.col_roles')}</TableHead>
               <TableHead>{t('admin_users.col_status')}</TableHead>
@@ -339,7 +477,7 @@ export function AdminUsersPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10">
+                <TableCell colSpan={9} className="py-10">
                   <div className="flex items-center justify-center">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
@@ -347,7 +485,7 @@ export function AdminUsersPage() {
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   {t('admin_users.no_users')}
                 </TableCell>
               </TableRow>
@@ -356,6 +494,12 @@ export function AdminUsersPage() {
                 const statusBadge = getStatusBadge(user.status)
                 return (
                   <TableRow key={user.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedUserIds.includes(user.id)}
+                        onCheckedChange={(checked) => toggleUserSelection(user.id, Boolean(checked))}
+                      />
+                    </TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium">{user.name}</p>
@@ -393,31 +537,48 @@ export function AdminUsersPage() {
                             <Edit className="h-4 w-4 mr-2" />
                             {t('admin_users.edit_user')}
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => window.open(`mailto:${user.email}`, '_self')}>
                             <Mail className="h-4 w-4 mr-2" />
                             {t('admin_users.send_email')}
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/admin/users/${user.id}/edit`)}>
                             <Shield className="h-4 w-4 mr-2" />
                             {t('admin_users.manage_roles')}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {user.status === 'active' ? (
                             <DropdownMenuItem
-                              onClick={() => handleBanUser(user.id)}
+                              onClick={() => openConfirm(
+                                'Ban user',
+                                `Ban ${user.name}? They will lose access until unbanned.`,
+                                t('admin_users.ban_user'),
+                                () => handleBanUser(user.id),
+                                true,
+                              )}
                               className="text-destructive"
                             >
                               <UserX className="h-4 w-4 mr-2" />
                               {t('admin_users.ban_user')}
                             </DropdownMenuItem>
                           ) : (
-                            <DropdownMenuItem onClick={() => handleUnbanUser(user.id)}>
+                            <DropdownMenuItem onClick={() => openConfirm(
+                              'Unban user',
+                              `Restore access for ${user.name}?`,
+                              t('admin_users.unban_user'),
+                              () => handleUnbanUser(user.id),
+                            )}>
                               <UserCheck className="h-4 w-4 mr-2" />
                               {t('admin_users.unban_user')}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
-                            onClick={() => handleDeleteUser(user.id)}
+                            onClick={() => openConfirm(
+                              'Delete user',
+                              `Delete ${user.name}? This action cannot be undone.`,
+                              t('admin_users.delete_user'),
+                              () => handleDeleteUser(user.id),
+                              true,
+                            )}
                             className="text-destructive"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -446,6 +607,17 @@ export function AdminUsersPage() {
           />
         </div>
       )}
+
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }

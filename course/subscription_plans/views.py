@@ -17,6 +17,8 @@ from .services import (
     get_user_subscriptions,
     get_user_subscription_detail,
     cancel_subscription,
+    admin_extend_subscription,
+    admin_cancel_subscription,
     user_has_plan_access,
     get_user_accessible_courses,
     get_plan_subscribers,
@@ -150,6 +152,31 @@ class PlanSubscribersView(APIView):
             return paginate_queryset(results, request, UserSubscriptionListSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AdminExtendSubscriptionView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, subscription_id):
+        try:
+            extend_days = request.data.get('extend_days')
+            result = admin_extend_subscription(subscription_id, extend_days, request.user)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminCancelSubscriptionView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, subscription_id):
+        try:
+            result = admin_cancel_subscription(subscription_id, request.user)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ExpireSubscriptionsView(APIView):

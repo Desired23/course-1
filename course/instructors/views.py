@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -12,6 +13,7 @@ from .services import (
     get_instructor_by_id
 )
 from .dashboard_services import get_instructor_dashboard_stats, get_course_analytics, get_instructor_analytics_timeseries
+from .student_services import get_instructor_students, export_instructor_students_csv, get_instructor_student_detail
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 class InstructorListView(APIView):
@@ -21,11 +23,16 @@ class InstructorListView(APIView):
         return paginate_queryset(instructors, request, InstructorSerializers)
 
 class InstructorDetailView(APIView):
-    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
     throttle_scope = 'burst'
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return []
+        return [RolePermissionFactory(['admin', 'instructor'])()]
 
     def get(self, request, instructor_id):
         try:
+            print(f"Fetching instructor with ID")
             instructor = get_instructor_by_id(instructor_id)
             return Response(instructor, status=status.HTTP_200_OK)
         except ValidationError as e:
@@ -158,3 +165,79 @@ class InstructorAnalyticsTimeseriesView(APIView):
             return Response(data)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InstructorStudentsView(APIView):
+    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        user = request.user
+        admin = getattr(user, 'admin', None)
+        instructor_id = request.query_params.get('instructor_id')
+        course_id = request.query_params.get('course_id')
+
+        if admin and instructor_id:
+            try:
+                instructor = Instructor.objects.get(id=instructor_id, is_deleted=False)
+            except Instructor.DoesNotExist:
+                return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instructor = getattr(user, 'instructor', None)
+            if not instructor:
+                return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        data = get_instructor_students(instructor, course_id=course_id)
+        return Response(data)
+
+
+class InstructorStudentsExportView(APIView):
+    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        user = request.user
+        admin = getattr(user, 'admin', None)
+        instructor_id = request.query_params.get('instructor_id')
+        course_id = request.query_params.get('course_id')
+
+        if admin and instructor_id:
+            try:
+                instructor = Instructor.objects.get(id=instructor_id, is_deleted=False)
+            except Instructor.DoesNotExist:
+                return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instructor = getattr(user, 'instructor', None)
+            if not instructor:
+                return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        csv_content = export_instructor_students_csv(instructor, course_id=course_id)
+        response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="instructor-students.csv"'
+        return response
+
+
+class InstructorStudentDetailView(APIView):
+    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request, student_id):
+        user = request.user
+        admin = getattr(user, 'admin', None)
+        instructor_id = request.query_params.get('instructor_id')
+
+        if admin and instructor_id:
+            try:
+                instructor = Instructor.objects.get(id=instructor_id, is_deleted=False)
+            except Instructor.DoesNotExist:
+                return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            instructor = getattr(user, 'instructor', None)
+            if not instructor:
+                return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            data = get_instructor_student_detail(instructor, student_id)
+            return Response(data)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)

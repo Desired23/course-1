@@ -30,6 +30,9 @@ class QnASerializer(serializers.ModelSerializer):
             'status',
             'views',
             'votes',
+            'report_count',
+            'last_report_reason',
+            'last_reported_at',
             'answers_count',
         ]
         extra_kwargs = {

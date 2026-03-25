@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Separator } from '../../components/ui/separator'
 import { Badge } from '../../components/ui/badge'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Settings, DollarSign, Shield, Mail, Bell, Database, Users, CreditCard, FileText, Globe, Save, Plus, Edit, Trash2 } from 'lucide-react'
@@ -90,6 +91,7 @@ export function PlatformSettingsPage() {
   const { canAccess } = useAuth()
   const { t } = useTranslation()
   const [platformSettingId, setPlatformSettingId] = useState<number | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   const defaultSettings: PlatformSettings = {
     general: { siteName: 'EduPlatform', siteDescription: 'Learn new skills with expert-led courses', siteUrl: 'https://eduplatform.com', supportEmail: 'support@eduplatform.com', logoUrl: '/logo.png', faviconUrl: '/favicon.ico', defaultLanguage: 'en', timezone: 'UTC' },
     financial: { commissionPercentage: 30, payoutMinimum: 50, refundPeriod: 30, taxRate: 10, currency: 'USD', paymentMethods: { stripe: true, paypal: true, bankTransfer: false } },
@@ -102,6 +104,23 @@ export function PlatformSettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void> | void)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     { id: '1', name: 'Stripe', type: 'card', enabled: true, fees: 2.9, processingTime: 'Instant' },
     { id: '2', name: 'PayPal', type: 'wallet', enabled: true, fees: 3.5, processingTime: 'Instant' },
@@ -138,6 +157,7 @@ export function PlatformSettingsPage() {
 
   const handleSaveSettings = async () => {
     try {
+      setIsSaving(true)
       const value = JSON.stringify(settings)
       if (platformSettingId) {
         await updateSystemSetting(platformSettingId, { value })
@@ -148,7 +168,77 @@ export function PlatformSettingsPage() {
       toast.success(t('platform_settings.save_success'))
     } catch {
       toast.error(t('platform_settings.save_failed'))
+    } finally {
+      setIsSaving(false)
     }
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void> | void,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState((prev) => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
+  const resetPaymentMethodForm = () => {
+    setSelectedPaymentMethod({
+      id: '',
+      name: '',
+      type: 'card',
+      enabled: true,
+      fees: 0,
+      processingTime: '',
+    })
+    setIsPaymentDialogOpen(true)
+  }
+
+  const handleSavePaymentMethod = () => {
+    if (!selectedPaymentMethod) return
+    if (!selectedPaymentMethod.name.trim()) {
+      toast.error('Vui long nhap ten payment method')
+      return
+    }
+
+    if (selectedPaymentMethod.id) {
+      setPaymentMethods((prev) => prev.map((method) => method.id === selectedPaymentMethod.id ? selectedPaymentMethod : method))
+      toast.success('Da cap nhat payment method')
+    } else {
+      setPaymentMethods((prev) => [...prev, { ...selectedPaymentMethod, id: Date.now().toString() }])
+      toast.success('Da them payment method')
+    }
+
+    setIsPaymentDialogOpen(false)
+    setSelectedPaymentMethod(null)
   }
 
   const updateSettings = (section: keyof PlatformSettings, field: string, value: any) => {
@@ -181,9 +271,9 @@ export function PlatformSettingsPage() {
           <h1 className="text-3xl font-bold">{t('platform_settings.title')}</h1>
           <p className="text-muted-foreground">{t('platform_settings.subtitle')}</p>
         </div>
-        <Button onClick={handleSaveSettings}>
+        <Button onClick={handleSaveSettings} disabled={isSaving}>
           <Save className="h-4 w-4 mr-2" />
-          {t('platform_settings.save_changes')}
+          {isSaving ? 'Dang luu...' : t('platform_settings.save_changes')}
         </Button>
       </div>
 
@@ -377,7 +467,7 @@ export function PlatformSettingsPage() {
                   </div>
                   <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button size="sm">
+                      <Button size="sm" onClick={resetPaymentMethodForm}>
                         <Plus className="h-4 w-4 mr-2" />
                         {t('platform_settings.financial.add_method')}
                       </Button>
@@ -387,7 +477,59 @@ export function PlatformSettingsPage() {
                         <DialogTitle>{t('platform_settings.financial.add_method')}</DialogTitle>
                         <DialogDescription>{t('platform_settings.financial.add_method_description')}</DialogDescription>
                       </DialogHeader>
-                      {/* Payment method form would go here */}
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Name</Label>
+                          <Input
+                            value={selectedPaymentMethod?.name || ''}
+                            onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', type: 'card', enabled: true, fees: 0, processingTime: '' }), name: e.target.value }))}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Type</Label>
+                            <Select
+                              value={selectedPaymentMethod?.type || 'card'}
+                              onValueChange={(value: 'card' | 'bank' | 'wallet') => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', enabled: true, fees: 0, processingTime: '' }), type: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="card">Card</SelectItem>
+                                <SelectItem value="bank">Bank</SelectItem>
+                                <SelectItem value="wallet">Wallet</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Fees (%)</Label>
+                            <Input
+                              type="number"
+                              value={selectedPaymentMethod?.fees ?? 0}
+                              onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', enabled: true, processingTime: '' }), fees: Number(e.target.value) || 0 }))}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Processing time</Label>
+                          <Input
+                            value={selectedPaymentMethod?.processingTime || ''}
+                            onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', enabled: true, fees: 0 }), processingTime: e.target.value }))}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between rounded border p-3">
+                          <Label>Enabled</Label>
+                          <Switch
+                            checked={selectedPaymentMethod?.enabled ?? true}
+                            onCheckedChange={(checked) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', fees: 0, processingTime: '' }), enabled: checked }))}
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>Cancel</Button>
+                          <Button onClick={handleSavePaymentMethod}>Save method</Button>
+                        </div>
+                      </div>
                     </DialogContent>
                   </Dialog>
                 </div>
@@ -422,10 +564,26 @@ export function PlatformSettingsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline">
+                            <Button size="sm" variant="outline" onClick={() => {
+                              setSelectedPaymentMethod(method)
+                              setIsPaymentDialogOpen(true)
+                            }}>
                               <Edit className="h-3 w-3" />
                             </Button>
-                            <Button size="sm" variant="outline">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openConfirm(
+                                'Delete payment method',
+                                `Delete "${method.name}" from platform settings?`,
+                                'Delete',
+                                () => {
+                                  setPaymentMethods((prev) => prev.filter((item) => item.id !== method.id))
+                                  toast.success('Da xoa payment method')
+                                },
+                                true,
+                              )}
+                            >
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
@@ -745,6 +903,16 @@ export function PlatformSettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }

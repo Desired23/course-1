@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { TableFilter, FilterConfig } from '../../components/FilterComponents'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { 
   Activity,
@@ -27,7 +28,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
-import { getActivityLogs as getActivityLogsApi } from '../../services/admin.api'
+import { cleanupActivityLogs, getActivityLogs as getActivityLogsApi } from '../../services/admin.api'
 import type { ActivityLog as ApiActivityLog } from '../../services/admin.api'
 
 interface ActivityLog {
@@ -53,10 +54,13 @@ export function ActivityLogPage() {
   const { hasPermission } = useAuth()
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [filteredLogs, setFilteredLogs] = useState<ActivityLog[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isCleaning, setIsCleaning] = useState(false)
 
-  useEffect(() => {
-    const fetchLogs = async () => {
+  const fetchLogs = async () => {
       try {
+        setIsLoading(true)
         const data = await getActivityLogsApi()
         const mapped: ActivityLog[] = data.map((l: ApiActivityLog) => {
           const actionLower = (l.action || '').toLowerCase()
@@ -88,8 +92,11 @@ export function ActivityLogPage() {
       } catch {
         toast.error('Không thể tải nhật ký hoạt động')
       }
+      setIsLoading(false)
     }
-    fetchLogs()
+
+  useEffect(() => {
+    void fetchLogs()
   }, [])
 
   // Filter configurations
@@ -238,6 +245,20 @@ export function ActivityLogPage() {
     a.click()
   }
 
+  const handleCleanupLogs = async () => {
+    try {
+      setIsCleaning(true)
+      await cleanupActivityLogs()
+      await fetchLogs()
+      setConfirmOpen(false)
+      toast.success('Da don dep nhat ky hoat dong')
+    } catch {
+      toast.error('Don dep nhat ky that bai')
+    } finally {
+      setIsCleaning(false)
+    }
+  }
+
   if (!hasPermission('admin.logs.view')) {
     return (
       <div className="container mx-auto p-6">
@@ -257,10 +278,16 @@ export function ActivityLogPage() {
           <h1 className="text-3xl mb-2">Nhật ký hoạt động</h1>
           <p className="text-muted-foreground">Theo dõi tất cả hoạt động trên hệ thống</p>
         </div>
-        <Button onClick={exportLogs}>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setConfirmOpen(true)} disabled={isCleaning || isLoading}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            Don dep logs
+          </Button>
+          <Button onClick={exportLogs} disabled={filteredLogs.length === 0}>
           <Download className="h-4 w-4 mr-2" />
           Xuất CSV
-        </Button>
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -329,6 +356,9 @@ export function ActivityLogPage() {
           <CardTitle>Nhật ký hoạt động ({filteredLogs.length})</CardTitle>
         </CardHeader>
         <CardContent>
+          {isLoading ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">Dang tai nhat ky hoat dong...</div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -376,10 +406,28 @@ export function ActivityLogPage() {
                   </TableCell>
                 </TableRow>
               ))}
+            {filteredLogs.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-sm text-muted-foreground">
+                  Khong co nhat ky phu hop voi bo loc hien tai.
+                </TableCell>
+              </TableRow>
+            )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
+      <AdminConfirmDialog
+        open={confirmOpen}
+        title="Don dep activity logs"
+        description="Ban co chac muon don dep nhat ky hoat dong cu? Hanh dong nay co the xoa mot phan du lieu lich su."
+        confirmLabel="Don dep"
+        destructive
+        loading={isCleaning}
+        onOpenChange={setConfirmOpen}
+        onConfirm={handleCleanupLogs}
+      />
     </div>
   )
 }

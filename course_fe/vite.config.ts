@@ -52,6 +52,85 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            const normalizedId = id.replace(/\\/g, '/')
+
+            if (normalizedId.includes('node_modules')) {
+              if (
+                normalizedId.includes('/react/') ||
+                normalizedId.includes('/react-dom/') ||
+                normalizedId.includes('/scheduler/')
+              ) {
+                return 'react-vendor'
+              }
+
+              if (
+                normalizedId.includes('/recharts/') ||
+                normalizedId.includes('/d3-') ||
+                normalizedId.includes('/victory-vendor/')
+              ) {
+                return 'chart-vendor'
+              }
+
+              if (
+                normalizedId.includes('/@radix-ui/') ||
+                normalizedId.includes('/cmdk/') ||
+                normalizedId.includes('/vaul/')
+              ) {
+                return 'ui-vendor'
+              }
+
+              if (
+                normalizedId.includes('/@tanstack/react-query') ||
+                normalizedId.includes('/@tanstack/query-core')
+              ) {
+                return 'query-vendor'
+              }
+
+              if (
+                normalizedId.includes('/motion/') ||
+                normalizedId.includes('/framer-motion/')
+              ) {
+                return 'motion-vendor'
+              }
+
+              if (
+                normalizedId.includes('/i18next/') ||
+                normalizedId.includes('/react-i18next/')
+              ) {
+                return 'i18n-vendor'
+              }
+
+              if (
+                normalizedId.includes('/@monaco-editor/') ||
+                normalizedId.includes('/monaco-editor/') ||
+                normalizedId.includes('/@monaco-editor/react/')
+              ) {
+                return 'monaco-vendor'
+              }
+
+              return undefined
+            }
+
+            if (
+              normalizedId.includes('/src/utils/judge0') ||
+              normalizedId.includes('/src/components/EnhancedCodeQuiz') ||
+              normalizedId.includes('/src/components/CodeEditor')
+            ) {
+              return 'code-quiz'
+            }
+
+            if (
+              normalizedId.includes('/src/components/VideoPlayer') ||
+              normalizedId.includes('/src/components/VideoPlayerPreview')
+            ) {
+              return 'video-player'
+            }
+          },
+        },
+      },
     },
     server: {
       port: 3000,

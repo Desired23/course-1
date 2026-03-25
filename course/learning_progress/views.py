@@ -26,12 +26,10 @@ class LearningProgressUpdateView(APIView):
             if not lesson_id:
                 raise ValidationError({"lesson_id": "lesson_id is required."})
             
-            progress_data = {
-                'progress_percentage': request.data.get('progress_percentage', 0),
-                'time_spent': request.data.get('time_spent', 0),
-                'is_completed': request.data.get('is_completed', False),
-                'last_position': request.data.get('last_position')
-            }
+            progress_data = {}
+            for field in ['progress_percentage', 'time_spent', 'is_completed', 'last_position', 'notes']:
+                if field in request.data:
+                    progress_data[field] = request.data.get(field)
             
             result = update_learning_progress(user_id, lesson_id, progress_data)
             return Response(result, status=status.HTTP_201_CREATED)
@@ -49,12 +47,10 @@ class LearningProgressDetailView(APIView):
         try:
             user_id = request.user.id
             
-            progress_data = {
-                'progress_percentage': request.data.get('progress_percentage', 0),
-                'time_spent': request.data.get('time_spent', 0),
-                'is_completed': request.data.get('is_completed', False),
-                'last_position': request.data.get('last_position')
-            }
+            progress_data = {}
+            for field in ['progress_percentage', 'time_spent', 'is_completed', 'last_position', 'notes']:
+                if field in request.data:
+                    progress_data[field] = request.data.get(field)
             
             result = update_lesson_progress(lesson_id, user_id, progress_data)
             return Response(result, status=status.HTTP_200_OK)

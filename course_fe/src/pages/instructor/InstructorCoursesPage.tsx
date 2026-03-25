@@ -13,8 +13,9 @@ import { useAuth } from "../../contexts/AuthContext"
 import { PreviewCourseModal } from "../../components/PreviewCourseModal"
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback'
 import { UserPagination } from '../../components/UserPagination'
-import { getCourses, type CourseListItem, formatPrice, parseDecimal, getLevelLabel, formatDuration } from '../../services/course.api'
+import { getCourses, updateCourse, deleteCourse, type CourseListItem, formatPrice, parseDecimal, getLevelLabel, formatDuration } from '../../services/course.api'
 import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
+import { toast } from 'sonner'
 
 const ITEMS_PER_PAGE = 6
 
@@ -42,6 +43,7 @@ export function InstructorCoursesPage() {
   const [previewCourseId, setPreviewCourseId] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [editCourseId, setEditCourseId] = useState<number | null>(null)
+  const [mutatingCourseId, setMutatingCourseId] = useState<number | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
@@ -69,6 +71,31 @@ export function InstructorCoursesPage() {
     init()
     return () => { cancelled = true }
   }, [user?.id])
+
+  const refreshDashboardStats = async () => {
+    if (!instructorId) return
+    const dashboardStats = await getInstructorDashboardStats(instructorId)
+    setStats(dashboardStats)
+  }
+
+  const refreshCourses = async (pageOverride?: number) => {
+    if (!instructorId) return
+    const nextPage = pageOverride ?? currentPage
+    const res = await getCourses({
+      instructor_id: instructorId,
+      page: nextPage,
+      page_size: ITEMS_PER_PAGE,
+      status: effectiveStatus,
+      search: debouncedSearch || undefined,
+      ordering,
+    })
+    setCourses(res.results)
+    setTotalPages(res.total_pages || 1)
+    setTotalCount(res.count || 0)
+    if (nextPage > (res.total_pages || 1)) {
+      setCurrentPage(Math.max(1, res.total_pages || 1))
+    }
+  }
 
   useEffect(() => {
     setCurrentPage(1)
@@ -147,6 +174,60 @@ export function InstructorCoursesPage() {
       }
       navigate(`/instructor/course-landing/${selectedCourseId}`)
     })
+  }
+
+  const getAvailableActions = (course: CourseListItem) => {
+    if (course.status === 'draft') {
+      return [{ label: 'Submit for Review', run: () => handleCourseStatusChange(course, 'pending', 'Submit this course for review?') }]
+    }
+    if (course.status === 'archived') {
+      const actions = [{ label: 'Move to Draft', run: () => handleCourseStatusChange(course, 'draft', 'Move this archived course back to draft for editing?') }]
+      if (!course.content_changed_since_publish) {
+        actions.unshift({ label: 'Restore Published', run: () => handleCourseStatusChange(course, 'published', 'Restore this archived course back to published?') })
+      }
+      return actions
+    }
+    if (['pending', 'rejected'].includes(course.status)) {
+      return [{ label: 'Move to Draft', run: () => handleCourseStatusChange(course, 'draft', 'Move this course back to draft?') }]
+    }
+    if (course.status === 'published') {
+      return [{ label: 'Archive', run: () => handleCourseStatusChange(course, 'archived', 'Archive this published course?') }]
+    }
+    return []
+  }
+
+  const handleCourseStatusChange = async (
+    course: CourseListItem,
+    nextStatus: CourseListItem['status'],
+    confirmationMessage: string
+  ) => {
+    if (!window.confirm(confirmationMessage)) return
+    try {
+      setMutatingCourseId(course.id)
+      await updateCourse(course.id, { status: nextStatus })
+      await Promise.all([refreshCourses(), refreshDashboardStats()])
+      toast.success(`Course moved to ${nextStatus.replace('_', ' ')}.`)
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update course status')
+    } finally {
+      setMutatingCourseId(null)
+    }
+  }
+
+  const handleDeleteCourse = async (course: CourseListItem) => {
+    if (!window.confirm(`Delete "${course.title}"? This will remove it from your course list.`)) return
+    try {
+      setMutatingCourseId(course.id)
+      await deleteCourse(course.id)
+      const shouldGoBackPage = courses.length === 1 && currentPage > 1
+      const nextPage = shouldGoBackPage ? currentPage - 1 : currentPage
+      await Promise.all([refreshCourses(nextPage), refreshDashboardStats()])
+      toast.success('Course deleted successfully.')
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete course')
+    } finally {
+      setMutatingCourseId(null)
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -348,7 +429,7 @@ export function InstructorCoursesPage() {
                               <Edit className="h-4 w-4 md:mr-1" />
                               <span className="hidden md:inline">{t('instructor_courses.edit')}</span>
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => navigate(`/course/${course.id}`)}>
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/courses/${course.id}`)}>
                               <BarChart3 className="h-4 w-4 md:mr-1" />
                               <span className="hidden lg:inline">{t('instructor_courses.analytics')}</span>
                             </Button>
@@ -390,7 +471,7 @@ export function InstructorCoursesPage() {
                           )}
                         </div>
 
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 pt-3 border-t">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-3 pt-3 border-t">
                           <div className="flex items-center gap-2 text-xs sm:text-sm">
                             <span className="font-medium">{formatPrice(parseDecimal(course.price))}</span>
                             {course.discount_price && (
@@ -399,6 +480,41 @@ export function InstructorCoursesPage() {
                                 <span className="text-green-600">{t('instructor_courses.discount')}: {formatPrice(parseDecimal(course.discount_price))}</span>
                               </>
                             )}
+                          </div>
+                          {course.status === 'archived' && course.content_changed_since_publish && (
+                            <span className="text-xs text-amber-600">
+                              This archived course changed after publish and must return to draft before review.
+                            </span>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/courses/${course.id}`)}>
+                              View Analytics
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/lessons/${course.id}`)}>
+                              Edit Lessons
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/course-landing/${course.id}`)}>
+                              Edit Course Info
+                            </Button>
+                            {getAvailableActions(course).map((action) => (
+                              <Button
+                                key={action.label}
+                                variant="outline"
+                                size="sm"
+                                onClick={action.run}
+                                disabled={mutatingCourseId === course.id}
+                              >
+                                {mutatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : action.label}
+                              </Button>
+                            ))}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteCourse(course)}
+                              disabled={mutatingCourseId === course.id}
+                            >
+                              {mutatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                            </Button>
                           </div>
                         </div>
                       </div>

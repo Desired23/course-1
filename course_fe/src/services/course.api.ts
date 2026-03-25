@@ -47,6 +47,7 @@ export interface CourseListItem {
   created_at: string
   updated_at: string
   published_date: string | null
+  content_changed_since_publish: boolean
   rating: string                     // decimal as string
   total_reviews: number
   total_students: number
@@ -158,6 +159,7 @@ export interface CourseDetail {
   created_at: string
   updated_at: string
   published_date: string | null
+  content_changed_since_publish: boolean
   rating: string
   total_reviews: number
   total_students: number

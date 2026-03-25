@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
 import { Badge } from '../../components/ui/badge'
-import { AdminHeader } from '../../components/AdminHeader'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { toast } from 'sonner'
 import { GripVertical, Eye, EyeOff, Plus, Save, RotateCcw } from 'lucide-react'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
@@ -110,6 +110,23 @@ const AVAILABLE_COMPONENTS = [
 
 export function AdminHomeLayoutPage() {
   const [layoutSettingId, setLayoutSettingId] = useState<number | null>(null)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void> | void)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
   const [sections, setSections] = useState<HomeSection[]>([
     { id: '1', component: 'HeroSection', title: 'Hero Banner', description: 'Main hero section with CTA', enabled: true, order: 1 },
     { id: '2', component: 'FeaturesSection', title: 'Platform Features', description: 'Key platform features', enabled: true, order: 2 },
@@ -178,6 +195,43 @@ export function AdminHomeLayoutPage() {
     ))
   }
 
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void> | void,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState((prev) => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState((prev) => ({ ...prev, loading: false }))
+    }
+  }
+
   const handleRemoveSection = (id: string) => {
     setSections(sections.filter(section => section.id !== id))
     toast.success('Section removed!')
@@ -223,16 +277,13 @@ export function AdminHomeLayoutPage() {
   }
 
   const handleReset = () => {
-    if (confirm('Are you sure you want to reset to default layout?')) {
-      // Reset to default
-      setSections([
-        { id: '1', component: 'HeroSection', title: 'Hero Banner', description: 'Main hero section with CTA', enabled: true, order: 1 },
-        { id: '2', component: 'FeaturesSection', title: 'Platform Features', description: 'Key platform features', enabled: true, order: 2 },
-        { id: '3', component: 'Categories', title: 'Categories Grid', description: 'Browse by category', enabled: true, order: 3 },
-        { id: '4', component: 'FeaturedCourses', title: 'Featured Courses', description: 'Showcase featured courses', enabled: true, order: 4 }
-      ])
-      toast.success('Layout reset to default!')
-    }
+    setSections([
+      { id: '1', component: 'HeroSection', title: 'Hero Banner', description: 'Main hero section with CTA', enabled: true, order: 1 },
+      { id: '2', component: 'FeaturesSection', title: 'Platform Features', description: 'Key platform features', enabled: true, order: 2 },
+      { id: '3', component: 'Categories', title: 'Categories Grid', description: 'Browse by category', enabled: true, order: 3 },
+      { id: '4', component: 'FeaturedCourses', title: 'Featured Courses', description: 'Showcase featured courses', enabled: true, order: 4 }
+    ])
+    toast.success('Layout reset to default!')
   }
 
   const groupedComponents = AVAILABLE_COMPONENTS.reduce((acc, component) => {
@@ -245,10 +296,12 @@ export function AdminHomeLayoutPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <AdminHeader
-        title="Homepage Layout"
-        subtitle="Customize your homepage by enabling, disabling, and reordering sections"
-      />
+      <div>
+        <h1 className="text-3xl font-semibold">Homepage Layout</h1>
+        <p className="text-muted-foreground">
+          Customize your homepage by enabling, disabling, and reordering sections.
+        </p>
+      </div>
 
       {/* Action Buttons */}
       <div className="flex gap-2">
@@ -260,7 +313,17 @@ export function AdminHomeLayoutPage() {
           <Save className="w-4 h-4" />
           Save Layout
         </Button>
-        <Button onClick={handleReset} variant="outline" className="gap-2">
+        <Button
+          onClick={() => openConfirm(
+            'Reset homepage layout',
+            'Reset homepage layout ve cau hinh mac dinh? Nhung section dang sap xep se bi thay the.',
+            'Reset layout',
+            handleReset,
+            true,
+          )}
+          variant="outline"
+          className="gap-2"
+        >
           <RotateCcw className="w-4 h-4" />
           Reset to Default
         </Button>
@@ -373,7 +436,13 @@ export function AdminHomeLayoutPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleRemoveSection(section.id)}
+                      onClick={() => openConfirm(
+                        'Remove homepage section',
+                        `Remove "${section.title}" khoi homepage layout?`,
+                        'Remove section',
+                        () => handleRemoveSection(section.id),
+                        true,
+                      )}
                       className="text-destructive hover:text-destructive"
                     >
                       ×
@@ -412,6 +481,16 @@ export function AdminHomeLayoutPage() {
           </div>
         </CardContent>
       </Card>
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }

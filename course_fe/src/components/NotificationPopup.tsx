@@ -131,7 +131,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
           timestamp: new Date(Date.now() - 1000 * 60 * 60),
           isRead: false,
           priority: 'high',
-          actionUrl: '/forum'
+          actionUrl: '/admin/forum'
         },
         {
           id: '10',
@@ -151,7 +151,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
           timestamp: new Date(Date.now() - 1000 * 60 * 90),
           isRead: false,
           priority: 'high',
-          actionUrl: '/admin/payments'
+          actionUrl: '/admin/refunds'
         }
       )
     }

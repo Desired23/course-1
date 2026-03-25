@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Switch } from '../../components/ui/switch'
 import { Separator } from '../../components/ui/separator'
+import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { 
   CreditCard, 
   Plus, 
@@ -103,6 +104,23 @@ export function PaymentMethodsPage() {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null)
   const [isEditingMethod, setIsEditingMethod] = useState(false)
   const [showApiKeys, setShowApiKeys] = useState(false)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive: boolean
+    loading: boolean
+    action: null | (() => Promise<void>)
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    confirmLabel: 'Confirm',
+    destructive: false,
+    loading: false,
+    action: null,
+  })
 
   useEffect(() => {
     const load = async () => {
@@ -220,6 +238,43 @@ export function PaymentMethodsPage() {
     if (!method.isActive) return 'text-gray-500'
     if (!method.isVerified) return 'text-yellow-500'
     return 'text-green-500'
+  }
+
+  const openConfirm = (
+    title: string,
+    description: string,
+    confirmLabel: string,
+    action: () => Promise<void>,
+    destructive = false
+  ) => {
+    setConfirmState({
+      open: true,
+      title,
+      description,
+      confirmLabel,
+      destructive,
+      loading: false,
+      action,
+    })
+  }
+
+  const runConfirmedAction = async () => {
+    if (!confirmState.action) return
+    try {
+      setConfirmState(prev => ({ ...prev, loading: true }))
+      await confirmState.action()
+      setConfirmState({
+        open: false,
+        title: '',
+        description: '',
+        confirmLabel: 'Confirm',
+        destructive: false,
+        loading: false,
+        action: null,
+      })
+    } catch {
+      setConfirmState(prev => ({ ...prev, loading: false }))
+    }
   }
 
   return (
@@ -390,7 +445,14 @@ export function PaymentMethodsPage() {
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={method.isActive}
-                        onCheckedChange={() => handleToggleMethod(method.id)}
+                        onCheckedChange={() => openConfirm(
+                          method.isActive ? 'Disable payment method' : 'Enable payment method',
+                          method.isActive
+                            ? `Disable "${method.name}" for checkout and payment processing?`
+                            : `Enable "${method.name}" for checkout and payment processing?`,
+                          method.isActive ? 'Disable' : 'Enable',
+                          () => handleToggleMethod(method.id),
+                        )}
                       />
                       <Button size="sm" variant="outline" onClick={() => setSelectedMethod(method)}>
                         <Eye className="h-4 w-4" />
@@ -398,7 +460,13 @@ export function PaymentMethodsPage() {
                       <Button size="sm" variant="outline" onClick={() => setIsEditingMethod(true)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleDeleteMethod(method.id)}>
+                      <Button size="sm" variant="outline" onClick={() => openConfirm(
+                        'Delete payment method',
+                        `Delete "${method.name}"? This action cannot be undone.`,
+                        'Delete',
+                        () => handleDeleteMethod(method.id),
+                        true,
+                      )}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -694,6 +762,16 @@ export function PaymentMethodsPage() {
           </DialogContent>
         </Dialog>
       )}
+      <AdminConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        destructive={confirmState.destructive}
+        loading={confirmState.loading}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   )
 }
