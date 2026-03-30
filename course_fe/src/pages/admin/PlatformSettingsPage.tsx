@@ -90,6 +90,13 @@ interface PaymentMethod {
 export function PlatformSettingsPage() {
   const { canAccess } = useAuth()
   const { t } = useTranslation()
+  const defaultPaymentMethods: PaymentMethod[] = [
+    { id: '1', name: 'Stripe', type: 'card', enabled: true, fees: 2.9, processingTime: t('platform_settings.financial.processing_times.instant') },
+    { id: '2', name: 'PayPal', type: 'wallet', enabled: true, fees: 3.5, processingTime: t('platform_settings.financial.processing_times.instant') },
+    { id: '3', name: t('platform_settings.financial.method_names.bank_transfer'), type: 'bank', enabled: false, fees: 1.0, processingTime: t('platform_settings.financial.processing_times.three_to_five_days') },
+    { id: '4', name: 'Apple Pay', type: 'wallet', enabled: true, fees: 2.9, processingTime: t('platform_settings.financial.processing_times.instant') },
+    { id: '5', name: 'Google Pay', type: 'wallet', enabled: true, fees: 2.9, processingTime: t('platform_settings.financial.processing_times.instant') }
+  ]
   const [platformSettingId, setPlatformSettingId] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const defaultSettings: PlatformSettings = {
@@ -116,18 +123,12 @@ export function PlatformSettingsPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
   })
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    { id: '1', name: 'Stripe', type: 'card', enabled: true, fees: 2.9, processingTime: 'Instant' },
-    { id: '2', name: 'PayPal', type: 'wallet', enabled: true, fees: 3.5, processingTime: 'Instant' },
-    { id: '3', name: 'Bank Transfer', type: 'bank', enabled: false, fees: 1.0, processingTime: '3-5 days' },
-    { id: '4', name: 'Apple Pay', type: 'wallet', enabled: true, fees: 2.9, processingTime: 'Instant' },
-    { id: '5', name: 'Google Pay', type: 'wallet', enabled: true, fees: 2.9, processingTime: 'Instant' }
-  ])
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods)
 
   useEffect(() => {
     const load = async () => {
@@ -200,7 +201,7 @@ export function PlatformSettingsPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -225,16 +226,16 @@ export function PlatformSettingsPage() {
   const handleSavePaymentMethod = () => {
     if (!selectedPaymentMethod) return
     if (!selectedPaymentMethod.name.trim()) {
-      toast.error('Vui long nhap ten payment method')
+      toast.error(t('platform_settings.financial.toasts.name_required'))
       return
     }
 
     if (selectedPaymentMethod.id) {
       setPaymentMethods((prev) => prev.map((method) => method.id === selectedPaymentMethod.id ? selectedPaymentMethod : method))
-      toast.success('Da cap nhat payment method')
+      toast.success(t('platform_settings.financial.toasts.update_method_success'))
     } else {
       setPaymentMethods((prev) => [...prev, { ...selectedPaymentMethod, id: Date.now().toString() }])
-      toast.success('Da them payment method')
+      toast.success(t('platform_settings.financial.toasts.add_method_success'))
     }
 
     setIsPaymentDialogOpen(false)
@@ -479,7 +480,7 @@ export function PlatformSettingsPage() {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label>Name</Label>
+                          <Label>{t('platform_settings.financial.form.name')}</Label>
                           <Input
                             value={selectedPaymentMethod?.name || ''}
                             onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', type: 'card', enabled: true, fees: 0, processingTime: '' }), name: e.target.value }))}
@@ -487,7 +488,7 @@ export function PlatformSettingsPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label>Type</Label>
+                            <Label>{t('platform_settings.financial.form.type')}</Label>
                             <Select
                               value={selectedPaymentMethod?.type || 'card'}
                               onValueChange={(value: 'card' | 'bank' | 'wallet') => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', enabled: true, fees: 0, processingTime: '' }), type: value }))}
@@ -496,14 +497,14 @@ export function PlatformSettingsPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="card">Card</SelectItem>
-                                <SelectItem value="bank">Bank</SelectItem>
-                                <SelectItem value="wallet">Wallet</SelectItem>
+                                <SelectItem value="card">{t('platform_settings.financial.method_types.card')}</SelectItem>
+                                <SelectItem value="bank">{t('platform_settings.financial.method_types.bank')}</SelectItem>
+                                <SelectItem value="wallet">{t('platform_settings.financial.method_types.wallet')}</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div>
-                            <Label>Fees (%)</Label>
+                            <Label>{t('platform_settings.financial.form.fees')}</Label>
                             <Input
                               type="number"
                               value={selectedPaymentMethod?.fees ?? 0}
@@ -512,22 +513,22 @@ export function PlatformSettingsPage() {
                           </div>
                         </div>
                         <div>
-                          <Label>Processing time</Label>
+                          <Label>{t('platform_settings.financial.form.processing_time')}</Label>
                           <Input
                             value={selectedPaymentMethod?.processingTime || ''}
                             onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', enabled: true, fees: 0 }), processingTime: e.target.value }))}
                           />
                         </div>
                         <div className="flex items-center justify-between rounded border p-3">
-                          <Label>Enabled</Label>
+                          <Label>{t('platform_settings.common.enabled')}</Label>
                           <Switch
                             checked={selectedPaymentMethod?.enabled ?? true}
                             onCheckedChange={(checked) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', fees: 0, processingTime: '' }), enabled: checked }))}
                           />
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>Cancel</Button>
-                          <Button onClick={handleSavePaymentMethod}>Save method</Button>
+                          <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>{t('common.cancel')}</Button>
+                          <Button onClick={handleSavePaymentMethod}>{t('platform_settings.financial.form.save_method')}</Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -574,12 +575,12 @@ export function PlatformSettingsPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => openConfirm(
-                                'Delete payment method',
-                                `Delete "${method.name}" from platform settings?`,
-                                'Delete',
+                                t('platform_settings.financial.delete_method_title'),
+                                t('platform_settings.financial.delete_method_description', { name: method.name }),
+                                t('common.delete'),
                                 () => {
                                   setPaymentMethods((prev) => prev.filter((item) => item.id !== method.id))
-                                  toast.success('Da xoa payment method')
+                                  toast.success(t('platform_settings.financial.toasts.delete_method_success'))
                                 },
                                 true,
                               )}

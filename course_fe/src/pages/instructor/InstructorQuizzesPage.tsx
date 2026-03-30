@@ -21,6 +21,7 @@ import { getLessons, createLesson, updateLesson as updateLessonApi, deleteLesson
 import { getQuestionsByLesson, createQuizQuestion, updateQuizQuestion, deleteQuizQuestion } from '../../services/quiz-questions.api'
 import { getAllCourseModules } from '../../services/course-modules.api'
 import { getAllCourses } from '../../services/course.api'
+import { useTranslation } from 'react-i18next'
 
 interface Quiz {
   id: string
@@ -90,6 +91,7 @@ function apiQuestionToFE(q: any): QuizQuestion {
 export function InstructorQuizzesPage() {
   const { navigate } = useRouter()
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null)
   const [instructorId, setInstructorId] = useState<number | null>(null)
@@ -217,7 +219,7 @@ export function InstructorQuizzesPage() {
 
   const handleCreateQuiz = async () => {
     if (!defaultModuleId) {
-      toast.error('No course module found. Please create a course and section first.')
+      toast.error(t('instructor_quizzes_page.toasts.no_course_module'))
       return
     }
     try {
@@ -236,10 +238,10 @@ export function InstructorQuizzesPage() {
       }
       setIsQuizDialogOpen(false)
       resetQuizForm()
-      toast.success('Quiz created successfully')
+      toast.success(t('instructor_quizzes_page.toasts.quiz_created'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to create quiz')
+      toast.error(t('instructor_quizzes_page.toasts.create_quiz_failed'))
     }
   }
 
@@ -248,15 +250,15 @@ export function InstructorQuizzesPage() {
   }
 
   const handleDeleteQuiz = async (quizId: string) => {
-    if (confirm('Are you sure you want to delete this quiz?')) {
+    if (confirm(t('instructor_quizzes_page.confirms.delete_quiz'))) {
       try {
         await deleteLessonApi(Number(quizId))
         setRefreshKey((prev) => prev + 1)
         if (selectedQuiz?.id === quizId) setSelectedQuiz(null)
-        toast.success('Quiz deleted')
+        toast.success(t('instructor_quizzes_page.toasts.quiz_deleted'))
       } catch (err) {
         console.error(err)
-        toast.error('Failed to delete quiz')
+        toast.error(t('instructor_quizzes_page.toasts.delete_quiz_failed'))
       }
     }
   }
@@ -270,10 +272,14 @@ export function InstructorQuizzesPage() {
       if (selectedQuiz?.id === quizId) {
         setSelectedQuiz(prev => prev ? { ...prev, isPublished: !prev.isPublished } : null)
       }
-      toast.success(newStatus === 'published' ? 'Quiz published' : 'Quiz unpublished')
+      toast.success(
+        newStatus === 'published'
+          ? t('instructor_quizzes_page.toasts.quiz_published')
+          : t('instructor_quizzes_page.toasts.quiz_unpublished')
+      )
     } catch (err) {
       console.error(err)
-      toast.error('Failed to update quiz status')
+      toast.error(t('instructor_quizzes_page.toasts.update_status_failed'))
     }
   }
 
@@ -321,16 +327,16 @@ export function InstructorQuizzesPage() {
       handleUpdateQuiz(updatedQuiz)
       setSelectedQuiz(updatedQuiz)
       setEditingQuestion(null)
-      toast.success('Question saved')
+      toast.success(t('instructor_quizzes_page.toasts.question_saved'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to save question')
+      toast.error(t('instructor_quizzes_page.toasts.save_question_failed'))
     }
   }
 
   const handleDeleteQuestion = async (questionId: string) => {
     if (!selectedQuiz) return
-    if (confirm('Delete this question?')) {
+    if (confirm(t('instructor_quizzes_page.confirms.delete_question'))) {
       try {
         await deleteQuizQuestion(Number(questionId))
         const updatedQuiz = {
@@ -342,10 +348,10 @@ export function InstructorQuizzesPage() {
         }
         handleUpdateQuiz(updatedQuiz)
         setSelectedQuiz(updatedQuiz)
-        toast.success('Question deleted')
+        toast.success(t('instructor_quizzes_page.toasts.question_deleted'))
       } catch (err) {
         console.error(err)
-        toast.error('Failed to delete question')
+        toast.error(t('instructor_quizzes_page.toasts.delete_question_failed'))
       }
     }
   }
@@ -397,44 +403,44 @@ export function InstructorQuizzesPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="mb-2">Quizzes & Assessments</h1>
-              <p className="text-muted-foreground">Create and manage quizzes for your courses</p>
+              <h1 className="mb-2">{t('instructor_quizzes_page.title')}</h1>
+              <p className="text-muted-foreground">{t('instructor_quizzes_page.subtitle')}</p>
             </div>
             <Dialog open={isQuizDialogOpen} onOpenChange={setIsQuizDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={() => resetQuizForm()}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Quiz
+                  {t('instructor_quizzes_page.actions.create_quiz')}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Create New Quiz</DialogTitle>
-                  <DialogDescription>Set up a new quiz for your course</DialogDescription>
+                  <DialogTitle>{t('instructor_quizzes_page.dialogs.create_title')}</DialogTitle>
+                  <DialogDescription>{t('instructor_quizzes_page.dialogs.create_description')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="quiz-title">Quiz Title</Label>
+                    <Label htmlFor="quiz-title">{t('instructor_quizzes_page.form.quiz_title')}</Label>
                     <Input
                       id="quiz-title"
                       value={quizTitle}
                       onChange={(e) => setQuizTitle(e.target.value)}
-                      placeholder="e.g., JavaScript Fundamentals Quiz"
+                      placeholder={t('instructor_quizzes_page.form.quiz_title_placeholder')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="quiz-description">Description</Label>
+                    <Label htmlFor="quiz-description">{t('instructor_quizzes_page.form.description')}</Label>
                     <Textarea
                       id="quiz-description"
                       value={quizDescription}
                       onChange={(e) => setQuizDescription(e.target.value)}
-                      placeholder="Briefly describe what this quiz covers..."
+                      placeholder={t('instructor_quizzes_page.form.description_placeholder')}
                       rows={3}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="passing-score">Passing Score (%)</Label>
+                      <Label htmlFor="passing-score">{t('instructor_quizzes_page.form.passing_score')}</Label>
                       <Input
                         id="passing-score"
                         type="number"
@@ -445,21 +451,21 @@ export function InstructorQuizzesPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="time-limit">Time Limit (minutes)</Label>
+                      <Label htmlFor="time-limit">{t('instructor_quizzes_page.form.time_limit')}</Label>
                       <Input
                         id="time-limit"
                         type="number"
                         min="0"
                         value={timeLimit || ''}
                         onChange={(e) => setTimeLimit(e.target.value ? parseInt(e.target.value) : undefined)}
-                        placeholder="No limit"
+                        placeholder={t('instructor_quizzes_page.form.no_limit')}
                       />
                     </div>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsQuizDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleCreateQuiz} disabled={!quizTitle}>Create Quiz</Button>
+                  <Button variant="outline" onClick={() => setIsQuizDialogOpen(false)}>{t('instructor_quizzes_page.actions.cancel')}</Button>
+                  <Button onClick={handleCreateQuiz} disabled={!quizTitle}>{t('instructor_quizzes_page.actions.create_quiz')}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -471,42 +477,42 @@ export function InstructorQuizzesPage() {
           // Quiz Detail View
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>{selectedQuiz.title}</CardTitle>
-                  <CardDescription>{selectedQuiz.description}</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{selectedQuiz.title}</CardTitle>
+                    <CardDescription>{selectedQuiz.description}</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setSelectedQuiz(null)}>
+                      {t('instructor_quizzes_page.actions.back_to_list')}
+                    </Button>
+                    <Button
+                      variant={selectedQuiz.isPublished ? "destructive" : "default"}
+                      onClick={() => handlePublishQuiz(selectedQuiz.id)}
+                    >
+                      {selectedQuiz.isPublished ? t('instructor_quizzes_page.actions.unpublish') : t('instructor_quizzes_page.actions.publish')}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setSelectedQuiz(null)}>
-                    Back to List
-                  </Button>
-                  <Button
-                    variant={selectedQuiz.isPublished ? "destructive" : "default"}
-                    onClick={() => handlePublishQuiz(selectedQuiz.id)}
-                  >
-                    {selectedQuiz.isPublished ? 'Unpublish' : 'Publish'}
-                  </Button>
-                </div>
-              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {/* Quiz Settings */}
                 <div className="grid grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
                   <div>
-                    <p className="text-sm text-muted-foreground">Passing Score</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_quizzes_page.metrics.passing_score')}</p>
                     <p className="font-semibold">{selectedQuiz.passingScore}%</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Time Limit</p>
-                    <p className="font-semibold">{selectedQuiz.timeLimit ? `${selectedQuiz.timeLimit} min` : 'No limit'}</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_quizzes_page.metrics.time_limit')}</p>
+                    <p className="font-semibold">{selectedQuiz.timeLimit ? t('instructor_quizzes_page.metrics.time_limit_value', { count: selectedQuiz.timeLimit }) : t('instructor_quizzes_page.form.no_limit')}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Questions</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_quizzes_page.metrics.total_questions')}</p>
                     <p className="font-semibold">{selectedQuiz.questions.length}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Points</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_quizzes_page.metrics.total_points')}</p>
                     <p className="font-semibold">{selectedQuiz.questions.reduce((sum, q) => sum + q.points, 0)}</p>
                   </div>
                 </div>
@@ -514,23 +520,23 @@ export function InstructorQuizzesPage() {
                 {/* Questions */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold">Questions</h3>
+                    <h3 className="font-semibold">{t('instructor_quizzes_page.questions.title')}</h3>
                     <Button onClick={handleAddNewQuestion}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Question
+                      {t('instructor_quizzes_page.questions.add_question')}
                     </Button>
                   </div>
 
                   {selectedQuiz.questions.length === 0 ? (
                     <div className="text-center py-12 border rounded-lg border-dashed">
                       <FileQuestion className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No questions yet. Add your first question to get started.</p>
+                      <p className="text-muted-foreground">{t('instructor_quizzes_page.questions.empty')}</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2 text-sm">
                         <GripVertical className="h-4 w-4 text-blue-600" />
-                        <span className="text-blue-700 dark:text-blue-300">Drag and drop questions to reorder them</span>
+                        <span className="text-blue-700 dark:text-blue-300">{t('instructor_quizzes_page.questions.reorder_hint')}</span>
                       </div>
                       {selectedQuiz.questions.map((question, index) => (
                         <DraggableQuestionCard
@@ -556,27 +562,27 @@ export function InstructorQuizzesPage() {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by quiz title or description..."
+                  placeholder={t('instructor_quizzes_page.filters.search_placeholder')}
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder={t('instructor_quizzes_page.filters.status')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="all">{t('instructor_quizzes_page.filters.all_status')}</SelectItem>
+                  <SelectItem value="published">{t('instructor_quizzes_page.status.published')}</SelectItem>
+                  <SelectItem value="draft">{t('instructor_quizzes_page.status.draft')}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sort By" />
+                  <SelectValue placeholder={t('instructor_quizzes_page.filters.sort_by')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">Newest</SelectItem>
-                  <SelectItem value="questions">Most Questions</SelectItem>
-                  <SelectItem value="title">Title A-Z</SelectItem>
+                  <SelectItem value="newest">{t('instructor_quizzes_page.sort.newest')}</SelectItem>
+                  <SelectItem value="questions">{t('instructor_quizzes_page.sort.most_questions')}</SelectItem>
+                  <SelectItem value="title">{t('instructor_quizzes_page.sort.title_az')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -584,7 +590,7 @@ export function InstructorQuizzesPage() {
             {isLoading ? (
               <Card>
                 <CardContent className="text-center py-12 text-muted-foreground">
-                  Loading quizzes...
+                  {t('instructor_quizzes_page.loading')}
                 </CardContent>
               </Card>
             ) : quizzes.map((quiz) => (
@@ -595,30 +601,30 @@ export function InstructorQuizzesPage() {
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold">{quiz.title}</h3>
                         <Badge variant={quiz.isPublished ? "default" : "secondary"}>
-                          {quiz.isPublished ? 'Published' : 'Draft'}
+                          {quiz.isPublished ? t('instructor_quizzes_page.status.published') : t('instructor_quizzes_page.status.draft')}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">{quiz.description}</p>
                       
                       <div className="grid grid-cols-5 gap-4 text-sm">
                         <div>
-                          <p className="text-muted-foreground">Questions</p>
+                          <p className="text-muted-foreground">{t('instructor_quizzes_page.metrics.questions')}</p>
                           <p className="font-medium">{quiz.questions.length}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Passing Score</p>
+                          <p className="text-muted-foreground">{t('instructor_quizzes_page.metrics.passing_score')}</p>
                           <p className="font-medium">{quiz.passingScore}%</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Attempts</p>
+                          <p className="text-muted-foreground">{t('instructor_quizzes_page.metrics.attempts')}</p>
                           <p className="font-medium">{quiz.attempts}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Avg Score</p>
+                          <p className="text-muted-foreground">{t('instructor_quizzes_page.metrics.avg_score')}</p>
                           <p className="font-medium">{quiz.avgScore}%</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">Created</p>
+                          <p className="text-muted-foreground">{t('instructor_quizzes_page.metrics.created')}</p>
                           <p className="font-medium">{quiz.createdAt}</p>
                         </div>
                       </div>
@@ -648,13 +654,13 @@ export function InstructorQuizzesPage() {
               <Card>
                 <CardContent className="text-center py-12">
                   <FileQuestion className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="font-semibold mb-2">No Quizzes Found</h3>
+                  <h3 className="font-semibold mb-2">{t('instructor_quizzes_page.empty.title')}</h3>
                   <p className="text-muted-foreground mb-4">
-                    {debouncedSearch ? 'Try another search keyword.' : 'Create your first quiz to assess student learning'}
+                    {debouncedSearch ? t('instructor_quizzes_page.empty.search_description') : t('instructor_quizzes_page.empty.default_description')}
                   </p>
                   <Button onClick={() => setIsQuizDialogOpen(true)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Create First Quiz
+                    {t('instructor_quizzes_page.empty.create_first_quiz')}
                   </Button>
                 </CardContent>
               </Card>
@@ -663,10 +669,11 @@ export function InstructorQuizzesPage() {
             {totalCount > 0 && (
               <div>
                 <div className="text-sm text-muted-foreground mb-3">
-                  Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount)}
-                  -
-                  {Math.min((currentPage - 1) * ITEMS_PER_PAGE + quizzes.length, totalCount)}
-                  {' '}of {totalCount} quizzes
+                  {t('instructor_quizzes_page.pagination.showing', {
+                    from: Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount),
+                    to: Math.min((currentPage - 1) * ITEMS_PER_PAGE + quizzes.length, totalCount),
+                    total: totalCount,
+                  })}
                 </div>
                 <UserPagination
                   currentPage={currentPage}

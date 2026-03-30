@@ -1,8 +1,9 @@
 import { Button } from "./ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { Badge } from "./ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Eye, ExternalLink, User, Calendar, MessageSquare, TrendingUp, Shield } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { useRouter } from "./Router"
 
 interface TopicPreviewProps {
@@ -16,7 +17,7 @@ interface TopicPreviewProps {
     replies: number
     views: number
     lastActivity: string
-    status: 'active' | 'locked' | 'pinned' | 'reported'
+    status: "active" | "locked" | "pinned" | "reported"
     createdAt: string
     content?: string
     excerpt?: string
@@ -26,26 +27,37 @@ interface TopicPreviewProps {
 
 export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: TopicPreviewProps) {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
 
   if (!topic) return null
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'default'
-      case 'locked': return 'secondary'
-      case 'pinned': return 'default'
-      case 'reported': return 'destructive'
-      default: return 'default'
+      case "active":
+        return "default"
+      case "locked":
+        return "secondary"
+      case "pinned":
+        return "default"
+      case "reported":
+        return "destructive"
+      default:
+        return "default"
     }
   }
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active': return 'Đang hoạt động'
-      case 'locked': return 'Đã khóa'
-      case 'pinned': return 'Đã ghim'
-      case 'reported': return 'Bị báo cáo'
-      default: return status
+      case "active":
+        return t("quick_topic_preview.status.active")
+      case "locked":
+        return t("quick_topic_preview.status.locked")
+      case "pinned":
+        return t("quick_topic_preview.status.pinned")
+      case "reported":
+        return t("quick_topic_preview.status.reported")
+      default:
+        return status
     }
   }
 
@@ -73,7 +85,6 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
           </div>
         </DialogHeader>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <Card>
             <CardContent className="pt-4">
@@ -81,7 +92,7 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-2xl font-bold">{topic.views}</p>
-                  <p className="text-xs text-muted-foreground">Lượt xem</p>
+                  <p className="text-xs text-muted-foreground">{t("quick_topic_preview.views")}</p>
                 </div>
               </div>
             </CardContent>
@@ -92,7 +103,7 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-2xl font-bold">{topic.replies}</p>
-                  <p className="text-xs text-muted-foreground">Trả lời</p>
+                  <p className="text-xs text-muted-foreground">{t("quick_topic_preview.replies")}</p>
                 </div>
               </div>
             </CardContent>
@@ -100,24 +111,22 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
           <Card>
             <CardContent className="pt-4">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Hoạt động</p>
+                <p className="text-xs text-muted-foreground mb-1">{t("quick_topic_preview.activity")}</p>
                 <p className="text-sm font-medium">{topic.lastActivity}</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Category */}
         <div>
-          <h3 className="text-sm font-medium mb-2">Danh Mục</h3>
+          <h3 className="text-sm font-medium mb-2">{t("quick_topic_preview.category")}</h3>
           <Badge variant="outline">{topic.category}</Badge>
         </div>
 
-        {/* Content */}
         {topic.content && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Nội Dung Bài Viết</CardTitle>
+              <CardTitle className="text-base">{t("quick_topic_preview.content")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="bg-secondary/30 p-4 rounded-lg">
@@ -127,7 +136,6 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
           </Card>
         )}
 
-        {/* Action Buttons */}
         <div className="flex gap-2 pt-4 border-t">
           <Button
             variant="default"
@@ -138,15 +146,15 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
             }}
           >
             <Eye className="h-4 w-4" />
-            Xem Toàn Bộ Thảo Luận
+            {t("quick_topic_preview.view_full")}
           </Button>
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => window.open(`/forum/topic/${topic.id}`, '_blank')}
+            onClick={() => window.open(`/forum/topic/${topic.id}`, "_blank")}
           >
             <ExternalLink className="h-4 w-4" />
-            Mở Tab Mới
+            {t("quick_topic_preview.open_new_tab")}
           </Button>
           {onModerate && (
             <Button
@@ -158,7 +166,7 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
               }}
             >
               <Shield className="h-4 w-4" />
-              Kiểm Duyệt
+              {t("quick_topic_preview.moderate")}
             </Button>
           )}
         </div>

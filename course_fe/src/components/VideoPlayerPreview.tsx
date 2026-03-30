@@ -13,6 +13,7 @@ import {
   SkipForward
 } from 'lucide-react'
 import { cn } from './ui/utils'
+import { useTranslation } from 'react-i18next'
 
 interface VideoPlayerPreviewProps {
   videoUrl?: string
@@ -27,6 +28,7 @@ export function VideoPlayerPreview({
   duration,
   className 
 }: VideoPlayerPreviewProps) {
+  const { t } = useTranslation()
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState([75])
@@ -104,13 +106,13 @@ export function VideoPlayerPreview({
             onLoadedMetadata={() => setHasError(false)}
           >
             <source src={videoUrl} type="video/mp4" />
-            Your browser does not support the video tag.
+            {t('video_player_preview.unsupported_video')}
           </video>
         ) : (
           <div className="flex flex-col items-center justify-center gap-4 text-white/60">
             <Play className="h-16 w-16" />
             <p className="text-sm">
-              {hasError ? 'Unable to load video' : 'No video uploaded yet'}
+              {hasError ? t('video_player_preview.unable_to_load') : t('video_player_preview.no_video')}
             </p>
           </div>
         )}
@@ -244,7 +246,7 @@ export function VideoPlayerPreview({
       <div className="p-4 bg-background border-t">
         <h3 className="font-semibold">{title}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          Duration: {duration}
+          {t('video_player_preview.duration')}: {duration}
         </p>
       </div>
     </Card>

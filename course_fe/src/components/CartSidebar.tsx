@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from "react"
-import { ShoppingCart, X, Trash2, Tag } from "lucide-react"
-import { Button } from "./ui/button"
-import { useRouter } from "./Router"
-import { useCart } from "../contexts/CartContext"
+import { useEffect, useRef, useState } from "react"
+import { ShoppingCart, Tag, Trash2, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useCart } from "../contexts/CartContext"
+import { useRouter } from "./Router"
+import { Button } from "./ui/button"
 
 interface CartSidebarProps {
   onHover?: (isHovered: boolean) => void
@@ -17,7 +17,8 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // Handle mouse enter with delay
+  const formatPrice = (value: number) => `VND ${value.toLocaleString('vi-VN')}`
+
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
@@ -25,10 +26,9 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
     hoverTimeoutRef.current = setTimeout(() => {
       setIsOpen(true)
       onHover?.(true)
-    }, 300) // 300ms delay before opening
+    }, 300)
   }
 
-  // Handle mouse leave with delay
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
@@ -36,10 +36,9 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
     hoverTimeoutRef.current = setTimeout(() => {
       setIsOpen(false)
       onHover?.(false)
-    }, 300) // 300ms delay before closing
+    }, 300)
   }
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
@@ -55,7 +54,6 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
       onMouseLeave={handleMouseLeave}
       className="relative"
     >
-      {/* Cart Icon Button */}
       <button
         className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
         onClick={() => navigate('/cart')}
@@ -68,10 +66,8 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
         )}
       </button>
 
-      {/* Sidebar Dropdown */}
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-[400px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 max-h-[600px] flex flex-col">
-          {/* Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h3 className="font-semibold flex items-center gap-2">
               <ShoppingCart className="w-5 h-5" />
@@ -85,7 +81,6 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
             </button>
           </div>
 
-          {/* Cart Items */}
           <div className="flex-1 overflow-y-auto">
             {cartItems.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -110,7 +105,6 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                     key={item.id}
                     className="flex gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
                   >
-                    {/* Course Thumbnail */}
                     <img
                       src={item.image}
                       alt={item.title}
@@ -121,7 +115,6 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                       }}
                     />
 
-                    {/* Course Info */}
                     <div className="flex-1 min-w-0">
                       <h4
                         className="text-sm font-medium truncate cursor-pointer hover:text-primary"
@@ -135,8 +128,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {item.instructor}
                       </p>
-                      
-                      {/* Coupon Badge */}
+
                       {item.couponCode && (
                         <div className="flex items-center gap-1 mt-1 text-xs text-green-600 dark:text-green-400">
                           <Tag className="w-3 h-3" />
@@ -144,20 +136,18 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                         </div>
                       )}
 
-                      {/* Price */}
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-sm font-semibold text-primary">
-                          ₫{(item.currentPrice - (item.couponDiscount || 0)).toLocaleString('vi-VN')}
+                          {formatPrice(item.currentPrice - (item.couponDiscount || 0))}
                         </span>
                         {item.originalPrice > item.currentPrice && (
                           <span className="text-xs text-gray-400 line-through">
-                            ₫{item.originalPrice.toLocaleString('vi-VN')}
+                            {formatPrice(item.originalPrice)}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Remove Button */}
                     <button
                       onClick={() => removeFromCart(item.id)}
                       className="text-gray-400 hover:text-red-500 transition-colors p-1 flex-shrink-0"
@@ -171,28 +161,20 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
             )}
           </div>
 
-          {/* Footer */}
           {cartItems.length > 0 && (
             <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-              {/* Savings */}
               {getSavings() > 0 && (
                 <div className="flex items-center justify-between text-sm text-green-600 dark:text-green-400">
                   <span>{t('cart.you_save')}:</span>
-                  <span className="font-semibold">
-                    ₫{getSavings().toLocaleString('vi-VN')}
-                  </span>
+                  <span className="font-semibold">{formatPrice(getSavings())}</span>
                 </div>
               )}
 
-              {/* Total */}
               <div className="flex items-center justify-between">
                 <span className="font-semibold">{t('cart.total')}:</span>
-                <span className="text-xl font-bold text-primary">
-                  ₫{getTotalPrice().toLocaleString('vi-VN')}
-                </span>
+                <span className="text-xl font-bold text-primary">{formatPrice(getTotalPrice())}</span>
               </div>
 
-              {/* Checkout Button */}
               <Button
                 className="w-full"
                 onClick={() => {
@@ -203,7 +185,6 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
                 {t('cart.checkout')}
               </Button>
 
-              {/* View Cart Link */}
               <button
                 onClick={() => {
                   navigate('/cart')

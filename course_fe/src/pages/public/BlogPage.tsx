@@ -331,7 +331,7 @@ export function BlogPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-2">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('blog.loading')}</p>
         </div>
       </div>
     )
@@ -386,11 +386,11 @@ export function BlogPage() {
                         <SelectValue placeholder={t('blog.select_category')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Education">Education</SelectItem>
-                        <SelectItem value="Technology">Technology</SelectItem>
-                        <SelectItem value="Business">Business</SelectItem>
-                        <SelectItem value="Design">Design</SelectItem>
-                        <SelectItem value="Content Creation">Content Creation</SelectItem>
+                        <SelectItem value="Education">{t('blog.categories.education')}</SelectItem>
+                        <SelectItem value="Technology">{t('blog.categories.technology')}</SelectItem>
+                        <SelectItem value="Business">{t('blog.categories.business')}</SelectItem>
+                        <SelectItem value="Design">{t('blog.categories.design')}</SelectItem>
+                        <SelectItem value="Content Creation">{t('blog.categories.content_creation')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -445,11 +445,11 @@ export function BlogPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('blog.all_categories')}</SelectItem>
-            <SelectItem value="Education">Education</SelectItem>
-            <SelectItem value="Technology">Technology</SelectItem>
-            <SelectItem value="Business">Business</SelectItem>
-            <SelectItem value="Design">Design</SelectItem>
-            <SelectItem value="Content Creation">Content Creation</SelectItem>
+            <SelectItem value="Education">{t('blog.categories.education')}</SelectItem>
+            <SelectItem value="Technology">{t('blog.categories.technology')}</SelectItem>
+            <SelectItem value="Business">{t('blog.categories.business')}</SelectItem>
+            <SelectItem value="Design">{t('blog.categories.design')}</SelectItem>
+            <SelectItem value="Content Creation">{t('blog.categories.content_creation')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -545,7 +545,7 @@ export function BlogPage() {
               
               {/* Comments Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Comments ({selectedPost.comments})</h3>
+                <h3 className="text-lg font-semibold">{t('blog.comments_count', { count: selectedPost.comments })}</h3>
                 <div className="space-y-4">
                   {comments.filter(comment => comment.postId === selectedPost.id).map((comment) => (
                     <div key={comment.id} className="space-y-3">
@@ -566,7 +566,7 @@ export function BlogPage() {
                               {comment.likes}
                             </Button>
                             <Button size="sm" variant="ghost" className="h-8 px-2">
-                              Reply
+                              {t('blog.reply')}
                             </Button>
                           </div>
                         </div>
@@ -604,8 +604,8 @@ export function BlogPage() {
                       <AvatarFallback>{user.name?.split(' ').map((n: string) => n[0]).join('') || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
-                      <Textarea placeholder="Add a comment..." rows={3} />
-                      <Button size="sm">Post Comment</Button>
+                      <Textarea placeholder={t('blog.add_comment_placeholder')} rows={3} />
+                      <Button size="sm">{t('blog.submit_comment')}</Button>
                     </div>
                   </div>
                 )}
@@ -616,21 +616,21 @@ export function BlogPage() {
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm">
                   <Heart className="h-4 w-4 mr-2" />
-                  Like
+                  {t('blog.like')}
                 </Button>
                 <Button variant="outline" size="sm">
                   <Share2 className="h-4 w-4 mr-2" />
-                  Share
+                  {t('blog.share')}
                 </Button>
               </div>
               
               {canApprovePosts && selectedPost.status === 'pending' && (
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => handleApprovePost(selectedPost.id)}>
-                    Approve
+                    {t('blog.approve')}
                   </Button>
                   <Button size="sm" variant="destructive" onClick={() => handleRejectPost(selectedPost.id)}>
-                    Reject
+                    {t('blog.reject')}
                   </Button>
                 </div>
               )}

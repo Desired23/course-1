@@ -46,6 +46,7 @@ import { UserPagination } from "../../components/UserPagination"
 import { toast } from "sonner"
 import { useAuth } from "../../contexts/AuthContext"
 import { getMyInstructorProfile } from "../../services/instructor.api"
+import { useTranslation } from "react-i18next"
 import {
   getInstructorPromotions,
   getInstructorPromotionsPage,
@@ -101,6 +102,7 @@ function promotionToDiscount(p: Promotion, coursesMap: Map<number, string>): Dis
 
 export function InstructorDiscountsPage() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -173,8 +175,8 @@ export function InstructorDiscountsPage() {
         setCoursesMap(nextCoursesMap)
         setInstructorCourses(coursesList)
       } catch (err) {
-        console.error('Failed to load discounts data:', err)
-        toast.error('Failed to load discount codes')
+        console.error(t('instructor_discounts_page.errors.load_discounts_console'), err)
+        toast.error(t('instructor_discounts_page.toasts.failed_to_load_discount_codes'))
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -206,12 +208,12 @@ export function InstructorDiscountsPage() {
         setTotalCount(res.count || 0)
         setTotalPages(Math.max(1, res.total_pages || Math.ceil((res.count || 0) / ITEMS_PER_PAGE)))
       } catch (err) {
-        console.error('Failed to load discounts data:', err)
+        console.error(t('instructor_discounts_page.errors.load_discounts_console'), err)
         if (!cancelled) {
           setDiscounts([])
           setTotalCount(0)
           setTotalPages(1)
-          toast.error('Failed to load discount codes')
+          toast.error(t('instructor_discounts_page.toasts.failed_to_load_discount_codes'))
         }
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -220,7 +222,7 @@ export function InstructorDiscountsPage() {
 
     fetchDiscountsPage()
     return () => { cancelled = true }
-  }, [instructorId, currentPage, backendStatus, debouncedSearch, selectedCourse, coursesMap, refreshKey])
+  }, [instructorId, currentPage, backendStatus, debouncedSearch, selectedCourse, coursesMap, refreshKey, t])
 
   // Fetch all promotions only for summary cards
   useEffect(() => {
@@ -230,17 +232,17 @@ export function InstructorDiscountsPage() {
     async function fetchSummaryStats() {
       try {
         const promotions = await getInstructorPromotions(instructorId)
-        if (cancelled) return
-        const mapped = (Array.isArray(promotions) ? promotions : []).map((p) => promotionToDiscount(p, coursesMap))
-        setAllDiscountsForStats(mapped)
-      } catch (err) {
-        console.error('Failed to load discount stats:', err)
-      }
+      if (cancelled) return
+      const mapped = (Array.isArray(promotions) ? promotions : []).map((p) => promotionToDiscount(p, coursesMap))
+      setAllDiscountsForStats(mapped)
+    } catch (err) {
+      console.error(t('instructor_discounts_page.errors.load_discount_stats_console'), err)
     }
+  }
 
-    fetchSummaryStats()
-    return () => { cancelled = true }
-  }, [instructorId, coursesMap, refreshKey])
+  fetchSummaryStats()
+  return () => { cancelled = true }
+  }, [instructorId, coursesMap, refreshKey, t])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -259,6 +261,19 @@ export function InstructorDiscountsPage() {
     return config[status as keyof typeof config] || config.active
   }
 
+  const getStatusLabel = (status: string) => {
+    if (status === 'active') return t('instructor_discounts_page.status.active')
+    if (status === 'expired') return t('instructor_discounts_page.status.expired')
+    if (status === 'disabled') return t('instructor_discounts_page.status.disabled')
+    return status
+  }
+
+  const getTypeLabel = (type: string) => {
+    return type === 'percentage'
+      ? t('instructor_discounts_page.types.percentage')
+      : t('instructor_discounts_page.types.fixed_amount')
+  }
+
   const handleCourseToggle = (courseId: string) => {
     setNewDiscount(prev => ({
       ...prev,
@@ -270,12 +285,12 @@ export function InstructorDiscountsPage() {
 
   const handleCreateDiscount = async () => {
     if (!newDiscount.code || !newDiscount.value || !newDiscount.expiry) {
-      toast.error('Please fill in all required fields')
+      toast.error(t('instructor_discounts_page.toasts.fill_required_fields'))
       return
     }
 
     if (newDiscount.selectedCourses.length === 0) {
-      toast.error('Please select at least one course')
+      toast.error(t('instructor_discounts_page.toasts.select_at_least_one_course'))
       return
     }
 
@@ -298,7 +313,7 @@ export function InstructorDiscountsPage() {
       if (created) {
         setRefreshKey((prev) => prev + 1)
       }
-      toast.success('Discount code created successfully!')
+      toast.success(t('instructor_discounts_page.toasts.discount_created'))
       setIsCreateDialogOpen(false)
       setNewDiscount({
         code: '',
@@ -310,8 +325,8 @@ export function InstructorDiscountsPage() {
         selectedCourses: []
       })
     } catch (err: any) {
-      console.error('Create discount failed:', err)
-      toast.error(err?.message || 'Failed to create discount code')
+      console.error(t('instructor_discounts_page.errors.create_discount_console'), err)
+      toast.error(err?.message || t('instructor_discounts_page.toasts.failed_to_create_discount'))
     } finally {
       setIsSubmitting(false)
     }
@@ -335,12 +350,12 @@ export function InstructorDiscountsPage() {
     if (!editingDiscount) return
 
     if (!newDiscount.code || !newDiscount.value || !newDiscount.expiry) {
-      toast.error('Please fill in all required fields')
+      toast.error(t('instructor_discounts_page.toasts.fill_required_fields'))
       return
     }
 
     if (newDiscount.selectedCourses.length === 0) {
-      toast.error('Please select at least one course')
+      toast.error(t('instructor_discounts_page.toasts.select_at_least_one_course'))
       return
     }
 
@@ -361,7 +376,7 @@ export function InstructorDiscountsPage() {
         setRefreshKey((prev) => prev + 1)
       }
 
-      toast.success('Discount updated successfully!')
+      toast.success(t('instructor_discounts_page.toasts.discount_updated'))
       setIsEditDialogOpen(false)
       setEditingDiscount(null)
       setNewDiscount({
@@ -374,8 +389,8 @@ export function InstructorDiscountsPage() {
         selectedCourses: []
       })
     } catch (err: any) {
-      console.error('Update discount failed:', err)
-      toast.error(err?.message || 'Failed to update discount code')
+      console.error(t('instructor_discounts_page.errors.update_discount_console'), err)
+      toast.error(err?.message || t('instructor_discounts_page.toasts.failed_to_update_discount'))
     } finally {
       setIsSubmitting(false)
     }
@@ -383,19 +398,19 @@ export function InstructorDiscountsPage() {
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code)
-    toast.success('Code copied to clipboard!')
+    toast.success(t('instructor_discounts_page.toasts.code_copied'))
   }
 
   const handleDeleteDiscount = async (discountId: number) => {
     const discount = discounts.find(d => d.id === discountId)
-    if (discount && confirm(`Delete discount code "${discount.code}"?`)) {
+    if (discount && confirm(t('instructor_discounts_page.confirms.delete_discount', { code: discount.code }))) {
       try {
         await deletePromotion(discountId)
         setRefreshKey((prev) => prev + 1)
-        toast.success('Discount code deleted')
+        toast.success(t('instructor_discounts_page.toasts.discount_deleted'))
       } catch (err: any) {
-        console.error('Delete discount failed:', err)
-        toast.error(err?.message || 'Failed to delete discount code')
+        console.error(t('instructor_discounts_page.errors.delete_discount_console'), err)
+        toast.error(err?.message || t('instructor_discounts_page.toasts.failed_to_delete_discount'))
       }
     }
   }
@@ -407,10 +422,10 @@ export function InstructorDiscountsPage() {
     try {
       await updatePromotion(discountId, { status: newStatus })
       setRefreshKey((prev) => prev + 1)
-      toast.success('Discount status updated')
+      toast.success(t('instructor_discounts_page.toasts.discount_status_updated'))
     } catch (err: any) {
-      console.error('Toggle status failed:', err)
-      toast.error(err?.message || 'Failed to update status')
+      console.error(t('instructor_discounts_page.errors.toggle_status_console'), err)
+      toast.error(err?.message || t('instructor_discounts_page.toasts.failed_to_update_status'))
     }
   }
 
@@ -428,9 +443,9 @@ export function InstructorDiscountsPage() {
                   <Tag className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h1 className="font-medium">My Discount Codes</h1>
+                  <h1 className="font-medium">{t('instructor_discounts_page.title')}</h1>
                   <p className="text-sm text-muted-foreground">
-                    Create and manage discount codes for your courses
+                    {t('instructor_discounts_page.subtitle')}
                   </p>
                 </div>
               </div>
@@ -438,30 +453,30 @@ export function InstructorDiscountsPage() {
                 <DialogTrigger asChild>
                   <Button className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Create Discount
+                    {t('instructor_discounts_page.actions.create_discount')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Create Discount Code</DialogTitle>
+                    <DialogTitle>{t('instructor_discounts_page.create_dialog.title')}</DialogTitle>
                     <DialogDescription>
-                      Create a discount code for your courses
+                      {t('instructor_discounts_page.create_dialog.description')}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="code">Discount Code *</Label>
+                        <Label htmlFor="code">{t('instructor_discounts_page.form.discount_code')}</Label>
                         <Input
                           id="code"
                           value={newDiscount.code}
                           onChange={(e) => setNewDiscount(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                          placeholder="REACT50"
+                          placeholder={t('instructor_discounts_page.form.discount_code_placeholder')}
                           className="mt-1.5 uppercase"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="type">Type *</Label>
+                        <Label htmlFor="type">{t('instructor_discounts_page.form.type')}</Label>
                         <Select 
                           value={newDiscount.type} 
                           onValueChange={(value: any) => setNewDiscount(prev => ({ ...prev, type: value }))}
@@ -470,8 +485,8 @@ export function InstructorDiscountsPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="percentage">Percentage</SelectItem>
-                            <SelectItem value="fixed">Fixed Amount</SelectItem>
+                            <SelectItem value="percentage">{t('instructor_discounts_page.types.percentage')}</SelectItem>
+                            <SelectItem value="fixed">{t('instructor_discounts_page.types.fixed_amount')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -479,43 +494,47 @@ export function InstructorDiscountsPage() {
 
                     <div>
                       <Label htmlFor="value">
-                        {newDiscount.type === 'percentage' ? 'Percentage (%)' : 'Amount ($)'} *
+                        {newDiscount.type === 'percentage'
+                          ? t('instructor_discounts_page.form.percentage_value')
+                          : t('instructor_discounts_page.form.amount_value')}
                       </Label>
                       <Input
                         id="value"
                         type="number"
                         value={newDiscount.value}
                         onChange={(e) => setNewDiscount(prev => ({ ...prev, value: e.target.value }))}
-                        placeholder={newDiscount.type === 'percentage' ? '50' : '20'}
+                        placeholder={newDiscount.type === 'percentage'
+                          ? t('instructor_discounts_page.form.percentage_placeholder')
+                          : t('instructor_discounts_page.form.amount_placeholder')}
                         className="mt-1.5"
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="description">Description</Label>
+                      <Label htmlFor="description">{t('instructor_discounts_page.form.description')}</Label>
                       <Input
                         id="description"
                         value={newDiscount.description}
                         onChange={(e) => setNewDiscount(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder="Special discount for my students"
+                        placeholder={t('instructor_discounts_page.form.description_placeholder')}
                         className="mt-1.5"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="usageLimit">Usage Limit</Label>
+                        <Label htmlFor="usageLimit">{t('instructor_discounts_page.form.usage_limit')}</Label>
                         <Input
                           id="usageLimit"
                           type="number"
                           value={newDiscount.usageLimit}
                           onChange={(e) => setNewDiscount(prev => ({ ...prev, usageLimit: e.target.value }))}
-                          placeholder="500"
+                          placeholder={t('instructor_discounts_page.form.usage_limit_placeholder')}
                           className="mt-1.5"
                         />
                       </div>
                       <div>
-                        <Label htmlFor="expiry">Expiry Date *</Label>
+                        <Label htmlFor="expiry">{t('instructor_discounts_page.form.expiry_date')}</Label>
                         <Input
                           id="expiry"
                           type="date"
@@ -527,7 +546,7 @@ export function InstructorDiscountsPage() {
                     </div>
 
                     <div>
-                      <Label className="mb-3 block">Applicable Courses *</Label>
+                      <Label className="mb-3 block">{t('instructor_discounts_page.form.applicable_courses')}</Label>
                       <div className="space-y-2 border rounded-lg p-4">
                         {instructorCourses.map((course) => (
                           <div
@@ -550,10 +569,12 @@ export function InstructorDiscountsPage() {
 
                     <div className="flex gap-3 justify-end pt-4">
                       <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                        Cancel
+                        {t('instructor_discounts_page.actions.cancel')}
                       </Button>
                       <Button onClick={handleCreateDiscount} disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating...' : 'Create Discount'}
+                        {isSubmitting
+                          ? t('instructor_discounts_page.actions.creating')
+                          : t('instructor_discounts_page.actions.create_discount')}
                       </Button>
                     </div>
                   </div>
@@ -570,7 +591,7 @@ export function InstructorDiscountsPage() {
                   <Tag className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Codes</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_discounts_page.stats.active_codes')}</p>
                   <p className="text-2xl font-bold">{activeDiscounts}</p>
                 </div>
               </div>
@@ -581,7 +602,7 @@ export function InstructorDiscountsPage() {
                   <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Usage</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_discounts_page.stats.total_usage')}</p>
                   <p className="text-2xl font-bold">{totalUsage.toLocaleString()}</p>
                 </div>
               </div>
@@ -592,7 +613,7 @@ export function InstructorDiscountsPage() {
                   <DollarSign className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Revenue Generated</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_discounts_page.stats.revenue_generated')}</p>
                   <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
                 </div>
               </div>
@@ -604,7 +625,7 @@ export function InstructorDiscountsPage() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by code or description..."
+                placeholder={t('instructor_discounts_page.filters.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -615,10 +636,10 @@ export function InstructorDiscountsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="disabled">Disabled</SelectItem>
+                <SelectItem value="all">{t('instructor_discounts_page.filters.all_status')}</SelectItem>
+                <SelectItem value="active">{t('instructor_discounts_page.status.active')}</SelectItem>
+                <SelectItem value="expired">{t('instructor_discounts_page.status.expired')}</SelectItem>
+                <SelectItem value="disabled">{t('instructor_discounts_page.status.disabled')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={selectedCourse} onValueChange={setSelectedCourse}>
@@ -626,7 +647,7 @@ export function InstructorDiscountsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Courses</SelectItem>
+                <SelectItem value="all">{t('instructor_discounts_page.filters.all_courses')}</SelectItem>
                 {instructorCourses.map((course) => (
                   <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
                 ))}
@@ -639,28 +660,28 @@ export function InstructorDiscountsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Value</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Courses</TableHead>
-                  <TableHead>Revenue</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.code')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.type')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.value')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.usage')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.courses')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.revenue')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.expiry')}</TableHead>
+                  <TableHead>{t('instructor_discounts_page.table.headers.status')}</TableHead>
+                  <TableHead className="text-right">{t('instructor_discounts_page.table.headers.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      Loading discount codes...
+                      {t('instructor_discounts_page.table.loading')}
                     </TableCell>
                   </TableRow>
                 ) : discounts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                      No discount codes found. Create your first one!
+                      {t('instructor_discounts_page.table.empty')}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -688,7 +709,7 @@ export function InstructorDiscountsPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="capitalize">
-                            {discount.type}
+                            {getTypeLabel(discount.type)}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium">
@@ -707,7 +728,9 @@ export function InstructorDiscountsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {discount.applicableCourses.length} courses
+                            {t('instructor_discounts_page.table.courses_count', {
+                              count: discount.applicableCourses.length,
+                            })}
                           </div>
                         </TableCell>
                         <TableCell className="font-medium text-green-600 dark:text-green-400">
@@ -724,7 +747,7 @@ export function InstructorDiscountsPage() {
                             variant={statusBadge.variant}
                             className={cn("capitalize", statusBadge.className)}
                           >
-                            {discount.status}
+                            {getStatusLabel(discount.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -737,18 +760,18 @@ export function InstructorDiscountsPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => handleEditDiscount(discount)}>
                                 <Edit className="h-4 w-4 mr-2" />
-                                Edit
+                                {t('instructor_discounts_page.actions.edit')}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleCopyCode(discount.code)}>
                                 <Copy className="h-4 w-4 mr-2" />
-                                Copy Code
+                                {t('instructor_discounts_page.actions.copy_code')}
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteDiscount(discount.id)}
                                 className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
+                                {t('instructor_discounts_page.actions.delete')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -764,10 +787,11 @@ export function InstructorDiscountsPage() {
           {totalCount > 0 && (
             <div className="mt-4">
               <div className="text-sm text-muted-foreground mb-3">
-                Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount)}
-                -
-                {Math.min((currentPage - 1) * ITEMS_PER_PAGE + discounts.length, totalCount)}
-                {' '}of {totalCount} discount codes
+                {t('instructor_discounts_page.pagination.showing', {
+                  from: Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount),
+                  to: Math.min((currentPage - 1) * ITEMS_PER_PAGE + discounts.length, totalCount),
+                  total: totalCount,
+                })}
               </div>
               <UserPagination
                 currentPage={currentPage}
@@ -781,25 +805,25 @@ export function InstructorDiscountsPage() {
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Edit Discount Code</DialogTitle>
+                <DialogTitle>{t('instructor_discounts_page.edit_dialog.title')}</DialogTitle>
                 <DialogDescription>
-                  Update discount code details
+                  {t('instructor_discounts_page.edit_dialog.description')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="edit-code">Discount Code *</Label>
+                    <Label htmlFor="edit-code">{t('instructor_discounts_page.form.discount_code')}</Label>
                     <Input
                       id="edit-code"
                       value={newDiscount.code}
                       onChange={(e) => setNewDiscount(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                      placeholder="REACT50"
+                      placeholder={t('instructor_discounts_page.form.discount_code_placeholder')}
                       className="mt-1.5 uppercase"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="edit-type">Type *</Label>
+                    <Label htmlFor="edit-type">{t('instructor_discounts_page.form.type')}</Label>
                     <Select 
                       value={newDiscount.type} 
                       onValueChange={(value: any) => setNewDiscount(prev => ({ ...prev, type: value }))}
@@ -808,8 +832,8 @@ export function InstructorDiscountsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="percentage">Percentage</SelectItem>
-                        <SelectItem value="fixed">Fixed Amount</SelectItem>
+                        <SelectItem value="percentage">{t('instructor_discounts_page.types.percentage')}</SelectItem>
+                        <SelectItem value="fixed">{t('instructor_discounts_page.types.fixed_amount')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -817,43 +841,47 @@ export function InstructorDiscountsPage() {
 
                 <div>
                   <Label htmlFor="edit-value">
-                    {newDiscount.type === 'percentage' ? 'Percentage (%)' : 'Amount ($)'} *
+                    {newDiscount.type === 'percentage'
+                      ? t('instructor_discounts_page.form.percentage_value')
+                      : t('instructor_discounts_page.form.amount_value')}
                   </Label>
                   <Input
                     id="edit-value"
                     type="number"
                     value={newDiscount.value}
                     onChange={(e) => setNewDiscount(prev => ({ ...prev, value: e.target.value }))}
-                    placeholder={newDiscount.type === 'percentage' ? '50' : '20'}
+                    placeholder={newDiscount.type === 'percentage'
+                      ? t('instructor_discounts_page.form.percentage_placeholder')
+                      : t('instructor_discounts_page.form.amount_placeholder')}
                     className="mt-1.5"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="edit-description">Description</Label>
+                  <Label htmlFor="edit-description">{t('instructor_discounts_page.form.description')}</Label>
                   <Input
                     id="edit-description"
                     value={newDiscount.description}
                     onChange={(e) => setNewDiscount(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Special discount for my students"
+                    placeholder={t('instructor_discounts_page.form.description_placeholder')}
                     className="mt-1.5"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="edit-usageLimit">Usage Limit</Label>
+                    <Label htmlFor="edit-usageLimit">{t('instructor_discounts_page.form.usage_limit')}</Label>
                     <Input
                       id="edit-usageLimit"
                       type="number"
                       value={newDiscount.usageLimit}
                       onChange={(e) => setNewDiscount(prev => ({ ...prev, usageLimit: e.target.value }))}
-                      placeholder="500"
+                      placeholder={t('instructor_discounts_page.form.usage_limit_placeholder')}
                       className="mt-1.5"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="edit-expiry">Expiry Date *</Label>
+                    <Label htmlFor="edit-expiry">{t('instructor_discounts_page.form.expiry_date')}</Label>
                     <Input
                       id="edit-expiry"
                       type="date"
@@ -865,7 +893,7 @@ export function InstructorDiscountsPage() {
                 </div>
 
                 <div>
-                  <Label className="mb-3 block">Applicable Courses *</Label>
+                  <Label className="mb-3 block">{t('instructor_discounts_page.form.applicable_courses')}</Label>
                   <div className="space-y-2 border rounded-lg p-4">
                     {instructorCourses.map((course) => (
                       <div
@@ -891,10 +919,12 @@ export function InstructorDiscountsPage() {
                     setIsEditDialogOpen(false)
                     setEditingDiscount(null)
                   }}>
-                    Cancel
+                    {t('instructor_discounts_page.actions.cancel')}
                   </Button>
                   <Button onClick={handleUpdateDiscount} disabled={isSubmitting}>
-                    {isSubmitting ? 'Updating...' : 'Update Discount'}
+                    {isSubmitting
+                      ? t('instructor_discounts_page.actions.updating')
+                      : t('instructor_discounts_page.actions.update_discount')}
                   </Button>
                 </div>
               </div>

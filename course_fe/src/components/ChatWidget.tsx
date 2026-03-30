@@ -157,10 +157,10 @@ export function ChatWidget() {
   const canManageParticipants = activeConversation?.type === 'group' && ['owner', 'admin'].includes(currentUserParticipant?.role || '')
   const canChangeRoles = activeConversation?.type === 'group' && currentUserParticipant?.role === 'owner'
   const conversationDisplayName = activeConversation?.type === 'group'
-    ? (activeConversation.title || 'Nhom chat')
+    ? (activeConversation.title || t('chat_widget.group_chat'))
     : (otherParticipant?.name || t('chat_widget.unknown'))
   const conversationSubtitle = activeConversation?.type === 'group'
-    ? `${activeParticipants.length} thanh vien`
+    ? t('chat_widget.member_count', { count: activeParticipants.length })
     : (isTyping ? t('chat_widget.typing') : (otherParticipant?.name || t('chat_widget.unknown')))
   const conversationAvatarLabel = activeConversation?.type === 'group'
     ? (conversationDisplayName || 'G').slice(0, 2).toUpperCase()
@@ -297,12 +297,12 @@ export function ChatWidget() {
           id: `attachment-limit-${Date.now()}`,
           file: files[0],
           kind: 'file',
-          fileName: 'Gioi han tep dinh kem',
+      fileName: t('chat_widget.attachment_limit_title'),
           mimeType: 'text/plain',
           fileSize: 0,
           status: 'error',
           progress: 0,
-          error: `Chi duoc gui toi da ${MAX_ATTACHMENTS_PER_MESSAGE} tep moi lan`,
+          error: t('chat_widget.attachment_limit_error', { count: MAX_ATTACHMENTS_PER_MESSAGE }),
           canRetry: false,
         },
       ])
@@ -322,7 +322,7 @@ export function ChatWidget() {
             fileSize: file.size,
             status: 'error',
             progress: 0,
-            error: 'Loai tep khong duoc ho tro',
+            error: t('chat_widget.unsupported_file_type'),
             canRetry: false,
           },
         ])
@@ -340,7 +340,7 @@ export function ChatWidget() {
             fileSize: file.size,
             status: 'error',
             progress: 0,
-            error: 'Tep vuot qua gioi han 25MB',
+            error: t('chat_widget.file_too_large'),
             canRetry: false,
           },
         ])
@@ -412,8 +412,8 @@ export function ChatWidget() {
               ...attachment,
               status: isCancelled ? 'cancelled' : 'error',
               error: isCancelled
-                ? 'Da huy upload'
-                : (error instanceof Error ? error.message : 'Upload that bai'),
+                ? t('chat_widget.upload_cancelled')
+                : (error instanceof Error ? error.message : t('chat_widget.upload_failed')),
               canRetry: true,
             }
           : attachment
@@ -613,34 +613,34 @@ export function ChatWidget() {
   const getFileCardMeta = (fileName: string, mimeType: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase() || ''
     if (mimeType === 'application/pdf' || extension === 'pdf') {
-      return { icon: FileText, label: 'PDF', accent: 'text-red-500' }
+      return { icon: FileText, label: t('chat_widget.file_pdf'), accent: 'text-red-500' }
     }
     if (['doc', 'docx'].includes(extension)) {
-      return { icon: FileText, label: 'DOCX', accent: 'text-blue-500' }
+      return { icon: FileText, label: t('chat_widget.file_docx'), accent: 'text-blue-500' }
     }
     if (['xls', 'xlsx', 'csv'].includes(extension)) {
-      return { icon: FileSpreadsheet, label: 'Sheet', accent: 'text-emerald-500' }
+      return { icon: FileSpreadsheet, label: t('chat_widget.file_sheet'), accent: 'text-emerald-500' }
     }
     if (['zip', 'rar', '7z'].includes(extension) || mimeType.includes('zip')) {
-      return { icon: FileArchive, label: 'ZIP', accent: 'text-amber-500' }
+      return { icon: FileArchive, label: t('chat_widget.file_zip'), accent: 'text-amber-500' }
     }
     if (mimeType.startsWith('video/')) {
-      return { icon: FileVideo, label: 'Video', accent: 'text-fuchsia-500' }
+      return { icon: FileVideo, label: t('chat_widget.file_video'), accent: 'text-fuchsia-500' }
     }
-    return { icon: FileCode2, label: extension.toUpperCase() || 'FILE', accent: 'text-slate-500' }
+    return { icon: FileCode2, label: extension.toUpperCase() || t('chat_widget.file_generic'), accent: 'text-slate-500' }
   }
 
   const formatFileSize = (bytes: number) => {
-    if (bytes <= 0) return '0 MB'
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+    if (bytes <= 0) return t('chat_widget.file_size_mb', { size: '0.00' })
+    return t('chat_widget.file_size_mb', { size: (bytes / 1024 / 1024).toFixed(2) })
   }
 
   const getAttachmentStatusLabel = (attachment: typeof pendingAttachments[number]) => {
-    if (attachment.status === 'uploaded') return 'Da upload xong'
-    if (attachment.status === 'cancelled') return 'Da huy upload'
-    if (attachment.status === 'error') return attachment.error || 'Upload that bai'
-    if (attachment.status === 'queued') return 'Dang cho upload...'
-    return `Dang upload... ${attachment.progress}%`
+    if (attachment.status === 'uploaded') return t('chat_widget.upload_complete')
+    if (attachment.status === 'cancelled') return t('chat_widget.upload_cancelled')
+    if (attachment.status === 'error') return attachment.error || t('chat_widget.upload_failed')
+    if (attachment.status === 'queued') return t('chat_widget.upload_queued')
+    return t('chat_widget.uploading_progress', { progress: attachment.progress })
   }
 
   return (
@@ -698,12 +698,12 @@ export function ChatWidget() {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm">
-                    {activeConversation ? 'Tin nhan' : t('chat_widget.support_chat')}
+                    {activeConversation ? t('chat_widget.messages_title') : t('chat_widget.support_chat')}
                   </h3>
                   {activeConversation ? (
                     <p className="text-xs text-blue-100 flex items-center gap-1">
                       <span className={`w-1.5 h-1.5 rounded-full ${isTyping ? 'bg-white animate-pulse' : 'bg-green-400'}`} />
-                      {activeConversation.type === 'group' ? 'Hoi thoai nhom' : 'Dang tro chuyen'}
+                      {activeConversation.type === 'group' ? t('chat_widget.group_conversation') : t('chat_widget.chatting_now')}
                     </p>
                   ) : (
                     <p className="text-xs text-blue-100">
@@ -724,7 +724,7 @@ export function ChatWidget() {
                       <>
                         <DropdownMenuItem onClick={() => setShowConversationInfo(true)}>
                           <Info className="w-4 h-4 mr-2" />
-                          Thong tin hoi thoai
+                          {t('chat_widget.conversation_info')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={handleBackToConversations}>
                           {t('chat_widget.close_conversation')}
@@ -760,7 +760,7 @@ export function ChatWidget() {
                       onClick={() => setShowCreateGroup(true)}
                     >
                       <Users className="w-4 h-4 mr-2" />
-                      Tao nhom chat
+                      {t('chat_widget.create_group')}
                     </Button>
                     {state.conversations.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-64 text-center p-6">
@@ -810,7 +810,7 @@ export function ChatWidget() {
                               <div className="flex items-center justify-between mb-0.5">
                                 <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-blue-600 transition-colors">
                                   {conversation.type === 'group'
-                                    ? (conversation.title || 'Group chat')
+                                    ? (conversation.title || t('chat_widget.group_chat'))
                                     : (
                                         conversation.participants.find(
                                           (participant) => String(participant.id) !== String(user?.id ?? ''),
@@ -841,7 +841,7 @@ export function ChatWidget() {
                       className="-ml-1 h-8 px-2 text-xs text-muted-foreground hover:text-foreground group"
                       onClick={handleBackToConversations}
                     >
-                      <span className="inline-block transition-transform group-hover:-translate-x-1">{'<'}</span> Quay lai
+                      <span className="inline-block transition-transform group-hover:-translate-x-1">{'<'}</span> {t('chat_widget.back')}
                     </Button>
                   </div>
 
@@ -854,7 +854,7 @@ export function ChatWidget() {
                     ) : (
                       <div className="space-y-2.5 pb-1">
                         {state.activeConversationId && state.messageMeta[state.activeConversationId]?.loadingOlder && (
-                          <p className="py-1 text-center text-xs text-muted-foreground">Dang tai tin nhan cu...</p>
+                          <p className="py-1 text-center text-xs text-muted-foreground">{t('chat_widget.loading_older_messages')}</p>
                         )}
                         {messages.map((message) => {
                           const isMe = message.senderId === String(user?.id ?? '')
@@ -908,7 +908,7 @@ export function ChatWidget() {
                                             setEditingContent('')
                                           }}
                                         >
-                                          Huy
+                                          {t('chat_widget.cancel')}
                                         </Button>
                                         <Button
                                           size="sm"
@@ -919,13 +919,13 @@ export function ChatWidget() {
                                             setEditingContent('')
                                           }}
                                         >
-                                          Luu
+                                          {t('chat_widget.save')}
                                         </Button>
                                       </div>
                                     </div>
                                   ) : (
                                     <p className={`${isRevoked ? 'text-[12px]' : 'whitespace-pre-wrap break-all leading-relaxed [overflow-wrap:anywhere]'}`}>
-                                      {isRevoked ? 'Tin nhan da duoc thu hoi' : message.content}
+                                      {isRevoked ? t('chat_widget.message_revoked') : message.content}
                                     </p>
                                   )}
                                   {message.attachments && message.attachments.length > 0 && !isRevoked && (
@@ -984,7 +984,7 @@ export function ChatWidget() {
                                     </div>
                                   )}
                                   <p className={`mt-1 text-[10px] ${isMe && !isRevoked ? 'text-blue-100/80' : 'text-gray-400 dark:text-gray-500'}`}>
-                                    {message.status === 'edited' ? 'Da sua ? ' : ''}
+                                    {message.status === 'edited' ? `${t('chat_widget.edited')} · ` : ''}
                                     {formatMessageTime(message.timestamp)}
                                   </p>
                                 </div>
@@ -997,7 +997,7 @@ export function ChatWidget() {
                                   <DropdownMenuContent align={isMe ? 'end' : 'start'}>
                                     <DropdownMenuItem onClick={() => setReplyingTo({ id: message.id, senderName: message.senderName, content: message.content })}>
                                       <Reply className="w-4 h-4 mr-2" />
-                                      Tra loi
+                                      {t('chat_widget.reply')}
                                     </DropdownMenuItem>
                                     {reactionOptions.map((reaction) => (
                                       <DropdownMenuItem
@@ -1014,27 +1014,27 @@ export function ChatWidget() {
                                         setEditingContent(message.content)
                                       }}>
                                         <Pencil className="w-4 h-4 mr-2" />
-                                        Chinh sua
+                                        {t('chat_widget.edit')}
                                       </DropdownMenuItem>
                                     )}
                                     {isMe && !isRevoked && (
                                       <DropdownMenuItem onClick={() => state.activeConversationId && void revokeMessage(state.activeConversationId, message.id)}>
                                         <Undo2 className="w-4 h-4 mr-2" />
-                                        Thu hoi
+                                        {t('chat_widget.revoke')}
                                       </DropdownMenuItem>
                                     )}
                                     {!isMe && !isRevoked && (
                                       <DropdownMenuItem
                                         onClick={() => {
-                                          const reason = window.prompt('Ly do bao cao tin nhan:', '')?.trim()
+                                          const reason = window.prompt(t('chat_widget.report_reason_prompt'), '')?.trim()
                                           if (!reason) return
                                           void reportConversationMessage(Number(message.id), { reason })
-                                            .then(() => toast.success('Da gui bao cao tin nhan'))
-                                            .catch((err: any) => toast.error(err?.message || 'Khong the bao cao tin nhan'))
+                                            .then(() => toast.success(t('chat_widget.report_sent')))
+                                            .catch((err: any) => toast.error(err?.message || t('chat_widget.report_failed')))
                                         }}
                                       >
                                         <Flag className="w-4 h-4 mr-2" />
-                                        Report
+                                        {t('chat_widget.report')}
                                       </DropdownMenuItem>
                                     )}
                                   </DropdownMenuContent>
@@ -1073,7 +1073,7 @@ export function ChatWidget() {
                   >
                     {isDragOverAttachments && (
                       <div className="absolute inset-2 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-blue-400 bg-blue-50/95 text-sm font-medium text-blue-700 dark:border-blue-500 dark:bg-blue-950/70 dark:text-blue-200">
-                        Tha file vao day de tai len
+                        {t('chat_widget.drop_files_here')}
                       </div>
                     )}
                     <input
@@ -1087,7 +1087,7 @@ export function ChatWidget() {
                     {replyingTo && (
                       <div className="mb-2 flex items-start justify-between rounded-lg border bg-gray-50 px-3 py-2 text-xs dark:bg-gray-900">
                         <div className="min-w-0">
-                          <p className="font-medium text-foreground">Dang tra loi {replyingTo.senderName}</p>
+                          <p className="font-medium text-foreground">{t('chat_widget.replying_to', { name: replyingTo.senderName })}</p>
                           <p className="truncate text-muted-foreground">{replyingTo.content}</p>
                         </div>
                         <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setReplyingTo(null)}>
@@ -1098,9 +1098,9 @@ export function ChatWidget() {
                     {pendingAttachments.length > 0 && (
                       <div className="mb-3 space-y-2">
                         <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
-                          <span className="truncate">{pendingAttachments.length}/{MAX_ATTACHMENTS_PER_MESSAGE} tep dang cho</span>
+                          <span className="truncate">{t('chat_widget.pending_attachments', { current: pendingAttachments.length, max: MAX_ATTACHMENTS_PER_MESSAGE })}</span>
                           <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={handleCancelAllPendingAttachments}>
-                            Huy tat ca
+                            {t('chat_widget.cancel_all')}
                           </Button>
                         </div>
                         <div className="-mx-1 overflow-x-auto px-1 pb-1">
@@ -1208,28 +1208,28 @@ export function ChatWidget() {
             >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Tao nhom chat</DialogTitle>
+                  <DialogTitle>{t('chat_widget.create_group')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Ten nhom</label>
+                    <label className="text-sm font-medium text-foreground">{t('chat_widget.group_name')}</label>
                     <Input
                       value={groupTitle}
                       onChange={(e) => setGroupTitle(e.target.value)}
-                      placeholder="Nhap ten nhom"
+                      placeholder={t('chat_widget.group_name_placeholder')}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Tim nguoi dung</label>
+                    <label className="text-sm font-medium text-foreground">{t('chat_widget.search_users')}</label>
                     <Input
                       value={userSearchQuery}
                       onChange={(e) => setUserSearchQuery(e.target.value)}
-                      placeholder="Nhap ten, username hoac email"
+                      placeholder={t('chat_widget.search_users_placeholder')}
                     />
                     <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border p-2">
                       {userSearchLoading ? (
-                        <p className="text-sm text-muted-foreground">Dang tim...</p>
+                        <p className="text-sm text-muted-foreground">{t('chat_widget.searching')}</p>
                       ) : userSearchResults.length > 0 ? (
                         userSearchResults
                           .filter((candidate) => !selectedUsers.some((item) => item.id === candidate.id))
@@ -1255,7 +1255,7 @@ export function ChatWidget() {
                           ))
                       ) : (
                         <p className="text-sm text-muted-foreground">
-                          {userSearchQuery.trim().length < 2 ? 'Nhap it nhat 2 ky tu de tim' : 'Khong tim thay nguoi dung phu hop'}
+                          {userSearchQuery.trim().length < 2 ? t('chat_widget.search_min_chars') : t('chat_widget.no_matching_users')}
                         </p>
                       )}
                     </div>
@@ -1263,7 +1263,7 @@ export function ChatWidget() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-foreground">Thanh vien da chon</p>
+                      <p className="text-sm font-medium text-foreground">{t('chat_widget.selected_members')}</p>
                       <Badge variant="secondary">{selectedUsers.length}</Badge>
                     </div>
                     <div className="space-y-2">
@@ -1289,7 +1289,7 @@ export function ChatWidget() {
                           </Button>
                         </div>
                       )) : (
-                        <p className="text-sm text-muted-foreground">Chon it nhat 2 nguoi de tao nhom.</p>
+                        <p className="text-sm text-muted-foreground">{t('chat_widget.select_at_least_two')}</p>
                       )}
                     </div>
                   </div>
@@ -1301,7 +1301,7 @@ export function ChatWidget() {
                     onClick={() => void handleCreateGroup()}
                   >
                     <Users className="w-4 h-4 mr-2" />
-                    Tao nhom
+                    {t('chat_widget.create_group')}
                   </Button>
                 </div>
               </DialogContent>
@@ -1315,7 +1315,7 @@ export function ChatWidget() {
             >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Thong tin hoi thoai</DialogTitle>
+                  <DialogTitle>{t('chat_widget.conversation_info')}</DialogTitle>
                 </DialogHeader>
                 {activeConversation ? (
                   <div className="space-y-5">
@@ -1335,12 +1335,12 @@ export function ChatWidget() {
                     {activeConversation.type === 'group' ? (
                       <>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium text-foreground">Ten nhom</label>
+                          <label className="text-sm font-medium text-foreground">{t('chat_widget.group_name')}</label>
                           <div className="flex gap-2">
                             <Input
                               value={conversationTitle}
                               onChange={(e) => setConversationTitle(e.target.value)}
-                              placeholder="Nhap ten nhom"
+                              placeholder={t('chat_widget.group_name_placeholder')}
                             />
                             <Button
                               type="button"
@@ -1348,22 +1348,22 @@ export function ChatWidget() {
                               disabled={conversationActionLoading || !conversationTitle.trim()}
                             >
                               <Save className="w-4 h-4 mr-2" />
-                              Luu
+                              {t('chat_widget.save')}
                             </Button>
                           </div>
                         </div>
 
                         {canManageParticipants && (
                           <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Them thanh vien</label>
+                            <label className="text-sm font-medium text-foreground">{t('chat_widget.add_members')}</label>
                             <Input
                               value={infoUserSearchQuery}
                               onChange={(e) => setInfoUserSearchQuery(e.target.value)}
-                              placeholder="Nhap ten, username hoac email"
+                              placeholder={t('chat_widget.search_users_placeholder')}
                             />
                             <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border p-2">
                               {infoUserSearchLoading ? (
-                                <p className="text-sm text-muted-foreground">Dang tim...</p>
+                                <p className="text-sm text-muted-foreground">{t('chat_widget.searching')}</p>
                               ) : infoUserSearchResults.length > 0 ? (
                                 infoUserSearchResults.map((candidate) => (
                                   <button
@@ -1387,7 +1387,7 @@ export function ChatWidget() {
                                 ))
                               ) : (
                                 <p className="text-sm text-muted-foreground">
-                                  {infoUserSearchQuery.trim().length < 2 ? 'Nhap it nhat 2 ky tu de tim' : 'Khong tim thay nguoi dung phu hop'}
+                                  {infoUserSearchQuery.trim().length < 2 ? t('chat_widget.search_min_chars') : t('chat_widget.no_matching_users')}
                                 </p>
                               )}
                             </div>
@@ -1400,7 +1400,7 @@ export function ChatWidget() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
-                          <p className="text-sm font-medium text-foreground">Thanh vien</p>
+                          <p className="text-sm font-medium text-foreground">{t('chat_widget.members')}</p>
                         </div>
                         <Badge variant="secondary">{activeParticipants.length}</Badge>
                       </div>
@@ -1421,7 +1421,7 @@ export function ChatWidget() {
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium text-foreground">{participant.name}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {isCurrentUser ? 'Ban' : activeConversation.type === 'group' ? 'Thanh vien' : 'Nguoi dung'}
+                                    {isCurrentUser ? t('chat_widget.you') : activeConversation.type === 'group' ? t('chat_widget.member') : t('chat_widget.user')}
                                     {participant.role ? ` ? ${participant.role}` : ''}
                                   </p>
                                 </div>
@@ -1440,7 +1440,7 @@ export function ChatWidget() {
                                         participant.role === 'admin' ? 'member' : 'admin',
                                       )}
                                     >
-                                      {participant.role === 'admin' ? 'Ha admin' : 'Len admin'}
+                                      {participant.role === 'admin' ? t('chat_widget.demote_admin') : t('chat_widget.promote_admin')}
                                     </Button>
                                   )}
                                   {(isCurrentUser || canManageParticipants) && (
@@ -1454,12 +1454,12 @@ export function ChatWidget() {
                                       {isCurrentUser ? (
                                         <>
                                           <LogOut className="w-4 h-4 mr-2" />
-                                          Roi nhom
+                                          {t('chat_widget.leave_group')}
                                         </>
                                       ) : (
                                         <>
                                           <Trash2 className="w-4 h-4 mr-2" />
-                                          Xoa
+                                          {t('chat_widget.delete')}
                                         </>
                                       )}
                                     </Button>
@@ -1478,7 +1478,7 @@ export function ChatWidget() {
             <Dialog open={Boolean(previewAttachment)} onOpenChange={(open) => { if (!open) setPreviewAttachmentId(null) }}>
               <DialogContent className="max-w-4xl">
                 <DialogHeader>
-                  <DialogTitle>{previewAttachment?.fileName || 'Preview tep dinh kem'}</DialogTitle>
+                  <DialogTitle>{previewAttachment?.fileName || t('chat_widget.attachment_preview')}</DialogTitle>
                 </DialogHeader>
                 {previewAttachment ? (
                   <div className="overflow-hidden rounded-xl border bg-black/5 dark:bg-black/40">
@@ -1487,7 +1487,7 @@ export function ChatWidget() {
                     ) : previewAttachment.kind === 'video' && previewAttachment.previewUrl ? (
                       <video src={previewAttachment.previewUrl} controls autoPlay className="max-h-[75vh] w-full bg-black" />
                     ) : (
-                      <div className="p-6 text-sm text-muted-foreground">Khong co preview lon cho tep nay.</div>
+                      <div className="p-6 text-sm text-muted-foreground">{t('chat_widget.no_large_preview')}</div>
                     )}
                   </div>
                 ) : null}

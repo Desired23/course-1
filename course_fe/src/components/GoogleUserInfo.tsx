@@ -4,11 +4,13 @@
  */
 
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import { LogOut, Mail, Shield, User } from 'lucide-react'
 import { Button } from './ui/button'
 import { useRouter } from './Router'
 
 export function GoogleUserInfo() {
+  const { t } = useTranslation()
   const { user, logout, hasRole } = useAuth()
   const { navigate } = useRouter()
 
@@ -74,7 +76,7 @@ export function GoogleUserInfo() {
           className="text-gray-600 hover:text-red-600"
         >
           <LogOut className="w-4 h-4 mr-2" />
-          Logout
+          {t('google_user_info.logout')}
         </Button>
       </div>
 
@@ -86,17 +88,17 @@ export function GoogleUserInfo() {
 
       <div className="pt-4 border-t">
         <div className="text-sm text-gray-500">
-          <strong>Logged in with:</strong> Google OAuth 2.0
+          <strong>{t('google_user_info.logged_in_with')}</strong> {t('google_user_info.oauth')}
         </div>
         {user.isOnline !== undefined && (
           <div className="flex items-center gap-2 mt-2">
             <div className={`w-2 h-2 rounded-full ${user.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
             <span className="text-sm text-gray-600">
-              {user.isOnline ? 'Online' : 'Offline'}
+              {user.isOnline ? t('google_user_info.online') : t('google_user_info.offline')}
             </span>
             {user.lastSeen && !user.isOnline && (
               <span className="text-xs text-gray-400">
-                Last seen: {new Date(user.lastSeen).toLocaleString()}
+                {t('google_user_info.last_seen', { value: new Date(user.lastSeen).toLocaleString() })}
               </span>
             )}
           </div>
@@ -110,7 +112,7 @@ export function GoogleUserInfo() {
             size="sm"
             onClick={() => navigate('/admin/dashboard')}
           >
-            Admin Dashboard
+            {t('google_user_info.admin_dashboard')}
           </Button>
         )}
         {hasRole('instructor') && (
@@ -119,7 +121,7 @@ export function GoogleUserInfo() {
             size="sm"
             onClick={() => navigate('/instructor/dashboard')}
           >
-            Instructor Dashboard
+            {t('google_user_info.instructor_dashboard')}
           </Button>
         )}
         <Button
@@ -127,7 +129,7 @@ export function GoogleUserInfo() {
           size="sm"
           onClick={() => navigate('/profile')}
         >
-          View Profile
+          {t('google_user_info.view_profile')}
         </Button>
       </div>
     </div>

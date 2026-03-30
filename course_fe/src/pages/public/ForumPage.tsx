@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Label } from '../../components/ui/label'
+import { Input } from '../../components/ui/input'
 import { Separator } from '../../components/ui/separator'
 import { TableFilter, FilterConfig } from '../../components/FilterComponents'
 import { 
@@ -301,7 +302,7 @@ export function ForumPage() {
       applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
     } catch (err) {
       console.error('Failed to update topic pin status:', err)
-      window.alert('Failed to update topic pin status')
+      window.alert(t('forum.moderation_errors.pin_failed'))
     } finally {
       setModerationBusyId(null)
     }
@@ -316,7 +317,7 @@ export function ForumPage() {
       applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
     } catch (err) {
       console.error('Failed to update topic lock status:', err)
-      window.alert('Failed to update topic lock status')
+      window.alert(t('forum.moderation_errors.lock_failed'))
     } finally {
       setModerationBusyId(null)
     }
@@ -329,7 +330,7 @@ export function ForumPage() {
       applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
     } catch (err) {
       console.error('Failed to delete topic:', err)
-      window.alert('Failed to delete topic')
+      window.alert(t('forum.moderation_errors.delete_failed'))
     } finally {
       setModerationBusyId(null)
     }
@@ -340,12 +341,12 @@ export function ForumPage() {
       setModerationBusyId(topic.topic_id)
       const updated = await moderateForumTopic(Number(topic.topic_id), {
         action,
-        reason: topic.last_report_reason || 'Handled from forum moderation tab',
+        reason: topic.last_report_reason || t('forum.moderation_action_reason'),
       })
       applyTopicUpdate(topic.topic_id, () => mapApiTopic(updated))
     } catch (err) {
       console.error('Failed to moderate reported topic:', err)
-      window.alert('Failed to process report')
+      window.alert(t('forum.moderation_errors.process_failed'))
     } finally {
       setModerationBusyId(null)
     }
@@ -356,7 +357,7 @@ export function ForumPage() {
       <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-2">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground">{t('forum.loading')}</p>
         </div>
       </div>
     )
@@ -639,7 +640,7 @@ export function ForumPage() {
               <CardContent>
                 {reportedTopics.length === 0 ? (
                   <p className="text-muted-foreground">
-                    No reported topics match the current filters.
+                    {t('forum.moderation_empty')}
                   </p>
                 ) : (
                   <div className="space-y-4">
@@ -650,8 +651,8 @@ export function ForumPage() {
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="destructive">{topic.report_count} reports</Badge>
-                                <Badge variant="outline">{forum?.title || `Forum ${topic.forum_id}`}</Badge>
+                                <Badge variant="destructive">{t('forum.reports_badge', { count: topic.report_count })}</Badge>
+                                <Badge variant="outline">{forum?.title || t('forum.forum_fallback', { id: topic.forum_id })}</Badge>
                                 <Badge variant={topic.status === 'locked' ? 'secondary' : 'default'}>
                                   {topic.status}
                                 </Badge>
@@ -661,9 +662,9 @@ export function ForumPage() {
                                 <p className="text-sm text-muted-foreground line-clamp-2">{topic.content}</p>
                               </div>
                               <div className="text-sm text-muted-foreground space-y-1">
-                                <p>Author: {topic.user_name || `User ${topic.user_id}`}</p>
-                                <p>Latest report reason: {topic.last_report_reason || 'No reason provided'}</p>
-                                <p>Updated: {formatForumDate(topic.updated_date.toISOString())}</p>
+                                <p>{t('forum.moderation_author', { author: topic.user_name || t('forum.user_fallback', { id: topic.user_id }) })}</p>
+                                <p>{t('forum.latest_report_reason', { reason: topic.last_report_reason || t('forum.no_reason_provided') })}</p>
+                                <p>{t('forum.updated_label', { date: formatForumDate(topic.updated_date.toISOString()) })}</p>
                               </div>
                             </div>
 
@@ -675,7 +676,7 @@ export function ForumPage() {
                                 onClick={() => navigate(`/forum/topic/${topic.topic_id}`)}
                               >
                                 <Eye className="h-4 w-4 mr-2" />
-                                View
+                                {t('forum.moderation_actions.view')}
                               </Button>
                               <Button
                                 variant="outline"
@@ -683,7 +684,7 @@ export function ForumPage() {
                                 disabled={moderationBusyId === topic.topic_id}
                                 onClick={() => handleReportedTopicAction(topic, 'approve')}
                               >
-                                Approve
+                                {t('forum.moderation_actions.approve')}
                               </Button>
                               <Button
                                 variant="outline"
@@ -691,7 +692,7 @@ export function ForumPage() {
                                 disabled={moderationBusyId === topic.topic_id}
                                 onClick={() => handleReportedTopicAction(topic, 'dismiss')}
                               >
-                                Dismiss
+                                {t('forum.moderation_actions.dismiss')}
                               </Button>
                               <Button
                                 variant="outline"
@@ -699,7 +700,7 @@ export function ForumPage() {
                                 disabled={moderationBusyId === topic.topic_id}
                                 onClick={() => handleReportedTopicAction(topic, 'lock')}
                               >
-                                Lock
+                                {t('forum.moderation_actions.lock')}
                               </Button>
                               <Button
                                 variant="destructive"
@@ -707,7 +708,7 @@ export function ForumPage() {
                                 disabled={moderationBusyId === topic.topic_id}
                                 onClick={() => handleReportedTopicAction(topic, 'delete')}
                               >
-                                Delete
+                                {t('forum.moderation_actions.delete')}
                               </Button>
                             </div>
                           </div>

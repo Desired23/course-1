@@ -10,25 +10,40 @@ from payment_details.serializers import PaymentDetailSerializer
 from decimal import Decimal
 from django.utils import timezone
 from .utils import generate_unique_transaction_id
-from carts.models import Cart
 from activity_logs.services import log_activity
 from instructor_earnings.services import generate_instructor_earnings_from_payment
 from payment_details.models import Payment_Details
 from systems_settings.models import SystemsSetting
+from datetime import timedelta
 
 
 PAYMENT_ADMIN_CONFIGS = {
     'policies': {
         'setting_key': 'payment_policies',
         'description': 'Payment management policies configuration',
+        'default_value': [],
     },
     'instructor-rates': {
         'setting_key': 'instructor_rates',
         'description': 'Payment management instructor rates configuration',
+        'default_value': [],
     },
     'discounts': {
         'setting_key': 'discount_rules',
         'description': 'Payment management discount rules configuration',
+        'default_value': [],
+    },
+    'refund-settings': {
+        'setting_key': 'refund_settings',
+        'description': 'Refund workflow settings',
+        'default_value': {
+            'refund_mode': 'admin_approval',
+            'refund_retry_cooldown_minutes': 30,
+            'refund_max_retry_count': 3,
+            'refund_timeout_seconds': 15,
+            'allow_admin_override_refund_status': True,
+            'allow_admin_soft_delete_refund': True,
+        },
     },
 }
 
@@ -268,7 +283,6 @@ def create_payment(payment_data):
                 except Promotion.DoesNotExist:
                     raise ValidationError(f"Khuyến mãi ID {promo_id} không tồn tại khi cập nhật lượt dùng.")
             # Xoá giỏ hàng của user sau khi thanh toán thành công
-            Cart.objects.filter(user=user_id).delete()
             log_activity(
                 user_id=user_id,
                 action="PAYMENT_INITIATED",
@@ -337,6 +351,7 @@ def get_payment_status(payment_id, user):
     completed_at = None
     if payment.payment_status == Payment.PaymentStatus.COMPLETED:
         completed_at = payment.updated_at
+    retryable_until = get_payment_retry_deadline(payment)
 
     return {
         "payment_id": payment.id,
@@ -349,6 +364,8 @@ def get_payment_status(payment_id, user):
         "courses": courses,
         "created_at": payment.created_at,
         "completed_at": completed_at,
+        "retryable_until": retryable_until,
+        "can_retry_payment": can_retry_payment(payment),
     }
 
 
@@ -453,8 +470,19 @@ def fix_payment(payment_id):
                 is_deleted=False
             ).first()
             if not existing:
-                Enrollment.objects.create(user=payment.user, course=detail.course, status=Enrollment.Status.Active)
+                Enrollment.objects.create(
+                    user=payment.user,
+                    course=detail.course,
+                    payment=payment,
+                    source=Enrollment.Source.PURCHASE,
+                    status=Enrollment.Status.Active,
+                )
                 created_enrollments += 1
+            elif existing.payment_id is None:
+                existing.payment = payment
+                if not existing.source:
+                    existing.source = Enrollment.Source.PURCHASE
+                existing.save(update_fields=["payment", "source", "updated_at"])
 
         # earnings
         for detail in details:
@@ -529,13 +557,13 @@ def get_payment_admin_config(config_key):
         setting_key=config_meta['setting_key'],
         defaults={
             'setting_group': 'payments',
-            'setting_value': '[]',
+            'setting_value': json.dumps(config_meta.get('default_value', []), ensure_ascii=False),
             'description': config_meta['description'],
         }
     )
 
     try:
-        parsed_value = json.loads(setting.setting_value or '[]')
+        parsed_value = json.loads(setting.setting_value or json.dumps(config_meta.get('default_value', []), ensure_ascii=False))
     except json.JSONDecodeError as exc:
         raise ValidationError(f"Stored payment config is invalid JSON: {exc}") from exc
 
@@ -551,8 +579,11 @@ def update_payment_admin_config(config_key, value, admin=None):
     config_meta = PAYMENT_ADMIN_CONFIGS.get(config_key)
     if not config_meta:
         raise ValidationError("Unsupported payment admin config key.")
-    if not isinstance(value, list):
+    expected_default = config_meta.get('default_value', [])
+    if isinstance(expected_default, list) and not isinstance(value, list):
         raise ValidationError("Payment admin config value must be a JSON array.")
+    if isinstance(expected_default, dict) and not isinstance(value, dict):
+        raise ValidationError("Payment admin config value must be a JSON object.")
 
     serialized_value = json.dumps(value, ensure_ascii=False)
     setting, _ = SystemsSetting.objects.get_or_create(
@@ -577,3 +608,30 @@ def update_payment_admin_config(config_key, value, admin=None):
         'value': value,
         'updated_at': setting.updated_at,
     }
+PAYMENT_RETRY_WINDOW = timedelta(hours=1)
+
+
+def get_payment_retry_deadline(payment):
+    if not payment or not payment.created_at:
+        return None
+    return payment.created_at + PAYMENT_RETRY_WINDOW
+
+
+def can_retry_payment(payment, at_time=None):
+    if not payment:
+        return False
+    if payment.payment_status not in [Payment.PaymentStatus.PENDING, Payment.PaymentStatus.FAILED]:
+        return False
+    deadline = get_payment_retry_deadline(payment)
+    if not deadline:
+        return False
+    return (at_time or timezone.now()) <= deadline
+
+
+def ensure_payment_retryable(payment):
+    if payment.payment_status == Payment.PaymentStatus.COMPLETED:
+        raise ValidationError("Payment đã hoàn tất, không thể thanh toán lại.")
+    if payment.payment_status in [Payment.PaymentStatus.REFUNDED, Payment.PaymentStatus.CANCELLED]:
+        raise ValidationError("Payment không còn khả dụng để thanh toán lại.")
+    if not can_retry_payment(payment):
+        raise ValidationError("Đã hết thời hạn thanh toán lại cho giao dịch này.")

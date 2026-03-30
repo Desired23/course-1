@@ -1,55 +1,56 @@
-﻿import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  ArrowUpDown,
+  BookOpen,
+  Facebook,
+  Globe,
+  LayoutGrid,
+  Linkedin,
+  List,
+  Loader2,
+  MessageCircle,
+  Star,
+  Twitter,
+  UserCheck,
+  UserPlus,
+  Users,
+  Youtube,
+} from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
 import { UserPagination } from '../../components/UserPagination'
-import { 
-  Star, 
-  Users, 
-  BookOpen, 
-  Globe, 
-  Twitter, 
-  Facebook, 
-  Linkedin, 
-  Youtube,
-  UserPlus,
-  UserCheck,
-  Loader2,
-  MessageCircle,
-  ArrowUpDown,
-  LayoutGrid,
-  List,
-} from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useFollow } from '../../contexts/FollowContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { useChat } from '../../contexts/ChatContext'
 import { CourseCard } from '../../components/CourseCard'
 import {
-  type Instructor,
+  formatStudentCount,
+  getInitials,
   getInstructorById,
   parseRating,
-  getInitials,
-  formatStudentCount,
+  type Instructor,
 } from '../../services/instructor.api'
 import {
-  type CourseListItem,
+  formatPrice,
   getCourses,
   getEffectivePrice,
-  formatPrice,
   getLevelLabel,
+  type CourseListItem,
 } from '../../services/course.api'
 import {
-  type Review,
-  getAllReviewsByInstructor,
-  formatReviewDate,
   calcAverageRating,
+  formatReviewDate,
+  getAllReviewsByInstructor,
+  type Review,
 } from '../../services/review.api'
 
 export function InstructorPublicProfilePage() {
+  const { t } = useTranslation()
   const { navigate, params } = useRouter()
   const { isFollowing, toggleFollow, getFollowersCount } = useFollow()
   const { user } = useAuth()
@@ -79,14 +80,13 @@ export function InstructorPublicProfilePage() {
   const COURSES_PER_PAGE = 6
   const REVIEWS_PER_PAGE = 5
 
-  // ---- Fetch instructor + courses ----
   useEffect(() => {
     let cancelled = false
     setLoading(true)
 
     const numId = Number(instructorId)
-    if (isNaN(numId)) {
-      setError('ID giang vien khong hop le')
+    if (Number.isNaN(numId)) {
+      setError(t('instructor_public_profile.invalid_instructor_id'))
       setLoading(false)
       return
     }
@@ -104,18 +104,16 @@ export function InstructorPublicProfilePage() {
         setActiveTab(courseRes.results.length > 0 ? 'courses' : reviewData.length > 0 ? 'reviews' : 'about')
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Khong the tai thong tin giang vien')
+        if (!cancelled) setError(err?.message || t('instructor_public_profile.load_failed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
 
-    return () => { cancelled = true }
-  }, [instructorId])
-
-  const handleFollowClick = () => {
-    toggleFollow(instructorId)
-  }
+    return () => {
+      cancelled = true
+    }
+  }, [instructorId, t])
 
   useEffect(() => {
     setCoursesPage(1)
@@ -125,18 +123,23 @@ export function InstructorPublicProfilePage() {
     setReviewsPage(1)
   }, [reviewQuery, reviewRatingFilter, reviewSort])
 
+  const handleFollowClick = () => {
+    toggleFollow(instructorId)
+  }
+
   const handleMessageInstructor = async () => {
     if (!user) {
       navigate('/login')
       return
     }
-    await openChatWithUser(instructor.user.id, instructor.user.full_name)
+    if (instructor) {
+      await openChatWithUser(instructor.user.id, instructor.user.full_name)
+    }
   }
 
-  // ---- Loading / Error ----
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     )
@@ -144,10 +147,10 @@ export function InstructorPublicProfilePage() {
 
   if (error || !instructor) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-destructive mb-4">{error || 'Khong tim thay giang vien'}</p>
-          <Button onClick={() => navigate('/')}>Ve trang chu</Button>
+          <p className="mb-4 text-destructive">{error || t('instructor_public_profile.not_found')}</p>
+          <Button onClick={() => navigate('/')}>{t('instructor_public_profile.back_home')}</Button>
         </div>
       </div>
     )
@@ -155,6 +158,7 @@ export function InstructorPublicProfilePage() {
 
   const rating = parseRating(instructor.rating)
   const socialLinks = instructor.social_links || {}
+
   const filteredCourses = courses.filter((course) => {
     const matchesQuery = !courseQuery || course.title.toLowerCase().includes(courseQuery.toLowerCase())
     const matchesLevel = courseLevel === 'all' || course.level === courseLevel
@@ -165,6 +169,7 @@ export function InstructorPublicProfilePage() {
       (coursePriceFilter === 'paid' && effectivePrice > 0)
     return matchesQuery && matchesLevel && matchesPrice
   })
+
   const sortedCourses = [...filteredCourses].sort((a, b) => {
     if (courseSort === 'rating') return Number(b.rating || 0) - Number(a.rating || 0)
     if (courseSort === 'students') return (b.total_students || 0) - (a.total_students || 0)
@@ -172,21 +177,25 @@ export function InstructorPublicProfilePage() {
     if (Boolean(b.is_featured) !== Boolean(a.is_featured)) return Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured))
     return Number(b.rating || 0) - Number(a.rating || 0)
   })
+
   const filteredReviews = reviews.filter((review) => {
     const text = `${review.user_info?.full_name || ''} ${review.comment || ''} ${review.course_detail?.title || ''}`.toLowerCase()
     const matchesQuery = !reviewQuery || text.includes(reviewQuery.toLowerCase())
     const matchesRating = reviewRatingFilter === 'all' || String(review.rating) === reviewRatingFilter
     return matchesQuery && matchesRating
   })
+
   const sortedReviews = [...filteredReviews].sort((a, b) => {
     if (reviewSort === 'highest') return b.rating - a.rating
     if (reviewSort === 'lowest') return a.rating - b.rating
     return new Date(b.review_date).getTime() - new Date(a.review_date).getTime()
   })
+
   const courseTotalPages = Math.max(1, Math.ceil(sortedCourses.length / COURSES_PER_PAGE))
   const reviewTotalPages = Math.max(1, Math.ceil(sortedReviews.length / REVIEWS_PER_PAGE))
   const paginatedCourses = sortedCourses.slice((coursesPage - 1) * COURSES_PER_PAGE, coursesPage * COURSES_PER_PAGE)
   const paginatedReviews = sortedReviews.slice((reviewsPage - 1) * REVIEWS_PER_PAGE, reviewsPage * REVIEWS_PER_PAGE)
+
   const courseCardData = paginatedCourses.map((course) => {
     const effectivePrice = getEffectivePrice(course)
     const regularPrice = parseFloat(course.price || '0')
@@ -202,7 +211,7 @@ export function InstructorPublicProfilePage() {
       reviews: course.total_reviews,
       price: formatPrice(effectivePrice),
       originalPrice: hasDiscount ? formatPrice(regularPrice) : undefined,
-      duration: course.duration ? `${course.duration} phut` : '0 phut',
+      duration: t('instructor_public_profile.duration_minutes', { count: course.duration || 0 }),
       students: course.total_students >= 1000 ? `${Math.floor(course.total_students / 1000)}K+` : `${course.total_students}`,
       level: getLevelLabel(course.level),
       category: course.category_name || '',
@@ -217,110 +226,99 @@ export function InstructorPublicProfilePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-primary/10 to-primary/5 border-b">
+      <div className="border-b bg-gradient-to-r from-primary/10 to-primary/5">
         <div className="container mx-auto px-4 py-12">
-          <div className="flex flex-col md:flex-row gap-8 items-start">
-            {/* Avatar */}
-            <Avatar className="w-32 h-32">
+          <div className="flex flex-col items-start gap-8 md:flex-row">
+            <Avatar className="h-32 w-32">
               <AvatarImage src={instructor.user.avatar || undefined} />
-              <AvatarFallback className="text-3xl">
-                {getInitials(instructor.user.full_name)}
-              </AvatarFallback>
+              <AvatarFallback className="text-3xl">{getInitials(instructor.user.full_name)}</AvatarFallback>
             </Avatar>
 
-            {/* Info */}
             <div className="flex-1 space-y-4">
               <div>
-                <h1 className="text-3xl mb-2">{instructor.user.full_name}</h1>
-                <p className="text-muted-foreground text-lg">{instructor.specialization || ''}</p>
+                <h1 className="mb-2 text-3xl">{instructor.user.full_name}</h1>
+                <p className="text-lg text-muted-foreground">{instructor.specialization || ''}</p>
               </div>
 
-              {/* Stats */}
               <div className="flex flex-wrap gap-6">
                 <div className="flex items-center gap-2">
-                  <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
                   <span className="font-medium">{rating}</span>
-                  <span className="text-muted-foreground">Rating</span>
+                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.rating')}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
+                  <Users className="h-5 w-5" />
                   <span className="font-medium">{formatStudentCount(instructor.total_students)}</span>
-                  <span className="text-muted-foreground">Hoc vien</span>
+                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.students')}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" />
+                  <BookOpen className="h-5 w-5" />
                   <span className="font-medium">{instructor.total_courses}</span>
-                  <span className="text-muted-foreground">Khoa hoc</span>
+                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.courses')}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <UserPlus className="w-5 h-5" />
+                  <UserPlus className="h-5 w-5" />
                   <span className="font-medium">{followersCount}</span>
-                  <span className="text-muted-foreground">Nguoi theo doi</span>
+                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.followers')}</span>
                 </div>
               </div>
 
-              {/* Follow Button */}
               <div className="flex gap-3">
-                <Button 
-                  onClick={handleFollowClick}
-                  variant={following ? 'outline' : 'default'}
-                >
+                <Button onClick={handleFollowClick} variant={following ? 'outline' : 'default'}>
                   {following ? (
                     <>
-                      <UserCheck className="w-4 h-4 mr-2" />
-                      Dang theo doi
+                      <UserCheck className="mr-2 h-4 w-4" />
+                      {t('instructor_public_profile.following')}
                     </>
                   ) : (
                     <>
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Theo doi
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      {t('instructor_public_profile.follow')}
                     </>
                   )}
                 </Button>
                 {user?.id !== instructor.user.id && (
                   <Button variant="outline" onClick={() => void handleMessageInstructor()}>
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Nhan tin
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    {t('instructor_public_profile.message')}
                   </Button>
                 )}
               </div>
 
-              {/* Social Links */}
               {Object.keys(socialLinks).length > 0 && (
                 <div className="flex gap-3">
                   {socialLinks.website && (
                     <Button variant="ghost" size="icon" asChild>
                       <a href={socialLinks.website} target="_blank" rel="noopener noreferrer">
-                        <Globe className="w-5 h-5" />
+                        <Globe className="h-5 w-5" />
                       </a>
                     </Button>
                   )}
                   {socialLinks.twitter && (
                     <Button variant="ghost" size="icon" asChild>
                       <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer">
-                        <Twitter className="w-5 h-5" />
+                        <Twitter className="h-5 w-5" />
                       </a>
                     </Button>
                   )}
                   {socialLinks.linkedin && (
                     <Button variant="ghost" size="icon" asChild>
                       <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer">
-                        <Linkedin className="w-5 h-5" />
+                        <Linkedin className="h-5 w-5" />
                       </a>
                     </Button>
                   )}
                   {socialLinks.youtube && (
                     <Button variant="ghost" size="icon" asChild>
                       <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer">
-                        <Youtube className="w-5 h-5" />
+                        <Youtube className="h-5 w-5" />
                       </a>
                     </Button>
                   )}
                   {socialLinks.facebook && (
                     <Button variant="ghost" size="icon" asChild>
                       <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer">
-                        <Facebook className="w-5 h-5" />
+                        <Facebook className="h-5 w-5" />
                       </a>
                     </Button>
                   )}
@@ -331,59 +329,55 @@ export function InstructorPublicProfilePage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="container mx-auto px-4 py-8">
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="p-5">
-              <p className="text-sm text-muted-foreground mb-1">Tong quan khoa hoc</p>
+              <p className="mb-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.course_overview')}</p>
               <p className="text-3xl font-bold">{courses.length}</p>
-              <p className="text-sm text-muted-foreground mt-1">Khoa hoc dang hien thi</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.published_courses')}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-5">
-              <p className="text-sm text-muted-foreground mb-1">Danh gia trung binh</p>
+              <p className="mb-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.average_rating')}</p>
               <p className="text-3xl font-bold">{reviews.length ? calcAverageRating(reviews).toFixed(1) : rating.toFixed(1)}</p>
-              <p className="text-sm text-muted-foreground mt-1">{reviews.length} danh gia cong khai</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.public_reviews', { count: reviews.length })}</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-5">
-              <p className="text-sm text-muted-foreground mb-1">Nguoi hoc</p>
+              <p className="mb-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.learners')}</p>
               <p className="text-3xl font-bold">{formatStudentCount(instructor.total_students)}</p>
-              <p className="text-sm text-muted-foreground mt-1">Tong hoc vien da hoc voi giang vien</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.total_students')}</p>
             </CardContent>
           </Card>
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'about' | 'courses' | 'reviews')} className="space-y-6">
           <TabsList>
-            <TabsTrigger value="about">Gioi thieu</TabsTrigger>
-            <TabsTrigger value="courses">Khoa hoc ({courses.length})</TabsTrigger>
-            <TabsTrigger value="reviews">Danh gia ({reviews.length})</TabsTrigger>
+            <TabsTrigger value="about">{t('instructor_public_profile.tabs.about')}</TabsTrigger>
+            <TabsTrigger value="courses">{t('instructor_public_profile.tabs.courses', { count: courses.length })}</TabsTrigger>
+            <TabsTrigger value="reviews">{t('instructor_public_profile.tabs.reviews', { count: reviews.length })}</TabsTrigger>
           </TabsList>
 
-          {/* About Tab */}
           <TabsContent value="about" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Ve toi</CardTitle>
+                <CardTitle>{t('instructor_public_profile.about.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-muted-foreground leading-relaxed">
-                  {instructor.bio || 'Chua co thong tin gioi thieu.'}
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <p className="leading-relaxed text-muted-foreground">{instructor.bio || t('instructor_public_profile.about.empty')}</p>
+                <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
                   {instructor.experience != null && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Kinh nghiem</p>
-                      <p className="font-medium">{instructor.experience} nam</p>
+                      <p className="text-sm text-muted-foreground">{t('instructor_public_profile.about.experience')}</p>
+                      <p className="font-medium">{t('instructor_public_profile.years', { count: instructor.experience })}</p>
                     </div>
                   )}
                   {instructor.qualification && (
                     <div>
-                      <p className="text-sm text-muted-foreground">Trinh do</p>
+                      <p className="text-sm text-muted-foreground">{t('instructor_public_profile.about.qualification')}</p>
                       <p className="font-medium">{instructor.qualification}</p>
                     </div>
                   )}
@@ -392,12 +386,11 @@ export function InstructorPublicProfilePage() {
             </Card>
           </TabsContent>
 
-          {/* Courses Tab */}
           <TabsContent value="courses" className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">Danh sach khoa hoc</h2>
-                <p className="text-sm text-muted-foreground">Tat ca khoa hoc cong khai cua giang vien</p>
+                <h2 className="text-xl font-semibold">{t('instructor_public_profile.courses.title')}</h2>
+                <p className="text-sm text-muted-foreground">{t('instructor_public_profile.courses.description')}</p>
               </div>
               <ToggleGroup
                 type="single"
@@ -407,20 +400,21 @@ export function InstructorPublicProfilePage() {
                 }}
                 variant="outline"
               >
-                <ToggleGroupItem value="grid" aria-label="Grid view">
+                <ToggleGroupItem value="grid" aria-label={t('instructor_public_profile.courses.grid_view')}>
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
-                <ToggleGroupItem value="list" aria-label="List view">
+                <ToggleGroupItem value="list" aria-label={t('instructor_public_profile.courses.list_view')}>
                   <List className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
+
             <Card>
-              <CardContent className="p-4 grid gap-3 md:grid-cols-4">
+              <CardContent className="grid gap-3 p-4 md:grid-cols-4">
                 <input
                   value={courseQuery}
                   onChange={(e) => setCourseQuery(e.target.value)}
-                  placeholder="Tim khoa hoc..."
+                  placeholder={t('instructor_public_profile.courses.search_placeholder')}
                   className="rounded-md border bg-background px-3 py-2 text-sm"
                 />
                 <select
@@ -428,20 +422,20 @@ export function InstructorPublicProfilePage() {
                   onChange={(e) => setCourseLevel(e.target.value as 'all' | 'beginner' | 'intermediate' | 'advanced' | 'all_levels')}
                   className="rounded-md border bg-background px-3 py-2 text-sm"
                 >
-                  <option value="all">Tat ca cap do</option>
-                  <option value="beginner">Nguoi moi</option>
-                  <option value="intermediate">Trung cap</option>
-                  <option value="advanced">Nang cao</option>
-                  <option value="all_levels">Tat ca trinh do</option>
+                  <option value="all">{t('instructor_public_profile.courses.levels.all')}</option>
+                  <option value="beginner">{t('instructor_public_profile.courses.levels.beginner')}</option>
+                  <option value="intermediate">{t('instructor_public_profile.courses.levels.intermediate')}</option>
+                  <option value="advanced">{t('instructor_public_profile.courses.levels.advanced')}</option>
+                  <option value="all_levels">{t('instructor_public_profile.courses.levels.all_levels')}</option>
                 </select>
                 <select
                   value={coursePriceFilter}
                   onChange={(e) => setCoursePriceFilter(e.target.value as 'all' | 'free' | 'paid')}
                   className="rounded-md border bg-background px-3 py-2 text-sm"
                 >
-                  <option value="all">Tat ca muc gia</option>
-                  <option value="free">Mien phi</option>
-                  <option value="paid">Tra phi</option>
+                  <option value="all">{t('instructor_public_profile.courses.price.all')}</option>
+                  <option value="free">{t('instructor_public_profile.courses.price.free')}</option>
+                  <option value="paid">{t('instructor_public_profile.courses.price.paid')}</option>
                 </select>
                 <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                   <ArrowUpDown className="h-4 w-4" />
@@ -450,51 +444,54 @@ export function InstructorPublicProfilePage() {
                     onChange={(e) => setCourseSort(e.target.value as 'featured' | 'rating' | 'students' | 'newest')}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground"
                   >
-                    <option value="featured">Noi bat</option>
-                    <option value="rating">Danh gia cao</option>
-                    <option value="students">Dong hoc vien</option>
-                    <option value="newest">Moi nhat</option>
+                    <option value="featured">{t('instructor_public_profile.courses.sort.featured')}</option>
+                    <option value="rating">{t('instructor_public_profile.courses.sort.rating')}</option>
+                    <option value="students">{t('instructor_public_profile.courses.sort.students')}</option>
+                    <option value="newest">{t('instructor_public_profile.courses.sort.newest')}</option>
                   </select>
                 </label>
               </CardContent>
             </Card>
+
             <div className="text-sm text-muted-foreground">
-              Hien {paginatedCourses.length} / {sortedCourses.length} khoa hoc
+              {t('instructor_public_profile.courses.showing', { shown: paginatedCourses.length, total: sortedCourses.length })}
             </div>
+
             {sortedCourses.length === 0 ? (
-              <div className="text-center py-12">
-                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="mb-2">Khong co khoa hoc phu hop</h3>
+              <div className="py-12 text-center">
+                <BookOpen className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2">{t('instructor_public_profile.courses.empty')}</h3>
               </div>
             ) : (
-              <div className={courseViewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+              <div className={courseViewMode === 'grid' ? 'grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}>
                 {courseCardData.map((course) => (
                   <CourseCard key={course.id} {...course} />
                 ))}
               </div>
             )}
+
             <div className="flex justify-end">
               <UserPagination currentPage={coursesPage} totalPages={courseTotalPages} onPageChange={setCoursesPage} />
             </div>
           </TabsContent>
 
-          {/* Reviews Tab */}
           <TabsContent value="reviews" className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-xl font-semibold">Danh gia tu hoc vien</h2>
-                <p className="text-sm text-muted-foreground">Nhan xet cong khai ve cac khoa hoc cua giang vien</p>
+                <h2 className="text-xl font-semibold">{t('instructor_public_profile.reviews.title')}</h2>
+                <p className="text-sm text-muted-foreground">{t('instructor_public_profile.reviews.description')}</p>
               </div>
               <div className="text-sm text-muted-foreground">
-                Hien {paginatedReviews.length} / {sortedReviews.length} danh gia
+                {t('instructor_public_profile.reviews.showing', { shown: paginatedReviews.length, total: sortedReviews.length })}
               </div>
             </div>
+
             <Card>
-              <CardContent className="p-4 grid gap-3 md:grid-cols-3">
+              <CardContent className="grid gap-3 p-4 md:grid-cols-3">
                 <input
                   value={reviewQuery}
                   onChange={(e) => setReviewQuery(e.target.value)}
-                  placeholder="Tim theo hoc vien, noi dung, khoa hoc..."
+                  placeholder={t('instructor_public_profile.reviews.search_placeholder')}
                   className="rounded-md border bg-background px-3 py-2 text-sm"
                 />
                 <select
@@ -502,12 +499,12 @@ export function InstructorPublicProfilePage() {
                   onChange={(e) => setReviewRatingFilter(e.target.value as 'all' | '5' | '4' | '3' | '2' | '1')}
                   className="rounded-md border bg-background px-3 py-2 text-sm"
                 >
-                  <option value="all">Tat ca so sao</option>
-                  <option value="5">5 sao</option>
-                  <option value="4">4 sao</option>
-                  <option value="3">3 sao</option>
-                  <option value="2">2 sao</option>
-                  <option value="1">1 sao</option>
+                  <option value="all">{t('instructor_public_profile.reviews.rating_filter.all')}</option>
+                  <option value="5">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 5 })}</option>
+                  <option value="4">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 4 })}</option>
+                  <option value="3">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 3 })}</option>
+                  <option value="2">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 2 })}</option>
+                  <option value="1">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 1 })}</option>
                 </select>
                 <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                   <ArrowUpDown className="h-4 w-4" />
@@ -516,85 +513,76 @@ export function InstructorPublicProfilePage() {
                     onChange={(e) => setReviewSort(e.target.value as 'newest' | 'highest' | 'lowest')}
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground"
                   >
-                    <option value="newest">Moi nhat</option>
-                    <option value="highest">Diem cao truoc</option>
-                    <option value="lowest">Diem thap truoc</option>
+                    <option value="newest">{t('instructor_public_profile.reviews.sort.newest')}</option>
+                    <option value="highest">{t('instructor_public_profile.reviews.sort.highest')}</option>
+                    <option value="lowest">{t('instructor_public_profile.reviews.sort.lowest')}</option>
                   </select>
                 </label>
               </CardContent>
             </Card>
+
             {sortedReviews.length === 0 ? (
-              <div className="text-center py-12">
-                <Star className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="mb-2">Khong co danh gia phu hop</h3>
-                <p className="text-muted-foreground">Thu doi bo loc hoac tu khoa tim kiem.</p>
+              <div className="py-12 text-center">
+                <Star className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="mb-2">{t('instructor_public_profile.reviews.empty_title')}</h3>
+                <p className="text-muted-foreground">{t('instructor_public_profile.reviews.empty_description')}</p>
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Summary */}
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-6">
                       <div className="text-center">
                         <p className="text-4xl font-bold">{calcAverageRating(reviews).toFixed(1)}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          {[...Array(5)].map((_, i) => (
+                        <div className="mt-1 flex items-center gap-1">
+                          {[...Array(5)].map((_, index) => (
                             <Star
-                              key={i}
+                              key={index}
                               className={`h-4 w-4 ${
-                                i < Math.round(calcAverageRating(reviews))
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-gray-300'
+                                index < Math.round(calcAverageRating(reviews)) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
                               }`}
                             />
                           ))}
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">{reviews.length} danh gia</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.reviews.count', { count: reviews.length })}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Review list */}
                 <div className="space-y-4">
                   {paginatedReviews.map((review) => (
                     <Card key={review.review_id}>
                       <CardContent className="p-5">
                         <div className="flex items-start gap-3">
-                          <Avatar className="w-10 h-10">
+                          <Avatar className="h-10 w-10">
                             <AvatarImage src={review.user_info?.avatar || undefined} />
                             <AvatarFallback className="text-sm">
-                              {(review.user_info?.full_name || 'U').charAt(0)}
+                              {(review.user_info?.full_name || t('instructor_public_profile.reviews.student_fallback')).charAt(0)}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
-                              <p className="font-medium">{review.user_info?.full_name || 'Hoc vien'}</p>
-                              <span className="text-xs text-muted-foreground">
-                                {formatReviewDate(review.review_date)}
-                              </span>
+                              <p className="font-medium">{review.user_info?.full_name || t('instructor_public_profile.reviews.student_fallback')}</p>
+                              <span className="text-xs text-muted-foreground">{formatReviewDate(review.review_date)}</span>
                             </div>
-                            <div className="flex items-center gap-1 mt-1">
-                              {[...Array(5)].map((_, i) => (
+                            <div className="mt-1 flex items-center gap-1">
+                              {[...Array(5)].map((_, index) => (
                                 <Star
-                                  key={i}
-                                  className={`h-3.5 w-3.5 ${
-                                    i < review.rating
-                                      ? 'fill-yellow-400 text-yellow-400'
-                                      : 'text-gray-300'
-                                  }`}
+                                  key={index}
+                                  className={`h-3.5 w-3.5 ${index < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
                                 />
                               ))}
                             </div>
                             {review.course_detail && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Khoa hoc: {review.course_detail.title}
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {t('instructor_public_profile.reviews.course_label')}: {review.course_detail.title}
                               </p>
                             )}
-                            <p className="text-sm mt-2 text-muted-foreground">{review.comment}</p>
+                            <p className="mt-2 text-sm text-muted-foreground">{review.comment}</p>
                             {review.instructor_response && (
-                              <div className="bg-muted/50 rounded-lg p-3 mt-3">
-                                <p className="text-xs font-medium mb-1">Phan hoi tu giang vien:</p>
+                              <div className="mt-3 rounded-lg bg-muted/50 p-3">
+                                <p className="mb-1 text-xs font-medium">{t('instructor_public_profile.reviews.instructor_response')}</p>
                                 <p className="text-sm text-muted-foreground">{review.instructor_response}</p>
                               </div>
                             )}
@@ -604,6 +592,7 @@ export function InstructorPublicProfilePage() {
                     </Card>
                   ))}
                 </div>
+
                 <div className="flex justify-end">
                   <UserPagination currentPage={reviewsPage} totalPages={reviewTotalPages} onPageChange={setReviewsPage} />
                 </div>

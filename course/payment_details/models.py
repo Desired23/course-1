@@ -3,9 +3,12 @@ from decimal import Decimal
 from payments.models import Payment
 from courses.models import Course
 from promotions.models import Promotion
+
+
 class Payment_Details(models.Model):
     class RefundStatus(models.TextChoices):
         PENDING = "pending", "Pending approval"
+        PROCESSING = "processing", "Refund processing"
         APPROVED = "approved", "Approved - waiting for refund"
         SUCCESS = "success", "Refunded successfully"
         REJECTED = "rejected", "Rejected"
@@ -24,6 +27,20 @@ class Payment_Details(models.Model):
     refund_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     refund_reason = models.TextField(null=True, blank=True)
     refund_date = models.DateTimeField(null=True, blank=True)
+    internal_note = models.TextField(null=True, blank=True)
+    gateway_attempt_count = models.PositiveIntegerField(default=0)
+    last_gateway_attempt_at = models.DateTimeField(null=True, blank=True)
+    next_retry_at = models.DateTimeField(null=True, blank=True)
+    last_gateway_error = models.TextField(null=True, blank=True)
+    processing_lock_token = models.CharField(max_length=64, null=True, blank=True)
+    refund_timeline = models.JSONField(default=list, blank=True)
+    processed_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processed_payment_details',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)

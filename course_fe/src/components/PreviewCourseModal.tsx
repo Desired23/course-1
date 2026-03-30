@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { getCourseById, type CourseDetail } from "../services/course.api"
+import { useTranslation } from "react-i18next"
 
 interface PreviewCourseModalProps {
   courseId: string | null
@@ -61,6 +62,7 @@ function formatDurationLabel(durationMinutes: number): string {
 }
 
 export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseModalProps) {
+  const { t } = useTranslation()
   const [course, setCourse] = useState<CourseDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -125,7 +127,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
         setPlaybackPercent(0)
       } catch (err: any) {
         if (!cancelled) {
-          setError(err?.message || 'Failed to load course preview')
+          setError(err?.message || t('preview_course_modal.load_failed'))
           setCourse(null)
         }
       } finally {
@@ -137,7 +139,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
     return () => {
       cancelled = true
     }
-  }, [courseId, isOpen])
+  }, [courseId, isOpen, t])
 
   const curriculum = useMemo<PreviewSection[]>(() => {
     if (!course) return []
@@ -194,7 +196,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
 
   const handleAddNote = () => {
     if (!currentLesson || !newNote.trim()) {
-      toast.error('Please write a note')
+      toast.error(t('preview_course_modal.toast.write_note'))
       return
     }
     const note = {
@@ -202,21 +204,21 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
       lessonId: currentLesson.id,
       timestamp: `${Math.floor(playbackPercent)}%`,
       note: newNote.trim(),
-      created: 'Just now',
+      created: t('preview_course_modal.just_now'),
     }
     setNotes((prev) => [note, ...prev])
     setNewNote('')
-    toast.success('Note saved in Preview Mode only')
+    toast.success(t('preview_course_modal.toast.note_saved'))
   }
 
   const handleDeleteNote = (noteId: number) => {
     setNotes((prev) => prev.filter((note) => note.id !== noteId))
-    toast.success('Note deleted')
+    toast.success(t('preview_course_modal.toast.note_deleted'))
   }
 
   const handleAddQuestion = () => {
     if (!currentLesson || !newQuestion.trim()) {
-      toast.error('Please write a question')
+      toast.error(t('preview_course_modal.toast.write_question'))
       return
     }
     const question = {
@@ -226,12 +228,12 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
       author: 'Instructor Preview',
       votes: 0,
       replies: 0,
-      created: 'Just now',
+      created: t('preview_course_modal.just_now'),
       upvoted: false,
     }
     setQuestions((prev) => [question, ...prev])
     setNewQuestion('')
-    toast.success('Question added in Preview Mode only')
+    toast.success(t('preview_course_modal.toast.question_added'))
   }
 
   const handleUpvote = (questionId: number) => {
@@ -250,7 +252,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
 
   const handleAddAnswer = (questionId: number) => {
     if (!newAnswer.trim()) {
-      toast.error('Please write an answer')
+      toast.error(t('preview_course_modal.toast.write_answer'))
       return
     }
     setQuestions((prev) =>
@@ -262,17 +264,17 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
     )
     setNewAnswer('')
     setReplyingTo(null)
-    toast.success('Answer added in Preview Mode only')
+    toast.success(t('preview_course_modal.toast.answer_added'))
   }
 
   const handleDownloadResource = (resourceName: string) => {
-    toast.info(`Preview Mode: ${resourceName} is shown for layout validation only`)
+    toast.info(t('preview_course_modal.toast.resource_preview_only', { resourceName }))
   }
 
   const CurriculumSidebar = () => (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b">
-        <h3 className="font-semibold">Course Content</h3>
+        <h3 className="font-semibold">{t('preview_course_modal.course_content')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
           {curriculum.length} sections • {flatLessons.length} lessons
         </p>
@@ -311,8 +313,8 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                         <PlayCircle className="w-4 h-4" />
                       )}
                       <span className={`text-sm ${lesson.id === currentLesson?.id ? 'font-medium' : ''}`}>{lesson.title}</span>
-                      {lesson.type === 'quiz' && <Badge variant="secondary" className="text-xs">Quiz</Badge>}
-                      {lesson.isFree && <Badge variant="outline" className="text-xs">Free</Badge>}
+                      {lesson.type === 'quiz' && <Badge variant="secondary" className="text-xs">{t('preview_course_modal.quiz_badge')}</Badge>}
+                      {lesson.isFree && <Badge variant="outline" className="text-xs">{t('preview_course_modal.free_badge')}</Badge>}
                     </div>
                     <span className="text-xs text-muted-foreground">{lesson.durationLabel}</span>
                   </button>
@@ -336,8 +338,8 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
             <Separator orientation="vertical" className="h-6" />
             <div className="flex items-center gap-3">
               <Eye className="h-5 w-5 text-primary" />
-              <Badge variant="secondary" className="bg-primary/10 text-primary">Preview Mode</Badge>
-              <h1 className="font-semibold truncate max-w-[320px] hidden sm:block">{course?.title || 'Course Preview'}</h1>
+              <Badge variant="secondary" className="bg-primary/10 text-primary">{t('preview_course_modal.preview_mode')}</Badge>
+              <h1 className="font-semibold truncate max-w-[320px] hidden sm:block">{course?.title || t('preview_course_modal.course_preview')}</h1>
             </div>
           </div>
 
@@ -350,8 +352,8 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
               </SheetTrigger>
               <SheetContent side="right" className="w-80 p-0">
                 <SheetHeader className="sr-only">
-                  <SheetTitle>Course Curriculum</SheetTitle>
-                  <SheetDescription>Browse and navigate through course lessons</SheetDescription>
+                  <SheetTitle>{t('preview_course_modal.course_curriculum')}</SheetTitle>
+                  <SheetDescription>{t('preview_course_modal.course_curriculum_description')}</SheetDescription>
                 </SheetHeader>
                 <CurriculumSidebar />
               </SheetContent>
@@ -359,7 +361,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
 
             <Progress value={progressPercent} className="w-24 hidden sm:block" />
             <span className="text-sm text-muted-foreground hidden sm:inline">{progressPercent}% complete</span>
-            <Button onClick={onClose}>Exit Preview</Button>
+            <Button onClick={onClose}>{t('preview_course_modal.exit_preview')}</Button>
           </div>
         </div>
       </header>
@@ -370,8 +372,8 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
         </div>
       ) : error || !course || !currentLesson ? (
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6 text-center">
-          <p className="text-destructive">{error || 'Unable to load course preview.'}</p>
-          <Button onClick={onClose}>Close Preview</Button>
+          <p className="text-destructive">{error || t('preview_course_modal.unable_to_load')}</p>
+          <Button onClick={onClose}>{t('preview_course_modal.close_preview')}</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 min-h-screen">
@@ -379,11 +381,10 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
             {currentLesson.type === 'quiz' ? (
               <div className="bg-muted/50 p-8 flex-shrink-0">
                 <div className="max-w-3xl mx-auto rounded-xl border bg-card p-6 space-y-4">
-                  <Badge variant="secondary">Quiz Preview</Badge>
+                  <Badge variant="secondary">{t('preview_course_modal.quiz_preview')}</Badge>
                   <h2 className="text-2xl font-semibold">{currentLesson.title}</h2>
                   <p className="text-muted-foreground">
-                    Quiz content is attached to this lesson in the real course data. Preview Mode shows the real lesson structure,
-                    but quiz interaction is intentionally non-persistent here.
+                    {t('preview_course_modal.quiz_preview_description')}
                   </p>
                 </div>
               </div>
@@ -395,7 +396,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                   title={currentLesson.title}
                   lessonId={currentLesson.id}
                   onProgress={(payload) => setPlaybackPercent(payload.percentage)}
-                  onComplete={() => toast.success('Lesson completed in Preview Mode')}
+                  onComplete={() => toast.success(t('preview_course_modal.toast.lesson_completed'))}
                   savedProgress={0}
                 />
               </div>
@@ -405,14 +406,14 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-medium">{course.title}</h2>
-                  <p className="text-sm text-muted-foreground">by {course.instructor?.full_name || 'Instructor'}</p>
+                  <p className="text-sm text-muted-foreground">{t('preview_course_modal.by_instructor', { name: course.instructor?.full_name || t('preview_course_modal.instructor_fallback') })}</p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between gap-4 pt-4 border-t">
                 <Button variant="outline" onClick={() => previousLesson && handleLessonChange(previousLesson.id)} disabled={!previousLesson} className="flex-1">
                   <ChevronLeft className="w-4 h-4 mr-2" />
-                  Previous Lesson
+                  {t('preview_course_modal.previous_lesson')}
                 </Button>
 
                 <div className="text-center">
@@ -421,7 +422,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                 </div>
 
                 <Button variant="default" onClick={() => nextLesson && handleLessonChange(nextLesson.id)} disabled={!nextLesson} className="flex-1">
-                  Next Lesson
+                  {t('preview_course_modal.next_lesson')}
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>
@@ -431,10 +432,10 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
               <Tabs defaultValue="overview">
                 <div className="border-b">
                   <TabsList className="w-full justify-start h-12 rounded-none bg-transparent">
-                    <TabsTrigger value="overview" className="rounded-none">Overview</TabsTrigger>
-                    <TabsTrigger value="notes" className="rounded-none">Notes</TabsTrigger>
-                    <TabsTrigger value="qa" className="rounded-none">Q&A</TabsTrigger>
-                    <TabsTrigger value="resources" className="rounded-none">Resources</TabsTrigger>
+                    <TabsTrigger value="overview" className="rounded-none">{t('preview_course_modal.tabs.overview')}</TabsTrigger>
+                    <TabsTrigger value="notes" className="rounded-none">{t('preview_course_modal.tabs.notes')}</TabsTrigger>
+                    <TabsTrigger value="qa" className="rounded-none">{t('preview_course_modal.tabs.qa')}</TabsTrigger>
+                    <TabsTrigger value="resources" className="rounded-none">{t('preview_course_modal.tabs.resources')}</TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -444,30 +445,30 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                       <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
                         <p className="text-sm text-primary">
                           <Eye className="inline w-4 h-4 mr-2" />
-                          <strong>Preview Mode:</strong> Course structure comes from real course data. Notes and Q&A below are temporary.
+                          <strong>{t('preview_course_modal.preview_mode')}:</strong> {t('preview_course_modal.preview_mode_description')}
                         </p>
                       </div>
 
                       <div>
-                        <h3 className="font-medium mb-2">About this course</h3>
+                        <h3 className="font-medium mb-2">{t('preview_course_modal.about_course')}</h3>
                         <p className="text-muted-foreground whitespace-pre-line">
-                          {course.description || course.shortdescription || 'No course description yet.'}
+                          {course.description || course.shortdescription || t('preview_course_modal.no_course_description')}
                         </p>
                       </div>
 
                       <Separator />
 
                       <div>
-                        <h3 className="font-medium mb-4">Course Progress Snapshot</h3>
+                        <h3 className="font-medium mb-4">{t('preview_course_modal.progress_snapshot')}</h3>
                         <div className="space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm">Current lesson playback</span>
+                            <span className="text-sm">{t('preview_course_modal.current_lesson_playback')}</span>
                             <span className="text-sm font-medium">{Math.round(playbackPercent)}%</span>
                           </div>
                           <Progress value={playbackPercent} className="h-2" />
                           <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>{completedLessons} of {flatLessons.length} lessons visited</span>
-                            <span>{curriculum.length} modules loaded from API</span>
+                            <span>{t('preview_course_modal.lessons_visited', { completed: completedLessons, total: flatLessons.length })}</span>
+                            <span>{t('preview_course_modal.modules_loaded', { count: curriculum.length })}</span>
                           </div>
                         </div>
                       </div>
@@ -477,22 +478,22 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                   <TabsContent value="notes" className="mt-0">
                     <div className="space-y-4">
                       <div>
-                        <h3 className="font-medium mb-2">Add a Note</h3>
+                        <h3 className="font-medium mb-2">{t('preview_course_modal.add_note')}</h3>
                         <Textarea
-                          placeholder="Add a preview-only note for this lesson..."
+                          placeholder={t('preview_course_modal.add_note_placeholder')}
                           value={newNote}
                           onChange={(e) => setNewNote(e.target.value)}
                           className="mb-2"
                         />
-                        <Button size="sm" onClick={handleAddNote}>Save Note</Button>
+                        <Button size="sm" onClick={handleAddNote}>{t('preview_course_modal.save_note')}</Button>
                       </div>
 
                       <Separator />
 
                       <div className="space-y-3">
-                        <h4 className="font-medium">Preview Notes for this Lesson</h4>
+                        <h4 className="font-medium">{t('preview_course_modal.preview_notes')}</h4>
                         {notes.filter((note) => note.lessonId === currentLesson.id).length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No preview notes yet.</p>
+                          <p className="text-sm text-muted-foreground">{t('preview_course_modal.no_preview_notes')}</p>
                         ) : (
                           notes
                             .filter((note) => note.lessonId === currentLesson.id)
@@ -520,22 +521,22 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                   <TabsContent value="qa" className="mt-0">
                     <div className="space-y-4">
                       <div>
-                        <h3 className="font-medium mb-2">Ask a Question</h3>
+                        <h3 className="font-medium mb-2">{t('preview_course_modal.ask_question')}</h3>
                         <Textarea
-                          placeholder="Ask a preview-only question about this lesson..."
+                          placeholder={t('preview_course_modal.ask_question_placeholder')}
                           value={newQuestion}
                           onChange={(e) => setNewQuestion(e.target.value)}
                           className="mb-2"
                         />
-                        <Button size="sm" onClick={handleAddQuestion}>Post Question</Button>
+                        <Button size="sm" onClick={handleAddQuestion}>{t('preview_course_modal.post_question')}</Button>
                       </div>
 
                       <Separator />
 
                       <div className="space-y-4">
-                        <h4 className="font-medium">Preview Questions</h4>
+                        <h4 className="font-medium">{t('preview_course_modal.preview_questions')}</h4>
                         {questions.filter((question) => question.lessonId === currentLesson.id).length === 0 ? (
-                          <p className="text-sm text-muted-foreground">No preview questions yet.</p>
+                          <p className="text-sm text-muted-foreground">{t('preview_course_modal.no_preview_questions')}</p>
                         ) : (
                           questions
                             .filter((question) => question.lessonId === currentLesson.id)
@@ -569,12 +570,12 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                                 {replyingTo === qa.id && (
                                   <div className="mt-2">
                                     <Textarea
-                                      placeholder="Add an answer..."
+                                      placeholder={t('preview_course_modal.add_answer_placeholder')}
                                       value={newAnswer}
                                       onChange={(e) => setNewAnswer(e.target.value)}
                                       className="mb-2"
                                     />
-                                    <Button size="sm" onClick={() => handleAddAnswer(qa.id)}>Post Answer</Button>
+                                    <Button size="sm" onClick={() => handleAddAnswer(qa.id)}>{t('preview_course_modal.post_answer')}</Button>
                                   </div>
                                 )}
                               </div>
@@ -586,7 +587,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
 
                   <TabsContent value="resources" className="mt-0">
                     <div className="space-y-4">
-                      <h3 className="font-medium">Lesson Resources</h3>
+                      <h3 className="font-medium">{t('preview_course_modal.lesson_resources')}</h3>
                       <div className="space-y-2">
                         <div className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50">
                           <FileText className="w-5 h-5 text-muted-foreground" />
@@ -603,10 +604,10 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
                           <div className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50">
                             <FileText className="w-5 h-5 text-muted-foreground" />
                             <div className="flex-1">
-                              <p className="font-medium text-sm">Promotional Video</p>
-                              <p className="text-xs text-muted-foreground">Course landing asset</p>
+                              <p className="font-medium text-sm">{t('preview_course_modal.promotional_video')}</p>
+                              <p className="text-xs text-muted-foreground">{t('preview_course_modal.course_landing_asset')}</p>
                             </div>
-                            <Button size="sm" variant="ghost" onClick={() => handleDownloadResource('Promotional Video')}>
+                            <Button size="sm" variant="ghost" onClick={() => handleDownloadResource(t('preview_course_modal.promotional_video'))}>
                               <Download className="w-4 h-4" />
                             </Button>
                           </div>

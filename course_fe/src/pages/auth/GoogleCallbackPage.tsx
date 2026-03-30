@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { parseGoogleCallback } from '../../config/googleOAuth'
 
-/**
- * Google OAuth Callback Page
- * Handles the redirect from Google after authentication
- */
 export function GoogleCallbackPage() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const { loginWithGoogle } = useAuth()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -16,59 +15,35 @@ export function GoogleCallbackPage() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Parse URL parameters
         const params = parseGoogleCallback(window.location.href)
-        
+
         if (params.error) {
-          // User denied access or other error
           setStatus('error')
           setErrorMessage(params.error)
-          
-          // Redirect back to login after 3 seconds
-          setTimeout(() => {
-            navigate('/login')
-          }, 3000)
-          
+          setTimeout(() => navigate('/login'), 3000)
           return
         }
-        
+
         if (params.code) {
-          // We have an authorization code
-          // In a real app, send this to your backend to exchange for tokens
-          
-          // For now, we'll simulate success
-          // You'll need to implement the backend endpoint to handle this
           setStatus('error')
-          setErrorMessage('Backend integration required. Please use the direct Google Sign-In button on the login page instead.')
-          
-          setTimeout(() => {
-            navigate('/login')
-          }, 5000)
-          
+          setErrorMessage(t('google_callback_page.backend_integration_required'))
+          setTimeout(() => navigate('/login'), 5000)
           return
         }
-        
-        // No code or error - something went wrong
+
         setStatus('error')
-        setErrorMessage('Invalid callback - no authorization code received')
-        
-        setTimeout(() => {
-          navigate('/login')
-        }, 3000)
-        
+        setErrorMessage(t('google_callback_page.invalid_callback'))
+        setTimeout(() => navigate('/login'), 3000)
       } catch (error) {
         console.error('Callback error:', error)
         setStatus('error')
-        setErrorMessage('An error occurred processing the login')
-        
-        setTimeout(() => {
-          navigate('/login')
-        }, 3000)
+        setErrorMessage(t('google_callback_page.processing_error'))
+        setTimeout(() => navigate('/login'), 3000)
       }
     }
-    
+
     handleCallback()
-  }, [navigate, loginWithGoogle])
+  }, [navigate, loginWithGoogle, t])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
@@ -82,11 +57,11 @@ export function GoogleCallbackPage() {
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold mb-2">Processing Google Login...</h2>
-              <p className="text-gray-600">Please wait while we complete your authentication.</p>
+              <h2 className="text-xl font-semibold mb-2">{t('google_callback_page.processing_title')}</h2>
+              <p className="text-gray-600">{t('google_callback_page.processing_description')}</p>
             </>
           )}
-          
+
           {status === 'success' && (
             <>
               <div className="flex justify-center mb-4">
@@ -96,11 +71,11 @@ export function GoogleCallbackPage() {
                   </svg>
                 </div>
               </div>
-              <h2 className="text-xl font-semibold mb-2 text-green-600">Login Successful!</h2>
-              <p className="text-gray-600">Redirecting to homepage...</p>
+              <h2 className="text-xl font-semibold mb-2 text-green-600">{t('google_callback_page.success_title')}</h2>
+              <p className="text-gray-600">{t('google_callback_page.redirect_home')}</p>
             </>
           )}
-          
+
           {status === 'error' && (
             <>
               <div className="flex justify-center mb-4">
@@ -110,19 +85,16 @@ export function GoogleCallbackPage() {
                   </svg>
                 </div>
               </div>
-              <h2 className="text-xl font-semibold mb-2 text-red-600">Login Failed</h2>
+              <h2 className="text-xl font-semibold mb-2 text-red-600">{t('google_callback_page.error_title')}</h2>
               <p className="text-gray-600 mb-4">{errorMessage}</p>
-              <p className="text-sm text-gray-500">Redirecting back to login page...</p>
+              <p className="text-sm text-gray-500">{t('google_callback_page.redirect_login')}</p>
             </>
           )}
         </div>
-        
+
         <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate('/login')}
-            className="text-sm text-primary hover:text-primary/80"
-          >
-            ← Back to Login
+          <button onClick={() => navigate('/login')} className="text-sm text-primary hover:text-primary/80">
+            {t('google_callback_page.back_to_login')}
           </button>
         </div>
       </div>

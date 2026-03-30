@@ -96,7 +96,7 @@ function mapApiUser(u: UserItem): User {
     enrollments: 0,
     coursesCreated: undefined,
     joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
-    lastActive: u.last_login ? new Date(u.last_login).toLocaleDateString() : 'N/A'
+    lastActive: u.last_login ? new Date(u.last_login).toLocaleDateString() : ''
   }
 }
 
@@ -126,7 +126,7 @@ export function AdminUsersPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
@@ -196,7 +196,7 @@ export function AdminUsersPage() {
         setTotalPages(res.total_pages || 1)
         setTotalCount(res.count || 0)
       } catch {
-        if (!cancelled) toast.error('Khong the tai danh sach nguoi dung')
+        if (!cancelled) toast.error(t('admin_users.toasts.load_failed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -265,7 +265,7 @@ export function AdminUsersPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -278,30 +278,30 @@ export function AdminUsersPage() {
   const handleBanUser = async (userId: string) => {
     try {
       await adminUpdateUser(Number(userId), { status: 'banned' })
-      toast.success('Da cam nguoi dung')
+      toast.success(t('admin_users.toasts.ban_success'))
       await refreshAfterMutation()
     } catch {
-      toast.error('Thao tac that bai')
+      toast.error(t('admin_users.toasts.action_failed'))
     }
   }
 
   const handleUnbanUser = async (userId: string) => {
     try {
       await adminUpdateUser(Number(userId), { status: 'active' })
-      toast.success('Da mo cam nguoi dung')
+      toast.success(t('admin_users.toasts.unban_success'))
       await refreshAfterMutation()
     } catch {
-      toast.error('Thao tac that bai')
+      toast.error(t('admin_users.toasts.action_failed'))
     }
   }
 
   const handleDeleteUser = async (userId: string) => {
     try {
       await deleteUserApi(Number(userId))
-      toast.success('Da xoa nguoi dung')
+      toast.success(t('admin_users.toasts.delete_success'))
       await refreshAfterMutation()
     } catch {
-      toast.error('Thao tac that bai')
+      toast.error(t('admin_users.toasts.action_failed'))
     }
   }
 
@@ -326,7 +326,7 @@ export function AdminUsersPage() {
       setSelectedUserIds([])
       await refreshAfterMutation()
     } catch {
-      toast.error('Bulk action that bai')
+      toast.error(t('admin_users.toasts.bulk_failed'))
     }
   }
 
@@ -414,40 +414,40 @@ export function AdminUsersPage() {
 
       <AdminBulkActionBar
         count={selectedUserIds.length}
-        label="users selected"
+        label={t('admin_users.bulk.selected_label')}
         onClear={() => setSelectedUserIds([])}
         actions={[
           {
             key: 'activate',
-            label: 'Set Active',
+            label: t('admin_users.bulk.set_active'),
             onClick: () => openConfirm(
-              'Set users active',
-              `Set ${selectedUserIds.length} selected users to active status?`,
-              'Set Active',
-              () => bulkUpdateUsers(selectedUserIds, (id) => adminUpdateUser(Number(id), { status: 'active' }), 'Da cap nhat trang thai nguoi dung'),
+              t('admin_users.bulk.set_active_title'),
+              t('admin_users.bulk.set_active_description', { count: selectedUserIds.length }),
+              t('admin_users.bulk.set_active'),
+              () => bulkUpdateUsers(selectedUserIds, (id) => adminUpdateUser(Number(id), { status: 'active' }), t('admin_users.toasts.bulk_active_success')),
             ),
           },
           {
             key: 'ban',
-            label: 'Ban Users',
+            label: t('admin_users.ban_user'),
             destructive: true,
             onClick: () => openConfirm(
-              'Ban selected users',
-              `Ban ${selectedUserIds.length} selected users?`,
-              'Ban Users',
-              () => bulkUpdateUsers(selectedUserIds, (id) => adminUpdateUser(Number(id), { status: 'banned' }), 'Da cam nguoi dung'),
+              t('admin_users.bulk.ban_title'),
+              t('admin_users.bulk.ban_description', { count: selectedUserIds.length }),
+              t('admin_users.ban_user'),
+              () => bulkUpdateUsers(selectedUserIds, (id) => adminUpdateUser(Number(id), { status: 'banned' }), t('admin_users.toasts.bulk_ban_success')),
               true,
             ),
           },
           {
             key: 'delete',
-            label: 'Delete Users',
+            label: t('admin_users.delete_user'),
             destructive: true,
             onClick: () => openConfirm(
-              'Delete selected users',
-              `Delete ${selectedUserIds.length} selected users? This action cannot be undone.`,
-              'Delete Users',
-              () => bulkUpdateUsers(selectedUserIds, (id) => deleteUserApi(Number(id)), 'Da xoa nguoi dung'),
+              t('admin_users.bulk.delete_title'),
+              t('admin_users.bulk.delete_description', { count: selectedUserIds.length }),
+              t('admin_users.delete_user'),
+              () => bulkUpdateUsers(selectedUserIds, (id) => deleteUserApi(Number(id)), t('admin_users.toasts.bulk_delete_success')),
               true,
             ),
           },
@@ -516,14 +516,14 @@ export function AdminUsersPage() {
                         variant={statusBadge.variant}
                         className={cn("capitalize", statusBadge.className)}
                       >
-                        {user.status}
+                        {user.status === 'active' ? t('admin_users.active') : user.status === 'banned' ? t('admin_users.banned') : t('admin_users.pending')}
                       </Badge>
                     </TableCell>
                     <TableCell>{user.enrollments}</TableCell>
                     <TableCell>{user.coursesCreated || '-'}</TableCell>
                     <TableCell>{user.joinDate}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {user.lastActive}
+                      {user.lastActive || t('common.unknown')}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -549,8 +549,8 @@ export function AdminUsersPage() {
                           {user.status === 'active' ? (
                             <DropdownMenuItem
                               onClick={() => openConfirm(
-                                'Ban user',
-                                `Ban ${user.name}? They will lose access until unbanned.`,
+                                t('admin_users.actions.ban_title'),
+                                t('admin_users.actions.ban_description', { name: user.name }),
                                 t('admin_users.ban_user'),
                                 () => handleBanUser(user.id),
                                 true,
@@ -562,8 +562,8 @@ export function AdminUsersPage() {
                             </DropdownMenuItem>
                           ) : (
                             <DropdownMenuItem onClick={() => openConfirm(
-                              'Unban user',
-                              `Restore access for ${user.name}?`,
+                              t('admin_users.actions.unban_title'),
+                              t('admin_users.actions.unban_description', { name: user.name }),
                               t('admin_users.unban_user'),
                               () => handleUnbanUser(user.id),
                             )}>
@@ -573,8 +573,8 @@ export function AdminUsersPage() {
                           )}
                           <DropdownMenuItem
                             onClick={() => openConfirm(
-                              'Delete user',
-                              `Delete ${user.name}? This action cannot be undone.`,
+                              t('admin_users.actions.delete_title'),
+                              t('admin_users.actions.delete_description', { name: user.name }),
                               t('admin_users.delete_user'),
                               () => handleDeleteUser(user.id),
                               true,
@@ -598,7 +598,7 @@ export function AdminUsersPage() {
       {totalCount > 0 && (
         <div className="mt-4">
           <div className="text-sm text-muted-foreground mb-3">
-            Showing {startIdx}-{endIdx} of {totalCount} users
+            {t('admin_users.pagination_summary', { start: startIdx, end: endIdx, total: totalCount })}
           </div>
           <UserPagination
             currentPage={currentPage}

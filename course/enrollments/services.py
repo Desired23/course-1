@@ -19,9 +19,12 @@ def create_enrollment(data):
         dataCopy = {
             'user': user_val,
             'course': course_val,
+            'payment': data.get('payment'),
             'enrollment_date': datetime.now(),   
             'status': Enrollment.Status.Active,
             'expiry_date': data.get('expiry_date', None),
+            'source': data.get('source', Enrollment.Source.PURCHASE),
+            'subscription': data.get('subscription'),
             'progress': 0,
             'certificate_issue_date': None,
         }
@@ -30,6 +33,10 @@ def create_enrollment(data):
             dataCopy['user'] = getattr(dataCopy['user'], 'id')
         if hasattr(dataCopy.get('course'), 'id'):
             dataCopy['course'] = getattr(dataCopy['course'], 'id')
+        if hasattr(dataCopy.get('payment'), 'id'):
+            dataCopy['payment'] = getattr(dataCopy['payment'], 'id')
+        if hasattr(dataCopy.get('subscription'), 'id'):
+            dataCopy['subscription'] = getattr(dataCopy['subscription'], 'id')
 
         # If enrollment already exists, return it (idempotent)
         try:

@@ -7,6 +7,7 @@ import { Plus, Save } from 'lucide-react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { DraggableSectionCard } from './SectionDragDrop'
+import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
@@ -94,6 +95,7 @@ export function LessonEditorMain({
   moveLessonWithinSection,
   moveLessonBetweenSections
 }: LessonEditorMainProps) {
+  const { t } = useTranslation()
   
   const totalLessons = sections.reduce((total, section) => total + section.lessons.length, 0)
 
@@ -102,9 +104,9 @@ export function LessonEditorMain({
       {/* Header Actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Curriculum Builder</h2>
+          <h2 className="text-lg font-semibold">{t('lesson_editor_main.title')}</h2>
           <p className="text-sm text-muted-foreground">
-            {sections.length} sections • {totalLessons} lessons
+            {t('lesson_editor_main.summary', { sections: sections.length, lessons: totalLessons })}
           </p>
         </div>
         
@@ -114,11 +116,11 @@ export function LessonEditorMain({
             onClick={() => onShowAddSection(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Section
+            {t('lesson_editor_main.add_section')}
           </Button>
           <Button onClick={onSaveCurriculum}>
             <Save className="h-4 w-4 mr-2" />
-            Save Changes
+            {t('lesson_editor_main.save_changes')}
           </Button>
         </div>
       </div>
@@ -126,21 +128,21 @@ export function LessonEditorMain({
       {/* Add Section Form */}
       {showAddSection && (
         <Card className="p-6 border-primary/50 shadow-lg">
-          <h3 className="font-semibold mb-4">Add New Section</h3>
+          <h3 className="font-semibold mb-4">{t('lesson_editor_main.add_new_section')}</h3>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Section Title</label>
+              <label className="text-sm font-medium mb-2 block">{t('lesson_editor_main.section_title')}</label>
               <Input
-                placeholder="e.g., Introduction to JavaScript"
+                placeholder={t('lesson_editor_main.section_title_placeholder')}
                 value={newSection.title}
                 onChange={(e) => onNewSectionChange({ ...newSection, title: e.target.value })}
                 autoFocus
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">Description (Optional)</label>
+              <label className="text-sm font-medium mb-2 block">{t('lesson_editor_main.description_optional')}</label>
               <Textarea
-                placeholder="Brief description of this section..."
+                placeholder={t('lesson_editor_main.section_description_placeholder')}
                 value={newSection.description}
                 onChange={(e) => onNewSectionChange({ ...newSection, description: e.target.value })}
                 rows={3}
@@ -154,11 +156,11 @@ export function LessonEditorMain({
                   onNewSectionChange({ title: '', description: '' })
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={onAddSection}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Section
+                {t('lesson_editor_main.add_section')}
               </Button>
             </div>
           </div>
@@ -189,12 +191,12 @@ export function LessonEditorMain({
               addLessonContent={
                 showAddLesson === section.id && (
                   <Card className="p-4 bg-muted/30 border-dashed">
-                    <h4 className="text-sm font-medium mb-3">Add New Lesson</h4>
+                    <h4 className="text-sm font-medium mb-3">{t('lesson_editor_main.add_new_lesson')}</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="text-xs font-medium mb-1 block">Lesson Title</label>
+                        <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.lesson_title')}</label>
                         <Input
-                          placeholder="e.g., Variables and Data Types"
+                          placeholder={t('lesson_editor_main.lesson_title_placeholder')}
                           value={newLesson.title}
                           onChange={(e) => onNewLessonChange({ ...newLesson, title: e.target.value })}
                           autoFocus
@@ -203,7 +205,7 @@ export function LessonEditorMain({
                       
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs font-medium mb-1 block">Type</label>
+                          <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.type')}</label>
                           <Select
                             value={newLesson.type}
                             onValueChange={(value) => onNewLessonChange({ ...newLesson, type: value })}
@@ -212,18 +214,18 @@ export function LessonEditorMain({
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="video">Video</SelectItem>
-                              <SelectItem value="text">Article</SelectItem>
-                              <SelectItem value="quiz">Quiz</SelectItem>
-                              <SelectItem value="assignment">Assignment</SelectItem>
-                              <SelectItem value="file">File</SelectItem>
-                              <SelectItem value="link">Link</SelectItem>
+                              <SelectItem value="video">{t('lesson_editor_main.lesson_types.video')}</SelectItem>
+                              <SelectItem value="text">{t('lesson_editor_main.lesson_types.article')}</SelectItem>
+                              <SelectItem value="quiz">{t('lesson_editor_main.lesson_types.quiz')}</SelectItem>
+                              <SelectItem value="assignment">{t('lesson_editor_main.lesson_types.assignment')}</SelectItem>
+                              <SelectItem value="file">{t('lesson_editor_main.lesson_types.file')}</SelectItem>
+                              <SelectItem value="link">{t('lesson_editor_main.lesson_types.link')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         
                         <div>
-                          <label className="text-xs font-medium mb-1 block">Duration</label>
+                          <label className="text-xs font-medium mb-1 block">{t('common.duration')}</label>
                           <Input
                             placeholder="5:00"
                             value={newLesson.duration}
@@ -233,9 +235,9 @@ export function LessonEditorMain({
                       </div>
                       
                       <div>
-                        <label className="text-xs font-medium mb-1 block">Description (Optional)</label>
+                        <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.description_optional')}</label>
                         <Textarea
-                          placeholder="Brief description..."
+                          placeholder={t('lesson_editor_main.lesson_description_placeholder')}
                           value={newLesson.description}
                           onChange={(e) => onNewLessonChange({ ...newLesson, description: e.target.value })}
                           rows={2}
@@ -251,14 +253,14 @@ export function LessonEditorMain({
                             onNewLessonChange({ title: '', type: 'video', description: '', duration: '' })
                           }}
                         >
-                          Cancel
+                          {t('common.cancel')}
                         </Button>
                         <Button 
                           size="sm"
                           onClick={() => onAddLesson(section.id)}
                         >
                           <Plus className="h-4 w-4 mr-2" />
-                          Add Lesson
+                          {t('lesson_editor_main.add_lesson')}
                         </Button>
                       </div>
                     </div>
@@ -278,13 +280,13 @@ export function LessonEditorMain({
               <Plus className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold mb-2">No sections yet</h3>
+              <h3 className="font-semibold mb-2">{t('lesson_editor_main.no_sections_title')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Start building your course curriculum by adding your first section
+                {t('lesson_editor_main.no_sections_description')}
               </p>
               <Button onClick={() => onShowAddSection(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Your First Section
+                {t('lesson_editor_main.add_first_section')}
               </Button>
             </div>
           </div>

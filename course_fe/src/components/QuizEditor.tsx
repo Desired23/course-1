@@ -10,6 +10,7 @@ import { Switch } from "./ui/switch"
 import { Plus, Trash2, GripVertical, Code, Image as ImageIcon, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useDrag, useDrop } from 'react-dnd'
+import { useTranslation } from 'react-i18next'
 
 interface QuizQuestion {
   id: number
@@ -62,6 +63,7 @@ function DraggableQuestion({
   onRemoveOption,
   moveQuestion
 }: DraggableQuestionProps) {
+  const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
 
   const [{ isDragging }, drag] = useDrag({
@@ -119,7 +121,7 @@ function DraggableQuestion({
           <div className="flex items-center gap-2">
             <Badge variant="secondary">Q{index + 1}</Badge>
             <span className="font-medium">
-              {question.question || 'Untitled Question'}
+              {question.question || t('quiz_editor.question_card.untitled')}
             </span>
           </div>
           <Badge variant="outline">{question.type.replace('_', ' ')}</Badge>
@@ -141,7 +143,7 @@ function DraggableQuestion({
       {isExpanded && (
         <CardContent className="p-6 space-y-4">
           <div className="space-y-2">
-            <Label>Question Type</Label>
+            <Label>{t('quiz_editor.question_card.type')}</Label>
             <Select
               value={question.type}
               onValueChange={(value: any) => onUpdate({ type: value })}
@@ -150,17 +152,17 @@ function DraggableQuestion({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                <SelectItem value="true_false">True/False</SelectItem>
-                <SelectItem value="short_answer">Short Answer</SelectItem>
+                <SelectItem value="multiple_choice">{t('quiz_editor.types.multiple_choice')}</SelectItem>
+                <SelectItem value="true_false">{t('quiz_editor.types.true_false')}</SelectItem>
+                <SelectItem value="short_answer">{t('quiz_editor.types.short_answer')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Question Text</Label>
+            <Label>{t('quiz_editor.question_card.text')}</Label>
             <Textarea
-              placeholder="Enter your question..."
+              placeholder={t('quiz_editor.question_card.text_placeholder')}
               value={question.question}
               onChange={(e) => onUpdate({ question: e.target.value })}
               rows={3}
@@ -178,11 +180,11 @@ function DraggableQuestion({
                   })
                 }}
               />
-              <Label>Include Code Snippet</Label>
+              <Label>{t('quiz_editor.question_card.include_code_snippet')}</Label>
             </div>
             {question.codeSnippet !== undefined && (
               <Textarea
-                placeholder="Paste code here..."
+                placeholder={t('quiz_editor.question_card.code_snippet_placeholder')}
                 value={question.codeSnippet}
                 onChange={(e) => onUpdate({ codeSnippet: e.target.value })}
                 className="font-mono text-sm"
@@ -202,11 +204,11 @@ function DraggableQuestion({
                   })
                 }}
               />
-              <Label>Include Image</Label>
+              <Label>{t('quiz_editor.question_card.include_image')}</Label>
             </div>
             {question.imageUrl !== undefined && (
               <Input
-                placeholder="Image URL..."
+                placeholder={t('quiz_editor.question_card.image_url_placeholder')}
                 value={question.imageUrl}
                 onChange={(e) => onUpdate({ imageUrl: e.target.value })}
               />
@@ -216,11 +218,11 @@ function DraggableQuestion({
           {/* Answer Options */}
           {(question.type === 'multiple_choice' || question.type === 'true_false') && (
             <div className="space-y-2">
-              <Label>Answer Options</Label>
+              <Label>{t('quiz_editor.question_card.answer_options')}</Label>
               <div className="space-y-2">
                 {question.type === 'true_false' ? (
                   <>
-                    {['True', 'False'].map((option, idx) => (
+                    {[t('quiz_editor.question_card.true_value'), t('quiz_editor.question_card.false_value')].map((option, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <input
                           type="radio"
@@ -245,7 +247,7 @@ function DraggableQuestion({
                           className="h-4 w-4"
                         />
                         <Input
-                          placeholder={`Option ${idx + 1}`}
+                          placeholder={t('quiz_editor.question_card.option_placeholder', { index: idx + 1 })}
                           value={option}
                           onChange={(e) => onUpdateOption(idx, e.target.value)}
                         />
@@ -266,7 +268,7 @@ function DraggableQuestion({
                       onClick={onAddOption}
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Option
+                      {t('quiz_editor.question_card.add_option')}
                     </Button>
                   </>
                 )}
@@ -276,9 +278,9 @@ function DraggableQuestion({
 
           {question.type === 'short_answer' && (
             <div className="space-y-2">
-              <Label>Correct Answer</Label>
+              <Label>{t('quiz_editor.question_card.correct_answer')}</Label>
               <Input
-                placeholder="Enter the correct answer..."
+                placeholder={t('quiz_editor.question_card.correct_answer_placeholder')}
                 value={question.correctAnswer as string}
                 onChange={(e) => onUpdate({ correctAnswer: e.target.value })}
               />
@@ -286,9 +288,9 @@ function DraggableQuestion({
           )}
 
           <div className="space-y-2">
-            <Label>Explanation (optional)</Label>
+            <Label>{t('quiz_editor.question_card.explanation')}</Label>
             <Textarea
-              placeholder="Explain the correct answer..."
+              placeholder={t('quiz_editor.question_card.explanation_placeholder')}
               value={question.explanation || ''}
               onChange={(e) => onUpdate({ explanation: e.target.value })}
               rows={2}
@@ -296,7 +298,7 @@ function DraggableQuestion({
           </div>
 
           <div className="space-y-2">
-            <Label>Points</Label>
+            <Label>{t('quiz_editor.question_card.points')}</Label>
             <Input
               type="number"
               min="1"
@@ -311,6 +313,7 @@ function DraggableQuestion({
 }
 
 export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
+  const { t } = useTranslation()
   const [title, setTitle] = useState(quizData?.title || '')
   const [description, setDescription] = useState(quizData?.description || '')
   const [passingScore, setPassingScore] = useState(quizData?.passingScore || 70)
@@ -342,7 +345,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
 
   const deleteQuestion = (id: number) => {
     setQuestions(questions.filter(q => q.id !== id))
-    toast.success('Question deleted')
+    toast.success(t('quiz_editor.toasts.question_deleted'))
   }
 
   const moveQuestion = (dragIndex: number, hoverIndex: number) => {
@@ -381,23 +384,23 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
 
   const handleSave = () => {
     if (!title.trim()) {
-      toast.error('Please enter a quiz title')
+      toast.error(t('quiz_editor.toasts.enter_title'))
       return
     }
 
     if (questions.length === 0) {
-      toast.error('Please add at least one question')
+      toast.error(t('quiz_editor.toasts.add_question'))
       return
     }
 
     // Validate questions
     for (const q of questions) {
       if (!q.question.trim()) {
-        toast.error('All questions must have text')
+        toast.error(t('quiz_editor.toasts.question_text_required'))
         return
       }
       if (q.type === 'multiple_choice' && q.options.some(o => !o.trim())) {
-        toast.error('All answer options must be filled')
+        toast.error(t('quiz_editor.toasts.answer_options_required'))
         return
       }
     }
@@ -416,22 +419,22 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
       {/* Quiz Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>Quiz Settings</CardTitle>
+          <CardTitle>{t('quiz_editor.settings.title')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Quiz Title</Label>
+            <Label>{t('quiz_editor.settings.quiz_title')}</Label>
             <Input
-              placeholder="e.g., JavaScript Fundamentals Quiz"
+              placeholder={t('quiz_editor.settings.quiz_title_placeholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Description</Label>
+            <Label>{t('quiz_editor.settings.description')}</Label>
             <Textarea
-              placeholder="Describe what this quiz covers..."
+              placeholder={t('quiz_editor.settings.description_placeholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -440,7 +443,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Passing Score (%)</Label>
+              <Label>{t('quiz_editor.settings.passing_score')}</Label>
               <Input
                 type="number"
                 min="0"
@@ -451,7 +454,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Time Limit (minutes, 0 = unlimited)</Label>
+              <Label>{t('quiz_editor.settings.time_limit')}</Label>
               <Input
                 type="number"
                 min="0"
@@ -466,20 +469,20 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
       {/* Questions */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Questions ({questions.length})</h3>
+          <h3 className="font-semibold">{t('quiz_editor.questions.title', { count: questions.length })}</h3>
           <Button onClick={addQuestion} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Add Question
+            {t('quiz_editor.questions.add')}
           </Button>
         </div>
 
         {questions.length === 0 && (
           <Card>
             <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground mb-4">No questions yet</p>
+              <p className="text-muted-foreground mb-4">{t('quiz_editor.questions.empty')}</p>
               <Button onClick={addQuestion}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add First Question
+                {t('quiz_editor.questions.add_first')}
               </Button>
             </CardContent>
           </Card>
@@ -505,10 +508,10 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
       {/* Action Buttons */}
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button variant="outline" onClick={onCancel}>
-          Cancel
+          {t('quiz_editor.actions.cancel')}
         </Button>
         <Button onClick={handleSave}>
-          Save Quiz
+          {t('quiz_editor.actions.save')}
         </Button>
       </div>
     </div>

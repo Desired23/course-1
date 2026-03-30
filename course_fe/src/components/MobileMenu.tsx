@@ -3,6 +3,7 @@ import { useRouter } from "./Router"
 import { useAuth } from "../contexts/AuthContext"
 import { useUIStore } from "../stores"
 import { Button } from "./ui/button"
+import { useTranslation } from "react-i18next"
 import { 
   Sheet,
   SheetContent,
@@ -47,17 +48,18 @@ import {
 } from 'lucide-react'
 
 const categories = [
-  { id: 'development', name: 'Development', icon: Code, color: 'text-purple-500' },
-  { id: 'business', name: 'Business', icon: Briefcase, color: 'text-blue-500' },
-  { id: 'design', name: 'Design', icon: Palette, color: 'text-pink-500' },
-  { id: 'marketing', name: 'Marketing', icon: Megaphone, color: 'text-orange-500' },
-  { id: 'photography', name: 'Photography', icon: Camera, color: 'text-green-500' },
-  { id: 'music', name: 'Music', icon: Music, color: 'text-red-500' },
-  { id: 'fitness', name: 'Health & Fitness', icon: Dumbbell, color: 'text-yellow-500' },
-  { id: 'teaching', name: 'Teaching & Academics', icon: Book, color: 'text-indigo-500' },
+  { id: 'development', nameKey: 'mobile_menu.categories.development', icon: Code, color: 'text-purple-500' },
+  { id: 'business', nameKey: 'mobile_menu.categories.business', icon: Briefcase, color: 'text-blue-500' },
+  { id: 'design', nameKey: 'mobile_menu.categories.design', icon: Palette, color: 'text-pink-500' },
+  { id: 'marketing', nameKey: 'mobile_menu.categories.marketing', icon: Megaphone, color: 'text-orange-500' },
+  { id: 'photography', nameKey: 'mobile_menu.categories.photography', icon: Camera, color: 'text-green-500' },
+  { id: 'music', nameKey: 'mobile_menu.categories.music', icon: Music, color: 'text-red-500' },
+  { id: 'fitness', nameKey: 'mobile_menu.categories.fitness', icon: Dumbbell, color: 'text-yellow-500' },
+  { id: 'teaching', nameKey: 'mobile_menu.categories.teaching', icon: Book, color: 'text-indigo-500' },
 ]
 
 export function MobileMenu() {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const { navigate } = useRouter()
   const { user, logout, hasRole } = useAuth()
@@ -106,14 +108,14 @@ export function MobileMenu() {
                     </div>
                   </div>
                   <SheetDescription className="sr-only">
-                    User profile and navigation menu
+                    {t('mobile_menu.user_menu_description')}
                   </SheetDescription>
                 </>
               ) : (
                 <div className="space-y-2">
-                  <SheetTitle>Welcome!</SheetTitle>
+                  <SheetTitle>{t('mobile_menu.welcome')}</SheetTitle>
                   <SheetDescription className="sr-only">
-                    Login or sign up to access your account
+                    {t('mobile_menu.auth_description')}
                   </SheetDescription>
                   <div className="flex gap-2">
                     <Button 
@@ -122,7 +124,7 @@ export function MobileMenu() {
                       onClick={() => handleNavigate('/login')}
                     >
                       <LogIn className="h-4 w-4 mr-2" />
-                      Log in
+                      {t('auth.login')}
                     </Button>
                     <Button 
                       variant="outline" 
@@ -130,7 +132,7 @@ export function MobileMenu() {
                       onClick={() => handleNavigate('/signup')}
                     >
                       <UserPlus className="h-4 w-4 mr-2" />
-                      Sign up
+                      {t('auth.signup')}
                     </Button>
                   </div>
                 </div>
@@ -144,7 +146,7 @@ export function MobileMenu() {
               {/* General Links */}
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
-                  MENU
+                  {t('mobile_menu.sections.menu')}
                 </div>
                 <nav className="space-y-1">
                   <Button
@@ -153,7 +155,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/')}
                   >
                     <Home className="h-4 w-4 mr-3" />
-                    Home
+                    {t('sidebar.home')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -161,7 +163,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/courses')}
                   >
                     <BookOpen className="h-4 w-4 mr-3" />
-                    All Courses
+                    {t('mobile_menu.all_courses')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -169,7 +171,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/search')}
                   >
                     <Search className="h-4 w-4 mr-3" />
-                    Search
+                    {t('common.search')}
                   </Button>
                 </nav>
               </div>
@@ -180,7 +182,7 @@ export function MobileMenu() {
                   <Separator className="my-4" />
                   <div className="px-3 mb-4">
                     <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
-                      MY LEARNING
+                      {t('mobile_menu.sections.my_learning')}
                     </div>
                     <nav className="space-y-1">
                       <Button
@@ -189,7 +191,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/my-learning')}
                       >
                         <GraduationCap className="h-4 w-4 mr-3" />
-                        My Courses
+                        {t('common.my_courses')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -197,7 +199,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/wishlist')}
                       >
                         <Heart className="h-4 w-4 mr-3" />
-                        Wishlist
+                        {t('mobile_menu.wishlist')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -205,7 +207,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/cart')}
                       >
                         <ShoppingCart className="h-4 w-4 mr-3" />
-                        Shopping Cart
+                        {t('bottom_nav.cart')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -213,7 +215,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/notifications')}
                       >
                         <Bell className="h-4 w-4 mr-3" />
-                        Notifications
+                        {t('mobile_menu.notifications')}
                       </Button>
                     </nav>
                   </div>
@@ -226,7 +228,7 @@ export function MobileMenu() {
                   <Separator className="my-4" />
                   <div className="px-3 mb-4">
                     <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
-                      INSTRUCTOR
+                      {t('mobile_menu.sections.instructor')}
                     </div>
                     <nav className="space-y-1">
                       <Button
@@ -235,7 +237,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/instructor')}
                       >
                         <BarChart3 className="h-4 w-4 mr-3" />
-                        Dashboard
+                        {t('common.dashboard')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -243,7 +245,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/instructor/courses')}
                       >
                         <BookOpen className="h-4 w-4 mr-3" />
-                        My Courses
+                        {t('common.my_courses')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -251,7 +253,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/instructor/earnings')}
                       >
                         <DollarSign className="h-4 w-4 mr-3" />
-                        Earnings
+                        {t('mobile_menu.earnings')}
                       </Button>
                     </nav>
                   </div>
@@ -264,7 +266,7 @@ export function MobileMenu() {
                   <Separator className="my-4" />
                   <div className="px-3 mb-4">
                     <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
-                      ADMIN
+                      {t('mobile_menu.sections.admin')}
                     </div>
                     <nav className="space-y-1">
                       <Button
@@ -273,7 +275,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/admin')}
                       >
                         <BarChart3 className="h-4 w-4 mr-3" />
-                        Dashboard
+                        {t('common.dashboard')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -281,7 +283,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/admin/users')}
                       >
                         <User className="h-4 w-4 mr-3" />
-                        Users
+                        {t('sidebar.users')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -289,7 +291,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/admin/courses')}
                       >
                         <BookOpen className="h-4 w-4 mr-3" />
-                        Courses
+                        {t('common.courses')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -297,7 +299,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate('/admin/settings')}
                       >
                         <Settings className="h-4 w-4 mr-3" />
-                        Settings
+                        {t('sidebar.settings')}
                       </Button>
                     </nav>
                   </div>
@@ -308,7 +310,7 @@ export function MobileMenu() {
               <Separator className="my-4" />
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
-                  CATEGORIES
+                  {t('mobile_menu.sections.categories')}
                 </div>
                 <nav className="space-y-1">
                   {categories.map((category) => {
@@ -321,7 +323,7 @@ export function MobileMenu() {
                         onClick={() => handleNavigate(`/courses?category=${category.id}`)}
                       >
                         <Icon className={`h-4 w-4 mr-3 ${category.color}`} />
-                        {category.name}
+                        {t(category.nameKey)}
                         <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
                       </Button>
                     )
@@ -333,7 +335,7 @@ export function MobileMenu() {
               <Separator className="my-4" />
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
-                  BUSINESS
+                  {t('mobile_menu.sections.business')}
                 </div>
                 <nav className="space-y-1">
                   <Button
@@ -342,7 +344,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/udemy-business')}
                   >
                     <Briefcase className="h-4 w-4 mr-3" />
-                    Udemy Business
+                    {t('common.udemy_business')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -350,7 +352,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/teach')}
                   >
                     <Sparkles className="h-4 w-4 mr-3" />
-                    Teach on Udemy
+                    {t('common.teach_on_udemy')}
                   </Button>
                 </nav>
               </div>
@@ -369,7 +371,7 @@ export function MobileMenu() {
                 ) : (
                   <Moon className="h-4 w-4 mr-3" />
                 )}
-                {darkMode ? 'Light Mode' : 'Dark Mode'}
+                {darkMode ? t('mobile_menu.light_mode') : t('mobile_menu.dark_mode')}
               </Button>
 
               {user && (
@@ -380,7 +382,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/profile')}
                   >
                     <User className="h-4 w-4 mr-3" />
-                    Profile
+                    {t('common.profile')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -388,7 +390,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/account-settings')}
                   >
                     <Settings className="h-4 w-4 mr-3" />
-                    Settings
+                    {t('sidebar.settings')}
                   </Button>
                   <Separator className="my-2" />
                   <Button
@@ -397,7 +399,7 @@ export function MobileMenu() {
                     onClick={handleLogout}
                   >
                     <LogOut className="h-4 w-4 mr-3" />
-                    Log out
+                    {t('common.log_out')}
                   </Button>
                 </>
               )}

@@ -50,6 +50,7 @@ class EnrollmentCreateSerializer(serializers.ModelSerializer):
         fields = [
             'user',
             'course',
+            'payment',
             'enrollment_date',
             'status',
             'source',

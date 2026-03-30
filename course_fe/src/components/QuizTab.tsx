@@ -551,8 +551,8 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                 <Select value={editingQuestion.correctAnswer || 'true'} onValueChange={(value) => handleQuestionUpdate({ correctAnswer: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="true">True</SelectItem>
-                    <SelectItem value="false">False</SelectItem>
+                    <SelectItem value="true">{t('quiz_tab.true')}</SelectItem>
+                    <SelectItem value="false">{t('quiz_tab.false')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

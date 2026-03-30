@@ -34,6 +34,7 @@ import { QuizTab } from './QuizTab'
 import { SettingsTab } from './SettingsTab'
 import { LessonPreviewModal } from './LessonPreviewModal'
 import { EnhancedCodeQuizCreator, EnhancedCodeQuizData } from './EnhancedCodeQuizCreator'
+import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
@@ -58,19 +59,13 @@ interface LessonEditorDialogProps {
   onSave: (lesson: Lesson) => void
 }
 
-const STEPS = [
-  { id: 'basic', title: 'Basic Info', icon: FileText, description: 'Title, type & metadata' },
-  { id: 'content', title: 'Content', icon: Code, description: 'Main lesson content' },
-  { id: 'resources', title: 'Resources', icon: Paperclip, description: 'Attachments & links' },
-  { id: 'settings', title: 'Settings', icon: Settings, description: 'Visibility & access' },
-]
-
 export function LessonEditorDialog({
   lesson,
   open,
   onOpenChange,
   onSave
 }: LessonEditorDialogProps) {
+  const { t } = useTranslation()
   const [currentStep, setCurrentStep] = useState(0)
   const [editedLesson, setEditedLesson] = useState<Lesson | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -114,7 +109,7 @@ export function LessonEditorDialog({
   const handleClose = () => {
     if (isDirty) {
       const confirmed = window.confirm(
-        'You have unsaved changes. Are you sure you want to close?'
+        t('lesson_editor_dialog.unsaved_changes_confirm')
       )
       if (!confirmed) return
     }
@@ -126,7 +121,7 @@ export function LessonEditorDialog({
 
     // Validation
     if (!editedLesson.title.trim()) {
-      toast.error('Please enter a lesson title')
+      toast.error(t('lesson_editor_dialog.enter_lesson_title'))
       setCurrentStep(0)
       return
     }
@@ -140,9 +135,9 @@ export function LessonEditorDialog({
       onSave(editedLesson)
       setIsDirty(false)
       setLastSaved(new Date())
-      toast.success('Lesson saved successfully!')
+      toast.success(t('lesson_editor_dialog.save_success'))
     } catch (error) {
-      toast.error('Failed to save lesson')
+      toast.error(t('lesson_editor_dialog.save_failed'))
     } finally {
       setIsSaving(false)
     }
@@ -157,7 +152,7 @@ export function LessonEditorDialog({
     if (currentStep < STEPS.length - 1) {
       // Validation before moving from Basic
       if (currentStep === 0 && !editedLesson?.title.trim()) {
-        toast.error('Please enter a lesson title')
+        toast.error(t('lesson_editor_dialog.enter_lesson_title'))
         return
       }
       setCurrentStep(curr => curr + 1)
@@ -173,6 +168,32 @@ export function LessonEditorDialog({
   if (!editedLesson) return null
 
   const contentType = editedLesson.content_type || editedLesson.type
+  const steps = [
+    {
+      id: 'basic',
+      title: t('lesson_editor_dialog.steps.basic.title'),
+      icon: FileText,
+      description: t('lesson_editor_dialog.steps.basic.description'),
+    },
+    {
+      id: 'content',
+      title: t('lesson_editor_dialog.steps.content.title'),
+      icon: Code,
+      description: t('lesson_editor_dialog.steps.content.description'),
+    },
+    {
+      id: 'resources',
+      title: t('lesson_editor_dialog.steps.resources.title'),
+      icon: Paperclip,
+      description: t('lesson_editor_dialog.steps.resources.description'),
+    },
+    {
+      id: 'settings',
+      title: t('lesson_editor_dialog.steps.settings.title'),
+      icon: Settings,
+      description: t('lesson_editor_dialog.steps.settings.description'),
+    },
+  ]
   
   const statusConfig = {
     published: {
@@ -202,10 +223,10 @@ export function LessonEditorDialog({
               <div className="mb-4">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <Code className="h-5 w-5 text-red-500" />
-                  Coding Exercise Configuration
+                  {t('lesson_editor_dialog.coding_exercise_title')}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Configure the coding problem, test cases, and constraints.
+                  {t('lesson_editor_dialog.coding_exercise_description')}
                 </p>
               </div>
               <div className="flex-1 border rounded-md overflow-hidden bg-background">
@@ -242,15 +263,15 @@ export function LessonEditorDialog({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <DialogTitle className="text-2xl font-bold mb-2">
-                  {editedLesson.id ? 'Edit Lesson' : 'New Lesson'}
+                  {editedLesson.id ? t('lesson_editor_dialog.edit_lesson') : t('lesson_editor_dialog.new_lesson')}
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-3">
                   <Badge variant="outline" className={cn("gap-1.5 py-1 px-2", currentStatus.color)}>
                     <currentStatus.icon className="h-3.5 w-3.5" />
-                    {editedLesson.status === 'published' ? 'Published' : 'Draft'}
+                    {editedLesson.status === 'published' ? t('lesson_editor_dialog.published') : t('lesson_editor_dialog.draft')}
                   </Badge>
                   <span className="text-muted-foreground">|</span>
-                  <span className="font-medium text-foreground">{editedLesson.title || 'Untitled Lesson'}</span>
+                  <span className="font-medium text-foreground">{editedLesson.title || t('lesson_editor_dialog.untitled_lesson')}</span>
                 </DialogDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -270,7 +291,7 @@ export function LessonEditorDialog({
           <div className="px-6 pb-4">
             <div className="relative flex items-center justify-between w-full max-w-3xl mx-auto">
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-muted -z-10" />
-              {STEPS.map((step, index) => {
+              {steps.map((step, index) => {
                 const isActive = index === currentStep
                 const isCompleted = index < currentStep
                 const Icon = step.icon
@@ -325,7 +346,7 @@ export function LessonEditorDialog({
              {lastSaved && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3" />
-                Saved {lastSaved.toLocaleTimeString()}
+                {t('lesson_editor_dialog.saved_at', { time: lastSaved.toLocaleTimeString() })}
               </span>
              )}
           </div>
@@ -338,29 +359,29 @@ export function LessonEditorDialog({
               className="w-24"
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
-              Back
+              {t('lesson_editor_dialog.back')}
             </Button>
             
-            {currentStep < STEPS.length - 1 ? (
+            {currentStep < steps.length - 1 ? (
               <Button onClick={handleNext} className="w-24">
-                Next
+                {t('lesson_editor_dialog.next')}
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
               <div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setShowPreview(true)}>
-                   Preview
+                   {t('lesson_editor_dialog.preview')}
                 </Button>
                 <Button onClick={handleSave} disabled={isSaving}>
                   {isSaving ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving
+                      {t('lesson_editor_dialog.saving')}
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4 mr-2" />
-                      Complete & Save
+                      {t('lesson_editor_dialog.complete_and_save')}
                     </>
                   )}
                 </Button>

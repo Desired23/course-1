@@ -1,4 +1,5 @@
 import React, { Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useRouter } from '../components/Router'
 import { publicRoutes } from './public.routes'
 import { userRoutes } from './user.routes'
@@ -6,14 +7,17 @@ import { instructorRoutes } from './instructor.routes'
 import { adminRoutes } from './admin.routes'
 
 function RouteLoadingFallback() {
+  const { t } = useTranslation()
+
   return (
     <div className="flex min-h-[40vh] items-center justify-center p-6">
-      <div className="text-sm text-muted-foreground">Dang tai trang...</div>
+      <div className="text-sm text-muted-foreground">{t('app_routes.loading')}</div>
     </div>
   )
 }
 
 export function AppRoutes() {
+  const { t } = useTranslation()
   const { currentRoute } = useRouter()
   
   // Normalize current path by removing query strings for matching
@@ -61,5 +65,5 @@ export function AppRoutes() {
     <Suspense fallback={<RouteLoadingFallback />}>
       <>{homeRoute.element}</>
     </Suspense>
-  ) : <div>404 - Page Not Found</div>
+  ) : <div>{t('app_routes.not_found')}</div>
 }

@@ -10,10 +10,12 @@ import { TrendingUp, TrendingDown, Users, BookOpen, DollarSign, Star, Download, 
 import { useAuth } from '../../contexts/AuthContext'
 import { getAdminDashboardStats, getAdminRevenueAnalytics, getAdminUserAnalytics, getAdminCourseAnalytics } from '../../services/admin.api'
 import { getAllCategories } from '../../services/category.api'
+import { useTranslation } from 'react-i18next'
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#ff6b6b', '#4ecdc4', '#45b7d1']
 
 export function StatisticsPage() {
+  const { t } = useTranslation()
   const { canAccess } = useAuth()
   const [chartType, setChartType] = useState('bar')
   const [timeRange, setTimeRange] = useState('6months')
@@ -50,11 +52,11 @@ export function StatisticsPage() {
         setDetailedCourses(courses.map((c: any) => ({
           id: c.course_id,
           title: c.title,
-          instructor: c.instructor_name || 'N/A',
+          instructor: c.instructor_name || t('admin_statistics.not_available'),
           students: c.enrollment_count,
           revenue: 0,
           rating: c.rating,
-          status: 'Active'
+          status: 'active'
         })))
         setCourseCategories(categories.map((cat: any, idx: number) => ({
           name: cat.name,
@@ -73,7 +75,7 @@ export function StatisticsPage() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>You don't have permission to view statistics.</p>
+            <p>{t('admin_statistics.permission_denied')}</p>
           </CardContent>
         </Card>
       </div>
@@ -155,27 +157,27 @@ export function StatisticsPage() {
     <div className="p-6 space-y-6 overflow-x-hidden">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Platform Statistics</h1>
-          <p className="text-muted-foreground">Comprehensive analytics and insights</p>
+          <h1 className="text-3xl font-bold">{t('admin_statistics.title')}</h1>
+          <p className="text-muted-foreground">{t('admin_statistics.subtitle')}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
             <Download className="h-4 w-4 mr-2" />
-            Export
+            {t('admin_statistics.export')}
           </Button>
           <Button variant="outline" size="sm">
             <Calendar className="h-4 w-4 mr-2" />
-            Schedule Report
+            {t('admin_statistics.schedule_report')}
           </Button>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="detailed">Detailed Analysis</TabsTrigger>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="overview">{t('admin_statistics.tabs.overview')}</TabsTrigger>
+          <TabsTrigger value="detailed">{t('admin_statistics.tabs.detailed')}</TabsTrigger>
+          <TabsTrigger value="trends">{t('admin_statistics.tabs.trends')}</TabsTrigger>
+          <TabsTrigger value="reports">{t('admin_statistics.tabs.reports')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -183,53 +185,53 @@ export function StatisticsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_statistics.metrics.total_revenue')}</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">${(stats.total_revenue || 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +${(stats.this_month_revenue || 0).toLocaleString()} this month
+                  {t('admin_statistics.metrics.this_month_revenue', { amount: (stats.this_month_revenue || 0).toLocaleString() })}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Students</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_statistics.metrics.active_students')}</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{(stats.active_students || 0).toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +{stats.new_users_this_month || 0} new this month
+                  {t('admin_statistics.metrics.new_users_this_month', { count: stats.new_users_this_month || 0 })}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Published Courses</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_statistics.metrics.published_courses')}</CardTitle>
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.published_courses || 0}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  {stats.pending_courses || 0} pending
+                  {t('admin_statistics.metrics.pending_courses', { count: stats.pending_courses || 0 })}
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+                <CardTitle className="text-sm font-medium">{t('admin_statistics.metrics.average_rating')}</CardTitle>
                 <Star className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.platform_rating || 0}</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
-                  +0.1 from last month
+                  {t('admin_statistics.metrics.from_last_month')}
                 </p>
               </CardContent>
             </Card>
@@ -240,8 +242,8 @@ export function StatisticsPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle>Revenue Analytics</CardTitle>
-                  <CardDescription>Financial performance over time</CardDescription>
+                  <CardTitle>{t('admin_statistics.revenue_analytics.title')}</CardTitle>
+                  <CardDescription>{t('admin_statistics.revenue_analytics.description')}</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Select value={chartType} onValueChange={setChartType}>
@@ -249,10 +251,10 @@ export function StatisticsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bar">Bar Chart</SelectItem>
-                      <SelectItem value="line">Line Chart</SelectItem>
-                      <SelectItem value="area">Area Chart</SelectItem>
-                      <SelectItem value="pie">Pie Chart</SelectItem>
+                      <SelectItem value="bar">{t('admin_statistics.charts.bar')}</SelectItem>
+                      <SelectItem value="line">{t('admin_statistics.charts.line')}</SelectItem>
+                      <SelectItem value="area">{t('admin_statistics.charts.area')}</SelectItem>
+                      <SelectItem value="pie">{t('admin_statistics.charts.pie')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={timeRange} onValueChange={setTimeRange}>
@@ -260,10 +262,10 @@ export function StatisticsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1month">1 Month</SelectItem>
-                      <SelectItem value="3months">3 Months</SelectItem>
-                      <SelectItem value="6months">6 Months</SelectItem>
-                      <SelectItem value="1year">1 Year</SelectItem>
+                      <SelectItem value="1month">{t('admin_statistics.time_ranges.1month')}</SelectItem>
+                      <SelectItem value="3months">{t('admin_statistics.time_ranges.3months')}</SelectItem>
+                      <SelectItem value="6months">{t('admin_statistics.time_ranges.6months')}</SelectItem>
+                      <SelectItem value="1year">{t('admin_statistics.time_ranges.1year')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -280,12 +282,12 @@ export function StatisticsPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle>Course Performance</CardTitle>
-                  <CardDescription>Detailed breakdown of course metrics</CardDescription>
+                  <CardTitle>{t('admin_statistics.course_performance.title')}</CardTitle>
+                  <CardDescription>{t('admin_statistics.course_performance.description')}</CardDescription>
                 </div>
                 <Button variant="outline" size="sm">
                   <Filter className="h-4 w-4 mr-2" />
-                  Filter
+                  {t('common.filter')}
                 </Button>
               </div>
             </CardHeader>
@@ -293,12 +295,12 @@ export function StatisticsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Course Title</TableHead>
-                    <TableHead>Instructor</TableHead>
-                    <TableHead>Students</TableHead>
-                    <TableHead>Revenue</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>{t('admin_statistics.table.course_title')}</TableHead>
+                    <TableHead>{t('admin_statistics.table.instructor')}</TableHead>
+                    <TableHead>{t('admin_statistics.table.students')}</TableHead>
+                    <TableHead>{t('admin_statistics.table.revenue')}</TableHead>
+                    <TableHead>{t('admin_statistics.table.rating')}</TableHead>
+                    <TableHead>{t('admin_statistics.table.status')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -315,8 +317,8 @@ export function StatisticsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={course.status === 'Active' ? 'default' : 'secondary'}>
-                          {course.status}
+                        <Badge variant={course.status === 'active' ? 'default' : 'secondary'}>
+                          {course.status === 'active' ? t('admin_statistics.status.active') : t('admin_statistics.status.inactive')}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -331,8 +333,8 @@ export function StatisticsPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>User Growth Trend</CardTitle>
-                <CardDescription>Students vs Instructors over time</CardDescription>
+                <CardTitle>{t('admin_statistics.user_growth.title')}</CardTitle>
+                <CardDescription>{t('admin_statistics.user_growth.description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -351,8 +353,8 @@ export function StatisticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Course Categories</CardTitle>
-                <CardDescription>Distribution by category</CardDescription>
+                <CardTitle>{t('admin_statistics.course_categories.title')}</CardTitle>
+                <CardDescription>{t('admin_statistics.course_categories.description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -383,31 +385,31 @@ export function StatisticsPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
-                <CardTitle className="text-lg">Monthly Report</CardTitle>
-                <CardDescription>Comprehensive monthly analytics</CardDescription>
+                <CardTitle className="text-lg">{t('admin_statistics.reports.monthly.title')}</CardTitle>
+                <CardDescription>{t('admin_statistics.reports.monthly.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">Generate Report</Button>
+                <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
               </CardContent>
             </Card>
             
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
-                <CardTitle className="text-lg">Instructor Performance</CardTitle>
-                <CardDescription>Detailed instructor metrics</CardDescription>
+                <CardTitle className="text-lg">{t('admin_statistics.reports.instructor.title')}</CardTitle>
+                <CardDescription>{t('admin_statistics.reports.instructor.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">Generate Report</Button>
+                <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
               </CardContent>
             </Card>
             
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
-                <CardTitle className="text-lg">Revenue Analysis</CardTitle>
-                <CardDescription>Financial breakdown and trends</CardDescription>
+                <CardTitle className="text-lg">{t('admin_statistics.reports.revenue.title')}</CardTitle>
+                <CardDescription>{t('admin_statistics.reports.revenue.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">Generate Report</Button>
+                <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
               </CardContent>
             </Card>
           </div>

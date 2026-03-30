@@ -5,6 +5,9 @@ from payment_details.models import Payment_Details
 from datetime import datetime
 from courses.models import Course
 from django.db import IntegrityError
+import logging
+import re
+import unicodedata
 import urllib.parse
 from django.http import JsonResponse, HttpRequest
 from django.utils import timezone
@@ -18,6 +21,7 @@ from django.db import transaction
 from instructor_earnings.models import InstructorEarning
 from utils.mailer.mailer import send_payment_invoice
 from activity_logs.services import log_activity
+from .services import ensure_payment_retryable
 # from orders.models import Order
 # VNPAY cấu hình
 
@@ -26,6 +30,7 @@ vnp_HashSecret = settings.VNPAY_HASH_SECRET_KEY
 vnp_Url =  settings.VNPAY_URL
 # vnp_Url = 'https://sandbox.vnpayment.vn/paymentv2/vpc
 vnp_ReturnUrl = settings.VNPAY_RETURN_URL
+logger = logging.getLogger(__name__)
 
 
 def get_payment_url(vnpay_payment_url, params, secret_key):
@@ -48,6 +53,53 @@ def hmacsha512(key, data):
     byteData = data.encode('utf-8')
     return hmac.new(byteKey, byteData, hashlib.sha512).hexdigest()
 
+
+def _ascii_compact(value, max_length, fallback):
+    normalized = unicodedata.normalize('NFKD', str(value or fallback)).encode('ascii', 'ignore').decode('ascii')
+    normalized = re.sub(r'[^A-Za-z0-9 _.-]', '', normalized)
+    normalized = re.sub(r'\s+', ' ', normalized).strip()
+    if not normalized:
+        normalized = fallback
+    return normalized[:max_length]
+
+
+def _build_vnpay_refund_signature_data(request_data):
+    fields = [
+        "vnp_RequestId",
+        "vnp_Version",
+        "vnp_Command",
+        "vnp_TmnCode",
+        "vnp_TransactionType",
+        "vnp_TxnRef",
+        "vnp_Amount",
+        "vnp_TransactionNo",
+        "vnp_TransactionDate",
+        "vnp_CreateBy",
+        "vnp_CreateDate",
+        "vnp_IpAddr",
+        "vnp_OrderInfo",
+    ]
+    return "|".join(str(request_data.get(field, "")) for field in fields)
+
+
+def _build_vnpay_refund_response_signature_data(response_data):
+    fields = [
+        "vnp_ResponseId",
+        "vnp_Command",
+        "vnp_ResponseCode",
+        "vnp_Message",
+        "vnp_TmnCode",
+        "vnp_TxnRef",
+        "vnp_Amount",
+        "vnp_BankCode",
+        "vnp_PayDate",
+        "vnp_TransactionNo",
+        "vnp_TransactionType",
+        "vnp_TransactionStatus",
+        "vnp_OrderInfo",
+    ]
+    return "|".join(str(response_data.get(field, "")) for field in fields)
+
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
@@ -55,6 +107,59 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+def build_vnpay_payment_data(request: HttpRequest, payment: Payment = None, order_desc: str = None):
+    data = request.data if hasattr(request, 'data') else request.GET
+
+    if payment is not None:
+        ensure_payment_retryable(payment)
+        order_id = str(payment.id)
+        amount = int(payment.total_amount) * 100
+        order_desc = order_desc or f'Thanh toan don hang {order_id}'
+    else:
+        order_id = data.get('order_id') or datetime.now().strftime('%Y%m%d%H%M%S')
+        order_desc = order_desc or data.get('order_desc', f'Thanh toan don hang {order_id}')
+
+        try:
+            payment = Payment.objects.get(id=order_id)
+            ensure_payment_retryable(payment)
+            amount = int(payment.total_amount) * 100
+        except Payment.DoesNotExist:
+            amount = int(data.get('amount', 0)) * 100
+
+    order_type = data.get('order_type', 'other')
+    language = data.get('language', 'vn')
+    bank_code = data.get('bank_code')
+    ip_address = get_client_ip(request)
+    tz = pytz.timezone('Asia/Ho_Chi_Minh')
+
+    params = {
+        'vnp_Version': '2.1.0',
+        'vnp_Command': 'pay',
+        'vnp_TmnCode': vnp_TmnCode,
+        'vnp_Amount': str(amount),
+        'vnp_CurrCode': 'VND',
+        'vnp_TxnRef': order_id,
+        'vnp_OrderInfo': order_desc,
+        'vnp_OrderType': order_type,
+        'vnp_ReturnUrl': vnp_ReturnUrl,
+        'vnp_IpAddr': ip_address,
+    }
+    if language and language != '':
+        params['vnp_Locale'] = language
+    else:
+        params['vnp_Locale'] = 'vn'
+
+    if bank_code and bank_code != '':
+        params['vnp_BankCode'] = bank_code
+    params['vnp_CreateDate'] = datetime.now(tz).strftime('%Y%m%d%H%M%S')
+
+    vn_payment_url = get_payment_url(vnp_Url, params, vnp_HashSecret)
+    return {
+        'payment_url': vn_payment_url,
+        'payment_id': int(order_id) if str(order_id).isdigit() else order_id,
+    }
 
 def create_vnpay_payment(request: HttpRequest):
     data = request.data if hasattr(request, 'data') else request.GET
@@ -65,6 +170,7 @@ def create_vnpay_payment(request: HttpRequest):
     # This eliminates FE/BE price mismatch entirely.
     try:
         payment = Payment.objects.get(id=order_id)
+        ensure_payment_retryable(payment)
         amount = int(payment.total_amount) * 100   # VNPay expects VND * 100
     except Payment.DoesNotExist:
         amount = int(data.get('amount', 0)) * 100   # fallback for non-payment flows
@@ -106,6 +212,7 @@ def create_vnpay_payment(request: HttpRequest):
 
 def create_enrollments_from_payment(payment):
     """Create enrollments for all courses in a completed payment."""
+    from carts.models import Cart
     from enrollments.services import create_enrollment
     from enrollments.models import Enrollment
     details = Payment_Details.objects.filter(payment=payment, is_deleted=False).select_related('course')
@@ -125,9 +232,13 @@ def create_enrollments_from_payment(payment):
             create_enrollment({
                 'user_id': payment.user.id,
                 'course_id': course_obj.id,
+                'payment': payment.id,
+                'source': Enrollment.Source.PURCHASE,
             })
         except Exception as e:
             print(f"[WARN] Failed to create enrollment for course {course_obj.id}: {e}")
+    if payment.payment_type == Payment.PaymentType.COURSE_PURCHASE:
+        Cart.objects.filter(user=payment.user).delete()
 
 
 def payment_return(request):
@@ -254,85 +365,166 @@ def payment_ipn(request):
         return JsonResponse({'RspCode': '99', 'Message': 'Internal error'})
 
 # def local_ipn()
-def send_vnpay_refund_request(payment_detail_id, reason):
+def send_vnpay_refund_request(payment_detail, reason=None, create_by="system", timeout_seconds=15):
     try:
-        from payments.vnpay import vnpay  # Nếu bạn có lớp vnpay helper thì dùng lại
-        payment_detail = Payment_Details.objects.select_related('payment').get(id=payment_detail_id)
-        if payment_detail.refund_status != Payment_Details.RefundStatus.APPROVED:
-            raise ValidationError("Refund must be approved before processing.")
-
         payment = payment_detail.payment
-        if payment.payment_status != Payment.PaymentStatus.COMPLETED:
-            raise ValidationError("Only completed payments can be refunded.")
+        if payment.payment_status not in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]:
+            raise ValidationError("Only completed or partially refunded payments can be refunded.")
+        if not payment.transaction_id:
+            raise ValidationError("Payment is missing the VNPay transaction number.")
+        if not payment.payment_date:
+            raise ValidationError("Payment is missing the original payment date.")
 
-        # Thông tin cần thiết
-        vnp_TmnCode = settings.VNPAY_TMN_CODE
-        vnp_HashSecret = settings.VNPAY_HASH_SECRET_KEY
-        vnp_Url = settings.VNPAY_REFUND_URL  # Dùng URL refund: https://sandbox.vnpayment.vn/merchant_webapi/api/transaction
-
-        vnp_TxnRef = payment.id
-        vnp_TransactionNo = payment.transaction_id
-        vnp_Amount = int(payment_detail.refund_amount * 100)  # VNPAY yêu cầu nhân 100
-        vnp_TransactionDate = payment.payment_date.strftime('%Y%m%d%H%M%S')  # Theo định dạng của VNPAY
-        vnp_RequestId = str(uuid.uuid4())
-        vnp_CreateBy = "admin"
-        vnp_Command = "refund"
-        vnp_CurrCode = "VND"
-        vnp_RefundType = "02"  # 01 = full, 02 = partial
-        vnp_IpAddr = "127.0.0.1"
-        vnp_OrderInfo = f"Refund for transaction {vnp_TransactionNo}"
+        vnp_Url = settings.VNPAY_REFUND_URL
+        vnp_TxnRef = str(payment.id)
+        vnp_TransactionNo = str(payment.transaction_id)
+        vnp_Amount = int((payment_detail.refund_amount or Decimal("0.00")) * 100)
+        tz = pytz.timezone('Asia/Ho_Chi_Minh')
+        vnp_TransactionDate = timezone.localtime(payment.payment_date, tz).strftime('%Y%m%d%H%M%S')
+        vnp_RequestId = uuid.uuid4().hex[:32]
+        vnp_CreateBy = _ascii_compact(create_by, 245, "system")
+        vnp_OrderInfo = _ascii_compact(reason or f"Refund for transaction {vnp_TransactionNo}", 255, f"Refund {vnp_TxnRef}")
+        refund_type = "02" if Decimal(payment.total_amount or Decimal("0.00")) <= Decimal(payment_detail.refund_amount or Decimal("0.00")) else "03"
 
         request_data = {
             "vnp_RequestId": vnp_RequestId,
             "vnp_Version": "2.1.0",
-            "vnp_Command": vnp_Command,
-            "vnp_TmnCode": vnp_TmnCode,
-            "vnp_TransactionType": vnp_RefundType,
+            "vnp_Command": "refund",
+            "vnp_TmnCode": settings.VNPAY_TMN_CODE,
+            "vnp_TransactionType": refund_type,
             "vnp_TxnRef": vnp_TxnRef,
             "vnp_Amount": str(vnp_Amount),
             "vnp_TransactionNo": vnp_TransactionNo,
             "vnp_TransactionDate": vnp_TransactionDate,
             "vnp_CreateBy": vnp_CreateBy,
-            "vnp_CreateDate": timezone.now().strftime("%Y%m%d%H%M%S"),
-            "vnp_IpAddr": vnp_IpAddr,
+            "vnp_CreateDate": timezone.localtime(timezone.now(), tz).strftime("%Y%m%d%H%M%S"),
+            "vnp_IpAddr": "127.0.0.1",
             "vnp_OrderInfo": vnp_OrderInfo,
         }
 
-        # Sắp xếp và ký
-        sorted_data = sorted(request_data.items())
-        query_string = '&'.join([f"{k}={v}" for k, v in sorted_data])
-        secure_hash = hmacsha512(vnp_HashSecret, query_string)
-        request_data["vnp_SecureHash"] = secure_hash
+        signature_data = _build_vnpay_refund_signature_data(request_data)
+        request_data["vnp_SecureHash"] = hmacsha512(settings.VNPAY_HASH_SECRET_KEY, signature_data)
+        logger.info(
+            "VNPay refund request prepared request_id=%s payment_id=%s payment_detail_id=%s txn_ref=%s transaction_no=%s amount=%s transaction_type=%s create_date=%s",
+            vnp_RequestId,
+            payment.id,
+            payment_detail.id,
+            vnp_TxnRef,
+            vnp_TransactionNo,
+            vnp_Amount,
+            refund_type,
+            request_data["vnp_CreateDate"],
+        )
+        logger.debug("VNPay refund request signature_data=%s", signature_data)
+        logger.debug(
+            "VNPay refund request payload=%s",
+            {k: v for k, v in request_data.items() if k != "vnp_SecureHash"},
+        )
 
-        # Gửi yêu cầu đến VNPAY
-        response = requests.post(vnp_Url, json=request_data, headers={'Content-Type': 'application/json'})
-        response_data = response.json()
+        try:
+            response = requests.post(
+                vnp_Url,
+                json=request_data,
+                headers={'Content-Type': 'application/json'},
+                timeout=timeout_seconds,
+            )
+        except requests.Timeout:
+            logger.warning("VNPay refund timeout request_id=%s payment_detail_id=%s", vnp_RequestId, payment_detail.id)
+            return {
+                "status": "processing",
+                "response_code": None,
+                "transaction_id": None,
+                "message": "VNPay refund request timed out. Final state is unknown.",
+                "request_id": vnp_RequestId,
+                "raw": None,
+            }
+        except requests.RequestException as exc:
+            logger.warning(
+                "VNPay refund request exception request_id=%s payment_detail_id=%s error=%s",
+                vnp_RequestId,
+                payment_detail.id,
+                exc,
+            )
+            return {
+                "status": "processing",
+                "response_code": None,
+                "transaction_id": None,
+                "message": f"VNPay refund request did not complete: {exc}",
+                "request_id": vnp_RequestId,
+                "raw": None,
+            }
 
-        if response_data.get("vnp_ResponseCode") == "00":
-            # Thành công
-            with transaction.atomic():
-                payment_detail.refund_status = Payment_Details.RefundStatus.SUCCESS
-                payment_detail.refund_transaction_id = response_data.get("vnp_TransactionNo")
-                payment_detail.refund_date = timezone.now()
-                payment_detail.save()
+        try:
+            response_data = response.json()
+        except ValueError:
+            logger.warning(
+                "VNPay refund returned non-JSON request_id=%s payment_detail_id=%s body=%s",
+                vnp_RequestId,
+                payment_detail.id,
+                response.text,
+            )
+            return {
+                "status": "processing",
+                "response_code": None,
+                "transaction_id": None,
+                "message": "VNPay returned a non-JSON response.",
+                "request_id": vnp_RequestId,
+                "raw": response.text,
+            }
 
-                payment.refund_amount = (payment.refund_amount or Decimal(0)) + (payment_detail.refund_amount or Decimal(0))
-                payment.save()
+        logger.info(
+            "VNPay refund response request_id=%s payment_detail_id=%s status_code=%s response_code=%s transaction_no=%s",
+            vnp_RequestId,
+            payment_detail.id,
+            response.status_code,
+            response_data.get("vnp_ResponseCode"),
+            response_data.get("vnp_TransactionNo"),
+        )
+        logger.debug("VNPay refund response payload=%s", response_data)
 
-                earning = InstructorEarning.objects.filter(payment=payment, course=payment_detail.course).first()
-                if earning:
-                    earning.status = InstructorEarning.StatusChoices.CANCELLED
-                    earning.save()
+        response_signature = response_data.get("vnp_SecureHash")
+        if response_signature:
+            response_signature_data = _build_vnpay_refund_response_signature_data(response_data)
+            expected_signature = hmacsha512(
+                settings.VNPAY_HASH_SECRET_KEY,
+                response_signature_data,
+            )
+            logger.debug("VNPay refund response signature_data=%s", response_signature_data)
+            if response_signature.lower() != expected_signature.lower():
+                logger.warning(
+                    "VNPay refund invalid response signature request_id=%s payment_detail_id=%s expected=%s actual=%s",
+                    vnp_RequestId,
+                    payment_detail.id,
+                    expected_signature,
+                    response_signature,
+                )
+                return {
+                    "status": "failed",
+                    "response_code": "97",
+                    "transaction_id": response_data.get("vnp_TransactionNo"),
+                    "message": "Invalid VNPay response signature.",
+                    "request_id": vnp_RequestId,
+                    "raw": response_data,
+                }
 
-        else:
-            # Thất bại
-            payment_detail.refund_status = Payment_Details.RefundStatus.FAILED
-            payment_detail.refund_response_code = response_data.get("vnp_ResponseCode")
-            payment_detail.save()
+        response_code = response_data.get("vnp_ResponseCode")
+        if response.ok and response_code == "00":
+            return {
+                "status": "success",
+                "response_code": response_code,
+                "transaction_id": response_data.get("vnp_TransactionNo"),
+                "message": response_data.get("vnp_Message") or "Refund completed successfully.",
+                "request_id": vnp_RequestId,
+                "raw": response_data,
+            }
 
-            raise ValidationError(f"Refund failed: {response_data.get('vnp_Message')}")
-
-        return response_data
-
+        return {
+            "status": "failed",
+            "response_code": response_code,
+            "transaction_id": response_data.get("vnp_TransactionNo"),
+            "message": response_data.get("vnp_Message") or "Refund failed.",
+            "request_id": vnp_RequestId,
+            "raw": response_data,
+        }
     except Exception as e:
         raise ValidationError(f"Error sending refund to VNPAY: {str(e)}")

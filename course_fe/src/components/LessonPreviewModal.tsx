@@ -38,6 +38,7 @@ import { ArticlePreview } from './ArticlePreview'
 import { cn } from './ui/utils'
 import { useState, useEffect, useRef } from 'react'
 import { CommentItem } from './CommentItem'
+import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
@@ -66,6 +67,7 @@ export function LessonPreviewModal({
   onOpenChange, 
   lesson 
 }: LessonPreviewModalProps) {
+  const { t } = useTranslation()
   const [device, setDevice] = useState<DeviceType>('desktop')
   const [viewMode, setViewMode] = useState<ViewMode>('enrolled')
   const [activeTab, setActiveTab] = useState<'problem' | 'code'>('problem')
@@ -80,7 +82,7 @@ export function LessonPreviewModal({
       id: 1,
       user: 'Sarah Mitchell',
       avatar: 'S',
-      date: '2 days ago',
+      date: t('lesson_preview_modal.mock_dates.two_days_ago'),
       content: 'Is this solution definitely O(n)? I thought the string replacement might add overhead.',
       likes: 12,
       parentId: null,
@@ -89,7 +91,7 @@ export function LessonPreviewModal({
           id: 101,
           user: 'Instructor Team',
           avatar: 'I',
-          date: '1 day ago',
+          date: t('lesson_preview_modal.mock_dates.one_day_ago'),
           content: 'Good catch! The replace regex is also O(n), so the total complexity remains O(n) + O(n) which simplifies to O(n).',
           likes: 5,
           parentId: 1,
@@ -101,7 +103,7 @@ export function LessonPreviewModal({
       id: 2,
       user: 'David Chen',
       avatar: 'D',
-      date: '5 days ago',
+      date: t('lesson_preview_modal.mock_dates.five_days_ago'),
       content: 'Would a recursive solution be acceptable for this problem?',
       likes: 3,
       parentId: null,
@@ -115,10 +117,13 @@ export function LessonPreviewModal({
   useEffect(() => {
     if (lesson) {
       const quizData = (lesson as any).quizData || {}
-      const initialCode = quizData.starterCode?.[63] || quizData.starterCode?.['javascript'] || '// Write your code here'
+      const initialCode =
+        quizData.starterCode?.[63] ||
+        quizData.starterCode?.['javascript'] ||
+        t('lesson_preview_modal.write_code_here')
       codeRef.current = initialCode
     }
-  }, [lesson])
+  }, [lesson, t])
 
   const contentType = lesson.content_type || lesson.type
   const quizQuestions = Array.isArray((lesson as any)?.quizData?.questions)
@@ -228,7 +233,7 @@ export function LessonPreviewModal({
        id: Date.now(),
        user: 'You',
        avatar: 'Y',
-       date: 'Just now',
+       date: t('lesson_preview_modal.just_now'),
        content: newComment,
        likes: 0,
        parentId: null,
@@ -245,7 +250,7 @@ export function LessonPreviewModal({
        id: Date.now(),
        user: 'You',
        avatar: 'Y',
-       date: 'Just now',
+       date: t('lesson_preview_modal.just_now'),
        content: content,
        likes: 0,
        parentId: parentId,
@@ -276,11 +281,11 @@ export function LessonPreviewModal({
           <div className="bg-muted rounded-full p-6 mb-6">
             <Lock className="h-12 w-12 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">This lesson is locked</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('lesson_preview_modal.locked_title')}</h3>
           <p className="text-muted-foreground mb-6">
-            Enroll in this course to access this lesson and many more!
+            {t('lesson_preview_modal.locked_description')}
           </p>
-          <Button>Enroll Now</Button>
+          <Button>{t('lesson_preview_modal.enroll_now')}</Button>
         </div>
       )
     }
@@ -317,19 +322,19 @@ export function LessonPreviewModal({
                          value="overview" 
                          className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 h-11"
                        >
-                         Overview
+                         {t('lesson_preview_modal.tabs.overview')}
                        </TabsTrigger>
                        <TabsTrigger 
                          value="comments" 
                          className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 h-11"
                        >
-                         Comments
+                         {t('lesson_preview_modal.tabs.comments')}
                        </TabsTrigger>
                        <TabsTrigger 
                          value="notes" 
                          className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 h-11"
                        >
-                         Notes
+                         {t('lesson_preview_modal.tabs.notes')}
                        </TabsTrigger>
                      </TabsList>
                    </div>
@@ -337,18 +342,18 @@ export function LessonPreviewModal({
                    <TabsContent value="overview" className="flex-1 overflow-y-auto p-6 m-0">
                       <h3 className="font-bold text-xl mb-3">{lesson.title}</h3>
                       <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
-                        <Badge variant="secondary" className="rounded-sm">Video</Badge>
+                        <Badge variant="secondary" className="rounded-sm">{t('lesson_preview_modal.video_badge')}</Badge>
                         <span>{lesson.duration}</span>
                         <span>•</span>
-                        <span>Last updated June 2024</span>
+                        <span>{t('lesson_preview_modal.last_updated')}</span>
                       </div>
                       <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
-                        <p>{lesson.description || "No description available for this lesson."}</p>
-                        <h4>In this lesson, you will learn:</h4>
+                        <p>{lesson.description || t('lesson_preview_modal.no_description')}</p>
+                        <h4>{t('lesson_preview_modal.learning_points_title')}</h4>
                         <ul>
-                          <li>Key concepts of string manipulation</li>
-                          <li>How to optimize your approach</li>
-                          <li>Common pitfalls to avoid</li>
+                          <li>{t('lesson_preview_modal.learning_points.point_1')}</li>
+                          <li>{t('lesson_preview_modal.learning_points.point_2')}</li>
+                          <li>{t('lesson_preview_modal.learning_points.point_3')}</li>
                         </ul>
                       </div>
                    </TabsContent>
@@ -365,7 +370,7 @@ export function LessonPreviewModal({
                                <textarea
                                  value={newComment}
                                  onChange={(e) => setNewComment(e.target.value)}
-                                 placeholder="Add a comment..."
+                                 placeholder={t('lesson_preview_modal.comment_placeholder')}
                                  className="w-full bg-muted/30 border rounded-md p-2 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                                />
                                <div className="flex justify-end mt-2">
@@ -374,7 +379,7 @@ export function LessonPreviewModal({
                                    disabled={!newComment.trim()}
                                    onClick={handlePostComment}
                                  >
-                                   Post Comment
+                                   {t('lesson_preview_modal.post_comment')}
                                  </Button>
                                </div>
                              </div>
@@ -396,7 +401,7 @@ export function LessonPreviewModal({
                           ) : (
                             <div className="text-center text-muted-foreground py-10">
                               <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                              <p>No comments yet. Be the first to start the discussion!</p>
+                              <p>{t('lesson_preview_modal.no_comments')}</p>
                             </div>
                           )}
                         </div>
@@ -407,8 +412,8 @@ export function LessonPreviewModal({
                       <div className="bg-muted p-4 rounded-full mb-3">
                          <BookOpen className="h-6 w-6" />
                       </div>
-                      <p>Click the "Create Note" button at specific times to save notes.</p>
-                      <Button variant="outline" size="sm" className="mt-4">Start Taking Notes</Button>
+                      <p>{t('lesson_preview_modal.notes_description')}</p>
+                      <Button variant="outline" size="sm" className="mt-4">{t('lesson_preview_modal.start_taking_notes')}</Button>
                    </TabsContent>
                 </Tabs>
              </div>
@@ -444,12 +449,12 @@ export function LessonPreviewModal({
              {quizData.examples?.length > 0 && (
                <div className="mt-6 space-y-4">
                   <h4 className="font-semibold text-sm flex items-center gap-2">
-                    <Eye className="h-4 w-4" /> Examples
+                    <Eye className="h-4 w-4" /> {t('lesson_preview_modal.examples')}
                   </h4>
                   {quizData.examples.map((ex: any, i: number) => (
                     <div key={i} className="bg-muted/50 border rounded-md p-3 text-sm font-mono">
-                       <div className="mb-1"><span className="text-muted-foreground select-none">Input: </span>{ex.input}</div>
-                       <div><span className="text-muted-foreground select-none">Output: </span>{ex.output}</div>
+                       <div className="mb-1"><span className="text-muted-foreground select-none">{t('lesson_preview_modal.input')} </span>{ex.input}</div>
+                       <div><span className="text-muted-foreground select-none">{t('lesson_preview_modal.output')} </span>{ex.output}</div>
                     </div>
                   ))}
                </div>
@@ -458,7 +463,7 @@ export function LessonPreviewModal({
              {/* Constraints */}
              {quizData.constraints?.length > 0 && (
                 <div className="mt-6">
-                  <h4 className="font-semibold text-sm mb-2">Constraints</h4>
+                  <h4 className="font-semibold text-sm mb-2">{t('lesson_preview_modal.constraints')}</h4>
                   <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
                     {quizData.constraints.map((c: any, i: number) => (
                       <li key={i}>{c.description}</li>
@@ -474,7 +479,7 @@ export function LessonPreviewModal({
           <div className="flex-1 flex flex-col bg-[#1e1e1e] text-white h-full min-h-[400px] relative">
              <div className="p-2 px-4 bg-[#252526] flex justify-between items-center text-xs text-gray-400 border-b border-[#333]">
                 <div className="flex items-center gap-2">
-                  <span className="bg-[#1e1e1e] px-2 py-1 rounded text-yellow-500">JavaScript</span>
+                  <span className="bg-[#1e1e1e] px-2 py-1 rounded text-yellow-500">{t('lesson_preview_modal.language_javascript')}</span>
                 </div>
                 <span>solution.js</span>
              </div>
@@ -491,7 +496,7 @@ export function LessonPreviewModal({
                  <div className="flex items-center justify-between p-2 bg-[#252526] sticky top-0">
                    <span className="text-xs text-gray-400 flex items-center gap-2">
                      <Terminal className="h-3 w-3" />
-                     Console
+                     {t('lesson_preview_modal.console')}
                    </span>
                    <button onClick={() => setConsoleOpen(false)} className="text-gray-400 hover:text-white">
                      <ChevronDown className="h-4 w-4" />
@@ -501,7 +506,7 @@ export function LessonPreviewModal({
                    {isRunning ? (
                      <div className="flex items-center gap-2 text-gray-400">
                        <Loader2 className="h-4 w-4 animate-spin" />
-                       Running tests...
+                       {t('lesson_preview_modal.running_tests')}
                      </div>
                    ) : consoleOutput?.type === 'error' ? (
                      <div className="text-red-400">
@@ -510,12 +515,15 @@ export function LessonPreviewModal({
                    ) : consoleOutput?.type === 'test-results' ? (
                      <div className="space-y-4">
                        <div className="flex items-center justify-between">
-                         <h4 className="font-bold text-gray-300">Test Results</h4>
+                         <h4 className="font-bold text-gray-300">{t('lesson_preview_modal.test_results')}</h4>
                          <span className={cn(
                            "text-xs px-2 py-1 rounded",
                            consoleOutput.results.every((r: any) => r.passed) ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"
                          )}>
-                           {consoleOutput.results.filter((r: any) => r.passed).length}/{consoleOutput.results.length} Passed
+                           {t('lesson_preview_modal.passed_summary', {
+                             passed: consoleOutput.results.filter((r: any) => r.passed).length,
+                             total: consoleOutput.results.length,
+                           })}
                          </span>
                        </div>
                        
@@ -526,11 +534,11 @@ export function LessonPreviewModal({
                                <span className="font-semibold text-gray-400">Test Case {i + 1}</span>
                                {result.passed ? (
                                  <span className="flex items-center gap-1 text-green-500">
-                                   <Check className="h-3 w-3" /> Passed
+                                   <Check className="h-3 w-3" /> {t('lesson_preview_modal.passed')}
                                  </span>
                                ) : (
                                  <span className="flex items-center gap-1 text-red-500">
-                                   <XCircle className="h-3 w-3" /> Failed
+                                   <XCircle className="h-3 w-3" /> {t('lesson_preview_modal.failed')}
                                  </span>
                                )}
                              </div>
@@ -538,30 +546,30 @@ export function LessonPreviewModal({
                              {!result.isHidden && (
                                <div className="space-y-1 text-gray-400">
                                  <div className="grid grid-cols-[60px_1fr] gap-2">
-                                   <span>Input:</span>
+                                   <span>{t('lesson_preview_modal.input')}</span>
                                    <span className="text-gray-300">{result.input}</span>
                                  </div>
                                  <div className="grid grid-cols-[60px_1fr] gap-2">
-                                   <span>Expected:</span>
+                                   <span>{t('lesson_preview_modal.expected')}</span>
                                    <span className="text-gray-300">{result.expectedOutput}</span>
                                  </div>
                                  {!result.passed && (
                                    <div className="grid grid-cols-[60px_1fr] gap-2">
-                                     <span>Actual:</span>
+                                     <span>{t('lesson_preview_modal.actual')}</span>
                                      <span className="text-red-400">{result.actualOutput}</span>
                                    </div>
                                  )}
                                </div>
                              )}
                              {result.isHidden && (
-                               <div className="text-gray-500 italic">Hidden test case</div>
+                               <div className="text-gray-500 italic">{t('lesson_preview_modal.hidden_test_case')}</div>
                              )}
                            </div>
                          ))}
                        </div>
                      </div>
                    ) : (
-                     <div className="text-gray-500 italic">Ready to run code...</div>
+                     <div className="text-gray-500 italic">{t('lesson_preview_modal.ready_to_run')}</div>
                    )}
                  </div>
                </div>
@@ -574,7 +582,7 @@ export function LessonPreviewModal({
                     className="hover:text-gray-300 flex items-center gap-1"
                   >
                     <Terminal className="h-3.5 w-3.5" />
-                    Console
+                    {t('lesson_preview_modal.console')}
                     {consoleOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
                   </button>
                 </div>
@@ -591,10 +599,10 @@ export function LessonPreviewModal({
                     ) : (
                       <Play className="h-3.5 w-3.5 mr-2" />
                     )}
-                    Run Code
+                    {t('lesson_preview_modal.run_code')}
                   </Button>
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8">
-                    Submit
+                    {t('lesson_preview_modal.submit')}
                   </Button>
                 </div>
              </div>
@@ -614,7 +622,7 @@ export function LessonPreviewModal({
                        : "border-transparent text-muted-foreground hover:text-foreground"
                    )}
                  >
-                   <Code2 className="h-4 w-4" /> Problem
+                   <Code2 className="h-4 w-4" /> {t('lesson_preview_modal.problem_tab')}
                  </button>
                  <button 
                    onClick={() => setActiveTab('code')}
@@ -625,7 +633,7 @@ export function LessonPreviewModal({
                        : "border-transparent text-muted-foreground hover:text-foreground"
                    )}
                  >
-                   <Terminal className="h-4 w-4" /> Code
+                   <Terminal className="h-4 w-4" /> {t('lesson_preview_modal.code_tab')}
                  </button>
                </div>
 
@@ -655,7 +663,7 @@ export function LessonPreviewModal({
         )
 
       default:
-        return <div>Unsupported content type</div>
+        return <div>{t('lesson_preview_modal.unsupported_content_type')}</div>
     }
   }
 
@@ -664,28 +672,28 @@ export function LessonPreviewModal({
       <DialogContent className={cn("p-0 gap-0 overflow-hidden", deviceSizes[device])}>
         <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/50">
           <div className="flex items-center gap-2">
-            <DialogTitle className="text-sm font-medium">Lesson Preview</DialogTitle>
+            <DialogTitle className="text-sm font-medium">{t('lesson_preview_modal.title')}</DialogTitle>
           </div>
           
           <div className="flex items-center gap-2 bg-background border rounded-md p-1">
             <button 
               onClick={() => setDevice('desktop')}
               className={cn("p-1.5 rounded-sm transition-colors", device === 'desktop' ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-              title="Desktop view"
+              title={t('lesson_preview_modal.desktop_view')}
             >
               <Monitor className="h-4 w-4" />
             </button>
             <button 
               onClick={() => setDevice('tablet')}
               className={cn("p-1.5 rounded-sm transition-colors", device === 'tablet' ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-              title="Tablet view"
+              title={t('lesson_preview_modal.tablet_view')}
             >
               <Tablet className="h-4 w-4" />
             </button>
             <button 
               onClick={() => setDevice('mobile')}
               className={cn("p-1.5 rounded-sm transition-colors", device === 'mobile' ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
-              title="Mobile view"
+              title={t('lesson_preview_modal.mobile_view')}
             >
               <Smartphone className="h-4 w-4" />
             </button>
@@ -697,14 +705,14 @@ export function LessonPreviewModal({
                  onClick={() => setViewMode('enrolled')}
                  className={cn("text-xs px-2 py-1 rounded-sm transition-colors", viewMode === 'enrolled' ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
                >
-                 Enrolled
+                 {t('lesson_preview_modal.enrolled')}
                </button>
                <div className="w-[1px] h-4 bg-border mx-1" />
                <button 
                  onClick={() => setViewMode('free')}
                  className={cn("text-xs px-2 py-1 rounded-sm transition-colors", viewMode === 'free' ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
                >
-                 Visitor
+                 {t('lesson_preview_modal.visitor')}
                </button>
              </div>
              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>

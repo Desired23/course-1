@@ -1,5 +1,6 @@
 import { ChevronRight, Home } from 'lucide-react'
 import { useRouter } from './Router'
+import { useTranslation } from 'react-i18next'
 
 interface BreadcrumbItem {
   label: string
@@ -18,11 +19,12 @@ export function CourseBreadcrumb({
   showHomeIcon = true 
 }: CourseBreadcrumbProps) {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
 
   return (
     <nav 
       className={`flex items-center gap-2 text-sm flex-wrap ${className}`} 
-      aria-label="Breadcrumb"
+      aria-label={t('course_breadcrumb.aria_label')}
     >
       {items.map((item, index) => {
         const isFirst = index === 0

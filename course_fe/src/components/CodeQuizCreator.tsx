@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -60,6 +61,7 @@ function DraggableTestCase({
   onDelete: (index: number) => void
   onMove: (fromIndex: number, toIndex: number) => void
 }) {
+  const { t } = useTranslation()
   const [{ isDragging }, drag, preview] = useDrag({
     type: 'TEST_CASE',
     item: { index },
@@ -98,7 +100,7 @@ function DraggableTestCase({
             <div className="flex-1 space-y-3">
               {/* Header */}
               <div className="flex items-center justify-between">
-                <Label className="font-semibold">Test Case {index + 1}</Label>
+                <Label className="font-semibold">{t('code_quiz_creator.test_case_number', { number: index + 1 })}</Label>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -113,11 +115,11 @@ function DraggableTestCase({
 
               {/* Input */}
               <div>
-                <Label className="text-xs text-muted-foreground">Input (stdin)</Label>
+                <Label className="text-xs text-muted-foreground">{t('code_quiz_creator.input_stdin')}</Label>
                 <Textarea
                   value={testCase.input}
                   onChange={(e) => onUpdate(index, { ...testCase, input: e.target.value })}
-                  placeholder="e.g., [2,7,11,15]\n9"
+                  placeholder={t('code_quiz_creator.input_placeholder')}
                   className="mt-1 font-mono text-sm"
                   rows={3}
                 />
@@ -125,11 +127,11 @@ function DraggableTestCase({
 
               {/* Expected Output */}
               <div>
-                <Label className="text-xs text-muted-foreground">Expected Output</Label>
+                <Label className="text-xs text-muted-foreground">{t('code_quiz_creator.expected_output')}</Label>
                 <Textarea
                   value={testCase.expectedOutput}
                   onChange={(e) => onUpdate(index, { ...testCase, expectedOutput: e.target.value })}
-                  placeholder="e.g., [0,1] or 0,1"
+                  placeholder={t('code_quiz_creator.expected_output_placeholder')}
                   className="mt-1 font-mono text-sm"
                   rows={2}
                 />
@@ -138,7 +140,7 @@ function DraggableTestCase({
               {/* Points (Optional) */}
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <Label className="text-xs text-muted-foreground">Points (Optional)</Label>
+                  <Label className="text-xs text-muted-foreground">{t('code_quiz_creator.points_optional')}</Label>
                   <Input
                     type="number"
                     value={testCase.points || ''}
@@ -146,7 +148,7 @@ function DraggableTestCase({
                       ...testCase, 
                       points: e.target.value ? parseInt(e.target.value) : undefined 
                     })}
-                    placeholder="Auto"
+                    placeholder={t('code_quiz_creator.auto')}
                     className="mt-1"
                   />
                 </div>
@@ -160,6 +162,7 @@ function DraggableTestCase({
 }
 
 export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreatorProps) {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState<CodeQuizData>(initialData || {
     question: '',
     description: '',
@@ -181,20 +184,20 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
     const newErrors: Record<string, string> = {}
 
     if (!formData.question.trim()) {
-      newErrors.question = 'Question title is required'
+      newErrors.question = t('code_quiz_creator.errors.question_required')
     }
 
     if (formData.allowedLanguages.length === 0) {
-      newErrors.languages = 'At least one language must be selected'
+      newErrors.languages = t('code_quiz_creator.errors.languages_required')
     }
 
     if (formData.testCases.length === 0) {
-      newErrors.testCases = 'At least one test case is required'
+      newErrors.testCases = t('code_quiz_creator.errors.test_cases_required')
     }
 
     formData.testCases.forEach((tc, idx) => {
       if (!tc.input.trim() && !tc.expectedOutput.trim()) {
-        newErrors[`testCase_${idx}`] = 'Test case must have input or expected output'
+        newErrors[`testCase_${idx}`] = t('code_quiz_creator.errors.test_case_content_required')
       }
     })
 
@@ -290,21 +293,21 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Code2 className="h-5 w-5" />
-                  {initialData ? 'Edit Code Quiz' : 'Create Code Quiz'}
+                  {initialData ? t('code_quiz_creator.edit_title') : t('code_quiz_creator.create_title')}
                 </CardTitle>
                 <CardDescription>
-                  Design coding challenges with test cases and auto-grading
+                  {t('code_quiz_creator.description')}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 {onCancel && (
                   <Button variant="outline" onClick={onCancel}>
-                    Cancel
+                    {t('code_quiz_creator.cancel')}
                   </Button>
                 )}
                 <Button onClick={handleSave}>
                   <Save className="h-4 w-4 mr-2" />
-                  Save Quiz
+                  {t('code_quiz_creator.save_quiz')}
                 </Button>
               </div>
             </div>
@@ -327,28 +330,28 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
 
         <Tabs defaultValue="basic" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="basic">{t('code_quiz_creator.basic_info')}</TabsTrigger>
             <TabsTrigger value="testcases">
-              Test Cases ({formData.testCases.length})
+              {t('code_quiz_creator.test_cases_tab', { count: formData.testCases.length })}
             </TabsTrigger>
-            <TabsTrigger value="hints">Hints ({formData.hints.length})</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+            <TabsTrigger value="hints">{t('code_quiz_creator.hints_tab', { count: formData.hints.length })}</TabsTrigger>
+            <TabsTrigger value="settings">{t('code_quiz_creator.settings')}</TabsTrigger>
           </TabsList>
 
           {/* Tab 1: Basic Info */}
           <TabsContent value="basic" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Question Details</CardTitle>
+                <CardTitle className="text-lg">{t('code_quiz_creator.question_details')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Question Title */}
                 <div>
-                  <Label>Question Title *</Label>
+                  <Label>{t('code_quiz_creator.question_title')}</Label>
                   <Input
                     value={formData.question}
                     onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                    placeholder="e.g., Two Sum Problem"
+                    placeholder={t('code_quiz_creator.question_title_placeholder')}
                     className={errors.question ? 'border-red-500' : ''}
                   />
                   {errors.question && (
@@ -358,22 +361,22 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
 
                 {/* Description */}
                 <div>
-                  <Label>Description</Label>
+                  <Label>{t('code_quiz_creator.field_description')}</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Detailed problem description..."
+                    placeholder={t('code_quiz_creator.description_placeholder')}
                     rows={6}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Explain the problem, constraints, and examples
+                    {t('code_quiz_creator.description_help')}
                   </p>
                 </div>
 
                 {/* Difficulty & Points */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Difficulty</Label>
+                    <Label>{t('code_quiz_creator.difficulty')}</Label>
                     <Select
                       value={formData.difficulty}
                       onValueChange={(value: any) => setFormData({ ...formData, difficulty: value })}
@@ -382,15 +385,15 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="easy">Easy</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="hard">Hard</SelectItem>
+                        <SelectItem value="easy">{t('code_quiz_creator.difficulty_easy')}</SelectItem>
+                        <SelectItem value="medium">{t('code_quiz_creator.difficulty_medium')}</SelectItem>
+                        <SelectItem value="hard">{t('code_quiz_creator.difficulty_hard')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <Label>Points</Label>
+                    <Label>{t('code_quiz_creator.points')}</Label>
                     <Input
                       type="number"
                       value={formData.points}
@@ -402,16 +405,16 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
 
                 {/* Starter Code */}
                 <div>
-                  <Label>Starter Code (Optional)</Label>
+                  <Label>{t('code_quiz_creator.starter_code')}</Label>
                   <Textarea
                     value={formData.starterCode}
                     onChange={(e) => setFormData({ ...formData, starterCode: e.target.value })}
-                    placeholder="// Write your solution here\nfunction twoSum(nums, target) {\n  // Your code here\n}"
+                    placeholder={t('code_quiz_creator.starter_code_placeholder')}
                     className="font-mono text-sm"
                     rows={8}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Provide initial code template for students (leave empty for auto-generated)
+                    {t('code_quiz_creator.starter_code_help')}
                   </p>
                 </div>
               </CardContent>
@@ -420,8 +423,8 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
             {/* Allowed Languages */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Allowed Programming Languages *</CardTitle>
-                <CardDescription>Select languages students can use</CardDescription>
+                <CardTitle className="text-lg">{t('code_quiz_creator.allowed_languages')}</CardTitle>
+                <CardDescription>{t('code_quiz_creator.allowed_languages_help')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -457,14 +460,14 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg">Test Cases *</CardTitle>
+                    <CardTitle className="text-lg">{t('code_quiz_creator.test_cases')}</CardTitle>
                     <CardDescription>
-                      Define inputs and expected outputs for auto-grading
+                      {t('code_quiz_creator.test_cases_help')}
                     </CardDescription>
                   </div>
                   <Button onClick={addTestCase}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Test Case
+                    {t('code_quiz_creator.add_test_case')}
                   </Button>
                 </div>
               </CardHeader>
@@ -472,8 +475,8 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
                 {formData.testCases.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Code2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No test cases yet</p>
-                    <p className="text-sm">Click "Add Test Case" to get started</p>
+                    <p>{t('code_quiz_creator.no_test_cases')}</p>
+                    <p className="text-sm">{t('code_quiz_creator.add_test_case_prompt')}</p>
                   </div>
                 ) : (
                   <div>
@@ -502,13 +505,13 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <p className="font-medium mb-2">Test Case Tips:</p>
+                <p className="font-medium mb-2">{t('code_quiz_creator.guidelines.title')}</p>
                 <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>Create comprehensive test cases covering edge cases and corner scenarios</li>
-                  <li>First 1-2 test cases should serve as <strong>examples</strong> in the problem description</li>
-                  <li>Input format: each line = one argument, ưu tiên JSON literal (number, string, array, object, boolean, null)</li>
-                  <li>Expected output: hỗ trợ 1 dòng hoặc nhiều dòng, có thể dùng JSON hoặc plain text</li>
-                  <li>All test cases are visible to help students debug their solutions</li>
+                  <li>{t('code_quiz_creator.guidelines.cover_edge_cases')}</li>
+                  <li>{t('code_quiz_creator.guidelines.examples_hint_prefix')} <strong>{t('code_quiz_creator.guidelines.examples_hint_emphasis')}</strong> {t('code_quiz_creator.guidelines.examples_hint_suffix')}</li>
+                  <li>{t('code_quiz_creator.guidelines.input_format')}</li>
+                  <li>{t('code_quiz_creator.guidelines.expected_output')}</li>
+                  <li>{t('code_quiz_creator.guidelines.all_visible')}</li>
                 </ul>
               </AlertDescription>
             </Alert>
@@ -518,9 +521,9 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
           <TabsContent value="hints" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Hints (Optional)</CardTitle>
+                <CardTitle className="text-lg">{t('code_quiz_creator.hints_optional')}</CardTitle>
                 <CardDescription>
-                  Provide progressive hints to help students solve the problem
+                  {t('code_quiz_creator.hints_help')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -529,19 +532,19 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
                   <Input
                     value={currentHint}
                     onChange={(e) => setCurrentHint(e.target.value)}
-                    placeholder="Enter a hint..."
+                    placeholder={t('code_quiz_creator.hint_placeholder')}
                     onKeyPress={(e) => e.key === 'Enter' && addHint()}
                   />
                   <Button onClick={addHint} disabled={!currentHint.trim()}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add
+                    {t('code_quiz_creator.add')}
                   </Button>
                 </div>
 
                 {/* Hints List */}
                 {formData.hints.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-sm">No hints added yet</p>
+                    <p className="text-sm">{t('code_quiz_creator.no_hints')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -574,14 +577,14 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
           <TabsContent value="settings" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Execution Settings</CardTitle>
+                <CardTitle className="text-lg">{t('code_quiz_creator.execution_settings')}</CardTitle>
                 <CardDescription>
-                  Configure time and memory limits for code execution
+                  {t('code_quiz_creator.execution_settings_help')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <Label>Time Limit (seconds)</Label>
+                  <Label>{t('code_quiz_creator.time_limit')}</Label>
                   <Input
                     type="number"
                     value={formData.timeLimit}
@@ -590,12 +593,12 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
                     max={10}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Maximum execution time per test case (1-10 seconds)
+                    {t('code_quiz_creator.time_limit_help')}
                   </p>
                 </div>
 
                 <div>
-                  <Label>Memory Limit (KB)</Label>
+                  <Label>{t('code_quiz_creator.memory_limit')}</Label>
                   <Input
                     type="number"
                     value={formData.memoryLimit}
@@ -605,7 +608,7 @@ export function CodeQuizCreator({ initialData, onSave, onCancel }: CodeQuizCreat
                     step={64000}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Maximum memory usage (64MB - 512MB)
+                    {t('code_quiz_creator.memory_limit_help')}
                   </p>
                 </div>
               </CardContent>

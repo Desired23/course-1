@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Search, Filter, Star, ChevronDown, Grid, List, X, Loader2 } from 'lucide-react'
+import { Search, Filter, Grid, List, X } from 'lucide-react'
 import { Input } from '../../components/ui/input'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { CourseCard } from '../../components/CourseCard'
 import { CategoryBanner } from '../../components/CategoryBanner'
-import { CourseCategoryTags } from '../../components/CourseCategoryTags'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '../../components/ui/sheet'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
@@ -14,21 +13,21 @@ import { CourseFilterSidebar } from '../../components/CourseFilterSidebar'
 import { useRouter } from '../../components/Router'
 import { type BreadcrumbItem } from '../../utils/navigation'
 import { getAllCourses, type CourseListItem, parseDecimal, getEffectivePrice, hasActiveDiscount, formatPrice, getLevelLabel, formatDuration } from '../../services/course.api'
-import { getActiveCategories, getSubcategories as getSubcategoriesApi, type Category } from '../../services/category.api'
+import { getActiveCategories, type Category } from '../../services/category.api'
 import { useOwnedCourses } from '../../hooks/useOwnedCourses'
+import { useTranslation } from 'react-i18next'
 
-const levels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced']
 const durations = [
-  { label: '0-2 hours', value: '0-2' },
-  { label: '3-6 hours', value: '3-6' },
-  { label: '7-16 hours', value: '7-16' },
-  { label: '17+ hours', value: '17+' }
+  { labelKey: 'duration_0_2', value: '0-2' },
+  { labelKey: 'duration_3_6', value: '3-6' },
+  { labelKey: 'duration_7_16', value: '7-16' },
+  { labelKey: 'duration_17_plus', value: '17+' }
 ]
-const ratings = [4.5, 4.0, 3.5, 3.0]
 
 export default function CategoryPage() {
   const { currentRoute, navigate } = useRouter()
   const { isOwned: isOwnedCourse, getProgress } = useOwnedCourses()
+  const { t } = useTranslation()
   
   // Extract category ID from URL: /category/:categoryId or /category/:categoryId/:subcategoryId
   const pathParts = currentRoute.split('/').filter(Boolean)
@@ -89,6 +88,12 @@ export default function CategoryPage() {
   const [sortBy, setSortBy] = useState('most-popular')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters] = useState(false)
+  const levels = [
+    t('category_page.levels.all'),
+    t('category_page.levels.beginner'),
+    t('category_page.levels.intermediate'),
+    t('category_page.levels.advanced')
+  ]
   
   // Filters state for CourseFilterSidebar
   const filters = {
@@ -118,7 +123,7 @@ export default function CategoryPage() {
   
   // Generate breadcrumb
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Home', href: '/' }
+    { label: t('category_page.breadcrumb.home'), href: '/' }
   ]
   
   if (categoryInfo) {
@@ -198,11 +203,11 @@ export default function CategoryPage() {
     <div className="min-h-screen bg-background">
       {/* Category Banner */}
       <CategoryBanner
-        title={subcategoryInfo?.name || categoryInfo?.name || 'Courses'}
+        title={subcategoryInfo?.name || categoryInfo?.name || t('category_page.banner.default_title')}
         description={
-          subcategorySlug
-            ? `Master ${subcategoryInfo?.name} with courses from industry experts`
-            : `Explore our ${categoryInfo?.name} courses and learn from the best instructors`
+          subcategoryId
+            ? t('category_page.banner.subcategory_description', { name: subcategoryInfo?.name || '' })
+            : t('category_page.banner.category_description', { name: categoryInfo?.name || '' })
         }
         breadcrumbItems={breadcrumbItems}
         totalCourses={filteredCourses.length}
@@ -212,7 +217,7 @@ export default function CategoryPage() {
       {!subcategoryId && subcategories.length > 0 && (
         <div className="border-b bg-card">
           <div className="container mx-auto px-4 py-3 md:py-4">
-            <h2 className="text-base md:text-lg font-semibold mb-2 md:mb-3">Popular topics</h2>
+            <h2 className="text-base md:text-lg font-semibold mb-2 md:mb-3">{t('category_page.popular_topics')}</h2>
             <div className="flex flex-wrap gap-2">
               {subcategories.map(subcat => (
                 <Button
@@ -239,7 +244,7 @@ export default function CategoryPage() {
               onFilterChange={handleFilterChange}
               onClearFilters={clearFilters}
               mode="multiple"
-              durations={durations.map(d => d.label)}
+              durations={durations.map(d => t(`category_page.${d.labelKey}`))}
               levels={levels}
               currency="VND"
               priceConfig={{
@@ -262,7 +267,7 @@ export default function CategoryPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                 <Input
                   type="text"
-                  placeholder="Search courses..."
+                  placeholder={t('category_page.search_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-10"
@@ -281,7 +286,7 @@ export default function CategoryPage() {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <p className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
-                    {sortedCourses.length} courses
+                    {t('category_page.courses_count', { count: sortedCourses.length })}
                   </p>
                   
                   {/* Mobile Filter Button */}
@@ -289,7 +294,7 @@ export default function CategoryPage() {
                     <SheetTrigger asChild>
                       <Button variant="outline" size="sm" className="lg:hidden text-xs">
                         <Filter className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        Filters
+                        {t('category_page.filters.title')}
                         {hasActiveFilters && (
                           <Badge className="ml-1 sm:ml-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs">
                             !
@@ -299,9 +304,9 @@ export default function CategoryPage() {
                     </SheetTrigger>
                     <SheetContent side="left" className="w-80 overflow-y-auto">
                       <SheetHeader>
-                        <SheetTitle>Filters</SheetTitle>
+                        <SheetTitle>{t('category_page.filters.title')}</SheetTitle>
                         <SheetDescription>
-                          Find the perfect course for you by applying filters.
+                          {t('category_page.filters.description')}
                         </SheetDescription>
                       </SheetHeader>
                       <div className="mt-6">
@@ -310,7 +315,7 @@ export default function CategoryPage() {
                           onFilterChange={handleFilterChange}
                           onClearFilters={clearFilters}
                           mode="multiple"
-                          durations={durations.map(d => d.label)}
+                          durations={durations.map(d => t(`category_page.${d.labelKey}`))}
                           levels={levels}
                           currency="VND"
                           priceConfig={{
@@ -343,14 +348,14 @@ export default function CategoryPage() {
                   {/* Sort By */}
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-full sm:w-[180px] text-xs sm:text-sm">
-                      <SelectValue placeholder="Sort by" />
+                      <SelectValue placeholder={t('category_page.sort.placeholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="most-popular">Most Popular</SelectItem>
-                      <SelectItem value="highest-rated">Highest Rated</SelectItem>
-                      <SelectItem value="newest">Newest</SelectItem>
-                      <SelectItem value="price-low-high">Price: Low to High</SelectItem>
-                      <SelectItem value="price-high-low">Price: High to Low</SelectItem>
+                      <SelectItem value="most-popular">{t('category_page.sort.most_popular')}</SelectItem>
+                      <SelectItem value="highest-rated">{t('category_page.sort.highest_rated')}</SelectItem>
+                      <SelectItem value="newest">{t('category_page.sort.newest')}</SelectItem>
+                      <SelectItem value="price-low-high">{t('category_page.sort.price_low_high')}</SelectItem>
+                      <SelectItem value="price-high-low">{t('category_page.sort.price_high_low')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -359,7 +364,7 @@ export default function CategoryPage() {
               {/* Active Filters */}
               {hasActiveFilters && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Active filters:</span>
+                  <span className="text-sm text-muted-foreground">{t('category_page.active_filters')}</span>
                   {selectedLevels.map(level => (
                     <Badge key={level} variant="secondary" className="gap-1">
                       {level}
@@ -371,7 +376,7 @@ export default function CategoryPage() {
                   ))}
                   {selectedRating && (
                     <Badge variant="secondary" className="gap-1">
-                      {selectedRating}+ stars
+                      {t('category_page.selected_rating', { count: selectedRating })}
                       <X
                         className="w-3 h-3 cursor-pointer"
                         onClick={() => setSelectedRating(null)}
@@ -398,7 +403,7 @@ export default function CategoryPage() {
                       key={course.id}
                       courseId={`course-${course.id}`}
                       title={course.title}
-                      instructor={course.instructor_name || 'Instructor'}
+                      instructor={course.instructor_name || t('category_page.instructor_fallback')}
                       image={course.thumbnail || ''}
                       rating={parseDecimal(course.rating)}
                       reviews={course.enrollment_count || 0}
@@ -420,12 +425,12 @@ export default function CategoryPage() {
             ) : (
               <Card className="p-12 text-center">
                 <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No courses found</h3>
+                <h3 className="text-lg font-semibold mb-2">{t('category_page.empty.title')}</h3>
                 <p className="text-muted-foreground mb-4">
-                  Try adjusting your filters or search query
+                  {t('category_page.empty.description')}
                 </p>
                 {hasActiveFilters && (
-                  <Button onClick={clearFilters}>Clear all filters</Button>
+                  <Button onClick={clearFilters}>{t('category_page.empty.clear_filters')}</Button>
                 )}
               </Card>
             )}

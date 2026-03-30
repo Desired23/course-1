@@ -1,4 +1,5 @@
 import { Button } from '../ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface BulkAction {
   key: string
@@ -17,16 +18,18 @@ interface AdminBulkActionBarProps {
 
 export function AdminBulkActionBar({
   count,
-  label = 'items selected',
+  label,
   actions,
   onClear,
 }: AdminBulkActionBarProps) {
+  const { t } = useTranslation()
+
   if (count <= 0) return null
 
   return (
     <div className="mb-4 flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 md:flex-row md:items-center md:justify-between">
       <div className="text-sm font-medium">
-        {count} {label}
+        {count} {label || t('admin_bulk_action_bar.items_selected')}
       </div>
       <div className="flex flex-wrap gap-2">
         {actions.map((action) => (
@@ -41,7 +44,7 @@ export function AdminBulkActionBar({
           </Button>
         ))}
         <Button size="sm" variant="ghost" onClick={onClear}>
-          Clear
+          {t('admin_bulk_action_bar.clear')}
         </Button>
       </div>
     </div>

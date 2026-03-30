@@ -1,5 +1,6 @@
 import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
+import { useTranslation } from 'react-i18next'
 import { 
   Video, 
   FileText, 
@@ -43,14 +44,12 @@ const LESSON_ICONS = {
 
 const STATUS_CONFIG = {
   published: {
-    label: 'Published',
     color: 'text-green-600 dark:text-green-400',
     bgColor: 'bg-green-500/10',
     borderColor: 'border-green-500/20',
     dotColor: 'bg-green-500'
   },
   draft: {
-    label: 'Draft',
     color: 'text-gray-600 dark:text-gray-400',
     bgColor: 'bg-gray-500/10',
     borderColor: 'border-gray-500/20',
@@ -67,6 +66,7 @@ export function LessonTreeItem({
   onCheck,
   showCheckbox
 }: LessonTreeItemProps) {
+  const { t } = useTranslation()
   const type = lesson.content_type || lesson.type
   const Icon = LESSON_ICONS[type as keyof typeof LESSON_ICONS] || FileText
   const statusConfig = STATUS_CONFIG[lesson.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.draft
@@ -137,7 +137,7 @@ export function LessonTreeItem({
             ) : (
               <Clock className="h-2.5 w-2.5 mr-0.5" />
             )}
-            {statusConfig.label}
+            {lesson.status === 'published' ? t('lesson_tree_item.status.published') : t('lesson_tree_item.status.draft')}
           </Badge>
         </div>
         
@@ -155,7 +155,7 @@ export function LessonTreeItem({
               variant="outline" 
               className="text-[10px] px-1.5 py-0 h-4 bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400"
             >
-              Free Preview
+              {t('lesson_tree_item.free_preview')}
             </Badge>
           )}
         </div>

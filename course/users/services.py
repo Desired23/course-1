@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 import requests
 import secrets
 from .preferences import apply_privacy_to_user_payload
+from django.db.models import Q
 JWT_SECRET = settings.SECRET_KEY
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_MINUTES = 300
@@ -116,9 +117,39 @@ def validate_user_data(data):
     if serializer.is_valid():
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
-def get_users():
-    users = User.objects.select_related('instructor', 'admin').all()
-    return users
+def get_users(filters=None):
+    filters = filters or {}
+    users = User.objects.select_related('instructor', 'admin').filter(is_deleted=False)
+
+    search = (filters.get('search') or '').strip()
+    if search:
+        search_query = (
+            Q(username__icontains=search) |
+            Q(email__icontains=search) |
+            Q(full_name__icontains=search) |
+            Q(phone__icontains=search)
+        )
+        if search.isdigit():
+            search_query |= Q(id=int(search))
+        users = users.filter(search_query)
+
+    status = (filters.get('status') or '').strip().lower()
+    if status in {
+        User.StatusChoices.ACTIVE,
+        User.StatusChoices.INACTIVE,
+        User.StatusChoices.BANNED,
+    }:
+        users = users.filter(status=status)
+
+    user_type = (filters.get('user_type') or '').strip().lower()
+    if user_type in {
+        User.UserTypeChoices.STUDENT,
+        User.UserTypeChoices.INSTRUCTOR,
+        User.UserTypeChoices.ADMIN,
+    }:
+        users = users.filter(user_type=user_type)
+
+    return users.order_by('-created_at', '-id')
     
 def get_user_by_id(user_id, viewer_id=None, is_admin=False):
         try:

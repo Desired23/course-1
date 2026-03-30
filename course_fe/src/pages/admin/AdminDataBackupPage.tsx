@@ -1,14 +1,15 @@
-import React, { useMemo, useRef, useState } from 'react'
-import { Download, FileUp, Loader2, RefreshCw, ShieldAlert } from 'lucide-react'
-import { toast } from 'sonner'
+import { useMemo, useRef, useState, type ChangeEvent } from "react"
+import { Download, FileUp, Loader2, RefreshCw, ShieldAlert } from "lucide-react"
+import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
-import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
-import { Badge } from '../../components/ui/badge'
-import { Button } from '../../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Checkbox } from '../../components/ui/checkbox'
-import { Separator } from '../../components/ui/separator'
-import { useAuth } from '../../contexts/AuthContext'
+import { AdminConfirmDialog } from "../../components/admin/AdminConfirmDialog"
+import { Badge } from "../../components/ui/badge"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Checkbox } from "../../components/ui/checkbox"
+import { Separator } from "../../components/ui/separator"
+import { useAuth } from "../../contexts/AuthContext"
 import {
   createSubscriptionPlan,
   createSystemSetting,
@@ -18,31 +19,17 @@ import {
   type SystemSetting,
   updateSubscriptionPlan,
   updateSystemSetting,
-} from '../../services/admin.api'
-import {
-  createCategory,
-  getAllCategories,
-  updateCategory,
-  type Category,
-} from '../../services/category.api'
-import {
-  getPaymentAdminConfig,
-  updatePaymentAdminConfig,
-  type PaymentAdminConfigKey,
-} from '../../services/payment.api'
-import {
-  createPromotion,
-  getPromotions,
-  updatePromotion,
-  type Promotion,
-} from '../../services/promotions.api'
+} from "../../services/admin.api"
+import { createCategory, getAllCategories, updateCategory, type Category } from "../../services/category.api"
+import { getPaymentAdminConfig, updatePaymentAdminConfig, type PaymentAdminConfigKey } from "../../services/payment.api"
+import { createPromotion, getPromotions, updatePromotion, type Promotion } from "../../services/promotions.api"
 
 type BackupModule =
-  | 'system_settings'
-  | 'payment_config'
-  | 'categories'
-  | 'discounts'
-  | 'subscription_plans'
+  | "system_settings"
+  | "payment_config"
+  | "categories"
+  | "discounts"
+  | "subscription_plans"
 
 interface BackupPackage {
   version: 1
@@ -64,39 +51,15 @@ interface RestoreSummary {
   notes: string[]
 }
 
-const MODULE_OPTIONS: Array<{
-  key: BackupModule
-  title: string
-  description: string
-}> = [
-  {
-    key: 'system_settings',
-    title: 'System settings',
-    description: 'Website settings, homepage layout, payment method settings, and other admin metadata.',
-  },
-  {
-    key: 'payment_config',
-    title: 'Payment config',
-    description: 'Policies, instructor rates, and discount config from payment admin settings.',
-  },
-  {
-    key: 'categories',
-    title: 'Categories',
-    description: 'Category and subcategory structure with status, icon, and descriptions.',
-  },
-  {
-    key: 'discounts',
-    title: 'Discounts',
-    description: 'Promotion and coupon metadata managed by admin.',
-  },
-  {
-    key: 'subscription_plans',
-    title: 'Subscription plans',
-    description: 'Plan metadata and active course mappings when they can be restored safely.',
-  },
+const BACKUP_MODULE_KEYS: BackupModule[] = [
+  "system_settings",
+  "payment_config",
+  "categories",
+  "discounts",
+  "subscription_plans",
 ]
 
-const PAYMENT_CONFIG_KEYS: PaymentAdminConfigKey[] = ['policies', 'instructor-rates', 'discounts']
+const PAYMENT_CONFIG_KEYS: PaymentAdminConfigKey[] = ["policies", "instructor-rates", "discounts"]
 
 function pickCategoryPayload(category: Category) {
   return {
@@ -147,15 +110,15 @@ function pickPlanPayload(plan: any, planCourses: any[]) {
     highlight_color: plan.highlight_color,
     plan_courses: planCourses.map((course) => ({
       course_id: course.course,
-      added_reason: course.added_reason || 'Restored from admin backup',
+      added_reason: course.added_reason || "Restored from admin backup",
     })),
   }
 }
 
 function downloadJsonFile(filename: string, payload: unknown) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })
   const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
+  const link = document.createElement("a")
   link.href = url
   link.download = filename
   link.click()
@@ -163,9 +126,20 @@ function downloadJsonFile(filename: string, payload: unknown) {
 }
 
 export function AdminDataBackupPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const [selectedModules, setSelectedModules] = useState<BackupModule[]>(MODULE_OPTIONS.map((module) => module.key))
+  const moduleOptions = useMemo(
+    () =>
+      BACKUP_MODULE_KEYS.map((key) => ({
+        key,
+        title: t(`admin_data_backup.modules.${key}.title`),
+        description: t(`admin_data_backup.modules.${key}.description`),
+      })),
+    [t],
+  )
+
+  const [selectedModules, setSelectedModules] = useState<BackupModule[]>(BACKUP_MODULE_KEYS)
   const [isExporting, setIsExporting] = useState(false)
   const [isRestoring, setIsRestoring] = useState(false)
   const [parsedBackup, setParsedBackup] = useState<BackupPackage | null>(null)
@@ -174,9 +148,11 @@ export function AdminDataBackupPage() {
   const [restoreSummaries, setRestoreSummaries] = useState<RestoreSummary[]>([])
 
   const parsedModuleOptions = useMemo(
-    () => MODULE_OPTIONS.filter((module) => parsedBackup?.modules.includes(module.key)),
-    [parsedBackup]
+    () => moduleOptions.filter((module) => parsedBackup?.modules.includes(module.key)),
+    [moduleOptions, parsedBackup],
   )
+
+  const getModuleTitle = (module: BackupModule) => t(`admin_data_backup.modules.${module}.title`)
 
   const toggleSelection = (module: BackupModule, checked: boolean) => {
     setSelectedModules((prev) => {
@@ -193,39 +169,39 @@ export function AdminDataBackupPage() {
   }
 
   const buildExportPayload = async (): Promise<BackupPackage> => {
-    const resources: BackupPackage['resources'] = {}
+    const resources: BackupPackage["resources"] = {}
 
-    if (selectedModules.includes('system_settings')) {
+    if (selectedModules.includes("system_settings")) {
       resources.system_settings = await getSystemSettings()
     }
 
-    if (selectedModules.includes('payment_config')) {
+    if (selectedModules.includes("payment_config")) {
       const configs = await Promise.all(
         PAYMENT_CONFIG_KEYS.map(async (configKey) => {
           const response = await getPaymentAdminConfig(configKey)
           return [configKey, response.value] as const
-        })
+        }),
       )
       resources.payment_config = Object.fromEntries(configs)
     }
 
-    if (selectedModules.includes('categories')) {
+    if (selectedModules.includes("categories")) {
       const response = await getAllCategories({ page: 1, page_size: 500 })
       resources.categories = response.results.map(pickCategoryPayload)
     }
 
-    if (selectedModules.includes('discounts')) {
+    if (selectedModules.includes("discounts")) {
       const promotions = await getPromotions()
       resources.discounts = promotions.map(pickPromotionPayload)
     }
 
-    if (selectedModules.includes('subscription_plans')) {
+    if (selectedModules.includes("subscription_plans")) {
       const plans = await getAdminSubscriptionPlans()
       const plansWithCourses = await Promise.all(
         plans.map(async (plan) => {
           const planCourses = await managePlanCourses(plan.id)
           return pickPlanPayload(plan, Array.isArray(planCourses) ? planCourses : [])
-        })
+        }),
       )
       resources.subscription_plans = plansWithCourses
     }
@@ -247,7 +223,7 @@ export function AdminDataBackupPage() {
 
   const handleExport = async () => {
     if (selectedModules.length === 0) {
-      toast.error('Select at least one module to export.')
+      toast.error(t("admin_data_backup.toasts.select_export_module"))
       return
     }
 
@@ -255,10 +231,10 @@ export function AdminDataBackupPage() {
       setIsExporting(true)
       const payload = await buildExportPayload()
       downloadJsonFile(`admin-backup-${new Date().toISOString().slice(0, 10)}.json`, payload)
-      toast.success('Admin backup exported successfully.')
+      toast.success(t("admin_data_backup.toasts.export_success"))
     } catch (error) {
       console.error(error)
-      toast.error('Failed to export backup.')
+      toast.error(t("admin_data_backup.toasts.export_failed"))
     } finally {
       setIsExporting(false)
     }
@@ -268,40 +244,40 @@ export function AdminDataBackupPage() {
     inputRef.current?.click()
   }
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    event.target.value = ''
+    event.target.value = ""
     if (!file) return
 
     try {
       const text = await file.text()
       const parsed = JSON.parse(text) as BackupPackage
       if (parsed.version !== 1 || !Array.isArray(parsed.modules) || !parsed.resources) {
-        throw new Error('Unsupported backup file')
+        throw new Error("Unsupported backup file")
       }
       setParsedBackup(parsed)
       setRestoreModules(parsed.modules)
       setRestoreSummaries([])
-      toast.success('Backup file loaded. Review modules before restoring.')
+      toast.success(t("admin_data_backup.toasts.file_loaded"))
     } catch (error) {
       console.error(error)
       setParsedBackup(null)
       setRestoreModules([])
-      toast.error('Invalid backup file.')
+      toast.error(t("admin_data_backup.toasts.invalid_file"))
     }
   }
 
   const restoreSystemSettings = async (settings: SystemSetting[]): Promise<RestoreSummary> => {
     const existing = await getSystemSettings()
     const existingByKey = new Map(existing.map((item) => [item.key, item]))
-    const summary: RestoreSummary = { module: 'system_settings', created: 0, updated: 0, failed: 0, notes: [] }
+    const summary: RestoreSummary = { module: "system_settings", created: 0, updated: 0, failed: 0, notes: [] }
 
     for (const setting of settings) {
       try {
         const payload = {
           key: setting.key,
           value: setting.value,
-          description: setting.description || '',
+          description: setting.description || "",
         }
         const current = existingByKey.get(setting.key)
         if (current) {
@@ -314,15 +290,17 @@ export function AdminDataBackupPage() {
       } catch (error) {
         console.error(error)
         summary.failed += 1
-        summary.notes.push(`Failed to restore setting "${setting.key}".`)
+        summary.notes.push(t("admin_data_backup.notes.restore_setting_failed", { key: setting.key }))
       }
     }
 
     return summary
   }
 
-  const restorePaymentConfig = async (configs: Partial<Record<PaymentAdminConfigKey, any>>): Promise<RestoreSummary> => {
-    const summary: RestoreSummary = { module: 'payment_config', created: 0, updated: 0, failed: 0, notes: [] }
+  const restorePaymentConfig = async (
+    configs: Partial<Record<PaymentAdminConfigKey, any>>,
+  ): Promise<RestoreSummary> => {
+    const summary: RestoreSummary = { module: "payment_config", created: 0, updated: 0, failed: 0, notes: [] }
 
     for (const key of PAYMENT_CONFIG_KEYS) {
       if (!(key in configs)) continue
@@ -332,27 +310,35 @@ export function AdminDataBackupPage() {
       } catch (error) {
         console.error(error)
         summary.failed += 1
-        summary.notes.push(`Failed to restore payment config "${key}".`)
+        summary.notes.push(t("admin_data_backup.notes.restore_payment_config_failed", { key }))
       }
     }
 
     return summary
   }
 
-  const restoreCategories = async (categories: Array<ReturnType<typeof pickCategoryPayload>>): Promise<RestoreSummary> => {
+  const restoreCategories = async (
+    categories: Array<ReturnType<typeof pickCategoryPayload>>,
+  ): Promise<RestoreSummary> => {
     const existingResponse = await getAllCategories({ page: 1, page_size: 500 })
     const existing = existingResponse.results
     const sourceToTarget = new Map<number, number>()
-    const summary: RestoreSummary = { module: 'categories', created: 0, updated: 0, failed: 0, notes: [] }
-    const queue = [...categories].sort((left, right) => Number(Boolean(left.parent_category)) - Number(Boolean(right.parent_category)))
+    const summary: RestoreSummary = { module: "categories", created: 0, updated: 0, failed: 0, notes: [] }
+    const queue = [...categories].sort(
+      (left, right) => Number(Boolean(left.parent_category)) - Number(Boolean(right.parent_category)),
+    )
 
     for (const category of queue) {
       try {
-        const targetParentId = category.parent_category ? sourceToTarget.get(category.parent_category) ?? null : null
-        const matched = existing.find((item) => item.name === category.name && (item.parent_category ?? null) === targetParentId)
+        const targetParentId = category.parent_category
+          ? sourceToTarget.get(category.parent_category) ?? null
+          : null
+        const matched = existing.find(
+          (item) => item.name === category.name && (item.parent_category ?? null) === targetParentId,
+        )
         const payload = {
           name: category.name,
-          description: category.description || '',
+          description: category.description || "",
           icon: category.icon || null,
           parent_category: targetParentId,
           status: category.status,
@@ -370,16 +356,18 @@ export function AdminDataBackupPage() {
       } catch (error) {
         console.error(error)
         summary.failed += 1
-        summary.notes.push(`Failed to restore category "${category.name}".`)
+        summary.notes.push(t("admin_data_backup.notes.restore_category_failed", { name: category.name }))
       }
     }
 
     return summary
   }
 
-  const restoreDiscounts = async (promotions: Array<ReturnType<typeof pickPromotionPayload>>): Promise<RestoreSummary> => {
+  const restoreDiscounts = async (
+    promotions: Array<ReturnType<typeof pickPromotionPayload>>,
+  ): Promise<RestoreSummary> => {
     const existing = await getPromotions()
-    const summary: RestoreSummary = { module: 'discounts', created: 0, updated: 0, failed: 0, notes: [] }
+    const summary: RestoreSummary = { module: "discounts", created: 0, updated: 0, failed: 0, notes: [] }
 
     for (const promotion of promotions) {
       try {
@@ -394,20 +382,24 @@ export function AdminDataBackupPage() {
       } catch (error) {
         console.error(error)
         summary.failed += 1
-        summary.notes.push(`Failed to restore promotion "${promotion.code}".`)
+        summary.notes.push(t("admin_data_backup.notes.restore_discount_failed", { code: promotion.code }))
       }
     }
 
     return summary
   }
 
-  const restoreSubscriptionPlans = async (plans: Array<ReturnType<typeof pickPlanPayload>>): Promise<RestoreSummary> => {
+  const restoreSubscriptionPlans = async (
+    plans: Array<ReturnType<typeof pickPlanPayload>>,
+  ): Promise<RestoreSummary> => {
     const existing = await getAdminSubscriptionPlans()
-    const summary: RestoreSummary = { module: 'subscription_plans', created: 0, updated: 0, failed: 0, notes: [] }
+    const summary: RestoreSummary = { module: "subscription_plans", created: 0, updated: 0, failed: 0, notes: [] }
 
     for (const plan of plans) {
       try {
-        const matched = existing.find((item) => item.name === plan.name && item.duration_type === plan.duration_type)
+        const matched = existing.find(
+          (item) => item.name === plan.name && item.duration_type === plan.duration_type,
+        )
         const { plan_courses: planCourses, ...payload } = plan
         const restoredPlan = matched
           ? await updateSubscriptionPlan(matched.id, payload)
@@ -425,14 +417,17 @@ export function AdminDataBackupPage() {
           } catch (courseError) {
             console.error(courseError)
             summary.notes.push(
-              `Plan "${plan.name}" could not attach course ID ${planCourse.course_id}.`
+              t("admin_data_backup.notes.attach_course_failed", {
+                name: plan.name,
+                courseId: planCourse.course_id,
+              }),
             )
           }
         }
       } catch (error) {
         console.error(error)
         summary.failed += 1
-        summary.notes.push(`Failed to restore subscription plan "${plan.name}".`)
+        summary.notes.push(t("admin_data_backup.notes.restore_plan_failed", { name: plan.name }))
       }
     }
 
@@ -441,7 +436,7 @@ export function AdminDataBackupPage() {
 
   const handleRestore = async () => {
     if (!parsedBackup || restoreModules.length === 0) {
-      toast.error('Choose at least one module to restore.')
+      toast.error(t("admin_data_backup.toasts.select_restore_module"))
       return
     }
 
@@ -449,28 +444,31 @@ export function AdminDataBackupPage() {
       setIsRestoring(true)
       const summaries: RestoreSummary[] = []
 
-      if (restoreModules.includes('system_settings') && parsedBackup.resources.system_settings) {
+      if (restoreModules.includes("system_settings") && parsedBackup.resources.system_settings) {
         summaries.push(await restoreSystemSettings(parsedBackup.resources.system_settings))
       }
-      if (restoreModules.includes('payment_config') && parsedBackup.resources.payment_config) {
+      if (restoreModules.includes("payment_config") && parsedBackup.resources.payment_config) {
         summaries.push(await restorePaymentConfig(parsedBackup.resources.payment_config))
       }
-      if (restoreModules.includes('categories') && parsedBackup.resources.categories) {
+      if (restoreModules.includes("categories") && parsedBackup.resources.categories) {
         summaries.push(await restoreCategories(parsedBackup.resources.categories))
       }
-      if (restoreModules.includes('discounts') && parsedBackup.resources.discounts) {
+      if (restoreModules.includes("discounts") && parsedBackup.resources.discounts) {
         summaries.push(await restoreDiscounts(parsedBackup.resources.discounts))
       }
-      if (restoreModules.includes('subscription_plans') && parsedBackup.resources.subscription_plans) {
+      if (
+        restoreModules.includes("subscription_plans") &&
+        parsedBackup.resources.subscription_plans
+      ) {
         summaries.push(await restoreSubscriptionPlans(parsedBackup.resources.subscription_plans))
       }
 
       setRestoreSummaries(summaries)
       setConfirmRestoreOpen(false)
-      toast.success('Backup restore finished. Review the summary below.')
+      toast.success(t("admin_data_backup.toasts.restore_success"))
     } catch (error) {
       console.error(error)
-      toast.error('Backup restore failed.')
+      toast.error(t("admin_data_backup.toasts.restore_failed"))
     } finally {
       setIsRestoring(false)
     }
@@ -488,24 +486,20 @@ export function AdminDataBackupPage() {
 
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold">Data Backup</h1>
-          <p className="text-muted-foreground">
-            Export and restore admin metadata without touching a full database snapshot.
-          </p>
+          <h1 className="text-3xl font-semibold">{t("admin_data_backup.title")}</h1>
+          <p className="text-muted-foreground">{t("admin_data_backup.subtitle")}</p>
         </div>
-        <Badge variant="secondary">JSON backup only</Badge>
+        <Badge variant="secondary">{t("admin_data_backup.badge")}</Badge>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Export backup</CardTitle>
-            <CardDescription>
-              Select the admin modules you want to bundle into a portable JSON file.
-            </CardDescription>
+            <CardTitle>{t("admin_data_backup.export.title")}</CardTitle>
+            <CardDescription>{t("admin_data_backup.export.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {MODULE_OPTIONS.map((module) => {
+            {moduleOptions.map((module) => {
               const checked = selectedModules.includes(module.key)
               return (
                 <label
@@ -526,30 +520,38 @@ export function AdminDataBackupPage() {
             <Separator />
             <Button onClick={() => void handleExport()} disabled={isExporting} className="gap-2">
               {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Export selected modules
+              {t("admin_data_backup.export.button")}
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Import backup</CardTitle>
-            <CardDescription>
-              Load a previously exported admin backup file, review the modules, then restore the selected pieces.
-            </CardDescription>
+            <CardTitle>{t("admin_data_backup.import.title")}</CardTitle>
+            <CardDescription>{t("admin_data_backup.import.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button variant="outline" onClick={handleChooseFile} className="gap-2">
               <FileUp className="h-4 w-4" />
-              Choose backup file
+              {t("admin_data_backup.import.choose_file")}
             </Button>
 
             {parsedBackup ? (
               <div className="space-y-4 rounded-lg border p-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                   <Badge variant="outline">v{parsedBackup.version}</Badge>
-                  <span>Created {new Date(parsedBackup.created_at).toLocaleString()}</span>
-                  {parsedBackup.created_by && <span>by {parsedBackup.created_by.name}</span>}
+                  <span>
+                    {t("admin_data_backup.import.created_at", {
+                      date: new Date(parsedBackup.created_at).toLocaleString(),
+                    })}
+                  </span>
+                  {parsedBackup.created_by && (
+                    <span>
+                      {t("admin_data_backup.import.created_by", {
+                        name: parsedBackup.created_by.name,
+                      })}
+                    </span>
+                  )}
                 </div>
 
                 {parsedModuleOptions.map((module) => (
@@ -574,12 +576,12 @@ export function AdminDataBackupPage() {
                   className="gap-2"
                 >
                   {isRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Restore selected modules
+                  {t("admin_data_backup.import.restore_button")}
                 </Button>
               </div>
             ) : (
               <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                No backup file loaded yet.
+                {t("admin_data_backup.import.empty")}
               </div>
             )}
           </CardContent>
@@ -589,19 +591,23 @@ export function AdminDataBackupPage() {
       {restoreSummaries.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Last restore summary</CardTitle>
-            <CardDescription>
-              Review created, updated, and skipped items after the most recent restore run.
-            </CardDescription>
+            <CardTitle>{t("admin_data_backup.summary.title")}</CardTitle>
+            <CardDescription>{t("admin_data_backup.summary.description")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {restoreSummaries.map((summary) => (
               <div key={summary.module} className="rounded-lg border p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="font-medium">{MODULE_OPTIONS.find((module) => module.key === summary.module)?.title}</div>
-                  <Badge variant="secondary">Created {summary.created}</Badge>
-                  <Badge variant="secondary">Updated {summary.updated}</Badge>
-                  <Badge variant={summary.failed > 0 ? 'destructive' : 'outline'}>Failed {summary.failed}</Badge>
+                  <div className="font-medium">{getModuleTitle(summary.module)}</div>
+                  <Badge variant="secondary">
+                    {t("admin_data_backup.summary.created", { count: summary.created })}
+                  </Badge>
+                  <Badge variant="secondary">
+                    {t("admin_data_backup.summary.updated", { count: summary.updated })}
+                  </Badge>
+                  <Badge variant={summary.failed > 0 ? "destructive" : "outline"}>
+                    {t("admin_data_backup.summary.failed", { count: summary.failed })}
+                  </Badge>
                 </div>
                 {summary.notes.length > 0 && (
                   <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
@@ -621,11 +627,11 @@ export function AdminDataBackupPage() {
 
       <AdminConfirmDialog
         open={confirmRestoreOpen}
-        title="Restore admin backup"
-        description="This will upsert the selected admin modules and may overwrite current metadata values. Continue?"
-        confirmLabel="Restore backup"
+        title={t("admin_data_backup.confirm.title")}
+        description={t("admin_data_backup.confirm.description")}
+        confirmLabel={t("admin_data_backup.confirm.confirm_label")}
         destructive
-        isLoading={isRestoring}
+        loading={isRestoring}
         onConfirm={() => void handleRestore()}
         onOpenChange={setConfirmRestoreOpen}
       />

@@ -1,3 +1,5 @@
+import i18n from './i18n'
+
 /**
  * Navigation utility functions for breadcrumb and category navigation
  */
@@ -52,7 +54,7 @@ export function generateCourseBreadcrumb(
   subcategory?: string
 ): BreadcrumbItem[] {
   const items: BreadcrumbItem[] = [
-    { label: 'Home', href: '/' }
+    { label: i18n.t('navigation.home'), href: '/' }
   ]
   
   if (category) {

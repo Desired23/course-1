@@ -1,11 +1,15 @@
-﻿import { useEffect, useMemo, useState } from 'react'
-import { Button } from '../../components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
-import { Textarea } from '../../components/ui/textarea'
-import { Badge } from '../../components/ui/badge'
-import { useRouter } from '../../components/Router'
+import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Loader2, UploadCloud } from "lucide-react"
+import { toast } from "sonner"
+
+import { useRouter } from "../../components/Router"
+import { Badge } from "../../components/ui/badge"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
+import { Textarea } from "../../components/ui/textarea"
 import {
   getActiveRegistrationForm,
   getApplicationStatusLabel,
@@ -17,28 +21,32 @@ import {
   type ApplicationListItem,
   type RegistrationForm,
   type RegistrationFormQuestion,
-} from '../../services/application.api'
-import { uploadFiles } from '../../services/upload.api'
-import { Loader2, UploadCloud } from 'lucide-react'
-import { toast } from 'sonner'
+} from "../../services/application.api"
+import { uploadFiles } from "../../services/upload.api"
 
 type FormValues = Record<number, any>
 
 function normalizeOptions(options: any): Array<{ value: string; label: string }> {
   if (!options) return []
+
   if (Array.isArray(options)) {
-    return options.map((opt) => {
-      if (typeof opt === 'string') return { value: opt, label: opt }
-      return {
-        value: String(opt?.value ?? opt?.id ?? opt?.label ?? ''),
-        label: String(opt?.label ?? opt?.name ?? opt?.value ?? ''),
-      }
-    }).filter((opt) => opt.value)
+    return options
+      .map((opt) => {
+        if (typeof opt === "string") return { value: opt, label: opt }
+
+        return {
+          value: String(opt?.value ?? opt?.id ?? opt?.label ?? ""),
+          label: String(opt?.label ?? opt?.name ?? opt?.value ?? ""),
+        }
+      })
+      .filter((opt) => opt.value)
   }
+
   return []
 }
 
 export function InstructorOnboardingPage() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -47,18 +55,19 @@ export function InstructorOnboardingPage() {
   const [form, setForm] = useState<RegistrationForm | null>(null)
   const [myLatestApplication, setMyLatestApplication] = useState<ApplicationListItem | null>(null)
   const [myLatestApplicationDetail, setMyLatestApplicationDetail] = useState<Application | null>(null)
-
   const [values, setValues] = useState<FormValues>({})
 
-  const canEdit = !myLatestApplication || myLatestApplication.status === 'changes_requested'
+  const canEdit = !myLatestApplication || myLatestApplication.status === "changes_requested"
 
   useEffect(() => {
     let cancelled = false
+
     const loadData = async () => {
       setLoading(true)
+
       try {
         const [activeForm, myAppsRes] = await Promise.all([
-          getActiveRegistrationForm('instructor_application'),
+          getActiveRegistrationForm("instructor_application"),
           getMyApplications({ page: 1, page_size: 20 }),
         ])
 
@@ -71,6 +80,7 @@ export function InstructorOnboardingPage() {
         if (latest) {
           const detail = await getMyApplicationDetail(latest.id)
           if (cancelled) return
+
           setMyLatestApplicationDetail(detail)
 
           const initialValues: FormValues = {}
@@ -82,7 +92,7 @@ export function InstructorOnboardingPage() {
           setValues(initialValues)
         }
       } catch (err: any) {
-        toast.error(err?.message || 'Không thể tải biểu mẫu đăng ký')
+        toast.error(err?.message || t("instructor_onboarding_page.load_form_failed"))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -92,7 +102,7 @@ export function InstructorOnboardingPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const sortedQuestions = useMemo(() => {
     if (!form?.questions) return []
@@ -105,14 +115,16 @@ export function InstructorOnboardingPage() {
 
   const handleFileUpload = async (question: RegistrationFormQuestion, file: File | null) => {
     if (!file) return
+
     setUploadingQuestionId(question.id)
     try {
       const uploaded = await uploadFiles([file])
-      if (!uploaded?.length) throw new Error('Upload thất bại')
+      if (!uploaded?.length) throw new Error(t("instructor_onboarding_page.upload_failed"))
+
       updateValue(question.id, uploaded[0].url)
-      toast.success('Tải file thành công')
+      toast.success(t("instructor_onboarding_page.upload_success"))
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tải file lên')
+      toast.error(err?.message || t("instructor_onboarding_page.upload_failed"))
     } finally {
       setUploadingQuestionId(null)
     }
@@ -122,13 +134,14 @@ export function InstructorOnboardingPage() {
     for (const question of sortedQuestions) {
       if (!question.required) continue
       const val = values[question.id]
-      if (question.type === 'checkbox') {
+
+      if (question.type === "checkbox") {
         if (!Array.isArray(val) || val.length === 0) {
-          toast.error(`Vui lòng trả lời: ${question.label}`)
+          toast.error(t("instructor_onboarding_page.answer_required", { label: question.label }))
           return false
         }
-      } else if (val === undefined || val === null || String(val).trim() === '') {
-        toast.error(`Vui lòng trả lời: ${question.label}`)
+      } else if (val === undefined || val === null || String(val).trim() === "") {
+        toast.error(t("instructor_onboarding_page.answer_required", { label: question.label }))
         return false
       }
     }
@@ -136,29 +149,28 @@ export function InstructorOnboardingPage() {
   }
 
   const handleSubmit = async () => {
-    if (!form) return
-    if (!validateForm()) return
+    if (!form || !validateForm()) return
 
     const payload = {
       form_id: form.id,
       responses: sortedQuestions.map((question) => ({
         question_id: question.id,
-        value: values[question.id] ?? (question.type === 'checkbox' ? [] : ''),
+        value: values[question.id] ?? (question.type === "checkbox" ? [] : ""),
       })),
     }
 
     setSubmitting(true)
     try {
-      if (myLatestApplication?.status === 'changes_requested') {
+      if (myLatestApplication?.status === "changes_requested") {
         await resubmitApplication(myLatestApplication.id, payload)
-        toast.success('Đã gửi lại hồ sơ thành công')
+        toast.success(t("instructor_onboarding_page.resubmit_success"))
       } else {
         await submitApplication(payload)
-        toast.success('Đăng ký thành công, vui lòng chờ xét duyệt')
+        toast.success(t("instructor_onboarding_page.submit_success"))
       }
-      navigate('/instructor')
+      navigate("/instructor")
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể gửi hồ sơ')
+      toast.error(err?.message || t("instructor_onboarding_page.submit_failed"))
     } finally {
       setSubmitting(false)
     }
@@ -168,47 +180,49 @@ export function InstructorOnboardingPage() {
     const value = values[question.id]
     const options = normalizeOptions(question.options)
 
-    if (question.type === 'textarea') {
+    if (question.type === "textarea") {
       return (
         <Textarea
-          value={value ?? ''}
+          value={value ?? ""}
           onChange={(e) => updateValue(question.id, e.target.value)}
-          placeholder={question.placeholder || ''}
+          placeholder={question.placeholder || ""}
           rows={5}
           disabled={!canEdit}
         />
       )
     }
 
-    if (question.type === 'number') {
+    if (question.type === "number") {
       return (
         <Input
           type="number"
-          value={value ?? ''}
-          onChange={(e) => updateValue(question.id, e.target.value === '' ? '' : Number(e.target.value))}
-          placeholder={question.placeholder || ''}
+          value={value ?? ""}
+          onChange={(e) => updateValue(question.id, e.target.value === "" ? "" : Number(e.target.value))}
+          placeholder={question.placeholder || ""}
           disabled={!canEdit}
         />
       )
     }
 
-    if (question.type === 'select') {
+    if (question.type === "select") {
       return (
         <select
           className="h-10 w-full rounded-md border px-3 text-sm"
-          value={value ?? ''}
+          value={value ?? ""}
           onChange={(e) => updateValue(question.id, e.target.value)}
           disabled={!canEdit}
         >
-          <option value="">Chọn</option>
+          <option value="">{t("instructor_onboarding_page.select_placeholder")}</option>
           {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
       )
     }
 
-    if (question.type === 'radio') {
+    if (question.type === "radio") {
       return (
         <div className="space-y-2">
           {options.map((opt) => (
@@ -217,7 +231,7 @@ export function InstructorOnboardingPage() {
                 type="radio"
                 name={`q-${question.id}`}
                 value={opt.value}
-                checked={String(value ?? '') === opt.value}
+                checked={String(value ?? "") === opt.value}
                 onChange={(e) => updateValue(question.id, e.target.value)}
                 disabled={!canEdit}
               />
@@ -228,7 +242,7 @@ export function InstructorOnboardingPage() {
       )
     }
 
-    if (question.type === 'checkbox') {
+    if (question.type === "checkbox") {
       const checkedValues = Array.isArray(value) ? value : []
       return (
         <div className="space-y-2">
@@ -253,12 +267,12 @@ export function InstructorOnboardingPage() {
       )
     }
 
-    if (question.type === 'file') {
+    if (question.type === "file") {
       return (
         <div className="space-y-2">
-          {typeof value === 'string' && value && (
+          {typeof value === "string" && value && (
             <a href={value} target="_blank" rel="noreferrer" className="text-sm text-primary underline">
-              Xem file đã tải
+              {t("instructor_onboarding_page.view_uploaded_file")}
             </a>
           )}
           <div className="flex items-center gap-3">
@@ -275,21 +289,25 @@ export function InstructorOnboardingPage() {
 
     return (
       <Input
-        type={question.type === 'url' ? 'url' : 'text'}
-        value={value ?? ''}
+        type={question.type === "url" ? "url" : "text"}
+        value={value ?? ""}
         onChange={(e) => updateValue(question.id, e.target.value)}
-        placeholder={question.placeholder || ''}
+        placeholder={question.placeholder || ""}
         disabled={!canEdit}
       />
     )
   }
 
   if (loading) {
-    return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    )
   }
 
   if (!form) {
-    return <div className="p-6 text-center text-muted-foreground">Không tìm thấy form đăng ký giảng viên đang hoạt động.</div>
+    return <div className="p-6 text-center text-muted-foreground">{t("instructor_onboarding_page.no_active_form")}</div>
   }
 
   return (
@@ -297,15 +315,21 @@ export function InstructorOnboardingPage() {
       <Card>
         <CardHeader>
           <CardTitle>{form.title}</CardTitle>
-          <CardDescription>{form.description || 'Hoàn thành biểu mẫu để đăng ký trở thành giảng viên.'}</CardDescription>
+          <CardDescription>{form.description || t("instructor_onboarding_page.default_description")}</CardDescription>
           {myLatestApplication && (
             <div className="pt-2">
-              <Badge variant="outline">Trạng thái hiện tại: {getApplicationStatusLabel(myLatestApplication.status)}</Badge>
+              <Badge variant="outline">
+                {t("instructor_onboarding_page.current_status", { status: getApplicationStatusLabel(myLatestApplication.status) })}
+              </Badge>
               {myLatestApplicationDetail?.admin_notes && (
-                <p className="text-sm mt-2 text-muted-foreground">Ghi chú admin: {myLatestApplicationDetail.admin_notes}</p>
+                <p className="text-sm mt-2 text-muted-foreground">
+                  {t("instructor_onboarding_page.admin_notes", { notes: myLatestApplicationDetail.admin_notes })}
+                </p>
               )}
               {myLatestApplicationDetail?.rejection_reason && (
-                <p className="text-sm mt-1 text-red-600">Lý do từ chối: {myLatestApplicationDetail.rejection_reason}</p>
+                <p className="text-sm mt-1 text-red-600">
+                  {t("instructor_onboarding_page.rejection_reason", { reason: myLatestApplicationDetail.rejection_reason })}
+                </p>
               )}
             </div>
           )}
@@ -313,7 +337,9 @@ export function InstructorOnboardingPage() {
         <CardContent className="space-y-5">
           {!canEdit ? (
             <div className="rounded-md border p-4 text-sm text-muted-foreground">
-              Bạn đã có hồ sơ ở trạng thái <strong>{getApplicationStatusLabel(myLatestApplication!.status)}</strong>. Không thể chỉnh sửa lúc này.
+              {t("instructor_onboarding_page.cannot_edit_notice", {
+                status: getApplicationStatusLabel(myLatestApplication!.status),
+              })}
             </div>
           ) : (
             <>
@@ -330,9 +356,13 @@ export function InstructorOnboardingPage() {
               <div className="pt-4 flex items-center gap-3">
                 <Button onClick={handleSubmit} disabled={submitting}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {myLatestApplication?.status === 'changes_requested' ? 'Gửi lại hồ sơ' : 'Gửi đăng ký'}
+                  {myLatestApplication?.status === "changes_requested"
+                    ? t("instructor_onboarding_page.resubmit")
+                    : t("instructor_onboarding_page.submit")}
                 </Button>
-                <Button variant="outline" onClick={() => navigate('/instructor')} disabled={submitting}>Hủy</Button>
+                <Button variant="outline" onClick={() => navigate("/instructor")} disabled={submitting}>
+                  {t("instructor_onboarding_page.cancel")}
+                </Button>
               </div>
             </>
           )}
@@ -341,7 +371,7 @@ export function InstructorOnboardingPage() {
 
       <p className="mt-4 text-xs text-muted-foreground flex items-center gap-2">
         <UploadCloud className="h-3.5 w-3.5" />
-        Trường file sẽ được tải lên cloud trước khi gửi đơn.
+        {t("instructor_onboarding_page.file_upload_note")}
       </p>
     </div>
   )

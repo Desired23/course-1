@@ -1,198 +1,390 @@
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Switch } from '../../components/ui/switch'
-import { Badge } from '../../components/ui/badge'
-import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
-import { toast } from 'sonner'
-import { GripVertical, Eye, EyeOff, Plus, Save, RotateCcw } from 'lucide-react'
-import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
-import type { SystemSetting } from '../../services/admin.api'
-import { Input } from '../../components/ui/input'
-import { Label } from '../../components/ui/label'
+﻿import { useEffect, useMemo, useState, type DragEvent } from "react"
+import { toast } from "sonner"
+import { Copy, Download, Eye, EyeOff, Plus, RotateCcw, Save, Trash2, Upload } from "lucide-react"
+import { Button } from "../../components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
+import { Input } from "../../components/ui/input"
+import { Label } from "../../components/ui/label"
+import { Switch } from "../../components/ui/switch"
+import { Textarea } from "../../components/ui/textarea"
+import { Badge } from "../../components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+import { AdminConfirmDialog } from "../../components/admin/AdminConfirmDialog"
+import { Trans, useTranslation } from "react-i18next"
+import { DynamicHomeSections } from "../../features/home/DynamicHomeRenderer"
+import {
+  ensureInitialHomeSchemaBackup,
+  loadHomeSchemaV2,
+  loadLegacyHomeSchemaV2,
+  loadPreSchemaDrivenLegacySchemaV2,
+  loadInitialHomeSchemaBackup,
+  saveInitialHomeSchemaBackup,
+  saveHomeSchemaV2,
+} from "../../features/home/service"
+import {
+  createDefaultSection,
+  getDefaultHomeSchemaV2,
+  LEGACY_COMPONENT_NAMES,
+  normalizeHomeSchemaV2,
+  validateHomeSection,
+  type HomeSchemaV2,
+  type HomeSection,
+  type HomeSectionType,
+} from "../../features/home/schema"
+import { getCourses, type CourseListItem } from "../../services/course.api"
+import { getAllCategories, type Category } from "../../services/category.api"
+import i18n from "../../utils/i18n"
 
-interface HomeSection {
-  id: string
-  component: string
-  title: string
-  description: string
-  enabled: boolean
-  order: number
-  config?: Record<string, any>
-}
-
-const AVAILABLE_COMPONENTS = [
-  {
-    id: 'HeroSection',
-    title: 'Hero Banner',
-    description: 'Main hero section with CTA',
-    category: 'header'
-  },
-  {
-    id: 'FeaturedCourses',
-    title: 'Featured Courses',
-    description: 'Showcase featured courses',
-    category: 'courses'
-  },
-  {
-    id: 'TrendingCourses',
-    title: 'Trending Courses',
-    description: 'Display trending courses',
-    category: 'courses'
-  },
-  {
-    id: 'Categories',
-    title: 'Categories Grid',
-    description: 'Browse by category',
-    category: 'navigation'
-  },
-  {
-    id: 'PopularSkills',
-    title: 'Popular Skills',
-    description: 'Most in-demand skills',
-    category: 'content'
-  },
-  {
-    id: 'TestimonialsSection',
-    title: 'Student Testimonials',
-    description: 'Reviews from students',
-    category: 'social-proof'
-  },
-  {
-    id: 'StatsSection',
-    title: 'Statistics',
-    description: 'Platform statistics showcase',
-    category: 'social-proof'
-  },
-  {
-    id: 'InstructorPromo',
-    title: 'Become an Instructor',
-    description: 'CTA for potential instructors',
-    category: 'marketing'
-  },
-  {
-    id: 'LearningGoals',
-    title: 'Learning Goals',
-    description: 'Why learn with us',
-    category: 'content'
-  },
-  {
-    id: 'FeaturesSection',
-    title: 'Platform Features',
-    description: 'Key platform features',
-    category: 'content'
-  },
-  {
-    id: 'NewsletterSection',
-    title: 'Newsletter Signup',
-    description: 'Email subscription form',
-    category: 'marketing'
-  },
-  {
-    id: 'PartnersSection',
-    title: 'Partners & Clients',
-    description: 'Trusted by companies',
-    category: 'social-proof'
-  },
-  {
-    id: 'BlogPosts',
-    title: 'Latest Blog Posts',
-    description: 'Recent articles',
-    category: 'content'
-  },
-  {
-    id: 'FAQSection',
-    title: 'FAQ',
-    description: 'Frequently asked questions',
-    category: 'support'
-  }
+const SECTION_TYPES: HomeSectionType[] = [
+  "hero",
+  "course_list",
+  "promo_banner",
+  "badge_strip",
+  "feature_grid",
+  "testimonial",
+  "stats",
+  "newsletter",
+  "custom_html",
+  "legacy_component",
 ]
 
+const LEGACY_COMPONENT_OPTIONS = LEGACY_COMPONENT_NAMES
+
+type ConfirmState = {
+  open: boolean
+  title: string
+  description: string
+  confirmLabel: string
+  destructive: boolean
+  loading: boolean
+  action: null | (() => Promise<void> | void)
+}
+
+type ImportPreview = {
+  schema: HomeSchemaV2
+  summary: {
+    total: number
+    enabled: number
+    types: Record<string, number>
+  }
+}
+
+function normalizeOrder(sections: HomeSection[]): HomeSection[] {
+  return sections
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((section, index) => ({ ...section, order: index + 1 }))
+}
+
+function parseJsonObject(value: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(value)
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>
+    }
+  } catch {
+    // ignore invalid JSON
+  }
+  return {}
+}
+
+function parseJsonObjectWithError(value: string): {
+  data: Record<string, unknown> | null
+  error: string | null
+} {
+  try {
+    const parsed = JSON.parse(value)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { data: null, error: i18n.t("admin_home_layout.validation.json_object_required") }
+    }
+    return { data: parsed as Record<string, unknown>, error: null }
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error.message : i18n.t("admin_home_layout.validation.invalid_json") }
+  }
+}
+
+function getLocalizedValue(value: unknown, locale: "vi" | "en"): string {
+  if (typeof value === "string") return value
+  if (!value || typeof value !== "object") return ""
+  const record = value as Record<string, unknown>
+  return typeof record[locale] === "string" ? (record[locale] as string) : ""
+}
+
+function setLocalizedValue(value: unknown, locale: "vi" | "en", text: string): Record<string, string> {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+  return {
+    vi: typeof record.vi === "string" ? (record.vi as string) : "",
+    en: typeof record.en === "string" ? (record.en as string) : "",
+    [locale]: text,
+  }
+}
+
 export function AdminHomeLayoutPage() {
-  const [layoutSettingId, setLayoutSettingId] = useState<number | null>(null)
-  const [confirmState, setConfirmState] = useState<{
-    open: boolean
-    title: string
-    description: string
-    confirmLabel: string
-    destructive: boolean
-    loading: boolean
-    action: null | (() => Promise<void> | void)
-  }>({
+  const { t } = useTranslation()
+  const [schema, setSchema] = useState<HomeSchemaV2>(getDefaultHomeSchemaV2)
+  const [settingId, setSettingId] = useState<number | null>(null)
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null)
+  const [newSectionType, setNewSectionType] = useState<HomeSectionType>("hero")
+  const [isSaving, setIsSaving] = useState(false)
+  const [loadedSource, setLoadedSource] = useState<"v2" | "legacy_layout" | "default">("default")
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [contentJson, setContentJson] = useState("{}")
+  const [dataSourceJson, setDataSourceJson] = useState("{}")
+  const [importOpen, setImportOpen] = useState(false)
+  const [importJson, setImportJson] = useState("")
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
+  const [jsonError, setJsonError] = useState<string | null>(null)
+  const [initialBackupSchema, setInitialBackupSchema] = useState<HomeSchemaV2 | null>(null)
+  const [categoryOptions, setCategoryOptions] = useState<Category[]>([])
+  const [subcategoryOptions, setSubcategoryOptions] = useState<Category[]>([])
+  const [pinnedCourseOptions, setPinnedCourseOptions] = useState<CourseListItem[]>([])
+  const [courseSearch, setCourseSearch] = useState("")
+  const [courseSearchLoading, setCourseSearchLoading] = useState(false)
+  const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
-    title: '',
-    description: '',
-    confirmLabel: 'Confirm',
+    title: "",
+    description: "",
+    confirmLabel: t("common.confirm"),
     destructive: false,
     loading: false,
     action: null,
   })
-  const [sections, setSections] = useState<HomeSection[]>([
-    { id: '1', component: 'HeroSection', title: 'Hero Banner', description: 'Main hero section with CTA', enabled: true, order: 1 },
-    { id: '2', component: 'FeaturesSection', title: 'Platform Features', description: 'Key platform features', enabled: true, order: 2 },
-    { id: '3', component: 'Categories', title: 'Categories Grid', description: 'Browse by category', enabled: true, order: 3 },
-    { id: '4', component: 'FeaturedCourses', title: 'Featured Courses', description: 'Showcase featured courses', enabled: true, order: 4 },
-    { id: '5', component: 'LearningGoals', title: 'Learning Goals', description: 'Why learn with us', enabled: true, order: 5 },
-    { id: '6', component: 'TrendingCourses', title: 'Trending Courses', description: 'Display trending courses', enabled: true, order: 6 },
-    { id: '7', component: 'PopularSkills', title: 'Popular Skills', description: 'Most in-demand skills', enabled: true, order: 7 },
-    { id: '8', component: 'TestimonialsSection', title: 'Student Testimonials', description: 'Reviews from students', enabled: true, order: 8 },
-    { id: '9', component: 'StatsSection', title: 'Statistics', description: 'Platform statistics showcase', enabled: true, order: 9 },
-    { id: '10', component: 'InstructorPromo', title: 'Become an Instructor', description: 'CTA for potential instructors', enabled: true, order: 10 },
-    { id: '11', component: 'NewsletterSection', title: 'Newsletter Signup', description: 'Email subscription form', enabled: true, order: 11 }
-  ])
 
   useEffect(() => {
     const load = async () => {
       try {
-        const settings = await getSystemSettings()
-        const layoutSetting = settings.find(s => s.key === 'homepage_layout')
-        if (layoutSetting) {
-          setLayoutSettingId(layoutSetting.id)
-          try {
-            const parsed = JSON.parse(layoutSetting.value)
-            if (Array.isArray(parsed) && parsed.length > 0) setSections(parsed)
-          } catch {}
-        }
-      } catch {}
+        const loaded = await loadHomeSchemaV2()
+        setSchema(loaded.schema)
+        setSettingId(loaded.settingId)
+        setLoadedSource(loaded.source)
+        const firstSectionId = loaded.schema.sections[0]?.id || null
+        setSelectedSectionId(firstSectionId)
+        await ensureInitialHomeSchemaBackup(loaded.schema)
+        const backup = await loadInitialHomeSchemaBackup()
+        setInitialBackupSchema(backup)
+      } catch {
+        const fallback = getDefaultHomeSchemaV2()
+        setSchema(fallback)
+        setSelectedSectionId(fallback.sections[0]?.id || null)
+        setLoadedSource("default")
+        toast.error(t("admin_home_layout.toasts.load_failed"))
+      }
     }
-    load()
+
+    void load()
   }, [])
 
-  const [showAddSection, setShowAddSection] = useState(false)
+  const sections = useMemo(() => normalizeOrder(schema.sections), [schema.sections])
+  const selectedSection = sections.find((section) => section.id === selectedSectionId) || null
+  const selectedSectionErrors = useMemo(
+    () => (selectedSection ? validateHomeSection(selectedSection) : []),
+    [selectedSection],
+  )
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/html', index.toString())
+  useEffect(() => {
+    if (!selectedSection) {
+      setContentJson("{}")
+      setDataSourceJson("{}")
+      return
+    }
+
+    setContentJson(JSON.stringify(selectedSection.content, null, 2))
+    setDataSourceJson(JSON.stringify(selectedSection.data_source, null, 2))
+  }, [selectedSectionId, selectedSection])
+
+  useEffect(() => {
+    const loadCategoryOptions = async () => {
+      if (selectedSection?.type !== "course_list") return
+      try {
+        const response = await getAllCategories({ page: 1, page_size: 300 })
+        const rows = Array.isArray(response.results) ? response.results : []
+        setCategoryOptions(rows.filter((item) => item.parent_category === null))
+        setSubcategoryOptions(rows.filter((item) => item.parent_category !== null))
+      } catch {
+        setCategoryOptions([])
+        setSubcategoryOptions([])
+      }
+    }
+    void loadCategoryOptions()
+  }, [selectedSection?.id, selectedSection?.type])
+
+  useEffect(() => {
+    const loadPinnedCourseOptions = async () => {
+      if (selectedSection?.type !== "course_list") return
+      setCourseSearchLoading(true)
+      try {
+        const params = {
+          page: 1,
+          page_size: 20,
+          search: courseSearch.trim() || undefined,
+          status: "published",
+        } as const
+        const response = await getCourses(params)
+        setPinnedCourseOptions(Array.isArray(response.results) ? response.results : [])
+      } catch {
+        setPinnedCourseOptions([])
+      } finally {
+        setCourseSearchLoading(false)
+      }
+    }
+    const timeout = window.setTimeout(() => {
+      void loadPinnedCourseOptions()
+    }, 250)
+    return () => window.clearTimeout(timeout)
+  }, [selectedSection?.id, selectedSection?.type, courseSearch])
+
+  const setSections = (nextSections: HomeSection[]) => {
+    const normalized = normalizeOrder(nextSections)
+    setSchema((prev) => normalizeHomeSchemaV2({ ...prev, sections: normalized }))
+    if (selectedSectionId && !normalized.some((item) => item.id === selectedSectionId)) {
+      setSelectedSectionId(normalized[0]?.id || null)
+    }
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
+  const updateSection = (sectionId: string, updater: (section: HomeSection) => HomeSection) => {
+    setSections(sections.map((section) => (section.id === sectionId ? updater(section) : section)))
   }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault()
-    const dragIndex = parseInt(e.dataTransfer.getData('text/html'))
-    const newSections = [...sections]
-    const draggedSection = newSections[dragIndex]
-    
-    newSections.splice(dragIndex, 1)
-    newSections.splice(dropIndex, 0, draggedSection)
-    
-    // Update order
-    const reorderedSections = newSections.map((section, index) => ({
+  const updateSectionContent = (sectionId: string, key: string, value: unknown) => {
+    updateSection(sectionId, (section) => ({
       ...section,
-      order: index + 1
+      content: {
+        ...section.content,
+        [key]: value,
+      },
     }))
-    
-    setSections(reorderedSections)
-    toast.success('Section order updated!')
   }
 
-  const handleToggleSection = (id: string) => {
-    setSections(sections.map(section => 
-      section.id === id ? { ...section, enabled: !section.enabled } : section
-    ))
+  const updateSectionDataSource = (sectionId: string, key: string, value: unknown) => {
+    updateSection(sectionId, (section) => ({
+      ...section,
+      data_source: {
+        ...section.data_source,
+        [key]: value,
+      },
+    }))
+  }
+
+  const resetSelectedSectionToDefault = () => {
+    if (!selectedSection) return
+    const replacement = createDefaultSection(selectedSection.type, selectedSection.order)
+    updateSection(selectedSection.id, (current) => ({
+      ...replacement,
+      id: current.id,
+      enabled: current.enabled,
+      order: current.order,
+      layout: current.layout,
+      display_rules: current.display_rules,
+    }))
+    toast.success(t("admin_home_layout.toasts.reset_section_success"))
+  }
+
+  const addSection = () => {
+    const section = createDefaultSection(newSectionType, sections.length + 1)
+    setSections([...sections, section])
+    setSelectedSectionId(section.id)
+    toast.success(t("admin_home_layout.toasts.add_section_success"))
+  }
+
+  const duplicateSection = (sectionId: string) => {
+    const source = sections.find((section) => section.id === sectionId)
+    if (!source) return
+
+    const duplicated: HomeSection = {
+      ...source,
+      id: `${source.id}_copy_${Date.now()}`,
+      order: sections.length + 1,
+    }
+
+    setSections([...sections, duplicated])
+    setSelectedSectionId(duplicated.id)
+    toast.success(t("admin_home_layout.toasts.duplicate_section_success"))
+  }
+
+  const removeSection = (sectionId: string) => {
+    setSections(sections.filter((section) => section.id !== sectionId))
+    toast.success(t("admin_home_layout.toasts.section_removed"))
+  }
+
+  const handleDrop = (dropIndex: number) => {
+    if (draggedIndex === null || draggedIndex === dropIndex) return
+
+    const next = sections.slice()
+    const [dragged] = next.splice(draggedIndex, 1)
+    if (!dragged) return
+    next.splice(dropIndex, 0, dragged)
+
+    setDraggedIndex(null)
+    setSections(next)
+  }
+
+  const saveSchema = async () => {
+    try {
+      setIsSaving(true)
+      const normalizedBeforeSave = normalizeHomeSchemaV2(schema)
+      const result = await saveHomeSchemaV2(normalizedBeforeSave, settingId, 0)
+      setSettingId(result.settingId)
+      const reloaded = await loadHomeSchemaV2()
+      setLoadedSource(reloaded.source)
+      setSchema(reloaded.schema)
+      setSelectedSectionId((prev) => prev || reloaded.schema.sections[0]?.id || null)
+
+      const expected = JSON.stringify(normalizedBeforeSave.sections)
+      const actual = JSON.stringify(reloaded.schema.sections)
+      if (reloaded.source !== "v2" || expected !== actual) {
+        toast.error(t("admin_home_layout.toasts.save_schema_mismatch"))
+        return
+      }
+
+      toast.success(t("admin_home_layout.toasts.save_schema_success"))
+    } catch {
+      toast.error(t("admin_home_layout.toasts.save_schema_failed"))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const resetToDefault = () => {
+    const next = getDefaultHomeSchemaV2()
+    setSchema(next)
+    setSelectedSectionId(next.sections[0]?.id || null)
+    setLoadedSource("default")
+    toast.success(t("admin_home_layout.toasts.reset_schema_success"))
+  }
+
+  const loadLegacyFakeData = async () => {
+    const legacy = await loadLegacyHomeSchemaV2()
+    const normalized = normalizeHomeSchemaV2(legacy.schema)
+    setSchema(normalized)
+    setSelectedSectionId(normalized.sections[0]?.id || null)
+    setLoadedSource("legacy_layout")
+    if (legacy.source === "legacy_settings") {
+      toast.success(t("admin_home_layout.toasts.loaded_legacy_config"))
+    } else {
+      toast.success(t("admin_home_layout.toasts.loaded_legacy_default"))
+    }
+  }
+
+  const restoreInitialBackup = async () => {
+    const legacy = await loadPreSchemaDrivenLegacySchemaV2()
+    const normalized = normalizeHomeSchemaV2(legacy.schema)
+    setSchema(normalized)
+    setSelectedSectionId(normalized.sections[0]?.id || null)
+    setLoadedSource("legacy_layout")
+    if (legacy.source === "legacy_settings") {
+      toast.success(t("admin_home_layout.toasts.restored_initial_backup"))
+    } else {
+      toast.success(t("admin_home_layout.toasts.restored_initial_default"))
+    }
+  }
+
+  const setCurrentAsInitialBackup = async () => {
+    await saveInitialHomeSchemaBackup(schema)
+    const backup = await loadInitialHomeSchemaBackup()
+    setInitialBackupSchema(backup)
+    toast.success(t("admin_home_layout.toasts.updated_initial_backup"))
   }
 
   const openConfirm = (
@@ -200,7 +392,7 @@ export function AdminHomeLayoutPage() {
     description: string,
     confirmLabel: string,
     action: () => Promise<void> | void,
-    destructive = false
+    destructive = false,
   ) => {
     setConfirmState({
       open: true,
@@ -213,16 +405,17 @@ export function AdminHomeLayoutPage() {
     })
   }
 
-  const runConfirmedAction = async () => {
+  const runConfirm = async () => {
     if (!confirmState.action) return
+
     try {
       setConfirmState((prev) => ({ ...prev, loading: true }))
       await confirmState.action()
       setConfirmState({
         open: false,
-        title: '',
-        description: '',
-        confirmLabel: 'Confirm',
+        title: "",
+        description: "",
+        confirmLabel: t("common.confirm"),
         destructive: false,
         loading: false,
         action: null,
@@ -232,255 +425,1049 @@ export function AdminHomeLayoutPage() {
     }
   }
 
-  const handleRemoveSection = (id: string) => {
-    setSections(sections.filter(section => section.id !== id))
-    toast.success('Section removed!')
-  }
+  const applyAdvancedJson = () => {
+    if (!selectedSection) return
 
-  const handleAddSection = (componentId: string) => {
-    const component = AVAILABLE_COMPONENTS.find(c => c.id === componentId)
-    if (!component) return
+    const parsedContent = parseJsonObjectWithError(contentJson)
+    const parsedDataSource = parseJsonObjectWithError(dataSourceJson)
 
-    // Check if component already exists
-    if (sections.find(s => s.component === componentId)) {
-      toast.error('This component is already added!')
+    if (parsedContent.error) {
+      setJsonError(t("admin_home_layout.validation.invalid_content_json", { error: parsedContent.error }))
+      toast.error(t("admin_home_layout.toasts.content_json_invalid"))
       return
     }
 
-    const newSection: HomeSection = {
-      id: Date.now().toString(),
-      component: componentId,
-      title: component.title,
-      description: component.description,
-      enabled: true,
-      order: sections.length + 1
+    if (parsedDataSource.error) {
+      setJsonError(t("admin_home_layout.validation.invalid_data_source_json", { error: parsedDataSource.error }))
+      toast.error(t("admin_home_layout.toasts.data_source_json_invalid"))
+      return
     }
 
-    setSections([...sections, newSection])
-    setShowAddSection(false)
-    toast.success(`${component.title} added!`)
+    setJsonError(null)
+
+    updateSection(selectedSection.id, (section) => ({
+      ...section,
+      content: parsedContent.data || {},
+      data_source: parsedDataSource.data || {},
+    }))
+
+    toast.success(t("admin_home_layout.toasts.content_data_updated"))
   }
 
-  const handleSave = async () => {
+  const exportSchema = () => {
+    const payload = JSON.stringify(normalizeHomeSchemaV2(schema), null, 2)
+    const blob = new Blob([payload], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = `homepage_schema_v2_${new Date().toISOString().slice(0, 10)}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const applyImport = () => {
+    if (!importPreview) {
+      toast.error(t("admin_home_layout.toasts.preview_import_required"))
+      return
+    }
+
+    const normalized = importPreview.schema
+    setSchema(normalized)
+    setSelectedSectionId(normalized.sections[0]?.id || null)
+    setImportOpen(false)
+    setImportJson("")
+    setImportPreview(null)
+    setImportError(null)
+    toast.success(t("admin_home_layout.toasts.import_success"))
+  }
+
+  const previewImport = () => {
+    if (!importJson.trim()) {
+      setImportError(t("admin_home_layout.toasts.import_empty"))
+      setImportPreview(null)
+      return
+    }
+
     try {
-      const value = JSON.stringify(sections)
-      if (layoutSettingId) {
-        await updateSystemSetting(layoutSettingId, { value })
-      } else {
-        const created = await createSystemSetting({ key: 'homepage_layout', value })
-        setLayoutSettingId(created.id)
+      const parsed = JSON.parse(importJson)
+      const normalized = normalizeHomeSchemaV2(parsed)
+      const types: Record<string, number> = {}
+      for (const section of normalized.sections) {
+        types[section.type] = (types[section.type] || 0) + 1
       }
-      toast.success('Homepage layout saved successfully!')
-    } catch {
-      toast.error('Lưu thất bại')
+      setImportPreview({
+        schema: normalized,
+        summary: {
+          total: normalized.sections.length,
+          enabled: normalized.sections.filter((section) => section.enabled).length,
+          types,
+        },
+      })
+      setImportError(null)
+      toast.success(t("admin_home_layout.toasts.import_preview_success"))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t("admin_home_layout.validation.invalid_json")
+      setImportError(message)
+      setImportPreview(null)
+      toast.error(message)
     }
   }
 
-  const handleReset = () => {
-    setSections([
-      { id: '1', component: 'HeroSection', title: 'Hero Banner', description: 'Main hero section with CTA', enabled: true, order: 1 },
-      { id: '2', component: 'FeaturesSection', title: 'Platform Features', description: 'Key platform features', enabled: true, order: 2 },
-      { id: '3', component: 'Categories', title: 'Categories Grid', description: 'Browse by category', enabled: true, order: 3 },
-      { id: '4', component: 'FeaturedCourses', title: 'Featured Courses', description: 'Showcase featured courses', enabled: true, order: 4 }
-    ])
-    toast.success('Layout reset to default!')
-  }
-
-  const groupedComponents = AVAILABLE_COMPONENTS.reduce((acc, component) => {
-    if (!acc[component.category]) {
-      acc[component.category] = []
-    }
-    acc[component.category].push(component)
-    return acc
-  }, {} as Record<string, typeof AVAILABLE_COMPONENTS>)
-
-  return (
-    <div className="p-6 space-y-6">
+  const renderLocalizedField = (
+    sectionId: string,
+    sourceValue: unknown,
+    key: string,
+    target: "content" | "data_source" = "content",
+  ) => (
+    <div className="grid gap-2 md:grid-cols-2">
       <div>
-        <h1 className="text-3xl font-semibold">Homepage Layout</h1>
-        <p className="text-muted-foreground">
-          Customize your homepage by enabling, disabling, and reordering sections.
-        </p>
+        <Label>{key} (vi)</Label>
+        <Input
+          value={getLocalizedValue(sourceValue, "vi")}
+          onChange={(event) => {
+            const nextValue = setLocalizedValue(sourceValue, "vi", event.target.value)
+            if (target === "content") updateSectionContent(sectionId, key, nextValue)
+            else updateSectionDataSource(sectionId, key, nextValue)
+          }}
+        />
       </div>
-
-      {/* Action Buttons */}
-      <div className="flex gap-2">
-        <Button onClick={() => setShowAddSection(!showAddSection)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Section
-        </Button>
-        <Button onClick={handleSave} variant="default" className="gap-2">
-          <Save className="w-4 h-4" />
-          Save Layout
-        </Button>
-        <Button
-          onClick={() => openConfirm(
-            'Reset homepage layout',
-            'Reset homepage layout ve cau hinh mac dinh? Nhung section dang sap xep se bi thay the.',
-            'Reset layout',
-            handleReset,
-            true,
-          )}
-          variant="outline"
-          className="gap-2"
-        >
-          <RotateCcw className="w-4 h-4" />
-          Reset to Default
-        </Button>
+      <div>
+        <Label>{key} (en)</Label>
+        <Input
+          value={getLocalizedValue(sourceValue, "en")}
+          onChange={(event) => {
+            const nextValue = setLocalizedValue(sourceValue, "en", event.target.value)
+            if (target === "content") updateSectionContent(sectionId, key, nextValue)
+            else updateSectionDataSource(sectionId, key, nextValue)
+          }}
+        />
       </div>
+    </div>
+  )
 
-      {/* Add Section Panel */}
-      {showAddSection && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Components</CardTitle>
-            <CardDescription>
-              Click on a component to add it to your homepage
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {Object.entries(groupedComponents).map(([category, components]) => (
-              <div key={category} className="mb-6">
-                <h3 className="font-semibold text-sm uppercase text-muted-foreground mb-3">
-                  {category.replace('-', ' ')}
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {components.map((component) => {
-                    const isAdded = sections.find(s => s.component === component.id)
-                    return (
-                      <Button
-                        key={component.id}
-                        variant={isAdded ? "secondary" : "outline"}
-                        className="h-auto p-4 flex flex-col items-start gap-2"
-                        onClick={() => !isAdded && handleAddSection(component.id)}
-                        disabled={!!isAdded}
-                      >
-                        <div className="font-medium text-left">{component.title}</div>
-                        <div className="text-xs text-muted-foreground text-left">
-                          {component.description}
-                        </div>
-                        {isAdded && <Badge variant="secondary" className="text-xs">Added</Badge>}
-                      </Button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Current Layout */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Homepage Layout</CardTitle>
-          <CardDescription>
-            Drag sections to reorder. Toggle to enable/disable. Click X to remove.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {sections.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>No sections added yet. Click "Add Section" to get started.</p>
-            </div>
-          ) : (
-            sections.map((section, index) => (
-              <div
-                key={section.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                className={`border rounded-lg p-4 transition-all ${
-                  section.enabled 
-                    ? 'bg-card hover:bg-accent/50' 
-                    : 'bg-muted/50 opacity-60'
-                } cursor-move`}
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 flex-1">
-                    <GripVertical className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <h4 className="font-medium">{section.title}</h4>
-                        <Badge variant={section.enabled ? "default" : "secondary"}>
-                          Order: {section.order}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {section.description}
-                      </p>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Component: <code className="bg-muted px-1 py-0.5 rounded">{section.component}</code>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor={`toggle-${section.id}`} className="text-sm text-muted-foreground">
-                        {section.enabled ? 'Visible' : 'Hidden'}
-                      </Label>
-                      <Switch
-                        id={`toggle-${section.id}`}
-                        checked={section.enabled}
-                        onCheckedChange={() => handleToggleSection(section.id)}
-                      />
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleSection(section.id)}
-                    >
-                      {section.enabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openConfirm(
-                        'Remove homepage section',
-                        `Remove "${section.title}" khoi homepage layout?`,
-                        'Remove section',
-                        () => handleRemoveSection(section.id),
-                        true,
-                      )}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      ×
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Preview Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Layout Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+  const renderBasicEditor = (section: HomeSection) => {
+    if (section.type === "hero") {
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">{t("admin_home_layout.labels.hero_settings")}</p>
+          {renderLocalizedField(section.id, section.content.title, "title")}
+          {renderLocalizedField(section.id, section.content.subtitle, "subtitle")}
+          {renderLocalizedField(section.id, section.content.primary_cta_label, "primary_cta_label")}
+          {renderLocalizedField(section.id, section.content.secondary_cta_label, "secondary_cta_label")}
+          <div className="grid gap-2 md:grid-cols-2">
             <div>
-              <div className="text-3xl font-bold text-primary">{sections.length}</div>
-              <div className="text-sm text-muted-foreground">Total Sections</div>
+              <Label>primary_cta_link</Label>
+              <Input
+                value={typeof section.content.primary_cta_link === "string" ? section.content.primary_cta_link : ""}
+                onChange={(event) => updateSectionContent(section.id, "primary_cta_link", event.target.value)}
+              />
             </div>
             <div>
-              <div className="text-3xl font-bold text-green-600">
-                {sections.filter(s => s.enabled).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Enabled</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-orange-600">
-                {sections.filter(s => !s.enabled).length}
-              </div>
-              <div className="text-sm text-muted-foreground">Hidden</div>
+              <Label>secondary_cta_link</Label>
+              <Input
+                value={typeof section.content.secondary_cta_link === "string" ? section.content.secondary_cta_link : ""}
+                onChange={(event) => updateSectionContent(section.id, "secondary_cta_link", event.target.value)}
+              />
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={section.content.show_search !== false}
+                onCheckedChange={(checked) => updateSectionContent(section.id, "show_search", checked)}
+              />
+              show_search
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={section.content.show_stats !== false}
+                onCheckedChange={(checked) => updateSectionContent(section.id, "show_stats", checked)}
+              />
+              show_stats
+            </label>
+          </div>
+        </div>
+      )
+    }
+
+    if (section.type === "course_list") {
+      const filters = parseJsonObject(JSON.stringify(section.data_source.filters || {}))
+      const selectedCategoryIds = Array.isArray(filters.category_ids)
+        ? filters.category_ids.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+        : []
+      const selectedTopicIds = Array.isArray(filters.topic_ids)
+        ? filters.topic_ids.map((item) => Number(item)).filter((item) => Number.isFinite(item))
+        : []
+      const selectedPinnedIds = Array.isArray(section.data_source.pinned_course_ids)
+        ? section.data_source.pinned_course_ids
+            .map((item) => Number(item))
+            .filter((item) => Number.isFinite(item))
+        : []
+      const visibleSubcategories = selectedCategoryIds.length
+        ? subcategoryOptions.filter((item) => selectedCategoryIds.includes(item.parent_category || -1))
+        : subcategoryOptions
+
+      const updateFilters = (nextFilters: Record<string, unknown>) => {
+        updateSectionDataSource(section.id, "filters", nextFilters)
+      }
+
+      const toggleCategory = (categoryId: number, checked: boolean) => {
+        const nextCategoryIds = checked
+          ? Array.from(new Set([...selectedCategoryIds, categoryId]))
+          : selectedCategoryIds.filter((item) => item !== categoryId)
+        const nextTopicIds = selectedTopicIds.filter((topicId) =>
+          visibleSubcategories.some(
+            (subcategory) => subcategory.id === topicId && (nextCategoryIds.length === 0 || nextCategoryIds.includes(subcategory.parent_category || -1)),
+          ),
+        )
+        updateFilters({
+          ...filters,
+          category_ids: nextCategoryIds,
+          topic_ids: nextTopicIds,
+        })
+      }
+
+      const toggleTopic = (topicId: number, checked: boolean) => {
+        const nextTopicIds = checked
+          ? Array.from(new Set([...selectedTopicIds, topicId]))
+          : selectedTopicIds.filter((item) => item !== topicId)
+        updateFilters({ ...filters, topic_ids: nextTopicIds })
+      }
+
+      const togglePinnedCourse = (courseId: number, checked: boolean) => {
+        const nextPinnedIds = checked
+          ? [...selectedPinnedIds, courseId]
+          : selectedPinnedIds.filter((item) => item !== courseId)
+        updateSectionDataSource(section.id, "pinned_course_ids", nextPinnedIds)
+      }
+
+      const movePinnedCourse = (courseId: number, direction: "up" | "down") => {
+        const currentIndex = selectedPinnedIds.findIndex((item) => item === courseId)
+        if (currentIndex < 0) return
+        const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+        if (targetIndex < 0 || targetIndex >= selectedPinnedIds.length) return
+        const next = selectedPinnedIds.slice()
+        const [picked] = next.splice(currentIndex, 1)
+        if (typeof picked !== "number") return
+        next.splice(targetIndex, 0, picked)
+        updateSectionDataSource(section.id, "pinned_course_ids", next)
+      }
+
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">{t("admin_home_layout.labels.course_list_settings")}</p>
+          {renderLocalizedField(section.id, section.content.heading, "heading")}
+          {renderLocalizedField(section.id, section.content.subheading, "subheading")}
+          <div className="grid gap-2 md:grid-cols-3">
+            <div>
+              <Label>{t("admin_home_layout.fields.mode")}</Label>
+              <select
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={typeof section.data_source.mode === "string" ? section.data_source.mode : "hybrid"}
+                onChange={(event) => updateSectionDataSource(section.id, "mode", event.target.value)}
+              >
+                <option value="auto">{t("admin_home_layout.options.auto")}</option>
+                <option value="manual">{t("admin_home_layout.options.manual")}</option>
+                <option value="hybrid">{t("admin_home_layout.options.hybrid")}</option>
+              </select>
+            </div>
+            <div>
+              <Label>{t("admin_home_layout.fields.sort")}</Label>
+              <Input
+                value={typeof section.data_source.sort === "string" ? section.data_source.sort : ""}
+                onChange={(event) => updateSectionDataSource(section.id, "sort", event.target.value)}
+              />
+            </div>
+            <div>
+              <Label>limit</Label>
+              <Input
+                type="number"
+                value={typeof section.data_source.limit === "number" ? section.data_source.limit : 8}
+                onChange={(event) => updateSectionDataSource(section.id, "limit", Number(event.target.value) || 8)}
+              />
+            </div>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <div>
+              <Label>pinned_course_ids</Label>
+              <div className="mt-1 rounded-md border p-2 text-sm">
+                {selectedPinnedIds.length === 0 ? (
+                  <p className="text-muted-foreground">{t("admin_home_layout.fields.no_pinned_courses")}</p>
+                ) : (
+                  <div className="space-y-1">
+                    {selectedPinnedIds.map((id, index) => (
+                      <div key={id} className="flex items-center justify-between gap-2 rounded border px-2 py-1">
+                        <span>
+                          #{index + 1} - course_id: {id}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => movePinnedCourse(id, "up")}>
+                            ↑
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => movePinnedCourse(id, "down")}>
+                            ↓
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => togglePinnedCourse(id, false)}>
+                            {t("admin_home_layout.fields.remove")}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <Label>filters.level</Label>
+              <Input
+                value={typeof filters.level === "string" ? filters.level : ""}
+                onChange={(event) => updateFilters({ ...filters, level: event.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2">
+            <div>
+              <Label>filters.category_ids</Label>
+              <div className="mt-1 max-h-40 space-y-1 overflow-auto rounded-md border p-2 text-sm">
+                {categoryOptions.length === 0 ? (
+                  <p className="text-muted-foreground">{t("admin_home_layout.fields.no_categories")}</p>
+                ) : (
+                  categoryOptions.map((item) => (
+                    <label key={item.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedCategoryIds.includes(item.id)}
+                        onChange={(event) => toggleCategory(item.id, event.target.checked)}
+                      />
+                      <span>{item.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <Label>filters.topic_ids</Label>
+              <div className="mt-1 max-h-40 space-y-1 overflow-auto rounded-md border p-2 text-sm">
+                {visibleSubcategories.length === 0 ? (
+                  <p className="text-muted-foreground">{t("admin_home_layout.fields.no_topics")}</p>
+                ) : (
+                  visibleSubcategories.map((item) => (
+                    <label key={item.id} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedTopicIds.includes(item.id)}
+                        onChange={(event) => toggleTopic(item.id, event.target.checked)}
+                      />
+                      <span>{item.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <Label>filters.rating_min</Label>
+              <Input
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={typeof filters.rating_min === "number" ? filters.rating_min : 0}
+                onChange={(event) =>
+                  updateFilters({ ...filters, rating_min: Number(event.target.value) || 0 })
+                }
+              />
+            </div>
+            <div>
+              <Label>filters.price_type</Label>
+              <select
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={typeof filters.price_type === "string" ? filters.price_type : "all"}
+                onChange={(event) => updateFilters({ ...filters, price_type: event.target.value })}
+              >
+                <option value="all">all</option>
+                <option value="free">free</option>
+                <option value="paid">paid</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Manual pin picker</Label>
+            <Input
+              placeholder={t("admin_home_layout.fields.course_search")}
+              value={courseSearch}
+              onChange={(event) => setCourseSearch(event.target.value)}
+            />
+            <div className="max-h-44 space-y-1 overflow-auto rounded-md border p-2 text-sm">
+              {courseSearchLoading ? (
+                <p className="text-muted-foreground">{t("admin_home_layout.fields.loading_courses")}</p>
+              ) : pinnedCourseOptions.length === 0 ? (
+                <p className="text-muted-foreground">{t("admin_home_layout.fields.no_results")}</p>
+              ) : (
+                pinnedCourseOptions.map((course) => (
+                  <label key={course.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedPinnedIds.includes(course.id)}
+                      onChange={(event) => togglePinnedCourse(course.id, event.target.checked)}
+                    />
+                    <span className="line-clamp-1">{course.title}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    if (section.type === "promo_banner" || section.type === "newsletter") {
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">{section.type} Settings</p>
+          {renderLocalizedField(section.id, section.content.title, "title")}
+          {renderLocalizedField(section.id, section.content.subtitle ?? section.content.description, section.type === "newsletter" ? "subtitle" : "description")}
+          <div>
+            <Label>cta/link</Label>
+            <Input
+              value={
+                typeof (section.content.cta_link || section.content.primary_cta_link) === "string"
+                  ? (section.content.cta_link || section.content.primary_cta_link)
+                  : ""
+              }
+              onChange={(event) => {
+                if (section.type === "promo_banner") updateSectionContent(section.id, "cta_link", event.target.value)
+                else updateSectionContent(section.id, "primary_cta_link", event.target.value)
+              }}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    if (section.type === "badge_strip" || section.type === "feature_grid") {
+      const items = Array.isArray(section.content.items) ? section.content.items : []
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">{section.type} Settings</p>
+          {renderLocalizedField(section.id, section.content.heading, "heading")}
+          {renderLocalizedField(section.id, section.content.subheading, "subheading")}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>items</Label>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const next = section.type === "badge_strip"
+                    ? [...items, { icon: "Award", label: { vi: "", en: "" }, sublabel: { vi: "", en: "" } }]
+                    : [...items, { icon: "Zap", title: { vi: "", en: "" }, description: { vi: "", en: "" } }]
+                  updateSectionContent(section.id, "items", next)
+                }}
+              >
+                Add item
+              </Button>
+            </div>
+            {items.map((item, index) => {
+              const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {}
+              return (
+                <div key={index} className="rounded-md border p-2">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">item #{index + 1}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => updateSectionContent(section.id, "items", items.filter((_, i) => i !== index))}
+                    >
+                      {t("common.delete")}
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <div>
+                      <Label>icon</Label>
+                      <Input
+                        value={typeof row.icon === "string" ? row.icon : ""}
+                        onChange={(event) => {
+                          const next = items.slice()
+                          next[index] = { ...row, icon: event.target.value }
+                          updateSectionContent(section.id, "items", next)
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {section.type === "badge_strip"
+                        ? t("admin_home_layout.labels.badge_strip_json_hint")
+                        : t("admin_home_layout.labels.item_json_hint")}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+
+    if (section.type === "testimonial") {
+      const items = Array.isArray(section.content.items) ? section.content.items : []
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">testimonial Settings</p>
+          {renderLocalizedField(section.id, section.content.heading, "heading")}
+          {renderLocalizedField(section.id, section.content.subheading, "subheading")}
+          <div className="flex items-center justify-between">
+            <Label>items</Label>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => updateSectionContent(section.id, "items", [...items, { name: "", role: "", rating: 5, content: { vi: "", en: "" } }])}
+            >
+              Add testimonial
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
+    if (section.type === "stats") {
+      const items = Array.isArray(section.content.items) ? section.content.items : []
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">stats Settings</p>
+          {renderLocalizedField(section.id, section.content.heading, "heading")}
+          {renderLocalizedField(section.id, section.content.subheading, "subheading")}
+          <label className="flex items-center gap-2 text-sm">
+            <Switch
+              checked={section.content.use_public_stats !== false}
+              onCheckedChange={(checked) => updateSectionContent(section.id, "use_public_stats", checked)}
+            />
+            use_public_stats
+          </label>
+          <div className="text-xs text-muted-foreground">custom items: {items.length}</div>
+        </div>
+      )
+    }
+
+    if (section.type === "custom_html") {
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">custom_html Settings</p>
+          {renderLocalizedField(section.id, section.content.title, "title")}
+          <div>
+            <Label>html</Label>
+            <Textarea
+              rows={6}
+              value={typeof section.content.html === "string" ? section.content.html : ""}
+              onChange={(event) => updateSectionContent(section.id, "html", event.target.value)}
+            />
+          </div>
+        </div>
+      )
+    }
+
+    if (section.type === "legacy_component") {
+      return (
+        <div className="space-y-3 rounded-md border p-3">
+          <p className="text-sm font-medium">Legacy Component</p>
+          <Label>component</Label>
+          <select
+            className="h-10 w-full rounded-md border bg-background px-3"
+            value={typeof section.data_source.component === "string" ? section.data_source.component : "HeroSection"}
+            onChange={(event) => updateSectionDataSource(section.id, "component", event.target.value)}
+          >
+            {LEGACY_COMPONENT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+      )
+    }
+
+    return (
+      <div className="rounded-md border p-3 text-sm text-muted-foreground">
+        {t("admin_home_layout.validation.unsupported_form")}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold">{t("admin_home_layout.title")}</h1>
+          <p className="text-muted-foreground">
+            {t("admin_home_layout.subtitle")}
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportSchema}>
+            <Download className="mr-2 h-4 w-4" />
+            {t("admin_home_layout.actions.export")}
+          </Button>
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            {t("admin_home_layout.actions.import")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              openConfirm(
+                t("admin_home_layout.actions.reset_layout"),
+                t("admin_home_layout.confirm.reset_schema_title"),
+                t("admin_home_layout.actions.reset_layout"),
+                resetToDefault,
+                true,
+              )
+            }
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            {t("admin_home_layout.actions.reset_to_default")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              openConfirm(
+                t("admin_home_layout.confirm.load_fake_data_title"),
+                t("admin_home_layout.confirm.load_fake_data_description"),
+                t("admin_home_layout.confirm.load_fake_data_confirm"),
+                loadLegacyFakeData,
+                false,
+              )
+            }
+          >
+            {t("admin_home_layout.confirm.load_fake_data_title")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              openConfirm(
+                t("admin_home_layout.confirm.restore_ui_title"),
+                t("admin_home_layout.confirm.restore_ui_description"),
+                t("admin_home_layout.confirm.restore_ui_confirm"),
+                restoreInitialBackup,
+                false,
+              )
+            }
+          >
+            {t("admin_home_layout.confirm.restore_ui_title")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              openConfirm(
+                t("admin_home_layout.confirm.set_backup_title"),
+                t("admin_home_layout.confirm.set_backup_description"),
+                t("admin_home_layout.confirm.set_backup_confirm"),
+                setCurrentAsInitialBackup,
+                false,
+              )
+            }
+          >
+            {t("admin_home_layout.confirm.set_backup_title")}
+          </Button>
+          <Button onClick={saveSchema} disabled={isSaving}>
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? t("common.loading") : t("admin_home_layout.actions.save_layout")}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <Card className="xl:col-span-4">
+          <CardHeader>
+            <CardTitle>{t("admin_home_layout.current_layout.title")}</CardTitle>
+            <CardDescription>{t("admin_home_layout.current_layout.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+              <select
+                className="h-10 rounded-md border bg-background px-3"
+                value={newSectionType}
+                onChange={(event) => setNewSectionType(event.target.value as HomeSectionType)}
+              >
+                {SECTION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={addSection}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t("admin_home_layout.actions.add_section")}
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              {sections.map((section, index) => (
+                <div
+                  key={section.id}
+                  draggable
+                  onDragStart={(_event: DragEvent) => setDraggedIndex(index)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleDrop(index)}
+                  className={`rounded-lg border p-3 ${section.id === selectedSectionId ? "border-primary bg-primary/5" : ""}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <button className="flex-1 text-left" onClick={() => setSelectedSectionId(section.id)}>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">#{section.order}</Badge>
+                        <span className="font-medium">{section.type}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{section.id}</p>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => updateSection(section.id, (current) => ({ ...current, enabled: !current.enabled }))}
+                      >
+                        {section.enabled ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => duplicateSection(section.id)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() =>
+                          openConfirm(
+                            t("admin_home_layout.confirm.remove_section_title"),
+                            t("admin_home_layout.confirm.remove_section_description"),
+                            t("common.delete"),
+                            () => removeSection(section.id),
+                            true,
+                          )
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6 xl:col-span-8">
+          {loadedSource !== "v2" ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <Trans
+                i18nKey="admin_home_layout.source_fallback_notice"
+                values={{ source: loadedSource }}
+                components={{ save: <span className="font-semibold" /> }}
+              />
+            </div>
+          ) : (
+            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+              {t("admin_home_layout.source_db_notice")}
+            </div>
+          )}
+          <Tabs defaultValue="editor" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="editor">{t("admin_home_layout.tabs.editor")}</TabsTrigger>
+              <TabsTrigger value="preview">{t("admin_home_layout.tabs.preview")}</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="editor">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("admin_home_layout.labels.section_editor")}</CardTitle>
+                  <CardDescription>
+                    {t("admin_home_layout.labels.section_editor_description")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!selectedSection ? (
+                    <p className="text-sm text-muted-foreground">{t("admin_home_layout.labels.select_section")}</p>
+                  ) : (
+                    <>
+                      <div className="rounded-md border bg-muted/20 p-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{t("admin_home_layout.fields.section_id", { id: selectedSection.id })}</Badge>
+                          <Badge variant="outline">{t("admin_home_layout.fields.section_order", { order: selectedSection.order })}</Badge>
+                          <Badge>{selectedSection.type}</Badge>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 rounded-md border p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{t("admin_home_layout.labels.basic_information")}</p>
+                            <p className="text-xs text-muted-foreground">{t("admin_home_layout.labels.basic_information_description")}</p>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={resetSelectedSectionToDefault}>
+                            {t("admin_home_layout.actions.reset_section")}
+                          </Button>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label>{t("admin_home_layout.fields.type")}</Label>
+                            <select
+                              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                              value={selectedSection.type}
+                              onChange={(event) =>
+                                updateSection(selectedSection.id, (section) => ({
+                                  ...createDefaultSection(event.target.value as HomeSectionType, section.order),
+                                  id: section.id,
+                                  enabled: section.enabled,
+                                  order: section.order,
+                                  layout: section.layout,
+                                  display_rules: section.display_rules,
+                                }))
+                              }
+                            >
+                              {SECTION_TYPES.map((type) => (
+                                <option key={type} value={type}>
+                                  {type}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-2 pt-7">
+                            <Switch
+                              checked={selectedSection.enabled}
+                              onCheckedChange={(checked) => updateSection(selectedSection.id, (section) => ({ ...section, enabled: checked }))}
+                            />
+                            <span className="text-sm">{t("admin_home_layout.fields.visible_section")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 rounded-md border p-3">
+                        <div>
+                          <p className="text-sm font-medium">{t("admin_home_layout.labels.display_layout")}</p>
+                          <p className="text-xs text-muted-foreground">{t("admin_home_layout.labels.display_layout_description")}</p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <Label>{t("admin_home_layout.fields.container")}</Label>
+                            <select
+                              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                              value={selectedSection.layout.container}
+                              onChange={(event) =>
+                                updateSection(selectedSection.id, (section) => ({
+                                  ...section,
+                                  layout: {
+                                    ...section.layout,
+                                    container: event.target.value as HomeSection["layout"]["container"],
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="default">{t("admin_home_layout.options.default")}</option>
+                              <option value="wide">{t("admin_home_layout.options.wide")}</option>
+                              <option value="full">{t("admin_home_layout.options.full")}</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <Label>{t("admin_home_layout.fields.background")}</Label>
+                            <select
+                              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                              value={selectedSection.layout.background}
+                              onChange={(event) =>
+                                updateSection(selectedSection.id, (section) => ({
+                                  ...section,
+                                  layout: {
+                                    ...section.layout,
+                                    background: event.target.value as HomeSection["layout"]["background"],
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="none">{t("admin_home_layout.options.none")}</option>
+                              <option value="muted">{t("admin_home_layout.options.muted")}</option>
+                              <option value="brand">{t("admin_home_layout.options.brand")}</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <Label>{t("admin_home_layout.fields.spacing_top")}</Label>
+                            <select
+                              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                              value={selectedSection.layout.spacing_top}
+                              onChange={(event) =>
+                                updateSection(selectedSection.id, (section) => ({
+                                  ...section,
+                                  layout: {
+                                    ...section.layout,
+                                    spacing_top: event.target.value as HomeSection["layout"]["spacing_top"],
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="sm">sm</option>
+                              <option value="md">md</option>
+                              <option value="lg">lg</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <Label>{t("admin_home_layout.fields.spacing_bottom")}</Label>
+                            <select
+                              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                              value={selectedSection.layout.spacing_bottom}
+                              onChange={(event) =>
+                                updateSection(selectedSection.id, (section) => ({
+                                  ...section,
+                                  layout: {
+                                    ...section.layout,
+                                    spacing_bottom: event.target.value as HomeSection["layout"]["spacing_bottom"],
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="sm">sm</option>
+                              <option value="md">md</option>
+                              <option value="lg">lg</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <Label>{t("admin_home_layout.fields.audience")}</Label>
+                            <select
+                              className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                              value={selectedSection.display_rules.audience}
+                              onChange={(event) =>
+                                updateSection(selectedSection.id, (section) => ({
+                                  ...section,
+                                  display_rules: {
+                                    ...section.display_rules,
+                                    audience: event.target.value as HomeSection["display_rules"]["audience"],
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="all">{t("admin_home_layout.options.all")}</option>
+                              <option value="guest">{t("admin_home_layout.options.guest")}</option>
+                              <option value="logged_in">{t("admin_home_layout.options.logged_in")}</option>
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label>{t("admin_home_layout.fields.devices")}</Label>
+                            <div className="mt-2 flex flex-wrap gap-4">
+                              <label className="flex items-center gap-2 text-sm">
+                                <Switch
+                                  checked={selectedSection.display_rules.devices.includes("mobile")}
+                                  onCheckedChange={(checked) =>
+                                    updateSection(selectedSection.id, (section) => {
+                                      const current = section.display_rules.devices
+                                      const next = checked
+                                        ? Array.from(new Set([...current, "mobile"]))
+                                        : current.filter((item) => item !== "mobile")
+                                      return {
+                                        ...section,
+                                        display_rules: {
+                                          ...section.display_rules,
+                                          devices: next.length > 0 ? next : ["mobile", "desktop"],
+                                        },
+                                      }
+                                    })
+                                  }
+                                />
+                                {t("admin_home_layout.options.mobile")}
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <Switch
+                                  checked={selectedSection.display_rules.devices.includes("desktop")}
+                                  onCheckedChange={(checked) =>
+                                    updateSection(selectedSection.id, (section) => {
+                                      const current = section.display_rules.devices
+                                      const next = checked
+                                        ? Array.from(new Set([...current, "desktop"]))
+                                        : current.filter((item) => item !== "desktop")
+                                      return {
+                                        ...section,
+                                        display_rules: {
+                                          ...section.display_rules,
+                                          devices: next.length > 0 ? next : ["mobile", "desktop"],
+                                        },
+                                      }
+                                    })
+                                  }
+                                />
+                                {t("admin_home_layout.options.desktop")}
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 rounded-md border p-3">
+                        <div>
+                          <p className="text-sm font-medium">{t("admin_home_layout.labels.section_type_configuration")}</p>
+                          <p className="text-xs text-muted-foreground">{t("admin_home_layout.labels.section_type_configuration_description")}</p>
+                        </div>
+                        {renderBasicEditor(selectedSection)}
+                      </div>
+
+                      <div className="space-y-2 rounded-md border p-3">
+                        <p className="text-sm font-medium">{t("admin_home_layout.labels.configuration_validation")}</p>
+                        {selectedSectionErrors.length > 0 ? (
+                          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                            {selectedSectionErrors.map((error, index) => (
+                              <div key={index}>- {error}</div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+                            {t("admin_home_layout.validation.no_errors")}
+                          </div>
+                        )}
+                        {jsonError ? <p className="text-sm text-destructive">{jsonError}</p> : null}
+                      </div>
+
+                      <div className="space-y-3 rounded-md border p-3">
+                        <div>
+                          <p className="text-sm font-medium">{t("admin_home_layout.labels.advanced_json")}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {t("admin_home_layout.labels.advanced_json_description")}
+                          </p>
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label>{t("admin_home_layout.labels.content_json")}</Label>
+                            <Textarea rows={12} value={contentJson} onChange={(event) => setContentJson(event.target.value)} />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>{t("admin_home_layout.labels.data_source_json")}</Label>
+                            <Textarea rows={12} value={dataSourceJson} onChange={(event) => setDataSourceJson(event.target.value)} />
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <Button onClick={applyAdvancedJson}>{t("common.save")}</Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="preview">
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t("admin_home_layout.labels.live_preview")}</CardTitle>
+                  <CardDescription>{t("admin_home_layout.labels.live_preview_description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-hidden rounded-lg border">
+                    <DynamicHomeSections sections={sections} previewMode />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -489,8 +1476,50 @@ export function AdminHomeLayoutPage() {
         destructive={confirmState.destructive}
         loading={confirmState.loading}
         onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
-        onConfirm={runConfirmedAction}
+        onConfirm={runConfirm}
       />
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t("admin_home_layout.labels.import_title")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t("admin_home_layout.labels.import_description")}
+            </p>
+            <Textarea rows={16} value={importJson} onChange={(event) => setImportJson(event.target.value)} />
+            {importError ? <p className="text-sm text-destructive">{importError}</p> : null}
+            {importPreview ? (
+              <div className="rounded-md border bg-muted/20 p-3 text-sm">
+                <div className="font-medium">{t("admin_home_layout.labels.import_preview")}</div>
+                <div>{t("admin_home_layout.fields.total_sections", { count: importPreview.summary.total })}</div>
+                <div>{t("admin_home_layout.fields.enabled_sections", { count: importPreview.summary.enabled })}</div>
+                <div className="mt-1 text-muted-foreground">
+                  {t("admin_home_layout.fields.types", {
+                    types: Object.entries(importPreview.summary.types)
+                      .map(([type, count]) => `${type}:${count}`)
+                      .join(", "),
+                  })}
+                </div>
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setImportOpen(false)}>
+                {t("admin_home_layout.actions.cancel")}
+              </Button>
+              <Button variant="outline" onClick={previewImport}>
+                {t("admin_home_layout.actions.preview_import")}
+              </Button>
+              <Button onClick={applyImport}>{t("admin_home_layout.actions.apply_import")}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
+
+
+

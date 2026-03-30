@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -11,9 +12,10 @@ import { confirmEmail, resendConfirmEmail } from '../../services/auth.api'
 type VerifyState = 'verifying' | 'verified' | 'already_verified' | 'expired' | 'invalid'
 
 export function EmailVerificationPage() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [state, setState] = useState<VerifyState>('verifying')
-  const [message, setMessage] = useState('Verifying your email...')
+  const [message, setMessage] = useState('')
   const [email, setEmail] = useState('')
   const [resending, setResending] = useState(false)
 
@@ -26,7 +28,7 @@ export function EmailVerificationPage() {
     const run = async () => {
       if (!token) {
         setState('invalid')
-        setMessage('Missing verification token.')
+        setMessage(t('email_verification_page.missing_token'))
         return
       }
 
@@ -34,39 +36,39 @@ export function EmailVerificationPage() {
         const result = await confirmEmail(token)
         if (result.status === 'already_verified') {
           setState('already_verified')
-          setMessage(result.message || 'Email already verified.')
+          setMessage(result.message || t('email_verification_page.already_verified'))
           return
         }
         setState('verified')
-        setMessage(result.message || 'Email verified successfully.')
+        setMessage(result.message || t('email_verification_page.verified_success'))
       } catch (error: any) {
         const details = error?.errors || {}
         const code = details?.code
         if (code === 'email_verification_expired') {
           setState('expired')
-          setMessage(details?.error || 'Verification link has expired.')
+          setMessage(details?.error || t('email_verification_page.link_expired'))
           return
         }
         setState('invalid')
-        setMessage(details?.error || error?.message || 'Invalid verification link.')
+        setMessage(details?.error || error?.message || t('email_verification_page.invalid_link'))
       }
     }
 
     run()
-  }, [token])
+  }, [token, t])
 
   const handleResend = async () => {
     if (!email.trim()) {
-      toast.error('Please enter your email.')
+      toast.error(t('email_verification_page.enter_email'))
       return
     }
     setResending(true)
     try {
       const result = await resendConfirmEmail(email.trim())
-      toast.success(result.message || 'Verification email sent.')
+      toast.success(result.message || t('email_verification_page.resend_success'))
     } catch (error: any) {
       const details = error?.errors || {}
-      toast.error(details?.error || error?.message || 'Failed to resend verification email.')
+      toast.error(details?.error || error?.message || t('email_verification_page.resend_failed'))
     } finally {
       setResending(false)
     }
@@ -87,7 +89,7 @@ export function EmailVerificationPage() {
               )}
             </div>
           </div>
-          <CardTitle>Email Verification</CardTitle>
+          <CardTitle>{t('email_verification_page.title')}</CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -102,7 +104,7 @@ export function EmailVerificationPage() {
             <div className="space-y-3">
               <Input
                 type="email"
-                placeholder="Enter your email to resend"
+                placeholder={t('email_verification_page.email_placeholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -110,10 +112,10 @@ export function EmailVerificationPage() {
                 {resending ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending...
+                    {t('email_verification_page.sending')}
                   </>
                 ) : (
-                  'Resend verification email'
+                  t('email_verification_page.resend_button')
                 )}
               </Button>
             </div>
@@ -121,7 +123,7 @@ export function EmailVerificationPage() {
 
           {(state === 'verified' || state === 'already_verified') && (
             <Button className="w-full" onClick={() => navigate('/login')}>
-              Go to login
+              {t('email_verification_page.go_to_login')}
             </Button>
           )}
         </CardContent>

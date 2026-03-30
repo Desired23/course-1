@@ -50,7 +50,7 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
     { label: t('common.notifications'), icon: <Bell className="h-4 w-4" />, href: '/notifications', dividerAfter: true },
     { label: t('common.account_settings'), icon: <Settings className="h-4 w-4" />, href: '/account-settings' },
     { label: t('sidebar.payment_methods') || 'Payment methods', icon: <CreditCard className="h-4 w-4" />, href: '/user/payment-methods' },
-    { label: 'Lịch sử giao dịch', icon: <Receipt className="h-4 w-4" />, href: '/user/transactions' },
+    { label: t('user_dashboard_sidebar.transaction_history'), icon: <Receipt className="h-4 w-4" />, href: '/user/transactions' },
     { label: t('sidebar.subscriptions') || 'Subscriptions', icon: <Package className="h-4 w-4" />, href: '/user/subscriptions', dividerAfter: true },
   ]
 
@@ -101,7 +101,7 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
             </div>
             {sidebarOpen && (
               <div className="overflow-hidden min-w-0">
-                <p className="truncate text-xs md:text-sm">{user?.name || 'John Doe'}</p>
+                <p className="truncate text-xs md:text-sm">{user?.name || t('user_dashboard_sidebar.default_name')}</p>
               </div>
             )}
           </div>
@@ -195,7 +195,7 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
             size="icon"
             className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-50 rounded-full h-8 w-8 bg-black/80 hover:bg-black text-white border border-white/20 shadow-lg backdrop-blur-md transition-all duration-300 left-full -translate-x-1/2"
             onClick={toggleSidebar}
-            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            title={sidebarOpen ? t('user_dashboard_sidebar.collapse') : t('user_dashboard_sidebar.expand')}
           >
             {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>

@@ -34,6 +34,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { EnhancedCodeQuizData, TestCase } from './EnhancedCodeQuizCreator'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import { useTranslation } from 'react-i18next'
 
 // Re-defining QuizQuestion to match InstructorQuizzesPage
 export interface QuizQuestion {
@@ -59,13 +60,6 @@ interface QuestionWizardProps {
   questionOrder: number
 }
 
-const STEPS = [
-  { id: 'config', title: 'Configuration', icon: Settings },
-  { id: 'content', title: 'Answer & Content', icon: FileText },
-  { id: 'media', title: 'Media & Resources', icon: ImageIcon },
-  { id: 'review', title: 'Review', icon: CheckCircle2 },
-]
-
 // Draggable Test Case Component (Internal)
 function DraggableTestCase({ 
   testCase, 
@@ -80,6 +74,7 @@ function DraggableTestCase({
   onDelete: (index: number) => void
   onMove: (fromIndex: number, toIndex: number) => void
 }) {
+  const { t } = useTranslation()
   const [{ isDragging }, drag, preview] = useDrag({
     type: 'TEST_CASE_WIZARD',
     item: { index },
@@ -114,7 +109,7 @@ function DraggableTestCase({
             <div className="flex-1 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Label className="font-semibold text-sm">Test Case {index + 1}</Label>
+                  <Label className="font-semibold text-sm">{t('question_wizard.test_case.title', { index: index + 1 })}</Label>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsExpanded(!isExpanded)}>
@@ -129,21 +124,21 @@ function DraggableTestCase({
               {isExpanded && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs text-muted-foreground">Input</Label>
+                    <Label className="text-xs text-muted-foreground">{t('question_wizard.test_case.input')}</Label>
                     <Textarea 
                       value={testCase.input}
                       onChange={(e) => onUpdate(index, { ...testCase, input: e.target.value })}
                       className="font-mono text-xs mt-1 h-16"
-                      placeholder="Input..."
+                      placeholder={t('question_wizard.test_case.input_placeholder')}
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Output</Label>
+                    <Label className="text-xs text-muted-foreground">{t('question_wizard.test_case.output')}</Label>
                     <Textarea 
                       value={testCase.expectedOutput}
                       onChange={(e) => onUpdate(index, { ...testCase, expectedOutput: e.target.value })}
                       className="font-mono text-xs mt-1 h-16"
-                      placeholder="Expected output..."
+                      placeholder={t('question_wizard.test_case.output_placeholder')}
                     />
                   </div>
                 </div>
@@ -157,7 +152,14 @@ function DraggableTestCase({
 }
 
 export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, questionOrder }: QuestionWizardProps) {
+  const { t } = useTranslation()
   const [currentStep, setCurrentStep] = useState(0)
+  const steps = [
+    { id: 'config', title: t('question_wizard.steps.config'), icon: Settings },
+    { id: 'content', title: t('question_wizard.steps.content'), icon: FileText },
+    { id: 'media', title: t('question_wizard.steps.media'), icon: ImageIcon },
+    { id: 'review', title: t('question_wizard.steps.review'), icon: CheckCircle2 },
+  ]
   
   // Base State
   const [questionText, setQuestionText] = useState('')
@@ -233,7 +235,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
   }, [isOpen, initialQuestion])
 
   const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
+    if (currentStep < steps.length - 1) {
       setCurrentStep(curr => curr + 1)
     } else {
       handleSave()
@@ -275,47 +277,47 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
   const renderConfigStep = () => (
     <div className="space-y-4 py-2">
       <div className="space-y-2">
-        <Label>Question Text / Title</Label>
+        <Label>{t('question_wizard.config.question_text')}</Label>
         <Textarea 
           value={questionText} 
           onChange={e => setQuestionText(e.target.value)} 
-          placeholder="e.g. What is the capital of France? or Two Sum"
+          placeholder={t('question_wizard.config.question_text_placeholder')}
           rows={3}
         />
       </div>
       
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Question Type</Label>
+          <Label>{t('question_wizard.config.question_type')}</Label>
           <Select value={type} onValueChange={(v: any) => setType(v)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="single">Single Choice</SelectItem>
-              <SelectItem value="multiple">Multiple Choice</SelectItem>
-              <SelectItem value="text">Text Answer</SelectItem>
-              <SelectItem value="code">Code Challenge</SelectItem>
+              <SelectItem value="single">{t('question_wizard.types.single')}</SelectItem>
+              <SelectItem value="multiple">{t('question_wizard.types.multiple')}</SelectItem>
+              <SelectItem value="text">{t('question_wizard.types.text')}</SelectItem>
+              <SelectItem value="code">{t('question_wizard.types.code')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         
         <div className="space-y-2">
-          <Label>Difficulty</Label>
+          <Label>{t('question_wizard.config.difficulty')}</Label>
           <Select value={difficulty} onValueChange={(v: any) => setDifficulty(v)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="easy">Easy</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="hard">Hard</SelectItem>
+              <SelectItem value="easy">{t('question_wizard.difficulty.easy')}</SelectItem>
+              <SelectItem value="medium">{t('question_wizard.difficulty.medium')}</SelectItem>
+              <SelectItem value="hard">{t('question_wizard.difficulty.hard')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label>Points</Label>
+          <Label>{t('question_wizard.config.points')}</Label>
           <Input 
             type="number" 
             min={1} 
@@ -332,14 +334,14 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       return (
         <div className="space-y-6 py-2">
           <div className="space-y-2">
-            <Label>Problem Description (Markdown)</Label>
+            <Label>{t('question_wizard.content.problem_description')}</Label>
             <Textarea
               value={codeData.problemStatement.description}
               onChange={e => setCodeData({
                 ...codeData,
                 problemStatement: { ...codeData.problemStatement, description: e.target.value }
               })}
-              placeholder="Describe the coding problem..."
+              placeholder={t('question_wizard.content.problem_description_placeholder')}
               rows={6}
               className="font-mono text-sm"
             />
@@ -347,19 +349,19 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Test Cases</Label>
+              <Label>{t('question_wizard.content.test_cases')}</Label>
               <Button size="sm" variant="outline" onClick={() => setCodeData({
                 ...codeData,
                 testCases: [...codeData.testCases, { id: Date.now(), input: '', expectedOutput: '' }]
               })}>
-                <Plus className="h-3 w-3 mr-1" /> Add Case
+                <Plus className="h-3 w-3 mr-1" /> {t('question_wizard.content.add_case')}
               </Button>
             </div>
             
             <div className="max-h-[300px] overflow-y-auto pr-2">
                 {codeData.testCases.length === 0 ? (
                   <div className="text-center py-8 border border-dashed rounded-lg text-muted-foreground text-sm">
-                    No test cases added.
+                    {t('question_wizard.content.no_test_cases')}
                   </div>
                 ) : (
                   codeData.testCases.map((tc, idx) => (
@@ -396,9 +398,9 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
         <div className="py-8 text-center border border-dashed rounded-lg bg-muted/20">
           <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            This is a text answer question. Students will type their answer.
+            {t('question_wizard.content.text_answer_description')}
             <br />
-            You can provide keywords in the explanation to help grading manually.
+            {t('question_wizard.content.text_answer_hint')}
           </p>
         </div>
       )
@@ -406,7 +408,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
 
     return (
       <div className="space-y-4 py-2">
-        <Label>Answer Options</Label>
+        <Label>{t('question_wizard.content.answer_options')}</Label>
         <div className="space-y-3">
           {options.map((opt, idx) => (
             <div key={idx} className="flex items-center gap-3">
@@ -434,7 +436,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
                   newOpts[idx] = e.target.value
                   setOptions(newOpts)
                 }}
-                placeholder={`Option ${idx + 1}`}
+                placeholder={t('question_wizard.content.option_placeholder', { index: idx + 1 })}
               />
               {options.length > 2 && (
                 <Button variant="ghost" size="icon" onClick={() => setOptions(options.filter((_, i) => i !== idx))}>
@@ -444,7 +446,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
             </div>
           ))}
           <Button variant="outline" size="sm" onClick={() => setOptions([...options, ''])} className="w-full">
-            <Plus className="h-4 w-4 mr-2" /> Add Option
+            <Plus className="h-4 w-4 mr-2" /> {t('question_wizard.content.add_option')}
           </Button>
         </div>
       </div>
@@ -454,17 +456,17 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
   const renderResourcesStep = () => (
     <div className="space-y-4 py-2">
       <div className="space-y-2">
-        <Label>Explanation</Label>
+        <Label>{t('question_wizard.resources.explanation')}</Label>
         <Textarea 
           value={explanation} 
           onChange={e => setExplanation(e.target.value)} 
-          placeholder="Explain why the answer is correct..."
+          placeholder={t('question_wizard.resources.explanation_placeholder')}
           rows={4}
         />
       </div>
       
       <div className="space-y-2">
-        <Label>Image URL (Optional)</Label>
+        <Label>{t('question_wizard.resources.image_url')}</Label>
         <Input 
           value={image} 
           onChange={e => setImage(e.target.value)} 
@@ -473,11 +475,11 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       </div>
 
       <div className="space-y-2">
-        <Label>Code Snippet Context (Optional)</Label>
+        <Label>{t('question_wizard.resources.code_snippet')}</Label>
         <Textarea 
           value={codeSnippet} 
           onChange={e => setCodeSnippet(e.target.value)} 
-          placeholder="Code to display with the question..."
+          placeholder={t('question_wizard.resources.code_snippet_placeholder')}
           className="font-mono text-sm"
           rows={4}
         />
@@ -492,38 +494,38 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
           {type === 'code' ? <Code className="h-6 w-6" /> : <FileText className="h-6 w-6" />}
         </div>
         <div>
-          <h3 className="font-semibold text-lg">{questionText || 'Untitled Question'}</h3>
+          <h3 className="font-semibold text-lg">{questionText || t('question_wizard.review.untitled')}</h3>
           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
             <Badge variant="outline" className="uppercase text-[10px]">{type}</Badge>
             <span>{points} pts</span>
-            <span className="capitalize">{difficulty}</span>
+            <span className="capitalize">{t(`question_wizard.difficulty.${difficulty}`)}</span>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="p-4 rounded-lg border bg-background">
-          <h4 className="font-medium text-sm mb-2 text-muted-foreground">Content</h4>
+          <h4 className="font-medium text-sm mb-2 text-muted-foreground">{t('question_wizard.review.content')}</h4>
           {type === 'code' ? (
             <div className="text-sm">
-              <p>{codeData.testCases.length} Test Cases</p>
-              <p>{codeData.allowedLanguages.length} Languages Allowed</p>
+              <p>{t('question_wizard.review.test_cases', { count: codeData.testCases.length })}</p>
+              <p>{t('question_wizard.review.languages_allowed', { count: codeData.allowedLanguages.length })}</p>
             </div>
           ) : (
             <div className="text-sm">
-              <p>{options.length} Options</p>
-              <p>{Array.isArray(correctAnswer) ? correctAnswer.length : 1} Correct Answer(s)</p>
+              <p>{t('question_wizard.review.options', { count: options.length })}</p>
+              <p>{t('question_wizard.review.correct_answers', { count: Array.isArray(correctAnswer) ? correctAnswer.length : 1 })}</p>
             </div>
           )}
         </div>
         <div className="p-4 rounded-lg border bg-background">
-          <h4 className="font-medium text-sm mb-2 text-muted-foreground">Resources</h4>
+          <h4 className="font-medium text-sm mb-2 text-muted-foreground">{t('question_wizard.review.resources')}</h4>
           <div className="text-sm space-y-1">
             <p className="flex items-center gap-2">
-              <ImageIcon className="h-3 w-3" /> {image ? 'Image Added' : 'No Image'}
+              <ImageIcon className="h-3 w-3" /> {image ? t('question_wizard.review.image_added') : t('question_wizard.review.no_image')}
             </p>
             <p className="flex items-center gap-2">
-              <AlertCircle className="h-3 w-3" /> {explanation ? 'Explanation Added' : 'No Explanation'}
+              <AlertCircle className="h-3 w-3" /> {explanation ? t('question_wizard.review.explanation_added') : t('question_wizard.review.no_explanation')}
             </p>
           </div>
         </div>
@@ -536,17 +538,17 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       <DialogContent className="max-w-2xl flex flex-col h-[80vh] sm:h-[600px] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2">
           <DialogTitle>
-            {initialQuestion ? 'Edit Question' : 'New Question'}
+            {initialQuestion ? t('question_wizard.dialog.edit_title') : t('question_wizard.dialog.new_title')}
           </DialogTitle>
           <DialogDescription>
-            Step {currentStep + 1} of {STEPS.length}: {STEPS[currentStep].title}
+            {t('question_wizard.dialog.step', { current: currentStep + 1, total: steps.length, title: steps[currentStep].title })}
           </DialogDescription>
         </DialogHeader>
 
         {/* Steps Indicator */}
         <div className="px-6 py-2 bg-muted/20 border-b">
           <div className="flex items-center justify-between">
-            {STEPS.map((step, idx) => {
+            {steps.map((step, idx) => {
               const Icon = step.icon
               const isActive = idx === currentStep
               const isCompleted = idx < currentStep
@@ -593,13 +595,13 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
 
         <DialogFooter className="p-6 pt-2 border-t bg-muted/10">
           <Button variant="outline" onClick={handleBack} disabled={currentStep === 0}>
-            <ChevronLeft className="h-4 w-4 mr-2" /> Back
+            <ChevronLeft className="h-4 w-4 mr-2" /> {t('question_wizard.actions.back')}
           </Button>
           <Button onClick={handleNext}>
-            {currentStep === STEPS.length - 1 ? (
-              <>Save Question <CheckCircle2 className="h-4 w-4 ml-2" /></>
+            {currentStep === steps.length - 1 ? (
+              <>{t('question_wizard.actions.save')} <CheckCircle2 className="h-4 w-4 ml-2" /></>
             ) : (
-              <>Next Step <ChevronRight className="h-4 w-4 ml-2" /></>
+              <>{t('question_wizard.actions.next')} <ChevronRight className="h-4 w-4 ml-2" /></>
             )}
           </Button>
         </DialogFooter>

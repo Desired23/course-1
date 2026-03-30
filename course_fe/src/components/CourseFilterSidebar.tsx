@@ -1,29 +1,23 @@
 import { useState } from 'react'
-import { Star, ChevronDown } from 'lucide-react'
+import { ChevronDown, Star } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import { Checkbox } from './ui/checkbox'
-import { Label } from './ui/label'
 import { Input } from './ui/input'
-import { Button } from './ui/button'
+import { Label } from './ui/label'
 
-// Filter State Interface
 export interface FilterState {
-  // Categories
   category?: number | string | null
   subcategories?: number[]
-  
-  // Multiple select arrays
   levels?: string[]
   ratings?: number[]
   durations?: string[]
   languages?: string[]
   features?: string[]
-  
-  // Price range
   priceRange: [number, number]
 }
 
-// Category Interface
 export interface CategoryOption {
   id: number | string
   name: string
@@ -33,18 +27,17 @@ export interface CategoryOption {
   }>
 }
 
-// Accordion Component for Filters
-function FilterAccordion({ 
-  title, 
-  defaultOpen = false, 
-  children 
-}: { 
+function FilterAccordion({
+  title,
+  defaultOpen = false,
+  children,
+}: {
   title: string
   defaultOpen?: boolean
-  children: React.ReactNode 
+  children: React.ReactNode
 }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
-  
+
   return (
     <div className="border-b border-border last:border-b-0">
       <button
@@ -52,15 +45,11 @@ function FilterAccordion({
         className="flex items-center justify-between w-full py-4 text-left font-medium hover:text-primary transition-colors"
       >
         {title}
-        <ChevronDown 
-          className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
-      {isOpen && (
-        <div className="pb-4 space-y-2">
-          {children}
-        </div>
-      )}
+      {isOpen && <div className="pb-4 space-y-2">{children}</div>}
     </div>
   )
 }
@@ -69,18 +58,12 @@ interface CourseFilterSidebarProps {
   filters: FilterState
   onFilterChange: (filterType: string, value: any) => void
   onClearFilters: () => void
-  
-  // Configuration
-  mode?: 'single' | 'multiple' // Control select behavior
-  
-  // Data options
+  mode?: 'single' | 'multiple'
   categories?: CategoryOption[]
   durations?: string[]
   levels?: string[]
   languages?: string[]
   features?: string[]
-  
-  // Display options
   currency?: 'USD' | 'VND'
   priceConfig?: {
     min: number
@@ -90,8 +73,6 @@ interface CourseFilterSidebarProps {
       max: string
     }
   }
-  
-  // Visibility options
   showCategories?: boolean
   showRatings?: boolean
   showDurations?: boolean
@@ -99,7 +80,6 @@ interface CourseFilterSidebarProps {
   showLanguages?: boolean
   showPrice?: boolean
   showFeatures?: boolean
-  
   className?: string
   showFilters?: boolean
 }
@@ -110,22 +90,15 @@ export function CourseFilterSidebar({
   onClearFilters,
   mode = 'multiple',
   categories = [],
-  durations = ['0-2 hours', '2-6 hours', '6+ hours'],
-  levels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced'],
-  languages = ['Tiếng Việt', 'English', 'Español', 'Français', 'Deutsch'],
-  features = [
-    'Certificate of completion',
-    'Subtitles',
-    'Quizzes', 
-    'Coding Exercises', 
-    'Practice Tests', 
-    'Downloadable Resources'
-  ],
+  durations,
+  levels,
+  languages,
+  features,
   currency = 'VND',
   priceConfig = {
     min: 0,
     max: 5000000,
-    placeholder: { min: '0', max: '5000000' }
+    placeholder: { min: '0', max: '5000000' },
   },
   showCategories = false,
   showRatings = true,
@@ -135,17 +108,48 @@ export function CourseFilterSidebar({
   showPrice = true,
   showFeatures = true,
   className = '',
-  showFilters = true
+  showFilters = true,
 }: CourseFilterSidebarProps) {
-  
+  const { t } = useTranslation()
+
+  const durationOptions = durations ?? [
+    t('course_filter_sidebar.options.duration.0_2'),
+    t('course_filter_sidebar.options.duration.2_6'),
+    t('course_filter_sidebar.options.duration.6_plus'),
+  ]
+
+  const levelOptions = levels ?? [
+    t('course_filter_sidebar.options.level.all'),
+    t('course_filter_sidebar.options.level.beginner'),
+    t('course_filter_sidebar.options.level.intermediate'),
+    t('course_filter_sidebar.options.level.advanced'),
+  ]
+
+  const languageOptions = languages ?? [
+    t('course_filter_sidebar.options.language.vi'),
+    t('course_filter_sidebar.options.language.en'),
+    t('course_filter_sidebar.options.language.es'),
+    t('course_filter_sidebar.options.language.fr'),
+    t('course_filter_sidebar.options.language.de'),
+  ]
+
+  const featureOptions = features ?? [
+    t('course_filter_sidebar.options.feature.certificate'),
+    t('course_filter_sidebar.options.feature.subtitles'),
+    t('course_filter_sidebar.options.feature.quizzes'),
+    t('course_filter_sidebar.options.feature.coding_exercises'),
+    t('course_filter_sidebar.options.feature.practice_tests'),
+    t('course_filter_sidebar.options.feature.downloadable_resources'),
+  ]
+
   const formatPrice = (price: number) => {
     if (currency === 'VND') {
-      return `₫${price.toLocaleString('vi-VN')}`
+      return `VND ${price.toLocaleString('vi-VN')}`
     }
     return `$${price}`
   }
 
-  const currencySymbol = currency === 'VND' ? '₫' : '$'
+  const currencySymbol = currency === 'VND' ? 'VND' : '$'
 
   if (!showFilters) return null
 
@@ -153,23 +157,21 @@ export function CourseFilterSidebar({
     <div className={`w-80 ${className}`}>
       <Card>
         <CardContent className="p-6">
-          {/* Header */}
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Filters</h3>
+            <h3 className="font-semibold text-lg">{t('course_filter_sidebar.filters')}</h3>
             <Button variant="ghost" size="sm" onClick={onClearFilters}>
-              Clear all
+              {t('course_filter_sidebar.clear_all')}
             </Button>
           </div>
 
           <div className="space-y-0">
-            {/* Categories Filter */}
             {showCategories && categories.length > 0 && (
-              <FilterAccordion title="Category" defaultOpen={true}>
+              <FilterAccordion title={t('course_filter_sidebar.category')} defaultOpen>
                 <div className="space-y-2">
-                  {categories.map(category => (
+                  {categories.map((category) => (
                     <div key={category.id}>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox 
+                        <Checkbox
                           checked={filters.category === category.id}
                           onCheckedChange={(checked) => {
                             onFilterChange('category', checked ? category.id : null)
@@ -180,19 +182,18 @@ export function CourseFilterSidebar({
                         />
                         <span className="text-sm">{category.name}</span>
                       </label>
-                      
-                      {/* Subcategories */}
+
                       {filters.category === category.id && category.subcategories && category.subcategories.length > 0 && (
                         <div className="ml-6 mt-2 space-y-2">
-                          {category.subcategories.map(sub => (
+                          {category.subcategories.map((sub) => (
                             <label key={sub.id} className="flex items-center gap-2 cursor-pointer">
-                              <Checkbox 
+                              <Checkbox
                                 checked={filters.subcategories?.includes(sub.id as number) || false}
                                 onCheckedChange={(checked) => {
                                   const currentSubs = filters.subcategories || []
                                   const newSubs = checked
                                     ? [...currentSubs, sub.id as number]
-                                    : currentSubs.filter(id => id !== sub.id)
+                                    : currentSubs.filter((id) => id !== sub.id)
                                   onFilterChange('subcategories', newSubs)
                                 }}
                               />
@@ -207,14 +208,13 @@ export function CourseFilterSidebar({
               </FilterAccordion>
             )}
 
-            {/* Price Range */}
             {showPrice && (
-              <FilterAccordion title="Price" defaultOpen={true}>
+              <FilterAccordion title={t('course_filter_sidebar.price')} defaultOpen>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="min-price" className="text-xs text-muted-foreground">
-                        Min ({currencySymbol})
+                        {t('course_filter_sidebar.min_label', { currency: currencySymbol })}
                       </Label>
                       <Input
                         id="min-price"
@@ -232,7 +232,7 @@ export function CourseFilterSidebar({
                     </div>
                     <div>
                       <Label htmlFor="max-price" className="text-xs text-muted-foreground">
-                        Max ({currencySymbol})
+                        {t('course_filter_sidebar.max_label', { currency: currencySymbol })}
                       </Label>
                       <Input
                         id="max-price"
@@ -249,32 +249,31 @@ export function CourseFilterSidebar({
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>From: {formatPrice(filters.priceRange[0])}</span>
-                    <span>To: {formatPrice(filters.priceRange[1])}</span>
+                    <span>{t('course_filter_sidebar.from_price', { price: formatPrice(filters.priceRange[0]) })}</span>
+                    <span>{t('course_filter_sidebar.to_price', { price: formatPrice(filters.priceRange[1]) })}</span>
                   </div>
                 </div>
               </FilterAccordion>
             )}
 
-            {/* Rating Filter */}
             {showRatings && (
-              <FilterAccordion title="Rating" defaultOpen={true}>
+              <FilterAccordion title={t('course_filter_sidebar.rating')} defaultOpen>
                 <div className="space-y-2">
-                  {[4.5, 4.0, 3.5, 3.0].map(rating => (
+                  {[4.5, 4.0, 3.5, 3.0].map((rating) => (
                     <label key={rating} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox 
+                      <Checkbox
                         checked={filters.ratings?.includes(rating) || false}
                         onCheckedChange={(checked) => {
                           const currentRatings = filters.ratings || []
                           const newRatings = checked
                             ? [...currentRatings, rating]
-                            : currentRatings.filter(r => r !== rating)
+                            : currentRatings.filter((r) => r !== rating)
                           onFilterChange('ratings', newRatings)
                         }}
                       />
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm">{rating} & up</span>
+                        <span className="text-sm">{t('course_filter_sidebar.rating_and_up', { rating })}</span>
                       </div>
                     </label>
                   ))}
@@ -282,19 +281,18 @@ export function CourseFilterSidebar({
               </FilterAccordion>
             )}
 
-            {/* Level Filter */}
             {showLevels && (
-              <FilterAccordion title="Level" defaultOpen={true}>
+              <FilterAccordion title={t('course_filter_sidebar.level')} defaultOpen>
                 <div className="space-y-2">
-                  {levels.map(level => (
+                  {levelOptions.map((level) => (
                     <label key={level} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox 
+                      <Checkbox
                         checked={filters.levels?.includes(level) || false}
                         onCheckedChange={(checked) => {
                           const currentLevels = filters.levels || []
                           const newLevels = checked
                             ? [...currentLevels, level]
-                            : currentLevels.filter(l => l !== level)
+                            : currentLevels.filter((l) => l !== level)
                           onFilterChange('levels', newLevels)
                         }}
                       />
@@ -305,19 +303,18 @@ export function CourseFilterSidebar({
               </FilterAccordion>
             )}
 
-            {/* Duration Filter */}
             {showDurations && (
-              <FilterAccordion title="Duration" defaultOpen={false}>
+              <FilterAccordion title={t('course_filter_sidebar.duration')} defaultOpen={false}>
                 <div className="space-y-2">
-                  {durations.map(duration => (
+                  {durationOptions.map((duration) => (
                     <label key={duration} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox 
+                      <Checkbox
                         checked={filters.durations?.includes(duration) || false}
                         onCheckedChange={(checked) => {
                           const currentDurations = filters.durations || []
                           const newDurations = checked
                             ? [...currentDurations, duration]
-                            : currentDurations.filter(d => d !== duration)
+                            : currentDurations.filter((d) => d !== duration)
                           onFilterChange('durations', newDurations)
                         }}
                       />
@@ -328,19 +325,18 @@ export function CourseFilterSidebar({
               </FilterAccordion>
             )}
 
-            {/* Language Filter */}
             {showLanguages && (
-              <FilterAccordion title="Language" defaultOpen={false}>
+              <FilterAccordion title={t('course_filter_sidebar.language')} defaultOpen={false}>
                 <div className="space-y-2">
-                  {languages.map(language => (
+                  {languageOptions.map((language) => (
                     <label key={language} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox 
+                      <Checkbox
                         checked={filters.languages?.includes(language) || false}
                         onCheckedChange={(checked) => {
                           const currentLanguages = filters.languages || []
                           const newLanguages = checked
                             ? [...currentLanguages, language]
-                            : currentLanguages.filter(l => l !== language)
+                            : currentLanguages.filter((l) => l !== language)
                           onFilterChange('languages', newLanguages)
                         }}
                       />
@@ -351,19 +347,18 @@ export function CourseFilterSidebar({
               </FilterAccordion>
             )}
 
-            {/* Features */}
-            {showFeatures && features.length > 0 && (
-              <FilterAccordion title="Features" defaultOpen={false}>
+            {showFeatures && featureOptions.length > 0 && (
+              <FilterAccordion title={t('course_filter_sidebar.features')} defaultOpen={false}>
                 <div className="space-y-2">
-                  {features.map(feature => (
+                  {featureOptions.map((feature) => (
                     <label key={feature} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox 
+                      <Checkbox
                         checked={filters.features?.includes(feature) || false}
                         onCheckedChange={(checked) => {
                           const currentFeatures = filters.features || []
                           const newFeatures = checked
                             ? [...currentFeatures, feature]
-                            : currentFeatures.filter(f => f !== feature)
+                            : currentFeatures.filter((f) => f !== feature)
                           onFilterChange('features', newFeatures)
                         }}
                       />

@@ -139,7 +139,7 @@ export function WebsiteManagementPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: t('common.confirm'),
     destructive: false,
     loading: false,
     action: null,
@@ -149,7 +149,7 @@ export function WebsiteManagementPage() {
     general: {
       siteName: 'UdemyClone',
       tagline: 'Learn Without Limits',
-      description: 'The ultimate online learning platform with thousands of courses',
+      description: t('website_management.default_site_description'),
       logo: '',
       favicon: '',
       metaKeywords: 'online learning, courses, education, skills, udemy'
@@ -227,7 +227,11 @@ export function WebsiteManagementPage() {
   const handleSave = async () => {
     try {
       setIsSaving(true)
-      const payload = { key: 'website_management', value: JSON.stringify(config), description: 'Website management config' }
+      const payload = {
+        key: 'website_management',
+        value: JSON.stringify(config),
+        description: t('website_management.config_description'),
+      }
       if (websiteSettingId) {
         await updateSystemSetting(websiteSettingId, { value: payload.value })
       } else {
@@ -269,7 +273,7 @@ export function WebsiteManagementPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: t('common.confirm'),
         destructive: false,
         loading: false,
         action: null,
@@ -282,15 +286,15 @@ export function WebsiteManagementPage() {
   const updateFeatureToggle = (feature: keyof WebsiteConfig['features'], checked: boolean) => {
     if (feature === 'maintenanceMode' && checked) {
       openConfirm(
-        'Enable maintenance mode',
-        'Bat maintenance mode se anh huong den truy cap cua nguoi dung. Ban co chac muon tiep tuc?',
-        'Enable maintenance mode',
+        t('website_management.maintenance_confirm_title'),
+        t('website_management.maintenance_confirm_description'),
+        t('website_management.maintenance_confirm_label'),
         () => {
           setConfig((prev) => ({
             ...prev,
             features: { ...prev.features, maintenanceMode: true },
           }))
-          toast.success('Maintenance mode da duoc bat trong cau hinh hien tai')
+          toast.success(t('website_management.maintenance_enabled_notice'))
         },
         true,
       )
@@ -344,11 +348,11 @@ export function WebsiteManagementPage() {
 
     if (!file || !target) return
     if (!file.type.startsWith('image/')) {
-      toast.error('Vui long chon file anh hop le')
+      toast.error(t('website_management.invalid_image_file'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Kich thuoc anh khong duoc vuot qua 5MB')
+      toast.error(t('website_management.image_too_large'))
       return
     }
 
@@ -359,10 +363,10 @@ export function WebsiteManagementPage() {
         throw new Error('Upload failed')
       }
       updateImageTarget(target, uploaded[0].url)
-      toast.success('Tai anh len thanh cong')
+      toast.success(t('website_management.upload_success'))
     } catch (error) {
       console.error('Website image upload failed:', error)
-      toast.error('Tai anh that bai')
+      toast.error(t('website_management.upload_failed'))
     } finally {
       setUploadingField(null)
       setPendingImageTarget(null)
@@ -411,7 +415,7 @@ export function WebsiteManagementPage() {
             </div>
             <Button onClick={handleSave} disabled={isSaving}>
               <Save className="w-4 h-4 mr-2" />
-              {isSaving ? 'Dang luu...' : t('website_management.save_changes')}
+              {isSaving ? t('website_management.saving') : t('website_management.save_changes')}
             </Button>
           </div>
         </div>
@@ -503,7 +507,7 @@ export function WebsiteManagementPage() {
                         disabled={uploadingField === 'general.logo'}
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        {uploadingField === 'general.logo' ? 'Dang tai len...' : t('website_management.upload_logo')}
+                        {uploadingField === 'general.logo' ? t('website_management.uploading') : t('website_management.upload_logo')}
                       </Button>
                     </div>
                   </div>
@@ -522,7 +526,7 @@ export function WebsiteManagementPage() {
                         disabled={uploadingField === 'general.favicon'}
                       >
                         <Upload className="w-4 h-4 mr-2" />
-                        {uploadingField === 'general.favicon' ? 'Dang tai len...' : t('website_management.upload_favicon')}
+                        {uploadingField === 'general.favicon' ? t('website_management.uploading') : t('website_management.upload_favicon')}
                       </Button>
                     </div>
                   </div>
@@ -629,7 +633,7 @@ export function WebsiteManagementPage() {
                       disabled={uploadingField === 'banners.hero.image'}
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadingField === 'banners.hero.image' ? 'Dang tai len...' : t('website_management.upload_image')}
+                      {uploadingField === 'banners.hero.image' ? t('website_management.uploading') : t('website_management.upload_image')}
                     </Button>
                   </div>
                 </div>
@@ -730,7 +734,7 @@ export function WebsiteManagementPage() {
                       disabled={uploadingField === 'banners.promotional.image'}
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadingField === 'banners.promotional.image' ? 'Dang tai len...' : t('website_management.upload_image')}
+                      {uploadingField === 'banners.promotional.image' ? t('website_management.uploading') : t('website_management.upload_image')}
                     </Button>
                   </div>
                 </div>
@@ -1035,7 +1039,7 @@ export function WebsiteManagementPage() {
                     <div key={feature} className="flex items-center justify-between p-4 border rounded-lg">
                       <div>
                         <Label className="capitalize font-medium">
-                          {feature.replace(/([A-Z])/g, ' $1').trim()}
+                          {getFeatureLabel(feature, t)}
                         </Label>
                         <p className="text-sm text-muted-foreground mt-1">
                           {getFeatureDescription(feature, t)}
@@ -1107,6 +1111,18 @@ export function WebsiteManagementPage() {
       />
     </>
   )
+}
+
+function getFeatureLabel(feature: string, t: (key: string) => string): string {
+  const labels: Record<string, string> = {
+    enableChat: t('website_management.feature_enable_chat_label'),
+    enableNotifications: t('website_management.feature_enable_notifications_label'),
+    enableComments: t('website_management.feature_enable_comments_label'),
+    enableRatings: t('website_management.feature_enable_ratings_label'),
+    enableSocialLogin: t('website_management.feature_enable_social_login_label'),
+    maintenanceMode: t('website_management.feature_maintenance_mode_label'),
+  }
+  return labels[feature] || feature.replace(/([A-Z])/g, ' $1').trim()
 }
 
 function getFeatureDescription(feature: string, t: (key: string) => string): string {

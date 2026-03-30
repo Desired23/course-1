@@ -1,7 +1,10 @@
 import { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+import { motion } from 'motion/react'
+
+import { useSiteBranding } from '../../hooks/useSiteBranding'
 import { ImageWithFallback } from '../figma/ImageWithFallback'
 import { useRouter } from '../Router'
-import { motion } from 'motion/react'
 
 interface AuthLayoutProps {
   children: ReactNode
@@ -12,34 +15,47 @@ interface AuthLayoutProps {
   author?: string
 }
 
-export function AuthLayout({ 
-  children, 
-  title, 
-  subtitle, 
+export function AuthLayout({
+  children,
+  title,
+  subtitle,
   image = "https://images.unsplash.com/photo-1762278805303-69a5fe7b6a82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGRpZ2l0YWwlMjB0ZWNobm9sb2d5JTIwZGFyayUyMGJhY2tncm91bmQlMjBtb2Rlcm58ZW58MXx8fHwxNzY4MDQ4Mjk5fDA&ixlib=rb-4.1.0&q=80&w=1080",
-  quote = "Education is the passport to the future, for tomorrow belongs to those who prepare for it today.",
-  author = "Malcolm X"
+  quote,
+  author,
 }: AuthLayoutProps) {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
+  const { siteLogo, siteName } = useSiteBranding()
+  const displayQuote = quote ?? t('auth_layout.default_quote')
+  const displayAuthor = author ?? t('auth_layout.default_author')
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-gradient-to-br from-gray-50 to-white dark:from-gray-950 dark:to-black">
-      {/* Left: Form Side */}
       <div className="flex flex-col justify-center items-center p-4 sm:p-8 md:p-12 lg:p-16 relative">
-        <motion.button 
+        <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
           onClick={() => navigate('/')}
           className="absolute top-8 left-8 flex items-center gap-2 group z-50"
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/30 transition-all duration-300 group-hover:scale-105">
-            <span className="text-white font-bold text-xl">U</span>
-          </div>
-          <span className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">Udemy</span>
+          {siteLogo ? (
+            <img
+              src={siteLogo}
+              alt={siteName}
+              className="h-10 w-auto max-w-[180px] object-contain shrink-0"
+            />
+          ) : (
+            <>
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/30 transition-all duration-300 group-hover:scale-105">
+                <span className="text-white font-bold text-xl">U</span>
+              </div>
+              <span className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">{siteName}</span>
+            </>
+          )}
         </motion.button>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -49,13 +65,12 @@ export function AuthLayout({
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{title}</h1>
             {subtitle && <p className="text-gray-500 dark:text-gray-400">{subtitle}</p>}
           </div>
-          
+
           {children}
         </motion.div>
       </div>
 
-      {/* Right: Visual Side */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
@@ -63,16 +78,15 @@ export function AuthLayout({
       >
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 via-purple-600/20 to-pink-600/20 mix-blend-overlay z-10" />
         <div className="absolute inset-0 bg-black/30 z-10" />
-        
-        <ImageWithFallback 
-          src={image} 
-          alt="Authentication background" 
+
+        <ImageWithFallback
+          src={image}
+          alt={t('auth_layout.background_alt')}
           className="absolute inset-0 w-full h-full object-cover"
         />
-        
-        {/* Animated quote card */}
+
         <div className="relative z-20 flex flex-col justify-end p-16 h-full w-full">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
@@ -80,10 +94,10 @@ export function AuthLayout({
           >
             <blockquote className="space-y-4">
               <p className="text-xl font-medium leading-relaxed font-serif italic text-white/90">
-                "{quote}"
+                "{displayQuote}"
               </p>
               <div className="h-0.5 w-12 bg-white/50 rounded-full" />
-              <footer className="text-sm font-semibold tracking-wide uppercase text-white/80">— {author}</footer>
+              <footer className="text-sm font-semibold tracking-wide uppercase text-white/80">- {displayAuthor}</footer>
             </blockquote>
           </motion.div>
         </div>

@@ -105,6 +105,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Online Course <{EMAIL_HOS
 
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip("/")
+if not BACKEND_PUBLIC_URL and RENDER_EXTERNAL_HOSTNAME:
+    BACKEND_PUBLIC_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}"
 EMAIL_VERIFICATION_TOKEN_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_MINUTES", "30"))
 EMAIL_VERIFICATION_TOKEN_MINUTES = max(15, min(30, EMAIL_VERIFICATION_TOKEN_MINUTES))
 GOOGLE_OAUTH_CLIENT_IDS = [
@@ -116,7 +119,25 @@ GOOGLE_OAUTH_CLIENT_IDS = [
     if client_id.strip()
 ]
 # VNPAY_RETURN_URL = "http://127.0.0.1:8000/api/vnpay/return/"
-VNPAY_RETURN_URL = os.getenv("VNPAY_RETURN_URL", "http://127.0.0.1:8000/api/vnpay/payment-return/")
+VNPAY_RETURN_URL = os.getenv(
+    "VNPAY_RETURN_URL",
+    f"{BACKEND_PUBLIC_URL}/api/vnpay/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/vnpay/payment-return/",
+)
+MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMOP93P20260328_TEST")
+MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY", "8TWy20eqRk8cSCns")
+MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY", "mhJrlZRQOM3kncr2RzQycVI3oTejblYJ")
+MOMO_CREATE_URL = os.getenv("MOMO_CREATE_URL", "https://test-payment.momo.vn/v2/gateway/api/create")
+MOMO_REFUND_URL = os.getenv("MOMO_REFUND_URL", "https://test-payment.momo.vn/v2/gateway/api/refund")
+MOMO_REDIRECT_URL = os.getenv(
+    "MOMO_REDIRECT_URL",
+    f"{BACKEND_PUBLIC_URL}/api/momo/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/momo/payment-return/",
+)
+MOMO_IPN_URL = os.getenv(
+    "MOMO_IPN_URL",
+    f"{BACKEND_PUBLIC_URL}/api/momo/ipn/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/momo/ipn/",
+)
+MOMO_STORE_ID = os.getenv("MOMO_STORE_ID", "MoMoTestStore")
+MOMO_PARTNER_NAME = os.getenv("MOMO_PARTNER_NAME", "Course Platform Test")
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
@@ -257,6 +278,35 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[%(asctime)s] %(levelname)s %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        'payments.vnpay_services': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'payments.momo_services': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
 
 
 # Internationalization

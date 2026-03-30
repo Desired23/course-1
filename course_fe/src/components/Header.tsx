@@ -26,6 +26,7 @@ import { Badge } from "./ui/badge"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { LanguageSwitcher } from "./LanguageSwitcher"
+import { useSiteBranding } from "../hooks/useSiteBranding"
 
 interface HeaderProps {
   hideMobileMenu?: boolean
@@ -36,6 +37,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
   const { navigate, currentRoute } = useRouter()
   const { darkMode, toggleTheme, setSidebarOpen } = useUIStore()
   const { user, logout, isAuthenticated, hasRole } = useAuth()
+  const { siteLogo, siteName } = useSiteBranding()
 
   // Check if current route is a user dashboard route
   const isUserDashboard = 
@@ -87,14 +89,24 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
             <button 
               onClick={() => navigate('/')}
               className={cn(
-                "flex items-center space-x-1 hover:opacity-80 transition-opacity flex-shrink-0",
+                "flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0",
                 isUserDashboard && "md:relative absolute left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0"
               )}
             >
-              <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
-                <span className="text-primary-foreground font-bold">U</span>
-              </div>
-              <span className="font-bold text-xl hidden lg:block">Udemy</span>
+              {siteLogo ? (
+                <img
+                  src={siteLogo}
+                  alt={siteName}
+                  className="h-8 w-auto max-w-[132px] object-contain shrink-0"
+                />
+              ) : (
+                <>
+                  <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+                    <span className="text-primary-foreground font-bold">U</span>
+                  </div>
+                  <span className="font-bold text-xl hidden lg:block">{siteName}</span>
+                </>
+              )}
             </button>
             
             {/* Category Mega Menu - Desktop */}
@@ -128,7 +140,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
               className="hidden md:flex hover:bg-blue-50 dark:hover:bg-blue-900/20 text-foreground font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200" 
               onClick={() => navigate('/udemy-business')}
             >
-              Udemy Business
+              {t('common.udemy_business')}
             </Button>
             <Button 
               variant="ghost" 
@@ -215,8 +227,8 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/account-settings')}>{t('common.account_settings')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/user/payment-methods')}>{t('sidebar.payment_methods') || 'Payment methods'}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/user/subscriptions')}>{t('sidebar.subscriptions') || 'Subscriptions'}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/user/payment-methods')}>{t('sidebar.payment_methods')}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/user/subscriptions')}>{t('sidebar.subscriptions')}</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout}>{t('common.log_out')}</DropdownMenuItem>
                   </>

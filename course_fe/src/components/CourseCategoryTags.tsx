@@ -1,7 +1,8 @@
 import { Tag } from 'lucide-react'
-import { Badge } from './ui/badge'
-import { useRouter } from './Router'
 import { motion } from 'motion/react'
+import { useTranslation } from 'react-i18next'
+import { useRouter } from './Router'
+import { Badge } from './ui/badge'
 
 interface Category {
   id: string
@@ -17,12 +18,13 @@ interface CourseCategoryTagsProps {
   maxDisplay?: number
 }
 
-export function CourseCategoryTags({ 
-  categories, 
-  className = '', 
+export function CourseCategoryTags({
+  categories,
+  className = '',
   variant = 'default',
-  maxDisplay 
+  maxDisplay,
 }: CourseCategoryTagsProps) {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
 
   const handleCategoryClick = (slug: string) => {
@@ -32,8 +34,8 @@ export function CourseCategoryTags({
   if (categories.length === 0) return null
 
   const displayCategories = maxDisplay ? categories.slice(0, maxDisplay) : categories
-  const remainingCount = maxDisplay && categories.length > maxDisplay 
-    ? categories.length - maxDisplay 
+  const remainingCount = maxDisplay && categories.length > maxDisplay
+    ? categories.length - maxDisplay
     : 0
 
   if (variant === 'compact') {
@@ -49,13 +51,13 @@ export function CourseCategoryTags({
               {category.name}
             </button>
             {index < displayCategories.length - 1 && (
-              <span className="text-gray-500 mx-1.5">•</span>
+              <span className="text-gray-500 mx-1.5">&bull;</span>
             )}
           </span>
         ))}
         {remainingCount > 0 && (
           <span className="text-sm text-gray-400">
-            +{remainingCount} more
+            {t('course_category_tags.more_count', { count: remainingCount })}
           </span>
         )}
       </div>
@@ -66,7 +68,7 @@ export function CourseCategoryTags({
     <div className={`flex items-start gap-3 ${className}`}>
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1 flex-shrink-0">
         <Tag className="w-4 h-4" />
-        <span className="font-medium">Categories:</span>
+        <span className="font-medium">{t('course_category_tags.categories')}</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {displayCategories.map((category, index) => (
@@ -88,7 +90,7 @@ export function CourseCategoryTags({
         ))}
         {remainingCount > 0 && (
           <Badge variant="outline" className="cursor-default">
-            +{remainingCount} more
+            {t('course_category_tags.more_count', { count: remainingCount })}
           </Badge>
         )}
       </div>

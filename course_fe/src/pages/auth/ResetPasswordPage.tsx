@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -8,6 +9,7 @@ import { CheckCircle2, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function ResetPasswordPage() {
+  const { t } = useTranslation()
   const { navigate, params } = useRouter()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,16 +22,16 @@ export function ResetPasswordPage() {
 
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
-      return 'Password must be at least 8 characters'
+      return t('reset_password_page.password_min')
     }
     if (!/[A-Z]/.test(pwd)) {
-      return 'Password must contain at least one uppercase letter'
+      return t('reset_password_page.password_uppercase')
     }
     if (!/[a-z]/.test(pwd)) {
-      return 'Password must contain at least one lowercase letter'
+      return t('reset_password_page.password_lowercase')
     }
     if (!/[0-9]/.test(pwd)) {
-      return 'Password must contain at least one number'
+      return t('reset_password_page.password_number')
     }
     return null
   }
@@ -45,7 +47,7 @@ export function ResetPasswordPage() {
     }
 
     if (password !== confirmPassword) {
-      toast.error('Passwords do not match')
+      toast.error(t('reset_password_page.passwords_do_not_match'))
       return
     }
 
@@ -55,7 +57,7 @@ export function ResetPasswordPage() {
     setTimeout(() => {
       setResetSuccess(true)
       setIsSubmitting(false)
-      toast.success('Password reset successfully!')
+      toast.success(t('reset_password_page.reset_success_toast'))
       setTimeout(() => {
         navigate('/login')
       }, 2000)
@@ -73,9 +75,9 @@ export function ResetPasswordPage() {
                   <CheckCircle2 className="w-10 h-10 text-green-600" />
                 </div>
               </div>
-              <h2 className="text-2xl">Password Reset!</h2>
+              <h2 className="text-2xl">{t('reset_password_page.success_title')}</h2>
               <p className="text-muted-foreground">
-                Your password has been successfully reset. Redirecting to login...
+                {t('reset_password_page.success_description')}
               </p>
             </div>
           </CardContent>
@@ -93,19 +95,19 @@ export function ResetPasswordPage() {
               <Lock className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <CardTitle>Reset Password</CardTitle>
+          <CardTitle>{t('reset_password_page.title')}</CardTitle>
           <CardDescription>
-            Enter your new password
+            {t('reset_password_page.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">New Password</label>
+              <label className="text-sm font-medium">{t('reset_password_page.new_password')}</label>
               <div className="relative">
                 <Input
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter new password"
+                  placeholder={t('reset_password_page.new_password_placeholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -118,16 +120,16 @@ export function ResetPasswordPage() {
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Must be at least 8 characters with uppercase, lowercase, and numbers
+                {t('reset_password_page.password_hint')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Confirm Password</label>
+              <label className="text-sm font-medium">{t('reset_password_page.confirm_password')}</label>
               <div className="relative">
                 <Input
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm new password"
+                  placeholder={t('reset_password_page.confirm_password_placeholder')}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
@@ -143,7 +145,7 @@ export function ResetPasswordPage() {
 
             {password && confirmPassword && password !== confirmPassword && (
               <Alert variant="destructive">
-                <AlertDescription>Passwords do not match</AlertDescription>
+                <AlertDescription>{t('reset_password_page.passwords_do_not_match')}</AlertDescription>
               </Alert>
             )}
 
@@ -155,10 +157,10 @@ export function ResetPasswordPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Resetting...
+                  {t('reset_password_page.resetting')}
                 </>
               ) : (
-                'Reset Password'
+                t('reset_password_page.title')
               )}
             </Button>
           </form>

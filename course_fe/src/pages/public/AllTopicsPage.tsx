@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { useRouter } from '../../components/Router'
+import { useTranslation } from 'react-i18next'
 
 interface Topic {
   id: string
@@ -16,7 +17,7 @@ interface Topic {
   courseCount: number
   studentCount: string
   trending?: boolean
-  description: string
+  descriptionKey: string
 }
 
 const allTopics: Topic[] = [
@@ -30,7 +31,7 @@ const allTopics: Topic[] = [
     courseCount: 450,
     studentCount: '2.5M+',
     trending: true,
-    description: 'Build modern web apps with React'
+    descriptionKey: 'react'
   },
   {
     id: '2',
@@ -41,7 +42,7 @@ const allTopics: Topic[] = [
     courseCount: 820,
     studentCount: '4.2M+',
     trending: true,
-    description: 'Master Python programming'
+    descriptionKey: 'python'
   },
   {
     id: '3',
@@ -52,7 +53,7 @@ const allTopics: Topic[] = [
     courseCount: 680,
     studentCount: '3.8M+',
     trending: true,
-    description: 'The language of the web'
+    descriptionKey: 'javascript'
   },
   {
     id: '4',
@@ -63,7 +64,7 @@ const allTopics: Topic[] = [
     courseCount: 320,
     studentCount: '1.8M+',
     trending: false,
-    description: 'Backend development with JavaScript'
+    descriptionKey: 'nodejs'
   },
   {
     id: '5',
@@ -74,7 +75,7 @@ const allTopics: Topic[] = [
     courseCount: 180,
     studentCount: '950K+',
     trending: true,
-    description: 'Typed JavaScript for better code'
+    descriptionKey: 'typescript'
   },
   {
     id: '6',
@@ -85,7 +86,7 @@ const allTopics: Topic[] = [
     courseCount: 450,
     studentCount: '2.1M+',
     trending: false,
-    description: 'Enterprise application development'
+    descriptionKey: 'java'
   },
   {
     id: '7',
@@ -96,7 +97,7 @@ const allTopics: Topic[] = [
     courseCount: 280,
     studentCount: '1.2M+',
     trending: false,
-    description: '.NET and Unity development'
+    descriptionKey: 'csharp'
   },
   {
     id: '8',
@@ -107,7 +108,7 @@ const allTopics: Topic[] = [
     courseCount: 340,
     studentCount: '1.5M+',
     trending: false,
-    description: 'Server-side web development'
+    descriptionKey: 'php'
   },
   
   // Data Science & AI
@@ -120,7 +121,7 @@ const allTopics: Topic[] = [
     courseCount: 420,
     studentCount: '2.8M+',
     trending: true,
-    description: 'AI and predictive modeling'
+    descriptionKey: 'machine_learning'
   },
   {
     id: '10',
@@ -131,7 +132,7 @@ const allTopics: Topic[] = [
     courseCount: 250,
     studentCount: '1.4M+',
     trending: true,
-    description: 'Neural networks and AI'
+    descriptionKey: 'deep_learning'
   },
   {
     id: '11',
@@ -142,7 +143,7 @@ const allTopics: Topic[] = [
     courseCount: 380,
     studentCount: '2.1M+',
     trending: false,
-    description: 'Analyze and visualize data'
+    descriptionKey: 'data_analysis'
   },
   {
     id: '12',
@@ -153,7 +154,7 @@ const allTopics: Topic[] = [
     courseCount: 290,
     studentCount: '1.6M+',
     trending: false,
-    description: 'Database querying and management'
+    descriptionKey: 'sql'
   },
   
   // Design
@@ -166,7 +167,7 @@ const allTopics: Topic[] = [
     courseCount: 320,
     studentCount: '1.8M+',
     trending: true,
-    description: 'User interface and experience design'
+    descriptionKey: 'ui_ux_design'
   },
   {
     id: '14',
@@ -177,7 +178,7 @@ const allTopics: Topic[] = [
     courseCount: 450,
     studentCount: '2.2M+',
     trending: false,
-    description: 'Visual communication and branding'
+    descriptionKey: 'graphic_design'
   },
   {
     id: '15',
@@ -188,7 +189,7 @@ const allTopics: Topic[] = [
     courseCount: 180,
     studentCount: '890K+',
     trending: true,
-    description: 'Collaborative design tool'
+    descriptionKey: 'figma'
   },
   {
     id: '16',
@@ -199,7 +200,7 @@ const allTopics: Topic[] = [
     courseCount: 520,
     studentCount: '2.5M+',
     trending: false,
-    description: 'Photo editing and manipulation'
+    descriptionKey: 'photoshop'
   },
   
   // Marketing
@@ -212,7 +213,7 @@ const allTopics: Topic[] = [
     courseCount: 380,
     studentCount: '2.0M+',
     trending: true,
-    description: 'Online marketing strategies'
+    descriptionKey: 'digital_marketing'
   },
   {
     id: '18',
@@ -223,7 +224,7 @@ const allTopics: Topic[] = [
     courseCount: 240,
     studentCount: '1.3M+',
     trending: false,
-    description: 'Search engine optimization'
+    descriptionKey: 'seo'
   },
   {
     id: '19',
@@ -234,7 +235,7 @@ const allTopics: Topic[] = [
     courseCount: 290,
     studentCount: '1.6M+',
     trending: true,
-    description: 'Grow your social presence'
+    descriptionKey: 'social_media_marketing'
   },
   {
     id: '20',
@@ -245,20 +246,21 @@ const allTopics: Topic[] = [
     courseCount: 180,
     studentCount: '950K+',
     trending: false,
-    description: 'Create engaging content'
+    descriptionKey: 'content_marketing'
   }
 ]
 
 const categories = [
-  { id: 'all', label: 'All Topics', icon: BookOpen },
-  { id: 'development', label: 'Development', icon: Code },
-  { id: 'data-science', label: 'Data Science', icon: Database },
-  { id: 'design', label: 'Design', icon: Palette },
-  { id: 'marketing', label: 'Marketing', icon: Megaphone }
+  { id: 'all', icon: BookOpen },
+  { id: 'development', icon: Code },
+  { id: 'data-science', icon: Database },
+  { id: 'design', icon: Palette },
+  { id: 'marketing', icon: Megaphone }
 ]
 
 export default function AllTopicsPage() {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   
@@ -279,9 +281,9 @@ export default function AllTopicsPage() {
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-900 to-purple-700 text-white">
         <div className="container mx-auto px-4 py-8 md:py-12">
-          <h1 className="text-2xl md:text-4xl mb-3 md:mb-4">Explore Topics</h1>
+          <h1 className="text-2xl md:text-4xl mb-3 md:mb-4">{t('all_topics_page.title')}</h1>
           <p className="text-sm md:text-lg text-gray-200 mb-4 md:mb-6 max-w-2xl">
-            Browse thousands of courses across hundreds of topics. Find the perfect course to advance your career or explore a new passion.
+            {t('all_topics_page.hero_description')}
           </p>
           
           {/* Search */}
@@ -290,7 +292,7 @@ export default function AllTopicsPage() {
               <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
               <Input
                 type="text"
-                placeholder="Search topics..."
+                placeholder={t('all_topics_page.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 md:pl-12 h-12 md:h-14 text-base md:text-lg bg-white text-gray-900 border-0"
@@ -313,7 +315,7 @@ export default function AllTopicsPage() {
                   className="gap-1 md:gap-2 text-xs md:text-sm data-[state=active]:bg-purple-600 data-[state=active]:text-white"
                 >
                   <Icon className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="whitespace-nowrap">{category.label}</span>
+                  <span className="whitespace-nowrap">{t(`all_topics_page.categories.${category.id}`)}</span>
                 </TabsTrigger>
               )
             })}
@@ -323,7 +325,7 @@ export default function AllTopicsPage() {
         {/* Results Count */}
         <div className="mb-4 md:mb-6">
           <p className="text-sm md:text-base text-muted-foreground">
-            Showing {filteredTopics.length} topics
+            {t('all_topics_page.showing_topics', { count: filteredTopics.length })}
           </p>
         </div>
         
@@ -332,7 +334,7 @@ export default function AllTopicsPage() {
           <div className="mb-8 md:mb-12">
             <div className="flex items-center gap-2 mb-4 md:mb-6">
               <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
-              <h2 className="text-xl md:text-2xl font-semibold">Trending Topics</h2>
+              <h2 className="text-xl md:text-2xl font-semibold">{t('all_topics_page.trending_title')}</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {trendingTopics.map(topic => {
@@ -349,21 +351,21 @@ export default function AllTopicsPage() {
                           <Icon className="w-6 h-6 text-purple-600 dark:text-purple-400 group-hover:text-white" />
                         </div>
                         <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400">
-                          Trending
+                          {t('all_topics_page.trending_badge')}
                         </Badge>
                       </div>
                       <CardTitle className="group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                         {topic.name}
                       </CardTitle>
-                      <CardDescription>{topic.description}</CardDescription>
+                      <CardDescription>{t(`all_topics_page.descriptions.${topic.descriptionKey}`)}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span>{topic.courseCount} courses</span>
-                        <span>{topic.studentCount} students</span>
+                        <span>{t('all_topics_page.course_count', { count: topic.courseCount })}</span>
+                        <span>{t('all_topics_page.student_count', { count: topic.studentCount })}</span>
                       </div>
                       <div className="mt-4 flex items-center text-purple-600 dark:text-purple-400 group-hover:gap-2 transition-all">
-                        <span className="text-sm">Explore</span>
+                        <span className="text-sm">{t('all_topics_page.explore')}</span>
                         <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </CardContent>
@@ -378,7 +380,7 @@ export default function AllTopicsPage() {
         {otherTopics.length > 0 && (
           <div>
             <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6">
-              {trendingTopics.length > 0 ? 'More Topics' : 'All Topics'}
+              {trendingTopics.length > 0 ? t('all_topics_page.more_topics') : t('all_topics_page.all_topics')}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {otherTopics.map(topic => {
@@ -396,15 +398,15 @@ export default function AllTopicsPage() {
                       <CardTitle className="group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                         {topic.name}
                       </CardTitle>
-                      <CardDescription>{topic.description}</CardDescription>
+                      <CardDescription>{t(`all_topics_page.descriptions.${topic.descriptionKey}`)}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span>{topic.courseCount} courses</span>
-                        <span>{topic.studentCount} students</span>
+                        <span>{t('all_topics_page.course_count', { count: topic.courseCount })}</span>
+                        <span>{t('all_topics_page.student_count', { count: topic.studentCount })}</span>
                       </div>
                       <div className="mt-4 flex items-center text-purple-600 dark:text-purple-400 group-hover:gap-2 transition-all">
-                        <span className="text-sm">Explore</span>
+                        <span className="text-sm">{t('all_topics_page.explore')}</span>
                         <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </CardContent>
@@ -419,15 +421,15 @@ export default function AllTopicsPage() {
         {filteredTopics.length === 0 && (
           <Card className="p-12 text-center">
             <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No topics found</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('all_topics_page.empty.title')}</h3>
             <p className="text-muted-foreground mb-4">
-              Try adjusting your search query or browse all topics
+              {t('all_topics_page.empty.description')}
             </p>
             <Button onClick={() => {
               setSearchQuery('')
               setSelectedCategory('all')
             }}>
-              Clear filters
+              {t('all_topics_page.empty.clear_filters')}
             </Button>
           </Card>
         )}

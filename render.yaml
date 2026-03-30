@@ -26,7 +26,13 @@ services:
         value: "3.13.0"
       - key: FRONTEND_URL
         sync: false
+      - key: BACKEND_PUBLIC_URL
+        sync: false
       - key: VNPAY_RETURN_URL
+        sync: false
+      - key: MOMO_REDIRECT_URL
+        sync: false
+      - key: MOMO_IPN_URL
         sync: false
       - key: REDIS_URL
         sync: false

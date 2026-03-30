@@ -1,26 +1,31 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Separator } from '../../components/ui/separator'
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../../components/ui/breadcrumb'
-import { 
-  ArrowLeft, 
-  Eye, 
-  Heart, 
-  MessageCircle, 
-  Share2, 
-  Clock, 
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '../../components/ui/breadcrumb'
+import {
+  ArrowLeft,
+  Eye,
+  Heart,
+  Share2,
+  Clock,
   Calendar,
-  User,
   Tag,
   Bookmark,
   BookmarkCheck,
   Flag,
   MoreVertical,
   Edit,
-  Trash2
+  Trash2,
 } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -38,8 +43,9 @@ import {
   getAdminBlogPost,
   increaseViews,
 } from '../../services/blog-posts.api'
+import { useTranslation } from 'react-i18next'
 
-interface BlogPost {
+interface BlogPostDetail {
   id: string
   title: string
   content: string
@@ -57,9 +63,6 @@ interface BlogPost {
   }
   category: string
   tags: string[]
-  status: 'draft' | 'pending' | 'approved' | 'rejected'
-  createdAt: Date
-  updatedAt: Date
   publishedAt?: Date
   views: number
   likes: number
@@ -67,64 +70,67 @@ interface BlogPost {
   comments: number
   featured: boolean
   readTime: number
-  seoMeta?: {
-    description: string
-    keywords: string[]
-  }
 }
 
-function mapApiPostToDetail(p: ApiBlogPost): BlogPost {
-  const wordCount = p.content.split(/\s+/).length
-  const readTime = Math.max(1, Math.ceil(wordCount / 200))
-
-  return {
-    id: String(p.id),
-    title: p.title,
-    content: p.content,
-    excerpt: p.summary || p.content.substring(0, 150) + '...',
-    author: {
-      name: p.author_name || 'Unknown',
-      avatar: p.author_avatar || '/api/placeholder/60/60',
-      role: 'Author',
-    },
-    category: p.category_name || 'General',
-    tags: p.tags || [],
-    status: p.status === 'published' ? 'approved' : p.status === 'draft' ? 'draft' : 'rejected',
-    createdAt: new Date(p.created_at),
-    updatedAt: new Date(p.updated_at),
-    publishedAt: p.published_at ? new Date(p.published_at) : undefined,
-    views: p.views,
-    likes: p.likes,
-    bookmarks: 0,
-    comments: p.comments_count,
-    featured: p.is_featured,
-    readTime,
-  }
-}
+const getAuthorInitials = (name: string) =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
 
 export function BlogPostDetailPage() {
   const { navigate, currentRoute } = useRouter()
   const { user, hasPermission } = useAuth()
-  const [post, setPost] = useState<BlogPost | null>(null)
+  const { t } = useTranslation()
+  const [post, setPost] = useState<BlogPostDetail | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [loading, setLoading] = useState(true)
-  
-  // Extract post ID from URL
+
   const postId = currentRoute.split('/blog/')[1]
 
   useEffect(() => {
-    loadPost()
+    void loadPost()
   }, [postId])
+
+  const mapApiPostToDetail = (apiPost: ApiBlogPost): BlogPostDetail => {
+    const wordCount = apiPost.content.split(/\s+/).length
+    const readTime = Math.max(1, Math.ceil(wordCount / 200))
+
+    return {
+      id: String(apiPost.id),
+      title: apiPost.title,
+      content: apiPost.content,
+      excerpt: apiPost.summary || `${apiPost.content.substring(0, 150)}...`,
+      author: {
+        name: apiPost.author_name || t('blog_post_detail_page.fallbacks.unknown_author'),
+        avatar: apiPost.author_avatar || '/api/placeholder/60/60',
+        role: apiPost.author_title || t('blog_post_detail_page.fallbacks.author_role'),
+      },
+      category: apiPost.category_name || t('blog_post_detail_page.fallbacks.general_category'),
+      tags: apiPost.tags || [],
+      publishedAt: apiPost.published_at ? new Date(apiPost.published_at) : undefined,
+      views: apiPost.views,
+      likes: apiPost.likes,
+      bookmarks: 0,
+      comments: apiPost.comments_count,
+      featured: apiPost.is_featured,
+      readTime,
+    }
+  }
 
   const loadPost = async () => {
     if (!postId) return
+
     setLoading(true)
     try {
       const apiPost = await getPublishedBlogPost(Number(postId))
       setPost(mapApiPostToDetail(apiPost))
-      // Increment view count
-      try { await increaseViews(Number(postId)) } catch {}
+      try {
+        await increaseViews(Number(postId))
+      } catch {}
     } catch {
       try {
         const apiPost = await getAdminBlogPost(Number(postId))
@@ -138,52 +144,52 @@ export function BlogPostDetailPage() {
   }
 
   const handleLike = () => {
-    if (!user) return
+    if (!user || !post) return
+
     setIsLiked(!isLiked)
-    if (post) {
-      setPost({
-        ...post,
-        likes: isLiked ? post.likes - 1 : post.likes + 1
-      })
-    }
+    setPost({
+      ...post,
+      likes: isLiked ? post.likes - 1 : post.likes + 1,
+    })
   }
 
   const handleBookmark = () => {
-    if (!user) return
+    if (!user || !post) return
+
     setIsBookmarked(!isBookmarked)
-    if (post) {
-      setPost({
-        ...post,
-        bookmarks: isBookmarked ? post.bookmarks - 1 : post.bookmarks + 1
-      })
-    }
+    setPost({
+      ...post,
+      bookmarks: isBookmarked ? post.bookmarks - 1 : post.bookmarks + 1,
+    })
   }
 
   const handleShare = () => {
+    if (!post) return
+
     if (navigator.share) {
-      navigator.share({
-        title: post?.title,
-        text: post?.excerpt,
+      void navigator.share({
+        title: post.title,
+        text: post.excerpt,
         url: window.location.href,
       })
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.href)
+      return
     }
+
+    void navigator.clipboard.writeText(window.location.href)
   }
 
-  const canEditPost = user && (
-    hasPermission('admin.blog.manage') || 
-    hasPermission('instructor.blog.edit') ||
-    (user.email === post?.author.name) // Simple author check
-  )
+  const canEditPost =
+    !!user &&
+    (hasPermission('admin.blog.manage') ||
+      hasPermission('instructor.blog.edit') ||
+      user.email === post?.author.name)
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
+      <div className="container mx-auto flex min-h-[400px] items-center justify-center p-6">
+        <div className="space-y-2 text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+          <p className="text-muted-foreground">{t('blog_post_detail_page.loading')}</p>
         </div>
       </div>
     )
@@ -192,11 +198,11 @@ export function BlogPostDetailPage() {
   if (!post) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Bài viết không tìm thấy</h2>
+        <div className="py-12 text-center">
+          <h2 className="mb-4 text-2xl">{t('blog_post_detail_page.not_found')}</h2>
           <Button onClick={() => navigate('/blog')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại Blog
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t('blog_post_detail_page.back_to_blog')}
           </Button>
         </div>
       </div>
@@ -205,16 +211,19 @@ export function BlogPostDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 max-w-4xl">
-        {/* Breadcrumb */}
+      <div className="container mx-auto max-w-4xl p-6">
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => navigate('/')}>Trang chủ</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => navigate('/')}>
+                {t('blog_post_detail_page.breadcrumb.home')}
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => navigate('/blog')}>Blog</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => navigate('/blog')}>
+                {t('blog_post_detail_page.breadcrumb.blog')}
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -223,39 +232,33 @@ export function BlogPostDetailPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        {/* Back button */}
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/blog')}
-          className="mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Quay lại Blog
+        <Button variant="ghost" onClick={() => navigate('/blog')} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t('blog_post_detail_page.back_to_blog')}
         </Button>
 
-        {/* Main content */}
-        <div className="grid lg:grid-cols-4 gap-8">
-          {/* Article content */}
+        <div className="grid gap-8 lg:grid-cols-4">
           <div className="lg:col-span-3">
             <article>
-              {/* Header */}
               <header className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="mb-4 flex items-center gap-2">
                   <Badge variant="default">{post.category}</Badge>
-                  {post.featured && <Badge variant="outline">Featured</Badge>}
+                  {post.featured && (
+                    <Badge variant="outline">{t('blog_post_detail_page.featured')}</Badge>
+                  )}
                   <Badge variant="secondary">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {post.readTime} phút đọc
+                    <Clock className="mr-1 h-3 w-3" />
+                    {t('blog_post_detail_page.read_time', { count: post.readTime })}
                   </Badge>
                 </div>
 
-                <h1 className="text-4xl mb-6">{post.title}</h1>
+                <h1 className="mb-6 text-4xl">{post.title}</h1>
 
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={post.author.avatar} />
-                      <AvatarFallback>{post.author.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      <AvatarFallback>{getAuthorInitials(post.author.name)}</AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-medium">{post.author.name}</p>
@@ -267,7 +270,7 @@ export function BlogPostDetailPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
-                          {post.views} lượt xem
+                          {t('blog_post_detail_page.views_count', { count: post.views })}
                         </span>
                       </div>
                     </div>
@@ -282,24 +285,23 @@ export function BlogPostDetailPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Chỉnh sửa
+                          <Edit className="mr-2 h-4 w-4" />
+                          {t('blog_post_detail_page.actions.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Xóa bài viết
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t('blog_post_detail_page.actions.delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
                 </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {post.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      <Tag className="h-3 w-3 mr-1" />
+                <div className="mb-6 flex flex-wrap gap-2">
+                  {post.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      <Tag className="mr-1 h-3 w-3" />
                       {tag}
                     </Badge>
                   ))}
@@ -308,56 +310,55 @@ export function BlogPostDetailPage() {
                 <Separator />
               </header>
 
-              {/* Article body */}
-              <div 
-                className="prose prose-slate max-w-none dark:prose-invert mb-8"
+              <div
+                className="prose prose-slate mb-8 max-w-none dark:prose-invert"
                 dangerouslySetInnerHTML={{ __html: post.content }}
               />
 
-              {/* Action buttons */}
-              <div className="flex items-center justify-between py-6 border-t border-b">
+              <div className="flex items-center justify-between border-b border-t py-6">
                 <div className="flex items-center gap-4">
                   <Button
-                    variant={isLiked ? "default" : "outline"}
+                    variant={isLiked ? 'default' : 'outline'}
                     size="sm"
                     onClick={handleLike}
                     disabled={!user}
                   >
-                    <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+                    <Heart className={`mr-2 h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                     {post.likes}
                   </Button>
 
                   <Button
-                    variant={isBookmarked ? "default" : "outline"}
+                    variant={isBookmarked ? 'default' : 'outline'}
                     size="sm"
                     onClick={handleBookmark}
                     disabled={!user}
                   >
                     {isBookmarked ? (
-                      <BookmarkCheck className="h-4 w-4 mr-2" />
+                      <BookmarkCheck className="mr-2 h-4 w-4" />
                     ) : (
-                      <Bookmark className="h-4 w-4 mr-2" />
+                      <Bookmark className="mr-2 h-4 w-4" />
                     )}
                     {post.bookmarks}
                   </Button>
 
                   <Button variant="outline" size="sm" onClick={handleShare}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Chia sẻ
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {t('blog_post_detail_page.actions.share')}
                   </Button>
                 </div>
 
                 <Button variant="ghost" size="sm">
-                  <Flag className="h-4 w-4 mr-2" />
-                  Báo cáo
+                  <Flag className="mr-2 h-4 w-4" />
+                  {t('blog_post_detail_page.actions.report')}
                 </Button>
               </div>
             </article>
 
-            {/* Comments section */}
             <div className="mt-8">
-              <h3 className="text-xl mb-6">Bình luận ({post.comments})</h3>
-              <EnhancedCommentSystem 
+              <h3 className="mb-6 text-xl">
+                {t('blog_post_detail_page.comments_title', { count: post.comments })}
+              </h3>
+              <EnhancedCommentSystem
                 postId={post.id}
                 postType="blog"
                 allowVoting={true}
@@ -366,36 +367,42 @@ export function BlogPostDetailPage() {
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
-              {/* Author info */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Về tác giả</CardTitle>
+                  <CardTitle className="text-lg">
+                    {t('blog_post_detail_page.about_author')}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center">
-                    <Avatar className="h-16 w-16 mx-auto mb-4">
+                    <Avatar className="mx-auto mb-4 h-16 w-16">
                       <AvatarImage src={post.author.avatar} />
-                      <AvatarFallback>{post.author.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      <AvatarFallback>{getAuthorInitials(post.author.name)}</AvatarFallback>
                     </Avatar>
                     <h4 className="font-medium">{post.author.name}</h4>
-                    <p className="text-sm text-muted-foreground mb-3">{post.author.role}</p>
+                    <p className="mb-3 text-sm text-muted-foreground">{post.author.role}</p>
                     {post.author.bio && (
-                      <p className="text-sm text-muted-foreground mb-4">{post.author.bio}</p>
+                      <p className="mb-4 text-sm text-muted-foreground">{post.author.bio}</p>
                     )}
-                    
+
                     {post.author.social && (
                       <div className="flex justify-center gap-2">
                         {post.author.social.website && (
-                          <Button size="sm" variant="outline">Website</Button>
+                          <Button size="sm" variant="outline">
+                            {t('blog_post_detail_page.social.website')}
+                          </Button>
                         )}
                         {post.author.social.twitter && (
-                          <Button size="sm" variant="outline">Twitter</Button>
+                          <Button size="sm" variant="outline">
+                            {t('blog_post_detail_page.social.twitter')}
+                          </Button>
                         )}
                         {post.author.social.linkedin && (
-                          <Button size="sm" variant="outline">LinkedIn</Button>
+                          <Button size="sm" variant="outline">
+                            {t('blog_post_detail_page.social.linkedin')}
+                          </Button>
                         )}
                       </div>
                     )}
@@ -403,44 +410,48 @@ export function BlogPostDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Stats */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Thống kê bài viết</CardTitle>
+                  <CardTitle className="text-lg">{t('blog_post_detail_page.stats.title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span>Lượt xem:</span>
+                    <span>{t('blog_post_detail_page.stats.views')}</span>
                     <span>{post.views}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Lượt thích:</span>
+                    <span>{t('blog_post_detail_page.stats.likes')}</span>
                     <span>{post.likes}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Lưu:</span>
+                    <span>{t('blog_post_detail_page.stats.bookmarks')}</span>
                     <span>{post.bookmarks}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Bình luận:</span>
+                    <span>{t('blog_post_detail_page.stats.comments')}</span>
                     <span>{post.comments}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
-                    <span>Thời gian đọc:</span>
-                    <span>{post.readTime} phút</span>
+                    <span>{t('blog_post_detail_page.stats.read_time')}</span>
+                    <span>
+                      {t('blog_post_detail_page.stats.read_time_value', {
+                        count: post.readTime,
+                      })}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Related posts placeholder */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Bài viết liên quan</CardTitle>
+                  <CardTitle className="text-lg">
+                    {t('blog_post_detail_page.related_posts.title')}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Tính năng này sẽ được phát triển trong phiên bản tiếp theo.
+                    {t('blog_post_detail_page.related_posts.description')}
                   </p>
                 </CardContent>
               </Card>

@@ -33,6 +33,7 @@ import {
 import { toast } from 'sonner'
 import { showNotification, withPermissionCheck, withAuthCheck } from '../../utils/notifications'
 import { EnhancedCommentSystem, type Comment } from '../../components/EnhancedCommentSystem'
+import { useTranslation } from 'react-i18next'
 
 interface BlogPost {
   id: string
@@ -109,156 +110,14 @@ interface Reply {
 // Mock data
 const mockBlogPost: BlogPost = {
   id: '1',
-  title: 'Mastering React Hooks: A Complete Guide for Modern Development',
-  excerpt: 'Learn how to leverage React Hooks effectively in your applications with practical examples and best practices.',
-  content: `
-# Mastering React Hooks: A Complete Guide for Modern Development
-
-React Hooks have revolutionized the way we write React applications. Introduced in React 16.8, hooks allow us to use state and other React features in functional components, making our code more readable and maintainable.
-
-## What are React Hooks?
-
-React Hooks are functions that let you "hook into" React state and lifecycle features from function components. They allow you to use state and other React features without writing a class.
-
-## Basic Hooks
-
-### useState
-
-The \`useState\` hook is probably the most commonly used hook. It allows you to add state to functional components:
-
-\`\`\`javascript
-import React, { useState } from 'react';
-
-function Counter() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div>
-      <p>You clicked {count} times</p>
-      <button onClick={() => setCount(count + 1)}>
-        Click me
-      </button>
-    </div>
-  );
-}
-\`\`\`
-
-### useEffect
-
-The \`useEffect\` hook lets you perform side effects in function components:
-
-\`\`\`javascript
-import React, { useState, useEffect } from 'react';
-
-function Example() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    document.title = \`You clicked \${count} times\`;
-  });
-
-  return (
-    <div>
-      <p>You clicked {count} times</p>
-      <button onClick={() => setCount(count + 1)}>
-        Click me
-      </button>
-    </div>
-  );
-}
-\`\`\`
-
-## Advanced Hooks
-
-### useContext
-
-The \`useContext\` hook makes it easy to consume context in functional components:
-
-\`\`\`javascript
-const ThemeContext = React.createContext();
-
-function MyComponent() {
-  const theme = useContext(ThemeContext);
-  return <div className={theme}>Hello World</div>;
-}
-\`\`\`
-
-### useReducer
-
-For more complex state logic, \`useReducer\` is usually preferable to \`useState\`:
-
-\`\`\`javascript
-const initialState = {count: 0};
-
-function reducer(state, action) {
-  switch (action.type) {
-    case 'increment':
-      return {count: state.count + 1};
-    case 'decrement':
-      return {count: state.count - 1};
-    default:
-      throw new Error();
-  }
-}
-
-function Counter() {
-  const [state, dispatch] = useReducer(reducer, initialState);
-  return (
-    <>
-      Count: {state.count}
-      <button onClick={() => dispatch({type: 'decrement'})}>-</button>
-      <button onClick={() => dispatch({type: 'increment'})}>+</button>
-    </>
-  );
-}
-\`\`\`
-
-## Custom Hooks
-
-One of the most powerful features of hooks is the ability to create your own custom hooks:
-
-\`\`\`javascript
-function useLocalStorage(key, initialValue) {
-  const [storedValue, setStoredValue] = useState(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      return initialValue;
-    }
-  });
-
-  const setValue = (value) => {
-    try {
-      setStoredValue(value);
-      window.localStorage.setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  return [storedValue, setValue];
-}
-\`\`\`
-
-## Best Practices
-
-1. **Always use hooks at the top level** - Don't call hooks inside loops, conditions, or nested functions.
-2. **Use ESLint plugin** - Install and use the ESLint plugin for React Hooks to catch common mistakes.
-3. **Separate concerns** - Use multiple state variables instead of a single state object when possible.
-4. **Custom hooks for logic reuse** - Extract component logic into custom hooks when you want to share logic between components.
-
-## Conclusion
-
-React Hooks have made functional components much more powerful and have simplified many patterns that were previously complex with class components. By mastering hooks, you can write cleaner, more maintainable React code.
-
-Remember to follow the rules of hooks and leverage custom hooks for reusable logic. Happy coding!
-  `,
+  title: 'blog_post_page.sample.title',
+  excerpt: 'blog_post_page.sample.excerpt',
+  content: 'blog_post_page.sample.content',
   author: {
     id: '2',
     name: 'Jane Smith',
     avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-    role: 'Senior React Developer',
+    role: 'blog_post_page.sample.author_role',
     totalPosts: 25,
     followers: 1250
   },
@@ -361,7 +220,7 @@ const mockComments: Comment[] = [
 export function BlogPostPage() {
   const { navigate } = useRouter()
   const { user, isAuthenticated } = useAuth()
-  const [post] = useState<BlogPost>(mockBlogPost)
+  const { t } = useTranslation()
   const [comments, setComments] = useState<Comment[]>(mockComments)
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -373,6 +232,16 @@ export function BlogPostPage() {
   const [isDisliked, setIsDisliked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
+  const post: BlogPost = {
+    ...mockBlogPost,
+    title: t('blog_post_page.sample.title'),
+    excerpt: t('blog_post_page.sample.excerpt'),
+    content: t('blog_post_page.sample.content'),
+    author: {
+      ...mockBlogPost.author,
+      role: t('blog_post_page.sample.author_role'),
+    },
+  }
 
   const handleBack = () => {
     navigate('/blog')
@@ -381,18 +250,18 @@ export function BlogPostPage() {
   const handleLike = () => {
     if (isDisliked) setIsDisliked(false)
     setIsLiked(!isLiked)
-    toast.success(isLiked ? 'Removed like' : 'Liked post!')
+    toast.success(isLiked ? t('blog_post_page.toasts.like_removed') : t('blog_post_page.toasts.post_liked'))
   }
 
   const handleDislike = () => {
     if (isLiked) setIsLiked(false)
     setIsDisliked(!isDisliked)
-    toast.success(isDisliked ? 'Removed dislike' : 'Disliked post')
+    toast.success(isDisliked ? t('blog_post_page.toasts.dislike_removed') : t('blog_post_page.toasts.post_disliked'))
   }
 
   const handleBookmark = () => {
     setIsBookmarked(!isBookmarked)
-    toast.success(isBookmarked ? 'Removed from bookmarks' : 'Added to bookmarks!')
+    toast.success(isBookmarked ? t('blog_post_page.toasts.bookmark_removed') : t('blog_post_page.toasts.bookmark_added'))
   }
 
   const handleShare = (platform: string) => {
@@ -402,7 +271,7 @@ export function BlogPostPage() {
     switch (platform) {
       case 'copy':
         navigator.clipboard.writeText(url)
-        toast.success('Link copied to clipboard!')
+        toast.success(t('blog_post_page.toasts.link_copied'))
         break
       case 'twitter':
         window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`)
@@ -419,12 +288,12 @@ export function BlogPostPage() {
 
   const handleAddComment = () => {
     if (!isAuthenticated) {
-      toast.error('Please login to comment')
+      toast.error(t('blog_post_page.toasts.login_to_comment'))
       return
     }
     
     if (!newComment.trim()) {
-      toast.error('Please enter a comment')
+      toast.error(t('blog_post_page.toasts.enter_comment'))
       return
     }
 
@@ -435,7 +304,7 @@ export function BlogPostPage() {
         id: user!.id,
         name: user!.name,
         avatar: user!.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-        role: user!.roles.includes('instructor') ? 'Instructor' : 'Student'
+        role: user!.roles.includes('instructor') ? t('blog_post_page.roles.instructor') : t('blog_post_page.roles.student')
       },
       createdAt: new Date(),
       likes: 0,
@@ -447,17 +316,17 @@ export function BlogPostPage() {
 
     setComments([...comments, comment])
     setNewComment('')
-    toast.success('Comment added!')
+    toast.success(t('blog_post_page.toasts.comment_added'))
   }
 
   const handleAddReply = (commentId: string) => {
     if (!isAuthenticated) {
-      toast.error('Please login to reply')
+      toast.error(t('blog_post_page.toasts.login_to_reply'))
       return
     }
 
     if (!replyContent.trim()) {
-      toast.error('Please enter a reply')
+      toast.error(t('blog_post_page.toasts.enter_reply'))
       return
     }
 
@@ -468,7 +337,7 @@ export function BlogPostPage() {
         id: user!.id,
         name: user!.name,
         avatar: user!.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-        role: user!.roles.includes('instructor') ? 'Instructor' : 'Student'
+        role: user!.roles.includes('instructor') ? t('blog_post_page.roles.instructor') : t('blog_post_page.roles.student')
       },
       createdAt: new Date(),
       likes: 0,
@@ -484,12 +353,12 @@ export function BlogPostPage() {
     
     setReplyContent('')
     setReplyingTo(null)
-    toast.success('Reply added!')
+    toast.success(t('blog_post_page.toasts.reply_added'))
   }
 
   const handleLikeComment = (commentId: string) => {
     if (!isAuthenticated) {
-      toast.error('Please login to like comments')
+      toast.error(t('blog_post_page.toasts.login_to_like_comments'))
       return
     }
 
@@ -509,7 +378,7 @@ export function BlogPostPage() {
 
   const handleDislikeComment = (commentId: string) => {
     if (!isAuthenticated) {
-      toast.error('Please login to dislike comments')
+      toast.error(t('blog_post_page.toasts.login_to_dislike_comments'))
       return
     }
 
@@ -553,9 +422,9 @@ export function BlogPostPage() {
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(hours / 24)
     
-    if (days > 0) return `${days} ngày trước`
-    if (hours > 0) return `${hours} giờ trước`
-    return 'Vừa xong'
+    if (days > 0) return t('blog_post_page.relative.days_ago', { count: days })
+    if (hours > 0) return t('blog_post_page.relative.hours_ago', { count: hours })
+    return t('blog_post_page.relative.just_now')
   }
 
   return (
@@ -569,12 +438,12 @@ export function BlogPostPage() {
             className="mb-4"
           >
             <ArrowLeft size={16} className="mr-2" />
-            Quay lại Blog
+            {t('blog_post_page.back_to_blog')}
           </Button>
           
           {post.featured && (
             <Badge className="mb-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-              Bài viết nổi bật
+              {t('blog_post_page.featured')}
             </Badge>
           )}
         </div>
@@ -603,11 +472,15 @@ export function BlogPostPage() {
                   {post.author.name}
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {post.author.role} • {post.author.totalPosts} bài viết • {post.author.followers} theo dõi
+                  {t('blog_post_page.author_meta', {
+                    role: post.author.role,
+                    totalPosts: post.author.totalPosts,
+                    followers: post.author.followers,
+                  })}
                 </p>
               </div>
               <Button variant="outline" size="sm">
-                Theo dõi
+                {t('blog_post_page.follow')}
               </Button>
             </div>
 
@@ -620,11 +493,11 @@ export function BlogPostPage() {
               </div>
               <div className="flex items-center gap-1">
                 <Eye size={16} />
-                <span>{post.stats.views.toLocaleString()} lượt xem</span>
+                <span>{t('blog_post_page.views_count', { count: post.stats.views.toLocaleString() })}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Clock size={16} />
-                <span>{post.readTime} phút đọc</span>
+                <span>{t('blog_post_page.read_time', { count: post.readTime })}</span>
               </div>
             </div>
 
@@ -699,25 +572,25 @@ export function BlogPostPage() {
                             onClick={() => handleShare('copy')}
                             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           >
-                            Sao chép liên kết
+                            {t('blog_post_page.share.copy_link')}
                           </button>
                           <button
                             onClick={() => handleShare('twitter')}
                             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           >
-                            Chia sẻ trên Twitter
+                            {t('blog_post_page.share.twitter')}
                           </button>
                           <button
                             onClick={() => handleShare('facebook')}
                             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           >
-                            Chia sẻ trên Facebook
+                            {t('blog_post_page.share.facebook')}
                           </button>
                           <button
                             onClick={() => handleShare('linkedin')}
                             className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                           >
-                            Chia sẻ trên LinkedIn
+                            {t('blog_post_page.share.linkedin')}
                           </button>
                         </div>
                       </motion.div>
@@ -738,7 +611,7 @@ export function BlogPostPage() {
         <div className="mt-8">
           <Card>
             <CardHeader>
-              <h3>Bình luận ({comments.length})</h3>
+              <h3>{t('blog_post_page.comments_title', { count: comments.length })}</h3>
             </CardHeader>
             <CardContent>
               {/* Add Comment */}
@@ -752,14 +625,14 @@ export function BlogPostPage() {
                       <Textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Viết bình luận của bạn..."
+                        placeholder={t('blog_post_page.comment_placeholder')}
                         className="mb-3"
                         rows={3}
                       />
                       <div className="flex justify-end">
                         <Button onClick={handleAddComment} disabled={!newComment.trim()}>
                           <Send size={16} className="mr-2" />
-                          Gửi bình luận
+                          {t('blog_post_page.submit_comment')}
                         </Button>
                       </div>
                     </div>
@@ -768,10 +641,10 @@ export function BlogPostPage() {
               ) : (
                 <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg text-center">
                   <p className="text-gray-600 dark:text-gray-400 mb-3">
-                    Đăng nhập để bình luận
+                    {t('blog_post_page.login_to_comment_cta')}
                   </p>
                   <Button onClick={() => navigate('/login')}>
-                    Đăng nhập
+                    {t('blog_post_page.login')}
                   </Button>
                 </div>
               )}
@@ -788,7 +661,7 @@ export function BlogPostPage() {
                     {comment.isPinned && (
                       <div className="flex items-center gap-2 mb-3 text-blue-600 dark:text-blue-400">
                         <Flag size={16} />
-                        <span className="text-sm font-medium">Bình luận được ghim</span>
+                        <span className="text-sm font-medium">{t('blog_post_page.pinned_comment')}</span>
                       </div>
                     )}
                     
@@ -808,7 +681,8 @@ export function BlogPostPage() {
                             {formatRelativeTime(comment.createdAt)}
                           </span>
                           {comment.isEdited && (
-                            <span className="text-xs text-gray-400">(đã chỉnh sửa)</span>
+                          <span className="text-xs text-gray-400">(đã chỉnh sửa)</span>
+                          
                           )}
                         </div>
                         
@@ -842,7 +716,7 @@ export function BlogPostPage() {
                             className="flex items-center gap-1 text-gray-500 hover:text-blue-600"
                           >
                             <Reply size={14} />
-                            Trả lời
+                            {t('blog_post_page.reply')}
                           </button>
                           
                           {comment.replies.length > 0 && (
@@ -855,7 +729,7 @@ export function BlogPostPage() {
                               ) : (
                                 <ChevronDown size={14} />
                               )}
-                              {comment.replies.length} trả lời
+                              {t('blog_post_page.replies_count', { count: comment.replies.length })}
                             </button>
                           )}
                         </div>
@@ -875,7 +749,7 @@ export function BlogPostPage() {
                                 <Textarea
                                   value={replyContent}
                                   onChange={(e) => setReplyContent(e.target.value)}
-                                  placeholder={`Trả lời ${comment.author.name}...`}
+                                  placeholder={t('blog_post_page.reply_to_author', { author: comment.author.name })}
                                   className="mb-2"
                                   rows={2}
                                 />
@@ -885,14 +759,14 @@ export function BlogPostPage() {
                                     onClick={() => handleAddReply(comment.id)}
                                     disabled={!replyContent.trim()}
                                   >
-                                    Gửi
+                                    {t('blog_post_page.send')}
                                   </Button>
                                   <Button 
                                     size="sm" 
                                     variant="ghost"
                                     onClick={() => setReplyingTo(null)}
                                   >
-                                    Hủy
+                                    {t('blog_post_page.cancel')}
                                   </Button>
                                 </div>
                               </div>

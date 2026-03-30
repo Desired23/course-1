@@ -44,13 +44,13 @@ interface BasicTabProps {
 }
 
 const CONTENT_TYPES = [
-  { value: 'video', label: 'Video Lesson', icon: Video, color: 'text-purple-600 dark:text-purple-400' },
-  { value: 'text', label: 'Article/Text', icon: FileText, color: 'text-blue-600 dark:text-blue-400' },
-  { value: 'quiz', label: 'Quiz', icon: HelpCircle, color: 'text-orange-600 dark:text-orange-400' },
-  { value: 'code', label: 'Coding Exercise', icon: Code, color: 'text-red-600 dark:text-red-400' },
-  { value: 'assignment', label: 'Assignment', icon: ClipboardList, color: 'text-green-600 dark:text-green-400' },
-  { value: 'file', label: 'Downloadable File', icon: File, color: 'text-gray-600 dark:text-gray-400' },
-  { value: 'link', label: 'External Link', icon: Link, color: 'text-cyan-600 dark:text-cyan-400' }
+  { value: 'video', labelKey: 'lesson_editor.content_types.video', icon: Video, color: 'text-purple-600 dark:text-purple-400' },
+  { value: 'text', labelKey: 'lesson_editor.content_types.text', icon: FileText, color: 'text-blue-600 dark:text-blue-400' },
+  { value: 'quiz', labelKey: 'lesson_editor.content_types.quiz', icon: HelpCircle, color: 'text-orange-600 dark:text-orange-400' },
+  { value: 'code', labelKey: 'lesson_editor.content_types.code', icon: Code, color: 'text-red-600 dark:text-red-400' },
+  { value: 'assignment', labelKey: 'lesson_editor.content_types.assignment', icon: ClipboardList, color: 'text-green-600 dark:text-green-400' },
+  { value: 'file', labelKey: 'lesson_editor.content_types.file', icon: File, color: 'text-gray-600 dark:text-gray-400' },
+  { value: 'link', labelKey: 'lesson_editor.content_types.link', icon: Link, color: 'text-cyan-600 dark:text-cyan-400' }
 ]
 
 export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
@@ -89,7 +89,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
             <SelectValue>
               <div className="flex items-center gap-2">
                 <currentType.icon className={`h-4 w-4 ${currentType.color}`} />
-                {currentType.label}
+                {t(currentType.labelKey)}
               </div>
             </SelectValue>
           </SelectTrigger>
@@ -98,7 +98,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
               <SelectItem key={type.value} value={type.value}>
                 <div className="flex items-center gap-2">
                   <type.icon className={`h-4 w-4 ${type.color}`} />
-                  <span>{type.label}</span>
+                  <span>{t(type.labelKey)}</span>
                 </div>
               </SelectItem>
             ))}
@@ -165,7 +165,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
           className="resize-none"
         />
         <p className="text-xs text-muted-foreground">
-          {lesson.description?.length || 0}/500 characters
+          {t('lesson_editor.description_count', { count: lesson.description?.length || 0, max: 500 })}
         </p>
       </div>
 

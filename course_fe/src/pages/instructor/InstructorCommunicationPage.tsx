@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -115,6 +116,7 @@ function mapAnnouncementToView(item: InstructorAnnouncement): AnnouncementView {
 }
 
 export function InstructorCommunicationPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const {
     state: chatState,
@@ -403,24 +405,24 @@ export function InstructorCommunicationPage() {
       type: 'text',
     })
     setMessageInput('')
-    toast.success('Tin nhắn đã được gửi!')
+    toast.success(t('instructor_communication_page.message_sent'))
   }
 
   const handleReportMessage = async (messageId: string) => {
-    const reason = window.prompt('Ly do bao cao tin nhan:', '')?.trim()
+    const reason = window.prompt(t('instructor_communication_page.report_reason_prompt'), '')?.trim()
     if (!reason) return
     try {
       await reportConversationMessage(Number(messageId), { reason })
-      toast.success('Da gui bao cao tin nhan')
+      toast.success(t('instructor_communication_page.report_sent'))
     } catch (err: any) {
-      toast.error(err?.message || 'Khong the bao cao tin nhan')
+      toast.error(err?.message || t('instructor_communication_page.report_failed'))
     }
   }
 
   // Send announcement
   const handleSendAnnouncement = async () => {
     if (!announcementData.title.trim() || !announcementData.content.trim()) {
-      toast.error('Vui lòng điền đầy đủ thông tin')
+      toast.error(t('instructor_communication_page.fill_required_fields'))
       return
     }
 
@@ -429,12 +431,12 @@ export function InstructorCommunicationPage() {
       : announcementLimits.promotional
 
     if (announcementData.type === 'educational' && selectedLimit.used >= selectedLimit.limit) {
-      toast.error('Bạn đã đạt giới hạn 4 thông báo giáo dục/tháng')
+      toast.error(t('instructor_communication_page.educational_limit_reached'))
       return
     }
 
     if (announcementData.type === 'promotional' && selectedLimit.used >= selectedLimit.limit) {
-      toast.error('Bạn đã đạt giới hạn 2 thông báo khuyến mãi/tháng')
+      toast.error(t('instructor_communication_page.promotional_limit_reached'))
       return
     }
 
@@ -463,7 +465,7 @@ export function InstructorCommunicationPage() {
       })
       return
     } catch (err: any) {
-      toast.error(err?.message || 'KhÃ´ng thá»ƒ gá»­i thÃ´ng bÃ¡o')
+      toast.error(err?.message || t('instructor_communication_page.send_announcement_failed'))
       return
     } finally {
       setAnnouncementSubmitting(false)
@@ -481,9 +483,9 @@ export function InstructorCommunicationPage() {
           limit: prev[announcement.type].limit,
         },
       }))
-      toast.success('Đã thu hồi thông báo')
+      toast.success(t('instructor_communication_page.revoke_success'))
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể thu hồi thông báo')
+      toast.error(err?.message || t('instructor_communication_page.revoke_failed'))
     }
   }
 
@@ -512,7 +514,7 @@ export function InstructorCommunicationPage() {
     const title = editAnnouncementData.title.trim()
     const content = editAnnouncementData.content.trim()
     if (!title || !content) {
-      toast.error('Vui lòng điền đầy đủ thông tin')
+      toast.error(t('instructor_communication_page.fill_required_fields'))
       return
     }
 
@@ -532,9 +534,9 @@ export function InstructorCommunicationPage() {
           : item
       ))
       handleEditDialogChange(false)
-      toast.success('Đã cập nhật thông báo')
+      toast.success(t('instructor_communication_page.update_success'))
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể cập nhật thông báo')
+      toast.error(err?.message || t('instructor_communication_page.update_failed'))
     } finally {
       setAnnouncementUpdating(false)
     }
@@ -550,7 +552,7 @@ export function InstructorCommunicationPage() {
       setQuestionAnswers(answers)
     } catch (err) {
       console.error('Failed to load Q&A answers:', err)
-      toast.error('Khong the tai cau tra loi')
+      toast.error(t('instructor_communication_page.load_answers_failed'))
     } finally {
       setQuestionAnswersLoading(false)
     }
@@ -560,7 +562,7 @@ export function InstructorCommunicationPage() {
     if (!selectedQuestion || !user?.id) return
     const answer = questionReplyText.trim()
     if (!answer) {
-      toast.error('Vui long nhap noi dung tra loi')
+      toast.error(t('instructor_communication_page.reply_required'))
       return
     }
 
@@ -594,10 +596,10 @@ export function InstructorCommunicationPage() {
         unanswered: Math.max(0, prev.unanswered - (selectedQuestion.status === 'unanswered' ? 1 : 0)),
       }))
       setQuestionReplyText('')
-      toast.success('Da gui cau tra loi')
+      toast.success(t('instructor_communication_page.reply_sent'))
     } catch (err) {
       console.error('Failed to submit Q&A answer:', err)
-      toast.error('Gui cau tra loi that bai')
+      toast.error(t('instructor_communication_page.reply_failed'))
     } finally {
       setQuestionReplySubmitting(false)
     }
@@ -607,9 +609,9 @@ export function InstructorCommunicationPage() {
     <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
       {/* Header */}
       <div className="mb-6 md:mb-8">
-        <h1 className="mb-2">Giao tiếp & Hỗ trợ học viên</h1>
+        <h1 className="mb-2">{t('instructor_communication_page.title')}</h1>
         <p className="text-muted-foreground">
-          Quản lý câu hỏi, tin nhắn và thông báo của học viên
+          {t('instructor_communication_page.description')}
         </p>
       </div>
 
@@ -619,7 +621,7 @@ export function InstructorCommunicationPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Câu hỏi chưa trả lời</p>
+                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.unanswered_questions')}</p>
                 <p className="text-2xl mt-1">{summaryLoading ? '...' : unansweredQuestions}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
@@ -633,7 +635,7 @@ export function InstructorCommunicationPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Tin nhắn mới</p>
+                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.new_messages')}</p>
                 <p className="text-2xl mt-1">{chatState.totalUnreadCount}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
@@ -647,7 +649,7 @@ export function InstructorCommunicationPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Tỷ lệ phản hồi</p>
+                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.response_rate')}</p>
                 <p className="text-2xl mt-1">{summaryLoading ? '...' : `${responseRate}%`}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
@@ -661,7 +663,7 @@ export function InstructorCommunicationPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Đánh giá trung bình</p>
+                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.average_rating')}</p>
                 <p className="text-2xl mt-1">{summaryLoading ? '...' : averageRating.toFixed(1)}</p>
               </div>
               <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
@@ -677,17 +679,17 @@ export function InstructorCommunicationPage() {
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="qna" className="gap-2">
             <MessageSquare className="w-4 h-4" />
-            Hỏi đáp (Q&A)
+            {t('instructor_communication_page.qna_tab')}
             <Badge variant="destructive" className="ml-2">{unansweredQuestions}</Badge>
           </TabsTrigger>
           <TabsTrigger value="messages" className="gap-2">
             <Mail className="w-4 h-4" />
-            Tin nhắn
+            {t('instructor_communication_page.messages_tab')}
             <Badge variant="default" className="ml-2">{chatState.totalUnreadCount}</Badge>
           </TabsTrigger>
           <TabsTrigger value="announcements" className="gap-2">
             <Megaphone className="w-4 h-4" />
-            Thông báo
+            {t('instructor_communication_page.announcements_tab')}
           </TabsTrigger>
         </TabsList>
 
@@ -697,9 +699,9 @@ export function InstructorCommunicationPage() {
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                  <CardTitle>Câu hỏi từ học viên</CardTitle>
+                  <CardTitle>{t('instructor_communication_page.qna_title')}</CardTitle>
                   <CardDescription>
-                    Trả lời câu hỏi của học viên để tăng sự hài lòng và đánh giá khóa học
+                    {t('instructor_communication_page.qna_description')}
                   </CardDescription>
                 </div>
 
@@ -707,7 +709,7 @@ export function InstructorCommunicationPage() {
                   <div className="relative flex-1 md:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="Tìm kiếm câu hỏi..."
+                      placeholder={t('instructor_communication_page.search_questions_placeholder')}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
@@ -720,10 +722,10 @@ export function InstructorCommunicationPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả</SelectItem>
-                      <SelectItem value="unanswered">Chưa trả lời</SelectItem>
-                      <SelectItem value="answered">Đã trả lời</SelectItem>
-                      <SelectItem value="flagged">Được đánh dấu</SelectItem>
+                      <SelectItem value="all">{t('instructor_communication_page.all')}</SelectItem>
+                      <SelectItem value="unanswered">{t('instructor_communication_page.unanswered')}</SelectItem>
+                      <SelectItem value="answered">{t('instructor_communication_page.answered')}</SelectItem>
+                      <SelectItem value="flagged">{t('instructor_communication_page.flagged')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -732,7 +734,7 @@ export function InstructorCommunicationPage() {
             <CardContent>
               <div className="space-y-4">
                 {qnaLoading && (
-                  <div className="text-center py-8 text-muted-foreground">Loading Q&A...</div>
+                  <div className="text-center py-8 text-muted-foreground">{t('instructor_communication_page.loading_qna')}</div>
                 )}
                 {!qnaLoading && paginatedQuestions.map((question) => (
                   <Card key={question.id} className="hover:shadow-md transition-shadow">
@@ -779,15 +781,15 @@ export function InstructorCommunicationPage() {
                             {/* Status badge */}
                             <div className="ml-4">
                               {question.status === 'unanswered' && (
-                                <Badge variant="destructive">Chưa trả lời</Badge>
+                                <Badge variant="destructive">{t('instructor_communication_page.unanswered')}</Badge>
                               )}
                               {question.status === 'answered' && (
-                                <Badge variant="secondary">Đã trả lời</Badge>
+                                <Badge variant="secondary">{t('instructor_communication_page.answered')}</Badge>
                               )}
                               {question.status === 'resolved' && (
                                 <Badge variant="default" className="bg-green-600">
                                   <CheckCircle2 className="w-3 h-3 mr-1" />
-                                  Đã giải quyết
+                                  {t('instructor_communication_page.resolved')}
                                 </Badge>
                               )}
                             </div>
@@ -797,11 +799,11 @@ export function InstructorCommunicationPage() {
                           <div className="flex items-center gap-2 mt-3">
                             <Button size="sm" variant="default" onClick={() => void handleOpenQuestion(question)}>
                               <Reply className="w-4 h-4 mr-2" />
-                              Trả lời ({question.answers})
+                              {t('instructor_communication_page.reply_with_count', { count: question.answers })}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => toast.info('Chua co workflow flag Q&A rieng o backend.')}>
+                            <Button size="sm" variant="ghost" onClick={() => toast.info(t('instructor_communication_page.flag_workflow_unavailable'))}>
                               <Flag className="w-4 h-4 mr-2" />
-                              Đánh dấu
+                              {t('instructor_communication_page.flag')}
                             </Button>
                           </div>
                         </div>
@@ -813,7 +815,7 @@ export function InstructorCommunicationPage() {
                 {!qnaLoading && paginatedQuestions.length === 0 && (
                   <div className="text-center py-12">
                     <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">Không có câu hỏi nào</p>
+                    <p className="text-muted-foreground">{t('instructor_communication_page.no_questions')}</p>
                   </div>
                 )}
                 {!qnaLoading && paginatedQuestions.length > 0 && (
@@ -839,7 +841,7 @@ export function InstructorCommunicationPage() {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        placeholder="Tìm kiếm học viên..."
+                        placeholder={t('instructor_communication_page.search_students_placeholder')}
                         className="pl-10"
                         value={conversationQuery}
                         onChange={(e) => setConversationQuery(e.target.value)}
@@ -865,13 +867,13 @@ export function InstructorCommunicationPage() {
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm truncate">{conv.participants.find((item) => item.id !== user?.id)?.name || 'Student'}</p>
+                              <p className="text-sm truncate">{conv.participants.find((item) => item.id !== user?.id)?.name || t('instructor_communication_page.student_fallback')}</p>
                               <span className="text-xs text-muted-foreground">
                                 {conv.lastMessage ? formatRelativeTime(conv.lastMessage.timestamp) : formatRelativeTime(conv.updatedAt)}
                               </span>
                             </div>
                             <p className="text-sm text-muted-foreground truncate">
-                              {conv.lastMessage?.content || 'ChÆ°a cÃ³ tin nháº¯n'}
+                              {conv.lastMessage?.content || t('instructor_communication_page.no_messages_fallback')}
                             </p>
                           </div>
 
@@ -909,7 +911,7 @@ export function InstructorCommunicationPage() {
                             <div>
                               <p className="font-medium">{currentParticipant?.name || 'Student'}</p>
                               <p className="text-xs text-muted-foreground">
-                                {currentConversation?.online ? 'Đang online' : 'Offline'}
+                                {currentConversation?.online ? t('instructor_communication_page.online') : t('instructor_communication_page.offline')}
                               </p>
                             </div>
                           </div>
@@ -939,7 +941,7 @@ export function InstructorCommunicationPage() {
                                       onClick={() => void handleReportMessage(msg.id)}
                                     >
                                       <Flag className="w-3 h-3 mr-1" />
-                                      Report
+                                      {t('instructor_communication_page.report')}
                                     </Button>
                                   )}
                                 </div>
@@ -959,7 +961,7 @@ export function InstructorCommunicationPage() {
                           ))}
                           {currentMessages.length === 0 && (
                             <div className="text-center py-10 text-sm text-muted-foreground">
-                              ChÆ°a cÃ³ tin nháº¯n nÃ o trong cuá»™c trÃ² chuyá»‡n nÃ y.
+                              {t('instructor_communication_page.no_messages_in_conversation')}
                             </div>
                           )}
                         </div>
@@ -972,7 +974,7 @@ export function InstructorCommunicationPage() {
                             <Paperclip className="w-4 h-4" />
                           </Button>
                           <Input
-                            placeholder="Nhập tin nhắn..."
+                            placeholder={t('instructor_communication_page.message_placeholder')}
                             value={messageInput}
                             onChange={(e) => setMessageInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && void handleSendMessage()}
@@ -987,7 +989,7 @@ export function InstructorCommunicationPage() {
                     <div className="flex-1 flex items-center justify-center">
                       <div className="text-center">
                         <Mail className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">Chọn một cuộc trò chuyện để bắt đầu</p>
+                        <p className="text-muted-foreground">{t('instructor_communication_page.select_conversation')}</p>
                       </div>
                     </div>
                   )}
@@ -1003,20 +1005,20 @@ export function InstructorCommunicationPage() {
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                  <CardTitle>Thông báo</CardTitle>
+                  <CardTitle>{t('instructor_communication_page.announcements_tab')}</CardTitle>
                   <CardDescription>
-                    Gửi thông báo đến học viên của bạn về nội dung mới hoặc khuyến mãi
+                    {t('instructor_communication_page.announcements_description')}
                   </CardDescription>
                 </div>
 
                 <Select value={announcementTypeFilter} onValueChange={setAnnouncementTypeFilter}>
                   <SelectTrigger className="w-full md:w-44">
-                    <SelectValue placeholder="Type" />
+                    <SelectValue placeholder={t('instructor_communication_page.type')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="educational">Educational</SelectItem>
-                    <SelectItem value="promotional">Promotional</SelectItem>
+                    <SelectItem value="all">{t('instructor_communication_page.all_types')}</SelectItem>
+                    <SelectItem value="educational">{t('instructor_communication_page.educational')}</SelectItem>
+                    <SelectItem value="promotional">{t('instructor_communication_page.promotional')}</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -1024,20 +1026,20 @@ export function InstructorCommunicationPage() {
                   <DialogTrigger asChild>
                     <Button>
                       <PlusCircle className="w-4 h-4 mr-2" />
-                      Tạo thông báo
+                      {t('instructor_communication_page.create_announcement')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>Tạo thông báo mới</DialogTitle>
+                      <DialogTitle>{t('instructor_communication_page.create_announcement_title')}</DialogTitle>
                       <DialogDescription>
-                        Gửi thông báo đến học viên của bạn. Lưu ý giới hạn: 4 thông báo giáo dục/tháng, 2 thông báo khuyến mãi/tháng.
+                        {t('instructor_communication_page.create_announcement_description')}
                       </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
                       <div>
-                        <Label>Loại thông báo</Label>
+                        <Label>{t('instructor_communication_page.announcement_type')}</Label>
                         <RadioGroup
                           value={announcementData.type}
                           onValueChange={(value) => setAnnouncementData({ ...announcementData, type: value })}
@@ -1051,10 +1053,10 @@ export function InstructorCommunicationPage() {
                               <RadioGroupItem value="educational" id="educational" />
                               <div className="flex-1">
                                 <Label htmlFor="educational" className="cursor-pointer">
-                                  Giáo dục
+                                  {t('instructor_communication_page.educational')}
                                 </Label>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Nội dung mới, cập nhật khóa học (4/tháng)
+                                  {t('instructor_communication_page.educational_description')}
                                 </p>
                               </div>
                             </CardContent>
@@ -1068,10 +1070,10 @@ export function InstructorCommunicationPage() {
                               <RadioGroupItem value="promotional" id="promotional" />
                               <div className="flex-1">
                                 <Label htmlFor="promotional" className="cursor-pointer">
-                                  Khuyến mãi
+                                  {t('instructor_communication_page.promotional')}
                                 </Label>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Giảm giá, ưu đãi đặc biệt (2/tháng)
+                                  {t('instructor_communication_page.promotional_description')}
                                 </p>
                               </div>
                             </CardContent>
@@ -1080,20 +1082,20 @@ export function InstructorCommunicationPage() {
                       </div>
 
                       <div>
-                        <Label htmlFor="title">Tiêu đề</Label>
+                        <Label htmlFor="title">{t('instructor_communication_page.title_label')}</Label>
                         <Input
                           id="title"
-                          placeholder="VD: New Section Added: Advanced React Patterns"
+                          placeholder={t('instructor_communication_page.announcement_title_placeholder')}
                           value={announcementData.title}
                           onChange={(e) => setAnnouncementData({ ...announcementData, title: e.target.value })}
                         />
                       </div>
 
                       <div>
-                        <Label htmlFor="content">Nội dung</Label>
+                        <Label htmlFor="content">{t('instructor_communication_page.content_label')}</Label>
                         <Textarea
                           id="content"
-                          placeholder="Viết nội dung thông báo của bạn..."
+                          placeholder={t('instructor_communication_page.announcement_content_placeholder')}
                           rows={6}
                           value={announcementData.content}
                           onChange={(e) => setAnnouncementData({ ...announcementData, content: e.target.value })}
@@ -1101,7 +1103,7 @@ export function InstructorCommunicationPage() {
                       </div>
 
                       <div>
-                        <Label htmlFor="targetCourse">Gửi đến</Label>
+                        <Label htmlFor="targetCourse">{t('instructor_communication_page.send_to')}</Label>
                         <Select 
                           value={announcementData.targetCourse} 
                           onValueChange={(value) => setAnnouncementData({ ...announcementData, targetCourse: value })}
@@ -1110,7 +1112,7 @@ export function InstructorCommunicationPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="all">Tất cả học viên</SelectItem>
+                            <SelectItem value="all">{t('instructor_communication_page.all_students')}</SelectItem>
                             {instructorCourses.map((course) => (
                               <SelectItem key={course.id} value={String(course.id)}>
                                 {course.title}
@@ -1125,12 +1127,12 @@ export function InstructorCommunicationPage() {
                           <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
                           <div className="text-sm">
                             <p className="mb-1">
-                              <strong>Lưu ý:</strong>
+                              <strong>{t('instructor_communication_page.note_label')}</strong>
                             </p>
                             <ul className="text-xs space-y-0.5 text-muted-foreground">
-                              <li>• Thông báo giáo dục: Tối đa 4 lần/tháng</li>
-                              <li>• Thông báo khuyến mãi: Tối đa 2 lần/tháng</li>
-                              <li>• Học viên có thể hủy đăng ký nhận thông báo</li>
+                              <li>• {t('instructor_communication_page.note_educational_limit')}</li>
+                              <li>• {t('instructor_communication_page.note_promotional_limit')}</li>
+                              <li>• {t('instructor_communication_page.note_opt_out')}</li>
                             </ul>
                           </div>
                         </div>
@@ -1139,11 +1141,11 @@ export function InstructorCommunicationPage() {
 
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setShowAnnouncementDialog(false)}>
-                        Hủy
+                        {t('instructor_communication_page.cancel')}
                       </Button>
                       <Button onClick={handleSendAnnouncement} disabled={announcementSubmitting}>
                         <Send className="w-4 h-4 mr-2" />
-                        Gửi thông báo
+                        {t('instructor_communication_page.send_announcement')}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -1152,15 +1154,15 @@ export function InstructorCommunicationPage() {
                 <Dialog open={showEditAnnouncementDialog} onOpenChange={handleEditDialogChange}>
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>Chỉnh sửa thông báo</DialogTitle>
+                      <DialogTitle>{t('instructor_communication_page.edit_announcement_title')}</DialogTitle>
                       <DialogDescription>
-                        Bạn có thể chỉnh sửa tiêu đề và nội dung của thông báo đã gửi. Đối tượng nhận sẽ được giữ nguyên.
+                        {t('instructor_communication_page.edit_announcement_description')}
                       </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="edit-title">Tiêu đề</Label>
+                        <Label htmlFor="edit-title">{t('instructor_communication_page.title_label')}</Label>
                         <Input
                           id="edit-title"
                           value={editAnnouncementData.title}
@@ -1169,7 +1171,7 @@ export function InstructorCommunicationPage() {
                       </div>
 
                       <div>
-                        <Label htmlFor="edit-content">Nội dung</Label>
+                        <Label htmlFor="edit-content">{t('instructor_communication_page.content_label')}</Label>
                         <Textarea
                           id="edit-content"
                           rows={6}
@@ -1181,11 +1183,11 @@ export function InstructorCommunicationPage() {
 
                     <DialogFooter>
                       <Button variant="outline" onClick={() => handleEditDialogChange(false)}>
-                        Hủy
+                        {t('instructor_communication_page.cancel')}
                       </Button>
                       <Button onClick={handleUpdateAnnouncement} disabled={announcementUpdating}>
                         <Edit className="w-4 h-4 mr-2" />
-                        Lưu thay đổi
+                        {t('instructor_communication_page.save_changes')}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -1198,7 +1200,7 @@ export function InstructorCommunicationPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">Thông báo giáo dục tháng này</span>
+                      <span className="text-sm">{t('instructor_communication_page.educational_this_month')}</span>
                       <Badge variant="secondary">
                         {announcementLimits.educational.used}/{announcementLimits.educational.limit}
                       </Badge>
@@ -1213,7 +1215,7 @@ export function InstructorCommunicationPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">Thông báo khuyến mãi tháng này</span>
+                      <span className="text-sm">{t('instructor_communication_page.promotional_this_month')}</span>
                       <Badge variant="secondary">
                         {announcementLimits.promotional.used}/{announcementLimits.promotional.limit}
                       </Badge>
@@ -1235,7 +1237,9 @@ export function InstructorCommunicationPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <Badge variant={announcement.type === 'educational' ? 'default' : 'secondary'}>
-                              {announcement.type === 'educational' ? 'Giáo dục' : 'Khuyến mãi'}
+                              {announcement.type === 'educational'
+                                ? t('instructor_communication_page.educational')
+                                : t('instructor_communication_page.promotional')}
                             </Badge>
                             <span className="text-sm text-muted-foreground">{formatRelativeTime(announcement.sent_at)}</span>
                           </div>
@@ -1247,11 +1251,11 @@ export function InstructorCommunicationPage() {
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Users className="w-4 h-4" />
-                              <span>{announcement.recipientCount.toLocaleString()} người nhận</span>
+                              <span>{t('instructor_communication_page.recipient_count', { count: announcement.recipientCount.toLocaleString() })}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <TrendingUp className="w-4 h-4" />
-                              <span>{announcement.openRate}% đã đọc</span>
+                              <span>{t('instructor_communication_page.open_rate', { rate: announcement.openRate })}</span>
                             </div>
                           </div>
                         </div>
@@ -1298,7 +1302,7 @@ export function InstructorCommunicationPage() {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Tra loi cau hoi hoc vien</DialogTitle>
+            <DialogTitle>{t('instructor_communication_page.answer_student_question')}</DialogTitle>
             <DialogDescription>
               {selectedQuestion?.course} {selectedQuestion?.lesson ? `• ${selectedQuestion.lesson}` : ''}
             </DialogDescription>
@@ -1317,17 +1321,17 @@ export function InstructorCommunicationPage() {
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-medium">Cac cau tra loi hien co</p>
+                <p className="text-sm font-medium">{t('instructor_communication_page.existing_answers')}</p>
                 {questionAnswersLoading && (
-                  <p className="text-sm text-muted-foreground">Dang tai cau tra loi...</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_communication_page.loading_answers')}</p>
                 )}
                 {!questionAnswersLoading && questionAnswers.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Chua co cau tra loi nao.</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_communication_page.no_answers')}</p>
                 )}
                 {!questionAnswersLoading && questionAnswers.map((answer) => (
                   <div key={answer.id} className="rounded-lg border bg-background p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium">{answer.user_name || 'Instructor'}</p>
+                      <p className="text-sm font-medium">{answer.user_name || t('instructor_communication_page.instructor_fallback')}</p>
                       <p className="text-xs text-muted-foreground">{formatRelativeTime(answer.created_at)}</p>
                     </div>
                     <p className="mt-2 text-sm whitespace-pre-wrap">{answer.answer}</p>
@@ -1336,23 +1340,23 @@ export function InstructorCommunicationPage() {
               </div>
 
               <div className="space-y-2 border-t pt-4">
-                <Label htmlFor="qna-reply">Tra loi</Label>
+                <Label htmlFor="qna-reply">{t('instructor_communication_page.reply')}</Label>
                 <Textarea
                   id="qna-reply"
                   rows={5}
                   value={questionReplyText}
                   onChange={(e) => setQuestionReplyText(e.target.value)}
-                  placeholder="Nhap cau tra loi cho hoc vien..."
+                  placeholder={t('instructor_communication_page.reply_placeholder')}
                 />
               </div>
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setSelectedQuestion(null)}>
-                  Dong
+                  {t('instructor_communication_page.close')}
                 </Button>
                 <Button onClick={() => void handleSubmitQuestionReply()} disabled={questionReplySubmitting}>
                   <Send className="w-4 h-4 mr-2" />
-                  {questionReplySubmitting ? 'Dang gui...' : 'Gui tra loi'}
+                  {questionReplySubmitting ? t('instructor_communication_page.sending') : t('instructor_communication_page.send_reply')}
                 </Button>
               </DialogFooter>
             </div>

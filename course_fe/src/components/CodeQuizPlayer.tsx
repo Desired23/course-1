@@ -236,7 +236,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
   // Handle language change
   const handleLanguageChange = (languageId: string) => {
     const newLang = parseInt(languageId)
-    if (confirm('Doi ngon ngu se dat lai doan code hien tai. Ban co muon tiep tuc khong?')) {
+    if (confirm(t('code_quiz_player.confirm_change_language'))) {
       setSelectedLanguage(newLang)
       const lang = getLanguageById(newLang)
       setCode(question.starterCode || getStarterCode(lang?.value || 'javascript'))
@@ -374,7 +374,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
             <div>
               <h3 className="text-4xl font-bold mb-2">{score?.percentage}%</h3>
               <p className="text-muted-foreground">
-                {score?.passed} / {score?.total} bo test dat
+                {t('code_quiz_player.passed_summary', { passed: score?.passed, total: score?.total })}
               </p>
               <div className="mt-3">
                 <Badge variant={saveStatus === 'error' ? 'destructive' : 'outline'}>
@@ -425,7 +425,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                         <pre className={`p-2 rounded mt-1 text-xs ${
                           result.passed ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'
                         }`}>
-                          {result.actualOutput || '(khong co output)'}
+                          {result.actualOutput || t('code_quiz_player.no_output')}
                         </pre>
                       </div>
                       {result.error && (
@@ -573,7 +573,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                       <div key={idx} className="bg-muted/50 rounded p-3 text-xs">
                         <div className="mb-2">
                           <span className="font-medium">{t('code_quiz_player.input')}</span>
-                          <pre className="mt-1 bg-background p-2 rounded">{tc.input || '(empty)'}</pre>
+                          <pre className="mt-1 bg-background p-2 rounded">{tc.input || t('code_quiz_player.empty_value')}</pre>
                         </div>
                         <div>
                           <span className="font-medium">{t('code_quiz_player.expected_output')}</span>
@@ -592,7 +592,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-sm flex items-center gap-2">
                         <Lightbulb className="h-4 w-4 text-yellow-500" />
-                        Hints
+                        {t('code_quiz_player.hints_title')}
                       </h4>
                       <Button 
                         variant="ghost" 
@@ -602,7 +602,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                         className="h-7 text-xs"
                       >
                         {showHints ? <EyeOff className="h-3 w-3 mr-1" /> : <Eye className="h-3 w-3 mr-1" />}
-                        Show Hint ({currentHint}/{question.hints.length})
+                        {t('code_quiz_player.show_hint', { current: currentHint, total: question.hints.length })}
                       </Button>
                     </div>
                     
@@ -612,7 +612,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                           <Alert key={idx} className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200">
                             <AlertCircle className="h-4 w-4 text-yellow-600" />
                             <AlertDescription className="text-xs">
-                              <strong>Hint {idx + 1}:</strong> {hint}
+                              <strong>{t('code_quiz_player.hint_label', { index: idx + 1 })}</strong> {hint}
                             </AlertDescription>
                           </Alert>
                         ))}
@@ -669,7 +669,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                   {isRunning ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Dang chay...
+                      {t('code_quiz_player.running')}
                     </>
                   ) : (
                     <>
@@ -723,7 +723,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                 <Tabs defaultValue="summary" className="h-full flex flex-col">
                   <TabsList className="w-full justify-start rounded-none border-b bg-muted/30 flex-shrink-0 overflow-x-auto flex-nowrap">
                     <TabsTrigger value="summary">
-                      Summary ({score?.passed}/{score?.total})
+                      {t('code_quiz_player.summary_tab', { passed: score?.passed, total: score?.total })}
                     </TabsTrigger>
                     {testResults.map((result, index) => (
                       <TabsTrigger 
@@ -736,7 +736,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                         ) : (
                           <XCircle className="h-3 w-3 text-red-600" />
                         )}
-                        Test {index + 1}
+                        {t('code_quiz_player.test_tab', { index: index + 1 })}
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -751,7 +751,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-green-600">{score?.passed}</div>
-                          <div className="text-xs text-muted-foreground">Dat</div>
+                          <div className="text-xs text-muted-foreground">{t('code_quiz_player.passed')}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-2xl font-bold text-red-600">
@@ -870,7 +870,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                                 ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20' 
                                 : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
                             }`}>
-                              {result.actualOutput || '(khong co output)'}
+                              {result.actualOutput || t('code_quiz_player.no_output')}
                             </pre>
                           </div>
 
@@ -886,7 +886,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
 
                           {(result.debugLogs?.length || result.stderr || result.compileOutput || result.message || result.statusDescription) && (
                             <div className="space-y-2">
-                              <label className="text-sm font-medium text-muted-foreground mb-1 block">Nhat ky debug:</label>
+                              <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.debug_logs')}</label>
                               {result.debugLogs && result.debugLogs.length > 0 && (
                                 <pre className="bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 rounded-md p-3 text-sm font-mono overflow-x-auto text-slate-900 dark:text-slate-100">
                                   {result.debugLogs.join('\n')}
@@ -939,13 +939,13 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                               <div>
                                 <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.normalized_expected')}</label>
                                 <pre className="bg-muted/50 rounded-md p-3 text-xs font-mono overflow-x-auto border border-border/30">
-                                  {normalizeOutput(result.expectedOutput) || '(empty)'}
+                                  {normalizeOutput(result.expectedOutput) || t('code_quiz_player.empty_value')}
                                 </pre>
                               </div>
                               <div>
                                 <label className="text-sm font-medium text-muted-foreground mb-1 block">{t('code_quiz_player.normalized_actual')}</label>
                                 <pre className="bg-muted/50 rounded-md p-3 text-xs font-mono overflow-x-auto border border-border/30">
-                                  {normalizeOutput(result.actualOutput) || '(empty)'}
+                                  {normalizeOutput(result.actualOutput) || t('code_quiz_player.empty_value')}
                                 </pre>
                               </div>
                             </div>

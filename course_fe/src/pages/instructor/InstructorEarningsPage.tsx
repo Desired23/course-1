@@ -18,12 +18,14 @@ import {
   type EarningsSummary,
   type InstructorEarning,
 } from '../../services/instructor-earnings.api'
+import { useTranslation } from 'react-i18next'
 
 const TRANSACTIONS_PER_PAGE = 10
 const COURSES_PER_PAGE = 6
 
 export function InstructorEarningsPage() {
   const { user, canAccess } = useAuth()
+  const { t } = useTranslation()
 
   const [loading, setLoading] = useState(true)
   const [transactionsLoading, setTransactionsLoading] = useState(false)
@@ -64,17 +66,17 @@ export function InstructorEarningsPage() {
         if (statsRes.status === 'fulfilled') setDashStats(statsRes.value)
 
         if (sumRes.status === 'rejected' && statsRes.status === 'rejected') {
-          setError('Khong the tai du lieu thu nhap.')
+          setError(t('instructor_earnings_page.errors.load_earnings_data'))
         }
       } catch (err: any) {
-        if (!cancelled) setError(err?.message ?? 'Loi khi tai du lieu.')
+        if (!cancelled) setError(err?.message ?? t('instructor_earnings_page.errors.load_data'))
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     load()
     return () => { cancelled = true }
-  }, [user])
+  }, [t, user])
 
   useEffect(() => {
     setTransactionsPage(1)
@@ -98,21 +100,35 @@ export function InstructorEarningsPage() {
         setTransactionsTotalPages(res.total_pages || 1)
         setTransactionsTotalCount(res.count || 0)
       } catch (err) {
-        if (!cancelled) console.error('Failed to load earnings transactions:', err)
+        if (!cancelled) console.error(t('instructor_earnings_page.errors.load_transactions_console'), err)
       } finally {
         if (!cancelled) setTransactionsLoading(false)
       }
     }
     loadTransactions()
     return () => { cancelled = true }
-  }, [instructorId, transactionsPage, statusFilter, sourceFilter])
+  }, [instructorId, transactionsPage, statusFilter, sourceFilter, t])
+
+  function getSourceLabel(source: string) {
+    return source === 'retail'
+      ? t('instructor_earnings_page.sources.retail')
+      : t('instructor_earnings_page.sources.subscription')
+  }
+
+  function getStatusLabel(status: string) {
+    if (status === 'pending') return t('instructor_earnings_page.status.pending')
+    if (status === 'available') return t('instructor_earnings_page.status.available')
+    if (status === 'paid') return t('instructor_earnings_page.status.paid')
+    if (status === 'cancelled') return t('instructor_earnings_page.status.cancelled')
+    return status
+  }
 
   if (!canAccess(['instructor'], ['instructor.earnings.view'])) {
     return (
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>Ban khong co quyen xem du lieu thu nhap.</p>
+            <p>{t('instructor_earnings_page.errors.no_permission')}</p>
           </CardContent>
         </Card>
       </div>
@@ -123,7 +139,7 @@ export function InstructorEarningsPage() {
     return (
       <div className="container mx-auto px-4 py-20 flex flex-col items-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Dang tai du lieu thu nhap...</p>
+        <p className="text-muted-foreground">{t('instructor_earnings_page.loading')}</p>
       </div>
     )
   }
@@ -154,31 +170,31 @@ export function InstructorEarningsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">Thu nhap</h1>
-        <p className="text-muted-foreground">Theo doi doanh thu va chi tiet thu nhap tu cac khoa hoc</p>
+        <h1 className="text-2xl font-bold mb-1">{t('instructor_earnings_page.title')}</h1>
+        <p className="text-muted-foreground">{t('instructor_earnings_page.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalNet)}</p><p className="text-sm text-muted-foreground">Tong thu nhap rong</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><Calendar className="h-8 w-8 text-blue-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalAmount)}</p><p className="text-sm text-muted-foreground">Tong doanh thu gop</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><ShoppingCart className="h-8 w-8 text-purple-500" /><div><p className="text-2xl font-bold">{summary?.retail.count ?? 0}</p><p className="text-sm text-muted-foreground">Ban le</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-orange-500" /><div><p className="text-2xl font-bold">{summary?.subscription.count ?? 0}</p><p className="text-sm text-muted-foreground">Goi dang ky</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalNet)}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.total_net_income')}</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><Calendar className="h-8 w-8 text-blue-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalAmount)}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.total_gross_revenue')}</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><ShoppingCart className="h-8 w-8 text-purple-500" /><div><p className="text-2xl font-bold">{summary?.retail.count ?? 0}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.retail')}</p></div></div></CardContent></Card>
+        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-orange-500" /><div><p className="text-2xl font-bold">{summary?.subscription.count ?? 0}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.subscription_plan')}</p></div></div></CardContent></Card>
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Tong quan</TabsTrigger>
-          <TabsTrigger value="courses">Theo khoa hoc</TabsTrigger>
-          <TabsTrigger value="transactions">Giao dich</TabsTrigger>
+          <TabsTrigger value="overview">{t('instructor_earnings_page.tabs.overview')}</TabsTrigger>
+          <TabsTrigger value="courses">{t('instructor_earnings_page.tabs.by_course')}</TabsTrigger>
+          <TabsTrigger value="transactions">{t('instructor_earnings_page.tabs.transactions')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader><CardTitle>Nguon thu nhap</CardTitle><CardDescription>Phan bo ban le vs goi dang ky</CardDescription></CardHeader>
+              <CardHeader><CardTitle>{t('instructor_earnings_page.overview.income_sources')}</CardTitle><CardDescription>{t('instructor_earnings_page.overview.distribution')}</CardDescription></CardHeader>
               <CardContent className="space-y-5">
-                <div><div className="flex justify-between mb-1"><span>Ban le</span><span className="font-medium">{formatEarningVND(retailAmount)} ({retailPct}%)</span></div><Progress value={retailPct} className="h-2" /></div>
-                <div><div className="flex justify-between mb-1"><span>Dang ky</span><span className="font-medium">{formatEarningVND(subAmount)} ({subPct}%)</span></div><Progress value={subPct} className="h-2" /></div>
+                <div><div className="flex justify-between mb-1"><span>{t('instructor_earnings_page.sources.retail')}</span><span className="font-medium">{formatEarningVND(retailAmount)} ({retailPct}%)</span></div><Progress value={retailPct} className="h-2" /></div>
+                <div><div className="flex justify-between mb-1"><span>{t('instructor_earnings_page.sources.subscription')}</span><span className="font-medium">{formatEarningVND(subAmount)} ({subPct}%)</span></div><Progress value={subPct} className="h-2" /></div>
               </CardContent>
             </Card>
           </div>
@@ -186,7 +202,7 @@ export function InstructorEarningsPage() {
 
         <TabsContent value="courses" className="mt-8">
           {courseStats.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-muted-foreground">Chua co du lieu thu nhap theo khoa hoc.</CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-muted-foreground">{t('instructor_earnings_page.empty.no_course_earnings')}</CardContent></Card>
           ) : (
             <div className="space-y-4">
               {paginatedCourses.map((cs) => (
@@ -194,11 +210,11 @@ export function InstructorEarningsPage() {
                   <CardContent className="p-6">
                     <h3 className="font-semibold mb-3">{cs.title}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                      <div><p className="text-xl font-bold text-green-600">{formatEarningVND(parseFloat(String(cs.earnings || 0)))}</p><p className="text-xs text-muted-foreground">Thu nhap</p></div>
-                      <div><p className="text-xl font-bold">{cs.total_students}</p><p className="text-xs text-muted-foreground">Hoc vien</p></div>
-                      <div><p className="text-xl font-bold">{cs.new_students_this_month}</p><p className="text-xs text-muted-foreground">Moi thang nay</p></div>
-                      <div><p className="text-xl font-bold">{cs.rating?.toFixed(1) ?? '-'}</p><p className="text-xs text-muted-foreground">Danh gia</p></div>
-                      <div><p className="text-xl font-bold">{cs.completion_rate != null ? `${Math.round(cs.completion_rate)}%` : '-'}</p><p className="text-xs text-muted-foreground">Hoan thanh</p></div>
+                      <div><p className="text-xl font-bold text-green-600">{formatEarningVND(parseFloat(String(cs.earnings || 0)))}</p><p className="text-xs text-muted-foreground">{t('instructor_earnings_page.course_stats.earnings')}</p></div>
+                      <div><p className="text-xl font-bold">{cs.total_students}</p><p className="text-xs text-muted-foreground">{t('instructor_earnings_page.course_stats.students')}</p></div>
+                      <div><p className="text-xl font-bold">{cs.new_students_this_month}</p><p className="text-xs text-muted-foreground">{t('instructor_earnings_page.course_stats.new_this_month')}</p></div>
+                      <div><p className="text-xl font-bold">{cs.rating?.toFixed(1) ?? '-'}</p><p className="text-xs text-muted-foreground">{t('instructor_earnings_page.course_stats.rating')}</p></div>
+                      <div><p className="text-xl font-bold">{cs.completion_rate != null ? `${Math.round(cs.completion_rate)}%` : '-'}</p><p className="text-xs text-muted-foreground">{t('instructor_earnings_page.course_stats.completion')}</p></div>
                     </div>
                   </CardContent>
                 </Card>
@@ -213,26 +229,26 @@ export function InstructorEarningsPage() {
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <CardTitle>Lich su giao dich</CardTitle>
-                  <CardDescription>Chi tiet tung khoan thu nhap</CardDescription>
+                  <CardTitle>{t('instructor_earnings_page.transactions.title')}</CardTitle>
+                  <CardDescription>{t('instructor_earnings_page.transactions.description')}</CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-36"><SelectValue placeholder="Trang thai" /></SelectTrigger>
+                    <SelectTrigger className="w-36"><SelectValue placeholder={t('instructor_earnings_page.filters.status')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tat ca</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="available">Available</SelectItem>
-                      <SelectItem value="paid">Paid</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="all">{t('instructor_earnings_page.filters.all')}</SelectItem>
+                      <SelectItem value="pending">{t('instructor_earnings_page.status.pending')}</SelectItem>
+                      <SelectItem value="available">{t('instructor_earnings_page.status.available')}</SelectItem>
+                      <SelectItem value="paid">{t('instructor_earnings_page.status.paid')}</SelectItem>
+                      <SelectItem value="cancelled">{t('instructor_earnings_page.status.cancelled')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                    <SelectTrigger className="w-36"><SelectValue placeholder="Nguon" /></SelectTrigger>
+                    <SelectTrigger className="w-36"><SelectValue placeholder={t('instructor_earnings_page.filters.source')} /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tat ca</SelectItem>
-                      <SelectItem value="retail">Ban le</SelectItem>
-                      <SelectItem value="subscription">Dang ky</SelectItem>
+                      <SelectItem value="all">{t('instructor_earnings_page.filters.all')}</SelectItem>
+                      <SelectItem value="retail">{t('instructor_earnings_page.sources.retail')}</SelectItem>
+                      <SelectItem value="subscription">{t('instructor_earnings_page.sources.subscription')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -242,17 +258,17 @@ export function InstructorEarningsPage() {
               {transactionsLoading ? (
                 <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
               ) : transactions.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">Khong co giao dich nao.</p>
+                <p className="text-center text-muted-foreground py-8">{t('instructor_earnings_page.empty.no_transactions')}</p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Ngay</TableHead>
-                      <TableHead>Khoa hoc</TableHead>
-                      <TableHead>Nguon</TableHead>
-                      <TableHead className="text-right">Doanh thu</TableHead>
-                      <TableHead className="text-right">Thu nhap rong</TableHead>
-                      <TableHead>Trang thai</TableHead>
+                      <TableHead>{t('instructor_earnings_page.transactions.headers.date')}</TableHead>
+                      <TableHead>{t('instructor_earnings_page.transactions.headers.course')}</TableHead>
+                      <TableHead>{t('instructor_earnings_page.transactions.headers.source')}</TableHead>
+                      <TableHead className="text-right">{t('instructor_earnings_page.transactions.headers.revenue')}</TableHead>
+                      <TableHead className="text-right">{t('instructor_earnings_page.transactions.headers.net_income')}</TableHead>
+                      <TableHead>{t('instructor_earnings_page.transactions.headers.status')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -260,10 +276,10 @@ export function InstructorEarningsPage() {
                       <TableRow key={e.id}>
                         <TableCell>{new Date(e.earning_date).toLocaleDateString('vi-VN')}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{e.course_title ?? '-'}</TableCell>
-                        <TableCell><Badge variant="outline" className="capitalize">{e.earning_source === 'retail' ? 'Ban le' : 'Dang ky'}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className="capitalize">{getSourceLabel(e.earning_source)}</Badge></TableCell>
                         <TableCell className="text-right font-mono">{formatEarningVND(parseEarningAmount(e.amount))}</TableCell>
                         <TableCell className="text-right font-mono text-green-600">{formatEarningVND(parseEarningAmount(e.net_amount))}</TableCell>
-                        <TableCell><Badge variant={getEarningStatusBadge(e.status)} className="capitalize">{e.status}</Badge></TableCell>
+                        <TableCell><Badge variant={getEarningStatusBadge(e.status)} className="capitalize">{getStatusLabel(e.status)}</Badge></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -272,7 +288,11 @@ export function InstructorEarningsPage() {
               {transactionsTotalCount > 0 && (
                 <div className="mt-4">
                   <div className="text-sm text-muted-foreground mb-2">
-                    Showing {transactionStart}-{transactionEnd} of {transactionsTotalCount} transactions
+                    {t('instructor_earnings_page.pagination.showing_transactions', {
+                      from: transactionStart,
+                      to: transactionEnd,
+                      total: transactionsTotalCount,
+                    })}
                   </div>
                   <UserPagination currentPage={transactionsPage} totalPages={transactionsTotalPages} onPageChange={setTransactionsPage} />
                 </div>

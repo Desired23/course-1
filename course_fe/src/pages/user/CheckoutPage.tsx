@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ArrowLeft, ShieldCheck, Loader2, Lock } from "lucide-react"
+import { ArrowLeft, CreditCard, Landmark, Loader2, Lock, ShieldCheck, Smartphone } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Separator } from "../../components/ui/separator"
@@ -8,61 +8,73 @@ import { useCart } from "../../contexts/CartContext"
 import { useAuth } from "../../contexts/AuthContext"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { useTranslation } from "react-i18next"
-import { createPaymentRecord, createVnpayPayment } from "../../services/payment.api"
+import { createPaymentRecord, createVnpayPayment, type CreatePaymentResponse } from "../../services/payment.api"
 import { formatCartPrice } from "../../services/cart.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
-import { toast } from 'sonner'
+import { toast } from "sonner"
+
+type GatewayMethod = "momo" | "vnpay"
 
 export function CheckoutPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
   const { user } = useAuth()
   const { cartItems, getTotalPrice, getOriginalPrice, getSavings, orderCoupon, appliedPromotion, clearCart } = useCart()
+  const gatewayOptions: Array<{
+    id: GatewayMethod
+    title: string
+    description: string
+    icon: typeof Smartphone
+    accent: string
+  }> = [
+    {
+      id: "momo",
+      title: t("checkout.gateway_options.momo.title"),
+      description: t("checkout.gateway_options.momo.description"),
+      icon: Smartphone,
+      accent: "text-pink-600",
+    },
+    {
+      id: "vnpay",
+      title: t("checkout.gateway_options.vnpay.title"),
+      description: t("checkout.gateway_options.vnpay.description"),
+      icon: CreditCard,
+      accent: "text-blue-600",
+    },
+  ]
   const [isProcessing, setIsProcessing] = useState(false)
-  // State for BE-confirmed amount (shown after createPaymentRecord)
+  const [paymentMethod, setPaymentMethod] = useState<GatewayMethod>("momo")
   const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null)
   const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null)
-  const [pendingPaymentDetails, setPendingPaymentDetails] = useState<any>(null)
+  const [confirmedGatewayUrl, setConfirmedGatewayUrl] = useState<string | null>(null)
 
-  // Displayed total: use BE-confirmed amount if available, otherwise local calculation
   const displayTotal = confirmedAmount ?? getTotalPrice()
+  const paymentMethodLabel = t(`checkout.gateway_options.${paymentMethod}.title`)
 
   const handleCheckout = async () => {
     if (!user) {
-      toast.error('Vui lòng đăng nhập để thanh toán')
+      toast.error(t("checkout.login_required"))
       return
     }
     if (cartItems.length === 0) {
-      toast.error('Giỏ hàng trống')
+      toast.error(t("checkout.empty_cart"))
       return
     }
 
     setIsProcessing(true)
     try {
-      // Build payment details with promotion IDs from applied promotion
-      const paymentDetails = cartItems.map(item => {
-        const detail: { course_id: number; promotion_id?: number | null } = {
-          course_id: Number(item.courseId || item.id),
-          promotion_id: null,
-        }
+      const paymentDetails = cartItems.map((item) => ({
+        course_id: Number(item.courseId || item.id),
+        promotion_id: item.promotionId || null,
+      }))
 
-        // If instructor promo was applied, attach per-course promotion_id
-        if (item.promotionId) {
-          detail.promotion_id = item.promotionId
-        }
-
-        return detail
-      })
-
-      // Admin-level (order-wide) promotion_id goes at the top level
-      const adminPromotionId = appliedPromotion?.promotion.type === 'admin'
-        ? appliedPromotion.promotion.id
-        : null
+      const adminPromotionId =
+        appliedPromotion?.promotion.type === "admin" ? appliedPromotion.promotion.id : null
 
       const result = await createPaymentRecord({
         user_id: Number(user.id),
-        payment_method: 'vnpay',
-        payment_type: 'course_purchase',
+        payment_method: paymentMethod,
+        payment_type: "course_purchase",
         payment_details: paymentDetails,
         promotion_id: adminPromotionId,
       })
@@ -70,22 +82,23 @@ export function CheckoutPage() {
       const beTotal = Math.round(parseFloat(String(result.payment.total_amount)))
       const feTotal = Math.round(getTotalPrice())
 
-      // If BE total differs from what user saw, show confirmation with BE amount
       if (Math.abs(beTotal - feTotal) > 1) {
         setConfirmedAmount(beTotal)
         setConfirmedPaymentId(String(result.payment.id))
-        setPendingPaymentDetails(result)
+        setConfirmedGatewayUrl(result.gateway_payment?.url || null)
         setIsProcessing(false)
-        toast.info(`Giá đã được cập nhật từ ${formatCartPrice(feTotal)} thành ${formatCartPrice(beTotal)}`)
+        toast.info(t("checkout.price_updated_toast", {
+          from: formatCartPrice(feTotal),
+          to: formatCartPrice(beTotal),
+        }))
         return
       }
 
-      // Prices match — proceed to VNPay directly
-      await proceedToVnpay(String(result.payment.id), beTotal)
+      await proceedToGateway(result, String(result.payment.id), beTotal)
     } catch (err: any) {
-      console.error('Checkout failed:', err)
-      const msg = err?.error || err?.message || 'Thanh toán thất bại. Vui lòng thử lại.'
-      toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+      console.error("Checkout failed:", err)
+      const msg = err?.error || err?.message || t("checkout.checkout_failed")
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg))
       setIsProcessing(false)
     }
   }
@@ -94,28 +107,51 @@ export function CheckoutPage() {
     if (!confirmedPaymentId || confirmedAmount === null) return
     setIsProcessing(true)
     try {
-      await proceedToVnpay(confirmedPaymentId, confirmedAmount)
-    } catch (err: any) {
-      console.error('VNPay redirect failed:', err)
-      toast.error('Không thể tạo liên kết thanh toán')
+      if (confirmedGatewayUrl) {
+        clearCart()
+        window.location.href = confirmedGatewayUrl
+        return
+      }
+
+      await proceedToGateway(null, confirmedPaymentId, confirmedAmount)
+    } catch (err) {
+      console.error("Gateway redirect failed:", err)
+      toast.error(t("checkout.create_payment_url_failed"))
       setIsProcessing(false)
     }
   }
 
-  const proceedToVnpay = async (paymentId: string, amount: number) => {
+  const proceedToGateway = async (result: CreatePaymentResponse | null, paymentId: string, amount: number) => {
+    if (paymentMethod === "momo") {
+      const gatewayUrl = result?.gateway_payment?.url
+      if (gatewayUrl) {
+        clearCart()
+        window.location.href = gatewayUrl
+        return
+      }
+    }
+
+    const vnpayUrl = result?.gateway_payment?.url
+    if (vnpayUrl) {
+      clearCart()
+      window.location.href = vnpayUrl
+      return
+    }
+
     const vnpayRes = await createVnpayPayment({
       amount,
       order_id: paymentId,
-      order_desc: `Thanh toan ${cartItems.length} khoa hoc`,
+      order_desc: t("checkout.order_description", { count: cartItems.length }),
     })
 
     if (vnpayRes.payment_url) {
       clearCart()
       window.location.href = vnpayRes.payment_url
-    } else {
-      toast.error('Không thể tạo liên kết thanh toán')
-      setIsProcessing(false)
+      return
     }
+
+    toast.error(t("checkout.create_payment_url_failed"))
+    setIsProcessing(false)
   }
 
   if (cartItems.length === 0) {
@@ -123,9 +159,9 @@ export function CheckoutPage() {
       <div className="min-h-screen bg-background py-8">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <h1 className="text-2xl mb-4">{t('checkout.empty_cart', 'Giỏ hàng trống')}</h1>
-            <Button onClick={() => navigate('/courses')}>
-              {t('checkout.continue_shopping', 'Tiếp tục mua sắm')}
+            <h1 className="text-2xl mb-4">{t("checkout.empty_cart")}</h1>
+            <Button onClick={() => navigate("/courses")}>
+              {t("checkout.continue_shopping")}
             </Button>
           </div>
         </div>
@@ -138,20 +174,18 @@ export function CheckoutPage() {
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
-            <Button variant="ghost" onClick={() => navigate('/cart')}>
+            <Button variant="ghost" onClick={() => navigate("/cart")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
-              {t('checkout.back_to_cart', 'Quay lại giỏ hàng')}
+              {t("checkout.back_to_cart")}
             </Button>
-            <h1 className="text-2xl font-bold">{t('checkout.title', 'Thanh toán')}</h1>
+            <h1 className="text-2xl font-bold">{t("checkout.title")}</h1>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Left: Course list + Payment method */}
             <div className="lg:col-span-3 space-y-6">
-              {/* Course items */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Đơn hàng ({cartItems.length} khóa học)</CardTitle>
+                  <CardTitle className="text-lg">{t("checkout.order_title", { count: cartItems.length })}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {cartItems.map((item) => (
@@ -188,62 +222,75 @@ export function CheckoutPage() {
                 </CardContent>
               </Card>
 
-              {/* VNPay Payment Method */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">{t('checkout.payment_method', 'Phương thức thanh toán')}</CardTitle>
+                  <CardTitle className="text-lg">{t("checkout.payment_method")}</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-4 border-2 border-primary rounded-lg p-4 bg-primary/5">
-                    <div className="w-16 h-10 bg-white rounded border flex items-center justify-center flex-shrink-0">
-                      <svg viewBox="0 0 100 32" className="w-14 h-8">
-                        <text x="5" y="24" fill="#D0021B" fontWeight="bold" fontSize="20" fontFamily="Arial, sans-serif">VN</text>
-                        <text x="38" y="24" fill="#1A73E8" fontWeight="bold" fontSize="20" fontFamily="Arial, sans-serif">PAY</text>
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">VNPay</p>
-                      <p className="text-sm text-muted-foreground">
-                        Thanh toán qua ví VNPay, thẻ ATM, Visa, Mastercard, JCB, QR Code
-                      </p>
-                    </div>
-                    <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />
-                  </div>
+                <CardContent className="space-y-3">
+                  {gatewayOptions.map((option) => {
+                    const Icon = option.icon
+                    const isSelected = paymentMethod === option.id
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(option.id)}
+                        className={`w-full flex items-center gap-4 rounded-lg border-2 p-4 text-left transition-colors ${
+                          isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        <div className={`w-16 h-10 bg-white rounded border flex items-center justify-center flex-shrink-0 ${option.accent}`}>
+                          {option.id === "vnpay" ? (
+                            <div className="flex items-center gap-1">
+                              <Landmark className="w-4 h-4" />
+                              <CreditCard className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <Icon className="w-6 h-6" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{option.title}</p>
+                          <p className="text-sm text-muted-foreground">{option.description}</p>
+                        </div>
+                        {isSelected && <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />}
+                      </button>
+                    )
+                  })}
                   <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
                     <Lock className="w-3 h-3" />
-                    Giao dịch được bảo mật bởi VNPay. Bạn sẽ được chuyển đến trang thanh toán VNPay.
+                    {t("checkout.security_notice", { method: paymentMethodLabel })}
                   </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Right: Order Summary + Pay button */}
             <div className="lg:col-span-2 space-y-6">
               <Card className="sticky top-24">
                 <CardHeader>
-                  <CardTitle className="text-lg">{t('checkout.order_summary', 'Tóm tắt đơn hàng')}</CardTitle>
+                  <CardTitle className="text-lg">{t("checkout.order_summary")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>Giá gốc:</span>
+                      <span>{t("checkout.original_price_label")}</span>
                       <span className="text-muted-foreground line-through">{formatCartPrice(getOriginalPrice())}</span>
                     </div>
                     {getSavings() > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
-                        <span>Giảm giá:</span>
+                        <span>{t("checkout.discount_label")}</span>
                         <span>-{formatCartPrice(getSavings())}</span>
                       </div>
                     )}
                     {appliedPromotion && (
                       <div className="flex justify-between text-sm text-green-600">
-                        <span>Mã giảm giá ({appliedPromotion.promotion.code}):</span>
+                        <span>{t("checkout.coupon_label", { code: appliedPromotion.promotion.code })}</span>
                         <span>-{formatCartPrice(appliedPromotion.totalDiscount)}</span>
                       </div>
                     )}
                     {!appliedPromotion && orderCoupon && (
                       <div className="flex justify-between text-sm text-green-600">
-                        <span>Mã giảm giá ({orderCoupon.code}):</span>
+                        <span>{t("checkout.coupon_label", { code: orderCoupon.code })}</span>
                         <span>-{formatCartPrice(orderCoupon.discount)}</span>
                       </div>
                     )}
@@ -252,18 +299,17 @@ export function CheckoutPage() {
                   <Separator />
 
                   <div className="flex justify-between text-xl font-bold">
-                    <span>Tổng cộng:</span>
+                    <span>{t("checkout.total_label")}</span>
                     <span className="text-primary">{formatCartPrice(displayTotal)}</span>
                   </div>
 
-                  {/* Price changed notice */}
                   {confirmedAmount !== null && confirmedAmount !== Math.round(getTotalPrice()) && (
                     <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm">
                       <p className="text-yellow-800 dark:text-yellow-200 font-medium">
-                        Giá đã được cập nhật bởi hệ thống
+                        {t("checkout.price_updated_title")}
                       </p>
                       <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
-                        Giá có thể thay đổi do khuyến mãi hết hạn hoặc giá khóa học được điều chỉnh.
+                        {t("checkout.price_updated_description")}
                       </p>
                     </div>
                   )}
@@ -277,17 +323,17 @@ export function CheckoutPage() {
                     {isProcessing ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Đang xử lý...
+                        {t("checkout.processing")}
                       </>
                     ) : confirmedAmount !== null ? (
-                      <>Xác nhận thanh toán — {formatCartPrice(displayTotal)}</>
+                      <>{t("checkout.confirm_payment", { amount: formatCartPrice(displayTotal) })}</>
                     ) : (
-                      <>Thanh toán VNPay — {formatCartPrice(displayTotal)}</>
+                      <>{t("checkout.pay_with_method", { method: paymentMethodLabel, amount: formatCartPrice(displayTotal) })}</>
                     )}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center mt-2">
-                    {t('checkout.money_back', 'Đảm bảo hoàn tiền trong 7 ngày')}
+                    {t("checkout.money_back")}
                   </p>
                 </CardContent>
               </Card>

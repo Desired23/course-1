@@ -3,30 +3,32 @@ import { useRouter } from './Router'
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
 import { Badge } from './ui/badge'
+import { useTranslation } from 'react-i18next'
 
 export function BottomNav() {
+  const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const { isAuthenticated } = useAuth()
   const { cartItems } = useCart()
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/' },
-    { icon: Search, label: 'Search', path: '/search' },
+    { icon: Home, label: t('bottom_nav.home'), path: '/' },
+    { icon: Search, label: t('bottom_nav.search'), path: '/search' },
     { 
       icon: ShoppingCart, 
-      label: 'Cart', 
+      label: t('bottom_nav.cart'), 
       path: '/cart',
       badge: cartItems.length > 0 ? cartItems.length : undefined
     },
     { 
       icon: BookOpen, 
-      label: 'My Learning', 
+      label: t('bottom_nav.my_learning'), 
       path: '/my-learning',
       requireAuth: true
     },
     { 
       icon: User, 
-      label: isAuthenticated ? 'Account' : 'Login', 
+      label: isAuthenticated ? t('bottom_nav.account') : t('auth.login'), 
       path: isAuthenticated ? '/profile' : '/login'
     },
   ]

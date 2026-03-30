@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { useAuth } from './AuthContext'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { useAuth } from './AuthContext'
 
 export interface Enrollment {
   enrollment_id: number
@@ -32,7 +33,6 @@ interface EnrollmentContextType {
 
 const EnrollmentContext = createContext<EnrollmentContextType | undefined>(undefined)
 
-// Mock enrollments for demo
 const MOCK_ENROLLMENTS: Enrollment[] = [
   {
     enrollment_id: 1,
@@ -60,26 +60,23 @@ const MOCK_ENROLLMENTS: Enrollment[] = [
 ]
 
 export function EnrollmentProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
 
   useEffect(() => {
-    // whenever the user object changes we should reinitialise the cache
-    // clear old enrollments if user switched or logged out
     if (!user) {
       localStorage.removeItem('enrollments')
       setEnrollments([])
       return
     }
 
-    // if there is saved data but it belongs to a different user, wipe it
     const saved = localStorage.getItem('enrollments')
     if (saved) {
       try {
         const parsed: Enrollment[] = JSON.parse(saved)
         const belongsToCurrent = parsed.every(e => e.user_id === user.id)
         if (!belongsToCurrent) {
-          // stale cache from another account
           localStorage.removeItem('enrollments')
           setEnrollments([])
         } else {
@@ -92,14 +89,12 @@ export function EnrollmentProvider({ children }: { children: React.ReactNode }) 
       }
     }
 
-    // if we get here we either had no cache or it was cleared; initialize
     const userEnrollments = MOCK_ENROLLMENTS.filter(e => e.user_id === user.id)
     setEnrollments(userEnrollments)
     localStorage.setItem('enrollments', JSON.stringify(userEnrollments))
   }, [user])
 
   useEffect(() => {
-    // Save enrollments to localStorage
     if (enrollments.length > 0) {
       localStorage.setItem('enrollments', JSON.stringify(enrollments))
     }
@@ -117,12 +112,12 @@ export function EnrollmentProvider({ children }: { children: React.ReactNode }) 
 
   const enrollCourse = async (courseId: string, paymentId?: string): Promise<boolean> => {
     if (!user) {
-      toast.error('Please login to enroll')
+      toast.error(t('enrollment_context.toasts.login_to_enroll'))
       return false
     }
 
     if (isEnrolled(courseId)) {
-      toast.info('You are already enrolled in this course')
+      toast.info(t('enrollment_context.toasts.already_enrolled'))
       return false
     }
 
@@ -138,7 +133,7 @@ export function EnrollmentProvider({ children }: { children: React.ReactNode }) 
     }
 
     setEnrollments(prev => [...prev, newEnrollment])
-    toast.success('Successfully enrolled in course!')
+    toast.success(t('enrollment_context.toasts.enroll_success'))
     return true
   }
 
@@ -153,7 +148,6 @@ export function EnrollmentProvider({ children }: { children: React.ReactNode }) 
           last_access_date: new Date().toISOString()
         }
 
-        // Auto-complete if progress reaches 100%
         if (progress >= 100 && !enrollment.completion_date) {
           updatedEnrollment.status = 'completed'
           updatedEnrollment.completion_date = new Date().toISOString()
@@ -185,7 +179,7 @@ export function EnrollmentProvider({ children }: { children: React.ReactNode }) 
       return enrollment
     }))
 
-    toast.success('🎉 Congratulations! Course completed!')
+    toast.success(t('enrollment_context.toasts.course_completed'))
   }
 
   const getCourseProgress = (courseId: string): number => {

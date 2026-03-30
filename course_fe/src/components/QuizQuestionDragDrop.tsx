@@ -4,6 +4,7 @@ import { Card, CardContent } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { GripVertical, Edit, Trash2, Image, Code } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface QuizQuestion {
   id: string
@@ -39,6 +40,7 @@ export function DraggableQuestionCard({
   onEdit, 
   onDelete 
 }: DraggableQuestionProps) {
+  const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: any }>({
@@ -135,13 +137,13 @@ export function DraggableQuestionCard({
                   {question.image && (
                     <Badge variant="secondary" className="gap-1">
                       <Image className="h-3 w-3" />
-                      Image
+                      {t('quiz_question_drag_drop.image')}
                     </Badge>
                   )}
                   {question.code && (
                     <Badge variant="secondary" className="gap-1">
                       <Code className="h-3 w-3" />
-                      Code
+                      {t('quiz_question_drag_drop.code')}
                     </Badge>
                   )}
                 </div>

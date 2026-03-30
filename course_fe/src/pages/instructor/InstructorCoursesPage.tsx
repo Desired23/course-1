@@ -63,7 +63,7 @@ export function InstructorCoursesPage() {
         const dashboardStats = await getInstructorDashboardStats(profile.id)
         if (!cancelled) setStats(dashboardStats)
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load courses')
+        if (!cancelled) setError(err.message || t('instructor_courses.load_failed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -135,7 +135,7 @@ export function InstructorCoursesPage() {
         setTotalPages(res.total_pages || 1)
         setTotalCount(res.count || 0)
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load courses')
+        if (!cancelled) setError(err.message || t('instructor_courses.load_failed'))
       } finally {
         if (!cancelled) setListLoading(false)
       }
@@ -178,20 +178,20 @@ export function InstructorCoursesPage() {
 
   const getAvailableActions = (course: CourseListItem) => {
     if (course.status === 'draft') {
-      return [{ label: 'Submit for Review', run: () => handleCourseStatusChange(course, 'pending', 'Submit this course for review?') }]
+      return [{ label: t('instructor_courses.submit_for_review'), run: () => handleCourseStatusChange(course, 'pending', t('instructor_courses.confirm_submit_for_review')) }]
     }
     if (course.status === 'archived') {
-      const actions = [{ label: 'Move to Draft', run: () => handleCourseStatusChange(course, 'draft', 'Move this archived course back to draft for editing?') }]
+      const actions = [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_archived_to_draft')) }]
       if (!course.content_changed_since_publish) {
-        actions.unshift({ label: 'Restore Published', run: () => handleCourseStatusChange(course, 'published', 'Restore this archived course back to published?') })
+        actions.unshift({ label: t('instructor_courses.restore_published'), run: () => handleCourseStatusChange(course, 'published', t('instructor_courses.confirm_restore_published')) })
       }
       return actions
     }
     if (['pending', 'rejected'].includes(course.status)) {
-      return [{ label: 'Move to Draft', run: () => handleCourseStatusChange(course, 'draft', 'Move this course back to draft?') }]
+      return [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_to_draft')) }]
     }
     if (course.status === 'published') {
-      return [{ label: 'Archive', run: () => handleCourseStatusChange(course, 'archived', 'Archive this published course?') }]
+      return [{ label: t('instructor_courses.archive'), run: () => handleCourseStatusChange(course, 'archived', t('instructor_courses.confirm_archive')) }]
     }
     return []
   }
@@ -206,25 +206,25 @@ export function InstructorCoursesPage() {
       setMutatingCourseId(course.id)
       await updateCourse(course.id, { status: nextStatus })
       await Promise.all([refreshCourses(), refreshDashboardStats()])
-      toast.success(`Course moved to ${nextStatus.replace('_', ' ')}.`)
+      toast.success(t('instructor_courses.status_updated', { status: t(`instructor_courses.status_${nextStatus}`) }))
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to update course status')
+      toast.error(err?.message || t('instructor_courses.status_update_failed'))
     } finally {
       setMutatingCourseId(null)
     }
   }
 
   const handleDeleteCourse = async (course: CourseListItem) => {
-    if (!window.confirm(`Delete "${course.title}"? This will remove it from your course list.`)) return
+    if (!window.confirm(t('instructor_courses.confirm_delete', { title: course.title }))) return
     try {
       setMutatingCourseId(course.id)
       await deleteCourse(course.id)
       const shouldGoBackPage = courses.length === 1 && currentPage > 1
       const nextPage = shouldGoBackPage ? currentPage - 1 : currentPage
       await Promise.all([refreshCourses(nextPage), refreshDashboardStats()])
-      toast.success('Course deleted successfully.')
+      toast.success(t('instructor_courses.delete_success'))
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to delete course')
+      toast.error(err?.message || t('instructor_courses.delete_failed'))
     } finally {
       setMutatingCourseId(null)
     }
@@ -257,7 +257,7 @@ export function InstructorCoursesPage() {
     return (
       <div className="p-8 text-center">
         <p className="text-destructive mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <Button onClick={() => window.location.reload()}>{t('instructor_courses.retry')}</Button>
       </div>
     )
   }
@@ -375,12 +375,12 @@ export function InstructorCoursesPage() {
           </TabsTrigger>
           <TabsTrigger value="published" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4">
             <span className="hidden sm:inline">{t('instructor_courses.published_tab')} </span>
-            <span className="sm:hidden">Pub. </span>
+            <span className="sm:hidden">{t('instructor_courses.published_short')} </span>
             ({stats?.published_courses ?? 0})
           </TabsTrigger>
           <TabsTrigger value="draft" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4">
             <span className="hidden sm:inline">{t('instructor_courses.drafts_tab')} </span>
-            <span className="sm:hidden">Draft </span>
+            <span className="sm:hidden">{t('instructor_courses.draft_short')} </span>
             ({stats?.draft_courses ?? 0})
           </TabsTrigger>
         </TabsList>
@@ -459,7 +459,7 @@ export function InstructorCoursesPage() {
 
                               <div className="text-center">
                                 <p className="font-semibold text-sm md:text-base">{course.total_modules}</p>
-                                <p className="text-xs md:text-sm text-muted-foreground">Modules</p>
+                                <p className="text-xs md:text-sm text-muted-foreground">{t('instructor_courses.modules')}</p>
                               </div>
                             </>
                           )}
@@ -483,18 +483,18 @@ export function InstructorCoursesPage() {
                           </div>
                           {course.status === 'archived' && course.content_changed_since_publish && (
                             <span className="text-xs text-amber-600">
-                              This archived course changed after publish and must return to draft before review.
+                              {t('instructor_courses.archived_changed_notice')}
                             </span>
                           )}
                           <div className="flex flex-wrap gap-2">
                             <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/courses/${course.id}`)}>
-                              View Analytics
+                              {t('instructor_courses.view_analytics')}
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/lessons/${course.id}`)}>
-                              Edit Lessons
+                              {t('instructor_courses.edit_lessons')}
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/course-landing/${course.id}`)}>
-                              Edit Course Info
+                              {t('instructor_courses.edit_course_info')}
                             </Button>
                             {getAvailableActions(course).map((action) => (
                               <Button
@@ -513,7 +513,7 @@ export function InstructorCoursesPage() {
                               onClick={() => handleDeleteCourse(course)}
                               disabled={mutatingCourseId === course.id}
                             >
-                              {mutatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+                              {mutatingCourseId === course.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common.delete')}
                             </Button>
                           </div>
                         </div>
@@ -540,7 +540,7 @@ export function InstructorCoursesPage() {
               {totalCount > 0 && (
                 <div className="pt-2">
                   <div className="text-sm text-muted-foreground mb-3">
-                    Showing {startIdx}-{endIdx} of {totalCount} courses
+                    {t('instructor_courses.pagination_summary', { start: startIdx, end: endIdx, total: totalCount })}
                   </div>
                   <UserPagination
                     currentPage={currentPage}

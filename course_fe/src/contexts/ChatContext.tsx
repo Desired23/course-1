@@ -2,6 +2,7 @@ import { createContext, useContext, useReducer, useEffect, useCallback, ReactNod
 import { useAuth } from './AuthContext'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import {
   getChatConversations,
   getConversationMessages,
@@ -437,6 +438,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined)
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const { user, isAuthenticated } = useAuth()
+  const { t } = useTranslation()
   const userId = user?.id ?? null
   const wsRoomRef = useRef<string | null>(null)
 
@@ -752,7 +754,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   /** Open a chat room with a specific user (creates room if needed) */
   const openChatWithUser = async (otherUserId: number, otherUserName?: string) => {
     if (!userId) {
-      toast.error('Vui long dang nhap de nhan tin')
+      toast.error(t('chat_context.login_required'))
       return
     }
     try {
@@ -775,7 +777,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'OPEN_CHAT' })
       dispatch({ type: 'SET_ACTIVE_CONVERSATION', payload: conv.id })
     } catch (err: any) {
-      toast.error(err?.message || `Khong the nhan tin voi ${otherUserName || 'nguoi dung nay'}`)
+      toast.error(err?.message || t('chat_context.open_chat_failed', { name: otherUserName || t('chat_context.this_user') }))
       console.error('[Chat] Failed to open chat with user:', err)
     }
   }

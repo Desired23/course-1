@@ -23,6 +23,7 @@ import { TrendingUp, TrendingDown, DollarSign, Users, BookOpen, Star } from "luc
 import { cn } from "./ui/utils"
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from "../services/instructor.api"
 import { formatCurrency } from "../utils/formatters"
+import { useTranslation } from "react-i18next"
 
 interface AnalyticsChartsProps {
   type?: 'platform' | 'course' | 'instructor'
@@ -30,6 +31,7 @@ interface AnalyticsChartsProps {
 }
 
 export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChartsProps) {
+  const { t, i18n } = useTranslation()
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d')
   const [chartType, setChartType] = useState<'line' | 'bar' | 'area'>('line')
 
@@ -40,10 +42,10 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
   const [categoryData, setCategoryData] = useState<any[]>([])
   const [engagementData, setEngagementData] = useState<any[]>([])
   const [stats, setStats] = useState<any[]>([
-    { label: 'Total Revenue', value: '...', change: '-', trend: 'up', icon: DollarSign, color: 'text-green-600 dark:text-green-400' },
-    { label: 'Total Students', value: '...', change: '-', trend: 'up', icon: Users, color: 'text-blue-600 dark:text-blue-400' },
-    { label: 'Active Courses', value: '...', change: '-', trend: 'up', icon: BookOpen, color: 'text-purple-600 dark:text-purple-400' },
-    { label: 'Avg Rating', value: '...', change: '-', trend: 'up', icon: Star, color: 'text-yellow-600 dark:text-yellow-400' },
+    { label: t('analytics_charts.stats.total_revenue'), value: '...', change: '-', trend: 'up', icon: DollarSign, color: 'text-green-600 dark:text-green-400' },
+    { label: t('analytics_charts.stats.total_students'), value: '...', change: '-', trend: 'up', icon: Users, color: 'text-blue-600 dark:text-blue-400' },
+    { label: t('analytics_charts.stats.active_courses'), value: '...', change: '-', trend: 'up', icon: BookOpen, color: 'text-purple-600 dark:text-purple-400' },
+    { label: t('analytics_charts.stats.avg_rating'), value: '...', change: '-', trend: 'up', icon: Star, color: 'text-yellow-600 dark:text-yellow-400' },
   ])
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         // Map revenue + enrollment timeseries into chart data
         const revData = timeseries.revenue_trend.map((r, i) => {
           const enr = timeseries.enrollment_trend[i]
-          const monthLabel = new Date(r.date + '-01').toLocaleString('en', { month: 'short' })
+          const monthLabel = new Intl.DateTimeFormat(i18n.language || 'en', { month: 'short' }).format(new Date(r.date + '-01'))
           return {
             name: monthLabel,
             revenue: r.revenue,
@@ -80,7 +82,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
 
         // Map engagement timeseries
         const engData = timeseries.engagement_trend.map((e) => {
-          const monthLabel = new Date(e.date + '-01').toLocaleString('en', { month: 'short' })
+          const monthLabel = new Intl.DateTimeFormat(i18n.language || 'en', { month: 'short' }).format(new Date(e.date + '-01'))
           return {
             name: monthLabel,
             completionRate: e.completions,
@@ -93,33 +95,33 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         // Stats cards
         setStats([
           {
-            label: 'Total Revenue',
+            label: t('analytics_charts.stats.total_revenue'),
             value: formatCurrency(dashStats.total_earnings),
-            change: `+${formatCurrency(dashStats.this_month_earnings)} this month`,
+            change: t('analytics_charts.changes.this_month_currency', { value: formatCurrency(dashStats.this_month_earnings) }),
             trend: 'up',
             icon: DollarSign,
             color: 'text-green-600 dark:text-green-400',
           },
           {
-            label: 'Total Students',
+            label: t('analytics_charts.stats.total_students'),
             value: dashStats.total_students.toLocaleString(),
-            change: `+${dashStats.new_students_this_month} this month`,
+            change: t('analytics_charts.changes.this_month_count', { count: dashStats.new_students_this_month }),
             trend: 'up',
             icon: Users,
             color: 'text-blue-600 dark:text-blue-400',
           },
           {
-            label: 'Active Courses',
+            label: t('analytics_charts.stats.active_courses'),
             value: dashStats.published_courses.toLocaleString(),
-            change: `${dashStats.draft_courses} drafts`,
+            change: t('analytics_charts.changes.drafts', { count: dashStats.draft_courses }),
             trend: 'up',
             icon: BookOpen,
             color: 'text-purple-600 dark:text-purple-400',
           },
           {
-            label: 'Avg Rating',
+            label: t('analytics_charts.stats.avg_rating'),
             value: String(dashStats.average_rating),
-            change: `${dashStats.total_reviews} reviews`,
+            change: t('analytics_charts.changes.reviews', { count: dashStats.total_reviews }),
             trend: dashStats.average_rating >= 4 ? 'up' : 'down',
             icon: Star,
             color: 'text-yellow-600 dark:text-yellow-400',
@@ -130,7 +132,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
       }
     }
     fetchAnalytics()
-  }, [timeRange])
+  }, [i18n.language, t, timeRange])
 
   const renderChart = (data: any[], dataKey: string, color: string) => {
     const commonProps = {
@@ -250,9 +252,9 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="font-medium mb-1">Revenue Overview</h3>
+            <h3 className="font-medium mb-1">{t('analytics_charts.revenue.title')}</h3>
             <p className="text-sm text-muted-foreground">
-              Track your earnings over time
+              {t('analytics_charts.revenue.subtitle')}
             </p>
           </div>
           <div className="flex gap-2">
@@ -261,9 +263,9 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="line">Line</SelectItem>
-                <SelectItem value="bar">Bar</SelectItem>
-                <SelectItem value="area">Area</SelectItem>
+                <SelectItem value="line">{t('analytics_charts.chart_types.line')}</SelectItem>
+                <SelectItem value="bar">{t('analytics_charts.chart_types.bar')}</SelectItem>
+                <SelectItem value="area">{t('analytics_charts.chart_types.area')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
@@ -271,10 +273,10 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                <SelectItem value="1y">Last year</SelectItem>
+                <SelectItem value="7d">{t('analytics_charts.time_ranges.7d')}</SelectItem>
+                <SelectItem value="30d">{t('analytics_charts.time_ranges.30d')}</SelectItem>
+                <SelectItem value="90d">{t('analytics_charts.time_ranges.90d')}</SelectItem>
+                <SelectItem value="1y">{t('analytics_charts.time_ranges.1y')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -287,9 +289,9 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Students Chart */}
         <Card className="p-6">
-          <h3 className="font-medium mb-1">Student Growth</h3>
+          <h3 className="font-medium mb-1">{t('analytics_charts.students.title')}</h3>
           <p className="text-sm text-muted-foreground mb-6">
-            New student enrollments
+            {t('analytics_charts.students.subtitle')}
           </p>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart
@@ -325,9 +327,9 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
 
         {/* Category Distribution */}
         <Card className="p-6">
-          <h3 className="font-medium mb-1">Course Categories</h3>
+          <h3 className="font-medium mb-1">{t('analytics_charts.categories.title')}</h3>
           <p className="text-sm text-muted-foreground mb-6">
-            Enrollment by category
+            {t('analytics_charts.categories.subtitle')}
           </p>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -359,9 +361,9 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
 
       {/* Engagement Metrics */}
       <Card className="p-6">
-        <h3 className="font-medium mb-1">Student Engagement</h3>
+        <h3 className="font-medium mb-1">{t('analytics_charts.engagement.title')}</h3>
         <p className="text-sm text-muted-foreground mb-6">
-          Completion rates and satisfaction scores
+          {t('analytics_charts.engagement.subtitle')}
         </p>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart
@@ -379,8 +381,8 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
               }} 
             />
             <Legend />
-            <Bar dataKey="completionRate" fill="#10b981" radius={[8, 8, 0, 0]} name="Completion Rate %" />
-            <Bar dataKey="satisfaction" fill="#f59e0b" radius={[8, 8, 0, 0]} name="Satisfaction Score" />
+            <Bar dataKey="completionRate" fill="#10b981" radius={[8, 8, 0, 0]} name={t('analytics_charts.engagement.completion_rate')} />
+            <Bar dataKey="satisfaction" fill="#f59e0b" radius={[8, 8, 0, 0]} name={t('analytics_charts.engagement.satisfaction_score')} />
           </BarChart>
         </ResponsiveContainer>
       </Card>

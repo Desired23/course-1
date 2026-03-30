@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import {
   AlertDialog,
@@ -27,13 +28,15 @@ export function AdminConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   loading = false,
   onOpenChange,
   onConfirm,
 }: AdminConfirmDialogProps) {
+  const { t } = useTranslation()
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -42,7 +45,7 @@ export function AdminConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{cancelLabel ?? t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(event) => {
               event.preventDefault()
@@ -51,7 +54,7 @@ export function AdminConfirmDialog({
             className={destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
             disabled={loading}
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : confirmLabel}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (confirmLabel ?? t('common.confirm'))}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

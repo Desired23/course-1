@@ -1,19 +1,21 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { useRouter } from './Router'
 import { useAuth } from '../contexts/AuthContext'
 import { Menu, X, Home, BookOpen, User } from 'lucide-react'
 
 export function SimpleFloatingNav() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const { navigate } = useRouter()
   const auth = useAuth()
 
   // Basic navigation items
   const basicItems = [
-    { id: 'home', label: 'Home', path: '/', icon: Home },
-    { id: 'courses', label: 'Courses', path: '/courses', icon: BookOpen },
-    { id: 'profile', label: 'Profile', path: '/profile', icon: User },
+    { id: 'home', label: t('simple_floating_nav.home'), path: '/', icon: Home },
+    { id: 'courses', label: t('simple_floating_nav.courses'), path: '/courses', icon: BookOpen },
+    { id: 'profile', label: t('simple_floating_nav.profile'), path: '/profile', icon: User },
   ]
 
   const handleNavigate = (path: string) => {
@@ -46,11 +48,11 @@ export function SimpleFloatingNav() {
             
             <div className="mt-4 pt-4 border-t">
               <p className="text-xs text-gray-500">
-                Auth Status: {auth?.isAuthenticated ? 'Logged in' : 'Not logged in'}
+                {t('simple_floating_nav.auth_status')}: {auth?.isAuthenticated ? t('simple_floating_nav.logged_in') : t('simple_floating_nav.not_logged_in')}
               </p>
               {auth?.user && (
                 <p className="text-xs text-gray-500">
-                  User: {auth.user.name} ({auth.user.roles.join(', ')})
+                  {t('simple_floating_nav.user')}: {auth.user.name} ({auth.user.roles.join(', ')})
                 </p>
               )}
             </div>

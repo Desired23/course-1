@@ -44,6 +44,7 @@ import { getInstructorDashboardStats, type InstructorDashboardStats } from '../.
 import { getAllCourses } from '../../services/course.api'
 import { getAllReviewsByInstructor } from '../../services/review.api'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 
 interface CustomSection {
@@ -68,6 +69,7 @@ interface InstructorStats {
 
 export function InstructorProfilePage() {
   const { user, updateProfile, updateProfileSettings, hasPermission } = useAuth()
+  const { t } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
   const [isAddingSectionOpen, setIsAddingSectionOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('preview')
@@ -131,14 +133,14 @@ export function InstructorProfilePage() {
         try {
           const reviews = await getAllReviewsByInstructor(profile.id)
           if (cancelled) return
-          setTestimonials(reviews.slice(0, 5).map(r => ({
-            id: r.id,
-            student: r.user_detail?.full_name || 'Student',
-            avatar: r.user_detail?.avatar || '/api/placeholder/40/40',
-            content: r.comment || '',
-            rating: r.rating,
-            course: r.course_detail?.title || 'Course',
-          })))
+      setTestimonials(reviews.slice(0, 5).map(r => ({
+        id: r.id,
+        student: r.user_detail?.full_name || t('instructor_profile_page.fallbacks.student'),
+        avatar: r.user_detail?.avatar || '/api/placeholder/40/40',
+        content: r.comment || '',
+        rating: r.rating,
+        course: r.course_detail?.title || t('instructor_profile_page.fallbacks.course'),
+      })))
         } catch { /* no reviews */ }
       } catch (err) {
         console.error('Failed to load profile data:', err)
@@ -155,7 +157,7 @@ export function InstructorProfilePage() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6">
-            <p>Please log in to view your profile.</p>
+            <p>{t('instructor_profile_page.login_required')}</p>
           </CardContent>
         </Card>
       </div>
@@ -172,7 +174,7 @@ export function InstructorProfilePage() {
 
   const handleSaveProfile = () => {
     setIsEditing(false)
-    toast.success('Profile saved successfully')
+    toast.success(t('instructor_profile_page.toasts.profile_saved'))
   }
 
   const handleAddSection = () => {
@@ -235,18 +237,18 @@ export function InstructorProfilePage() {
       <div className="container mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Instructor Profile</h1>
-            <p className="text-muted-foreground">Manage your public instructor profile</p>
+            <h1 className="text-3xl font-bold">{t('instructor_profile_page.title')}</h1>
+            <p className="text-muted-foreground">{t('instructor_profile_page.subtitle')}</p>
           </div>
           {canEditProfile && (
             <div className="flex gap-2">
             <Button variant="outline" onClick={() => window.open('/instructor/profile/public', '_blank')}>
               <Eye className="h-4 w-4 mr-2" />
-              View Public Profile
+              {t('instructor_profile_page.actions.view_public_profile')}
             </Button>
             <Button onClick={() => setIsEditing(!isEditing)}>
               <Edit className="h-4 w-4 mr-2" />
-              {isEditing ? 'Cancel' : 'Edit Profile'}
+              {isEditing ? t('instructor_profile_page.actions.cancel') : t('instructor_profile_page.actions.edit_profile')}
             </Button>
             </div>
           )}
@@ -254,9 +256,9 @@ export function InstructorProfilePage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="preview">Profile Preview</TabsTrigger>
-            {canEditProfile && <TabsTrigger value="settings">Display Settings</TabsTrigger>}
-            {canEditProfile && <TabsTrigger value="customize">Customize</TabsTrigger>}
+            <TabsTrigger value="preview">{t('instructor_profile_page.tabs.preview')}</TabsTrigger>
+            {canEditProfile && <TabsTrigger value="settings">{t('instructor_profile_page.tabs.settings')}</TabsTrigger>}
+            {canEditProfile && <TabsTrigger value="customize">{t('instructor_profile_page.tabs.customize')}</TabsTrigger>}
           </TabsList>
 
         <TabsContent value="preview" className="space-y-6">
@@ -276,21 +278,21 @@ export function InstructorProfilePage() {
                 <div className="flex-1 space-y-4">
                   <div>
                     <h1 className="text-3xl font-bold">{user.name}</h1>
-                    <p className="text-xl text-muted-foreground">Professional Web Developer & Instructor</p>
+                    <p className="text-xl text-muted-foreground">{t('instructor_profile_page.preview.professional_title')}</p>
                     
                     <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-1">
                         <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
                         <span className="font-semibold">{stats.averageRating}</span>
-                        <span className="text-muted-foreground">({stats.totalReviews.toLocaleString()} reviews)</span>
+                        <span className="text-muted-foreground">({t('instructor_profile_page.preview.reviews_count', { count: stats.totalReviews.toLocaleString() })})</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Users className="h-5 w-5 text-blue-500" />
-                        <span>{stats.totalStudents.toLocaleString()} students</span>
+                        <span>{t('instructor_profile_page.preview.students_count', { count: stats.totalStudents.toLocaleString() })}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <BookOpen className="h-5 w-5 text-green-500" />
-                        <span>{stats.totalCourses} courses</span>
+                        <span>{t('instructor_profile_page.preview.courses_count', { count: stats.totalCourses })}</span>
                       </div>
                     </div>
                   </div>
@@ -309,7 +311,7 @@ export function InstructorProfilePage() {
                         <Button variant="outline" size="sm" asChild>
                           <a href={user.website} target="_blank" rel="noopener noreferrer">
                             <Globe className="h-4 w-4 mr-2" />
-                            Website
+                            {t('instructor_profile_page.social.website')}
                           </a>
                         </Button>
                       )}
@@ -317,7 +319,7 @@ export function InstructorProfilePage() {
                         <Button variant="outline" size="sm" asChild>
                           <a href={user.twitter} target="_blank" rel="noopener noreferrer">
                             <Twitter className="h-4 w-4 mr-2" />
-                            Twitter
+                            {t('instructor_profile_page.social.twitter')}
                           </a>
                         </Button>
                       )}
@@ -325,7 +327,7 @@ export function InstructorProfilePage() {
                         <Button variant="outline" size="sm" asChild>
                           <a href={user.linkedin} target="_blank" rel="noopener noreferrer">
                             <Linkedin className="h-4 w-4 mr-2" />
-                            LinkedIn
+                            {t('instructor_profile_page.social.linkedin')}
                           </a>
                         </Button>
                       )}
@@ -333,7 +335,7 @@ export function InstructorProfilePage() {
                         <Button variant="outline" size="sm" asChild>
                           <a href={user.youtube} target="_blank" rel="noopener noreferrer">
                             <Youtube className="h-4 w-4 mr-2" />
-                            YouTube
+                            {t('instructor_profile_page.social.youtube')}
                           </a>
                         </Button>
                       )}
@@ -350,26 +352,26 @@ export function InstructorProfilePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
-                  Teaching Statistics
+                  {t('instructor_profile_page.stats.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-blue-600">{stats.totalStudents.toLocaleString()}</div>
-                    <div className="text-sm text-muted-foreground">Total Students</div>
+                    <div className="text-sm text-muted-foreground">{t('instructor_profile_page.stats.total_students')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-green-600">{stats.totalCourses}</div>
-                    <div className="text-sm text-muted-foreground">Courses Created</div>
+                    <div className="text-sm text-muted-foreground">{t('instructor_profile_page.stats.courses_created')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-yellow-600">{stats.averageRating}</div>
-                    <div className="text-sm text-muted-foreground">Average Rating</div>
+                    <div className="text-sm text-muted-foreground">{t('instructor_profile_page.stats.average_rating')}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-purple-600">{stats.totalHours}h</div>
-                    <div className="text-sm text-muted-foreground">Content Hours</div>
+                    <div className="text-sm text-muted-foreground">{t('instructor_profile_page.stats.content_hours')}</div>
                   </div>
                 </div>
               </CardContent>
@@ -396,8 +398,8 @@ export function InstructorProfilePage() {
                       <div className="flex items-center gap-3 p-3 border rounded-lg">
                         <Award className="h-8 w-8 text-yellow-500" />
                         <div>
-                          <h4 className="font-semibold">Top Instructor 2023</h4>
-                          <p className="text-sm text-muted-foreground">Recognized for outstanding teaching</p>
+                          <h4 className="font-semibold">{t('instructor_profile_page.achievements.top_instructor_title')}</h4>
+                          <p className="text-sm text-muted-foreground">{t('instructor_profile_page.achievements.top_instructor_description')}</p>
                         </div>
                       </div>
                     </div>
@@ -421,7 +423,7 @@ export function InstructorProfilePage() {
                             </div>
                           </div>
                           <p className="text-sm text-muted-foreground">{testimonial.content}</p>
-                          <p className="text-xs text-muted-foreground mt-2">From: {testimonial.course}</p>
+                          <p className="text-xs text-muted-foreground mt-2">{t('instructor_profile_page.testimonials.from_course', { course: testimonial.course })}</p>
                         </div>
                       ))}
                     </div>
@@ -436,26 +438,26 @@ export function InstructorProfilePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="h-5 w-5" />
-                  My Courses
+                  {t('instructor_profile_page.courses.title')}
                 </CardTitle>
-                <CardDescription>Courses I've created</CardDescription>
+                <CardDescription>{t('instructor_profile_page.courses.description')}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <Input
                     className="md:col-span-2"
-                    placeholder="Search courses..."
+                    placeholder={t('instructor_profile_page.courses.search_placeholder')}
                     value={courseSearch}
                     onChange={(e) => setCourseSearch(e.target.value)}
                   />
                   <Select value={courseSortBy} onValueChange={setCourseSortBy}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sort By" />
+                      <SelectValue placeholder={t('instructor_profile_page.courses.sort_by')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="students">Most Students</SelectItem>
-                      <SelectItem value="rating">Highest Rating</SelectItem>
-                      <SelectItem value="price">Highest Price</SelectItem>
+                      <SelectItem value="students">{t('instructor_profile_page.courses.sort_options.students')}</SelectItem>
+                      <SelectItem value="rating">{t('instructor_profile_page.courses.sort_options.rating')}</SelectItem>
+                      <SelectItem value="price">{t('instructor_profile_page.courses.sort_options.price')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -466,7 +468,7 @@ export function InstructorProfilePage() {
                         <img src={course.image} alt={course.title} className="w-full h-full object-cover" />
                         {course.bestseller && (
                           <Badge className="absolute top-2 left-2 bg-yellow-500">
-                            Bestseller
+                            {t('instructor_profile_page.courses.bestseller')}
                           </Badge>
                         )}
                       </div>
@@ -477,10 +479,10 @@ export function InstructorProfilePage() {
                             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                             <span className="text-sm font-medium">{course.rating}</span>
                           </div>
-                          <span className="text-sm text-muted-foreground">({course.reviews} reviews)</span>
+                          <span className="text-sm text-muted-foreground">({t('instructor_profile_page.preview.reviews_count', { count: course.reviews })})</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">{course.students.toLocaleString()} students</span>
+                          <span className="text-sm text-muted-foreground">{t('instructor_profile_page.preview.students_count', { count: course.students.toLocaleString() })}</span>
                           <span className="font-bold">${course.price}</span>
                         </div>
                       </div>
@@ -505,14 +507,14 @@ export function InstructorProfilePage() {
           <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Profile Display Settings</CardTitle>
-                <CardDescription>Control what information is visible on your public profile</CardDescription>
+                <CardTitle>{t('instructor_profile_page.settings.title')}</CardTitle>
+                <CardDescription>{t('instructor_profile_page.settings.description')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Show Biography</Label>
-                    <p className="text-sm text-muted-foreground">Display your bio section</p>
+                    <Label className="text-base">{t('instructor_profile_page.settings.show_biography')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('instructor_profile_page.settings.show_biography_description')}</p>
                   </div>
                   <Switch
                     checked={profileSettings.showBio}
@@ -522,8 +524,8 @@ export function InstructorProfilePage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Show Teaching Statistics</Label>
-                    <p className="text-sm text-muted-foreground">Display student count, ratings, and course metrics</p>
+                    <Label className="text-base">{t('instructor_profile_page.settings.show_teaching_statistics')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('instructor_profile_page.settings.show_teaching_statistics_description')}</p>
                   </div>
                   <Switch
                     checked={profileSettings.showStats}
@@ -533,8 +535,8 @@ export function InstructorProfilePage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Show Courses</Label>
-                    <p className="text-sm text-muted-foreground">Display your published courses</p>
+                    <Label className="text-base">{t('instructor_profile_page.settings.show_courses')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('instructor_profile_page.settings.show_courses_description')}</p>
                   </div>
                   <Switch
                     checked={profileSettings.showCourses}
@@ -544,8 +546,8 @@ export function InstructorProfilePage() {
                 
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Show Social Links</Label>
-                    <p className="text-sm text-muted-foreground">Display links to your website and social media</p>
+                    <Label className="text-base">{t('instructor_profile_page.settings.show_social_links')}</Label>
+                    <p className="text-sm text-muted-foreground">{t('instructor_profile_page.settings.show_social_links_description')}</p>
                   </div>
                   <Switch
                     checked={profileSettings.showSocialLinks}
@@ -563,50 +565,50 @@ export function InstructorProfilePage() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <div>
-                    <CardTitle>Custom Sections</CardTitle>
-                    <CardDescription>Add custom sections to showcase your achievements, testimonials, or other content</CardDescription>
+                    <CardTitle>{t('instructor_profile_page.customize.title')}</CardTitle>
+                    <CardDescription>{t('instructor_profile_page.customize.description')}</CardDescription>
                   </div>
                   <Dialog open={isAddingSectionOpen} onOpenChange={setIsAddingSectionOpen}>
                     <DialogTrigger asChild>
                       <Button>
                         <Plus className="h-4 w-4 mr-2" />
-                        Add Section
+                        {t('instructor_profile_page.customize.add_section')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Add Custom Section</DialogTitle>
-                        <DialogDescription>Create a new section for your profile</DialogDescription>
+                        <DialogTitle>{t('instructor_profile_page.customize.dialog_title')}</DialogTitle>
+                        <DialogDescription>{t('instructor_profile_page.customize.dialog_description')}</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label>Section Type</Label>
+                          <Label>{t('instructor_profile_page.customize.section_type')}</Label>
                           <Select value={newSection.type} onValueChange={(value) => setNewSection({...newSection, type: value as CustomSection['type']})}>
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="text">Text Content</SelectItem>
-                              <SelectItem value="achievements">Achievements</SelectItem>
-                              <SelectItem value="testimonials">Testimonials</SelectItem>
-                              <SelectItem value="gallery">Gallery</SelectItem>
+                              <SelectItem value="text">{t('instructor_profile_page.customize.type_options.text')}</SelectItem>
+                              <SelectItem value="achievements">{t('instructor_profile_page.customize.type_options.achievements')}</SelectItem>
+                              <SelectItem value="testimonials">{t('instructor_profile_page.customize.type_options.testimonials')}</SelectItem>
+                              <SelectItem value="gallery">{t('instructor_profile_page.customize.type_options.gallery')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         
                         <div>
-                          <Label>Section Title</Label>
+                          <Label>{t('instructor_profile_page.customize.section_title')}</Label>
                           <Input
-                            placeholder="Enter section title"
+                            placeholder={t('instructor_profile_page.customize.section_title_placeholder')}
                             value={newSection.title}
                             onChange={(e) => setNewSection({...newSection, title: e.target.value})}
                           />
                         </div>
                         
                         <div>
-                          <Label>Content</Label>
+                          <Label>{t('instructor_profile_page.customize.content')}</Label>
                           <Textarea
-                            placeholder="Enter section content"
+                            placeholder={t('instructor_profile_page.customize.content_placeholder')}
                             value={newSection.content}
                             onChange={(e) => setNewSection({...newSection, content: e.target.value})}
                             rows={5}
@@ -619,15 +621,15 @@ export function InstructorProfilePage() {
                             checked={newSection.visible}
                             onCheckedChange={(checked) => setNewSection({...newSection, visible: checked})}
                           />
-                          <Label htmlFor="visible">Visible on profile</Label>
+                          <Label htmlFor="visible">{t('instructor_profile_page.customize.visible_on_profile')}</Label>
                         </div>
                         
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={() => setIsAddingSectionOpen(false)}>
-                            Cancel
+                            {t('instructor_profile_page.actions.cancel')}
                           </Button>
                           <Button onClick={handleAddSection}>
-                            Add Section
+                            {t('instructor_profile_page.customize.add_section')}
                           </Button>
                         </div>
                       </div>
@@ -640,7 +642,7 @@ export function InstructorProfilePage() {
                   {profileSettings.customSections.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <Target className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No custom sections yet. Add your first section to get started!</p>
+                      <p>{t('instructor_profile_page.customize.empty')}</p>
                     </div>
                   ) : (
                     profileSettings.customSections.map((section) => (

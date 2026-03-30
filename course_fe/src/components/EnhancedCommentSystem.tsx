@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
@@ -85,6 +86,7 @@ export function EnhancedCommentSystem({
   allowEditing = true,
   maxDepth = 3
 }: EnhancedCommentSystemProps) {
+  const { t } = useTranslation()
   const { user, isAuthenticated, hasPermission, hasRole } = useAuth()
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
@@ -164,7 +166,7 @@ export function EnhancedCommentSystem({
   const handleAddComment = () => {
     withAuthCheck(isAuthenticated, () => {
       if (!newComment.trim()) {
-        showNotification.warning('Please enter a comment')
+        showNotification.warning(t('enhanced_comment_system.enter_comment'))
         return
       }
       
@@ -195,14 +197,14 @@ export function EnhancedCommentSystem({
       }
       
       setNewComment('')
-      showNotification.success('Comment added successfully')
+      showNotification.success(t('enhanced_comment_system.comment_added'))
     })
   }
 
   const handleAddReply = (parentId: string) => {
     withAuthCheck(isAuthenticated, () => {
       if (!replyContent.trim()) {
-        showNotification.warning('Please enter a reply')
+        showNotification.warning(t('enhanced_comment_system.enter_reply'))
         return
       }
       
@@ -234,13 +236,13 @@ export function EnhancedCommentSystem({
       
       setReplyContent('')
       setReplyingTo(null)
-      showNotification.success('Reply added successfully')
+      showNotification.success(t('enhanced_comment_system.reply_added'))
     })
   }
 
   const handleEditComment = (commentId: string, content: string) => {
     if (!editContent.trim()) {
-      showNotification.warning('Please enter comment content')
+      showNotification.warning(t('enhanced_comment_system.enter_comment_content'))
       return
     }
     
@@ -257,7 +259,7 @@ export function EnhancedCommentSystem({
     
     setEditingComment(null)
     setEditContent('')
-    showNotification.success('Comment updated successfully')
+    showNotification.success(t('enhanced_comment_system.comment_updated'))
   }
 
   const handleVote = (commentId: string, voteType: 'up' | 'down') => {
@@ -278,7 +280,7 @@ export function EnhancedCommentSystem({
           }
           return comment
         }))
-        showNotification.success('Vote recorded')
+        showNotification.success(t('enhanced_comment_system.vote_recorded'))
       }
     })
   }
@@ -295,7 +297,7 @@ export function EnhancedCommentSystem({
             : comment
         ))
       }
-      showNotification.success('Comment pinned successfully')
+      showNotification.success(t('enhanced_comment_system.comment_pinned'))
     })
   }
 
@@ -304,7 +306,7 @@ export function EnhancedCommentSystem({
       if (onReportComment) {
         onReportComment(commentId)
       } else {
-        showNotification.info('Report submitted for review')
+        showNotification.info(t('enhanced_comment_system.report_submitted'))
       }
     })
   }
@@ -321,12 +323,12 @@ export function EnhancedCommentSystem({
             : comment
         ))
       }
-      showNotification.success(`Comment ${status} successfully`)
+      showNotification.success(t(`enhanced_comment_system.status_${status}_success`))
     })
   }
 
   const handleDelete = (commentId: string) => {
-    if (window.confirm('Are you sure you want to delete this comment?')) {
+    if (window.confirm(t('enhanced_comment_system.confirm_delete'))) {
       if (onDeleteComment) {
         onDeleteComment(commentId)
       } else {
@@ -335,7 +337,7 @@ export function EnhancedCommentSystem({
           comment.id !== commentId && comment.parentId !== commentId
         ))
       }
-      showNotification.success('Comment deleted successfully')
+      showNotification.success(t('enhanced_comment_system.comment_deleted'))
     }
   }
 
@@ -355,9 +357,9 @@ export function EnhancedCommentSystem({
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(hours / 24)
     
-    if (days > 0) return `${days} ngày trước`
-    if (hours > 0) return `${hours} giờ trước`
-    return 'Vừa xong'
+    if (days > 0) return t('enhanced_comment_system.days_ago', { count: days })
+    if (hours > 0) return t('enhanced_comment_system.hours_ago', { count: hours })
+    return t('enhanced_comment_system.just_now')
   }
 
   const getUserVote = (comment: Comment): 'up' | 'down' | null => {
@@ -386,7 +388,7 @@ export function EnhancedCommentSystem({
       {comment.isPinned && (
         <div className="flex items-center gap-2 mb-2 text-blue-600 dark:text-blue-400">
           <Flag className="w-4 h-4" />
-          <span className="text-sm font-medium">Pinned Comment</span>
+          <span className="text-sm font-medium">{t('enhanced_comment_system.pinned_comment')}</span>
         </div>
       )}
 
@@ -426,19 +428,19 @@ export function EnhancedCommentSystem({
                 {comment.isApproved === 'pending' && (
                   <Badge variant="outline" className="text-yellow-600">
                     <AlertTriangle className="w-3 h-3 mr-1" />
-                    Pending
+                    {t('enhanced_comment_system.pending')}
                   </Badge>
                 )}
                 {comment.isApproved === 'approved' && (
                   <Badge variant="outline" className="text-green-600">
                     <CheckCircle className="w-3 h-3 mr-1" />
-                    Approved
+                    {t('enhanced_comment_system.approved')}
                   </Badge>
                 )}
                 {comment.isApproved === 'rejected' && (
                   <Badge variant="outline" className="text-red-600">
                     <XCircle className="w-3 h-3 mr-1" />
-                    Rejected
+                    {t('enhanced_comment_system.rejected')}
                   </Badge>
                 )}
               </div>
@@ -457,7 +459,7 @@ export function EnhancedCommentSystem({
                   size="sm" 
                   onClick={() => handleEditComment(comment.id, editContent)}
                 >
-                  Save
+                  {t('enhanced_comment_system.save')}
                 </Button>
                 <Button 
                   size="sm" 
@@ -467,7 +469,7 @@ export function EnhancedCommentSystem({
                     setEditContent('')
                   }}
                 >
-                  Cancel
+                  {t('enhanced_comment_system.cancel')}
                 </Button>
               </div>
             </div>
@@ -484,7 +486,7 @@ export function EnhancedCommentSystem({
               {comment.moderationNote && (
                 <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border-l-4 border-yellow-400 mb-3">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    <strong>Moderation Note:</strong> {comment.moderationNote}
+                    <strong>{t('enhanced_comment_system.moderation_note')}</strong> {comment.moderationNote}
                   </p>
                 </div>
               )}
@@ -521,7 +523,7 @@ export function EnhancedCommentSystem({
                       onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                     >
                       <Reply className="w-4 h-4 mr-1" />
-                      Reply
+                      {t('enhanced_comment_system.reply')}
                     </Button>
                   )}
 
@@ -531,7 +533,9 @@ export function EnhancedCommentSystem({
                       size="sm"
                       onClick={() => toggleExpansion(comment.id)}
                     >
-                      {expandedComments.has(comment.id) ? 'Hide' : 'Show'} {replies.length} replies
+                      {expandedComments.has(comment.id)
+                        ? t('enhanced_comment_system.hide_replies', { count: replies.length })
+                        : t('enhanced_comment_system.show_replies', { count: replies.length })}
                     </Button>
                   )}
                 </div>
@@ -568,7 +572,7 @@ export function EnhancedCommentSystem({
                 size="sm"
                 onClick={() => handleReport(comment.id)}
                 className="text-muted-foreground hover:text-red-600"
-                title="Report this comment"
+                title={t('enhanced_comment_system.report_comment')}
               >
                 <Flag className="w-4 h-4" />
               </Button>
@@ -595,16 +599,16 @@ export function EnhancedCommentSystem({
                             size="sm"
                             onClick={() => handleApprove(comment.id, 'approved')}
                             className="text-green-600"
-                            title="Approve"
+                            title={t('enhanced_comment_system.approve')}
                           >
                             <CheckCircle className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleApprove(comment.id, 'rejected', 'Inappropriate content')}
+                            onClick={() => handleApprove(comment.id, 'rejected', t('enhanced_comment_system.inappropriate_content'))}
                             className="text-red-600"
-                            title="Reject"
+                            title={t('enhanced_comment_system.reject')}
                           >
                             <XCircle className="w-4 h-4" />
                           </Button>
@@ -618,7 +622,7 @@ export function EnhancedCommentSystem({
                           size="sm"
                           onClick={() => handleDelete(comment.id)}
                           className="text-red-600"
-                          title="Delete as Moderator"
+                          title={t('enhanced_comment_system.delete_as_moderator')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -647,7 +651,7 @@ export function EnhancedCommentSystem({
                     <Textarea
                       value={replyContent}
                       onChange={(e) => setReplyContent(e.target.value)}
-                      placeholder={`Reply to ${comment.author.name}...`}
+                      placeholder={t('enhanced_comment_system.reply_to_author', { name: comment.author.name })}
                       className="mb-2"
                       rows={2}
                     />
@@ -656,14 +660,14 @@ export function EnhancedCommentSystem({
                         size="sm" 
                         onClick={() => handleAddReply(comment.id)}
                       >
-                        Reply
+                        {t('enhanced_comment_system.reply')}
                       </Button>
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => setReplyingTo(null)}
                       >
-                        Cancel
+                        {t('enhanced_comment_system.cancel')}
                       </Button>
                     </div>
                   </div>
@@ -705,12 +709,12 @@ export function EnhancedCommentSystem({
                 <Textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write a comment..."
+                  placeholder={t('enhanced_comment_system.write_comment')}
                   className="mb-3"
                   rows={3}
                 />
                 <Button onClick={handleAddComment} disabled={!newComment.trim()}>
-                  Post Comment
+                  {t('enhanced_comment_system.post_comment')}
                 </Button>
               </div>
             </div>
@@ -719,8 +723,8 @@ export function EnhancedCommentSystem({
       ) : (
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-muted-foreground mb-3">Please login to comment</p>
-            <Button>Login</Button>
+            <p className="text-muted-foreground mb-3">{t('enhanced_comment_system.login_to_comment')}</p>
+            <Button>{t('enhanced_comment_system.login')}</Button>
           </CardContent>
         </Card>
       )}

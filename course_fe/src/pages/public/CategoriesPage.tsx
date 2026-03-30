@@ -5,9 +5,11 @@ import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
 import { useRouter } from "../../components/Router"
 import { getActiveCategories, buildCategoryTree, type CategoryTreeNode } from "../../services/category.api"
+import { useTranslation } from "react-i18next"
 
 export function CategoriesPage() {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -69,24 +71,23 @@ export function CategoriesPage() {
       <div className="bg-gradient-to-br from-blue-600 to-purple-700 text-white py-16 px-4">
         <div className="container mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Explore Our Course Categories
+            {t('categories_page.hero.title')}
           </h1>
           <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-8">
-            Discover thousands of courses across diverse topics. Whether you're looking to advance your career, 
-            learn a new skill, or pursue a passion, we have something for everyone.
+            {t('categories_page.hero.description')}
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
               <BookOpen className="w-5 h-5" />
-              <span className="font-semibold">5,000+ Courses</span>
+              <span className="font-semibold">{t('categories_page.hero.stats.courses')}</span>
             </div>
             <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
               <Target className="w-5 h-5" />
-              <span className="font-semibold">50+ Categories</span>
+              <span className="font-semibold">{t('categories_page.hero.stats.categories')}</span>
             </div>
             <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
               <TrendingUp className="w-5 h-5" />
-              <span className="font-semibold">1M+ Students</span>
+              <span className="font-semibold">{t('categories_page.hero.stats.students')}</span>
             </div>
           </div>
         </div>
@@ -95,9 +96,9 @@ export function CategoriesPage() {
       {/* Main Categories Grid */}
       <div className="container mx-auto px-4 py-12">
         <div className="mb-12">
-          <h2 className="text-3xl font-bold mb-4">Popular Categories</h2>
+          <h2 className="text-3xl font-bold mb-4">{t('categories_page.popular.title')}</h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Start with our most popular categories and explore thousands of courses
+            {t('categories_page.popular.description')}
           </p>
         </div>
 
@@ -142,12 +143,12 @@ export function CategoriesPage() {
                       </div>
                       
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
-                        {category.description || `Master ${category.name.toLowerCase()} with expert-led courses covering beginner to advanced topics.`}
+                        {category.description || t('categories_page.category_fallback_description', { name: category.name.toLowerCase() })}
                       </p>
                       
                       <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                         {subcategoryCount > 0 && (
-                          <span>{subcategoryCount} subcategories</span>
+                          <span>{t('categories_page.subcategories_count', { count: subcategoryCount })}</span>
                         )}
                       </div>
                       
@@ -169,7 +170,7 @@ export function CategoriesPage() {
                           ))}
                           {category.children.length > 3 && (
                             <Badge variant="outline" className="text-xs">
-                              +{category.children.length - 3} more
+                              {t('categories_page.more_count', { count: category.children.length - 3 })}
                             </Badge>
                           )}
                         </div>
@@ -185,15 +186,15 @@ export function CategoriesPage() {
 
         {/* Category Benefits */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-8 mb-12">
-          <h2 className="text-3xl font-bold mb-6 text-center">Why Choose Our Platform?</h2>
+          <h2 className="text-3xl font-bold mb-6 text-center">{t('categories_page.benefits.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <BookOpen className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Diverse Topics</h3>
+              <h3 className="text-xl font-semibold mb-2">{t('categories_page.benefits.diverse_topics.title')}</h3>
               <p className="text-gray-600 dark:text-gray-400">
-                From technology and business to arts and personal development, explore courses in every field imaginable.
+                {t('categories_page.benefits.diverse_topics.description')}
               </p>
             </div>
             
@@ -201,9 +202,9 @@ export function CategoriesPage() {
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Target className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Skill Levels for Everyone</h3>
+              <h3 className="text-xl font-semibold mb-2">{t('categories_page.benefits.skill_levels.title')}</h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Whether you're a complete beginner or an advanced professional, find courses tailored to your level.
+                {t('categories_page.benefits.skill_levels.description')}
               </p>
             </div>
             
@@ -211,9 +212,9 @@ export function CategoriesPage() {
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <TrendingUp className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Industry-Relevant Skills</h3>
+              <h3 className="text-xl font-semibold mb-2">{t('categories_page.benefits.industry_skills.title')}</h3>
               <p className="text-gray-600 dark:text-gray-400">
-                Learn the most in-demand skills that employers are looking for in today's job market.
+                {t('categories_page.benefits.industry_skills.description')}
               </p>
             </div>
           </div>
@@ -221,9 +222,9 @@ export function CategoriesPage() {
 
         {/* CTA Section */}
         <div className="text-center bg-gradient-to-br from-blue-600 to-purple-700 text-white rounded-lg p-12">
-          <h2 className="text-3xl font-bold mb-4">Ready to Start Learning?</h2>
+          <h2 className="text-3xl font-bold mb-4">{t('categories_page.cta.title')}</h2>
           <p className="text-xl text-blue-100 mb-6 max-w-2xl mx-auto">
-            Join over 1 million students already learning on our platform. Start your journey today!
+            {t('categories_page.cta.description')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
@@ -232,7 +233,7 @@ export function CategoriesPage() {
               style={{ backgroundColor: '#ffffff', color: '#2563eb' }}
               onClick={() => navigate('/courses')}
             >
-              Browse All Courses
+              {t('categories_page.cta.browse_courses')}
             </Button>
             <Button 
               size="lg" 
@@ -241,7 +242,7 @@ export function CategoriesPage() {
               style={{ backgroundColor: 'transparent', color: '#ffffff', borderColor: '#ffffff' }}
               onClick={() => navigate('/signup')}
             >
-              Sign Up for Free
+              {t('categories_page.cta.signup_free')}
             </Button>
           </div>
         </div>

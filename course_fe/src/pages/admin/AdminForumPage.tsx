@@ -89,7 +89,7 @@ export function AdminForumPage() {
           }
         }))
       } catch {
-        toast.error('Không thể tải dữ liệu diễn đàn')
+        toast.error(t('forum.admin.load_failed'))
       }
     }
     fetchData()
@@ -115,7 +115,7 @@ export function AdminForumPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
@@ -183,6 +183,21 @@ export function AdminForumPage() {
     }
   }
 
+  const getStatusLabel = (status: ForumTopic['status']) => {
+    switch (status) {
+      case 'active':
+        return t('forum.active_status')
+      case 'locked':
+        return t('forum.locked_status')
+      case 'pinned':
+        return t('forum.pinned_label')
+      case 'reported':
+        return t('forum.admin.reported_label')
+      default:
+        return status
+    }
+  }
+
   const handleLockTopic = async (topicId: string) => {
     const topic = topics.find(t => t.id === topicId)
     if (!topic) return
@@ -208,8 +223,8 @@ export function AdminForumPage() {
     try {
       await deleteForumTopic(Number(topicId))
       setTopics(topics.filter(t => t.id !== topicId))
-      toast.success('Topic deleted successfully')
-    } catch { toast.error('X??a th???t b???i') }
+      toast.success(t('forum.admin.topic_deleted'))
+    } catch { toast.error(t('forum.admin.delete_failed')) }
   }
 
   const handleCreateCategory = async () => {
@@ -219,7 +234,7 @@ export function AdminForumPage() {
     }
     try {
       if (!currentUserId) {
-        toast.error('Khong tim thay thong tin admin hien tai')
+        toast.error(t('forum.admin.current_admin_missing'))
         return
       }
       const created = await createForum({
@@ -249,8 +264,8 @@ export function AdminForumPage() {
     try {
       await deleteForum(Number(categoryId))
       setCategories(categories.filter(c => c.id !== categoryId))
-      toast.success('Category deleted successfully')
-    } catch { toast.error('X??a th???t b???i') }
+      toast.success(t('forum.admin.category_deleted'))
+    } catch { toast.error(t('forum.admin.delete_failed')) }
   }
 
   const handleCreateTopic = async () => {
@@ -259,7 +274,7 @@ export function AdminForumPage() {
       return
     }
     if (!currentUserId) {
-      toast.error('Khong tim thay thong tin admin hien tai')
+      toast.error(t('forum.admin.current_admin_missing'))
       return
     }
     try {
@@ -278,15 +293,15 @@ export function AdminForumPage() {
         author: created.user_name || 'Admin',
         replies: 0,
         views: 0,
-        lastActivity: 'Just now',
+        lastActivity: t('forum.admin.just_now'),
         status: 'active',
         createdAt: new Date().toLocaleDateString(),
         reportCount: 0,
       }, ...prev])
       setIsCreateTopicOpen(false)
       setTopicForm({ title: '', category: '', content: '', author: 'Admin' })
-      toast.success('Topic created successfully!')
-    } catch { toast.error('Tạo chủ đề thất bại') }
+      toast.success(t('forum.admin.topic_created'))
+    } catch { toast.error(t('forum.admin.topic_create_failed')) }
   }
 
   const openModerationDialog = (topic: ForumTopic) => {
@@ -301,7 +316,7 @@ export function AdminForumPage() {
 
   const handleModeration = async () => {
     if (!selectedTopicForModeration || !moderationAction.action) {
-      toast.error('Please select an action')
+      toast.error(t('forum.admin.select_action'))
       return
     }
     const action = moderationAction.action
@@ -310,15 +325,15 @@ export function AdminForumPage() {
       if (action === 'approve') {
         await moderateForumTopic(topicId, { action: 'approve', reason: moderationAction.reason })
         setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'active' as const, reportCount: 0 } : t))
-        toast.success('Topic approved')
+        toast.success(t('forum.admin.topic_approved'))
       } else if (action === 'delete') {
         await moderateForumTopic(topicId, { action: 'delete', reason: moderationAction.reason })
         setTopics(topics.filter(t => t.id !== selectedTopicForModeration.id))
-        toast.success('Topic deleted')
+        toast.success(t('forum.admin.topic_deleted'))
       } else if (action === 'lock') {
         await moderateForumTopic(topicId, { action: 'lock', reason: moderationAction.reason })
         setTopics(topics.map(t => t.id === selectedTopicForModeration.id ? { ...t, status: 'locked' as const, reportCount: 0 } : t))
-        toast.success('Topic locked')
+        toast.success(t('forum.admin.topic_locked'))
       }
     } catch { toast.error(t('forum.admin.action_failed')) }
 
@@ -354,7 +369,7 @@ export function AdminForumPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -405,34 +420,34 @@ export function AdminForumPage() {
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Tạo Chủ Đề Mới
+              {t('forum.admin.create_topic_button')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Tạo Chủ Đề Diễn Đàn Mới</DialogTitle>
+              <DialogTitle>{t('forum.admin.create_topic_dialog_title')}</DialogTitle>
               <DialogDescription>
-                Tạo chủ đề thảo luận mới cho cộng đồng
+                {t('forum.admin.create_topic_dialog_description')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="topic-title">Tiêu Đề *</Label>
+                <Label htmlFor="topic-title">{t('forum.admin.topic_title')} *</Label>
                 <Input
                   id="topic-title"
-                  placeholder="Nhập tiêu đề chủ đề..."
+                  placeholder={t('forum.admin.topic_title_placeholder')}
                   value={topicForm.title}
                   onChange={(e) => setTopicForm({ ...topicForm, title: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="topic-category">Danh Mục *</Label>
+                <Label htmlFor="topic-category">{t('forum.admin.topic_category')} *</Label>
                 <Select 
                   value={topicForm.category}
                   onValueChange={(value) => setTopicForm({ ...topicForm, category: value })}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Chọn danh mục" />
+                    <SelectValue placeholder={t('forum.admin.category_placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
@@ -444,17 +459,17 @@ export function AdminForumPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="topic-content">Nội Dung *</Label>
+                <Label htmlFor="topic-content">{t('forum.admin.topic_content')} *</Label>
                 <Textarea
                   id="topic-content"
-                  placeholder="Nhập nội dung chi tiết..."
+                  placeholder={t('forum.admin.topic_content_placeholder')}
                   rows={8}
                   value={topicForm.content}
                   onChange={(e) => setTopicForm({ ...topicForm, content: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="topic-author">Tác Giả</Label>
+                <Label htmlFor="topic-author">{t('forum.admin.topic_author')}</Label>
                 <Input
                   id="topic-author"
                   value={topicForm.author}
@@ -464,10 +479,10 @@ export function AdminForumPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateTopicOpen(false)}>
-                Hủy
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleCreateTopic}>
-                Tạo Chủ Đề
+                {t('forum.admin.create_topic_button')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -591,7 +606,7 @@ export function AdminForumPage() {
                     <TableHead>{t('forum.views_col')}</TableHead>
                     <TableHead>{t('forum.status_label')}</TableHead>
                     <TableHead>{t('forum.last_activity_col')}</TableHead>
-                    <TableHead className="text-right">{t('subscriptions_page.admin.actions')}</TableHead>
+                    <TableHead className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -600,7 +615,7 @@ export function AdminForumPage() {
                       <TableCell>
                         <div className="font-medium">{topic.title}</div>
                         <div className="text-sm text-muted-foreground">
-                          Created {topic.createdAt}
+                          {t('forum.admin.field_created_at')}: {topic.createdAt}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -622,7 +637,7 @@ export function AdminForumPage() {
                       <TableCell>
                         <Badge variant={getStatusColor(topic.status)} className="gap-1">
                           {getStatusIcon(topic.status)}
-                          {topic.status}
+                          {getStatusLabel(topic.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -634,7 +649,7 @@ export function AdminForumPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => openPreviewDialog(topic)}
-                            title="Quick Preview"
+                            title={t('forum.admin.preview_before_moderation')}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -642,7 +657,7 @@ export function AdminForumPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => openModerationDialog(topic)}
-                            title="Moderation"
+                            title={t('forum.admin.review')}
                           >
                             <Shield className="h-4 w-4 text-blue-600" />
                           </Button>
@@ -650,14 +665,14 @@ export function AdminForumPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => openConfirm(
-                              topic.status === 'pinned' ? 'Unpin topic' : 'Pin topic',
+                              topic.status === 'pinned' ? t('forum.unpin') : t('forum.pin_topic'),
                               topic.status === 'pinned'
-                                ? `Remove pin from "${topic.title}"?`
-                                : `Pin "${topic.title}" to highlight it?`,
-                              topic.status === 'pinned' ? 'Unpin' : 'Pin',
+                                ? t('forum.admin.unpin_topic_description', { title: topic.title })
+                                : t('forum.admin.pin_topic_description', { title: topic.title }),
+                              topic.status === 'pinned' ? t('forum.unpin') : t('forum.pin_topic'),
                               () => handlePinTopic(topic.id),
                             )}
-                            title={topic.status === 'pinned' ? 'Unpin' : 'Pin'}
+                            title={topic.status === 'pinned' ? t('forum.unpin') : t('forum.pin_topic')}
                           >
                             <CheckCircle className="h-4 w-4" />
                           </Button>
@@ -665,14 +680,14 @@ export function AdminForumPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => openConfirm(
-                              topic.status === 'locked' ? 'Unlock topic' : 'Lock topic',
+                              topic.status === 'locked' ? t('forum.unlock_topic') : t('forum.lock_topic'),
                               topic.status === 'locked'
-                                ? `Unlock "${topic.title}" so the discussion can continue?`
-                                : `Lock "${topic.title}"?`,
-                              topic.status === 'locked' ? 'Unlock' : 'Lock',
+                                ? t('forum.admin.unlock_topic_description', { title: topic.title })
+                                : t('forum.admin.lock_topic_description', { title: topic.title }),
+                              topic.status === 'locked' ? t('forum.unlock_topic') : t('forum.lock_topic'),
                               () => handleLockTopic(topic.id),
                             )}
-                            title={topic.status === 'locked' ? 'Unlock' : 'Lock'}
+                            title={topic.status === 'locked' ? t('forum.unlock_topic') : t('forum.lock_topic')}
                           >
                             {topic.status === 'locked' ? (
                               <Unlock className="h-4 w-4" />
@@ -684,13 +699,13 @@ export function AdminForumPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => openConfirm(
-                              'Delete topic',
-                              `Delete "${topic.title}"? This action cannot be undone.`,
-                              'Delete',
+                              t('forum.delete_topic'),
+                              t('forum.admin.confirm_delete_topic'),
+                              t('common.delete'),
                               () => handleDeleteTopic(topic.id),
                               true,
                             )}
-                            title="Delete"
+                            title={t('common.delete')}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -708,8 +723,8 @@ export function AdminForumPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Forum Categories</CardTitle>
-                <CardDescription>Manage discussion categories</CardDescription>
+                <CardTitle>{t('forum.admin.forum_categories_title')}</CardTitle>
+                <CardDescription>{t('forum.admin.forum_categories_description')}</CardDescription>
               </div>
               <Dialog open={isCreateCategoryOpen} onOpenChange={setIsCreateCategoryOpen}>
                 <DialogTrigger asChild>
@@ -730,16 +745,16 @@ export function AdminForumPage() {
                       <Label htmlFor="name">{t('forum.admin.category_name')} *</Label>
                       <Input
                         id="name"
-                        placeholder="e.g., React, JavaScript"
+                        placeholder={t('forum.admin.category_name_placeholder')}
                         value={categoryForm.name}
                         onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="description">Description</Label>
+                      <Label htmlFor="description">{t('forum.admin.description_label')}</Label>
                       <Textarea
                         id="description"
-                        placeholder="{t('forum.admin.category_description_placeholder')}"
+                        placeholder={t('forum.admin.category_description_placeholder')}
                         rows={3}
                         value={categoryForm.description}
                         onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
@@ -758,7 +773,7 @@ export function AdminForumPage() {
                   </div>
                   <DialogFooter>
                     <Button variant="outline" onClick={() => setIsCreateCategoryOpen(false)}>
-                      Cancel
+                      {t('common.cancel')}
                     </Button>
                     <Button onClick={handleCreateCategory}>
                       {t('forum.admin.create_category')}
@@ -779,10 +794,10 @@ export function AdminForumPage() {
                           <div className="flex items-center gap-4 mt-2">
                             <div className="flex items-center gap-2 text-sm">
                               <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                              {category.topicsCount} topics
+                              {t('forum.topics_count', { count: category.topicsCount })}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              Order: {category.order}
+                              {t('forum.admin.order_value', { order: category.order })}
                             </div>
                           </div>
                         </div>
@@ -796,21 +811,21 @@ export function AdminForumPage() {
                               setActiveTab('topics')
                             }}
                           >
-                            View topics
+                            {t('forum.admin.view_topics')}
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-destructive"
                             onClick={() => openConfirm(
-                              'Delete category',
-                              `Delete "${category.name}"? This action cannot be undone.`,
-                              'Delete',
+                              t('forum.delete_category'),
+                              t('forum.admin.confirm_delete_category'),
+                              t('common.delete'),
                               () => handleDeleteCategory(category.id),
                               true,
                             )}
                           >
-                            Delete
+                            {t('common.delete')}
                           </Button>
                         </div>
                       </div>
@@ -825,42 +840,42 @@ export function AdminForumPage() {
         <TabsContent value="reported" className="space-y-4">
           <AdminBulkActionBar
             count={selectedReportedTopicIds.length}
-            label="reported topics selected"
+            label={t('forum.admin.bulk_selected_label')}
             onClear={() => setSelectedReportedTopicIds([])}
             actions={[
               {
                 key: 'dismiss',
-                label: 'Dismiss reports',
+                label: t('forum.admin.dismiss_reports'),
                 onClick: () => openConfirm(
-                  'Dismiss selected reports',
-                  `Dismiss reports for ${selectedReportedTopicIds.length} selected topics?`,
-                  'Dismiss reports',
-                  () => bulkReportedAction(selectedReportedTopicIds, dismissReportedTopic, 'Da bo qua report da chon'),
+                  t('forum.admin.dismiss_reports_title'),
+                  t('forum.admin.dismiss_reports_description', { count: selectedReportedTopicIds.length }),
+                  t('forum.admin.dismiss_reports'),
+                  () => bulkReportedAction(selectedReportedTopicIds, dismissReportedTopic, t('forum.admin.bulk_dismiss_success')),
                 ),
               },
               {
                 key: 'lock',
-                label: 'Lock topics',
+                label: t('forum.admin.lock_topics'),
                 onClick: () => openConfirm(
-                  'Lock selected topics',
-                  `Lock ${selectedReportedTopicIds.length} reported topics?`,
-                  'Lock topics',
+                  t('forum.admin.lock_topics_title'),
+                  t('forum.admin.lock_topics_description', { count: selectedReportedTopicIds.length }),
+                  t('forum.admin.lock_topics'),
                   () => bulkReportedAction(selectedReportedTopicIds, (id) => moderateForumTopic(Number(id), { action: 'lock' }).then(() => {
                     setTopics(prev => prev.map(item => item.id === id ? { ...item, status: 'locked', reportCount: 0 } : item))
-                  }), 'Da khoa topic da chon'),
+                  }), t('forum.admin.bulk_lock_success')),
                 ),
               },
               {
                 key: 'delete',
-                label: 'Delete topics',
+                label: t('forum.admin.delete_topics'),
                 destructive: true,
                 onClick: () => openConfirm(
-                  'Delete selected topics',
-                  `Delete ${selectedReportedTopicIds.length} reported topics? This action cannot be undone.`,
-                  'Delete topics',
+                  t('forum.admin.delete_topics_title'),
+                  t('forum.admin.delete_topics_description', { count: selectedReportedTopicIds.length }),
+                  t('forum.admin.delete_topics'),
                   () => bulkReportedAction(selectedReportedTopicIds, (id) => deleteForumTopic(Number(id)).then(() => {
                     setTopics(prev => prev.filter(item => item.id !== id))
-                  }), 'Da xoa topic da chon'),
+                  }), t('forum.admin.bulk_delete_success')),
                   true,
                 ),
               },
@@ -868,15 +883,15 @@ export function AdminForumPage() {
           />
           <Card>
             <CardHeader>
-              <CardTitle>Reported Topics</CardTitle>
-              <CardDescription>Topics that need moderation</CardDescription>
+              <CardTitle>{t('forum.admin.reported_topics_title')}</CardTitle>
+              <CardDescription>{t('forum.admin.reported_topics_description')}</CardDescription>
             </CardHeader>
             <CardContent>
               {reportedTopics.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 mx-auto text-green-600 mb-4" />
-                  <h3 className="font-medium mb-1">All Clear!</h3>
-                  <p className="text-sm text-muted-foreground">No reported topics at the moment</p>
+                  <h3 className="font-medium mb-1">{t('forum.admin.all_clear_title')}</h3>
+                  <p className="text-sm text-muted-foreground">{t('forum.admin.all_clear_description')}</p>
                 </div>
               ) : (
                 <Table>
@@ -888,11 +903,11 @@ export function AdminForumPage() {
                           onCheckedChange={(checked) => toggleAllReported(Boolean(checked))}
                         />
                       </TableHead>
-                      <TableHead>Topic</TableHead>
-                      <TableHead>Author</TableHead>
-                      <TableHead>Reports</TableHead>
-                      <TableHead>Last Activity</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('forum.topic_col')}</TableHead>
+                      <TableHead>{t('forum.author_col')}</TableHead>
+                      <TableHead>{t('forum.admin.field_reports')}</TableHead>
+                      <TableHead>{t('forum.last_activity_col')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -906,11 +921,11 @@ export function AdminForumPage() {
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{topic.title}</div>
-                          <div className="text-sm text-muted-foreground">in {topic.category}</div>
+                          <div className="text-sm text-muted-foreground">{t('forum.admin.in_category', { category: topic.category })}</div>
                         </TableCell>
                         <TableCell>{topic.author}</TableCell>
                         <TableCell>
-                          <Badge variant="destructive">{topic.reportCount} reports</Badge>
+                          <Badge variant="destructive">{t('forum.admin.reports_count', { count: topic.reportCount })}</Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {topic.lastActivity}
@@ -921,7 +936,7 @@ export function AdminForumPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => openPreviewDialog(topic)}
-                              title="Quick View"
+                              title={t('forum.admin.preview_before_moderation')}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -932,34 +947,34 @@ export function AdminForumPage() {
                               onClick={() => openModerationDialog(topic)}
                             >
                               <Shield className="h-3 w-3" />
-                              Review
+                              {t('forum.admin.review')}
                             </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
                               onClick={() => openConfirm(
-                                'Dismiss report',
-                                `Dismiss reports for "${topic.title}" and keep the topic visible?`,
-                                'Dismiss report',
+                                t('forum.admin.dismiss_report_title'),
+                                t('forum.admin.dismiss_report_description', { title: topic.title }),
+                                t('forum.admin.dismiss_report'),
                                 () => dismissReportedTopic(topic.id).then(() => {
-                                  toast.success('Dismissed report')
+                                  toast.success(t('forum.admin.dismissed_report'))
                                 }),
                               )}
                             >
-                              Dismiss
+                              {t('forum.admin.dismiss_report')}
                             </Button>
                             <Button
                               variant="destructive"
                               size="sm"
                               onClick={() => openConfirm(
-                                'Delete topic',
-                                `Delete "${topic.title}"? This action cannot be undone.`,
-                                'Delete',
+                                t('forum.delete_topic'),
+                                t('forum.admin.confirm_delete_topic'),
+                                t('common.delete'),
                                 () => handleDeleteTopic(topic.id),
                                 true,
                               )}
                             >
-                              Delete
+                              {t('common.delete')}
                             </Button>
                           </div>
                         </TableCell>
@@ -991,10 +1006,10 @@ export function AdminForumPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-600" />
-              Kiểm Duyệt Nội Dung
+              {t('forum.admin.moderation_dialog_title')}
             </DialogTitle>
             <DialogDescription>
-              Thực hiện hành động kiểm duyệt cho chủ đề: <strong>{selectedTopicForModeration?.title}</strong>
+              {t('forum.admin.moderation_dialog_description', { title: selectedTopicForModeration?.title || '' })}
             </DialogDescription>
           </DialogHeader>
 
@@ -1006,10 +1021,10 @@ export function AdminForumPage() {
                   <Eye className="h-4 w-4 text-blue-600 mt-1" />
                   <div>
                     <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Xem Trước Khi Kiểm Duyệt
+                      {t('forum.admin.preview_before_moderation')}
                     </p>
                     <p className="text-xs text-blue-700 dark:text-blue-300">
-                      Đọc toàn bộ nội dung và phản hồi để đưa ra quyết định chính xác
+                      {t('forum.admin.preview_before_moderation_description')}
                     </p>
                   </div>
                 </div>
@@ -1020,7 +1035,7 @@ export function AdminForumPage() {
                     onClick={() => window.open(`/forum/topic/${selectedTopicForModeration?.id}`, '_blank')}
                   >
                     <ExternalLink className="h-4 w-4" />
-                    Mở Tab Mới
+                    {t('forum.admin.open_new_tab')}
                   </Button>
                   <Button
                     variant="default"
@@ -1031,7 +1046,7 @@ export function AdminForumPage() {
                     }}
                   >
                     <FileText className="h-4 w-4" />
-                    Chuyển Đến
+                    {t('forum.admin.go_to_topic')}
                   </Button>
                 </div>
               </CardContent>
@@ -1040,18 +1055,18 @@ export function AdminForumPage() {
             {/* Topic Info */}
             <Alert>
               <FileText className="h-4 w-4" />
-              <AlertTitle>Thông Tin Chủ Đề</AlertTitle>
+              <AlertTitle>{t('forum.admin.topic_info_title')}</AlertTitle>
               <AlertDescription>
                 <div className="mt-2 space-y-1">
-                  <div><strong>Tác giả:</strong> {selectedTopicForModeration?.author}</div>
-                  <div><strong>Danh mục:</strong> {selectedTopicForModeration?.category}</div>
-                  <div><strong>Lượt xem:</strong> {selectedTopicForModeration?.views}</div>
-                  <div><strong>Trả lời:</strong> {selectedTopicForModeration?.replies}</div>
-                  <div><strong>Ngày tạo:</strong> {selectedTopicForModeration?.createdAt}</div>
-                  <div><strong>Trạng thái:</strong> <Badge variant={getStatusColor(selectedTopicForModeration?.status || 'active')}>{selectedTopicForModeration?.status}</Badge></div>
-                  <div><strong>Số báo cáo:</strong> {selectedTopicForModeration?.reportCount || 0}</div>
+                  <div><strong>{t('forum.admin.field_author')}:</strong> {selectedTopicForModeration?.author}</div>
+                  <div><strong>{t('forum.admin.field_category')}:</strong> {selectedTopicForModeration?.category}</div>
+                  <div><strong>{t('forum.admin.field_views')}:</strong> {selectedTopicForModeration?.views}</div>
+                  <div><strong>{t('forum.admin.field_replies')}:</strong> {selectedTopicForModeration?.replies}</div>
+                  <div><strong>{t('forum.admin.field_created_at')}:</strong> {selectedTopicForModeration?.createdAt}</div>
+                  <div><strong>{t('forum.admin.field_status')}:</strong> <Badge variant={getStatusColor(selectedTopicForModeration?.status || 'active')}>{selectedTopicForModeration?.status ? getStatusLabel(selectedTopicForModeration.status) : getStatusLabel('active')}</Badge></div>
+                  <div><strong>{t('forum.admin.field_reports')}:</strong> {selectedTopicForModeration?.reportCount || 0}</div>
                   {selectedTopicForModeration?.lastReportReason && (
-                    <div><strong>Lý do gần nhất:</strong> {selectedTopicForModeration.lastReportReason}</div>
+                    <div><strong>{t('forum.admin.field_last_reason')}:</strong> {selectedTopicForModeration.lastReportReason}</div>
                   )}
                 </div>
               </AlertDescription>
@@ -1061,8 +1076,8 @@ export function AdminForumPage() {
             {selectedTopicForModeration?.content && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Nội Dung Preview</CardTitle>
-                  <CardDescription>Đọc nội dung để đánh giá trước khi kiểm duyệt</CardDescription>
+                  <CardTitle className="text-sm">{t('forum.admin.content_preview_title')}</CardTitle>
+                  <CardDescription>{t('forum.admin.content_preview_description')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="bg-secondary/50 p-4 rounded-lg max-h-48 overflow-y-auto">
@@ -1070,7 +1085,7 @@ export function AdminForumPage() {
                   </div>
                   {selectedTopicForModeration.content.length > 200 && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      * Hiển thị một phần nội dung. Click "Xem Chi Tiết" để đọc đầy đủ.
+                      {t('forum.admin.truncated_preview_hint')}
                     </p>
                   )}
                 </CardContent>
@@ -1079,31 +1094,31 @@ export function AdminForumPage() {
 
             {/* Moderation Action */}
             <div className="space-y-2">
-              <Label htmlFor="mod-action">Hành Động *</Label>
+              <Label htmlFor="mod-action">{t('forum.admin.moderation_action_label')} *</Label>
               <Select 
                 value={moderationAction.action}
                 onValueChange={(value) => setModerationAction({ ...moderationAction, action: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn hành động" />
+                  <SelectValue placeholder={t('forum.admin.moderation_action_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="approve">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-600" />
-                      Duyệt - Cho phép hiển thị
+                      {t('forum.admin.moderation_action_approve')}
                     </div>
                   </SelectItem>
                   <SelectItem value="lock">
                     <div className="flex items-center gap-2">
                       <Lock className="h-4 w-4 text-amber-600" />
-                      Khóa - Không cho phép trả lời mới
+                      {t('forum.admin.moderation_action_lock')}
                     </div>
                   </SelectItem>
                   <SelectItem value="delete">
                     <div className="flex items-center gap-2">
                       <Trash2 className="h-4 w-4 text-destructive" />
-                      Xóa - Xóa chủ đề hoàn toàn
+                      {t('forum.admin.moderation_action_delete')}
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -1112,16 +1127,16 @@ export function AdminForumPage() {
 
             {/* Reason */}
             <div className="space-y-2">
-              <Label htmlFor="mod-reason">Lý Do *</Label>
+              <Label htmlFor="mod-reason">{t('forum.admin.moderation_reason_label')} *</Label>
               <Textarea
                 id="mod-reason"
-                placeholder="Nhập lý do thực hiện hành động này..."
+                placeholder={t('forum.admin.moderation_reason_placeholder')}
                 rows={4}
                 value={moderationAction.reason}
                 onChange={(e) => setModerationAction({ ...moderationAction, reason: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Lý do này sẽ được gửi đến tác giả và lưu vào log kiểm duyệt
+                {t('forum.admin.moderation_reason_help')}
               </p>
             </div>
 
@@ -1129,9 +1144,9 @@ export function AdminForumPage() {
             {(moderationAction.action === 'delete') && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Cảnh Báo</AlertTitle>
+                <AlertTitle>{t('forum.admin.warning_title')}</AlertTitle>
                 <AlertDescription>
-                  Hành động này không thể hoàn tác. Vui lòng kiểm tra kỹ trước khi thực hiện.
+                  {t('forum.admin.warning_description')}
                 </AlertDescription>
               </Alert>
             )}
@@ -1146,13 +1161,13 @@ export function AdminForumPage() {
                 setModerationAction({ action: '', reason: '', duration: '' })
               }}
             >
-              Hủy
+              {t('common.cancel')}
             </Button>
             <Button 
               onClick={handleModeration}
               variant={moderationAction.action === 'delete' ? 'destructive' : 'default'}
             >
-              Thực Hiện
+              {t('forum.admin.execute')}
             </Button>
           </DialogFooter>
         </DialogContent>

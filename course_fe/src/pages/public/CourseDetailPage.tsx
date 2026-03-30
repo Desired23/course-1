@@ -150,13 +150,13 @@ export function CourseDetailPage() {
         const params = extractRouteParams('/course/:id', currentRoute)
         const courseId = Number(params?.id)
         if (!courseId || isNaN(courseId)) {
-          setError('Invalid course ID')
+          setError(t('course_detail.invalid_course_id'))
           return
         }
         const data = await getCourseById(courseId)
         if (!cancelled) setCourseData(data)
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load course')
+        if (!cancelled) setError(err.message || t('course_detail.load_failed'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -262,7 +262,7 @@ export function CourseDetailPage() {
         toast.success(t('course_detail.wishlist_added'))
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Lá»—i khi cáº­p nháº­t wishlist')
+      toast.error(err?.message || t('course_detail.wishlist_update_failed'))
     } finally {
       setWishlistLoading(false)
     }
@@ -286,22 +286,22 @@ export function CourseDetailPage() {
 
   const handleReportReview = async (review: Review) => {
     if (!isAuthenticated) {
-      toast.error('Vui long dang nhap de bao cao review')
+      toast.error(t('course_detail.login_to_report_review'))
       navigate('/login')
       return
     }
 
-    const reason = window.prompt('Nhap ly do bao cao review nay')
+    const reason = window.prompt(t('course_detail.report_review_prompt'))
     if (reason === null) return
 
     try {
       await reportReview(review.review_id, reason.trim())
-      toast.success('Da gui bao cao review')
+      toast.success(t('course_detail.review_reported'))
       if (courseData) {
         loadReviews(courseData.id)
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Gui bao cao that bai')
+      toast.error(err?.message || t('course_detail.review_report_failed'))
     }
   }
 
@@ -611,8 +611,8 @@ export function CourseDetailPage() {
                       /* Mobile: Free course */
                       <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <span className="text-2xl font-bold text-green-600">Miá»…n phÃ­</span>
-                            <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">Free</Badge>
+                            <span className="text-2xl font-bold text-green-600">{t('common.free')}</span>
+                            <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">{t('common.free')}</Badge>
                           </div>
                           <Button 
                             className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
@@ -789,7 +789,7 @@ export function CourseDetailPage() {
                        type="button"
                        onClick={handleOpenInstructorProfile}
                        className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                       aria-label={`Xem ho so giang vien ${courseData.instructor.full_name}`}
+                       aria-label={t('course_detail.view_instructor_profile', { name: courseData.instructor.full_name })}
                      >
                        <Avatar className="w-20 h-20 cursor-pointer">
                          <AvatarImage src={courseData.instructor.avatar || undefined} alt={courseData.instructor.full_name} />
@@ -811,7 +811,7 @@ export function CourseDetailPage() {
                         {user?.id !== courseData.instructor.user_id && (
                           <Button className="mt-3" variant="outline" onClick={() => void handleMessageInstructor()}>
                             <MessageSquare className="h-4 w-4 mr-2" />
-                            Nhan tin
+                            {t('course_detail.message_instructor')}
                           </Button>
                         )}
                      </div>
@@ -893,7 +893,7 @@ export function CourseDetailPage() {
                                    onClick={() => void handleReportReview(r)}
                                  >
                                    <Flag className="h-3.5 w-3.5 mr-1" />
-                                   Bao cao review
+                                    {t('course_detail.report_review')}
                                  </Button>
                                </div>
                              )}

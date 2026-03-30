@@ -1,4 +1,5 @@
 import { toast } from 'sonner'
+import i18n from './i18n'
 
 export const showNotification = {
   success: (message: string, description?: string) => {
@@ -18,41 +19,46 @@ export const showNotification = {
   },
   
   accessDenied: (permission?: string, role?: string) => {
-    const baseMessage = "Access Denied"
-    let description = "You don't have permission to perform this action."
+    const baseMessage = i18n.t('system_notifications.access_denied_title')
+    let description = i18n.t('system_notifications.access_denied_description')
     
     if (permission) {
-      description += ` Required permission: ${permission}`
+      description += ` ${i18n.t('system_notifications.required_permission', { permission })}`
     }
     if (role) {
-      description += ` Required role: ${role}`
+      description += ` ${i18n.t('system_notifications.required_role', { role })}`
     }
     
     toast.error(baseMessage, { description })
   },
   
   loginRequired: () => {
-    toast.warning("Login Required", {
-      description: "Please login to access this feature."
+    toast.warning(i18n.t('system_notifications.login_required_title'), {
+      description: i18n.t('system_notifications.login_required_description')
     })
   },
   
   featureComingSoon: (feature?: string) => {
-    const message = feature ? `${feature} Coming Soon` : "Feature Coming Soon"
+    const message = feature
+      ? i18n.t('system_notifications.feature_coming_soon_with_name', { feature })
+      : i18n.t('system_notifications.feature_coming_soon_title')
     toast.info(message, {
-      description: "This feature is currently in development."
+      description: i18n.t('system_notifications.feature_coming_soon_description')
     })
   },
   
   operationSuccess: (operation: string) => {
-    toast.success("Success", {
-      description: `${operation} completed successfully.`
+    toast.success(i18n.t('common.success'), {
+      description: i18n.t('system_notifications.operation_success', { operation })
     })
   },
   
   operationError: (operation: string, error?: string) => {
-    toast.error("Error", {
-      description: `Failed to ${operation.toLowerCase()}. ${error || 'Please try again.'}`
+    toast.error(i18n.t('common.error'), {
+      description: i18n.t('system_notifications.operation_error', {
+        operation,
+        error: error || i18n.t('system_notifications.try_again'),
+      })
     })
   }
 }

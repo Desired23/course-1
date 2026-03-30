@@ -22,6 +22,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSeparator
 } from './ui/dropdown-menu'
+import { useTranslation } from 'react-i18next'
 
 interface Subtitle {
   start: number
@@ -32,7 +33,7 @@ interface Subtitle {
 interface VideoPlayerWithSubtitlesProps {
   videoUrl: string
   subtitles?: Subtitle[]
-  availableLanguages?: { code: string; label: string }[]
+  availableLanguages?: { code: string; label?: string }[]
   onProgress?: (time: number) => void
   startTime?: number
   autoplay?: boolean
@@ -42,14 +43,15 @@ export function VideoPlayerWithSubtitles({
   videoUrl,
   subtitles = [],
   availableLanguages = [
-    { code: 'en', label: 'English' },
-    { code: 'vi', label: 'Tiếng Việt' },
-    { code: 'off', label: 'Off' }
+    { code: 'en' },
+    { code: 'vi' },
+    { code: 'off' }
   ],
   onProgress,
   startTime = 0,
   autoplay = false
 }: VideoPlayerWithSubtitlesProps) {
+  const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(startTime)
@@ -283,7 +285,13 @@ export function VideoPlayerWithSubtitles({
                     key={lang.code}
                     onClick={() => setSubtitleLanguage(lang.code)}
                   >
-                    {lang.label}
+                    {lang.code === 'en'
+                      ? t('video_player_with_subtitles.languages.en')
+                      : lang.code === 'vi'
+                        ? t('video_player_with_subtitles.languages.vi')
+                        : lang.code === 'off'
+                          ? t('video_player_with_subtitles.languages.off')
+                          : lang.label}
                     {subtitleLanguage === lang.code && ' ✓'}
                   </DropdownMenuItem>
                 ))}
@@ -304,7 +312,7 @@ export function VideoPlayerWithSubtitles({
               <DropdownMenuContent>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
-                    Speed: {playbackRate}x
+                    {t('video_player_with_subtitles.speed')}: {playbackRate}x
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(rate => (
@@ -320,7 +328,7 @@ export function VideoPlayerWithSubtitles({
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
-                    Quality: {quality}
+                    {t('video_player_with_subtitles.quality')}: {quality}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     {['auto', '1080p', '720p', '480p', '360p'].map(q => (

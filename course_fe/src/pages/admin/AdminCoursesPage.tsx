@@ -48,7 +48,7 @@ export function AdminCoursesPage() {
     courseId: null,
     courseTitle: '',
     nextStatus: 'published',
-    confirmLabel: 'Save',
+    confirmLabel: '',
     title: '',
     description: '',
     loading: false,
@@ -68,7 +68,7 @@ export function AdminCoursesPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
@@ -146,7 +146,7 @@ export function AdminCoursesPage() {
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to fetch courses:', err)
-          toast.error('Failed to load courses')
+          toast.error(t('admin_courses.toasts.load_failed'))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -171,6 +171,20 @@ export function AdminCoursesPage() {
         {config.text}
       </Badge>
     )
+  }
+
+  const getLocalizedLevel = (level?: string | null) => {
+    if (!level) return t('common.unknown')
+
+    switch (level) {
+      case 'beginner':
+      case 'intermediate':
+      case 'advanced':
+      case 'all_levels':
+        return t(`common.${level}`)
+      default:
+        return level
+    }
   }
 
   async function refetchCurrentPageAndCounts() {
@@ -214,7 +228,7 @@ export function AdminCoursesPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -237,12 +251,12 @@ export function AdminCoursesPage() {
       courseId,
       courseTitle,
       nextStatus,
-      confirmLabel: nextStatus === 'published' ? 'Approve course' : 'Reject course',
-      title: nextStatus === 'published' ? 'Approve course' : 'Reject course',
+      confirmLabel: nextStatus === 'published' ? t('admin_courses.moderation.approve_course') : t('admin_courses.moderation.reject_course'),
+      title: nextStatus === 'published' ? t('admin_courses.moderation.approve_course') : t('admin_courses.moderation.reject_course'),
       description:
         nextStatus === 'published'
-          ? `Publish "${courseTitle}" and optionally notify the instructor.`
-          : `Reject "${courseTitle}" and leave a moderation reason for the instructor.`,
+          ? t('admin_courses.moderation.approve_description', { title: courseTitle })
+          : t('admin_courses.moderation.reject_description', { title: courseTitle }),
       loading: false,
     })
   }
@@ -257,22 +271,22 @@ export function AdminCoursesPage() {
         send_notification: sendNotification,
         notify_message: sendNotification ? notifyMessage.trim() || undefined : undefined,
       })
-      toast.success(moderationState.nextStatus === 'published' ? 'Course approved' : 'Course rejected')
+      toast.success(moderationState.nextStatus === 'published' ? t('admin_courses.toasts.approve_success') : t('admin_courses.toasts.reject_success'))
       setModerationState(prev => ({ ...prev, open: false, loading: false }))
       await refetchCurrentPageAndCounts()
     } catch {
       setModerationState(prev => ({ ...prev, loading: false }))
-      toast.error(moderationState.nextStatus === 'published' ? 'Failed to approve course' : 'Failed to reject course')
+      toast.error(moderationState.nextStatus === 'published' ? t('admin_courses.toasts.approve_failed') : t('admin_courses.toasts.reject_failed'))
     }
   }
 
   const handleDeleteCourse = async (courseId: number) => {
     try {
       await deleteCourseApi(courseId)
-      toast.success('Course deleted')
+      toast.success(t('admin_courses.toasts.delete_success'))
       await refetchCurrentPageAndCounts()
     } catch {
-      toast.error('Failed to delete course')
+      toast.error(t('admin_courses.toasts.delete_failed'))
     }
   }
 
@@ -297,7 +311,7 @@ export function AdminCoursesPage() {
       setSelectedCourseIds([])
       await refetchCurrentPageAndCounts()
     } catch {
-      toast.error('Bulk action that bai')
+      toast.error(t('admin_courses.toasts.bulk_failed'))
     }
   }
 
@@ -308,8 +322,8 @@ export function AdminCoursesPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="mb-6 md:mb-8">
-        <h1 className="mb-2">Course Management</h1>
-        <p className="text-muted-foreground">Manage all courses on the platform</p>
+        <h1 className="mb-2">{t('admin_courses.title')}</h1>
+        <p className="text-muted-foreground">{t('admin_courses.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -317,7 +331,7 @@ export function AdminCoursesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Courses</p>
+                <p className="text-sm text-muted-foreground">{t('admin_courses.stats.total_courses')}</p>
                 <p className="text-2xl font-semibold mt-1">{statusCounts.all}</p>
               </div>
               <BookOpen className="h-8 w-8 text-muted-foreground" />
@@ -329,7 +343,7 @@ export function AdminCoursesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Published</p>
+                <p className="text-sm text-muted-foreground">{t('admin_courses.stats.published')}</p>
                 <p className="text-2xl font-semibold mt-1 text-green-600">{statusCounts.published}</p>
               </div>
               <Check className="h-8 w-8 text-green-600" />
@@ -341,7 +355,7 @@ export function AdminCoursesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Pending Review</p>
+                <p className="text-sm text-muted-foreground">{t('admin_courses.stats.pending_review')}</p>
                 <p className="text-2xl font-semibold mt-1 text-yellow-600">{statusCounts.pending}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-600" />
@@ -353,7 +367,7 @@ export function AdminCoursesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Students (Current Page)</p>
+                <p className="text-sm text-muted-foreground">{t('admin_courses.stats.students_current_page')}</p>
                 <p className="text-2xl font-semibold mt-1">{totalStudentsOnPage.toLocaleString()}</p>
               </div>
               <Users className="h-8 w-8 text-muted-foreground" />
@@ -366,7 +380,7 @@ export function AdminCoursesPage() {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search courses or instructors..."
+            placeholder={t('admin_courses.search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -375,52 +389,52 @@ export function AdminCoursesPage() {
 
         <Select value={sortBy} onValueChange={setSortBy}>
           <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="Sort by" />
+            <SelectValue placeholder={t('admin_courses.sort_label')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="recent">Most Recent</SelectItem>
-            <SelectItem value="students">Most Students</SelectItem>
-            <SelectItem value="rating">Highest Rated</SelectItem>
+            <SelectItem value="recent">{t('admin_courses.sort_recent')}</SelectItem>
+            <SelectItem value="students">{t('admin_courses.sort_students')}</SelectItem>
+            <SelectItem value="rating">{t('admin_courses.sort_rating')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <AdminBulkActionBar
         count={selectedCourseIds.length}
-        label="courses selected"
+        label={t('admin_courses.bulk.selected_label')}
         onClear={() => setSelectedCourseIds([])}
         actions={[
           {
             key: 'approve',
-            label: 'Approve',
+            label: t('admin_courses.approve'),
             onClick: () => openConfirm(
-              'Approve selected courses',
-              `Approve ${selectedCourseIds.length} selected courses?`,
-              'Approve',
-              () => bulkUpdateCourses(selectedCourseIds, (id) => updateCourse(id, { status: 'published' }), 'Da duyet khoa hoc'),
+              t('admin_courses.bulk.approve_title'),
+              t('admin_courses.bulk.approve_description', { count: selectedCourseIds.length }),
+              t('admin_courses.approve'),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => updateCourse(id, { status: 'published' }), t('admin_courses.toasts.bulk_approve_success')),
             ),
           },
           {
             key: 'reject',
-            label: 'Reject',
+            label: t('admin_courses.reject'),
             destructive: true,
             onClick: () => openConfirm(
-              'Reject selected courses',
-              `Reject ${selectedCourseIds.length} selected courses?`,
-              'Reject',
-              () => bulkUpdateCourses(selectedCourseIds, (id) => updateCourse(id, { status: 'rejected' }), 'Da tu choi khoa hoc'),
+              t('admin_courses.bulk.reject_title'),
+              t('admin_courses.bulk.reject_description', { count: selectedCourseIds.length }),
+              t('admin_courses.reject'),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => updateCourse(id, { status: 'rejected' }), t('admin_courses.toasts.bulk_reject_success')),
               true,
             ),
           },
           {
             key: 'delete',
-            label: 'Delete',
+            label: t('common.delete'),
             destructive: true,
             onClick: () => openConfirm(
-              'Delete selected courses',
-              `Delete ${selectedCourseIds.length} selected courses? This action cannot be undone.`,
-              'Delete',
-              () => bulkUpdateCourses(selectedCourseIds, (id) => deleteCourseApi(id), 'Da xoa khoa hoc'),
+              t('admin_courses.bulk.delete_title'),
+              t('admin_courses.bulk.delete_description', { count: selectedCourseIds.length }),
+              t('common.delete'),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => deleteCourseApi(id), t('admin_courses.toasts.bulk_delete_success')),
               true,
             ),
           },
@@ -430,11 +444,11 @@ export function AdminCoursesPage() {
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
         <div className="overflow-x-auto mb-6">
           <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="all" className="whitespace-nowrap">All ({statusCounts.all})</TabsTrigger>
-            <TabsTrigger value="published" className="whitespace-nowrap">Published ({statusCounts.published})</TabsTrigger>
-            <TabsTrigger value="pending" className="whitespace-nowrap">Pending ({statusCounts.pending})</TabsTrigger>
-            <TabsTrigger value="draft" className="whitespace-nowrap">Drafts ({statusCounts.draft})</TabsTrigger>
-            <TabsTrigger value="rejected" className="whitespace-nowrap">Rejected ({statusCounts.rejected})</TabsTrigger>
+            <TabsTrigger value="all" className="whitespace-nowrap">{t('admin_courses.tabs.all', { count: statusCounts.all })}</TabsTrigger>
+            <TabsTrigger value="published" className="whitespace-nowrap">{t('admin_courses.tabs.published', { count: statusCounts.published })}</TabsTrigger>
+            <TabsTrigger value="pending" className="whitespace-nowrap">{t('admin_courses.tabs.pending', { count: statusCounts.pending })}</TabsTrigger>
+            <TabsTrigger value="draft" className="whitespace-nowrap">{t('admin_courses.tabs.draft', { count: statusCounts.draft })}</TabsTrigger>
+            <TabsTrigger value="rejected" className="whitespace-nowrap">{t('admin_courses.tabs.rejected', { count: statusCounts.rejected })}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -470,35 +484,35 @@ export function AdminCoursesPage() {
                               <h3 className="font-semibold line-clamp-2 sm:line-clamp-1">{course.title}</h3>
                               {getStatusBadge(course.status)}
                             </div>
-                            <p className="text-sm text-muted-foreground">By {course.instructor_name || 'Unknown'}</p>
+                            <p className="text-sm text-muted-foreground">{t('admin_courses.by_instructor', { name: course.instructor_name || t('admin_courses.unknown') })}</p>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-muted-foreground mt-2">
-                              <span>{course.category_name || 'Uncategorized'} • {course.level}</span>
-                              <span className="hidden sm:inline">Created {course.created_at?.split('T')[0] || ''}</span>
+                              <span>{course.category_name || t('admin_courses.uncategorized')} / {getLocalizedLevel(course.level)}</span>
+                              <span className="hidden sm:inline">{t('admin_courses.created_at', { date: course.created_at?.split('T')[0] || '' })}</span>
                             </div>
                           </div>
 
                           <div className="flex gap-2 flex-shrink-0">
                             <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
                               <Eye className="h-4 w-4 md:mr-1" />
-                              <span className="hidden md:inline">View</span>
+                              <span className="hidden md:inline">{t('admin_courses.view')}</span>
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
                               <Edit className="h-4 w-4 md:mr-1" />
-                              <span className="hidden md:inline">Edit</span>
+                              <span className="hidden md:inline">{t('admin_courses.edit')}</span>
                             </Button>
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => openConfirm(
-                                'Delete course',
-                                `Delete "${course.title}"? This action cannot be undone.`,
-                                'Delete',
+                                t('admin_courses.actions.delete_title'),
+                                t('admin_courses.actions.delete_description', { title: course.title }),
+                                t('common.delete'),
                                 () => handleDeleteCourse(course.id),
                                 true,
                               )}
                             >
                               <Trash2 className="h-4 w-4 md:mr-1" />
-                              <span className="hidden md:inline">Delete</span>
+                              <span className="hidden md:inline">{t('common.delete')}</span>
                             </Button>
                           </div>
                         </div>
@@ -510,7 +524,7 @@ export function AdminCoursesPage() {
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <p className="font-semibold text-sm md:text-base">{(course.total_students || 0).toLocaleString()}</p>
                               </div>
-                              <p className="text-xs md:text-sm text-muted-foreground">Students</p>
+                              <p className="text-xs md:text-sm text-muted-foreground">{t('admin_courses.metrics.students')}</p>
                             </div>
 
                             <div className="text-center">
@@ -518,7 +532,7 @@ export function AdminCoursesPage() {
                                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                                 <p className="font-semibold text-sm md:text-base">{parseDecimal(course.rating).toFixed(1)}</p>
                               </div>
-                              <p className="text-xs md:text-sm text-muted-foreground">{course.total_reviews || 0} reviews</p>
+                              <p className="text-xs md:text-sm text-muted-foreground">{t('admin_courses.metrics.reviews', { count: course.total_reviews || 0 })}</p>
                             </div>
 
                             <div className="text-center">
@@ -526,12 +540,12 @@ export function AdminCoursesPage() {
                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                                 <p className="font-semibold text-sm md:text-base">${parseDecimal(course.price)}</p>
                               </div>
-                              <p className="text-xs md:text-sm text-muted-foreground">Price</p>
+                              <p className="text-xs md:text-sm text-muted-foreground">{t('admin_courses.metrics.price')}</p>
                             </div>
 
                             <div className="text-center">
                               <p className="font-semibold text-sm md:text-base">${Math.round((course.total_students || 0) * parseDecimal(course.price) * 0.7).toLocaleString()}</p>
-                              <p className="text-xs md:text-sm text-muted-foreground">Est. Revenue</p>
+                              <p className="text-xs md:text-sm text-muted-foreground">{t('admin_courses.metrics.estimated_revenue')}</p>
                             </div>
                           </div>
                         ) : course.status === 'pending' ? (
@@ -542,7 +556,7 @@ export function AdminCoursesPage() {
                               onClick={() => openModerationDialog(course.id, course.title, 'published')}
                             >
                               <Check className="h-4 w-4 mr-1" />
-                              Approve Course
+                              {t('admin_courses.moderation.approve_course')}
                             </Button>
                             <Button
                               variant="destructive"
@@ -550,7 +564,7 @@ export function AdminCoursesPage() {
                               onClick={() => openModerationDialog(course.id, course.title, 'rejected')}
                             >
                               <X className="h-4 w-4 mr-1" />
-                              Reject Course
+                              {t('admin_courses.moderation.reject_course')}
                             </Button>
                           </div>
                         ) : null}
@@ -564,8 +578,8 @@ export function AdminCoursesPage() {
                 <Card>
                   <CardContent className="text-center py-12">
                     <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="font-semibold mb-2">No courses found</h3>
-                    <p className="text-muted-foreground">Try adjusting your filters</p>
+                    <h3 className="font-semibold mb-2">{t('admin_courses.no_courses')}</h3>
+                    <p className="text-muted-foreground">{t('admin_courses.no_courses_hint')}</p>
                   </CardContent>
                 </Card>
               )}
@@ -577,10 +591,10 @@ export function AdminCoursesPage() {
                       checked={courses.length > 0 && selectedCourseIds.length === courses.length}
                       onCheckedChange={(checked) => toggleAllCourses(Boolean(checked))}
                     />
-                    <span className="text-sm text-muted-foreground">Select all courses on this page</span>
+                    <span className="text-sm text-muted-foreground">{t('admin_courses.select_all_on_page')}</span>
                   </div>
                   <div className="text-sm text-muted-foreground mb-3">
-                    Showing {startIdx}-{endIdx} of {totalCount} courses
+                    {t('admin_courses.pagination_summary', { start: startIdx, end: endIdx, total: totalCount })}
                   </div>
                   <UserPagination
                     currentPage={currentPage}
@@ -618,36 +632,37 @@ export function AdminCoursesPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="course-moderation-reason">Moderation reason</Label>
+              <Label htmlFor="course-moderation-reason">{t('admin_courses.moderation.reason')}</Label>
               <Textarea
                 id="course-moderation-reason"
                 value={moderationReason}
                 onChange={(event) => setModerationReason(event.target.value)}
-                placeholder="Add context for the instructor or internal audit trail"
+                placeholder={t('admin_courses.moderation.reason_placeholder')}
                 rows={4}
               />
             </div>
             <div className="flex items-start gap-3 rounded-lg border p-3">
               <Checkbox
+                id="course-moderation-notify"
                 checked={sendNotification}
                 onCheckedChange={(checked) => setSendNotification(Boolean(checked))}
                 className="mt-1"
               />
               <div className="space-y-1">
-                <Label htmlFor="course-moderation-message">Send notification to instructor</Label>
+                <Label htmlFor="course-moderation-notify">{t('admin_courses.moderation.send_notification')}</Label>
                 <p className="text-sm text-muted-foreground">
-                  Turn this off if you want to update the status quietly.
+                  {t('admin_courses.moderation.send_notification_hint')}
                 </p>
               </div>
             </div>
             {sendNotification && (
               <div className="space-y-2">
-                <Label htmlFor="course-moderation-message">Notification message</Label>
+                <Label htmlFor="course-moderation-message">{t('admin_courses.moderation.notification_message')}</Label>
                 <Textarea
                   id="course-moderation-message"
                   value={notifyMessage}
                   onChange={(event) => setNotifyMessage(event.target.value)}
-                  placeholder="Optional custom message sent with this moderation action"
+                  placeholder={t('admin_courses.moderation.notification_placeholder')}
                   rows={3}
                 />
               </div>
@@ -659,14 +674,14 @@ export function AdminCoursesPage() {
               onClick={() => setModerationState(prev => ({ ...prev, open: false }))}
               disabled={moderationState.loading}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant={moderationState.nextStatus === 'rejected' ? 'destructive' : 'default'}
               onClick={handleModerationSubmit}
               disabled={moderationState.loading}
             >
-              {moderationState.loading ? 'Saving...' : moderationState.confirmLabel}
+              {moderationState.loading ? t('admin_courses.moderation.saving') : moderationState.confirmLabel}
             </Button>
           </DialogFooter>
         </DialogContent>

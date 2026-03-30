@@ -5,6 +5,7 @@ import { Card } from "./ui/card"
 import { cn } from "./ui/utils"
 import { useState } from "react"
 import { useRouter } from "./Router"
+import { useTranslation } from "react-i18next"
 
 interface Task {
   id: string
@@ -23,6 +24,7 @@ interface PendingTasksProps {
 }
 
 export function PendingTasks({ userRole, className }: PendingTasksProps) {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [filter, setFilter] = useState<'all' | 'pending' | 'urgent'>('all')
 
@@ -32,8 +34,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       return [
         {
           id: '1',
-          title: 'Review Pending Courses',
-          description: '12 courses waiting for approval',
+          title: t('pending_tasks.mock.admin.review_pending_courses_title'),
+          description: t('pending_tasks.mock.admin.review_pending_courses_description'),
           priority: 'high',
           status: 'pending',
           actionUrl: '/admin/courses',
@@ -41,8 +43,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '2',
-          title: 'Process Refund Requests',
-          description: '5 refund requests need attention',
+          title: t('pending_tasks.mock.admin.process_refunds_title'),
+          description: t('pending_tasks.mock.admin.process_refunds_description'),
           priority: 'urgent',
           status: 'pending',
           dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
@@ -51,8 +53,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '3',
-          title: 'Review Reported Content',
-          description: '8 forum posts flagged by users',
+          title: t('pending_tasks.mock.admin.review_reported_content_title'),
+          description: t('pending_tasks.mock.admin.review_reported_content_description'),
           priority: 'high',
           status: 'in_progress',
           actionUrl: '/admin/forum',
@@ -60,8 +62,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '4',
-          title: 'Update Platform Settings',
-          description: 'Configure new payment gateway',
+          title: t('pending_tasks.mock.admin.update_platform_settings_title'),
+          description: t('pending_tasks.mock.admin.update_platform_settings_description'),
           priority: 'medium',
           status: 'pending',
           actionUrl: '/admin/settings',
@@ -69,8 +71,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '5',
-          title: 'Review User Reports',
-          description: '3 users reported for violation',
+          title: t('pending_tasks.mock.admin.review_user_reports_title'),
+          description: t('pending_tasks.mock.admin.review_user_reports_description'),
           priority: 'high',
           status: 'pending',
           dueDate: new Date(Date.now() + 1000 * 60 * 60 * 48),
@@ -84,8 +86,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       return [
         {
           id: '6',
-          title: 'Answer Student Questions',
-          description: '15 unanswered Q&A questions',
+          title: t('pending_tasks.mock.instructor.answer_student_questions_title'),
+          description: t('pending_tasks.mock.instructor.answer_student_questions_description'),
           priority: 'high',
           status: 'pending',
           actionUrl: '/instructor/qna',
@@ -93,8 +95,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '7',
-          title: 'Update Course Content',
-          description: 'React course needs new module',
+          title: t('pending_tasks.mock.instructor.update_course_content_title'),
+          description: t('pending_tasks.mock.instructor.update_course_content_description'),
           priority: 'medium',
           status: 'in_progress',
           dueDate: new Date(Date.now() + 1000 * 60 * 60 * 72),
@@ -103,8 +105,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '8',
-          title: 'Review Student Assignments',
-          description: '23 assignments pending review',
+          title: t('pending_tasks.mock.instructor.review_assignments_title'),
+          description: t('pending_tasks.mock.instructor.review_assignments_description'),
           priority: 'high',
           status: 'pending',
           actionUrl: '/instructor/courses',
@@ -112,8 +114,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '9',
-          title: 'Respond to Reviews',
-          description: '5 new reviews need response',
+          title: t('pending_tasks.mock.instructor.respond_reviews_title'),
+          description: t('pending_tasks.mock.instructor.respond_reviews_description'),
           priority: 'low',
           status: 'pending',
           actionUrl: '/instructor/reviews',
@@ -121,8 +123,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         },
         {
           id: '10',
-          title: 'Course Approval Pending',
-          description: 'Advanced Node.js waiting for admin approval',
+          title: t('pending_tasks.mock.instructor.course_approval_pending_title'),
+          description: t('pending_tasks.mock.instructor.course_approval_pending_description'),
           priority: 'medium',
           status: 'in_progress',
           actionUrl: '/instructor/courses',
@@ -135,8 +137,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
     return [
       {
         id: '11',
-        title: 'Complete Course Module',
-        description: 'Finish Module 5 of React Fundamentals',
+        title: t('pending_tasks.mock.user.complete_course_module_title'),
+        description: t('pending_tasks.mock.user.complete_course_module_description'),
         priority: 'medium',
         status: 'in_progress',
         dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3),
@@ -145,8 +147,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       },
       {
         id: '12',
-        title: 'Submit Assignment',
-        description: 'JavaScript project due soon',
+        title: t('pending_tasks.mock.user.submit_assignment_title'),
+        description: t('pending_tasks.mock.user.submit_assignment_description'),
         priority: 'urgent',
         status: 'pending',
         dueDate: new Date(Date.now() + 1000 * 60 * 60 * 12),
@@ -155,8 +157,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       },
       {
         id: '13',
-        title: 'Rate Completed Course',
-        description: 'Share your feedback on Web Development',
+        title: t('pending_tasks.mock.user.rate_course_title'),
+        description: t('pending_tasks.mock.user.rate_course_description'),
         priority: 'low',
         status: 'pending',
         actionUrl: '/my-learning',
@@ -185,9 +187,9 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
 
   const getStatusConfig = (status: string) => {
     const configs = {
-      pending: { label: 'To Do', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400' },
-      in_progress: { label: 'In Progress', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-      completed: { label: 'Done', color: 'bg-green-500/10 text-green-600 dark:text-green-400' },
+      pending: { label: t('pending_tasks.status.pending'), color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400' },
+      in_progress: { label: t('pending_tasks.status.in_progress'), color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+      completed: { label: t('pending_tasks.status.completed'), color: 'bg-green-500/10 text-green-600 dark:text-green-400' },
     }
     return configs[status as keyof typeof configs] || configs.pending
   }
@@ -198,8 +200,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
-    if (diffHours < 24) return `${diffHours}h left`
-    return `${diffDays}d left`
+    if (diffHours < 24) return t('pending_tasks.time.hours_left', { count: diffHours })
+    return t('pending_tasks.time.days_left', { count: diffDays })
   }
 
   const pendingCount = tasks.filter(t => t.status === 'pending').length
@@ -209,7 +211,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
     <Card className={cn("p-6", className)}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="font-medium mb-1">Pending Tasks</h2>
+          <h2 className="font-medium mb-1">{t('pending_tasks.title')}</h2>
           <p className="text-sm text-muted-foreground">
             {pendingCount} pending • {urgentCount} urgent
           </p>
@@ -220,21 +222,21 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
             size="sm"
             onClick={() => setFilter('all')}
           >
-            All
+            {t('pending_tasks.filters.all')}
           </Button>
           <Button
             variant={filter === 'pending' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilter('pending')}
           >
-            To Do
+            {t('pending_tasks.filters.pending')}
           </Button>
           <Button
             variant={filter === 'urgent' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilter('urgent')}
           >
-            Urgent
+            {t('pending_tasks.filters.urgent')}
           </Button>
         </div>
       </div>
@@ -243,8 +245,8 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         {filteredTasks.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>All tasks completed!</p>
-            <p className="text-sm mt-1">Great job staying on top of things</p>
+            <p>{t('pending_tasks.empty_title')}</p>
+            <p className="text-sm mt-1">{t('pending_tasks.empty_description')}</p>
           </div>
         ) : (
           filteredTasks.map((task) => {
@@ -309,7 +311,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
             else navigate('/my-learning')
           }}
         >
-          View All Tasks
+          {t('pending_tasks.view_all')}
         </Button>
       )}
     </Card>

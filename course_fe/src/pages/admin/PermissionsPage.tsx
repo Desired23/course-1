@@ -53,11 +53,34 @@ export function PermissionsPage() {
   const [selectedRole, setSelectedRole] = useState<RoleTemplate | null>(null)
   const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null)
   const [users, setUsers] = useState<UserWithPermissions[]>([])
-  const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([
-    { id: '1', name: 'Basic Student', description: 'Standard student with basic learning features', permissions: ['user.profile.view', 'user.profile.edit', 'user.courses.enroll', 'user.reviews.create'], isDefault: true },
-    { id: '2', name: 'Premium Student', description: 'Student with additional features and privileges', permissions: ['user.profile.view', 'user.profile.edit', 'user.courses.enroll', 'user.reviews.create'], isDefault: false },
-    { id: '3', name: 'Content Creator', description: 'Instructor with course creation capabilities', permissions: ['instructor.courses.create', 'instructor.courses.edit', 'instructor.earnings.view', 'instructor.students.manage'], isDefault: false },
-    { id: '4', name: 'Course Manager', description: 'Admin role for managing courses and content', permissions: ['admin.courses.manage', 'admin.blog.approve', 'admin.statistics.view'], isDefault: false }
+  const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([])
+
+  const getRoleLabel = (role: UserRole) => t(`permissions_page.roles.${role}`)
+  const getAdminLevelLabel = (level: 'super' | 'sub') =>
+    level === 'super' ? t('permissions_page.super_admin') : t('permissions_page.sub_admin')
+  const getStatusLabel = (status: UserWithPermissions['status']) => t(`permissions_page.statuses.${status}`)
+  const buildRoleTemplates = (uniqueAdminPermissions: string[]): RoleTemplate[] => ([
+    {
+      id: 'user',
+      name: t('permissions_page.role_templates.users_name'),
+      description: t('permissions_page.role_templates.users_description'),
+      permissions: ['user.profile.view', 'user.profile.edit', 'user.courses.enroll', 'user.reviews.create'],
+      isDefault: true,
+    },
+    {
+      id: 'instructor',
+      name: t('permissions_page.role_templates.instructors_name'),
+      description: t('permissions_page.role_templates.instructors_description'),
+      permissions: ['instructor.courses.create', 'instructor.courses.edit', 'instructor.earnings.view', 'instructor.students.manage'],
+      isDefault: false,
+    },
+    {
+      id: 'admin',
+      name: t('permissions_page.role_templates.admins_name'),
+      description: t('permissions_page.role_templates.admins_description'),
+      permissions: uniqueAdminPermissions,
+      isDefault: false,
+    },
   ])
 
   useEffect(() => {
@@ -86,35 +109,13 @@ export function PermissionsPage() {
           }
         }))
         const uniqueAdminPermissions = Array.from(new Set(apiAdmins.flatMap(admin => admin.permissions || [])))
-        setRoleTemplates([
-          {
-            id: 'user',
-            name: 'Users',
-            description: 'Nguoi dung hoc vien trong he thong',
-            permissions: ['user.profile.view', 'user.profile.edit', 'user.courses.enroll', 'user.reviews.create'],
-            isDefault: true,
-          },
-          {
-            id: 'instructor',
-            name: 'Instructors',
-            description: 'Giang vien co quyen quan ly noi dung khoa hoc',
-            permissions: ['instructor.courses.create', 'instructor.courses.edit', 'instructor.earnings.view', 'instructor.students.manage'],
-            isDefault: false,
-          },
-          {
-            id: 'admin',
-            name: 'Admins',
-            description: 'Tai khoan quan tri duoc backend cap quyen',
-            permissions: uniqueAdminPermissions,
-            isDefault: false,
-          },
-        ])
+        setRoleTemplates(buildRoleTemplates(uniqueAdminPermissions))
       } catch {
         toast.error(t('permissions_page.load_failed'))
       }
     }
     load()
-  }, [])
+  }, [t])
 
   if (!canAccess(['admin'], ['admin.permissions.manage'])) {
     return (
@@ -139,23 +140,29 @@ export function PermissionsPage() {
   const auditEntries = [
     {
       id: 'admins',
-      title: 'Admin accounts with explicit backend permissions',
-      description: `${users.filter((user) => user.roles.includes('admin')).length} admin account(s) currently managed from backend role assignments.`,
-      badge: 'Admin',
+      title: t('permissions_page.audit_entries.admins_title'),
+      description: t('permissions_page.audit_entries.admins_description', {
+        count: users.filter((user) => user.roles.includes('admin')).length,
+      }),
+      badge: t('permissions_page.audit_entries.admins_badge'),
       variant: 'destructive' as const,
     },
     {
       id: 'instructors',
-      title: 'Instructor-capable accounts',
-      description: `${users.filter((user) => user.roles.includes('instructor')).length} instructor account(s) can access instructor surfaces and content management.`,
-      badge: 'Instructor',
+      title: t('permissions_page.audit_entries.instructors_title'),
+      description: t('permissions_page.audit_entries.instructors_description', {
+        count: users.filter((user) => user.roles.includes('instructor')).length,
+      }),
+      badge: t('permissions_page.audit_entries.instructors_badge'),
       variant: 'default' as const,
     },
     {
       id: 'permissions',
-      title: 'Explicit per-admin permissions',
-      description: `${users.reduce((total, user) => total + user.permissions.length, 0)} explicit permission assignment(s) loaded from backend admin records.`,
-      badge: 'Permissions',
+      title: t('permissions_page.audit_entries.permissions_title'),
+      description: t('permissions_page.audit_entries.permissions_description', {
+        count: users.reduce((total, user) => total + user.permissions.length, 0),
+      }),
+      badge: t('permissions_page.audit_entries.permissions_badge'),
       variant: 'secondary' as const,
     },
   ]
@@ -228,7 +235,7 @@ export function PermissionsPage() {
           <h1 className="text-3xl font-bold">{t('permissions_page.title')}</h1>
           <p className="text-muted-foreground">{t('permissions_page.subtitle')}</p>
         </div>
-        <Badge variant="outline">Backend-backed user permission management</Badge>
+        <Badge variant="outline">{t('permissions_page.badges.backend_backed')}</Badge>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -273,7 +280,7 @@ export function PermissionsPage() {
                     <TableHead>{t('permissions_page.table.permissions')}</TableHead>
                     <TableHead>{t('permissions_page.table.status')}</TableHead>
                     <TableHead>{t('permissions_page.table.last_login')}</TableHead>
-                    <TableHead>{t('permissions_page.table.actions')}</TableHead>
+                    <TableHead>{t('permissions_page.table.table_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -295,8 +302,8 @@ export function PermissionsPage() {
                         <div className="flex flex-wrap gap-1">
                           {user.roles.map((role) => (
                             <Badge key={role} variant={getRoleBadgeVariant(role)} className="text-xs">
-                              {role}
-                              {user.adminLevel && role === 'admin' && ` (${user.adminLevel})`}
+                              {getRoleLabel(role)}
+                              {user.adminLevel && role === 'admin' && ` (${getAdminLevelLabel(user.adminLevel)})`}
                             </Badge>
                           ))}
                         </div>
@@ -309,7 +316,7 @@ export function PermissionsPage() {
                       <TableCell>
                         <Badge variant={user.status === 'active' ? 'default' : 
                                      user.status === 'inactive' ? 'secondary' : 'destructive'}>
-                          {user.status}
+                          {getStatusLabel(user.status)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
@@ -373,7 +380,7 @@ export function PermissionsPage() {
                       </Button>
                       <Button size="sm" variant="outline" disabled>
                         <Edit className="h-3 w-3 mr-1" />
-                        View only
+                        {t('permissions_page.view_only')}
                       </Button>
                     </div>
                   </div>
@@ -402,7 +409,7 @@ export function PermissionsPage() {
                         <div key={permission.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div>
                             <p className="font-medium">{permission.name}</p>
-                            <p className="text-sm text-muted-foreground">{permission.description}</p>
+                            <p className="text-sm text-muted-foreground">{t(permission.description)}</p>
                             <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
                               {permission.id}
                             </code>
@@ -462,7 +469,7 @@ export function PermissionsPage() {
                         checked={editingUser.roles.includes(role)}
                         onCheckedChange={() => handleToggleRole(role)}
                       />
-                      <Label htmlFor={`role-${role}`} className="capitalize">{role}</Label>
+                      <Label htmlFor={`role-${role}`}>{getRoleLabel(role)}</Label>
                     </div>
                   ))}
                 </div>
@@ -540,7 +547,7 @@ export function PermissionsPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge variant={selectedRole.isDefault ? 'outline' : 'secondary'}>
-                  {selectedRole.isDefault ? t('permissions_page.default') : 'Custom-backed'}
+                  {selectedRole.isDefault ? t('permissions_page.default') : t('permissions_page.badges.custom_backed')}
                 </Badge>
                 <Badge variant="outline">
                   {t('permissions_page.role_permissions_count', { count: selectedRole.permissions.length })}
@@ -549,7 +556,7 @@ export function PermissionsPage() {
 
               <div className="grid gap-2 max-h-72 overflow-y-auto">
                 {selectedRole.permissions.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No explicit permissions mapped for this role.</p>
+                  <p className="text-sm text-muted-foreground">{t('permissions_page.no_explicit_permissions')}</p>
                 )}
                 {selectedRole.permissions.map((permissionId) => {
                   const permission = PERMISSIONS.find((item) => item.id === permissionId)
@@ -559,10 +566,10 @@ export function PermissionsPage() {
                       <div>
                         <p className="font-medium">{permission?.name || permissionId}</p>
                         <p className="text-sm text-muted-foreground">
-                          {permission?.description || 'Backend-provided permission mapping'}
+                          {permission?.description || t('permissions_page.backend_permission_mapping')}
                         </p>
                       </div>
-                      <Badge variant="outline">{permission?.category || 'Backend'}</Badge>
+                      <Badge variant="outline">{permission?.category || t('permissions_page.backend_label')}</Badge>
                     </div>
                   )
                 })}
@@ -597,8 +604,8 @@ export function PermissionsPage() {
                   <div className="flex items-center gap-2 mt-2">
                     {selectedUser.roles.map((role) => (
                       <Badge key={role} variant={getRoleBadgeVariant(role)}>
-                        {role}
-                        {selectedUser.adminLevel && role === 'admin' && ` (${selectedUser.adminLevel})`}
+                        {getRoleLabel(role)}
+                        {selectedUser.adminLevel && role === 'admin' && ` (${getAdminLevelLabel(selectedUser.adminLevel)})`}
                       </Badge>
                     ))}
                   </div>
@@ -619,7 +626,7 @@ export function PermissionsPage() {
                 <div>
                   <Label>{t('permissions_page.table.status')}</Label>
                   <Badge variant={selectedUser.status === 'active' ? 'default' : 'secondary'}>
-                    {selectedUser.status}
+                    {getStatusLabel(selectedUser.status)}
                   </Badge>
                 </div>
                 <div>

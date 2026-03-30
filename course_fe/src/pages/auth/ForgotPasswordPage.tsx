@@ -1,39 +1,40 @@
 import { useState } from 'react'
-import { useRouter } from '../../components/Router'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Alert, AlertDescription } from '../../components/ui/alert'
-import { CheckCircle2, Mail, ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2, Mail } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useRouter } from '../../components/Router'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import { Input } from '../../components/ui/input'
+
 export function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [email, setEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+
     if (!email.trim()) {
-      toast.error('Please enter your email')
+      toast.error(t('auth.email_required'))
       return
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      toast.error('Please enter a valid email')
+      toast.error(t('auth.email_invalid'))
       return
     }
 
     setIsSubmitting(true)
 
-    // Simulate API call
     setTimeout(() => {
       setEmailSent(true)
       setIsSubmitting(false)
-      toast.success('Password reset link sent to your email')
+      toast.success(t('forgot_password_page.email_sent_toast'))
     }, 1500)
   }
 
@@ -48,21 +49,18 @@ export function ForgotPasswordPage() {
                   <CheckCircle2 className="w-10 h-10 text-green-600" />
                 </div>
               </div>
-              <h2 className="text-2xl">Check Your Email</h2>
+              <h2 className="text-2xl">{t('forgot_password_page.check_email_title')}</h2>
               <p className="text-muted-foreground">
-                We've sent a password reset link to <strong>{email}</strong>
+                {t('forgot_password_page.check_email_description')} <strong>{email}</strong>
               </p>
               <p className="text-sm text-muted-foreground">
-                Didn't receive the email? Check your spam folder or{' '}
-                <button 
-                  onClick={() => setEmailSent(false)}
-                  className="text-primary hover:underline"
-                >
-                  try another email address
+                {t('forgot_password_page.check_email_hint')}{' '}
+                <button onClick={() => setEmailSent(false)} className="text-primary hover:underline">
+                  {t('forgot_password_page.try_another_email')}
                 </button>
               </p>
               <Button onClick={() => navigate('/login')} className="w-full">
-                Back to Login
+                {t('forgot_password_page.back_to_login')}
               </Button>
             </div>
           </CardContent>
@@ -80,35 +78,29 @@ export function ForgotPasswordPage() {
               <Mail className="w-8 h-8 text-primary" />
             </div>
           </div>
-          <CardTitle>Forgot Password?</CardTitle>
-          <CardDescription>
-            No worries, we'll send you reset instructions
-          </CardDescription>
+          <CardTitle>{t('forgot_password_page.title')}</CardTitle>
+          <CardDescription>{t('forgot_password_page.subtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
+              <label className="text-sm font-medium">{t('auth.email')}</label>
               <Input
                 type="email"
-                placeholder="Enter your email"
+                placeholder={t('forgot_password_page.email_placeholder')}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
               />
             </div>
 
-            <Button 
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full"
-            >
+            <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
+                  {t('forgot_password_page.sending')}
                 </>
               ) : (
-                'Send Reset Link'
+                t('forgot_password_page.send_reset_link')
               )}
             </Button>
 
@@ -119,7 +111,7 @@ export function ForgotPasswordPage() {
               className="w-full"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Login
+              {t('forgot_password_page.back_to_login')}
             </Button>
           </form>
         </CardContent>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 export interface WishlistItem {
   wishlist_id: number
@@ -28,6 +29,7 @@ interface WishlistContextType {
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined)
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [wishlist, setWishlist] = useState<WishlistItem[]>([])
 
@@ -67,12 +69,12 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
   const addToWishlist = (courseId: string, courseData?: Partial<WishlistItem>) => {
     if (!user) {
-      toast.error('Please login to add to wishlist')
+      toast.error(t('wishlist_context.toasts.login_to_add'))
       return
     }
 
     if (isInWishlist(courseId)) {
-      toast.info('Course already in wishlist')
+      toast.info(t('wishlist_context.toasts.already_in_wishlist'))
       return
     }
 
@@ -85,19 +87,19 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     }
 
     setWishlist(prev => [...prev, newItem])
-    toast.success('Added to wishlist ❤️')
+    toast.success(t('wishlist_context.toasts.added'))
   }
 
   const removeFromWishlist = (courseId: string) => {
     if (!user) return
 
     setWishlist(prev => prev.filter(item => item.course_id !== courseId))
-    toast.success('Removed from wishlist')
+    toast.success(t('wishlist_context.toasts.removed'))
   }
 
   const clearWishlist = () => {
     setWishlist([])
-    toast.success('Wishlist cleared')
+    toast.success(t('wishlist_context.toasts.cleared'))
   }
 
   const getWishlistCount = (): number => {
@@ -106,14 +108,14 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
 
   const moveToCart = (courseId: string) => {
     if (!user) {
-      toast.error('Please login to add to cart')
+      toast.error(t('wishlist_context.toasts.login_to_add_to_cart'))
       return
     }
 
     // This would integrate with CartContext
     // For now, just remove from wishlist
     removeFromWishlist(courseId)
-    toast.success('Moved to cart')
+    toast.success(t('wishlist_context.toasts.moved_to_cart'))
   }
 
   const value = {

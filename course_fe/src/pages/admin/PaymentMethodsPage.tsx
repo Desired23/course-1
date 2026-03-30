@@ -116,7 +116,7 @@ export function PaymentMethodsPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: t('common.confirm'),
     destructive: false,
     loading: false,
     action: null,
@@ -267,7 +267,7 @@ export function PaymentMethodsPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: t('common.confirm'),
         destructive: false,
         loading: false,
         action: null,
@@ -320,7 +320,7 @@ export function PaymentMethodsPage() {
                       <SelectContent>
                         <SelectItem value="credit_card">{t('payment_methods_admin.types.credit_card')}</SelectItem>
                         <SelectItem value="debit_card">{t('payment_methods_admin.types.debit_card')}</SelectItem>
-                        <SelectItem value="paypal">PayPal</SelectItem>
+                        <SelectItem value="paypal">{t('payment_methods_admin.types.paypal')}</SelectItem>
                         <SelectItem value="apple_pay">{t('payment_methods_admin.types.apple_pay')}</SelectItem>
                         <SelectItem value="google_pay">{t('payment_methods_admin.types.google_pay')}</SelectItem>
                         <SelectItem value="bank_transfer">{t('payment_methods_admin.types.bank_transfer')}</SelectItem>
@@ -446,11 +446,11 @@ export function PaymentMethodsPage() {
                       <Switch
                         checked={method.isActive}
                         onCheckedChange={() => openConfirm(
-                          method.isActive ? 'Disable payment method' : 'Enable payment method',
+                          method.isActive ? t('payment_methods_admin.confirm.disable_title') : t('payment_methods_admin.confirm.enable_title'),
                           method.isActive
-                            ? `Disable "${method.name}" for checkout and payment processing?`
-                            : `Enable "${method.name}" for checkout and payment processing?`,
-                          method.isActive ? 'Disable' : 'Enable',
+                            ? t('payment_methods_admin.confirm.disable_description', { name: method.name })
+                            : t('payment_methods_admin.confirm.enable_description', { name: method.name }),
+                          method.isActive ? t('payment_methods_admin.confirm.disable_label') : t('payment_methods_admin.confirm.enable_label'),
                           () => handleToggleMethod(method.id),
                         )}
                       />
@@ -461,9 +461,9 @@ export function PaymentMethodsPage() {
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openConfirm(
-                        'Delete payment method',
-                        `Delete "${method.name}"? This action cannot be undone.`,
-                        'Delete',
+                        t('payment_methods_admin.confirm.delete_title'),
+                        t('payment_methods_admin.confirm.delete_description', { name: method.name }),
+                        t('common.delete'),
                         () => handleDeleteMethod(method.id),
                         true,
                       )}>

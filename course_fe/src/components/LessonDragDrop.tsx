@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
+import { useTranslation } from 'react-i18next'
 import { GripVertical, Play, FileText, HelpCircle, Clock, Edit3, Eye, Trash2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
@@ -52,14 +53,14 @@ const getTypeIcon = (type: string) => {
   }
 }
 
-const getStatusBadge = (status: string) => {
+const getStatusBadge = (status: string, t: (key: string) => string) => {
   switch (status) {
     case 'published':
-      return <Badge className="bg-green-500 hover:bg-green-600">Published</Badge>
+      return <Badge className="bg-green-500 hover:bg-green-600">{t('lesson_drag_drop.status.published')}</Badge>
     case 'draft':
-      return <Badge variant="secondary">Draft</Badge>
+      return <Badge variant="secondary">{t('lesson_drag_drop.status.draft')}</Badge>
     case 'pending':
-      return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pending</Badge>
+      return <Badge className="bg-yellow-500 hover:bg-yellow-600">{t('lesson_drag_drop.status.pending')}</Badge>
     default:
       return <Badge variant="outline">{status}</Badge>
   }
@@ -78,6 +79,7 @@ export function DraggableLessonCard({
   onClick,
   sectionIndex
 }: DraggableLessonProps) {
+  const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
   
   const [{ handlerId, isOverCurrent }, drop] = useDrop<DragItem, void, { handlerId: any, isOverCurrent: boolean }>({
@@ -183,7 +185,7 @@ export function DraggableLessonCard({
           <Clock className="h-3 w-3" />
           <span>{lesson.duration}</span>
         </div>
-        {getStatusBadge(lesson.status)}
+        {getStatusBadge(lesson.status, t)}
       </div>
       
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -215,7 +217,7 @@ export function DraggableLessonCard({
           className="h-8 w-8 p-0 hover:bg-destructive/10 transition-all duration-200"
           onClick={(e) => {
             e.stopPropagation()
-            if (confirm('Delete this lesson?')) {
+            if (confirm(t('lesson_drag_drop.confirm_delete'))) {
               onDelete(lesson.id)
             }
           }}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -45,9 +45,10 @@ import {
 import { toast } from 'sonner'
 import { getAdminPayments, fixPayment } from '../../services/admin.api'
 import type { AdminPayment } from '../../services/admin.api'
-import { getPaymentStatus, getAdminRefunds, updateAdminRefundStatus, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
+import { adminRefundAction, getPaymentStatus, getAdminRefunds, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
 import type { AdminRefundItem } from '../../services/payment.api'
+import type { RefundSettings } from '../../services/payment.api'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 
@@ -78,6 +79,7 @@ interface Payment {
 
 interface RefundRequest {
   id: string
+  refund_id: number
   payment_id: string
   payment_details_ids: number[]
   user_name: string
@@ -85,13 +87,22 @@ interface RefundRequest {
   course_title: string
   amount: number
   reason: string
-  status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  status: 'pending' | 'processing' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled' | 'deleted'
   requested_at: Date
   processed_at?: Date
   processed_by?: string | null
   learning_progress: number
   course_completion_days: number
   transaction_id?: string | null
+  gateway_attempt_count: number
+  last_gateway_attempt_at?: Date
+  next_retry_at?: Date
+  last_gateway_error?: string | null
+  internal_note_summary?: string | null
+  is_deleted: boolean
+  deleted_at?: Date
+  retryable: boolean
+  timeline: Array<{ event: string; actor?: string | null; note?: string | null; timestamp: string }>
 }
 
 interface PaymentPolicy {
@@ -135,7 +146,7 @@ interface DiscountRule {
   status: 'active' | 'inactive' | 'expired'
 }
 
-type PaymentConfigEditorType = 'policies' | 'instructor-rates' | 'discounts'
+type PaymentConfigEditorType = 'policies' | 'instructor-rates' | 'discounts' | 'refund-settings'
 
 function mapPolicies(value: any[]): PaymentPolicy[] {
   return (value || []).map((item: any) => ({
@@ -164,6 +175,36 @@ function stringifyConfig(value: unknown) {
   return JSON.stringify(value, (_key, item) => item instanceof Date ? item.toISOString() : item, 2)
 }
 
+function mapRefundRequest(refund: AdminRefundItem): RefundRequest {
+  return {
+    id: String(refund.refund_id),
+    refund_id: refund.refund_id,
+    payment_id: String(refund.payment_id),
+    payment_details_ids: refund.payment_details_ids,
+    user_name: refund.user_name || '',
+    user_email: refund.user_email,
+    course_title: refund.course_title || '',
+    amount: refund.amount,
+    reason: refund.reason || '',
+    status: refund.status,
+    requested_at: new Date(refund.requested_at),
+    processed_at: refund.processed_at ? new Date(refund.processed_at) : undefined,
+    processed_by: refund.processed_by,
+    learning_progress: refund.learning_progress,
+    course_completion_days: refund.course_completion_days,
+    transaction_id: refund.transaction_id,
+    gateway_attempt_count: refund.gateway_attempt_count || 0,
+    last_gateway_attempt_at: refund.last_gateway_attempt_at ? new Date(refund.last_gateway_attempt_at) : undefined,
+    next_retry_at: refund.next_retry_at ? new Date(refund.next_retry_at) : undefined,
+    last_gateway_error: refund.last_gateway_error,
+    internal_note_summary: refund.internal_note_summary,
+    is_deleted: refund.is_deleted,
+    deleted_at: refund.deleted_at ? new Date(refund.deleted_at) : undefined,
+    retryable: refund.retryable,
+    timeline: refund.timeline || [],
+  }
+}
+
 
 export function PaymentManagementPage() {
   const { user, hasPermission } = useAuth()
@@ -184,6 +225,14 @@ export function PaymentManagementPage() {
   const [policies, setPolicies] = useState<PaymentPolicy[]>([])
   const [instructorRates, setInstructorRates] = useState<InstructorRate[]>([])
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([])
+  const [refundSettings, setRefundSettings] = useState<RefundSettings>({
+    refund_mode: 'admin_approval',
+    refund_retry_cooldown_minutes: 30,
+    refund_max_retry_count: 3,
+    refund_timeout_seconds: 15,
+    allow_admin_override_refund_status: true,
+    allow_admin_soft_delete_refund: true,
+  })
   const [filteredPayments, setFilteredPayments] = useState<AdminPayment[]>([])
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<number[]>([])
   const [selectedRefundIds, setSelectedRefundIds] = useState<string[]>([])
@@ -204,11 +253,32 @@ export function PaymentManagementPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: t('common.confirm'),
     destructive: false,
     loading: false,
     action: null,
   })
+  const [refundSettingsDraft, setRefundSettingsDraft] = useState<RefundSettings>(refundSettings)
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false)
+  const [noteDialogValue, setNoteDialogValue] = useState('')
+  const [noteTargetRefundId, setNoteTargetRefundId] = useState<number | null>(null)
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
+  const [overrideTargetRefundId, setOverrideTargetRefundId] = useState<number | null>(null)
+  const [overrideStatusValue, setOverrideStatusValue] = useState<'success' | 'failed' | 'rejected' | 'cancelled'>('failed')
+  const [overrideNoteValue, setOverrideNoteValue] = useState('')
+
+  const getRefundModeLabel = (mode: RefundSettings['refund_mode']) =>
+    t(`payment_management.refunds.settings.mode_options.${mode}`)
+
+  const getToggleStatusLabel = (enabled: boolean) =>
+    enabled ? t('payment_management.common.enabled') : t('payment_management.common.disabled')
+
+  const loadRefundQueue = async () => {
+    const refunds = await getAdminRefunds({ page: 1, page_size: 200, include_deleted: true })
+    const mappedRefunds = (refunds.results || []).map((refund: AdminRefundItem) => mapRefundRequest(refund))
+    setRefundRequests(mappedRefunds)
+    setFilteredRefundRequests(mappedRefunds.filter((refund) => !refund.is_deleted))
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -225,55 +295,23 @@ export function PaymentManagementPage() {
       }
 
       try {
-        const refunds = await getAdminRefunds({ page: 1, page_size: 200 })
-        setRefundRequests((refunds.results || []).map((refund: AdminRefundItem) => ({
-          id: String(refund.refund_id),
-          payment_id: String(refund.payment_id),
-          payment_details_ids: refund.payment_details_ids,
-          user_name: refund.user_name || '',
-          user_email: refund.user_email,
-          course_title: refund.course_title || '',
-          amount: refund.amount,
-          reason: refund.reason || '',
-          status: refund.status,
-          requested_at: new Date(refund.requested_at),
-          processed_at: refund.processed_at ? new Date(refund.processed_at) : undefined,
-          processed_by: refund.processed_by,
-          learning_progress: refund.learning_progress,
-          course_completion_days: refund.course_completion_days,
-          transaction_id: refund.transaction_id,
-        })))
-        setFilteredRefundRequests((refunds.results || []).map((refund: AdminRefundItem) => ({
-          id: String(refund.refund_id),
-          payment_id: String(refund.payment_id),
-          payment_details_ids: refund.payment_details_ids,
-          user_name: refund.user_name || '',
-          user_email: refund.user_email,
-          course_title: refund.course_title || '',
-          amount: refund.amount,
-          reason: refund.reason || '',
-          status: refund.status,
-          requested_at: new Date(refund.requested_at),
-          processed_at: refund.processed_at ? new Date(refund.processed_at) : undefined,
-          processed_by: refund.processed_by,
-          learning_progress: refund.learning_progress,
-          course_completion_days: refund.course_completion_days,
-          transaction_id: refund.transaction_id,
-        })))
+        await loadRefundQueue()
       } catch {
         setRefundRequests([])
         setFilteredRefundRequests([])
       }
 
       try {
-        const [policyConfig, rateConfig, discountConfig] = await Promise.all([
+        const [policyConfig, rateConfig, discountConfig, refundConfig] = await Promise.all([
           getPaymentAdminConfig<any[]>('policies'),
           getPaymentAdminConfig<any[]>('instructor-rates'),
           getPaymentAdminConfig<any[]>('discounts'),
+          getPaymentAdminConfig<RefundSettings>('refund-settings'),
         ])
         setPolicies(mapPolicies(policyConfig.value))
         setInstructorRates(mapInstructorRates(rateConfig.value))
         setDiscountRules(mapDiscountRules(discountConfig.value))
+        setRefundSettings(refundConfig.value)
       } catch {
         setPolicies([])
         setInstructorRates([])
@@ -293,6 +331,11 @@ export function PaymentManagementPage() {
       setConfigEditorValue(stringifyConfig(instructorRates))
       return
     }
+    if (type === 'refund-settings') {
+      setRefundSettingsDraft(refundSettings)
+      setConfigEditorValue(stringifyConfig(refundSettings))
+      return
+    }
     setConfigEditorValue(stringifyConfig(discountRules))
   }
 
@@ -300,19 +343,20 @@ export function PaymentManagementPage() {
     if (!configEditorType) return
     try {
       setConfigSaving(true)
-      const parsed = JSON.parse(configEditorValue)
-      if (!Array.isArray(parsed)) {
-        toast.error('Config payload must be a JSON array.')
+      const parsed = configEditorType === 'refund-settings' ? refundSettingsDraft : JSON.parse(configEditorValue)
+      if (configEditorType !== 'refund-settings' && !Array.isArray(parsed)) {
+        toast.error(t('payment_management.config_invalid_array'))
         return
       }
       const response = await updatePaymentAdminConfig(configEditorType, parsed)
       if (configEditorType === 'policies') setPolicies(mapPolicies(response.value))
       if (configEditorType === 'instructor-rates') setInstructorRates(mapInstructorRates(response.value))
       if (configEditorType === 'discounts') setDiscountRules(mapDiscountRules(response.value))
-      toast.success('Payment config saved')
+      if (configEditorType === 'refund-settings') setRefundSettings(response.value)
+      toast.success(t('payment_management.config_save_success'))
       setConfigEditorType(null)
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to save payment config')
+      toast.error(err?.message || t('payment_management.config_save_failed'))
     } finally {
       setConfigSaving(false)
     }
@@ -351,9 +395,9 @@ export function PaymentManagementPage() {
       label: t('payment_management.filters.method'),
       type: 'select',
       options: [
-        { label: 'VNPAY', value: 'vnpay', count: payments.filter(p => p.payment_method === 'vnpay').length },
+        { label: t('payment_management.methods.vnpay'), value: 'vnpay', count: payments.filter(p => p.payment_method === 'vnpay').length },
         { label: t('payment_management.methods.credit_card'), value: 'credit_card', count: payments.filter(p => p.payment_method === 'credit_card').length },
-        { label: 'PayPal', value: 'paypal', count: payments.filter(p => p.payment_method === 'paypal').length }
+        { label: t('payment_management.methods.paypal'), value: 'paypal', count: payments.filter(p => p.payment_method === 'paypal').length }
       ]
     },
     {
@@ -383,8 +427,19 @@ export function PaymentManagementPage() {
       type: 'select',
       options: [
         { label: t('payment_management.refunds.pending'), value: 'pending', count: refundRequests.filter(r => r.status === 'pending').length },
+        { label: t('payment_management.refunds.processing'), value: 'processing', count: refundRequests.filter(r => r.status === 'processing').length },
+        { label: t('payment_management.refunds.failed'), value: 'failed', count: refundRequests.filter(r => r.status === 'failed').length },
         { label: t('payment_management.refunds.approved'), value: 'approved', count: refundRequests.filter(r => r.status === 'approved').length },
-        { label: t('payment_management.refunds.rejected'), value: 'rejected', count: refundRequests.filter(r => r.status === 'rejected').length }
+        { label: t('payment_management.refunds.rejected'), value: 'rejected', count: refundRequests.filter(r => r.status === 'rejected').length },
+        { label: t('payment_management.refunds.deleted'), value: 'deleted', count: refundRequests.filter(r => r.is_deleted).length },
+      ]
+    },
+    {
+      key: 'retryable',
+      label: t('payment_management.refunds.retryable'),
+      type: 'select',
+      options: [
+        { label: t('payment_management.refunds.ready_to_retry'), value: 'true', count: refundRequests.filter(r => r.retryable).length },
       ]
     }
   ]
@@ -434,36 +489,75 @@ export function PaymentManagementPage() {
     setFilteredPayments(filtered)
   }
 
-  const handleRefundDecision = async (refund: RefundRequest, decision: 'approved' | 'rejected') => {
+  const mergeRefundUpdates = (updatedItems: AdminRefundItem[] = []) => {
+    if (updatedItems.length === 0) return
+    const mapped = updatedItems.map(mapRefundRequest)
+    const mappedById = new Map(mapped.map((item) => [item.id, item]))
+    setRefundRequests((prev) => prev.map((item) => mappedById.get(item.id) || item))
+    setFilteredRefundRequests((prev) => prev.map((item) => mappedById.get(item.id) || item))
+    if (selectedRefund) {
+      const next = mappedById.get(selectedRefund.id)
+      if (next) setSelectedRefund(next)
+    }
+  }
+
+  const openNoteDialog = (refundId: number) => {
+    setNoteTargetRefundId(refundId)
+    setNoteDialogValue('')
+    setNoteDialogOpen(true)
+  }
+
+  const submitNoteDialog = async () => {
+    if (!noteTargetRefundId || !noteDialogValue.trim()) return
+    await handleRefundAction([noteTargetRefundId], 'add_note', { note: noteDialogValue.trim() })
+    setNoteDialogOpen(false)
+    setNoteDialogValue('')
+    setNoteTargetRefundId(null)
+  }
+
+  const openOverrideDialog = (refundId: number) => {
+    setOverrideTargetRefundId(refundId)
+    setOverrideStatusValue('failed')
+    setOverrideNoteValue('')
+    setOverrideDialogOpen(true)
+  }
+
+  const submitOverrideDialog = async () => {
+    if (!overrideTargetRefundId) return
+    await handleRefundAction([overrideTargetRefundId], 'override_status', {
+      override_status: overrideStatusValue,
+      note: overrideNoteValue.trim() || undefined,
+    })
+    setOverrideDialogOpen(false)
+    setOverrideTargetRefundId(null)
+    setOverrideNoteValue('')
+  }
+
+  const updateRefundSettingsDraft = <K extends keyof RefundSettings>(key: K, value: RefundSettings[K]) => {
+    setRefundSettingsDraft((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const handleRefundAction = async (
+    refundIds: number[],
+    action: 'approve' | 'reject' | 'retry' | 'cancel' | 'soft_delete' | 'restore' | 'override_status' | 'add_note',
+    options?: { note?: string; override_status?: 'success' | 'failed' | 'rejected' | 'cancelled' }
+  ) => {
     try {
-      await updateAdminRefundStatus({
-        payment_id: Number(refund.payment_id),
-        payment_details_ids: refund.payment_details_ids,
-        status: decision,
+      const result = await adminRefundAction({
+        action,
+        refund_ids: refundIds,
+        note: options?.note,
+        override_status: options?.override_status,
       })
-      setRefundRequests(prev => prev.map(item =>
-        item.id === refund.id
-          ? {
-              ...item,
-              status: decision,
-              processed_at: new Date(),
-              processed_by: user?.id,
-            }
-          : item
-      ))
-      setFilteredRefundRequests(prev => prev.map(item =>
-        item.id === refund.id
-          ? {
-              ...item,
-              status: decision,
-              processed_at: new Date(),
-              processed_by: user?.id,
-            }
-          : item
-      ))
-      toast.success(decision === 'approved' ? 'Refund approved' : 'Refund rejected')
-    } catch {
-      toast.error('Refund action failed')
+      mergeRefundUpdates(result.updated_items)
+      await loadRefundQueue()
+      if (result.errors?.length) {
+        toast.error(result.errors[0].message || t('payment_management.refund_action_failed'))
+        return
+      }
+      toast.success(result.message || t('payment_management.toasts_extra.refund_action_completed'))
+    } catch (err: any) {
+      toast.error(err?.message || t('payment_management.refund_action_failed'))
     }
   }
 
@@ -494,7 +588,7 @@ export function PaymentManagementPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: t('common.confirm'),
         destructive: false,
         loading: false,
         action: null,
@@ -518,7 +612,17 @@ export function PaymentManagementPage() {
     }
 
     if (filters.status) {
-      filtered = filtered.filter(refund => refund.status === filters.status)
+      if (filters.status === 'deleted') {
+        filtered = filtered.filter(refund => refund.is_deleted)
+      } else {
+        filtered = filtered.filter(refund => !refund.is_deleted && refund.status === filters.status)
+      }
+    } else {
+      filtered = filtered.filter(refund => !refund.is_deleted)
+    }
+
+    if (filters.retryable) {
+      filtered = filtered.filter(refund => refund.retryable === (filters.retryable === 'true'))
     }
 
     setFilteredRefundRequests(filtered)
@@ -553,7 +657,7 @@ export function PaymentManagementPage() {
       setPayments(refreshed)
       setFilteredPayments(refreshed)
       setSelectedPaymentIds([])
-      toast.success('Da xu ly cac thanh toan da chon')
+      toast.success(t('payment_management.bulk_process_success'))
     } catch {
       toast.error(t('payment_management.fix_failed'))
     }
@@ -561,42 +665,28 @@ export function PaymentManagementPage() {
 
   const bulkRefundDecision = async (decision: 'approved' | 'rejected') => {
     try {
-      for (const refundId of selectedRefundIds) {
-        const refund = filteredRefundRequests.find(item => item.id === refundId)
-        if (refund && refund.status === 'pending') {
-          await updateAdminRefundStatus({
-            payment_id: Number(refund.payment_id),
-            payment_details_ids: refund.payment_details_ids,
-            status: decision,
-          })
-        }
-      }
-      const updatedAll = refundRequests.map(item => selectedRefundIds.includes(item.id) && item.status === 'pending'
-        ? { ...item, status: decision, processed_at: new Date(), processed_by: user?.id }
-        : item
+      await handleRefundAction(
+        selectedRefundIds.map((id) => Number(id)),
+        decision === 'approved' ? 'approve' : 'reject',
       )
-      setRefundRequests(updatedAll)
-      setFilteredRefundRequests(prev => prev.map(item => selectedRefundIds.includes(item.id) && item.status === 'pending'
-        ? { ...item, status: decision, processed_at: new Date(), processed_by: user?.id }
-        : item
-      ))
       setSelectedRefundIds([])
-      toast.success(decision === 'approved' ? 'Da duyet hoan tien da chon' : 'Da tu choi hoan tien da chon')
     } catch {
-      toast.error('Bulk refund action failed')
+      toast.error(t('payment_management.bulk_refund_failed'))
     }
   }
 
   const getStatusBadge = (status: string) => {
     const variants = {
       pending: 'secondary',
+      processing: 'secondary',
       completed: 'default',
       failed: 'destructive',
       refunded: 'outline',
       success: 'outline',
       cancelled: 'secondary',
       approved: 'default',
-      rejected: 'destructive'
+      rejected: 'destructive',
+      deleted: 'outline',
     } as const
 
     return <Badge variant={variants[status as keyof typeof variants]}>{status}</Badge>
@@ -824,7 +914,7 @@ export function PaymentManagementPage() {
                             {payment.payment_status === 'completed' && (
                               <DropdownMenuItem onClick={() => {
                                 setActiveTab('refunds')
-                                toast.info('Chuyen sang tab Refunds de xu ly yeu cau hoan tien.')
+                                toast.info(t('payment_management.switch_to_refunds_hint'))
                               }}>
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 {t('payment_management.payments.refund')}
@@ -850,27 +940,27 @@ export function PaymentManagementPage() {
           />
           <AdminBulkActionBar
             count={selectedRefundIds.length}
-            label="refunds selected"
+            label={t('payment_management.refunds.selected_label')}
             onClear={() => setSelectedRefundIds([])}
             actions={[
               {
                 key: 'approve',
-                label: 'Approve',
+                label: t('payment_management.refunds.approve'),
                 onClick: () => openConfirm(
-                  'Approve selected refunds',
-                  `Approve ${selectedRefundIds.length} selected refund requests?`,
-                  'Approve refunds',
+                  t('payment_management.refunds.bulk.approve_title'),
+                  t('payment_management.refunds.bulk.approve_description', { count: selectedRefundIds.length }),
+                  t('payment_management.refunds.bulk.approve_label'),
                   () => bulkRefundDecision('approved'),
                 ),
               },
               {
                 key: 'reject',
-                label: 'Reject',
+                label: t('payment_management.refunds.reject'),
                 destructive: true,
                 onClick: () => openConfirm(
-                  'Reject selected refunds',
-                  `Reject ${selectedRefundIds.length} selected refund requests?`,
-                  'Reject refunds',
+                  t('payment_management.refunds.bulk.reject_title'),
+                  t('payment_management.refunds.bulk.reject_description', { count: selectedRefundIds.length }),
+                  t('payment_management.refunds.bulk.reject_label'),
                   () => bulkRefundDecision('rejected'),
                   true,
                 ),
@@ -897,8 +987,12 @@ export function PaymentManagementPage() {
                     <TableHead>{t('payment_management.refunds.table.amount')}</TableHead>
                     <TableHead>{t('payment_management.refunds.table.progress')}</TableHead>
                     <TableHead>{t('payment_management.refunds.table.status')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.attempts')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.retry_at')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.gateway')}</TableHead>
+                    <TableHead>{t('payment_management.refunds.table.notes')}</TableHead>
                     <TableHead>{t('payment_management.refunds.table.request_date')}</TableHead>
-                    <TableHead className="w-[100px]">{t('payment_management.refunds.table.actions')}</TableHead>
+                    <TableHead className="w-[180px]">{t('payment_management.refunds.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -922,6 +1016,14 @@ export function PaymentManagementPage() {
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(refund.status)}</TableCell>
+                      <TableCell>{refund.gateway_attempt_count}</TableCell>
+                      <TableCell>{refund.next_retry_at ? refund.next_retry_at.toLocaleString() : '-'}</TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground line-clamp-2">
+                          {refund.last_gateway_error || '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>{refund.internal_note_summary ? t('common.yes') : t('common.no')}</TableCell>
                       <TableCell>{refund.requested_at.toLocaleDateString()}</TableCell>
                       <TableCell>
                         {refund.status === 'pending' ? (
@@ -929,10 +1031,10 @@ export function PaymentManagementPage() {
                             <Button 
                               size="sm" 
                               onClick={() => openConfirm(
-                                'Approve refund',
-                                `Approve refund request for ${refund.user_name} on "${refund.course_title}"?`,
-                                'Approve',
-                                () => handleRefundDecision(refund, 'approved'),
+                                t('payment_management.refunds.actions.approve_title'),
+                                t('payment_management.refunds.actions.approve_description', { name: refund.user_name, course: refund.course_title }),
+                                t('payment_management.refunds.approve'),
+                                () => handleRefundAction([refund.refund_id], 'approve'),
                               )}
                             >
                               <Check className="h-3 w-3" />
@@ -941,14 +1043,51 @@ export function PaymentManagementPage() {
                               size="sm" 
                               variant="destructive"
                               onClick={() => openConfirm(
-                                'Reject refund',
-                                `Reject refund request for ${refund.user_name} on "${refund.course_title}"?`,
-                                'Reject',
-                                () => handleRefundDecision(refund, 'rejected'),
+                                t('payment_management.refunds.actions.reject_title'),
+                                t('payment_management.refunds.actions.reject_description', { name: refund.user_name, course: refund.course_title }),
+                                t('payment_management.refunds.reject'),
+                                () => handleRefundAction([refund.refund_id], 'reject'),
                                 true,
                               )}
                             >
                               <X className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedRefund(refund)}
+                            >
+                              <Eye className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : refund.status === 'processing' || refund.status === 'failed' ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => openConfirm(
+                                t('payment_management.refunds.actions.retry_title'),
+                                t('payment_management.refunds.actions.retry_description', { name: refund.user_name, course: refund.course_title }),
+                                t('payment_management.refunds.actions.retry'),
+                                () => handleRefundAction([refund.refund_id], 'retry'),
+                              )}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => openConfirm(
+                                t('payment_management.refunds.actions.cancel_title'),
+                                t('payment_management.refunds.actions.cancel_description', { name: refund.user_name, course: refund.course_title }),
+                                t('payment_management.refunds.actions.cancel'),
+                                () => handleRefundAction([refund.refund_id], 'cancel'),
+                                true,
+                              )}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedRefund(refund)}>
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         ) : (
@@ -969,7 +1108,7 @@ export function PaymentManagementPage() {
         <TabsContent value="policies" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
-              Payment policies dang duoc doc va luu qua payment-admin config API. Du lieu van persist tren he thong cau hinh hien tai, nhung contract FE da di qua payments domain.
+              {t('payment_management.notices.policies')}
             </CardContent>
           </Card>
           <Card>
@@ -984,6 +1123,21 @@ export function PaymentManagementPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <h4 className="font-medium">{t('payment_management.refunds.workflow.title')}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {t('payment_management.refunds.workflow.mode_label')} <span className="font-medium">{getRefundModeLabel(refundSettings.refund_mode)}</span> • {t('payment_management.refunds.workflow.cooldown', { minutes: refundSettings.refund_retry_cooldown_minutes })}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('payment_management.refunds.workflow.timeout', { seconds: refundSettings.refund_timeout_seconds })} • {t('payment_management.refunds.workflow.override', { status: getToggleStatusLabel(refundSettings.allow_admin_override_refund_status) })} • {t('payment_management.refunds.workflow.soft_delete', { status: getToggleStatusLabel(refundSettings.allow_admin_soft_delete_refund) })}
+                    </p>
+                  </div>
+                  <Button variant="outline" onClick={() => openConfigEditor('refund-settings')}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    {t('payment_management.refunds.workflow.configure')}
+                  </Button>
+                </div>
                 {policies.map((policy) => (
                   <div key={policy.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
@@ -1014,7 +1168,7 @@ export function PaymentManagementPage() {
         <TabsContent value="instructor-rates" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
-              Instructor commission rates da duoc load/save qua payment-admin config API de FE khong con phu thuoc truc tiep vao generic system settings.
+              {t('payment_management.notices.instructor_rates')}
             </CardContent>
           </Card>
           <Card>
@@ -1070,7 +1224,7 @@ export function PaymentManagementPage() {
         <TabsContent value="discounts" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
-              Discount rules dang duoc quan ly qua payment-admin config API. Muc tieu cua batch nay la bo viec FE doc truc tiep generic system settings cho nhom payment configs.
+              {t('payment_management.notices.discounts')}
             </CardContent>
           </Card>
           <Card>
@@ -1108,7 +1262,7 @@ export function PaymentManagementPage() {
                         {rule.type === 'percentage' ? `${rule.value}%` : formatCurrency(rule.value)}
                       </TableCell>
                       <TableCell>
-                        {rule.used_count}/{rule.usage_limit || '∞'}
+                        {rule.used_count}/{rule.usage_limit || 'âˆž'}
                       </TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -1151,24 +1305,180 @@ export function PaymentManagementPage() {
       }}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Payment Config Editor</DialogTitle>
+            <DialogTitle>{t('payment_management.config_editor.title')}</DialogTitle>
             <DialogDescription>
-              Chinh sua JSON cho {configEditorType || 'payment config'} va luu qua payment-admin config API.
+              {t('payment_management.config_editor.description', {
+                type: configEditorType || t('payment_management.config_editor.default_type'),
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Textarea
-              value={configEditorValue}
-              onChange={(e) => setConfigEditorValue(e.target.value)}
-              rows={18}
-              className="font-mono text-sm"
-            />
+            {configEditorType === 'refund-settings' ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>{t('payment_management.refunds.settings.mode_label')}</Label>
+                  <Select
+                    value={refundSettingsDraft.refund_mode}
+                    onValueChange={(value) => updateRefundSettingsDraft('refund_mode', value as RefundSettings['refund_mode'])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={t('payment_management.refunds.settings.mode_placeholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin_approval">{t('payment_management.refunds.settings.mode_options.admin_approval')}</SelectItem>
+                      <SelectItem value="direct_system">{t('payment_management.refunds.settings.mode_options.direct_system')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('payment_management.refunds.settings.mode_help')}
+                  </p>
+                </div>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>{t('payment_management.refunds.settings.retry_cooldown')}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={refundSettingsDraft.refund_retry_cooldown_minutes}
+                        onChange={(e) => updateRefundSettingsDraft('refund_retry_cooldown_minutes', Number(e.target.value || 0))}
+                      />
+                    </div>
+                  <div className="space-y-2">
+                      <Label>{t('payment_management.refunds.settings.gateway_timeout')}</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={refundSettingsDraft.refund_timeout_seconds}
+                      onChange={(e) => updateRefundSettingsDraft('refund_timeout_seconds', Number(e.target.value || 1))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>{t('payment_management.refunds.settings.allow_admin_override')}</Label>
+                    <Select
+                      value={refundSettingsDraft.allow_admin_override_refund_status ? 'true' : 'false'}
+                      onValueChange={(value) => updateRefundSettingsDraft('allow_admin_override_refund_status', value === 'true')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">{t('payment_management.common.enabled')}</SelectItem>
+                        <SelectItem value="false">{t('payment_management.common.disabled')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('payment_management.refunds.settings.allow_admin_archive')}</Label>
+                    <Select
+                      value={refundSettingsDraft.allow_admin_soft_delete_refund ? 'true' : 'false'}
+                      onValueChange={(value) => updateRefundSettingsDraft('allow_admin_soft_delete_refund', value === 'true')}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">{t('payment_management.common.enabled')}</SelectItem>
+                        <SelectItem value="false">{t('payment_management.common.disabled')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Textarea
+                value={configEditorValue}
+                onChange={(e) => setConfigEditorValue(e.target.value)}
+                rows={18}
+                className="font-mono text-sm"
+              />
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setConfigEditorType(null)} disabled={configSaving}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={saveConfigEditor} disabled={configSaving}>
-                {configSaving ? 'Saving...' : 'Save Config'}
+                {configSaving ? t('payment_management.config_editor.saving') : t('payment_management.config_editor.save')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{t('payment_management.dialogs.note.title')}</DialogTitle>
+              <DialogDescription>
+                {t('payment_management.dialogs.note.description')}
+              </DialogDescription>
+            </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="refund-internal-note">{t('payment_management.dialogs.note.label')}</Label>
+              <Textarea
+                id="refund-internal-note"
+                value={noteDialogValue}
+                onChange={(e) => setNoteDialogValue(e.target.value)}
+                rows={5}
+                placeholder={t('payment_management.dialogs.note.placeholder')}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setNoteDialogOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={() => void submitNoteDialog()} disabled={!noteDialogValue.trim()}>
+                {t('payment_management.dialogs.note.save')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('payment_management.dialogs.override.title')}</DialogTitle>
+            <DialogDescription>
+              {t('payment_management.dialogs.override.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('payment_management.dialogs.override.status')}</Label>
+              <Select
+                value={overrideStatusValue}
+                onValueChange={(value) => setOverrideStatusValue(value as typeof overrideStatusValue)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="success">{t('payment_management.refunds.approved')}</SelectItem>
+                  <SelectItem value="failed">{t('payment_management.refunds.failed')}</SelectItem>
+                  <SelectItem value="rejected">{t('payment_management.refunds.rejected')}</SelectItem>
+                  <SelectItem value="cancelled">{t('payment_management.refunds.cancelled')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="refund-override-note">{t('payment_management.dialogs.override.reason')}</Label>
+              <Textarea
+                id="refund-override-note"
+                value={overrideNoteValue}
+                onChange={(e) => setOverrideNoteValue(e.target.value)}
+                rows={5}
+                placeholder={t('payment_management.dialogs.override.placeholder')}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setOverrideDialogOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={() => void submitOverrideDialog()} disabled={!overrideNoteValue.trim()}>
+                {t('payment_management.dialogs.override.apply')}
               </Button>
             </div>
           </div>
@@ -1214,7 +1524,7 @@ export function PaymentManagementPage() {
                 </div>
                 {selectedPayment.transaction_id && (
                   <div>
-                    <Label className="text-sm font-medium">Transaction ID</Label>
+                    <Label className="text-sm font-medium">{t('payment_management.payment_detail.transaction_id')}</Label>
                     <p className="font-mono text-sm">{selectedPayment.transaction_id}</p>
                   </div>
                 )}
@@ -1275,11 +1585,55 @@ export function PaymentManagementPage() {
                 <Label className="text-sm font-medium">{t('payment_management.refund_detail.status')}</Label>
                 <div className="mt-1">{getStatusBadge(selectedRefund.status)}</div>
               </div>
+              {selectedRefund.processed_by && (
+                <div>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.processed_by')}</Label>
+                  <p>{selectedRefund.processed_by}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.gateway_attempts')}</Label>
+                  <p>{selectedRefund.gateway_attempt_count}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.retry_after')}</Label>
+                  <p>{selectedRefund.next_retry_at ? selectedRefund.next_retry_at.toLocaleString() : '-'}</p>
+                </div>
+              </div>
+              {selectedRefund.last_gateway_error && (
+                <div>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.last_gateway_error')}</Label>
+                  <p className="text-sm text-muted-foreground">{selectedRefund.last_gateway_error}</p>
+                </div>
+              )}
+              {selectedRefund.internal_note_summary && (
+                <div>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.internal_note')}</Label>
+                  <p className="text-sm text-muted-foreground">{selectedRefund.internal_note_summary}</p>
+                </div>
+              )}
+              {selectedRefund.timeline.length > 0 && (
+                <div>
+                  <Label className="text-sm font-medium">{t('payment_management.refund_detail.timeline')}</Label>
+                  <div className="mt-2 max-h-40 overflow-y-auto space-y-2 text-sm">
+                    {selectedRefund.timeline.map((entry, index) => (
+                      <div key={`${entry.timestamp}-${index}`} className="rounded border p-2">
+                        <div className="font-medium">{entry.event}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {(entry.actor || 'system')} â€¢ {new Date(entry.timestamp).toLocaleString()}
+                        </div>
+                        {entry.note && <div className="text-xs mt-1">{entry.note}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {selectedRefund.status === 'pending' && (
-                <div className="flex gap-2 pt-4">
+                <div className="flex gap-2 pt-4 flex-wrap">
                   <Button 
                     onClick={() => {
-                      void handleRefundDecision(selectedRefund, 'approved')
+                      void handleRefundAction([selectedRefund.refund_id], 'approve')
                       setSelectedRefund(null)
                     }}
                   >
@@ -1288,7 +1642,7 @@ export function PaymentManagementPage() {
                   <Button 
                     variant="destructive"
                     onClick={() => {
-                      void handleRefundDecision(selectedRefund, 'rejected')
+                      void handleRefundAction([selectedRefund.refund_id], 'reject')
                       setSelectedRefund(null)
                     }}
                   >
@@ -1296,6 +1650,63 @@ export function PaymentManagementPage() {
                   </Button>
                 </div>
               )}
+              {(selectedRefund.status === 'processing' || selectedRefund.status === 'failed') && (
+                <div className="flex gap-2 pt-4 flex-wrap">
+                  <Button
+                    onClick={() => {
+                      void handleRefundAction([selectedRefund.refund_id], 'retry')
+                      setSelectedRefund(null)
+                    }}
+                  >
+                    {t('payment_management.refunds.actions.retry')}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      void handleRefundAction([selectedRefund.refund_id], 'cancel')
+                      setSelectedRefund(null)
+                    }}
+                  >
+                    {t('payment_management.refunds.actions.cancel')}
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  onClick={() => openNoteDialog(selectedRefund.refund_id)}
+                >
+                  {t('payment_management.refund_detail.add_note')}
+                </Button>
+                {!selectedRefund.is_deleted && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      void handleRefundAction([selectedRefund.refund_id], 'soft_delete')
+                      setSelectedRefund(null)
+                    }}
+                  >
+                    {t('payment_management.refund_detail.archive')}
+                  </Button>
+                )}
+                {selectedRefund.is_deleted && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      void handleRefundAction([selectedRefund.refund_id], 'restore')
+                      setSelectedRefund(null)
+                    }}
+                  >
+                    {t('payment_management.refund_detail.restore')}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => openOverrideDialog(selectedRefund.refund_id)}
+                >
+                  {t('payment_management.refund_detail.override')}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

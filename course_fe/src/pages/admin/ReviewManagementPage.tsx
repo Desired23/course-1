@@ -27,6 +27,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import {
   deleteReview as deleteReviewApi,
   getAllReviews,
@@ -63,6 +64,7 @@ const mapStatus = (status: string, reportCount: number): ReviewStatus => {
 }
 
 export function ReviewManagementPage() {
+  const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [filteredReviews, setFilteredReviews] = useState<ReviewRow[]>([])
@@ -81,7 +83,7 @@ export function ReviewManagementPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
@@ -94,9 +96,9 @@ export function ReviewManagementPage() {
         const mapped = data.map<ReviewRow>((review) => ({
           id: String(review.review_id),
           user_id: String(review.user),
-          user_name: review.user_info?.full_name || 'Unknown',
+          user_name: review.user_info?.full_name || t('admin_reviews.unknown_user'),
           user_avatar: review.user_info?.avatar || undefined,
-          course_title: review.course_detail?.title || 'Unknown',
+          course_title: review.course_detail?.title || t('admin_reviews.unknown_course'),
           rating: review.rating,
           comment: review.comment || '',
           helpful_count: review.likes || 0,
@@ -106,7 +108,7 @@ export function ReviewManagementPage() {
           created_at: new Date(review.review_date),
           updated_at: new Date(review.updated_date),
           flagged_reason: review.report_count > 0
-            ? (review.last_report_reason || `${review.report_count} bao cao`)
+            ? (review.last_report_reason || t('admin_reviews.flagged_reason_count', { count: review.report_count }))
             : undefined,
           instructor_reply: review.instructor_response || undefined,
           instructor_reply_at: review.response_date ? new Date(review.response_date) : undefined,
@@ -115,7 +117,7 @@ export function ReviewManagementPage() {
         setFilteredReviews(mapped)
       } catch (error) {
         console.error('Failed to load reviews', error)
-        toast.error('Khong tai duoc danh sach danh gia')
+        toast.error(t('admin_reviews.toasts.load_failed'))
       }
     }
 
@@ -125,40 +127,40 @@ export function ReviewManagementPage() {
   const filterConfigs: FilterConfig[] = useMemo(() => [
     {
       key: 'search',
-      label: 'Tim kiem',
+      label: t('admin_reviews.filters.search'),
       type: 'search',
-      placeholder: 'Tim theo hoc vien, khoa hoc, noi dung...',
+      placeholder: t('admin_reviews.filters.search_placeholder'),
     },
     {
       key: 'status',
-      label: 'Trang thai',
+      label: t('admin_reviews.filters.status'),
       type: 'select',
       options: [
-        { label: 'Da xuat ban', value: 'published', count: reviews.filter(r => r.status === 'published').length },
-        { label: 'Cho duyet', value: 'pending', count: reviews.filter(r => r.status === 'pending').length },
-        { label: 'Bi bao cao', value: 'flagged', count: reviews.filter(r => r.status === 'flagged').length },
-        { label: 'Da an', value: 'hidden', count: reviews.filter(r => r.status === 'hidden').length },
+        { label: t('admin_reviews.status.published'), value: 'published', count: reviews.filter(r => r.status === 'published').length },
+        { label: t('admin_reviews.status.pending'), value: 'pending', count: reviews.filter(r => r.status === 'pending').length },
+        { label: t('admin_reviews.status.flagged'), value: 'flagged', count: reviews.filter(r => r.status === 'flagged').length },
+        { label: t('admin_reviews.status.hidden'), value: 'hidden', count: reviews.filter(r => r.status === 'hidden').length },
       ],
     },
     {
       key: 'rating',
-      label: 'Danh gia',
+      label: t('admin_reviews.filters.rating'),
       type: 'select',
       options: [5, 4, 3, 2, 1].map((rating) => ({
-        label: `${rating} sao`,
+        label: t('admin_reviews.filters.rating_option', { rating }),
         value: String(rating),
         count: reviews.filter(r => r.rating === rating).length,
       })),
     },
     {
       key: 'verified',
-      label: 'Da xac thuc',
+      label: t('admin_reviews.filters.verified'),
       type: 'checkbox',
-      placeholder: 'Chi hien thi review da mua khoa hoc',
+      placeholder: t('admin_reviews.filters.verified_only'),
     },
     {
       key: 'date',
-      label: 'Ngay tao',
+      label: t('admin_reviews.filters.created_date'),
       type: 'daterange',
     },
   ], [reviews])
@@ -228,7 +230,7 @@ export function ReviewManagementPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -259,9 +261,9 @@ export function ReviewManagementPage() {
         flagged_reason: undefined,
         updated_at: new Date(),
       }))
-      toast.success('Cap nhat trang thai thanh cong')
+      toast.success(t('admin_reviews.toasts.update_success'))
     } catch {
-      toast.error('Cap nhat trang thai that bai')
+      toast.error(t('admin_reviews.toasts.update_failed'))
     }
   }
 
@@ -269,9 +271,9 @@ export function ReviewManagementPage() {
     try {
       await deleteReviewApi(Number(reviewId))
       syncReview(reviewId, () => null)
-      toast.success('Xoa danh gia thanh cong')
+      toast.success(t('admin_reviews.toasts.delete_success'))
     } catch {
-      toast.error('Xoa danh gia that bai')
+      toast.error(t('admin_reviews.toasts.delete_failed'))
     }
   }
 
@@ -290,18 +292,18 @@ export function ReviewManagementPage() {
       }))
       setReplyText('')
       setSelectedReview(null)
-      toast.success('Gui phan hoi thanh cong')
+      toast.success(t('admin_reviews.toasts.reply_success'))
     } catch {
-      toast.error('Gui phan hoi that bai')
+      toast.error(t('admin_reviews.toasts.reply_failed'))
     }
   }
 
   const getStatusBadge = (status: ReviewStatus) => {
     const variants = {
-      published: { variant: 'default' as const, label: 'Da xuat ban' },
-      pending: { variant: 'secondary' as const, label: 'Cho duyet' },
-      flagged: { variant: 'destructive' as const, label: 'Bi bao cao' },
-      hidden: { variant: 'outline' as const, label: 'Da an' },
+      published: { variant: 'default' as const, label: t('admin_reviews.status.published') },
+      pending: { variant: 'secondary' as const, label: t('admin_reviews.status.pending') },
+      flagged: { variant: 'destructive' as const, label: t('admin_reviews.status.flagged') },
+      hidden: { variant: 'outline' as const, label: t('admin_reviews.status.hidden') },
     }
     const config = variants[status]
     return <Badge variant={config.variant}>{config.label}</Badge>
@@ -351,7 +353,7 @@ export function ReviewManagementPage() {
       setSelectedReviewIds([])
       toast.success(successMessage)
     } catch {
-      toast.error('Bulk moderation that bai')
+      toast.error(t('admin_reviews.toasts.bulk_failed'))
     }
   }
 
@@ -359,8 +361,8 @@ export function ReviewManagementPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Khong co quyen truy cap</h2>
-          <p className="text-muted-foreground">Ban khong co quyen quan ly danh gia.</p>
+          <h2 className="text-2xl mb-4">{t('admin_reviews.permission_denied_title')}</h2>
+          <p className="text-muted-foreground">{t('admin_reviews.permission_denied_description')}</p>
         </div>
       </div>
     )
@@ -370,26 +372,26 @@ export function ReviewManagementPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl mb-2">Quan ly danh gia</h1>
-          <p className="text-muted-foreground">Moderation review cua hoc vien tren du lieu that.</p>
+          <h1 className="text-3xl mb-2">{t('admin_reviews.title')}</h1>
+          <p className="text-muted-foreground">{t('admin_reviews.subtitle')}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tong danh gia</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reviews.cards.total_reviews')}</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reviews.length}</div>
-            <p className="text-xs text-muted-foreground">{reviews.filter(r => r.is_verified_purchase).length} da xac thuc</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reviews.cards.verified_count', { count: reviews.filter(r => r.is_verified_purchase).length })}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Danh gia trung binh</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reviews.cards.average_rating')}</CardTitle>
             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
           </CardHeader>
           <CardContent>
@@ -400,74 +402,74 @@ export function ReviewManagementPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cho duyet</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reviews.cards.pending')}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reviews.filter(r => r.status === 'pending').length}</div>
-            <p className="text-xs text-muted-foreground">Can review</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reviews.cards.needs_review')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bi bao cao</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reviews.cards.flagged')}</CardTitle>
             <Flag className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reviews.filter(r => r.status === 'flagged').length}</div>
-            <p className="text-xs text-muted-foreground">Dang can moderation</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reviews.cards.needs_moderation')}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="all" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="all">Tat ca ({reviews.length})</TabsTrigger>
-          <TabsTrigger value="pending">Cho duyet ({reviews.filter(r => r.status === 'pending').length})</TabsTrigger>
-          <TabsTrigger value="flagged">Bi bao cao ({reviews.filter(r => r.status === 'flagged').length})</TabsTrigger>
-          <TabsTrigger value="stats">Thong ke</TabsTrigger>
+          <TabsTrigger value="all">{t('admin_reviews.tabs.all', { count: reviews.length })}</TabsTrigger>
+          <TabsTrigger value="pending">{t('admin_reviews.tabs.pending', { count: reviews.filter(r => r.status === 'pending').length })}</TabsTrigger>
+          <TabsTrigger value="flagged">{t('admin_reviews.tabs.flagged', { count: reviews.filter(r => r.status === 'flagged').length })}</TabsTrigger>
+          <TabsTrigger value="stats">{t('admin_reviews.tabs.stats')}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-6">
-          <TableFilter title="Bo loc danh gia" configs={filterConfigs} onFilterChange={handleFilter} />
+          <TableFilter title={t('admin_reviews.filter_title')} configs={filterConfigs} onFilterChange={handleFilter} />
 
           <AdminBulkActionBar
             count={selectedReviewIds.length}
-            label="reviews selected"
+            label={t('admin_reviews.bulk.selected_label')}
             onClear={() => setSelectedReviewIds([])}
             actions={[
               {
                 key: 'publish',
-                label: 'Publish',
+                label: t('admin_reviews.bulk.publish'),
                 onClick: () => openConfirm(
-                  'Publish selected reviews',
-                  `Publish ${selectedReviewIds.length} selected reviews?`,
-                  'Publish',
-                  () => bulkUpdateReviews(selectedReviewIds, (id) => handleStatusChange(id, 'published'), 'Da xuat ban review da chon'),
+                  t('admin_reviews.bulk.publish_title'),
+                  t('admin_reviews.bulk.publish_description', { count: selectedReviewIds.length }),
+                  t('admin_reviews.bulk.publish'),
+                  () => bulkUpdateReviews(selectedReviewIds, (id) => handleStatusChange(id, 'published'), t('admin_reviews.toasts.bulk_publish_success')),
                 ),
               },
               {
                 key: 'hide',
-                label: 'Hide',
+                label: t('admin_reviews.bulk.hide'),
                 destructive: true,
                 onClick: () => openConfirm(
-                  'Hide selected reviews',
-                  `Hide ${selectedReviewIds.length} selected reviews?`,
-                  'Hide',
-                  () => bulkUpdateReviews(selectedReviewIds, (id) => handleStatusChange(id, 'hidden'), 'Da an review da chon'),
+                  t('admin_reviews.bulk.hide_title'),
+                  t('admin_reviews.bulk.hide_description', { count: selectedReviewIds.length }),
+                  t('admin_reviews.bulk.hide'),
+                  () => bulkUpdateReviews(selectedReviewIds, (id) => handleStatusChange(id, 'hidden'), t('admin_reviews.toasts.bulk_hide_success')),
                   true,
                 ),
               },
               {
                 key: 'delete',
-                label: 'Delete',
+                label: t('common.delete'),
                 destructive: true,
                 onClick: () => openConfirm(
-                  'Delete selected reviews',
-                  `Delete ${selectedReviewIds.length} selected reviews? This action cannot be undone.`,
-                  'Delete',
-                  () => bulkUpdateReviews(selectedReviewIds, handleDeleteReview, 'Da xoa review da chon'),
+                  t('admin_reviews.bulk.delete_title'),
+                  t('admin_reviews.bulk.delete_description', { count: selectedReviewIds.length }),
+                  t('common.delete'),
+                  () => bulkUpdateReviews(selectedReviewIds, handleDeleteReview, t('admin_reviews.toasts.bulk_delete_success')),
                   true,
                 ),
               },
@@ -476,7 +478,7 @@ export function ReviewManagementPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Danh sach danh gia ({filteredReviews.length})</CardTitle>
+              <CardTitle>{t('admin_reviews.list_title', { count: filteredReviews.length })}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
@@ -488,13 +490,13 @@ export function ReviewManagementPage() {
                         onCheckedChange={(checked) => toggleAllFilteredReviews(Boolean(checked))}
                       />
                     </TableHead>
-                    <TableHead>Hoc vien</TableHead>
-                    <TableHead>Khoa hoc</TableHead>
-                    <TableHead>Danh gia</TableHead>
-                    <TableHead>Noi dung</TableHead>
-                    <TableHead>Huu ich</TableHead>
-                    <TableHead>Trang thai</TableHead>
-                    <TableHead>Ngay tao</TableHead>
+                    <TableHead>{t('admin_reviews.table.student')}</TableHead>
+                    <TableHead>{t('admin_reviews.table.course')}</TableHead>
+                    <TableHead>{t('admin_reviews.table.rating')}</TableHead>
+                    <TableHead>{t('admin_reviews.table.content')}</TableHead>
+                    <TableHead>{t('admin_reviews.table.helpful')}</TableHead>
+                    <TableHead>{t('admin_reviews.table.status')}</TableHead>
+                    <TableHead>{t('admin_reviews.table.created_at')}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -518,7 +520,7 @@ export function ReviewManagementPage() {
                             {review.is_verified_purchase && (
                               <Badge variant="outline" className="text-xs">
                                 <CheckCircle className="h-3 w-3 mr-1" />
-                                Da mua
+                                {t('admin_reviews.verified_purchase')}
                               </Badge>
                             )}
                           </div>
@@ -531,7 +533,7 @@ export function ReviewManagementPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <p className="text-sm line-clamp-2 max-w-xs">{review.comment || 'Khong co noi dung'}</p>
+                        <p className="text-sm line-clamp-2 max-w-xs">{review.comment || t('admin_reviews.no_content')}</p>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -551,41 +553,41 @@ export function ReviewManagementPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setSelectedReview(review)}>
                               <Eye className="h-4 w-4 mr-2" />
-                              Xem chi tiet
+                              {t('admin_reviews.actions.view_details')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {review.status !== 'published' && (
                               <DropdownMenuItem onClick={() => openConfirm(
-                                'Publish review',
-                                `Publish review from ${review.user_name}?`,
-                                'Publish',
+                                t('admin_reviews.actions.publish_title'),
+                                t('admin_reviews.actions.publish_description', { name: review.user_name }),
+                                t('admin_reviews.bulk.publish'),
                                 () => handleStatusChange(review.id, 'published'),
                               )}>
                                 <CheckCircle className="h-4 w-4 mr-2" />
-                                Xuat ban
+                                {t('admin_reviews.actions.publish')}
                               </DropdownMenuItem>
                             )}
                             {review.status !== 'hidden' && (
                               <DropdownMenuItem onClick={() => openConfirm(
-                                'Hide review',
-                                `Hide review from ${review.user_name}?`,
-                                'Hide',
+                                t('admin_reviews.actions.hide_title'),
+                                t('admin_reviews.actions.hide_description', { name: review.user_name }),
+                                t('admin_reviews.bulk.hide'),
                                 () => handleStatusChange(review.id, 'hidden'),
                                 true,
                               )}>
                                 <XCircle className="h-4 w-4 mr-2" />
-                                An danh gia
+                                {t('admin_reviews.actions.hide')}
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem className="text-red-600" onClick={() => openConfirm(
-                              'Delete review',
-                              `Delete review from ${review.user_name}? This action cannot be undone.`,
-                              'Delete',
+                              t('admin_reviews.actions.delete_title'),
+                              t('admin_reviews.actions.delete_description', { name: review.user_name }),
+                              t('common.delete'),
                               () => handleDeleteReview(review.id),
                               true,
                             )}>
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Xoa vinh vien
+                              {t('admin_reviews.actions.delete_forever')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -601,7 +603,7 @@ export function ReviewManagementPage() {
         <TabsContent value="pending" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Danh gia cho duyet</CardTitle>
+              <CardTitle>{t('admin_reviews.pending_title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {reviews.filter(r => r.status === 'pending').map((review) => (
@@ -611,27 +613,27 @@ export function ReviewManagementPage() {
                       <p className="font-medium">{review.user_name}</p>
                       <p className="text-sm text-muted-foreground">{review.course_title}</p>
                       <div>{renderStars(review.rating)}</div>
-                      <p className="text-sm">{review.comment || 'Khong co noi dung'}</p>
+                      <p className="text-sm">{review.comment || t('admin_reviews.no_content')}</p>
                     </div>
                     <div className="flex flex-col gap-2">
                       <Button size="sm" onClick={() => openConfirm(
-                        'Publish review',
-                        `Publish review from ${review.user_name}?`,
-                        'Publish',
+                        t('admin_reviews.actions.publish_title'),
+                        t('admin_reviews.actions.publish_description', { name: review.user_name }),
+                        t('admin_reviews.bulk.publish'),
                         () => handleStatusChange(review.id, 'published'),
                       )}>
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Duyet
+                        {t('admin_reviews.actions.approve')}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openConfirm(
-                        'Hide review',
-                        `Hide review from ${review.user_name}?`,
-                        'Hide',
+                        t('admin_reviews.actions.hide_title'),
+                        t('admin_reviews.actions.hide_description', { name: review.user_name }),
+                        t('admin_reviews.bulk.hide'),
                         () => handleStatusChange(review.id, 'hidden'),
                         true,
                       )}>
                         <XCircle className="h-4 w-4 mr-2" />
-                        Tu choi
+                        {t('admin_reviews.actions.reject')}
                       </Button>
                     </div>
                   </div>
@@ -644,7 +646,7 @@ export function ReviewManagementPage() {
         <TabsContent value="flagged" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Danh gia bi bao cao</CardTitle>
+              <CardTitle>{t('admin_reviews.flagged_title')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {reviews.filter(r => r.status === 'flagged').map((review) => (
@@ -653,7 +655,7 @@ export function ReviewManagementPage() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Flag className="h-4 w-4 text-red-600" />
-                        <Badge variant="destructive">Bi bao cao</Badge>
+                        <Badge variant="destructive">{t('admin_reviews.status.flagged')}</Badge>
                         {review.flagged_reason && (
                           <span className="text-xs text-muted-foreground">- {review.flagged_reason}</span>
                         )}
@@ -661,34 +663,34 @@ export function ReviewManagementPage() {
                       <p className="font-medium">{review.user_name}</p>
                       <p className="text-sm text-muted-foreground">{review.course_title}</p>
                       <div>{renderStars(review.rating)}</div>
-                      <p className="text-sm">{review.comment || 'Khong co noi dung'}</p>
+                      <p className="text-sm">{review.comment || t('admin_reviews.no_content')}</p>
                     </div>
                     <div className="flex flex-col gap-2">
                       <Button size="sm" onClick={() => openConfirm(
-                        'Keep review published',
-                        `Keep review from ${review.user_name} visible?`,
-                        'Keep visible',
+                        t('admin_reviews.actions.keep_title'),
+                        t('admin_reviews.actions.keep_description', { name: review.user_name }),
+                        t('admin_reviews.actions.keep_visible'),
                         () => handleStatusChange(review.id, 'published'),
                       )}>
-                        Giu lai
+                        {t('admin_reviews.actions.keep')}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openConfirm(
-                        'Hide flagged review',
-                        `Hide flagged review from ${review.user_name}?`,
-                        'Hide',
+                        t('admin_reviews.actions.hide_flagged_title'),
+                        t('admin_reviews.actions.hide_flagged_description', { name: review.user_name }),
+                        t('admin_reviews.bulk.hide'),
                         () => handleStatusChange(review.id, 'hidden'),
                         true,
                       )}>
-                        An di
+                        {t('admin_reviews.actions.hide')}
                       </Button>
                       <Button size="sm" variant="destructive" onClick={() => openConfirm(
-                        'Delete flagged review',
-                        `Delete review from ${review.user_name}? This action cannot be undone.`,
-                        'Delete',
+                        t('admin_reviews.actions.delete_flagged_title'),
+                        t('admin_reviews.actions.delete_description', { name: review.user_name }),
+                        t('common.delete'),
                         () => handleDeleteReview(review.id),
                         true,
                       )}>
-                        Xoa
+                        {t('common.delete')}
                       </Button>
                     </div>
                   </div>
@@ -702,7 +704,7 @@ export function ReviewManagementPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Phan bo danh gia</CardTitle>
+                <CardTitle>{t('admin_reviews.stats.rating_distribution')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {ratingDistribution.map(({ rating, count, percentage }) => (
@@ -723,23 +725,23 @@ export function ReviewManagementPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Chi so moderation</CardTitle>
+                <CardTitle>{t('admin_reviews.stats.moderation_metrics')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="text-sm">Review da xuat ban</span>
+                  <span className="text-sm">{t('admin_reviews.stats.published_reviews')}</span>
                   <Badge variant="secondary">{reviews.filter(r => r.status === 'published').length}</Badge>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="text-sm">Review cho duyet</span>
+                  <span className="text-sm">{t('admin_reviews.stats.pending_reviews')}</span>
                   <Badge variant="secondary">{reviews.filter(r => r.status === 'pending').length}</Badge>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="text-sm">Review bi bao cao</span>
+                  <span className="text-sm">{t('admin_reviews.stats.flagged_reviews')}</span>
                   <Badge variant="secondary">{reviews.filter(r => r.status === 'flagged').length}</Badge>
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="text-sm">Review da an</span>
+                  <span className="text-sm">{t('admin_reviews.stats.hidden_reviews')}</span>
                   <Badge variant="secondary">{reviews.filter(r => r.status === 'hidden').length}</Badge>
                 </div>
               </CardContent>
@@ -752,7 +754,7 @@ export function ReviewManagementPage() {
         <Dialog open={!!selectedReview} onOpenChange={() => setSelectedReview(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Chi tiet danh gia</DialogTitle>
+              <DialogTitle>{t('admin_reviews.detail.title')}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -767,7 +769,7 @@ export function ReviewManagementPage() {
                     {selectedReview.is_verified_purchase && (
                       <Badge variant="outline" className="text-xs">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        Da mua khoa hoc
+                        {t('admin_reviews.detail.purchased_course')}
                       </Badge>
                     )}
                   </div>
@@ -777,37 +779,37 @@ export function ReviewManagementPage() {
               </div>
 
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Khoa hoc</p>
+                <p className="text-sm text-muted-foreground mb-1">{t('admin_reviews.detail.course')}</p>
                 <p className="font-medium">{selectedReview.course_title}</p>
               </div>
 
               {selectedReview.flagged_reason && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">Ly do bao cao</p>
+                  <p className="text-sm text-muted-foreground mb-1">{t('admin_reviews.detail.report_reason')}</p>
                   <Badge variant="destructive">{selectedReview.flagged_reason}</Badge>
                 </div>
               )}
 
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Danh gia</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('admin_reviews.detail.review')}</p>
                 {renderStars(selectedReview.rating)}
-                <p className="text-sm mt-2">{selectedReview.comment || 'Khong co noi dung'}</p>
+                <p className="text-sm mt-2">{selectedReview.comment || t('admin_reviews.no_content')}</p>
               </div>
 
               <div className="flex items-center gap-4 pt-2 border-t">
                 <div className="flex items-center gap-1">
                   <ThumbsUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedReview.helpful_count} huu ich</span>
+                  <span className="text-sm">{t('admin_reviews.detail.helpful_count', { count: selectedReview.helpful_count })}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedReview.reply_count} phan hoi</span>
+                  <span className="text-sm">{t('admin_reviews.detail.reply_count', { count: selectedReview.reply_count })}</span>
                 </div>
               </div>
 
               {selectedReview.instructor_reply ? (
                 <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm font-medium mb-1">Phan hoi tu giang vien</p>
+                  <p className="text-sm font-medium mb-1">{t('admin_reviews.detail.instructor_reply')}</p>
                   <p className="text-sm">{selectedReview.instructor_reply}</p>
                   {selectedReview.instructor_reply_at && (
                     <p className="text-xs text-muted-foreground mt-2">
@@ -817,15 +819,15 @@ export function ReviewManagementPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Phan hoi voi danh gia</p>
+                  <p className="text-sm font-medium">{t('admin_reviews.detail.reply_to_review')}</p>
                   <Textarea
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="Nhap phan hoi cua ban..."
+                    placeholder={t('admin_reviews.detail.reply_placeholder')}
                     rows={3}
                   />
                   <Button onClick={() => void handleReply(selectedReview.id)} disabled={!replyText.trim()}>
-                    Gui phan hoi
+                    {t('admin_reviews.detail.send_reply')}
                   </Button>
                 </div>
               )}
@@ -836,7 +838,7 @@ export function ReviewManagementPage() {
                     void handleStatusChange(selectedReview.id, 'published')
                     setSelectedReview(null)
                   }}>
-                    Xuat ban
+                    {t('admin_reviews.actions.publish')}
                   </Button>
                 )}
                 {selectedReview.status !== 'hidden' && (
@@ -844,14 +846,14 @@ export function ReviewManagementPage() {
                     void handleStatusChange(selectedReview.id, 'hidden')
                     setSelectedReview(null)
                   }}>
-                    An danh gia
+                    {t('admin_reviews.actions.hide')}
                   </Button>
                 )}
                 <Button variant="destructive" onClick={() => {
                   void handleDeleteReview(selectedReview.id)
                   setSelectedReview(null)
                 }}>
-                  Xoa vinh vien
+                  {t('admin_reviews.actions.delete_forever')}
                 </Button>
               </div>
             </div>

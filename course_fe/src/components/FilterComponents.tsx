@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState } from "react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
@@ -10,6 +10,7 @@ import { Calendar } from "./ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
 import { Calendar as CalendarIcon, Filter, X, Search, SlidersHorizontal } from "lucide-react"
 import { format } from "date-fns"
+import { useTranslation } from "react-i18next"
 
 export interface FilterOption {
   label: string
@@ -20,7 +21,7 @@ export interface FilterOption {
 export interface FilterConfig {
   key: string
   label: string
-  type: 'select' | 'multiselect' | 'search' | 'date' | 'daterange' | 'checkbox' | 'number'
+  type: "select" | "multiselect" | "search" | "date" | "daterange" | "checkbox" | "number"
   options?: FilterOption[]
   placeholder?: string
   min?: number
@@ -41,17 +42,20 @@ interface TableFilterProps {
   showCount?: boolean
 }
 
-export function TableFilter({ 
-  title = "B��� lọc", 
-  configs, 
-  onFilterChange, 
+export function TableFilter({
+  title,
+  configs,
+  onFilterChange,
   onReset,
   className = "",
   initialFilters = {},
-  showCount = true
+  showCount = true,
 }: TableFilterProps) {
+  const { t } = useTranslation()
   const [filters, setFilters] = useState<FilterState>(initialFilters)
   const [isExpanded, setIsExpanded] = useState(false)
+
+  const resolvedTitle = title || t("filter_components.default_title")
 
   const updateFilter = (key: string, value: any) => {
     const newFilters = { ...filters, [key]: value }
@@ -65,39 +69,51 @@ export function TableFilter({
     onReset?.()
   }
 
-  const activeFilterCount = Object.values(filters).filter(value => 
-    value !== null && value !== undefined && value !== '' && 
-    (Array.isArray(value) ? value.length > 0 : true)
+  const activeFilterCount = Object.values(filters).filter(
+    (value) =>
+      value !== null &&
+      value !== undefined &&
+      value !== "" &&
+      (Array.isArray(value) ? value.length > 0 : true),
   ).length
 
   const renderFilterInput = (config: FilterConfig) => {
     const value = filters[config.key]
 
     switch (config.type) {
-      case 'search':
+      case "search":
         return (
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={config.placeholder || `Tìm kiếm ${config.label.toLowerCase()}...`}
-              value={value || ''}
+              placeholder={
+                config.placeholder ||
+                t("filter_components.search_placeholder", {
+                  label: config.label.toLowerCase(),
+                })
+              }
+              value={value || ""}
               onChange={(e) => updateFilter(config.key, e.target.value)}
               className="pl-8"
             />
           </div>
         )
 
-      case 'select':
+      case "select":
         return (
-          <Select 
-            value={value || 'all'} 
-            onValueChange={(val) => updateFilter(config.key, val === 'all' ? '' : val)}
-          >
+          <Select value={value || "all"} onValueChange={(val) => updateFilter(config.key, val === "all" ? "" : val)}>
             <SelectTrigger>
-              <SelectValue placeholder={config.placeholder || `Chọn ${config.label.toLowerCase()}`} />
+              <SelectValue
+                placeholder={
+                  config.placeholder ||
+                  t("filter_components.select_placeholder", {
+                    label: config.label.toLowerCase(),
+                  })
+                }
+              />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tất cả</SelectItem>
+              <SelectItem value="all">{t("filter_components.all")}</SelectItem>
               {config.options?.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   <div className="flex items-center justify-between w-full">
@@ -114,7 +130,7 @@ export function TableFilter({
           </Select>
         )
 
-      case 'multiselect':
+      case "multiselect":
         return (
           <div className="space-y-2">
             {config.options?.map((option) => (
@@ -145,16 +161,13 @@ export function TableFilter({
           </div>
         )
 
-      case 'date':
+      case "date":
         return (
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-start text-left font-normal"
-              >
+              <Button variant="outline" className="w-full justify-start text-left font-normal">
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {value ? format(new Date(value), "dd/MM/yyyy") : config.placeholder || "Chọn ngày"}
+                {value ? format(new Date(value), "dd/MM/yyyy") : config.placeholder || t("filter_components.pick_date")}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
@@ -168,14 +181,14 @@ export function TableFilter({
           </Popover>
         )
 
-      case 'daterange':
+      case "daterange":
         return (
           <div className="grid grid-cols-2 gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {value?.from ? format(new Date(value.from), "dd/MM") : "Từ ngày"}
+                  {value?.from ? format(new Date(value.from), "dd/MM") : t("filter_components.from_date")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -191,7 +204,7 @@ export function TableFilter({
               <PopoverTrigger asChild>
                 <Button variant="outline" className="justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {value?.to ? format(new Date(value.to), "dd/MM") : "Đến ngày"}
+                  {value?.to ? format(new Date(value.to), "dd/MM") : t("filter_components.to_date")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -206,21 +219,23 @@ export function TableFilter({
           </div>
         )
 
-      case 'number':
+      case "number":
         return (
           <div className="grid grid-cols-2 gap-2">
             <Input
               type="number"
-              placeholder={`Từ ${config.min || 0}`}
-              value={value?.min || ''}
+              placeholder={t("filter_components.number_min", { value: config.min || 0 })}
+              value={value?.min || ""}
               onChange={(e) => updateFilter(config.key, { ...value, min: e.target.value })}
               min={config.min}
               max={config.max}
             />
             <Input
               type="number"
-              placeholder={`Đến ${config.max || '∞'}`}
-              value={value?.max || ''}
+              placeholder={t("filter_components.number_max", {
+                value: config.max ?? t("filter_components.infinity"),
+              })}
+              value={value?.max || ""}
               onChange={(e) => updateFilter(config.key, { ...value, max: e.target.value })}
               min={config.min}
               max={config.max}
@@ -228,7 +243,7 @@ export function TableFilter({
           </div>
         )
 
-      case 'checkbox':
+      case "checkbox":
         return (
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -251,29 +266,23 @@ export function TableFilter({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-4 w-4" />
-            {title}
-            {activeFilterCount > 0 && (
-              <Badge variant="secondary">{activeFilterCount}</Badge>
-            )}
+            {resolvedTitle}
+            {activeFilterCount > 0 && <Badge variant="secondary">{activeFilterCount}</Badge>}
           </CardTitle>
           <div className="flex items-center gap-2">
             {activeFilterCount > 0 && (
               <Button variant="ghost" size="sm" onClick={resetFilters}>
                 <X className="h-4 w-4 mr-1" />
-                Xóa bộ lọc
+                {t("filter_components.clear_filters")}
               </Button>
             )}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setIsExpanded(!isExpanded)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </CardHeader>
-      
+
       {(isExpanded || activeFilterCount > 0) && (
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -285,36 +294,39 @@ export function TableFilter({
             ))}
           </div>
 
-          {/* Active Filters Display */}
           {activeFilterCount > 0 && (
             <div className="pt-4 border-t">
               <div className="flex flex-wrap gap-2">
-                <span className="text-sm text-muted-foreground">Bộ lọc đang áp dụng:</span>
+                <span className="text-sm text-muted-foreground">{t("filter_components.active_filters")}</span>
                 {Object.entries(filters).map(([key, value]) => {
                   if (!value || (Array.isArray(value) && value.length === 0)) return null
-                  
-                  const config = configs.find(c => c.key === key)
+
+                  const config = configs.find((item) => item.key === key)
                   if (!config) return null
 
                   let displayValue = value
                   if (Array.isArray(value)) {
-                    displayValue = value.map(v => 
-                      config.options?.find(opt => opt.value === v)?.label || v
-                    ).join(', ')
-                  } else if (config.type === 'select') {
-                    displayValue = config.options?.find(opt => opt.value === value)?.label || value
-                  } else if (config.type === 'date' && value) {
+                    displayValue = value
+                      .map((item) => config.options?.find((option) => option.value === item)?.label || item)
+                      .join(", ")
+                  } else if (config.type === "select") {
+                    displayValue = config.options?.find((option) => option.value === value)?.label || value
+                  } else if (config.type === "date" && value) {
                     displayValue = format(new Date(value), "dd/MM/yyyy")
-                  } else if (config.type === 'daterange' && value) {
+                  } else if (config.type === "daterange" && value) {
                     const parts = []
-                    if (value.from) parts.push(`Từ ${format(new Date(value.from), "dd/MM")}`)
-                    if (value.to) parts.push(`Đến ${format(new Date(value.to), "dd/MM")}`)
-                    displayValue = parts.join(' ')
-                  } else if (config.type === 'number' && value) {
+                    if (value.from) {
+                      parts.push(t("filter_components.range_from", { value: format(new Date(value.from), "dd/MM") }))
+                    }
+                    if (value.to) {
+                      parts.push(t("filter_components.range_to", { value: format(new Date(value.to), "dd/MM") }))
+                    }
+                    displayValue = parts.join(" ")
+                  } else if (config.type === "number" && value) {
                     const parts = []
-                    if (value.min) parts.push(`≥${value.min}`)
-                    if (value.max) parts.push(`≤${value.max}`)
-                    displayValue = parts.join(' ')
+                    if (value.min) parts.push(`>=${value.min}`)
+                    if (value.max) parts.push(`<=${value.max}`)
+                    displayValue = parts.join(" ")
                   }
 
                   return (
@@ -324,7 +336,7 @@ export function TableFilter({
                         variant="ghost"
                         size="sm"
                         className="h-auto p-0 hover:bg-transparent"
-                        onClick={() => updateFilter(key, config.type === 'multiselect' ? [] : '')}
+                        onClick={() => updateFilter(key, config.type === "multiselect" ? [] : "")}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -340,17 +352,17 @@ export function TableFilter({
   )
 }
 
-// Quick search component
-export function QuickSearch({ 
-  placeholder = "Tìm kiếm...", 
+export function QuickSearch({
+  placeholder,
   onSearch,
-  className = ""
+  className = "",
 }: {
   placeholder?: string
   onSearch: (query: string) => void
   className?: string
 }) {
-  const [query, setQuery] = useState('')
+  const { t } = useTranslation()
+  const [query, setQuery] = useState("")
 
   const handleSearch = (value: string) => {
     setQuery(value)
@@ -361,7 +373,7 @@ export function QuickSearch({
     <div className={`relative ${className}`}>
       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
       <Input
-        placeholder={placeholder}
+        placeholder={placeholder || t("filter_components.quick_search_placeholder")}
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
         className="pl-8"
@@ -371,7 +383,7 @@ export function QuickSearch({
           variant="ghost"
           size="sm"
           className="absolute right-1 top-1 h-6 w-6 p-0"
-          onClick={() => handleSearch('')}
+          onClick={() => handleSearch("")}
         >
           <X className="h-4 w-4" />
         </Button>
@@ -380,7 +392,6 @@ export function QuickSearch({
   )
 }
 
-// Simple select component for quick filtering
 interface SimpleSelectProps {
   label?: string
   value: string
@@ -409,9 +420,8 @@ function SimpleSelect({ label, value, options, onChange, className = "" }: Simpl
   )
 }
 
-// Export as namespace
 export const FilterComponents = {
   TableFilter,
   QuickSearch,
-  Select: SimpleSelect
+  Select: SimpleSelect,
 }

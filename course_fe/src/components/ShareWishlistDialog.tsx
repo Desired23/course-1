@@ -115,7 +115,7 @@ export function ShareWishlistDialog({
                 onClick={() => shareToSocial('facebook')}
               >
                 <Facebook className="w-5 h-5 text-[#1877F2]" />
-                <span className="text-xs">Facebook</span>
+                <span className="text-xs">{t('share_wishlist.platforms.facebook')}</span>
               </Button>
               <Button
                 variant="outline"
@@ -123,7 +123,7 @@ export function ShareWishlistDialog({
                 onClick={() => shareToSocial('twitter')}
               >
                 <Twitter className="w-5 h-5 text-[#1DA1F2]" />
-                <span className="text-xs">Twitter</span>
+                <span className="text-xs">{t('share_wishlist.platforms.twitter')}</span>
               </Button>
               <Button
                 variant="outline"
@@ -131,7 +131,7 @@ export function ShareWishlistDialog({
                 onClick={() => shareToSocial('linkedin')}
               >
                 <Linkedin className="w-5 h-5 text-[#0A66C2]" />
-                <span className="text-xs">LinkedIn</span>
+                <span className="text-xs">{t('share_wishlist.platforms.linkedin')}</span>
               </Button>
               <Button
                 variant="outline"
@@ -139,7 +139,7 @@ export function ShareWishlistDialog({
                 onClick={() => shareToSocial('email')}
               >
                 <Mail className="w-5 h-5" />
-                <span className="text-xs">Email</span>
+                <span className="text-xs">{t('share_wishlist.platforms.email')}</span>
               </Button>
             </div>
           </div>

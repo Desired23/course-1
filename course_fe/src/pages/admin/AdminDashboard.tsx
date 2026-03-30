@@ -114,8 +114,8 @@ export function AdminDashboard() {
         setRecentCourses((coursesRes.results || []).map((c: CourseListItem) => ({
           id: c.id,
           title: c.title,
-          instructor: c.instructor_name || 'Unknown',
-          category: c.category_name || 'Uncategorized',
+          instructor: c.instructor_name || t('admin_dashboard.unknown'),
+          category: c.category_name || t('admin_dashboard.uncategorized'),
           students: c.total_students || 0,
           rating: c.rating || 0,
           price: parseFloat(String(c.price || 0)),
@@ -138,7 +138,7 @@ export function AdminDashboard() {
     setIsRefreshing(true)
     await fetchDashboard()
     setIsRefreshing(false)
-    toast.success('Thống kê đã được cập nhật!')
+    toast.success(t('admin_dashboard.toasts.refresh_success'))
   }
 
   const openStatDetail = (title: string, type: 'users' | 'courses' | 'revenue' | 'completions', value: number) => {
@@ -163,7 +163,7 @@ export function AdminDashboard() {
     <div className="p-4 md:p-8">
         <div className="flex items-center justify-end mb-4">
           <Button variant="outline" size="sm" onClick={handleRefreshStats} disabled={isRefreshing}>
-            {isRefreshing ? 'Refreshing...' : 'Refresh dashboard'}
+            {isRefreshing ? t('admin_dashboard.refreshing') : t('admin_dashboard.refresh_dashboard')}
           </Button>
         </div>
         {/* Stats Cards */}
@@ -312,13 +312,13 @@ export function AdminDashboard() {
                     {isUsersLoading ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                          Loading users...
+                          {t('admin_dashboard.loading_users')}
                         </TableCell>
                       </TableRow>
                     ) : recentUsers.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
-                          No users match the current search.
+                          {t('admin_dashboard.empty_users')}
                         </TableCell>
                       </TableRow>
                     ) : recentUsers.map((user) => (
@@ -369,7 +369,7 @@ export function AdminDashboard() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate('/admin/users')}>
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Open delete flow
+                                {t('admin_dashboard.open_delete_flow')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -424,13 +424,13 @@ export function AdminDashboard() {
                     {isCoursesLoading ? (
                       <TableRow>
                         <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                          Loading courses...
+                          {t('admin_dashboard.loading_courses')}
                         </TableCell>
                       </TableRow>
                     ) : recentCourses.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
-                          No courses match the current search.
+                          {t('admin_dashboard.empty_courses')}
                         </TableCell>
                       </TableRow>
                     ) : recentCourses.map((course) => (
@@ -473,7 +473,7 @@ export function AdminDashboard() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate('/admin/courses')}>
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Open delete flow
+                                {t('admin_dashboard.open_delete_flow')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -495,14 +495,14 @@ export function AdminDashboard() {
               <CardContent>
                 <div className="py-4 space-y-4">
                   <p className="text-muted-foreground">
-                    Open the dedicated analytics screens below for the full reporting experience.
+                    {t('admin_dashboard.analytics_description')}
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <Button onClick={() => navigate('/admin/analytics')}>
                       {t('admin_dashboard.analytics_tab')}
                     </Button>
                     <Button variant="outline" onClick={() => navigate('/admin/statistics')}>
-                      Statistics
+                      {t('admin_dashboard.statistics')}
                     </Button>
                   </div>
                 </div>
@@ -518,17 +518,17 @@ export function AdminDashboard() {
               <CardContent>
                 <div className="py-4 space-y-4">
                   <p className="text-muted-foreground">
-                    Jump directly to the admin settings area you want to update.
+                    {t('admin_dashboard.settings_description')}
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <Button onClick={() => navigate('/admin/settings')}>
-                      Platform Settings
+                      {t('admin_dashboard.platform_settings')}
                     </Button>
                     <Button variant="outline" onClick={() => navigate('/admin/website-settings')}>
-                      Website Settings
+                      {t('admin_dashboard.website_settings')}
                     </Button>
                     <Button variant="outline" onClick={() => navigate('/admin/payments/methods')}>
-                      Payment Methods
+                      {t('admin_dashboard.payment_methods')}
                     </Button>
                   </div>
                 </div>

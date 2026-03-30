@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -63,13 +64,14 @@ const DEFAULT_CONFIRM_STATE: ConfirmState = {
   open: false,
   title: '',
   description: '',
-  confirmLabel: 'Confirm',
+  confirmLabel: '',
   destructive: false,
   loading: false,
   action: null,
 }
 
 export function AdminCategoriesPage() {
+  const { t } = useTranslation()
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Subcategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -125,8 +127,8 @@ export function AdminCategoriesPage() {
         isActive: c.status === 'active',
       })))
     } catch {
-      setErrorMessage('Khong the tai danh muc.')
-      toast.error('Khong the tai danh muc')
+      setErrorMessage(t('admin_categories.toasts.load_failed'))
+      toast.error(t('admin_categories.toasts.load_failed'))
     } finally {
       setIsLoading(false)
     }
@@ -182,7 +184,7 @@ export function AdminCategoriesPage() {
 
   const handleCreateCategory = async () => {
     if (!categoryName.trim()) {
-      toast.error('Please enter a category name')
+      toast.error(t('admin_categories.toasts.name_required'))
       return
     }
     try {
@@ -194,11 +196,11 @@ export function AdminCategoriesPage() {
         status: 'active',
       })
       setCategories(prev => [...prev, mapApiCategory(created, prev.length)])
-      toast.success('Category created successfully')
+      toast.success(t('admin_categories.toasts.create_success'))
       resetCategoryForm()
       setIsDialogOpen(false)
     } catch {
-      toast.error('Tao danh muc that bai')
+      toast.error(t('admin_categories.toasts.create_failed'))
     } finally {
       setIsSavingCategory(false)
     }
@@ -225,11 +227,11 @@ export function AdminCategoriesPage() {
             }
           : cat
       ))
-      toast.success('Category updated successfully')
+      toast.success(t('admin_categories.toasts.update_success'))
       resetCategoryForm()
       setIsDialogOpen(false)
     } catch {
-      toast.error('Cap nhat that bai')
+      toast.error(t('admin_categories.toasts.update_failed'))
     } finally {
       setIsSavingCategory(false)
     }
@@ -240,19 +242,19 @@ export function AdminCategoriesPage() {
     if (!category) return
     const subcatsCount = subcategories.filter(s => s.categoryId === categoryId).length
     openConfirm(
-      'Delete category',
+      t('admin_categories.actions.delete_category_title'),
       subcatsCount > 0
-        ? `Delete "${category.name}" and ${subcatsCount} subcategories? This action cannot be undone.`
-        : `Delete "${category.name}" permanently? This action cannot be undone.`,
-      'Delete category',
+        ? t('admin_categories.actions.delete_category_with_children_description', { name: category.name, count: subcatsCount })
+        : t('admin_categories.actions.delete_category_description', { name: category.name }),
+      t('admin_categories.actions.delete_category_confirm'),
       async () => {
         try {
           await deleteCategoryApi(Number(categoryId))
           setCategories(prev => prev.filter(c => c.id !== categoryId))
           setSubcategories(prev => prev.filter(s => s.categoryId !== categoryId))
-          toast.success('Category deleted successfully')
+          toast.success(t('admin_categories.toasts.delete_category_success'))
         } catch {
-          toast.error('Xoa that bai')
+          toast.error(t('admin_categories.toasts.delete_failed'))
           throw new Error('delete-category-failed')
         }
       },
@@ -267,7 +269,7 @@ export function AdminCategoriesPage() {
       await updateCategoryApi(Number(categoryId), { status: cat.isActive ? 'inactive' : 'active' })
       setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, isActive: !c.isActive } : c))
     } catch {
-      toast.error('Thao tac that bai')
+      toast.error(t('admin_categories.toasts.action_failed'))
     }
   }
 
@@ -283,7 +285,7 @@ export function AdminCategoriesPage() {
 
   const handleCreateSubcategory = async () => {
     if (!subcategoryName.trim() || !subcategoryParent) {
-      toast.error('Please fill in all required fields')
+      toast.error(t('admin_categories.toasts.required_fields'))
       return
     }
     try {
@@ -301,11 +303,11 @@ export function AdminCategoriesPage() {
         coursesCount: 0,
         isActive: true,
       }])
-      toast.success('Subcategory created successfully')
+      toast.success(t('admin_categories.toasts.create_subcategory_success'))
       resetSubcategoryForm()
       setIsSubcategoryDialogOpen(false)
     } catch {
-      toast.error('Tao danh muc con that bai')
+      toast.error(t('admin_categories.toasts.create_subcategory_failed'))
     } finally {
       setIsSavingSubcategory(false)
     }
@@ -315,16 +317,16 @@ export function AdminCategoriesPage() {
     const subcategory = subcategories.find(s => s.id === subcategoryId)
     if (!subcategory) return
     openConfirm(
-      'Delete subcategory',
-      `Delete "${subcategory.name}" permanently? This action cannot be undone.`,
-      'Delete subcategory',
+      t('admin_categories.actions.delete_subcategory_title'),
+      t('admin_categories.actions.delete_subcategory_description', { name: subcategory.name }),
+      t('admin_categories.actions.delete_subcategory_confirm'),
       async () => {
         try {
           await deleteCategoryApi(Number(subcategoryId))
           setSubcategories(prev => prev.filter(s => s.id !== subcategoryId))
-          toast.success('Subcategory deleted successfully')
+          toast.success(t('admin_categories.toasts.delete_subcategory_success'))
         } catch {
-          toast.error('Xoa that bai')
+          toast.error(t('admin_categories.toasts.delete_failed'))
           throw new Error('delete-subcategory-failed')
         }
       },
@@ -355,8 +357,8 @@ export function AdminCategoriesPage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="mb-2">Categories Management</h1>
-            <p className="text-muted-foreground">Organize courses into categories and subcategories</p>
+            <h1 className="mb-2">{t('admin_categories.title')}</h1>
+            <p className="text-muted-foreground">{t('admin_categories.subtitle')}</p>
           </div>
           <Dialog
             open={isDialogOpen}
@@ -368,59 +370,59 @@ export function AdminCategoriesPage() {
             <DialogTrigger asChild>
               <Button onClick={resetCategoryForm}>
                 <Plus className="h-4 w-4 mr-2" />
-                Create Category
+                {t('admin_categories.create_category')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>{editingCategory ? 'Edit Category' : 'Create New Category'}</DialogTitle>
+                <DialogTitle>{editingCategory ? t('admin_categories.dialogs.edit_title') : t('admin_categories.dialogs.create_title')}</DialogTitle>
                 <DialogDescription>
-                  {editingCategory ? 'Update category information' : 'Add a new course category to organize your content'}
+                  {editingCategory ? t('admin_categories.dialogs.edit_description') : t('admin_categories.dialogs.create_description')}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="category-name">Category Name</Label>
+                    <Label htmlFor="category-name">{t('admin_categories.form.category_name')}</Label>
                     <Input
                       id="category-name"
                       value={categoryName}
                       onChange={(e) => setCategoryName(e.target.value)}
-                      placeholder="e.g., Development"
+                      placeholder={t('admin_categories.form.category_name_placeholder')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="category-slug">URL Slug</Label>
+                    <Label htmlFor="category-slug">{t('admin_categories.form.slug')}</Label>
                     <Input
                       id="category-slug"
                       value={categorySlug}
                       onChange={(e) => setCategorySlug(e.target.value)}
-                      placeholder="e.g., development"
+                      placeholder={t('admin_categories.form.slug_placeholder')}
                     />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="category-description">Description</Label>
+                  <Label htmlFor="category-description">{t('admin_categories.form.description')}</Label>
                   <Textarea
                     id="category-description"
                     value={categoryDescription}
                     onChange={(e) => setCategoryDescription(e.target.value)}
-                    placeholder="Brief description of this category"
+                    placeholder={t('admin_categories.form.description_placeholder')}
                     rows={3}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="category-icon">Icon name</Label>
+                    <Label htmlFor="category-icon">{t('admin_categories.form.icon_name')}</Label>
                     <Input
                       id="category-icon"
                       value={categoryIcon}
                       onChange={(e) => setCategoryIcon(e.target.value)}
-                      placeholder="e.g., Code, Briefcase, Folder"
+                      placeholder={t('admin_categories.form.icon_placeholder')}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="category-color">Color</Label>
+                    <Label htmlFor="category-color">{t('admin_categories.form.color')}</Label>
                     <div className="flex gap-2">
                       <Input
                         id="category-color"
@@ -440,10 +442,10 @@ export function AdminCategoriesPage() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button disabled={isSavingCategory} onClick={editingCategory ? handleUpdateCategory : handleCreateCategory}>
-                  {isSavingCategory ? 'Saving...' : `${editingCategory ? 'Update' : 'Create'} Category`}
+                  {isSavingCategory ? t('admin_categories.saving') : editingCategory ? t('admin_categories.dialogs.update_category') : t('admin_categories.dialogs.create_category')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -455,7 +457,7 @@ export function AdminCategoriesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Categories</p>
+                  <p className="text-sm text-muted-foreground">{t('admin_categories.stats.total_categories')}</p>
                   <p className="text-2xl font-bold">{categories.length}</p>
                 </div>
                 <Folder className="h-8 w-8 text-muted-foreground" />
@@ -466,7 +468,7 @@ export function AdminCategoriesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Categories</p>
+                  <p className="text-sm text-muted-foreground">{t('admin_categories.stats.active_categories')}</p>
                   <p className="text-2xl font-bold">{categories.filter(c => c.isActive).length}</p>
                 </div>
                 <Layers className="h-8 w-8 text-green-500" />
@@ -477,7 +479,7 @@ export function AdminCategoriesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Subcategories</p>
+                  <p className="text-sm text-muted-foreground">{t('admin_categories.stats.subcategories')}</p>
                   <p className="text-2xl font-bold">{subcategories.length}</p>
                 </div>
                 <Tag className="h-8 w-8 text-blue-500" />
@@ -488,7 +490,7 @@ export function AdminCategoriesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Visible Results</p>
+                  <p className="text-sm text-muted-foreground">{t('admin_categories.stats.visible_results')}</p>
                   <p className="text-2xl font-bold">{filteredCategories.length}</p>
                 </div>
                 <Search className="h-8 w-8 text-purple-500" />
@@ -504,7 +506,7 @@ export function AdminCategoriesPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search categories..."
+                placeholder={t('admin_categories.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -515,17 +517,17 @@ export function AdminCategoriesPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="active">Active Only</SelectItem>
-                <SelectItem value="inactive">Inactive Only</SelectItem>
+                <SelectItem value="all">{t('admin_categories.filters.all')}</SelectItem>
+                <SelectItem value="active">{t('admin_categories.filters.active_only')}</SelectItem>
+                <SelectItem value="inactive">{t('admin_categories.filters.inactive_only')}</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={() => setIsSubcategoryDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Subcategory
+              {t('admin_categories.add_subcategory')}
             </Button>
             <Button variant="outline" onClick={() => void fetchData()} disabled={isLoading}>
-              {isLoading ? 'Refreshing...' : 'Refresh'}
+              {isLoading ? t('admin_categories.refreshing') : t('admin_categories.refresh')}
             </Button>
           </div>
         </CardContent>
@@ -533,31 +535,31 @@ export function AdminCategoriesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Categories</CardTitle>
-          <CardDescription>Manage main course categories</CardDescription>
+          <CardTitle>{t('admin_categories.categories_title')}</CardTitle>
+          <CardDescription>{t('admin_categories.categories_description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Dang tai danh muc...</div>
+            <div className="py-12 text-center text-sm text-muted-foreground">{t('admin_categories.loading_categories')}</div>
           ) : errorMessage ? (
             <div className="py-12 text-center space-y-3">
               <p className="text-sm text-destructive">{errorMessage}</p>
-              <Button variant="outline" onClick={() => void fetchData()}>Thu lai</Button>
+              <Button variant="outline" onClick={() => void fetchData()}>{t('admin_categories.retry')}</Button>
             </div>
           ) : filteredCategories.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
-              Khong co danh muc nao phu hop bo loc hien tai.
+              {t('admin_categories.empty_categories')}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">Order</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Subcategories</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-12">{t('admin_categories.table.order')}</TableHead>
+                  <TableHead>{t('admin_categories.table.category')}</TableHead>
+                  <TableHead>{t('admin_categories.table.subcategories')}</TableHead>
+                  <TableHead>{t('admin_categories.table.status')}</TableHead>
+                  <TableHead>{t('admin_categories.table.created')}</TableHead>
+                  <TableHead className="text-right">{t('admin_categories.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -577,7 +579,7 @@ export function AdminCategoriesPage() {
                           </div>
                           <div>
                             <p className="font-medium">{category.name}</p>
-                            <p className="text-sm text-muted-foreground">{category.description || 'No description yet'}</p>
+                            <p className="text-sm text-muted-foreground">{category.description || t('admin_categories.no_description')}</p>
                             <p className="text-xs text-muted-foreground">/{category.slug}</p>
                           </div>
                         </div>
@@ -598,7 +600,7 @@ export function AdminCategoriesPage() {
                               )}
                             </>
                           ) : (
-                            <span className="text-sm text-muted-foreground">No subcategories</span>
+                            <span className="text-sm text-muted-foreground">{t('admin_categories.no_subcategories')}</span>
                           )}
                         </div>
                       </TableCell>
@@ -608,7 +610,7 @@ export function AdminCategoriesPage() {
                             checked={category.isActive}
                             onCheckedChange={() => void handleToggleStatus(category.id)}
                           />
-                          <span className="text-sm">{category.isActive ? 'Active' : 'Inactive'}</span>
+                          <span className="text-sm">{category.isActive ? t('admin_categories.status.active') : t('admin_categories.status.inactive')}</span>
                         </div>
                       </TableCell>
                       <TableCell>{category.createdAt}</TableCell>
@@ -633,24 +635,24 @@ export function AdminCategoriesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Subcategories</CardTitle>
-          <CardDescription>Review and clean up subcategories without leaving this page</CardDescription>
+          <CardTitle>{t('admin_categories.subcategories_title')}</CardTitle>
+          <CardDescription>{t('admin_categories.subcategories_description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">Dang tai danh muc con...</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">{t('admin_categories.loading_subcategories')}</div>
           ) : visibleSubcategories.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              Khong co danh muc con nao trong ket qua hien tai.
+              {t('admin_categories.empty_subcategories')}
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Parent Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('admin_categories.subcategory_table.name')}</TableHead>
+                  <TableHead>{t('admin_categories.subcategory_table.parent_category')}</TableHead>
+                  <TableHead>{t('admin_categories.subcategory_table.status')}</TableHead>
+                  <TableHead className="text-right">{t('admin_categories.subcategory_table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -663,11 +665,11 @@ export function AdminCategoriesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {categories.find(category => category.id === subcategory.categoryId)?.name || 'Unknown'}
+                      {categories.find(category => category.id === subcategory.categoryId)?.name || t('admin_categories.unknown')}
                     </TableCell>
                     <TableCell>
                       <Badge variant={subcategory.isActive ? 'default' : 'secondary'}>
-                        {subcategory.isActive ? 'Active' : 'Inactive'}
+                        {subcategory.isActive ? t('admin_categories.status.active') : t('admin_categories.status.inactive')}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -692,15 +694,15 @@ export function AdminCategoriesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Subcategory</DialogTitle>
-            <DialogDescription>Add a new subcategory under a parent category</DialogDescription>
+            <DialogTitle>{t('admin_categories.subcategory_dialog.title')}</DialogTitle>
+            <DialogDescription>{t('admin_categories.subcategory_dialog.description')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="parent-category">Parent Category</Label>
+              <Label htmlFor="parent-category">{t('admin_categories.subcategory_dialog.parent_category')}</Label>
               <Select value={subcategoryParent} onValueChange={setSubcategoryParent}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select parent category" />
+                  <SelectValue placeholder={t('admin_categories.subcategory_dialog.parent_category_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map(cat => {
@@ -719,31 +721,31 @@ export function AdminCategoriesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="subcat-name">Subcategory Name</Label>
+                <Label htmlFor="subcat-name">{t('admin_categories.subcategory_dialog.name')}</Label>
                 <Input
                   id="subcat-name"
                   value={subcategoryName}
                   onChange={(e) => setSubcategoryName(e.target.value)}
-                  placeholder="e.g., Web Development"
+                  placeholder={t('admin_categories.subcategory_dialog.name_placeholder')}
                 />
               </div>
               <div>
-                <Label htmlFor="subcat-slug">URL Slug</Label>
+                <Label htmlFor="subcat-slug">{t('admin_categories.subcategory_dialog.slug')}</Label>
                 <Input
                   id="subcat-slug"
                   value={subcategorySlug}
                   onChange={(e) => setSubcategorySlug(e.target.value)}
-                  placeholder="e.g., web-development"
+                  placeholder={t('admin_categories.subcategory_dialog.slug_placeholder')}
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsSubcategoryDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button disabled={isSavingSubcategory} onClick={handleCreateSubcategory}>
-              {isSavingSubcategory ? 'Saving...' : 'Create Subcategory'}
+              {isSavingSubcategory ? t('admin_categories.saving') : t('admin_categories.subcategory_dialog.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

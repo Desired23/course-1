@@ -26,6 +26,8 @@ export interface Payment {
   refund_amount: string
   payment_gateway: string
   gateway_response: string | null
+  retryable_until?: string | null
+  can_retry_payment?: boolean
   created_at: string
   updated_at: string
   courses: PaymentCourse[]
@@ -55,7 +57,7 @@ export interface PaymentDetail {
   discount: string
   final_price: string
   promotion: number | null
-  refund_status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  refund_status: 'pending' | 'processing' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
   refund_amount: string | null
   refund_reason: string | null
   refund_date: string | null
@@ -65,6 +67,18 @@ export interface PaymentDetail {
 export interface VnpayCreateResponse {
   payment_url: string
   payment_id: number
+}
+
+export interface MomoCreateResponse {
+  partnerCode: string
+  requestId: string
+  orderId: string
+  amount: number
+  responseTime: number
+  message: string
+  resultCode: number
+  payUrl: string
+  shortLink?: string
 }
 
 export interface VnpayReturnResponse {
@@ -80,6 +94,11 @@ export interface VnpayReturnResponse {
 export interface CreatePaymentResponse {
   payment: Payment
   payment_details: PaymentDetail[]
+  gateway_payment?: {
+    provider: 'momo' | 'vnpay'
+    url: string
+    payload?: MomoCreateResponse | VnpayCreateResponse
+  }
 }
 
 export async function createPaymentRecord(data: {
@@ -115,6 +134,13 @@ export async function createVnpayPayment(data: {
   return http.post<VnpayCreateResponse>('/vnpay/create/', data)
 }
 
+export async function createMomoPayment(data: {
+  payment_id?: number | string
+  order_id?: number | string
+}): Promise<MomoCreateResponse> {
+  return http.post<MomoCreateResponse>('/momo/create/', data)
+}
+
 export interface MyPaymentItem {
   id: number
   course_id: number | null
@@ -128,10 +154,17 @@ export interface MyPaymentItem {
   price: string
   discount: string
   final_price: string
-  refund_status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  refund_status: 'pending' | 'processing' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
   refund_request_time?: string | null
   refund_amount: string | null
   refund_reason: string | null
+  gateway_attempt_count?: number
+  last_gateway_attempt_at?: string | null
+  next_retry_at?: string | null
+  last_gateway_error?: string | null
+  internal_note_summary?: string | null
+  is_deleted?: boolean
+  deleted_at?: string | null
   refund_eligible?: boolean
   refund_disabled_reason?: string | null
   enrollment_status?: string | null
@@ -151,6 +184,8 @@ export interface MyPayment {
   payment_method: 'vnpay' | 'momo'
   refund_amount: string
   created_at: string | null
+  retryable_until?: string | null
+  can_retry_payment?: boolean
   items: MyPaymentItem[]
 }
 
@@ -187,10 +222,18 @@ export interface UserRefundItem {
   amount: number
   refund_amount: number | null
   reason: string | null
-  status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  status: 'pending' | 'processing' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled' | 'deleted'
   request_date: string
   processed_date: string | null
   transaction_id: string | null
+  gateway_attempt_count: number
+  last_gateway_attempt_at: string | null
+  next_retry_at: string | null
+  last_gateway_error: string | null
+  internal_note_summary: string | null
+  is_deleted: boolean
+  deleted_at: string | null
+  timeline?: Array<{ event: string; actor?: string | null; note?: string | null; timestamp: string }>
 }
 
 export interface AdminRefundItem {
@@ -204,16 +247,34 @@ export interface AdminRefundItem {
   amount: number
   refund_amount: number | null
   reason: string | null
-  status: 'pending' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled'
+  status: 'pending' | 'processing' | 'approved' | 'success' | 'rejected' | 'failed' | 'cancelled' | 'deleted'
   requested_at: string
   processed_at: string | null
   processed_by: string | null
   learning_progress: number
   course_completion_days: number
   transaction_id: string | null
+  gateway_attempt_count: number
+  last_gateway_attempt_at: string | null
+  next_retry_at: string | null
+  last_gateway_error: string | null
+  internal_note_summary: string | null
+  is_deleted: boolean
+  deleted_at: string | null
+  retryable: boolean
+  timeline?: Array<{ event: string; actor?: string | null; note?: string | null; timestamp: string }>
 }
 
-export type PaymentAdminConfigKey = 'policies' | 'instructor-rates' | 'discounts'
+export type PaymentAdminConfigKey = 'policies' | 'instructor-rates' | 'discounts' | 'refund-settings'
+
+export interface RefundSettings {
+  refund_mode: 'admin_approval' | 'direct_system'
+  refund_retry_cooldown_minutes: number
+  refund_max_retry_count: number
+  refund_timeout_seconds: number
+  allow_admin_override_refund_status: boolean
+  allow_admin_soft_delete_refund: boolean
+}
 
 export interface PaymentAdminConfigResponse<T = any[]> {
   config_key: PaymentAdminConfigKey
@@ -229,6 +290,7 @@ export async function getUserRefunds(params?: {
   search?: string
   date_from?: string
   date_to?: string
+  include_deleted?: boolean
 }): Promise<PaginatedResponse<UserRefundItem>> {
   const query = {
     page: params?.page,
@@ -237,12 +299,17 @@ export async function getUserRefunds(params?: {
     search: params?.search?.trim() || undefined,
     date_from: params?.date_from || undefined,
     date_to: params?.date_to || undefined,
+    include_deleted: params?.include_deleted ? 'true' : undefined,
   }
   return http.get<PaginatedResponse<UserRefundItem>>('/refunds/', query)
 }
 
-export async function requestRefund(data: RefundRequest): Promise<{ message: string }> {
-  return http.post<{ message: string }>('/refunds/request/', data)
+export async function requestRefund(data: RefundRequest): Promise<{
+  message: string
+  mode: RefundSettings['refund_mode']
+  results: UserRefundItem[]
+}> {
+  return http.post('/refunds/request/', data)
 }
 
 export async function getAdminRefunds(params?: {
@@ -252,6 +319,8 @@ export async function getAdminRefunds(params?: {
   search?: string
   date_from?: string
   date_to?: string
+  include_deleted?: boolean
+  retryable?: boolean
 }): Promise<PaginatedResponse<AdminRefundItem>> {
   const query = {
     page: params?.page,
@@ -260,6 +329,8 @@ export async function getAdminRefunds(params?: {
     search: params?.search?.trim() || undefined,
     date_from: params?.date_from || undefined,
     date_to: params?.date_to || undefined,
+    include_deleted: params?.include_deleted ? 'true' : undefined,
+    retryable: params?.retryable ? 'true' : undefined,
   }
   return http.get<PaginatedResponse<AdminRefundItem>>('/payments/refund/admin/', query)
 }
@@ -270,8 +341,22 @@ export async function updateAdminRefundStatus(data: {
   status: 'approved' | 'success' | 'rejected' | 'failed'
   response_code?: string
   transaction_id?: string
-}): Promise<{ message: string }> {
-  return http.patch<{ message: string }>('/payments/refund/admin/', data)
+}): Promise<{ message: string; updated_items?: AdminRefundItem[]; errors?: Array<{ refund_id: number; message: string }> }> {
+  return http.patch('/payments/refund/admin/', data)
+}
+
+export async function adminRefundAction(data: {
+  action: 'approve' | 'reject' | 'retry' | 'cancel' | 'soft_delete' | 'restore' | 'override_status' | 'add_note'
+  refund_ids: number[]
+  note?: string
+  override_status?: 'success' | 'failed' | 'rejected' | 'cancelled'
+}): Promise<{
+  message: string
+  updated_items: AdminRefundItem[]
+  skipped_items: Array<{ refund_id: number; message: string }>
+  errors: Array<{ refund_id: number; message: string }>
+}> {
+  return http.post('/payments/refund/admin/action/', data)
 }
 
 export async function cancelRefundRequest(data: {

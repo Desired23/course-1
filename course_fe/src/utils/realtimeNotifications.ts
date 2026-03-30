@@ -2,6 +2,7 @@
  * Realtime Notification Simulator
  * Simulates realtime notifications for Q&A and Reviews
  */
+import i18n from './i18n'
 
 export interface RealtimeNotification {
   type: 'qna_response' | 'review_response' | 'new_question' | 'new_review' | 'course_update' | 'promotion' | 'discussion'
@@ -15,38 +16,40 @@ class RealtimeNotificationService {
   private simulationInterval: NodeJS.Timeout | null = null
   
   // Mock notification templates
-  private mockNotifications: RealtimeNotification[] = [
-    {
-      type: 'new_question',
-      title: 'New Question',
-      message: 'A student asked: "How do I implement useEffect properly?"',
-      actionUrl: '/instructor/qna'
-    },
-    {
-      type: 'new_review',
-      title: 'New 5-Star Review',
-      message: 'Sarah Johnson left a glowing review on your React course',
-      actionUrl: '/instructor/reviews'
-    },
-    {
-      type: 'qna_response',
-      title: 'Q&A Notification',
-      message: 'Your answer helped 3 more students!',
-      actionUrl: '/instructor/qna'
-    },
-    {
-      type: 'new_question',
-      title: 'Urgent Question',
-      message: 'Student needs help with deployment issues',
-      actionUrl: '/instructor/qna'
-    },
-    {
-      type: 'new_review',
-      title: 'New Review',
-      message: 'Mike Chen rated your course 4 stars',
-      actionUrl: '/instructor/reviews'
-    }
-  ]
+  private getMockNotifications(): RealtimeNotification[] {
+    return [
+      {
+        type: 'new_question',
+        title: i18n.t('realtime_notifications.new_question.title'),
+        message: i18n.t('realtime_notifications.new_question.message'),
+        actionUrl: '/instructor/qna'
+      },
+      {
+        type: 'new_review',
+        title: i18n.t('realtime_notifications.new_five_star_review.title'),
+        message: i18n.t('realtime_notifications.new_five_star_review.message'),
+        actionUrl: '/instructor/reviews'
+      },
+      {
+        type: 'qna_response',
+        title: i18n.t('realtime_notifications.qna_response.title'),
+        message: i18n.t('realtime_notifications.qna_response.message'),
+        actionUrl: '/instructor/qna'
+      },
+      {
+        type: 'new_question',
+        title: i18n.t('realtime_notifications.urgent_question.title'),
+        message: i18n.t('realtime_notifications.urgent_question.message'),
+        actionUrl: '/instructor/qna'
+      },
+      {
+        type: 'new_review',
+        title: i18n.t('realtime_notifications.new_review.title'),
+        message: i18n.t('realtime_notifications.new_review.message'),
+        actionUrl: '/instructor/reviews'
+      }
+    ]
+  }
 
   /**
    * Start simulating realtime notifications
@@ -61,8 +64,9 @@ class RealtimeNotificationService {
     console.log('🔔 Starting realtime notification simulation...')
     
     this.simulationInterval = setInterval(() => {
-      const randomNotification = this.mockNotifications[
-        Math.floor(Math.random() * this.mockNotifications.length)
+      const notifications = this.getMockNotifications()
+      const randomNotification = notifications[
+        Math.floor(Math.random() * notifications.length)
       ]
       
       this.emit(randomNotification)

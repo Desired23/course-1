@@ -218,11 +218,11 @@ export function AdminWebsiteSettingsPage() {
 
     if (!file || !target) return
     if (!file.type.startsWith('image/')) {
-      toast.error('Vui long chon file anh hop le')
+      toast.error(t('admin_website_settings.invalid_image'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Kich thuoc anh khong duoc vuot qua 5MB')
+      toast.error(t('admin_website_settings.image_too_large'))
       return
     }
 
@@ -231,9 +231,9 @@ export function AdminWebsiteSettingsPage() {
       const uploaded = await uploadFiles([file], { folder: 'website-settings', resource_type: 'image' })
       if (!uploaded?.length) throw new Error('Upload failed')
       handleUploadedImage(target, uploaded[0].url)
-      toast.success('Tai anh len thanh cong')
+      toast.success(t('admin_website_settings.upload_success'))
     } catch {
-      toast.error('Tai anh that bai')
+      toast.error(t('admin_website_settings.upload_failed'))
     } finally {
       setUploadingField(null)
       setPendingUploadTarget(null)
@@ -330,7 +330,7 @@ export function AdminWebsiteSettingsPage() {
                   <div className="flex items-center gap-4">
                     <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted">
                       {siteLogo ? (
-                        <img src={siteLogo} alt="Site logo" className="h-full w-full rounded-lg object-contain" />
+                        <img src={siteLogo} alt={t('admin_website_settings.branding.site_logo_alt')} className="h-full w-full rounded-lg object-contain" />
                       ) : (
                         <ImageIcon className="w-8 h-8 text-muted-foreground" />
                       )}
@@ -350,7 +350,7 @@ export function AdminWebsiteSettingsPage() {
                         disabled={uploadingField === 'site_logo'}
                       >
                         <Upload className="w-4 h-4" />
-                        {uploadingField === 'site_logo' ? 'Dang tai len...' : t('admin_website_settings.branding.upload_logo')}
+                        {uploadingField === 'site_logo' ? t('admin_website_settings.uploading') : t('admin_website_settings.branding.upload_logo')}
                       </Button>
                     </div>
                   </div>
@@ -364,7 +364,7 @@ export function AdminWebsiteSettingsPage() {
                   <div className="flex items-center gap-4">
                     <div className="w-24 h-24 border rounded-lg flex items-center justify-center bg-muted">
                       {favicon ? (
-                        <img src={favicon} alt="Favicon" className="h-full w-full rounded-lg object-contain" />
+                        <img src={favicon} alt={t('admin_website_settings.branding.favicon_alt')} className="h-full w-full rounded-lg object-contain" />
                       ) : (
                         <ImageIcon className="w-8 h-8 text-muted-foreground" />
                       )}
@@ -384,7 +384,7 @@ export function AdminWebsiteSettingsPage() {
                         disabled={uploadingField === 'favicon'}
                       >
                         <Upload className="w-4 h-4" />
-                        {uploadingField === 'favicon' ? 'Dang tai len...' : t('admin_website_settings.branding.upload_favicon')}
+                        {uploadingField === 'favicon' ? t('admin_website_settings.uploading') : t('admin_website_settings.branding.upload_favicon')}
                       </Button>
                     </div>
                   </div>
@@ -508,13 +508,13 @@ export function AdminWebsiteSettingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="facebook" className="flex items-center gap-2">
                   <Facebook className="w-4 h-4" />
-                  Facebook
+                  {t('admin_website_settings.social.facebook')}
                 </Label>
                 <Input
                   id="facebook"
                   value={socialLinks.facebook}
                   onChange={(e) => setSocialLinks({ ...socialLinks, facebook: e.target.value })}
-                  placeholder="https://facebook.com/yourpage"
+                  placeholder={t('admin_website_settings.social.facebook_placeholder')}
                 />
               </div>
 
@@ -527,46 +527,46 @@ export function AdminWebsiteSettingsPage() {
                   id="twitter"
                   value={socialLinks.twitter}
                   onChange={(e) => setSocialLinks({ ...socialLinks, twitter: e.target.value })}
-                  placeholder="https://twitter.com/yourhandle"
+                  placeholder={t('admin_website_settings.social.twitter_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="instagram" className="flex items-center gap-2">
                   <Instagram className="w-4 h-4" />
-                  Instagram
+                  {t('admin_website_settings.social.instagram')}
                 </Label>
                 <Input
                   id="instagram"
                   value={socialLinks.instagram}
                   onChange={(e) => setSocialLinks({ ...socialLinks, instagram: e.target.value })}
-                  placeholder="https://instagram.com/yourprofile"
+                  placeholder={t('admin_website_settings.social.instagram_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="youtube" className="flex items-center gap-2">
                   <Youtube className="w-4 h-4" />
-                  YouTube
+                  {t('admin_website_settings.social.youtube')}
                 </Label>
                 <Input
                   id="youtube"
                   value={socialLinks.youtube}
                   onChange={(e) => setSocialLinks({ ...socialLinks, youtube: e.target.value })}
-                  placeholder="https://youtube.com/yourchannel"
+                  placeholder={t('admin_website_settings.social.youtube_placeholder')}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="linkedin" className="flex items-center gap-2">
                   <Linkedin className="w-4 h-4" />
-                  LinkedIn
+                  {t('admin_website_settings.social.linkedin')}
                 </Label>
                 <Input
                   id="linkedin"
                   value={socialLinks.linkedin}
                   onChange={(e) => setSocialLinks({ ...socialLinks, linkedin: e.target.value })}
-                  placeholder="https://linkedin.com/company/yourcompany"
+                  placeholder={t('admin_website_settings.social.linkedin_placeholder')}
                 />
               </div>
 
@@ -670,7 +670,7 @@ export function AdminWebsiteSettingsPage() {
                             disabled={uploadingField === `banner:${banner.id}`}
                           >
                             <Upload className="w-4 h-4" />
-                            {uploadingField === `banner:${banner.id}` ? 'Dang tai len...' : 'Upload image'}
+                            {uploadingField === `banner:${banner.id}` ? t('admin_website_settings.uploading') : t('admin_website_settings.banners.upload_image')}
                           </Button>
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 export interface Review {
   review_id: number
@@ -75,6 +76,7 @@ const MOCK_REVIEWS: Review[] = [
 ]
 
 export function ReviewsProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [reviews, setReviews] = useState<Review[]>([])
 
@@ -119,22 +121,22 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
 
   const addReview = async (courseId: string, rating: number, comment: string): Promise<boolean> => {
     if (!user) {
-      toast.error('Please login to leave a review')
+      toast.error(t('reviews_context.toasts.login_to_review'))
       return false
     }
 
     if (hasUserReviewed(courseId)) {
-      toast.error('You have already reviewed this course')
+      toast.error(t('reviews_context.toasts.already_reviewed'))
       return false
     }
 
     if (rating < 1 || rating > 5) {
-      toast.error('Rating must be between 1 and 5')
+      toast.error(t('reviews_context.toasts.invalid_rating'))
       return false
     }
 
     if (!comment.trim()) {
-      toast.error('Please write a review comment')
+      toast.error(t('reviews_context.toasts.comment_required'))
       return false
     }
 
@@ -154,19 +156,19 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
     }
 
     setReviews(prev => [...prev, newReview])
-    toast.success('Review submitted successfully!')
+    toast.success(t('reviews_context.toasts.review_submitted'))
     return true
   }
 
   const updateReview = async (reviewId: number, rating: number, comment: string): Promise<boolean> => {
     if (!user) {
-      toast.error('Please login to update review')
+      toast.error(t('reviews_context.toasts.login_to_update'))
       return false
     }
 
     const review = reviews.find(r => r.review_id === reviewId && r.user_id === user.id)
     if (!review) {
-      toast.error('Review not found')
+      toast.error(t('reviews_context.toasts.review_not_found'))
       return false
     }
 
@@ -176,30 +178,30 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
         : r
     ))
 
-    toast.success('Review updated successfully!')
+    toast.success(t('reviews_context.toasts.review_updated'))
     return true
   }
 
   const deleteReview = async (reviewId: number): Promise<boolean> => {
     if (!user) {
-      toast.error('Please login to delete review')
+      toast.error(t('reviews_context.toasts.login_to_delete'))
       return false
     }
 
     const review = reviews.find(r => r.review_id === reviewId && r.user_id === user.id)
     if (!review) {
-      toast.error('Review not found')
+      toast.error(t('reviews_context.toasts.review_not_found'))
       return false
     }
 
     setReviews(prev => prev.filter(r => r.review_id !== reviewId))
-    toast.success('Review deleted successfully!')
+    toast.success(t('reviews_context.toasts.review_deleted'))
     return true
   }
 
   const markHelpful = (reviewId: number) => {
     if (!user) {
-      toast.error('Please login to mark reviews as helpful')
+      toast.error(t('reviews_context.toasts.login_to_mark_helpful'))
       return
     }
 
@@ -230,7 +232,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
 
   const reportReview = (reviewId: number, reason: string) => {
     if (!user) {
-      toast.error('Please login to report reviews')
+      toast.error(t('reviews_context.toasts.login_to_report'))
       return
     }
 
@@ -240,7 +242,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
         : r
     ))
 
-    toast.success('Review reported. Thank you for helping keep our community safe.')
+    toast.success(t('reviews_context.toasts.review_reported'))
   }
 
   const getCourseRating = (courseId: string) => {
@@ -271,7 +273,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
 
   const addInstructorResponse = (reviewId: number, response: string) => {
     if (!user || !user.roles.includes('instructor')) {
-      toast.error('Only instructors can respond to reviews')
+      toast.error(t('reviews_context.toasts.instructor_only_response'))
       return
     }
 
@@ -285,7 +287,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
         : r
     ))
 
-    toast.success('Response added successfully!')
+    toast.success(t('reviews_context.toasts.response_added'))
   }
 
   const value = {

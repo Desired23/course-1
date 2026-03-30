@@ -1,31 +1,10 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
-import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
-import { Separator } from '../../components/ui/separator'
+import { Badge } from '../../components/ui/badge'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../../components/ui/breadcrumb'
-import { 
-  ArrowLeft, 
-  Eye, 
-  Heart, 
-  MessageCircle, 
-  Clock, 
-  Calendar,
-  Pin,
-  Lock,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Flag,
-  Share2,
-  Bookmark,
-  BookmarkCheck
-} from 'lucide-react'
-import { useRouter } from '../../components/Router'
-import { useAuth } from '../../contexts/AuthContext'
-import { useChat } from '../../contexts/ChatContext'
-import { EnhancedCommentSystem } from '../../components/EnhancedCommentSystem'
+import { Button } from '../../components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,15 +12,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
+import { Separator } from '../../components/ui/separator'
+import { EnhancedCommentSystem } from '../../components/EnhancedCommentSystem'
+import { useRouter } from '../../components/Router'
+import { useAuth } from '../../contexts/AuthContext'
+import { useChat } from '../../contexts/ChatContext'
 import {
-  type ForumTopic as ApiForumTopic,
+  ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
+  Calendar,
+  Edit,
+  Eye,
+  Flag,
+  Heart,
+  Lock,
+  MessageCircle,
+  MoreVertical,
+  Pin,
+  Share2,
+  Trash2,
+} from 'lucide-react'
+import {
+  createForumComment,
+  deleteForumComment,
+  getAllForumComments,
   getForumTopicById,
   reportForumTopic,
-  updateForumTopic,
-  getAllForumComments,
-  createForumComment,
+  type ForumTopic as ApiForumTopic,
   updateForumComment,
-  deleteForumComment,
+  updateForumTopic,
 } from '../../services/forum.api'
 
 interface ForumTopic {
@@ -65,43 +65,43 @@ interface ForumTopic {
   tags?: string[]
 }
 
-function mapApiTopicToDetail(t: ApiForumTopic): ForumTopic {
+function mapApiTopicToDetail(topic: ApiForumTopic): ForumTopic {
   return {
-    topic_id: String(t.id),
-    forum_id: String(t.forum),
-    forum_title: t.forum_title || 'Forum',
-    title: t.title,
-    content: t.content,
-    user_id: String(t.user),
-    user_name: t.user_name || `User ${t.user}`,
-    user_avatar: t.user_avatar || undefined,
+    topic_id: String(topic.id),
+    forum_id: String(topic.forum),
+    forum_title: topic.forum_title || 'Forum',
+    title: topic.title,
+    content: topic.content,
+    user_id: String(topic.user),
+    user_name: topic.user_name || `User ${topic.user}`,
+    user_avatar: topic.user_avatar || undefined,
     user_role: undefined,
-    created_date: new Date(t.created_at),
-    updated_date: new Date(t.updated_at),
-    views: t.views,
-    likes: t.likes,
-    report_count: t.report_count || 0,
-    replies: t.replies_count,
-    status: t.status,
-    is_pinned: t.is_pinned,
+    created_date: new Date(topic.created_at),
+    updated_date: new Date(topic.updated_at),
+    views: topic.views,
+    likes: topic.likes,
+    report_count: topic.report_count || 0,
+    replies: topic.replies_count,
+    status: topic.status,
+    is_pinned: topic.is_pinned,
     tags: [],
   }
 }
 
 export function ForumTopicDetailPage() {
+  const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
-  const { user, hasRole, hasPermission } = useAuth()
+  const { user, hasPermission, hasRole } = useAuth()
   const { openChatWithUser } = useChat()
   const [topic, setTopic] = useState<ForumTopic | null>(null)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [loading, setLoading] = useState(true)
-  
-  // Extract topic ID from URL
+
   const topicId = currentRoute.split('/forum/topic/')[1]
 
   useEffect(() => {
-    loadTopic()
+    void loadTopic()
   }, [topicId])
 
   const loadTopic = async () => {
@@ -110,8 +110,8 @@ export function ForumTopicDetailPage() {
     try {
       const apiTopic = await getForumTopicById(Number(topicId))
       setTopic(mapApiTopicToDetail(apiTopic))
-    } catch (err) {
-      console.error('Failed to load topic:', err)
+    } catch (error) {
+      console.error('Failed to load topic:', error)
       setTopic(null)
     } finally {
       setLoading(false)
@@ -124,7 +124,7 @@ export function ForumTopicDetailPage() {
     if (topic) {
       setTopic({
         ...topic,
-        likes: isLiked ? topic.likes - 1 : topic.likes + 1
+        likes: isLiked ? topic.likes - 1 : topic.likes + 1,
       })
     }
   }
@@ -136,34 +136,29 @@ export function ForumTopicDetailPage() {
 
   const handleReportTopic = async () => {
     if (!user || !topic) return
-    const reason = window.prompt('Ly do bao cao chu de nay?', '')
+    const reason = window.prompt(t('forum_topic_detail.report_prompt'), '')
     if (reason === null) return
     try {
       const updated = await reportForumTopic(Number(topic.topic_id), reason)
       setTopic(mapApiTopicToDetail(updated))
-    } catch (err) {
-      console.error('Failed to report topic:', err)
+    } catch (error) {
+      console.error('Failed to report topic:', error)
     }
   }
 
   const handleShare = () => {
     if (navigator.share) {
-      navigator.share({
+      void navigator.share({
         title: topic?.title,
-        text: `Check out this forum discussion: ${topic?.title}`,
+        text: t('forum_topic_detail.share_text', { title: topic?.title || '' }),
         url: window.location.href,
       })
     } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(window.location.href)
+      void navigator.clipboard.writeText(window.location.href)
     }
   }
 
-  const canEditTopic = user && (
-    hasPermission('admin.forum.moderate') || 
-    user.id === topic?.user_id
-  )
-
+  const canEditTopic = user && (hasPermission('admin.forum.moderate') || user.id === topic?.user_id)
   const canModerateTopic = hasRole('admin') || hasPermission('admin.forum.moderate')
   const canMessageTopicAuthor = !!user && !!topic && String(user.id) !== topic.user_id
 
@@ -178,10 +173,10 @@ export function ForumTopicDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">Loading...</p>
+      <div className="container mx-auto flex min-h-[400px] items-center justify-center p-6">
+        <div className="space-y-2 text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+          <p className="text-muted-foreground">{t('forum_topic_detail.loading')}</p>
         </div>
       </div>
     )
@@ -190,11 +185,11 @@ export function ForumTopicDetailPage() {
   if (!topic) {
     return (
       <div className="container mx-auto p-6">
-        <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Chủ đề không tìm thấy</h2>
+        <div className="py-12 text-center">
+          <h2 className="mb-4 text-2xl">{t('forum_topic_detail.not_found')}</h2>
           <Button onClick={() => navigate('/forum')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại Diễn đàn
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {t('forum_topic_detail.back_to_forum')}
           </Button>
         </div>
       </div>
@@ -203,16 +198,15 @@ export function ForumTopicDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 max-w-4xl">
-        {/* Breadcrumb */}
+      <div className="container mx-auto max-w-4xl p-6">
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => navigate('/')}>Trang chủ</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => navigate('/')}>{t('forum_topic_detail.breadcrumb.home')}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => navigate('/forum')}>Diễn đàn</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => navigate('/forum')}>{t('forum_topic_detail.breadcrumb.forum')}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -225,46 +219,38 @@ export function ForumTopicDetailPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
-        {/* Back button */}
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/forum')}
-          className="mb-6"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Quay lại Diễn đàn
+        <Button variant="ghost" onClick={() => navigate('/forum')} className="mb-6">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t('forum_topic_detail.back_to_forum')}
         </Button>
 
-        {/* Main content */}
-        <div className="grid lg:grid-cols-4 gap-8">
-          {/* Topic content */}
+        <div className="grid gap-8 lg:grid-cols-4">
           <div className="lg:col-span-3">
             <article>
-              {/* Header */}
               <header className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="mb-4 flex items-center gap-2">
                   {topic.is_pinned && (
                     <Badge variant="default" className="bg-blue-500">
-                      <Pin className="h-3 w-3 mr-1" />
-                      Đã ghim
+                      <Pin className="mr-1 h-3 w-3" />
+                      {t('forum_topic_detail.badges.pinned')}
                     </Badge>
                   )}
                   {topic.status === 'locked' && (
                     <Badge variant="secondary">
-                      <Lock className="h-3 w-3 mr-1" />
-                      Đã khóa
+                      <Lock className="mr-1 h-3 w-3" />
+                      {t('forum_topic_detail.badges.locked')}
                     </Badge>
                   )}
                   <Badge variant="outline">{topic.forum_title}</Badge>
                 </div>
 
-                <h1 className="text-4xl mb-6">{topic.title}</h1>
+                <h1 className="mb-6 text-4xl">{topic.title}</h1>
 
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={topic.user_avatar} />
-                      <AvatarFallback>{topic.user_name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      <AvatarFallback>{topic.user_name.split(' ').map((part) => part[0]).join('')}</AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-medium">{topic.user_name}</p>
@@ -276,7 +262,7 @@ export function ForumTopicDetailPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
-                          {topic.views} lượt xem
+                          {t('forum_topic_detail.views_count', { count: topic.views })}
                         </span>
                       </div>
                     </div>
@@ -293,38 +279,38 @@ export function ForumTopicDetailPage() {
                         {canMessageTopicAuthor && (
                           <>
                             <DropdownMenuItem onClick={() => void handleMessageAuthor()}>
-                              <MessageCircle className="h-4 w-4 mr-2" />
-                              Nhan tin
+                              <MessageCircle className="mr-2 h-4 w-4" />
+                              {t('forum_topic_detail.actions.message')}
                             </DropdownMenuItem>
                             {(canEditTopic || canModerateTopic) && <DropdownMenuSeparator />}
                           </>
                         )}
                         {canEditTopic && (
                           <DropdownMenuItem>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Chỉnh sửa
+                            <Edit className="mr-2 h-4 w-4" />
+                            {t('forum_topic_detail.actions.edit')}
                           </DropdownMenuItem>
                         )}
                         {!canModerateTopic && user && String(user.id) !== topic.user_id && (
                           <DropdownMenuItem onClick={() => void handleReportTopic()}>
-                            <Flag className="h-4 w-4 mr-2" />
-                            Bao cao chu de
+                            <Flag className="mr-2 h-4 w-4" />
+                            {t('forum_topic_detail.actions.report_topic')}
                           </DropdownMenuItem>
                         )}
                         {canModerateTopic && (
                           <>
                             <DropdownMenuItem>
-                              <Pin className="h-4 w-4 mr-2" />
-                              {topic.is_pinned ? 'Bỏ ghim' : 'Ghim chủ đề'}
+                              <Pin className="mr-2 h-4 w-4" />
+                              {topic.is_pinned ? t('forum_topic_detail.actions.unpin') : t('forum_topic_detail.actions.pin')}
                             </DropdownMenuItem>
                             <DropdownMenuItem>
-                              <Lock className="h-4 w-4 mr-2" />
-                              {topic.status === 'locked' ? 'Mở khóa' : 'Khóa chủ đề'}
+                              <Lock className="mr-2 h-4 w-4" />
+                              {topic.status === 'locked' ? t('forum_topic_detail.actions.unlock') : t('forum_topic_detail.actions.lock')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive">
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Xóa chủ đề
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {t('forum_topic_detail.actions.delete')}
                             </DropdownMenuItem>
                           </>
                         )}
@@ -333,9 +319,8 @@ export function ForumTopicDetailPage() {
                   )}
                 </div>
 
-                {/* Tags */}
                 {topic.tags && topic.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-6">
+                  <div className="mb-6 flex flex-wrap gap-2">
                     {topic.tags.map((tag, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
                         {tag}
@@ -347,55 +332,43 @@ export function ForumTopicDetailPage() {
                 <Separator />
               </header>
 
-              {/* Topic content */}
-              <div className="prose prose-slate max-w-none dark:prose-invert mb-8 whitespace-pre-wrap break-words">
+              <div className="prose prose-slate mb-8 max-w-none whitespace-pre-wrap break-words dark:prose-invert">
                 {topic.content}
               </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center justify-between py-6 border-t border-b">
+              <div className="flex items-center justify-between border-b border-t py-6">
                 <div className="flex items-center gap-4">
-                  <Button
-                    variant={isLiked ? "default" : "outline"}
-                    size="sm"
-                    onClick={handleLike}
-                    disabled={!user}
-                  >
-                    <Heart className={`h-4 w-4 mr-2 ${isLiked ? 'fill-current' : ''}`} />
+                  <Button variant={isLiked ? 'default' : 'outline'} size="sm" onClick={handleLike} disabled={!user}>
+                    <Heart className={`mr-2 h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                     {topic.likes}
                   </Button>
 
-                  <Button
-                    variant={isBookmarked ? "default" : "outline"}
-                    size="sm"
-                    onClick={handleBookmark}
-                    disabled={!user}
-                  >
-                    {isBookmarked ? (
-                      <BookmarkCheck className="h-4 w-4 mr-2" />
-                    ) : (
-                      <Bookmark className="h-4 w-4 mr-2" />
-                    )}
-                    Lưu
+                  <Button variant={isBookmarked ? 'default' : 'outline'} size="sm" onClick={handleBookmark} disabled={!user}>
+                    {isBookmarked ? <BookmarkCheck className="mr-2 h-4 w-4" /> : <Bookmark className="mr-2 h-4 w-4" />}
+                    {t('forum_topic_detail.actions.save')}
                   </Button>
 
                   <Button variant="outline" size="sm" onClick={handleShare}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Chia sẻ
+                    <Share2 className="mr-2 h-4 w-4" />
+                    {t('forum_topic_detail.actions.share')}
                   </Button>
                 </div>
 
-                <Button variant="ghost" size="sm" disabled={!user || String(user.id) === topic.user_id} onClick={() => void handleReportTopic()}>
-                  <Flag className="h-4 w-4 mr-2" />
-                  Báo cáo
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!user || String(user.id) === topic.user_id}
+                  onClick={() => void handleReportTopic()}
+                >
+                  <Flag className="mr-2 h-4 w-4" />
+                  {t('forum_topic_detail.actions.report')}
                 </Button>
               </div>
             </article>
 
-            {/* Replies section */}
             <div className="mt-8">
-              <h3 className="text-xl mb-6">Trả lời ({topic.replies})</h3>
-              <EnhancedCommentSystem 
+              <h3 className="mb-6 text-xl">{t('forum_topic_detail.replies', { count: topic.replies })}</h3>
+              <EnhancedCommentSystem
                 postId={topic.topic_id}
                 postType="forum_topic"
                 allowVoting={true}
@@ -404,71 +377,63 @@ export function ForumTopicDetailPage() {
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
-              {/* Topic stats */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Thống kê</CardTitle>
+                  <CardTitle className="text-lg">{t('forum_topic_detail.sidebar.stats_title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span>Lượt xem:</span>
+                    <span>{t('forum_topic_detail.sidebar.views')}</span>
                     <span>{topic.views}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Lượt thích:</span>
+                    <span>{t('forum_topic_detail.sidebar.likes')}</span>
                     <span>{topic.likes}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Trả lời:</span>
+                    <span>{t('forum_topic_detail.sidebar.replies')}</span>
                     <span>{topic.replies}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Bao cao:</span>
+                    <span>{t('forum_topic_detail.sidebar.reports')}</span>
                     <span>{topic.report_count}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between">
-                    <span>Tạo lúc:</span>
+                    <span>{t('forum_topic_detail.sidebar.created_at')}</span>
                     <span className="text-sm">{topic.created_date.toLocaleDateString()}</span>
                   </div>
                   {topic.updated_date.getTime() !== topic.created_date.getTime() && (
                     <div className="flex justify-between">
-                      <span>Cập nhật:</span>
+                      <span>{t('forum_topic_detail.sidebar.updated_at')}</span>
                       <span className="text-sm">{topic.updated_date.toLocaleDateString()}</span>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Forum info */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Diễn đàn</CardTitle>
+                  <CardTitle className="text-lg">{t('forum_topic_detail.sidebar.forum_title')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Badge variant="outline" className="mb-3">{topic.forum_title}</Badge>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => navigate('/forum')}
-                  >
-                    Xem diễn đàn
+                  <Badge variant="outline" className="mb-3">
+                    {topic.forum_title}
+                  </Badge>
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/forum')}>
+                    {t('forum_topic_detail.sidebar.view_forum')}
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Related topics placeholder */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Chủ đề liên quan</CardTitle>
+                  <CardTitle className="text-lg">{t('forum_topic_detail.sidebar.related_topics')}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Tính năng này sẽ được phát triển trong phiên bản tiếp theo.
-                  </p>
+                  <p className="text-sm text-muted-foreground">{t('forum_topic_detail.sidebar.related_placeholder')}</p>
                 </CardContent>
               </Card>
             </div>

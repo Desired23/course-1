@@ -1,86 +1,179 @@
 import { useEffect, useState } from "react"
-import { HeroSection } from "../../components/HeroSection"
-import { TrustedCompanies } from "../../components/TrustedCompanies"
-import { Categories } from "../../components/Categories"
-import { FeaturedCourses } from "../../components/FeaturedCourses"
-import { FeaturesSection } from "../../components/FeaturesSection"
-import { TrendingCourses } from "../../components/TrendingCourses"
-import { TestimonialsSection } from "../../components/TestimonialsSection"
-import { StatsSection } from "../../components/StatsSection"
-import { InstructorPromo } from "../../components/InstructorPromo"
-import { LearningGoals } from "../../components/LearningGoals"
-import { NewsletterSection } from "../../components/NewsletterSection"
-import { PopularSkillsSection } from "../../components/PopularSkillsSection"
-import { getSystemSettings } from "../../services/admin.api"
+import { DynamicHomeSections } from "../../features/home/DynamicHomeRenderer"
+import { loadHomeSchemaV2 } from "../../features/home/service"
+import { getDefaultHomeSchemaV2, normalizeHomeSchemaV2, type HomeSchemaV2, type HomeSection } from "../../features/home/schema"
 
-interface HomeSectionSetting {
-  component: string
-  enabled?: boolean
-  order?: number
+const HOMEPAGE_SCHEMA_CACHE_KEY = "homepage_schema_v2_cached"
+
+function getCachedHomeSchema(): HomeSchemaV2 | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem(HOMEPAGE_SCHEMA_CACHE_KEY)
+    if (!raw) return null
+    return normalizeHomeSchemaV2(JSON.parse(raw))
+  } catch {
+    return null
+  }
 }
 
-const DEFAULT_LAYOUT: HomeSectionSetting[] = [
-  { component: 'HeroSection', enabled: true, order: 1 },
-  { component: 'TrustedCompanies', enabled: true, order: 2 },
-  { component: 'FeaturesSection', enabled: true, order: 3 },
-  { component: 'Categories', enabled: true, order: 4 },
-  { component: 'FeaturedCourses', enabled: true, order: 5 },
-  { component: 'LearningGoals', enabled: true, order: 6 },
-  { component: 'TrendingCourses', enabled: true, order: 7 },
-  { component: 'PopularSkills', enabled: true, order: 8 },
-  { component: 'TestimonialsSection', enabled: true, order: 9 },
-  { component: 'StatsSection', enabled: true, order: 10 },
-  { component: 'InstructorPromo', enabled: true, order: 11 },
-  { component: 'NewsletterSection', enabled: true, order: 12 },
-]
+function cacheHomeSchema(schema: HomeSchemaV2): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(HOMEPAGE_SCHEMA_CACHE_KEY, JSON.stringify(schema))
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
-const SECTION_COMPONENTS: Record<string, JSX.Element> = {
-  HeroSection: <HeroSection />,
-  TrustedCompanies: <TrustedCompanies />,
-  FeaturesSection: <FeaturesSection />,
-  Categories: <Categories />,
-  FeaturedCourses: <FeaturedCourses />,
-  LearningGoals: <LearningGoals />,
-  TrendingCourses: <TrendingCourses />,
-  PopularSkills: <PopularSkillsSection />,
-  TestimonialsSection: <TestimonialsSection />,
-  StatsSection: <StatsSection />,
-  InstructorPromo: <InstructorPromo />,
-  NewsletterSection: <NewsletterSection />,
+function SectionSkeleton({ section }: { section: HomeSection }) {
+  const baseClass = "animate-pulse rounded-2xl bg-muted"
+
+  if (section.type === "hero" || section.type === "legacy_component") {
+    return (
+      <section className="grid items-center gap-8 md:grid-cols-2">
+        <div className="space-y-5">
+          <div className="h-8 w-36 rounded-full bg-muted" />
+          <div className="space-y-3">
+            <div className="h-10 w-5/6 rounded bg-muted" />
+            <div className="h-10 w-4/6 rounded bg-muted" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-5 w-full rounded bg-muted" />
+            <div className="h-5 w-11/12 rounded bg-muted" />
+            <div className="h-5 w-8/12 rounded bg-muted" />
+          </div>
+          <div className="h-12 w-full max-w-xl rounded-xl bg-muted" />
+          <div className="flex flex-wrap gap-3">
+            <div className="h-11 w-36 rounded-xl bg-muted" />
+            <div className="h-11 w-32 rounded-xl bg-muted" />
+          </div>
+        </div>
+        <div className="h-[340px] rounded-3xl bg-muted" />
+      </section>
+    )
+  }
+
+  if (section.type === "course_list") {
+    return (
+      <section className="space-y-5">
+        <div className="space-y-2">
+          <div className="h-8 w-56 rounded bg-muted" />
+          <div className="h-5 w-80 max-w-full rounded bg-muted" />
+        </div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="overflow-hidden rounded-2xl border bg-card">
+              <div className="h-40 bg-muted" />
+              <div className="space-y-3 p-4">
+                <div className="h-5 w-3/4 rounded bg-muted" />
+                <div className="h-4 w-full rounded bg-muted" />
+                <div className="h-4 w-2/3 rounded bg-muted" />
+                <div className="flex items-center justify-between pt-2">
+                  <div className="h-5 w-20 rounded bg-muted" />
+                  <div className="h-5 w-16 rounded bg-muted" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  if (section.type === "badge_strip") {
+    return (
+      <section className="space-y-4">
+        <div className="flex gap-3 overflow-hidden">
+          <div className="h-16 w-48 rounded-2xl bg-muted" />
+          <div className="h-16 w-52 rounded-2xl bg-muted" />
+          <div className="h-16 w-44 rounded-2xl bg-muted" />
+          <div className="h-16 w-56 rounded-2xl bg-muted" />
+        </div>
+      </section>
+    )
+  }
+
+  if (section.type === "feature_grid" || section.type === "stats") {
+    return (
+      <section className="grid gap-5 md:grid-cols-3">
+        <div className="h-36 rounded-3xl bg-muted" />
+        <div className="h-36 rounded-3xl bg-muted" />
+        <div className="h-36 rounded-3xl bg-muted" />
+      </section>
+    )
+  }
+
+  if (section.type === "testimonial") {
+    return (
+      <section className="grid gap-5 md:grid-cols-3">
+        <div className="space-y-3 rounded-3xl border p-5">
+          <div className="h-5 w-24 rounded bg-muted" />
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-4 w-5/6 rounded bg-muted" />
+          <div className="h-4 w-3/5 rounded bg-muted" />
+        </div>
+        <div className="space-y-3 rounded-3xl border p-5">
+          <div className="h-5 w-24 rounded bg-muted" />
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-4 w-5/6 rounded bg-muted" />
+          <div className="h-4 w-3/5 rounded bg-muted" />
+        </div>
+        <div className="space-y-3 rounded-3xl border p-5">
+          <div className="h-5 w-24 rounded bg-muted" />
+          <div className="h-4 w-full rounded bg-muted" />
+          <div className="h-4 w-5/6 rounded bg-muted" />
+          <div className="h-4 w-3/5 rounded bg-muted" />
+        </div>
+      </section>
+    )
+  }
+
+  if (section.type === "promo_banner" || section.type === "newsletter" || section.type === "custom_html") {
+    return <section className={`h-44 ${baseClass}`} />
+  }
+
+  return <section className={`h-32 ${baseClass}`} />
+}
+
+function HomeLoadingSkeleton({ schema }: { schema: HomeSchemaV2 | null }) {
+  const sections = schema?.sections?.length ? schema.sections.filter((section) => section.enabled) : getDefaultHomeSchemaV2().sections
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto max-w-6xl space-y-12 px-4 py-10 md:py-14">
+        {sections.map((section) => (
+          <SectionSkeleton key={section.id} section={section} />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export function SimpleHomePage() {
-  const [layout, setLayout] = useState<HomeSectionSetting[]>(DEFAULT_LAYOUT)
+  const [schema, setSchema] = useState<HomeSchemaV2 | null>(getCachedHomeSchema)
+  const [isReady, setIsReady] = useState(false)
 
   useEffect(() => {
-    const loadLayout = async () => {
+    const load = async () => {
       try {
-        const settings = await getSystemSettings()
-        const layoutSetting = settings.find(setting => setting.key === 'homepage_layout')
-        if (!layoutSetting) return
-
-        const parsed = JSON.parse(layoutSetting.value)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setLayout(parsed)
-        }
+        const loaded = await loadHomeSchemaV2()
+        setSchema(loaded.schema)
+        cacheHomeSchema(loaded.schema)
       } catch {
-        // Fall back to the default public layout when no admin config exists.
+        const fallback = getDefaultHomeSchemaV2()
+        setSchema(fallback)
+        cacheHomeSchema(fallback)
+      } finally {
+        setIsReady(true)
       }
     }
 
-    void loadLayout()
+    void load()
   }, [])
 
-  return (
-    <>
-      {layout
-        .filter(section => section.enabled !== false)
-        .sort((a, b) => (a.order || 0) - (b.order || 0))
-        .map((section, index) => (
-          <div key={`${section.component}-${index}`}>
-            {SECTION_COMPONENTS[section.component] ?? null}
-          </div>
-        ))}
-    </>
-  )
+  if (!isReady || !schema) {
+    return <HomeLoadingSkeleton schema={schema} />
+  }
+
+  return <DynamicHomeSections sections={schema.sections} />
 }

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useEffect, useState, type DragEvent } from "react"
+import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -8,19 +9,65 @@ import { Textarea } from "../../components/ui/textarea"
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { AdminConfirmDialog } from "../../components/admin/AdminConfirmDialog"
-import { GripVertical, Plus, Trash2, Eye, Settings, Image as ImageIcon, Save } from "lucide-react"
+import { GripVertical, Plus, Trash2, Eye, Image as ImageIcon, Save } from "lucide-react"
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
-import type { SystemSetting } from '../../services/admin.api'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+
+type HomepageSection = {
+  id: number
+  component: string
+  enabled: boolean
+  order: number
+}
+
+type HomepageBanner = {
+  id: number
+  title: string
+  description: string
+  image: string
+  cta: string
+  link: string
+  enabled: boolean
+}
+
+type HomepageConfig = {
+  hero: {
+    enabled: boolean
+    title: string
+    subtitle: string
+    cta_primary: string
+    cta_secondary: string
+    background_image: string
+    show_search: boolean
+    show_stats: boolean
+  }
+  sections: HomepageSection[]
+  banners: HomepageBanner[]
+  featured_testimonials: number[]
+  popular_skills: string[]
+}
+
+const DEFAULT_CONFIG: HomepageConfig = {
+  hero: {
+    enabled: true,
+    title: '',
+    subtitle: '',
+    cta_primary: '',
+    cta_secondary: '',
+    background_image: '',
+    show_search: true,
+    show_stats: true,
+  },
+  sections: [],
+  banners: [],
+  featured_testimonials: [],
+  popular_skills: [],
+}
 
 export function HomepageConfigPage() {
-  const defaultConfig = {
-    hero: { title: '', subtitle: '', cta: '', ctaLink: '', backgroundImage: '' },
-    sections: [] as { id: number; title: string; type: string; enabled: boolean; order: number }[],
-    banners: [] as { id: number; title: string; description: string; image: string; cta: string; link: string; enabled: boolean }[]
-  }
-  const [config, setConfig] = useState(defaultConfig)
+  const { t } = useTranslation()
+  const [config, setConfig] = useState<HomepageConfig>(DEFAULT_CONFIG)
   const [configSettingId, setConfigSettingId] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
@@ -38,7 +85,7 @@ export function HomepageConfigPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
@@ -49,65 +96,76 @@ export function HomepageConfigPage() {
       try {
         const settings = await getSystemSettings()
         const setting = settings.find(s => s.key === 'homepage_config')
-        if (setting) {
-          setConfigSettingId(setting.id)
-          try {
-            const parsed = JSON.parse(setting.value)
-            setConfig({ ...defaultConfig, ...parsed })
-          } catch {}
+
+        if (!setting) return
+
+        setConfigSettingId(setting.id)
+
+        try {
+          const parsed = JSON.parse(setting.value)
+          setConfig({
+            hero: { ...DEFAULT_CONFIG.hero, ...(parsed?.hero ?? {}) },
+            sections: Array.isArray(parsed?.sections) ? parsed.sections : DEFAULT_CONFIG.sections,
+            banners: Array.isArray(parsed?.banners) ? parsed.banners : DEFAULT_CONFIG.banners,
+            featured_testimonials: Array.isArray(parsed?.featured_testimonials) ? parsed.featured_testimonials : DEFAULT_CONFIG.featured_testimonials,
+            popular_skills: Array.isArray(parsed?.popular_skills) ? parsed.popular_skills : DEFAULT_CONFIG.popular_skills,
+          })
+        } catch {
+          setConfig(DEFAULT_CONFIG)
         }
-      } catch {}
+      } catch {
+        // Keep default state when homepage config cannot be loaded.
+      }
     }
-    load()
+
+    void load()
   }, [])
 
-  // Hero Section
-  const updateHero = (field: string, value: any) => {
-    setConfig({
-      ...config,
-      hero: { ...config.hero, [field]: value }
-    })
+  const updateHero = (field: keyof HomepageConfig['hero'], value: string | boolean) => {
+    setConfig(prev => ({
+      ...prev,
+      hero: { ...prev.hero, [field]: value },
+    }))
   }
 
-  // Sections
   const toggleSection = (sectionId: number) => {
-    setConfig({
-      ...config,
-      sections: config.sections.map(s => 
-        s.id === sectionId ? { ...s, enabled: !s.enabled } : s
-      )
-    })
+    setConfig(prev => ({
+      ...prev,
+      sections: prev.sections.map(section =>
+        section.id === sectionId ? { ...section, enabled: !section.enabled } : section
+      ),
+    }))
   }
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
+  const handleDragStart = (e: DragEvent, index: number) => {
     setDraggedItem(index)
     setIsDragging(true)
     e.dataTransfer.effectAllowed = "move"
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = "move"
   }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleDrop = (e: DragEvent, dropIndex: number) => {
     e.preventDefault()
-    
+
     if (draggedItem === null) return
-    
+
     const newSections = [...config.sections]
     const draggedSection = newSections[draggedItem]
-    
+
     newSections.splice(draggedItem, 1)
     newSections.splice(dropIndex, 0, draggedSection)
-    
-    // Update order numbers
-    const reorderedSections = newSections.map((section, index) => ({
-      ...section,
-      order: index + 1
+
+    setConfig(prev => ({
+      ...prev,
+      sections: newSections.map((section, index) => ({
+        ...section,
+        order: index + 1,
+      })),
     }))
-    
-    setConfig({ ...config, sections: reorderedSections })
     setDraggedItem(null)
     setIsDragging(false)
   }
@@ -117,28 +175,28 @@ export function HomepageConfigPage() {
     setIsDragging(false)
   }
 
-  // Banners
   const addBanner = () => {
-    const newBanner = {
+    const newBanner: HomepageBanner = {
       id: Date.now(),
-      title: "New Banner",
-      description: "Banner description",
+      title: t('homepage_config.banners.new_banner_title'),
+      description: t('homepage_config.banners.new_banner_description'),
       image: "https://images.unsplash.com/photo-1607969160688-e209f0ac9644?w=1200&h=300&fit=crop",
-      cta: "Learn More",
+      cta: t('homepage_config.banners.new_banner_cta'),
       link: "/courses",
-      enabled: true
+      enabled: true,
     }
-    setConfig({
-      ...config,
-      banners: [...config.banners, newBanner]
-    })
+
+    setConfig(prev => ({
+      ...prev,
+      banners: [...prev.banners, newBanner],
+    }))
   }
 
   const deleteBanner = (bannerId: number) => {
-    setConfig({
-      ...config,
-      banners: config.banners.filter(b => b.id !== bannerId)
-    })
+    setConfig(prev => ({
+      ...prev,
+      banners: prev.banners.filter(banner => banner.id !== bannerId),
+    }))
   }
 
   const openConfirm = (
@@ -161,88 +219,95 @@ export function HomepageConfigPage() {
 
   const runConfirmedAction = async () => {
     if (!confirmState.action) return
+
     try {
-      setConfirmState((prev) => ({ ...prev, loading: true }))
+      setConfirmState(prev => ({ ...prev, loading: true }))
       await confirmState.action()
       setConfirmState({
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
       })
     } catch {
-      setConfirmState((prev) => ({ ...prev, loading: false }))
+      setConfirmState(prev => ({ ...prev, loading: false }))
     }
   }
 
-  const updateBanner = (bannerId: number, field: string, value: any) => {
-    setConfig({
-      ...config,
-      banners: config.banners.map(b => 
-        b.id === bannerId ? { ...b, [field]: value } : b
-      )
-    })
+  const updateBanner = (bannerId: number, field: keyof HomepageBanner, value: string | boolean) => {
+    setConfig(prev => ({
+      ...prev,
+      banners: prev.banners.map(banner =>
+        banner.id === bannerId ? { ...banner, [field]: value } : banner
+      ),
+    }))
   }
 
   const saveConfig = async () => {
     try {
       setIsSaving(true)
       const value = JSON.stringify(config)
+
       if (configSettingId) {
         await updateSystemSetting(configSettingId, { value })
       } else {
         const created = await createSystemSetting({ key: 'homepage_config', value })
         setConfigSettingId(created.id)
       }
-      toast.success('Configuration saved successfully!')
+
+      toast.success(t('homepage_config.toasts.save_success'))
     } catch {
-      toast.error('Lưu thất bại')
+      toast.error(t('homepage_config.toasts.save_failed'))
+    } finally {
+      setIsSaving(false)
     }
-    setIsSaving(false)
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="container mx-auto max-w-7xl p-6">
       <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Legacy page: cau hinh nay khong phai nguon public homepage chinh nua. Home hien dang doc tu `homepage_layout` va website settings.
+        {t('homepage_config.legacy_notice')}
       </div>
-      <div className="flex items-center justify-between mb-6">
+
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Homepage Configuration</h1>
-          <p className="text-muted-foreground">Customize your homepage layout and content</p>
+          <h1 className="mb-2 text-3xl font-bold">{t('homepage_config.title')}</h1>
+          <p className="text-muted-foreground">{t('homepage_config.subtitle')}</p>
         </div>
+
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowPreview(!showPreview)}>
-            <Eye className="w-4 h-4 mr-2" />
-            {showPreview ? "Hide" : "Show"} Preview
+            <Eye className="mr-2 h-4 w-4" />
+            {showPreview ? t('homepage_config.hide_preview') : t('homepage_config.show_preview')}
           </Button>
+
           <Button onClick={saveConfig} disabled={isSaving}>
-            <Save className="w-4 h-4 mr-2" />
-            {isSaving ? "Dang luu..." : "Save Changes"}
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? t('homepage_config.saving') : t('homepage_config.save_changes')}
           </Button>
         </div>
       </div>
 
       <Tabs defaultValue="hero" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="hero">Hero Section</TabsTrigger>
-          <TabsTrigger value="sections">Page Sections</TabsTrigger>
-          <TabsTrigger value="banners">Banners</TabsTrigger>
-          <TabsTrigger value="featured">Featured Content</TabsTrigger>
+          <TabsTrigger value="hero">{t('homepage_config.tabs.hero')}</TabsTrigger>
+          <TabsTrigger value="sections">{t('homepage_config.tabs.sections')}</TabsTrigger>
+          <TabsTrigger value="banners">{t('homepage_config.tabs.banners')}</TabsTrigger>
+          <TabsTrigger value="featured">{t('homepage_config.tabs.featured')}</TabsTrigger>
         </TabsList>
 
-        {/* Hero Section Config */}
         <TabsContent value="hero" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Hero Section Settings</CardTitle>
+              <CardTitle>{t('homepage_config.hero.settings_title')}</CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="hero-enabled">Enable Hero Section</Label>
+                <Label htmlFor="hero-enabled">{t('homepage_config.hero.enable')}</Label>
                 <Switch
                   id="hero-enabled"
                   checked={config.hero.enabled}
@@ -252,37 +317,38 @@ export function HomepageConfigPage() {
 
               <div className="grid gap-4">
                 <div>
-                  <Label htmlFor="hero-title">Title</Label>
+                  <Label htmlFor="hero-title">{t('homepage_config.hero.title_label')}</Label>
                   <Input
                     id="hero-title"
                     value={config.hero.title}
                     onChange={(e) => updateHero('title', e.target.value)}
-                    placeholder="Learn without limits"
+                    placeholder={t('homepage_config.hero.title_placeholder')}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="hero-subtitle">Subtitle</Label>
+                  <Label htmlFor="hero-subtitle">{t('homepage_config.hero.subtitle_label')}</Label>
                   <Textarea
                     id="hero-subtitle"
                     value={config.hero.subtitle}
                     onChange={(e) => updateHero('subtitle', e.target.value)}
-                    placeholder="Start, switch, or advance your career..."
+                    placeholder={t('homepage_config.hero.subtitle_placeholder')}
                     rows={2}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="hero-cta-primary">Primary CTA</Label>
+                    <Label htmlFor="hero-cta-primary">{t('homepage_config.hero.primary_cta')}</Label>
                     <Input
                       id="hero-cta-primary"
                       value={config.hero.cta_primary}
                       onChange={(e) => updateHero('cta_primary', e.target.value)}
                     />
                   </div>
+
                   <div>
-                    <Label htmlFor="hero-cta-secondary">Secondary CTA</Label>
+                    <Label htmlFor="hero-cta-secondary">{t('homepage_config.hero.secondary_cta')}</Label>
                     <Input
                       id="hero-cta-secondary"
                       value={config.hero.cta_secondary}
@@ -292,12 +358,12 @@ export function HomepageConfigPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="hero-bg">Background Image URL</Label>
+                  <Label htmlFor="hero-bg">{t('homepage_config.hero.background_image')}</Label>
                   <Input
                     id="hero-bg"
                     value={config.hero.background_image}
                     onChange={(e) => updateHero('background_image', e.target.value)}
-                    placeholder="https://..."
+                    placeholder={t('homepage_config.hero.background_image_placeholder')}
                   />
                 </div>
 
@@ -308,15 +374,16 @@ export function HomepageConfigPage() {
                       checked={config.hero.show_search}
                       onCheckedChange={(checked) => updateHero('show_search', checked)}
                     />
-                    <Label htmlFor="hero-search">Show Search Bar</Label>
+                    <Label htmlFor="hero-search">{t('homepage_config.hero.show_search')}</Label>
                   </div>
+
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="hero-stats"
                       checked={config.hero.show_stats}
                       onCheckedChange={(checked) => updateHero('show_stats', checked)}
                     />
-                    <Label htmlFor="hero-stats">Show Statistics</Label>
+                    <Label htmlFor="hero-stats">{t('homepage_config.hero.show_statistics')}</Label>
                   </div>
                 </div>
               </div>
@@ -324,15 +391,15 @@ export function HomepageConfigPage() {
           </Card>
         </TabsContent>
 
-        {/* Sections Config with Drag & Drop */}
         <TabsContent value="sections" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Page Sections Management</CardTitle>
+              <CardTitle>{t('homepage_config.sections.title')}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Drag and drop to reorder sections. Toggle switches to enable/disable.
+                {t('homepage_config.sections.description')}
               </p>
             </CardHeader>
+
             <CardContent>
               <div className="space-y-2">
                 {config.sections.map((section, index) => (
@@ -343,22 +410,23 @@ export function HomepageConfigPage() {
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, index)}
                     onDragEnd={handleDragEnd}
-                    className={`flex items-center justify-between p-4 bg-card border rounded-lg transition-all ${
+                    className={`flex items-center justify-between rounded-lg border bg-card p-4 transition-all ${
                       isDragging && draggedItem === index
-                        ? 'opacity-50 scale-95'
-                        : 'hover:shadow-md cursor-move'
+                        ? 'scale-95 opacity-50'
+                        : 'cursor-move hover:shadow-md'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <GripVertical className="w-5 h-5 text-muted-foreground" />
+                      <GripVertical className="h-5 w-5 text-muted-foreground" />
                       <Badge variant="outline">{section.order}</Badge>
                       <div>
                         <div className="font-medium">{section.component}</div>
                         <div className="text-sm text-muted-foreground">
-                          Section ID: {section.id}
+                          {t('homepage_config.sections.section_id', { id: section.id })}
                         </div>
                       </div>
                     </div>
+
                     <Switch
                       checked={section.enabled}
                       onCheckedChange={() => toggleSection(section.id)}
@@ -370,13 +438,12 @@ export function HomepageConfigPage() {
           </Card>
         </TabsContent>
 
-        {/* Banners Config */}
         <TabsContent value="banners" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Promotional Banners</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{t('homepage_config.banners.title')}</h3>
             <Button onClick={addBanner}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Banner
+              <Plus className="mr-2 h-4 w-4" />
+              {t('homepage_config.banners.add')}
             </Button>
           </div>
 
@@ -385,39 +452,45 @@ export function HomepageConfigPage() {
               <Card key={banner.id}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">Banner #{banner.id}</CardTitle>
+                    <CardTitle className="text-base">
+                      {t('homepage_config.banners.banner_title', { id: banner.id })}
+                    </CardTitle>
+
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={banner.enabled}
                         onCheckedChange={(checked) => updateBanner(banner.id, 'enabled', checked)}
                       />
+
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => openConfirm(
-                          'Delete homepage banner',
-                          `Delete banner "${banner.title}"?`,
-                          'Delete banner',
+                          t('homepage_config.banners.delete_title'),
+                          t('homepage_config.banners.delete_description', { title: banner.title }),
+                          t('homepage_config.banners.delete_confirm'),
                           () => deleteBanner(banner.id),
                           true,
                         )}
                       >
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
+
                 <CardContent className="grid gap-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Title</Label>
+                      <Label>{t('homepage_config.banners.title_label')}</Label>
                       <Input
                         value={banner.title}
                         onChange={(e) => updateBanner(banner.id, 'title', e.target.value)}
                       />
                     </div>
+
                     <div>
-                      <Label>CTA Text</Label>
+                      <Label>{t('homepage_config.banners.cta_text')}</Label>
                       <Input
                         value={banner.cta}
                         onChange={(e) => updateBanner(banner.id, 'cta', e.target.value)}
@@ -426,7 +499,7 @@ export function HomepageConfigPage() {
                   </div>
 
                   <div>
-                    <Label>Description</Label>
+                    <Label>{t('homepage_config.banners.description_label')}</Label>
                     <Textarea
                       value={banner.description}
                       onChange={(e) => updateBanner(banner.id, 'description', e.target.value)}
@@ -436,37 +509,38 @@ export function HomepageConfigPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>Image URL</Label>
+                      <Label>{t('homepage_config.banners.image_url')}</Label>
                       <Input
                         value={banner.image}
                         onChange={(e) => updateBanner(banner.id, 'image', e.target.value)}
-                        placeholder="https://..."
+                        placeholder={t('homepage_config.banners.image_url_placeholder')}
                       />
                     </div>
+
                     <div>
-                      <Label>Link URL</Label>
+                      <Label>{t('homepage_config.banners.link_url')}</Label>
                       <Input
                         value={banner.link}
                         onChange={(e) => updateBanner(banner.id, 'link', e.target.value)}
-                        placeholder="/courses"
+                        placeholder={t('homepage_config.banners.link_url_placeholder')}
                       />
                     </div>
                   </div>
 
-                  {/* Preview */}
-                  <div className="border rounded-lg overflow-hidden">
+                  <div className="overflow-hidden rounded-lg border">
                     {banner.image ? (
                       <img
                         src={banner.image}
                         alt={banner.title}
-                        className="w-full h-32 object-cover"
+                        className="h-32 w-full object-cover"
                       />
                     ) : (
                       <div className="flex h-32 items-center justify-center bg-muted text-muted-foreground">
-                        <ImageIcon className="w-5 h-5" />
+                        <ImageIcon className="h-5 w-5" />
                       </div>
                     )}
-                    <div className="p-3 bg-muted">
+
+                    <div className="bg-muted p-3">
                       <h4 className="font-semibold">{banner.title}</h4>
                       <p className="text-sm text-muted-foreground">{banner.description}</p>
                     </div>
@@ -477,41 +551,44 @@ export function HomepageConfigPage() {
           </div>
         </TabsContent>
 
-        {/* Featured Content */}
         <TabsContent value="featured" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Featured Content Settings</CardTitle>
+              <CardTitle>{t('homepage_config.featured.title')}</CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-4">
               <div>
-                <Label>Featured Testimonials (IDs)</Label>
+                <Label>{t('homepage_config.featured.testimonials_label')}</Label>
                 <Input
                   value={config.featured_testimonials.join(', ')}
-                  onChange={(e) => setConfig({
-                    ...config,
-                    featured_testimonials: e.target.value.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
-                  })}
-                  placeholder="1, 2, 3"
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    featured_testimonials: e.target.value
+                      .split(',')
+                      .map(id => parseInt(id.trim(), 10))
+                      .filter(id => !Number.isNaN(id)),
+                  }))}
+                  placeholder={t('homepage_config.featured.testimonials_placeholder')}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter comma-separated testimonial IDs
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('homepage_config.featured.testimonials_hint')}
                 </p>
               </div>
 
               <div>
-                <Label>Popular Skills</Label>
+                <Label>{t('homepage_config.featured.skills_label')}</Label>
                 <Textarea
                   value={config.popular_skills.join('\n')}
-                  onChange={(e) => setConfig({
-                    ...config,
-                    popular_skills: e.target.value.split('\n').filter(s => s.trim())
-                  })}
-                  placeholder="Web Development&#10;Python&#10;Data Science"
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    popular_skills: e.target.value.split('\n').filter(skill => skill.trim()),
+                  }))}
+                  placeholder={t('homepage_config.featured.skills_placeholder')}
                   rows={6}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  One skill per line
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('homepage_config.featured.skills_hint')}
                 </p>
               </div>
             </CardContent>
@@ -519,19 +596,18 @@ export function HomepageConfigPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Preview Modal */}
       {showPreview && (
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Homepage Preview</DialogTitle>
+              <DialogTitle>{t('homepage_config.preview.title')}</DialogTitle>
             </DialogHeader>
+
             <div className="space-y-4">
-              {/* Hero Preview */}
               {config.hero.enabled && (
-                <div className="border rounded-lg p-6 bg-gradient-to-r from-primary/10 to-primary/5">
-                  <h2 className="text-2xl font-bold mb-2">{config.hero.title}</h2>
-                  <p className="text-muted-foreground mb-4">{config.hero.subtitle}</p>
+                <div className="rounded-lg border bg-gradient-to-r from-primary/10 to-primary/5 p-6">
+                  <h2 className="mb-2 text-2xl font-bold">{config.hero.title}</h2>
+                  <p className="mb-4 text-muted-foreground">{config.hero.subtitle}</p>
                   <div className="flex gap-2">
                     <Button>{config.hero.cta_primary}</Button>
                     <Button variant="outline">{config.hero.cta_secondary}</Button>
@@ -539,15 +615,14 @@ export function HomepageConfigPage() {
                 </div>
               )}
 
-              {/* Sections Preview */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-semibold mb-3">Active Sections (in order):</h3>
+              <div className="rounded-lg border p-4">
+                <h3 className="mb-3 font-semibold">{t('homepage_config.preview.active_sections')}</h3>
                 <div className="space-y-2">
                   {config.sections
-                    .filter(s => s.enabled)
+                    .filter(section => section.enabled)
                     .sort((a, b) => a.order - b.order)
                     .map(section => (
-                      <div key={section.id} className="flex items-center gap-2 p-2 bg-muted rounded">
+                      <div key={section.id} className="flex items-center gap-2 rounded bg-muted p-2">
                         <Badge>{section.order}</Badge>
                         <span>{section.component}</span>
                       </div>
@@ -555,19 +630,19 @@ export function HomepageConfigPage() {
                 </div>
               </div>
 
-              {/* Banners Preview */}
-              {config.banners.filter(b => b.enabled).length > 0 && (
-                <div className="border rounded-lg overflow-hidden">
-                  <h3 className="font-semibold p-4 bg-muted">Active Banners:</h3>
-                  {config.banners.filter(b => b.enabled).map(banner => (
+              {config.banners.filter(banner => banner.enabled).length > 0 && (
+                <div className="overflow-hidden rounded-lg border">
+                  <h3 className="bg-muted p-4 font-semibold">{t('homepage_config.preview.active_banners')}</h3>
+                  {config.banners.filter(banner => banner.enabled).map(banner => (
                     <div key={banner.id} className="border-t">
                       {banner.image ? (
-                        <img src={banner.image} alt={banner.title} className="w-full h-24 object-cover" />
+                        <img src={banner.image} alt={banner.title} className="h-24 w-full object-cover" />
                       ) : (
                         <div className="flex h-24 items-center justify-center bg-muted text-muted-foreground">
-                          <ImageIcon className="w-5 h-5" />
+                          <ImageIcon className="h-5 w-5" />
                         </div>
                       )}
+
                       <div className="p-3">
                         <h4 className="font-medium">{banner.title}</h4>
                         <p className="text-sm text-muted-foreground">{banner.description}</p>
@@ -580,6 +655,7 @@ export function HomepageConfigPage() {
           </DialogContent>
         </Dialog>
       )}
+
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -587,7 +663,7 @@ export function HomepageConfigPage() {
         confirmLabel={confirmState.confirmLabel}
         destructive={confirmState.destructive}
         loading={confirmState.loading}
-        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
+        onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
     </div>

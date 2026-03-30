@@ -1,10 +1,11 @@
 import { Home, BookOpen, ShoppingCart, User, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useRouter } from './Router'
 import { useAuth } from '../contexts/AuthContext'
 import { useCart } from '../contexts/CartContext'
-import { Badge } from './ui/badge'
 
 export function MobileBottomNav() {
+  const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const { isAuthenticated } = useAuth()
   const { cartItems } = useCart()
@@ -16,11 +17,11 @@ export function MobileBottomNav() {
   }
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home, path: '/' },
-    { id: 'search', label: 'Search', icon: Search, path: '/search' },
-    { id: 'courses', label: 'Courses', icon: BookOpen, path: isAuthenticated ? '/my-learning' : '/courses' },
-    { id: 'cart', label: 'Cart', icon: ShoppingCart, path: '/cart', badge: cartItems.length },
-    { id: 'profile', label: 'Account', icon: User, path: isAuthenticated ? '/profile' : '/login' },
+    { id: 'home', label: t('mobile_bottom_nav.home'), icon: Home, path: '/' },
+    { id: 'search', label: t('mobile_bottom_nav.search'), icon: Search, path: '/search' },
+    { id: 'courses', label: t('mobile_bottom_nav.courses'), icon: BookOpen, path: isAuthenticated ? '/my-learning' : '/courses' },
+    { id: 'cart', label: t('mobile_bottom_nav.cart'), icon: ShoppingCart, path: '/cart', badge: cartItems.length },
+    { id: 'profile', label: t('mobile_bottom_nav.account'), icon: User, path: isAuthenticated ? '/profile' : '/login' },
   ]
 
   return (

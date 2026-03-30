@@ -6,6 +6,7 @@
 
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
+import i18n from '../utils/i18n'
 import { toast } from 'sonner'
 import {
   getAllCartByUser,
@@ -128,27 +129,27 @@ export const useCartStore = create<CartState>()(
         addToCart: (course) => {
           const state = get()
           if (state.cartItems.find(item => item.id === course.id)) {
-            toast.info('Khóa học này đã có trong giỏ hàng')
+            toast.info(i18n.t('cart_store.already_in_cart'))
             return
           }
           set({ cartItems: [...state.cartItems, course] })
-          toast.success('Đã thêm vào giỏ hàng')
+          toast.success(i18n.t('cart_store.added_to_cart'))
         },
 
         /** Add to cart via API, then update local state. */
         addToCartFromApi: async (userId, courseId, courseMeta) => {
           const state = get()
           if (state.cartItems.find(item => item.courseId === courseId)) {
-            toast.info('Khóa học này đã có trong giỏ hàng')
+            toast.info(i18n.t('cart_store.already_in_cart'))
             return
           }
           try {
             const created = await addToCartApi({ user: userId, course: courseId })
             const newCourse = cartItemToCourse(created)
             set({ cartItems: [...get().cartItems, newCourse] })
-            toast.success('Đã thêm vào giỏ hàng')
+            toast.success(i18n.t('cart_store.added_to_cart'))
           } catch {
-            toast.error('Không thể thêm vào giỏ hàng')
+            toast.error(i18n.t('cart_store.add_to_cart_failed'))
           }
         },
 

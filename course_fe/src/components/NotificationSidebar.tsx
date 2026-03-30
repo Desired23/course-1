@@ -4,12 +4,14 @@ import { useRouter } from "./Router"
 import { markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead } from "../services/notification.api"
 import { useAuth } from "../contexts/AuthContext"
 import { useNotifications } from "../contexts/NotificationContext"
+import { useTranslation } from "react-i18next"
 
 interface NotificationSidebarProps {
   onHover?: (isHovered: boolean) => void
 }
 
 export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -108,9 +110,9 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
   }
 
   const formatTimeAgo = (value: Date | string | number | undefined | null) => {
-    if (!value) return 'Just now'
+    if (!value) return t('notification_sidebar.time.just_now')
     const date = value instanceof Date ? value : new Date(value)
-    if (Number.isNaN(date.getTime())) return 'Just now'
+    if (Number.isNaN(date.getTime())) return t('notification_sidebar.time.just_now')
 
     const now = new Date()
     const diff = now.getTime() - date.getTime()
@@ -118,10 +120,10 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
 
-    if (minutes < 1) return 'Just now'
-    if (minutes < 60) return `${minutes}m ago`
-    if (hours < 24) return `${hours}h ago`
-    if (days < 7) return `${days}d ago`
+    if (minutes < 1) return t('notification_sidebar.time.just_now')
+    if (minutes < 60) return t('notification_sidebar.time.minutes_ago', { count: minutes })
+    if (hours < 24) return t('notification_sidebar.time.hours_ago', { count: hours })
+    if (days < 7) return t('notification_sidebar.time.days_ago', { count: days })
     return date.toLocaleDateString()
   }
 
@@ -153,7 +155,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold flex items-center gap-2">
                 <Bell className="w-5 h-5" />
-                Notifications
+                {t('notification_sidebar.title')}
                 {unreadCount > 0 && (
                   <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full">
                     {unreadCount}
@@ -167,7 +169,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                     setIsOpen(false)
                   }}
                   className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  title="Notification settings"
+                  title={t('notification_sidebar.settings')}
                 >
                   <Settings className="w-4 h-4" />
                 </button>
@@ -187,7 +189,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                 className="text-xs text-primary hover:underline flex items-center gap-1"
               >
                 <Check className="w-3 h-3" />
-                Mark all as read
+                {t('notification_sidebar.mark_all_as_read')}
               </button>
             )}
           </div>
@@ -197,8 +199,8 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <Bell className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-sm">No notifications yet</p>
-                <p className="text-xs mt-2">We'll notify you when something arrives!</p>
+                <p className="text-sm">{t('notification_sidebar.empty_title')}</p>
+                <p className="text-xs mt-2">{t('notification_sidebar.empty_description')}</p>
               </div>
             ) : (
               <div>
@@ -248,7 +250,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                             markAsRead(Number(notification.notification_id ?? notification.id))
                           }}
                           className="p-1.5 text-gray-400 hover:text-blue-500 transition-colors"
-                          title="Mark as read"
+                          title={t('notification_sidebar.mark_as_read')}
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -259,7 +261,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                           deleteNotification(Number(notification.notification_id ?? notification.id))
                         }}
                         className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                        title="Delete notification"
+                        title={t('notification_sidebar.delete_notification')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -280,7 +282,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                 }}
                 className="w-full text-sm text-center text-primary hover:underline"
               >
-                View all notifications
+                {t('notification_sidebar.view_all')}
               </button>
             </div>
           )}

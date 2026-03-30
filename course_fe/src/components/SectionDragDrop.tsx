@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
+import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, CardContent, CardTitle } from './ui/card'
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -61,10 +62,10 @@ export function DraggableSectionCard({
   showAddLesson,
   addLessonContent
 }: DraggableSectionCardProps) {
+  const { t } = useTranslation()
   const sectionRef = useRef<HTMLDivElement>(null)
   const cardContentRef = useRef<HTMLDivElement>(null)
 
-  // Drag configuration for section
   const [{ isDragging }, dragSection] = useDrag({
     type: SECTION_TYPE,
     item: { index, type: SECTION_TYPE },
@@ -73,7 +74,6 @@ export function DraggableSectionCard({
     })
   })
 
-  // Drop configuration for section (reordering sections)
   const [, dropSection] = useDrop({
     accept: SECTION_TYPE,
     hover(item: { index: number, type: string }, monitor) {
@@ -87,12 +87,11 @@ export function DraggableSectionCard({
       const hoverBoundingRect = sectionRef.current.getBoundingClientRect()
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
       const clientOffset = monitor.getClientOffset()
-      
+
       if (!clientOffset) return
 
       const hoverClientY = clientOffset.y - hoverBoundingRect.top
 
-      // Only perform the move when the mouse has crossed half of the items height
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return
 
@@ -101,13 +100,11 @@ export function DraggableSectionCard({
     }
   })
 
-  // Drop configuration for lessons (accept lessons from any section)
-  const [{ isOver, canDrop }, dropLesson] = useDrop({
+  const [{ isOver }, dropLesson] = useDrop({
     accept: LESSON_TYPE,
-    drop: (item: { lessonId: number, sectionId: number, index: number }, monitor) => {
+    drop: (item: { lessonId: number, sectionId: number, index: number }) => {
       if (!cardContentRef.current) return
 
-      // Always allow drop - if dropping in a different section, move to end
       if (item.sectionId !== section.id) {
         moveLessonBetweenSections(
           item.sectionId,
@@ -117,17 +114,13 @@ export function DraggableSectionCard({
         )
       }
     },
-    canDrop: () => true, // Always allow drop
+    canDrop: () => true,
     collect: (monitor) => ({
       isOver: monitor.isOver({ shallow: true }),
-      canDrop: monitor.canDrop()
     })
   })
 
-  // Combine drag and drop refs for section
   dragSection(dropSection(sectionRef))
-  
-  // Apply drop ref to card content for lesson drops
   dropLesson(cardContentRef)
 
   return (
@@ -146,13 +139,15 @@ export function DraggableSectionCard({
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
               </div>
               <div className="flex items-center gap-2 flex-1">
-                <CardTitle className="transition-colors duration-200">Section {index + 1}: {section.title}</CardTitle>
+                <CardTitle className="transition-colors duration-200">
+                  {t('section_drag_drop.section_title', { index: index + 1, title: section.title })}
+                </CardTitle>
                 <Badge variant="secondary" className="ml-2">
-                  {section.lessons.length} {section.lessons.length === 1 ? 'lesson' : 'lessons'}
+                  {t('section_drag_drop.lesson_count', { count: section.lessons.length })}
                 </Badge>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Select
                 value={(section.status as 'Draft' | 'Published') || 'Draft'}
@@ -162,8 +157,8 @@ export function DraggableSectionCard({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Published">Published</SelectItem>
+                  <SelectItem value="Draft">{t('section_drag_drop.status.draft')}</SelectItem>
+                  <SelectItem value="Published">{t('section_drag_drop.status.published')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -174,13 +169,13 @@ export function DraggableSectionCard({
                 className="transition-all duration-200 hover:scale-105"
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Add Lesson
+                {t('section_drag_drop.actions.add_lesson')}
               </Button>
-              
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0 transition-all duration-200 hover:scale-110"
                   >
@@ -190,43 +185,43 @@ export function DraggableSectionCard({
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={() => onEditSection(section)}>
                     <Edit3 className="h-4 w-4 mr-2" />
-                    Edit Section
+                    {t('section_drag_drop.actions.edit_section')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => onAddLesson(section.id)}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Lesson
+                    {t('section_drag_drop.actions.add_lesson')}
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Copy className="h-4 w-4 mr-2" />
-                    Duplicate Section
+                    {t('section_drag_drop.actions.duplicate_section')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <MoveUp className="h-4 w-4 mr-2" />
-                    Move Up
+                    {t('section_drag_drop.actions.move_up')}
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <MoveDown className="h-4 w-4 mr-2" />
-                    Move Down
+                    {t('section_drag_drop.actions.move_down')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => {
-                      if (confirm(`Delete section "${section.title}"? This will delete all ${section.lessons.length} lessons inside.`)) {
+                      if (confirm(t('section_drag_drop.actions.delete_confirm', { title: section.title, count: section.lessons.length }))) {
                         onDeleteSection(section.id)
                       }
                     }}
                     className="text-red-600 focus:text-red-600"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Section
+                    {t('section_drag_drop.actions.delete_section')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent ref={cardContentRef} className={`space-y-2 group ${section.lessons.length === 0 ? 'min-h-[120px]' : ''}`}>
           {section.lessons.map((lesson, lessonIndex) => (
             <DraggableLessonCard
@@ -234,7 +229,7 @@ export function DraggableSectionCard({
               lesson={lesson}
               index={lessonIndex}
               sectionId={section.id}
-              moveLesson={(dragIndex, hoverIndex) => 
+              moveLesson={(dragIndex, hoverIndex) =>
                 moveLessonWithinSection(section.id, dragIndex, hoverIndex)
               }
               moveLessonBetweenSections={moveLessonBetweenSections}
@@ -252,12 +247,11 @@ export function DraggableSectionCard({
               isOver ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-muted-foreground/25'
             }`}>
               <p className="text-sm text-muted-foreground px-4">
-                {isOver ? '✨ Drop lesson here!' : 'No lessons yet. Add your first lesson or drag one here!'}
+                {isOver ? t('section_drag_drop.empty.drop_here') : t('section_drag_drop.empty.no_lessons')}
               </p>
             </div>
           )}
 
-          {/* Add Lesson Form */}
           {showAddLesson && addLessonContent}
         </CardContent>
       </Card>

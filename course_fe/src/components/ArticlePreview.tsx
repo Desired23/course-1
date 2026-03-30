@@ -2,6 +2,7 @@ import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { FileText, Clock } from 'lucide-react'
 import { cn } from './ui/utils'
+import { useTranslation } from 'react-i18next'
 
 interface ArticlePreviewProps {
   title: string
@@ -16,44 +17,8 @@ export function ArticlePreview({
   duration,
   className 
 }: ArticlePreviewProps) {
-  const mockContent = content || `
-    <h2>Introduction to React Hooks</h2>
-    <p>React Hooks are functions that let you "hook into" React state and lifecycle features from function components. They were introduced in React 16.8 and have revolutionized the way we write React applications.</p>
-    
-    <h3>Why Use Hooks?</h3>
-    <ul>
-      <li><strong>Simpler Code:</strong> Hooks allow you to use state and other React features without writing a class.</li>
-      <li><strong>Reusability:</strong> You can extract stateful logic from a component so it can be tested and reused independently.</li>
-      <li><strong>Better Organization:</strong> Hooks let you organize logic inside a component into reusable isolated units.</li>
-    </ul>
-
-    <h3>Most Common Hooks</h3>
-    <p>Here are the most frequently used React Hooks:</p>
-    
-    <h4>1. useState</h4>
-    <p>The <code>useState</code> hook allows you to add state to functional components:</p>
-    <pre><code>const [count, setCount] = useState(0);</code></pre>
-
-    <h4>2. useEffect</h4>
-    <p>The <code>useEffect</code> hook lets you perform side effects in function components:</p>
-    <pre><code>useEffect(() => {
-  document.title = \`Count: \${count}\`;
-}, [count]);</code></pre>
-
-    <h4>3. useContext</h4>
-    <p>The <code>useContext</code> hook allows you to access context values without wrapping components:</p>
-    <pre><code>const theme = useContext(ThemeContext);</code></pre>
-
-    <h3>Rules of Hooks</h3>
-    <p>There are two important rules you must follow when using Hooks:</p>
-    <ol>
-      <li>Only call Hooks at the top level of your function</li>
-      <li>Only call Hooks from React function components or custom Hooks</li>
-    </ol>
-
-    <h3>Conclusion</h3>
-    <p>React Hooks provide a more direct API to the React concepts you already know. They give you the power to write cleaner, more maintainable code while keeping the flexibility and performance benefits of React.</p>
-  `
+  const { t } = useTranslation()
+  const mockContent = content || t('article_preview.mock_content')
 
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -68,11 +33,11 @@ export function ArticlePreview({
             {duration && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span>Reading time: {duration}</span>
+                <span>{t('article_preview.reading_time', { duration })}</span>
               </div>
             )}
           </div>
-          <Badge variant="secondary">Article</Badge>
+          <Badge variant="secondary">{t('article_preview.badge')}</Badge>
         </div>
       </div>
 

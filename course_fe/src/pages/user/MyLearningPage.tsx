@@ -72,7 +72,7 @@ export function MyLearningPage() {
             setInProgressCount(0)
             setCompletedCount(0)
           } else {
-            setError('Unable to load your courses. Please try again.')
+            setError(t('my_learning.load_failed'))
           }
         }
       })
@@ -109,7 +109,7 @@ export function MyLearningPage() {
     return (
       <div className="p-8 text-center">
         <p className="text-destructive mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <Button onClick={() => window.location.reload()}>{t('my_learning.retry')}</Button>
       </div>
     )
   }
@@ -119,7 +119,7 @@ export function MyLearningPage() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 md:mb-8">
           <h1 className="mb-2">{t('my_learning.title')}</h1>
-          <p className="text-muted-foreground">Keep track of your learning journey and continue where you left off.</p>
+          <p className="text-muted-foreground">{t('my_learning.subtitle')}</p>
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
@@ -147,19 +147,19 @@ export function MyLearningPage() {
               />
               <select className="h-9 rounded-md border px-3 text-sm" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
                 <option value="recent_access">{t('my_learning.sort_recent')}</option>
-                <option value="newest_enrollment">Newest enrollment</option>
-                <option value="oldest_enrollment">Oldest enrollment</option>
+                <option value="newest_enrollment">{t('my_learning.sort_newest_enrollment')}</option>
+                <option value="oldest_enrollment">{t('my_learning.sort_oldest_enrollment')}</option>
                 <option value="title_asc">{t('my_learning.sort_title')}</option>
                 <option value="progress_desc">{t('my_learning.sort_progress')}</option>
               </select>
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateFrom} onChange={(e) => setEnrollmentDateFrom(e.target.value)} title="Enrollment from" />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateTo} onChange={(e) => setEnrollmentDateTo(e.target.value)} title="Enrollment to" />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateFrom} onChange={(e) => setPurchaseDateFrom(e.target.value)} title="Purchase from" />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateTo} onChange={(e) => setPurchaseDateTo(e.target.value)} title="Purchase to" />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateFrom} onChange={(e) => setEnrollmentDateFrom(e.target.value)} title={t('my_learning.enrollment_from')} />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateTo} onChange={(e) => setEnrollmentDateTo(e.target.value)} title={t('my_learning.enrollment_to')} />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateFrom} onChange={(e) => setPurchaseDateFrom(e.target.value)} title={t('my_learning.purchase_from')} />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateTo} onChange={(e) => setPurchaseDateTo(e.target.value)} title={t('my_learning.purchase_to')} />
               <select className="h-9 rounded-md border px-3 text-sm" value={String(pageSize)} onChange={(e) => setPageSize(Number(e.target.value))}>
-                <option value="6">6 / page</option>
-                <option value="9">9 / page</option>
-                <option value="12">12 / page</option>
+                <option value="6">{t('my_learning.page_size.six')}</option>
+                <option value="9">{t('my_learning.page_size.nine')}</option>
+                <option value="12">{t('my_learning.page_size.twelve')}</option>
               </select>
               <Button
                 variant="ghost"
@@ -173,7 +173,7 @@ export function MyLearningPage() {
                   setPurchaseDateTo('')
                 }}
               >
-                Clear filters
+                {t('my_learning.clear_filters')}
               </Button>
             </div>
           )}
@@ -182,8 +182,8 @@ export function MyLearningPage() {
             {enrollments.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>You have not enrolled in any course yet.</p>
-                <Button className="mt-4" onClick={() => navigate('/courses')}>Explore courses</Button>
+                <p>{t('my_learning.empty_not_enrolled')}</p>
+                <Button className="mt-4" onClick={() => navigate('/courses')}>{t('my_learning.explore_courses')}</Button>
               </div>
             ) : (
               <>
@@ -202,18 +202,18 @@ export function MyLearningPage() {
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                             <Button size="sm" className="gap-2" onClick={() => handleContinueLearning(course.course_id)}>
                               <Play className="h-4 w-4" />
-                              Continue
+                              {t('my_learning.continue_learning')}
                             </Button>
                             <Button size="sm" variant="secondary" className="gap-2" onClick={() => navigate(`/course/${course.course_id}`)}>
                               <Info className="h-4 w-4" />
-                              View details
+                              {t('my_learning.view_details')}
                             </Button>
                           </div>
                         </div>
 
                         <CardHeader className="pb-3">
                           <CardTitle className="line-clamp-2">{course.title}</CardTitle>
-                          <CardDescription>By {course.instructor_name || 'Instructor'}</CardDescription>
+                          <CardDescription>{t('my_learning.by_instructor', { name: course.instructor_name || t('my_learning.instructor_fallback') })}</CardDescription>
                         </CardHeader>
 
                         <CardContent className="space-y-4">
@@ -249,7 +249,7 @@ export function MyLearningPage() {
                 </div>
 
                 <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">Page {currentPage}/{totalPages} - Total {totalCount} courses</p>
+                  <p className="text-sm text-muted-foreground">{t('my_learning.pagination', { current: currentPage, totalPages, totalCount })}</p>
                   <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                 </div>
               </>
@@ -260,7 +260,7 @@ export function MyLearningPage() {
             {enrollments.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No completed courses yet.</p>
+                <p>{t('my_learning.no_completed')}</p>
               </div>
             ) : (
               <>
@@ -286,24 +286,24 @@ export function MyLearningPage() {
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                             <Button size="sm" className="gap-2" onClick={() => navigate(`/course-player/${course.course_id}`)}>
                               <Play className="h-4 w-4" />
-                              Continue
+                              {t('my_learning.continue_learning')}
                             </Button>
                             <Button size="sm" variant="secondary" className="gap-2" onClick={() => navigate(`/course/${course.course_id}`)}>
                               <Info className="h-4 w-4" />
-                              View details
+                              {t('my_learning.view_details')}
                             </Button>
                           </div>
                         </div>
 
                         <CardHeader className="pb-3">
                           <CardTitle className="line-clamp-2">{course.title}</CardTitle>
-                          <CardDescription>By {course.instructor_name || 'Instructor'}</CardDescription>
+                          <CardDescription>{t('my_learning.by_instructor', { name: course.instructor_name || t('my_learning.instructor_fallback') })}</CardDescription>
                         </CardHeader>
 
                         <CardContent className="space-y-3">
                           {enrollment.completion_date && (
                             <div className="text-sm text-muted-foreground">
-                              Completed: {new Date(enrollment.completion_date).toLocaleDateString('vi-VN')}
+                              {t('my_learning.completed_on', { date: new Date(enrollment.completion_date).toLocaleDateString('vi-VN') })}
                             </div>
                           )}
                           {enrollment.certificate_issue_date && (
@@ -319,7 +319,7 @@ export function MyLearningPage() {
                 </div>
 
                 <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">Page {currentPage}/{totalPages} - Total {totalCount} courses</p>
+                  <p className="text-sm text-muted-foreground">{t('my_learning.pagination', { current: currentPage, totalPages, totalCount })}</p>
                   <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
                 </div>
               </>

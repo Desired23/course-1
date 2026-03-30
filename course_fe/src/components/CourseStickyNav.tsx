@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { AnimatePresence, motion } from 'motion/react'
+import { Heart, ShoppingCart } from 'lucide-react'
 import { Button } from './ui/button'
-import { ShoppingCart, Heart } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
 
 interface CourseStickyNavProps {
   courseTitle: string
@@ -14,7 +15,7 @@ interface CourseStickyNavProps {
   onAddToCart: () => void
   onBuyNow: () => void
   onToggleWishlist: () => void
-  sidebarCardRef?: React.RefObject<HTMLDivElement> // Ref to sidebar card container
+  sidebarCardRef?: React.RefObject<HTMLDivElement>
 }
 
 export function CourseStickyNav({
@@ -23,43 +24,39 @@ export function CourseStickyNav({
   originalPrice,
   isInCart,
   isWishlisted,
-  primaryActionLabel = 'Buy Now',
+  primaryActionLabel,
   showAddToCart = true,
   onAddToCart,
   onBuyNow,
   onToggleWishlist,
-  sidebarCardRef
+  sidebarCardRef,
 }: CourseStickyNavProps) {
+  const { t } = useTranslation()
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
       if (sidebarCardRef?.current) {
-        // Smart display: Show when sidebar card scrolls out of view
         const cardRect = sidebarCardRef.current.getBoundingClientRect()
-        const headerHeight = 64 // Header height is 16 * 4 = 64px (h-16)
-        
-        // Show sticky nav when the bottom of sidebar card goes above viewport
-        // This means user has scrolled past the card and can't see Buy Now button
+        const headerHeight = 64
         setIsVisible(cardRect.bottom < headerHeight + 100)
       } else {
-        // Fallback: Show after scrolling past 500px if no ref provided
         setIsVisible(window.scrollY > 500)
       }
     }
 
-    // Initial check
     handleScroll()
-    
     window.addEventListener('scroll', handleScroll)
-    // Also check on resize in case layout changes
     window.addEventListener('resize', handleScroll)
-    
+
     return () => {
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', handleScroll)
     }
   }, [sidebarCardRef])
+
+  const formatPrice = (value: number) => `VND ${value.toLocaleString('vi-VN')}`
+  const primaryLabel = primaryActionLabel ?? t('course_sticky_nav.buy_now')
 
   return (
     <AnimatePresence>
@@ -73,26 +70,20 @@ export function CourseStickyNav({
         >
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between gap-4">
-              {/* Course Title */}
               <div className="flex-1 min-w-0">
                 <h2 className="truncate font-semibold">{courseTitle}</h2>
               </div>
 
-              {/* Price and Actions */}
               <div className="flex items-center gap-3">
-                {/* Price - Always visible, smaller size */}
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-purple-600">
-                    ₫{(price || 0).toLocaleString('vi-VN')}
-                  </span>
+                  <span className="text-lg font-bold text-purple-600">{formatPrice(price || 0)}</span>
                   {originalPrice && (
                     <span className="hidden sm:inline text-xs text-muted-foreground line-through">
-                      ₫{originalPrice.toLocaleString('vi-VN')}
+                      {formatPrice(originalPrice)}
                     </span>
                   )}
                 </div>
 
-                {/* Wishlist Button */}
                 <Button
                   variant="outline"
                   size="icon"
@@ -102,29 +93,20 @@ export function CourseStickyNav({
                   <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
                 </Button>
 
-                {/* Add to Cart / primary action */}
                 {isInCart ? (
                   <Button onClick={onBuyNow} size="lg">
-                    Go to Cart
+                    {t('course_sticky_nav.go_to_cart')}
                   </Button>
                 ) : (
                   <>
                     {showAddToCart && (
-                      <Button 
-                        onClick={onAddToCart} 
-                        variant="outline"
-                        size="lg"
-                        className="hidden md:flex"
-                      >
+                      <Button onClick={onAddToCart} variant="outline" size="lg" className="hidden md:flex">
                         <ShoppingCart className="w-5 h-5 mr-2" />
-                        Add to Cart
+                        {t('course_sticky_nav.add_to_cart')}
                       </Button>
                     )}
-                    <Button 
-                      onClick={onBuyNow}
-                      size="lg"
-                    >
-                      {primaryActionLabel}
+                    <Button onClick={onBuyNow} size="lg">
+                      {primaryLabel}
                     </Button>
                   </>
                 )}

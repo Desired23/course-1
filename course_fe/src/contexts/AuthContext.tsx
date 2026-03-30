@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useAuthStore, User, UserRole, Permission, PERMISSIONS } from '../stores/auth.store'
 import { onSessionExpired } from '../services/http'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 // Re-export types for backward compatibility
 export type { User, UserRole, Permission }
@@ -10,13 +11,14 @@ export { PERMISSIONS }
 // AuthProvider is now just a wrapper for effects, state is managed by Zustand
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user, logout, updateProfile } = useAuthStore()
+  const { t } = useTranslation()
 
   // Handle session expired: clear state, redirect to login, show toast
   useEffect(() => {
     const unsubscribe = onSessionExpired(() => {
       logout()
-      toast.error('Phiên đăng nhập đã hết hạn', {
-        description: 'Vui lòng đăng nhập lại để tiếp tục.',
+      toast.error(t('auth_context.session_expired'), {
+        description: t('auth_context.login_again'),
       })
       // Redirect to login page (use window.location because Router context may not be available)
       window.location.href = '/login'

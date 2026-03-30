@@ -33,26 +33,26 @@ import { useTranslation } from "react-i18next"
 
 // Validation functions
 const validateEmail = (email: string): string | null => {
-  if (!email) return "Email is required"
+  if (!email) return "account_settings.validation.email_required"
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(email)) return "Invalid email format"
+  if (!emailRegex.test(email)) return "account_settings.validation.invalid_email"
   return null
 }
 
 const validatePassword = (password: string): string | null => {
-  if (!password) return "Password is required"
-  if (password.length < 8) return "Password must be at least 8 characters"
-  if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter"
-  if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter"
-  if (!/[0-9]/.test(password)) return "Password must contain at least one number"
+  if (!password) return "account_settings.validation.password_required"
+  if (password.length < 8) return "account_settings.validation.password_min"
+  if (!/[A-Z]/.test(password)) return "account_settings.validation.password_uppercase"
+  if (!/[a-z]/.test(password)) return "account_settings.validation.password_lowercase"
+  if (!/[0-9]/.test(password)) return "account_settings.validation.password_number"
   return null
 }
 
 const validateUsername = (username: string): string | null => {
-  if (!username) return "Username is required"
-  if (username.length < 3) return "Username must be at least 3 characters"
-  if (username.length > 30) return "Username must be less than 30 characters"
-  if (!/^[a-zA-Z0-9_-]+$/.test(username)) return "Username can only contain letters, numbers, underscore and hyphen"
+  if (!username) return "account_settings.validation.username_required"
+  if (username.length < 3) return "account_settings.validation.username_min"
+  if (username.length > 30) return "account_settings.validation.username_max"
+  if (!/^[a-zA-Z0-9_-]+$/.test(username)) return "account_settings.validation.username_format"
   return null
 }
 
@@ -89,12 +89,13 @@ function ConfirmDialog({
   variant = 'default',
   requirePassword = false
 }: ConfirmDialogProps) {
+  const { t } = useTranslation()
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleConfirm = async () => {
     if (requirePassword && !password) {
-      toast.error("Please enter your password")
+      toast.error(t('account_settings.password_required'))
       return
     }
     
@@ -122,13 +123,13 @@ function ConfirmDialog({
         
         {requirePassword && (
           <div className="py-4">
-            <Label htmlFor="confirm-password">Enter your password to confirm</Label>
+            <Label htmlFor="confirm-password">{t('account_settings.confirm_password_prompt')}</Label>
             <Input
               id="confirm-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={t('account_settings.confirm_password_placeholder')}
               className="mt-2"
             />
           </div>
@@ -143,7 +144,7 @@ function ConfirmDialog({
             }}
             disabled={loading}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             variant={variant === 'destructive' ? 'destructive' : 'default'}
@@ -163,6 +164,29 @@ export function AccountSettingsPage() {
   const { t } = useTranslation()
   const { user, updateProfile, logout } = useAuth()
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const languageOptions = [
+    { value: 'en', label: t('account_settings.languages.en') },
+    { value: 'vi', label: t('account_settings.languages.vi') },
+    { value: 'es', label: t('account_settings.languages.es') },
+    { value: 'fr', label: t('account_settings.languages.fr') },
+    { value: 'de', label: t('account_settings.languages.de') },
+    { value: 'ja', label: t('account_settings.languages.ja') },
+  ]
+  const timezoneOptions = [
+    { value: 'UTC+7', label: t('account_settings.timezones.utc_plus_7') },
+    { value: 'UTC', label: t('account_settings.timezones.utc') },
+    { value: 'UTC-5', label: t('account_settings.timezones.utc_minus_5') },
+    { value: 'UTC-8', label: t('account_settings.timezones.utc_minus_8') },
+    { value: 'UTC+1', label: t('account_settings.timezones.utc_plus_1') },
+    { value: 'UTC+9', label: t('account_settings.timezones.utc_plus_9') },
+  ]
+  const currencyOptions = [
+    { value: 'VND', label: t('account_settings.currencies.vnd') },
+    { value: 'USD', label: t('account_settings.currencies.usd') },
+    { value: 'EUR', label: t('account_settings.currencies.eur') },
+    { value: 'GBP', label: t('account_settings.currencies.gbp') },
+    { value: 'JPY', label: t('account_settings.currencies.jpy') },
+  ]
   
   // Profile Data
   const [profileData, setProfileData] = useState({
@@ -232,17 +256,17 @@ export function AccountSettingsPage() {
     const errors: Record<string, string> = {}
     
     const emailError = validateEmail(profileData.email)
-    if (emailError) errors.email = emailError
+    if (emailError) errors.email = t(emailError)
     
     const usernameError = validateUsername(profileData.username)
-    if (usernameError) errors.username = usernameError
+    if (usernameError) errors.username = t(usernameError)
     
     if (!profileData.name || profileData.name.length < 2) {
-      errors.name = "Name must be at least 2 characters"
+      errors.name = t('account_settings.validation.name_min')
     }
     
     if (profileData.bio && profileData.bio.length > 500) {
-      errors.bio = "Bio must be less than 500 characters"
+      errors.bio = t('account_settings.validation.bio_max')
     }
     
     setProfileErrors(errors)
@@ -254,18 +278,18 @@ export function AccountSettingsPage() {
     const errors: Record<string, string> = {}
     
     if (!passwordData.currentPassword) {
-      errors.currentPassword = "Current password is required"
+      errors.currentPassword = t('account_settings.validation.current_password_required')
     }
     
     const newPasswordError = validatePassword(passwordData.newPassword)
-    if (newPasswordError) errors.newPassword = newPasswordError
+    if (newPasswordError) errors.newPassword = t(newPasswordError)
     
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      errors.confirmPassword = "Passwords do not match"
+      errors.confirmPassword = t('account_settings.validation.password_mismatch')
     }
     
     if (passwordData.newPassword === passwordData.currentPassword) {
-      errors.newPassword = "New password must be different from current password"
+      errors.newPassword = t('account_settings.validation.password_same_as_current')
     }
     
     setPasswordErrors(errors)
@@ -302,7 +326,7 @@ export function AccountSettingsPage() {
         setPrivacy((prev) => ({ ...prev, ...(res.privacy_preferences || {}) }))
       })
       .catch((error) => {
-        toast.error(getApiErrorMessage(error, "Failed to load settings"))
+        toast.error(getApiErrorMessage(error, t('account_settings.load_failed')))
       })
     return () => { cancelled = true }
   }, [])
@@ -310,7 +334,7 @@ export function AccountSettingsPage() {
   // Handle Profile Update
   const handleProfileUpdate = async () => {
     if (!validateProfile()) {
-      toast.error("Please fix validation errors")
+      toast.error(t('account_settings.fix_validation_errors'))
       return
     }
     
@@ -330,7 +354,7 @@ export function AccountSettingsPage() {
       toast.success(t('profile.profile_updated'))
       setHasUnsavedChanges(false)
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Failed to update profile'))
+      toast.error(getApiErrorMessage(error, t('account_settings.update_profile_failed')))
     } finally {
       setIsSaving(false)
     }
@@ -340,12 +364,12 @@ export function AccountSettingsPage() {
   const handleEmailChange = () => {
     const emailError = validateEmail(profileData.email)
     if (emailError) {
-      toast.error(emailError)
+      toast.error(t(emailError))
       return
     }
     
     if (profileData.email === user?.email) {
-      toast.error("This is already your current email")
+      toast.error(t('account_settings.email_already_current'))
       return
     }
     
@@ -355,9 +379,9 @@ export function AccountSettingsPage() {
   const confirmEmailChange = async () => {
     try {
       await updateProfile({ email: profileData.email })
-      toast.success("Email updated successfully! Please verify your new email.")
+      toast.success(t('account_settings.email_updated'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Failed to update email'))
+      toast.error(getApiErrorMessage(error, t('account_settings.update_email_failed')))
       throw error
     }
   }
@@ -365,7 +389,7 @@ export function AccountSettingsPage() {
   // Handle Password Change
   const handlePasswordChange = () => {
     if (!validatePasswordChange()) {
-      toast.error("Please fix validation errors")
+      toast.error(t('account_settings.fix_validation_errors'))
       return
     }
     
@@ -378,7 +402,7 @@ export function AccountSettingsPage() {
         current_password: passwordData.currentPassword,
         new_password: passwordData.newPassword,
       })
-      toast.success("Password changed successfully!")
+      toast.success(t('account_settings.password_changed'))
       setPasswordData({
         currentPassword: '',
         newPassword: '',
@@ -386,7 +410,7 @@ export function AccountSettingsPage() {
       })
       setPasswordErrors({})
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Failed to change password'))
+      toast.error(getApiErrorMessage(error, t('account_settings.change_password_failed')))
       throw error
     }
   }
@@ -395,9 +419,9 @@ export function AccountSettingsPage() {
     setIsSavingSettings(true)
     try {
       await updateMyUserSettings({ account_preferences: accountSettings })
-      toast.success("Account settings saved!")
+      toast.success(t('account_settings.account_settings_saved'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to save account settings"))
+      toast.error(getApiErrorMessage(error, t('account_settings.save_account_settings_failed')))
     } finally {
       setIsSavingSettings(false)
     }
@@ -408,9 +432,9 @@ export function AccountSettingsPage() {
     setIsSavingSettings(true)
     try {
       await updateMyUserSettings({ notification_preferences: notifications })
-      toast.success("Notification preferences saved!")
+      toast.success(t('account_settings.notification_preferences_saved'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to save notification preferences"))
+      toast.error(getApiErrorMessage(error, t('account_settings.save_notification_preferences_failed')))
     } finally {
       setIsSavingSettings(false)
     }
@@ -421,9 +445,9 @@ export function AccountSettingsPage() {
     setIsSavingSettings(true)
     try {
       await updateMyUserSettings({ privacy_preferences: privacy })
-      toast.success("Privacy settings saved!")
+      toast.success(t('account_settings.privacy_settings_saved'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to save privacy settings"))
+      toast.error(getApiErrorMessage(error, t('account_settings.save_privacy_settings_failed')))
     } finally {
       setIsSavingSettings(false)
     }
@@ -432,16 +456,16 @@ export function AccountSettingsPage() {
   // Handle Account Deactivation
   const handleDeactivate = async (password?: string) => {
     if (!password) {
-      toast.error("Password is required")
+      toast.error(t('account_settings.password_required'))
       return
     }
     try {
       await deactivateMyAccount(password)
-      toast.success("Account deactivated. Please login again to reactivate.")
+      toast.success(t('account_settings.account_deactivated'))
       logout()
       window.location.href = '/login'
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to deactivate account"))
+      toast.error(getApiErrorMessage(error, t('account_settings.deactivate_account_failed')))
       throw error
     }
   }
@@ -449,16 +473,16 @@ export function AccountSettingsPage() {
   // Handle Account Deletion
   const handleDelete = async (password?: string) => {
     if (!password) {
-      toast.error("Password is required")
+      toast.error(t('account_settings.password_required'))
       return
     }
     try {
       await deleteMyAccount(password)
-      toast.success("Your account has been deleted.")
+      toast.success(t('account_settings.account_deleted'))
       logout()
       window.location.href = '/login'
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to delete account"))
+      toast.error(getApiErrorMessage(error, t('account_settings.delete_account_failed')))
       throw error
     }
   }
@@ -476,11 +500,11 @@ export function AccountSettingsPage() {
     try {
       const uploaded = await uploadFiles([file])
       const avatarUrl = uploaded?.[0]?.url
-      if (!avatarUrl) throw new Error('Upload failed')
+      if (!avatarUrl) throw new Error(t('account_settings.upload_failed'))
       await updateProfile({ avatar: avatarUrl })
-      toast.success("Avatar updated successfully")
+      toast.success(t('account_settings.avatar_updated'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to upload avatar"))
+      toast.error(getApiErrorMessage(error, t('account_settings.upload_avatar_failed')))
     } finally {
       event.target.value = ''
       setIsUploadingAvatar(false)
@@ -490,9 +514,9 @@ export function AccountSettingsPage() {
   const handleRemoveAvatar = async () => {
     try {
       await updateProfile({ avatar: '' })
-      toast.success("Avatar removed")
+      toast.success(t('account_settings.avatar_removed'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, "Failed to remove avatar"))
+      toast.error(getApiErrorMessage(error, t('account_settings.remove_avatar_failed')))
     }
   }
 
@@ -601,7 +625,7 @@ export function AccountSettingsPage() {
                   setProfileData({ ...profileData, bio: e.target.value })
                   setHasUnsavedChanges(true)
                 }}
-                placeholder="Tell us about yourself..."
+                placeholder={t('account_settings.placeholders.bio')}
                 rows={4}
                 className={profileErrors.bio ? 'border-destructive' : ''}
               />
@@ -627,7 +651,7 @@ export function AccountSettingsPage() {
                     setProfileData({ ...profileData, phone: e.target.value })
                     setHasUnsavedChanges(true)
                   }}
-                  placeholder="+84 123 456 789"
+                  placeholder={t('account_settings.placeholders.phone')}
                 />
               </div>
               
@@ -641,7 +665,7 @@ export function AccountSettingsPage() {
                     setProfileData({ ...profileData, website: e.target.value })
                     setHasUnsavedChanges(true)
                   }}
-                  placeholder="https://yourwebsite.com"
+                  placeholder={t('account_settings.placeholders.website')}
                 />
               </div>
             </div>
@@ -651,7 +675,7 @@ export function AccountSettingsPage() {
               <Label className="mb-3 block">{t('account_settings.social_links')}</Label>
               <div className="grid md:grid-cols-2 gap-4">
                 <Input
-                  placeholder="Twitter Username"
+                  placeholder={t('account_settings.placeholders.twitter')}
                   value={profileData.twitter}
                   onChange={(e) => {
                     setProfileData({ ...profileData, twitter: e.target.value })
@@ -659,7 +683,7 @@ export function AccountSettingsPage() {
                   }}
                 />
                 <Input
-                  placeholder="LinkedIn URL"
+                  placeholder={t('account_settings.placeholders.linkedin')}
                   value={profileData.linkedin}
                   onChange={(e) => {
                     setProfileData({ ...profileData, linkedin: e.target.value })
@@ -667,7 +691,7 @@ export function AccountSettingsPage() {
                   }}
                 />
                 <Input
-                  placeholder="Facebook URL"
+                  placeholder={t('account_settings.placeholders.facebook')}
                   value={profileData.facebook}
                   onChange={(e) => {
                     setProfileData({ ...profileData, facebook: e.target.value })
@@ -688,7 +712,7 @@ export function AccountSettingsPage() {
 
             <Button onClick={handleProfileUpdate} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
-              {isSaving ? 'Saving...' : t('account_settings.save_changes')}
+              {isSaving ? t('account_settings.saving') : t('account_settings.save_changes')}
             </Button>
           </CardContent>
         </Card>
@@ -872,12 +896,9 @@ export function AccountSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="vi">Tiếng Việt</SelectItem>
-                    <SelectItem value="es">Español</SelectItem>
-                    <SelectItem value="fr">Français</SelectItem>
-                    <SelectItem value="de">Deutsch</SelectItem>
-                    <SelectItem value="ja">日本語</SelectItem>
+                    {languageOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -892,12 +913,9 @@ export function AccountSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="UTC+7">UTC+7 (Ho Chi Minh)</SelectItem>
-                    <SelectItem value="UTC">UTC (London)</SelectItem>
-                    <SelectItem value="UTC-5">UTC-5 (New York)</SelectItem>
-                    <SelectItem value="UTC-8">UTC-8 (Los Angeles)</SelectItem>
-                    <SelectItem value="UTC+1">UTC+1 (Paris)</SelectItem>
-                    <SelectItem value="UTC+9">UTC+9 (Tokyo)</SelectItem>
+                    {timezoneOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -913,18 +931,16 @@ export function AccountSettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="VND">VND (₫)</SelectItem>
-                  <SelectItem value="USD">USD ($)</SelectItem>
-                  <SelectItem value="EUR">EUR (€)</SelectItem>
-                  <SelectItem value="GBP">GBP (£)</SelectItem>
-                  <SelectItem value="JPY">JPY (¥)</SelectItem>
+                  {currencyOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
 
             <Button onClick={handleAccountSettingsSave} disabled={isSavingSettings}>
               {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Save Settings
+              {t('account_settings.save_settings')}
             </Button>
           </CardContent>
         </Card>
@@ -934,17 +950,17 @@ export function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5" />
-              Notification Preferences
+              {t('account_settings.notification_preferences_title')}
             </CardTitle>
             <CardDescription>
-              Choose what notifications you want to receive
+              {t('account_settings.notification_preferences_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label>Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive notifications via email</p>
+                <Label>{t('account_settings.email_notifications')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.email_notifications_desc')}</p>
               </div>
               <Switch
                 checked={notifications.emailNotifications}
@@ -958,8 +974,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Course Updates</Label>
-                <p className="text-sm text-muted-foreground">Updates about courses you're enrolled in</p>
+                <Label>{t('account_settings.course_updates')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.course_updates_desc')}</p>
               </div>
               <Switch
                 checked={notifications.courseUpdates}
@@ -973,8 +989,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Instructor Messages</Label>
-                <p className="text-sm text-muted-foreground">Direct messages from instructors</p>
+                <Label>{t('account_settings.instructor_messages')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.instructor_messages_desc')}</p>
               </div>
               <Switch
                 checked={notifications.instructorMessages}
@@ -988,8 +1004,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Weekly Digest</Label>
-                <p className="text-sm text-muted-foreground">Weekly summary of your learning progress</p>
+                <Label>{t('account_settings.weekly_digest')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.weekly_digest_desc')}</p>
               </div>
               <Switch
                 checked={notifications.weeklyDigest}
@@ -1003,8 +1019,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Promotions & Offers</Label>
-                <p className="text-sm text-muted-foreground">Special deals and promotional offers</p>
+                <Label>{t('account_settings.promotions_offers')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.promotions_desc')}</p>
               </div>
               <Switch
                 checked={notifications.promotions}
@@ -1018,8 +1034,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Course Recommendations</Label>
-                <p className="text-sm text-muted-foreground">Personalized course suggestions</p>
+                <Label>{t('account_settings.course_recommendations')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.course_recommendations_desc')}</p>
               </div>
               <Switch
                 checked={notifications.courseRecommendations}
@@ -1033,8 +1049,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>New Features</Label>
-                <p className="text-sm text-muted-foreground">Updates about new platform features</p>
+                <Label>{t('account_settings.new_features')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.new_features_desc')}</p>
               </div>
               <Switch
                 checked={notifications.newFeatures}
@@ -1048,8 +1064,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Platform Announcements</Label>
-                <p className="text-sm text-muted-foreground">Important platform announcements</p>
+                <Label>{t('account_settings.announcements')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.announcements_desc')}</p>
               </div>
               <Switch
                 checked={notifications.announcements}
@@ -1063,7 +1079,7 @@ export function AccountSettingsPage() {
               <Button onClick={handleNotificationSave} disabled={isSavingSettings}>
                 {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Bell className="h-4 w-4 mr-2" />
-                Save Preferences
+                {t('account_settings.save_preferences')}
               </Button>
             </div>
           </CardContent>
@@ -1074,17 +1090,17 @@ export function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
-              Privacy Settings
+              {t('account_settings.privacy_settings')}
             </CardTitle>
             <CardDescription>
-              Control who can see your information
+              {t('account_settings.privacy_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <Label>Public Profile</Label>
-                <p className="text-sm text-muted-foreground">Allow others to view your profile</p>
+                <Label>{t('account_settings.profile_public')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.profile_public_desc')}</p>
               </div>
               <Switch
                 checked={privacy.profilePublic}
@@ -1098,8 +1114,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Show Learning Progress</Label>
-                <p className="text-sm text-muted-foreground">Display your course progress publicly</p>
+                <Label>{t('account_settings.show_progress')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_progress_desc')}</p>
               </div>
               <Switch
                 checked={privacy.showProgress}
@@ -1113,8 +1129,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Show Certificates</Label>
-                <p className="text-sm text-muted-foreground">Display earned certificates on profile</p>
+                <Label>{t('account_settings.show_certificates')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_certificates_desc')}</p>
               </div>
               <Switch
                 checked={privacy.showCertificates}
@@ -1128,8 +1144,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Show Enrolled Courses</Label>
-                <p className="text-sm text-muted-foreground">Display courses you're enrolled in</p>
+                <Label>{t('account_settings.show_courses')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_courses_desc')}</p>
               </div>
               <Switch
                 checked={privacy.showCourses}
@@ -1143,8 +1159,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Allow Direct Messages</Label>
-                <p className="text-sm text-muted-foreground">Let other users send you messages</p>
+                <Label>{t('account_settings.allow_messages')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.allow_messages_desc')}</p>
               </div>
               <Switch
                 checked={privacy.allowMessages}
@@ -1158,8 +1174,8 @@ export function AccountSettingsPage() {
             
             <div className="flex items-center justify-between">
               <div>
-                <Label>Show Online Status</Label>
-                <p className="text-sm text-muted-foreground">Display when you're online</p>
+                <Label>{t('account_settings.show_online_status')}</Label>
+                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_online_status_desc')}</p>
               </div>
               <Switch
                 checked={privacy.showOnlineStatus}
@@ -1173,7 +1189,7 @@ export function AccountSettingsPage() {
               <Button onClick={handlePrivacySave} disabled={isSavingSettings}>
                 {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Shield className="h-4 w-4 mr-2" />
-                Save Settings
+                {t('account_settings.save_settings')}
               </Button>
             </div>
           </CardContent>
@@ -1184,40 +1200,40 @@ export function AccountSettingsPage() {
           <CardHeader>
             <CardTitle className="text-destructive flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
-              Danger Zone
+              {t('account_settings.danger_zone')}
             </CardTitle>
             <CardDescription>
-              Irreversible and destructive actions
+              {t('account_settings.danger_zone_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-start justify-between p-4 border rounded-lg">
               <div>
-                <h4 className="font-medium mb-1">Deactivate Account</h4>
+                <h4 className="font-medium mb-1">{t('account_settings.deactivate_account')}</h4>
                 <p className="text-sm text-muted-foreground">
-                  Temporarily disable your account. You can reactivate anytime by logging back in.
+                  {t('account_settings.deactivate_account_desc')}
                 </p>
               </div>
               <Button 
                 variant="outline"
                 onClick={() => setConfirmDialogs({ ...confirmDialogs, deactivate: true })}
               >
-                Deactivate
+                {t('account_settings.deactivate')}
               </Button>
             </div>
 
             <div className="flex items-start justify-between p-4 border border-destructive rounded-lg">
               <div>
-                <h4 className="font-medium mb-1 text-destructive">Delete Account</h4>
+                <h4 className="font-medium mb-1 text-destructive">{t('account_settings.delete_account')}</h4>
                 <p className="text-sm text-muted-foreground">
-                  Permanently delete your account and all associated data. This action cannot be undone.
+                  {t('account_settings.delete_account_desc')}
                 </p>
               </div>
               <Button 
                 variant="destructive"
                 onClick={() => setConfirmDialogs({ ...confirmDialogs, delete: true })}
               >
-                Delete Account
+                {t('account_settings.delete_account')}
               </Button>
             </div>
           </CardContent>
@@ -1228,27 +1244,27 @@ export function AccountSettingsPage() {
       <ConfirmDialog
         open={confirmDialogs.email}
         onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, email: open })}
-        title="Change Email Address"
-        description="Are you sure you want to change your email address? You will need to verify your new email."
-        confirmText="Change Email"
+        title={t('account_settings.dialogs.change_email.title')}
+        description={t('account_settings.dialogs.change_email.description')}
+        confirmText={t('account_settings.dialogs.change_email.confirm')}
         onConfirm={confirmEmailChange}
       />
 
       <ConfirmDialog
         open={confirmDialogs.password}
         onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, password: open })}
-        title="Change Password"
-        description="Are you sure you want to change your password? You will be logged out on all devices."
-        confirmText="Change Password"
+        title={t('account_settings.dialogs.change_password.title')}
+        description={t('account_settings.dialogs.change_password.description')}
+        confirmText={t('account_settings.dialogs.change_password.confirm')}
         onConfirm={confirmPasswordChange}
       />
 
       <ConfirmDialog
         open={confirmDialogs.deactivate}
         onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, deactivate: open })}
-        title="Deactivate Account"
-        description="Your account will be temporarily disabled. You can reactivate it anytime by logging back in."
-        confirmText="Deactivate Account"
+        title={t('account_settings.dialogs.deactivate.title')}
+        description={t('account_settings.dialogs.deactivate.description')}
+        confirmText={t('account_settings.dialogs.deactivate.confirm')}
         onConfirm={handleDeactivate}
         variant="destructive"
         requirePassword={true}
@@ -1257,9 +1273,9 @@ export function AccountSettingsPage() {
       <ConfirmDialog
         open={confirmDialogs.delete}
         onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, delete: open })}
-        title="Delete Account Permanently"
-        description="This will permanently delete your account and all associated data including courses, progress, and certificates. This action cannot be undone. Are you absolutely sure?"
-        confirmText="Delete My Account"
+        title={t('account_settings.dialogs.delete.title')}
+        description={t('account_settings.dialogs.delete.description')}
+        confirmText={t('account_settings.dialogs.delete.confirm')}
         onConfirm={handleDelete}
         variant="destructive"
         requirePassword={true}

@@ -20,9 +20,11 @@ import {
   type InstructorStudentDetail,
 } from '../../services/instructor.api'
 import { formatPrice } from '../../services/course.api'
+import { useTranslation } from 'react-i18next'
 
 export function InstructorStudentsPage() {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
   const [stats, setStats] = useState<InstructorDashboardStats | null>(null)
   const [students, setStudents] = useState<InstructorStudent[]>([])
   const [loading, setLoading] = useState(true)
@@ -49,14 +51,14 @@ export function InstructorStudentsPage() {
           setStudents(studentData)
         }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || 'Failed to load data')
+        if (!cancelled) setError(err.message || t('instructor_students_page.errors.load_data'))
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [t])
 
   const courseStats = useMemo(() => {
     if (!stats) return []
@@ -133,7 +135,7 @@ export function InstructorStudentsPage() {
       setExporting(true)
       await exportInstructorStudents()
     } catch (err: any) {
-      window.alert(err?.message || 'Failed to export students')
+      window.alert(err?.message || t('instructor_students_page.errors.export_students'))
     } finally {
       setExporting(false)
     }
@@ -145,10 +147,19 @@ export function InstructorStudentsPage() {
       const detail = await getInstructorStudentDetail(studentId)
       setSelectedStudent(detail)
     } catch (err: any) {
-      window.alert(err?.message || 'Failed to load student details')
+      window.alert(err?.message || t('instructor_students_page.errors.load_student_details'))
     } finally {
       setStudentDetailLoading(false)
     }
+  }
+
+  function getCourseStatusLabel(status: string) {
+    if (status === 'active') return t('instructor_students_page.status.active')
+    if (status === 'complete') return t('instructor_students_page.status.complete')
+    if (status === 'completed') return t('instructor_students_page.status.complete')
+    if (status === 'published') return t('instructor_students_page.status.published')
+    if (status === 'draft') return t('instructor_students_page.status.draft')
+    return status
   }
 
   if (loading) {
@@ -162,8 +173,8 @@ export function InstructorStudentsPage() {
   if (error || !stats) {
     return (
       <div className="p-8 text-center">
-        <p className="text-destructive mb-4">{error || 'Failed to load data'}</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive mb-4">{error || t('instructor_students_page.errors.load_data')}</p>
+        <Button onClick={() => window.location.reload()}>{t('instructor_students_page.actions.retry')}</Button>
       </div>
     )
   }
@@ -173,8 +184,8 @@ export function InstructorStudentsPage() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="mb-2">My Students</h1>
-            <p className="text-muted-foreground">Track student enrollment and progress across your courses</p>
+            <h1 className="mb-2">{t('instructor_students_page.title')}</h1>
+            <p className="text-muted-foreground">{t('instructor_students_page.subtitle')}</p>
           </div>
           <Button onClick={handleExportStudents} disabled={exporting || students.length === 0}>
             {exporting ? (
@@ -182,7 +193,7 @@ export function InstructorStudentsPage() {
             ) : (
               <Download className="mr-2 h-4 w-4" />
             )}
-            Export CSV
+            {t('instructor_students_page.actions.export_csv')}
           </Button>
         </div>
 
@@ -191,7 +202,7 @@ export function InstructorStudentsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Students</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_students_page.metrics.total_students')}</p>
                   <p className="text-2xl font-bold">{stats.total_students.toLocaleString()}</p>
                 </div>
                 <Users className="h-8 w-8 text-muted-foreground" />
@@ -203,7 +214,7 @@ export function InstructorStudentsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">New This Month</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_students_page.metrics.new_this_month')}</p>
                   <p className="text-2xl font-bold">{stats.new_students_this_month}</p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-green-500" />
@@ -215,7 +226,7 @@ export function InstructorStudentsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Completions</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_students_page.metrics.completions')}</p>
                   <p className="text-2xl font-bold">{totalCompleters}</p>
                 </div>
                 <GraduationCap className="h-8 w-8 text-blue-500" />
@@ -227,7 +238,7 @@ export function InstructorStudentsPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Avg Rating</p>
+                  <p className="text-sm text-muted-foreground">{t('instructor_students_page.metrics.avg_rating')}</p>
                   <p className="text-2xl font-bold">{stats.average_rating.toFixed(1)}</p>
                 </div>
                 <Star className="h-8 w-8 text-yellow-500" />
@@ -243,7 +254,7 @@ export function InstructorStudentsPage() {
             <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search courses or students..."
+                placeholder={t('instructor_students_page.filters.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -251,25 +262,25 @@ export function InstructorStudentsPage() {
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="Status" />
+                <SelectValue placeholder={t('instructor_students_page.filters.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="active">Has Active Enrollments</SelectItem>
-                <SelectItem value="completed">Has Completions</SelectItem>
+                <SelectItem value="all">{t('instructor_students_page.filters.all_status')}</SelectItem>
+                <SelectItem value="published">{t('instructor_students_page.status.published')}</SelectItem>
+                <SelectItem value="draft">{t('instructor_students_page.status.draft')}</SelectItem>
+                <SelectItem value="active">{t('instructor_students_page.filters.has_active_enrollments')}</SelectItem>
+                <SelectItem value="completed">{t('instructor_students_page.filters.has_completions')}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="md:col-start-3">
-                <SelectValue placeholder="Sort By" />
+                <SelectValue placeholder={t('instructor_students_page.filters.sort_by')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="students">Most Students</SelectItem>
-                <SelectItem value="new_students">Most New Students</SelectItem>
-                <SelectItem value="completion">Highest Completion</SelectItem>
-                <SelectItem value="rating">Highest Rating</SelectItem>
+                <SelectItem value="students">{t('instructor_students_page.sort.most_students')}</SelectItem>
+                <SelectItem value="new_students">{t('instructor_students_page.sort.most_new_students')}</SelectItem>
+                <SelectItem value="completion">{t('instructor_students_page.sort.highest_completion')}</SelectItem>
+                <SelectItem value="rating">{t('instructor_students_page.sort.highest_rating')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -278,20 +289,20 @@ export function InstructorStudentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Students by Course ({courseStats.length} courses)</CardTitle>
-          <CardDescription>Student enrollment and progress breakdown per course</CardDescription>
+          <CardTitle>{t('instructor_students_page.course_table.title', { count: courseStats.length })}</CardTitle>
+          <CardDescription>{t('instructor_students_page.course_table.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Course</TableHead>
-                <TableHead className="text-center">Total Students</TableHead>
-                <TableHead className="text-center">New This Month</TableHead>
-                <TableHead className="text-center">Completion Rate</TableHead>
-                <TableHead className="text-center">Rating</TableHead>
-                <TableHead className="text-center">Earnings</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('instructor_students_page.course_table.headers.course')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.course_table.headers.total_students')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.course_table.headers.new_this_month')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.course_table.headers.completion_rate')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.course_table.headers.rating')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.course_table.headers.earnings')}</TableHead>
+                <TableHead className="text-right">{t('instructor_students_page.course_table.headers.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -339,7 +350,7 @@ export function InstructorStudentsPage() {
                       size="sm"
                       onClick={() => navigate(`/instructor/courses/${course.course_id}`)}
                     >
-                      View Details
+                      {t('instructor_students_page.actions.view_details')}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -351,7 +362,9 @@ export function InstructorStudentsPage() {
             <div className="text-center py-12">
               <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                {searchQuery ? 'No courses match your search' : 'No courses with students yet'}
+                {searchQuery
+                  ? t('instructor_students_page.empty.no_courses_match')
+                  : t('instructor_students_page.empty.no_courses_with_students')}
               </p>
             </div>
           )}
@@ -359,10 +372,11 @@ export function InstructorStudentsPage() {
           {courseStats.length > 0 && (
             <div className="mt-4">
               <div className="text-sm text-muted-foreground mb-2">
-                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}
-                -
-                {Math.min(currentPage * ITEMS_PER_PAGE, courseStats.length)}
-                {' '}of {courseStats.length} courses
+                {t('instructor_students_page.pagination.showing_courses', {
+                  from: (currentPage - 1) * ITEMS_PER_PAGE + 1,
+                  to: Math.min(currentPage * ITEMS_PER_PAGE, courseStats.length),
+                  total: courseStats.length,
+                })}
               </div>
               <UserPagination
                 currentPage={currentPage}
@@ -376,20 +390,20 @@ export function InstructorStudentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Student List ({filteredStudents.length} students)</CardTitle>
-          <CardDescription>Actual students enrolled across your courses</CardDescription>
+          <CardTitle>{t('instructor_students_page.student_table.title', { count: filteredStudents.length })}</CardTitle>
+          <CardDescription>{t('instructor_students_page.student_table.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead className="text-center">Courses</TableHead>
-                <TableHead className="text-center">Avg Progress</TableHead>
-                <TableHead className="text-center">Completions</TableHead>
-                <TableHead>Latest Course</TableHead>
-                <TableHead>Last Access</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('instructor_students_page.student_table.headers.student')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.student_table.headers.courses')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.student_table.headers.avg_progress')}</TableHead>
+                <TableHead className="text-center">{t('instructor_students_page.student_table.headers.completions')}</TableHead>
+                <TableHead>{t('instructor_students_page.student_table.headers.latest_course')}</TableHead>
+                <TableHead>{t('instructor_students_page.student_table.headers.last_access')}</TableHead>
+                <TableHead className="text-right">{t('instructor_students_page.student_table.headers.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -413,7 +427,7 @@ export function InstructorStudentsPage() {
                     <div className="max-w-[220px]">
                       <p className="line-clamp-1">{student.courses[0]?.title || '-'}</p>
                       {student.courses[0] && (
-                        <p className="text-xs text-muted-foreground">{student.courses[0].status}</p>
+                        <p className="text-xs text-muted-foreground">{getCourseStatusLabel(student.courses[0].status)}</p>
                       )}
                     </div>
                   </TableCell>
@@ -428,7 +442,7 @@ export function InstructorStudentsPage() {
                       disabled={studentDetailLoading}
                     >
                       <Eye className="mr-2 h-4 w-4" />
-                      View
+                      {t('instructor_students_page.actions.view')}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -439,7 +453,7 @@ export function InstructorStudentsPage() {
           {filteredStudents.length === 0 && (
             <div className="text-center py-10">
               <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">No students match the current filters</p>
+              <p className="text-muted-foreground">{t('instructor_students_page.empty.no_students_match')}</p>
             </div>
           )}
         </CardContent>
@@ -453,9 +467,9 @@ export function InstructorStudentsPage() {
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedStudent?.full_name || 'Student details'}</DialogTitle>
+            <DialogTitle>{selectedStudent?.full_name || t('instructor_students_page.dialog.student_details')}</DialogTitle>
             <DialogDescription>
-              {selectedStudent?.email || 'Detailed progress across your courses'}
+              {selectedStudent?.email || t('instructor_students_page.dialog.description')}
             </DialogDescription>
           </DialogHeader>
 
@@ -464,25 +478,25 @@ export function InstructorStudentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">Total Courses</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.total_courses')}</p>
                     <p className="text-2xl font-bold">{selectedStudent.total_courses}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">Active Courses</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.active_courses')}</p>
                     <p className="text-2xl font-bold">{selectedStudent.active_course_count}</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">Avg Progress</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.avg_progress')}</p>
                     <p className="text-2xl font-bold">{selectedStudent.average_progress}%</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">Completions</p>
+                    <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.completions')}</p>
                     <p className="text-2xl font-bold">{selectedStudent.completion_count}</p>
                   </CardContent>
                 </Card>
@@ -490,38 +504,38 @@ export function InstructorStudentsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Phone</p>
+                  <p className="text-muted-foreground">{t('instructor_students_page.dialog.fields.phone')}</p>
                   <p>{selectedStudent.phone || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Last Access</p>
+                  <p className="text-muted-foreground">{t('instructor_students_page.dialog.fields.last_access')}</p>
                   <p>{selectedStudent.last_access_date ? new Date(selectedStudent.last_access_date).toLocaleString() : '-'}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Address</p>
+                  <p className="text-muted-foreground">{t('instructor_students_page.dialog.fields.address')}</p>
                   <p>{selectedStudent.address || '-'}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">First Enrolled</p>
+                  <p className="text-muted-foreground">{t('instructor_students_page.dialog.fields.first_enrolled')}</p>
                   <p>{selectedStudent.enrolled_at ? new Date(selectedStudent.enrolled_at).toLocaleString() : '-'}</p>
                 </div>
               </div>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Course Progress</CardTitle>
-                  <CardDescription>Detailed enrollment progress for this student</CardDescription>
+                  <CardTitle>{t('instructor_students_page.dialog.progress.title')}</CardTitle>
+                  <CardDescription>{t('instructor_students_page.dialog.progress.description')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Course</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-center">Progress</TableHead>
-                        <TableHead className="text-center">Lessons</TableHead>
-                        <TableHead className="text-center">Time Spent</TableHead>
-                        <TableHead>Last Access</TableHead>
+                        <TableHead>{t('instructor_students_page.dialog.progress.headers.course')}</TableHead>
+                        <TableHead>{t('instructor_students_page.dialog.progress.headers.status')}</TableHead>
+                        <TableHead className="text-center">{t('instructor_students_page.dialog.progress.headers.progress')}</TableHead>
+                        <TableHead className="text-center">{t('instructor_students_page.dialog.progress.headers.lessons')}</TableHead>
+                        <TableHead className="text-center">{t('instructor_students_page.dialog.progress.headers.time_spent')}</TableHead>
+                        <TableHead>{t('instructor_students_page.dialog.progress.headers.last_access')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -531,13 +545,15 @@ export function InstructorStudentsPage() {
                             <div>
                               <p className="font-medium">{course.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                Enrolled {course.enrollment_date ? new Date(course.enrollment_date).toLocaleDateString() : '-'}
+                                {t('instructor_students_page.dialog.progress.enrolled_on', {
+                                  date: course.enrollment_date ? new Date(course.enrollment_date).toLocaleDateString() : '-',
+                                })}
                               </p>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Badge variant={course.status === 'complete' ? 'default' : 'secondary'}>
-                              {course.status}
+                              {getCourseStatusLabel(course.status)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center">
@@ -547,9 +563,16 @@ export function InstructorStudentsPage() {
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            {course.completed_lessons}/{course.total_lessons || 0}
+                            {t('instructor_students_page.dialog.progress.lessons_value', {
+                              completed: course.completed_lessons,
+                              total: course.total_lessons || 0,
+                            })}
                           </TableCell>
-                          <TableCell className="text-center">{course.time_spent_minutes}m</TableCell>
+                          <TableCell className="text-center">
+                            {t('instructor_students_page.dialog.progress.time_spent_value', {
+                              minutes: course.time_spent_minutes,
+                            })}
+                          </TableCell>
                           <TableCell>
                             {course.last_access_date ? new Date(course.last_access_date).toLocaleString() : '-'}
                           </TableCell>

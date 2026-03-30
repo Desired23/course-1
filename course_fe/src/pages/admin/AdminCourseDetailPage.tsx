@@ -48,6 +48,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
+import { useTranslation } from 'react-i18next'
 
 interface CourseDetail {
   id: string
@@ -140,6 +141,7 @@ interface CourseDetail {
 export function AdminCourseDetailPage() {
   const { navigate, currentRoute } = useRouter()
   const { hasPermission } = useAuth()
+  const { t } = useTranslation()
   const [course, setCourse] = useState<CourseDetail | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -155,7 +157,7 @@ export function AdminCourseDetailPage() {
     nextStatus: 'published',
     title: '',
     description: '',
-    confirmLabel: 'Save',
+    confirmLabel: '',
     loading: false,
   })
   const [moderationReason, setModerationReason] = useState('')
@@ -180,7 +182,7 @@ export function AdminCourseDetailPage() {
           description: courseData.description || '',
           instructor: {
             id: String(courseData.instructor?.instructor_id || ''),
-            name: courseData.instructor?.full_name || 'Unknown',
+            name: courseData.instructor?.full_name || t('admin_courses.unknown'),
             avatar: courseData.instructor?.avatar || '',
             email: '',
             bio: courseData.instructor?.bio || '',
@@ -190,7 +192,7 @@ export function AdminCourseDetailPage() {
           },
           category: courseData.category?.name || '',
           subcategory: courseData.subcategory?.name || '',
-          level: courseData.level === 'all_levels' ? 'All Levels' : courseData.level,
+          level: courseData.level || 'all_levels',
           language: courseData.language,
           price: Number(courseData.price || 0),
           discounted_price: courseData.discount_price ? Number(courseData.discount_price) : undefined,
@@ -227,7 +229,7 @@ export function AdminCourseDetailPage() {
           })),
           reviews: reviewsData.map(r => ({
             id: String(r.review_id),
-            student_name: r.user_info?.full_name || 'Ẩn danh',
+            student_name: r.user_info?.full_name || t('admin_course_detail.anonymous_user'),
             student_avatar: r.user_info?.avatar || '',
             rating: r.rating,
             comment: r.comment || '',
@@ -240,11 +242,11 @@ export function AdminCourseDetailPage() {
         setCourse(mapped)
       } catch (err) {
         console.error('Failed to fetch course:', err)
-        toast.error('Không thể tải thông tin khóa học')
+        toast.error(t('admin_course_detail.toasts.load_failed'))
       }
     }
     fetchCourseData()
-  }, [courseId])
+  }, [courseId, t])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -270,6 +272,38 @@ export function AdminCourseDetailPage() {
     return colors[status as keyof typeof colors] || 'bg-gray-500'
   }
 
+  const getStatusLabel = (status: CourseDetail['status']) => {
+    switch (status) {
+      case 'draft':
+        return t('admin_courses.status_draft')
+      case 'pending':
+        return t('admin_courses.status_pending')
+      case 'published':
+        return t('admin_courses.status_published')
+      case 'rejected':
+        return t('admin_courses.status_rejected')
+      case 'archived':
+        return t('admin_course_detail.status.archived')
+      default:
+        return status
+    }
+  }
+
+  const getLevelLabel = (level: string) => {
+    switch (level) {
+      case 'beginner':
+        return t('common.beginner')
+      case 'intermediate':
+        return t('common.intermediate')
+      case 'advanced':
+        return t('common.advanced')
+      case 'all_levels':
+        return t('common.all_levels')
+      default:
+        return level
+    }
+  }
+
   const openModerationDialog = (nextStatus: 'published' | 'rejected' | 'archived') => {
     setModerationReason('')
     setSendNotification(true)
@@ -279,22 +313,22 @@ export function AdminCourseDetailPage() {
       nextStatus,
       title:
         nextStatus === 'published'
-          ? 'Approve course'
+          ? t('admin_course_detail.moderation.approve_title')
           : nextStatus === 'rejected'
-            ? 'Reject course'
-            : 'Archive course',
+            ? t('admin_course_detail.moderation.reject_title')
+            : t('admin_course_detail.moderation.archive_title'),
       description:
         nextStatus === 'published'
-          ? 'Publish this course and optionally notify the instructor.'
+          ? t('admin_course_detail.moderation.approve_description')
           : nextStatus === 'rejected'
-            ? 'Reject this course and include a moderation reason for the instructor.'
-            : 'Archive this course and optionally explain the change to the instructor.',
+            ? t('admin_course_detail.moderation.reject_description')
+            : t('admin_course_detail.moderation.archive_description'),
       confirmLabel:
         nextStatus === 'published'
-          ? 'Approve course'
+          ? t('admin_course_detail.moderation.approve_title')
           : nextStatus === 'rejected'
-            ? 'Reject course'
-            : 'Archive course',
+            ? t('admin_course_detail.moderation.reject_title')
+            : t('admin_course_detail.moderation.archive_title'),
       loading: false,
     })
   }
@@ -313,10 +347,10 @@ export function AdminCourseDetailPage() {
       const courseData = await getCourseByIdApi(numId)
       setCourse(prev => prev ? { ...prev, status: courseData.status as any } : prev)
       setModerationState(prev => ({ ...prev, open: false, loading: false }))
-      toast.success('Course status updated')
+      toast.success(t('admin_course_detail.toasts.status_updated'))
     } catch {
       setModerationState(prev => ({ ...prev, loading: false }))
-      toast.error('Thao tac that bai')
+      toast.error(t('admin_course_detail.toasts.action_failed'))
     }
   }
 
@@ -326,11 +360,11 @@ export function AdminCourseDetailPage() {
     try {
       setIsDeleting(true)
       await deleteCourseApi(numId)
-      toast.success('Da xoa khoa hoc')
-      navigate('/admin')
+      toast.success(t('admin_courses.toasts.delete_success'))
+      navigate('/admin/courses')
     } catch {
       setIsDeleting(false)
-      toast.error('Thao tac that bai')
+      toast.error(t('admin_courses.toasts.delete_failed'))
     }
   }
   const handleCourseAction = async (action: string) => {
@@ -343,8 +377,8 @@ export function AdminCourseDetailPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Không có quyền truy cập</h2>
-          <p className="text-muted-foreground">Bạn không có quyền quản lý khóa học.</p>
+          <h2 className="text-2xl mb-4">{t('admin_course_detail.no_access_title')}</h2>
+          <p className="text-muted-foreground">{t('admin_course_detail.no_access_description')}</p>
         </div>
       </div>
     )
@@ -354,10 +388,10 @@ export function AdminCourseDetailPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Khóa học không tìm thấy</h2>
+          <h2 className="text-2xl mb-4">{t('admin_course_detail.not_found_title')}</h2>
           <Button onClick={() => navigate('/admin')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Quay lại Admin
+            {t('admin_course_detail.back_to_admin')}
           </Button>
         </div>
       </div>
@@ -371,11 +405,11 @@ export function AdminCourseDetailPage() {
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => navigate('/admin')}>Admin</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => navigate('/admin')}>{t('common.admin')}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink onClick={() => navigate('/admin')}>Khóa học</BreadcrumbLink>
+              <BreadcrumbLink onClick={() => navigate('/admin/courses')}>{t('admin_course_detail.breadcrumb_courses')}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -397,10 +431,10 @@ export function AdminCourseDetailPage() {
                 <Badge 
                   className={`${getStatusColor(course.status)} text-white`}
                 >
-                  {course.status}
+                  {getStatusLabel(course.status)}
                 </Badge>
                 <Badge variant="outline">{course.category}</Badge>
-                <Badge variant="secondary">{course.level}</Badge>
+                <Badge variant="secondary">{getLevelLabel(course.level)}</Badge>
               </div>
               <h1 className="text-3xl mb-2">{course.title}</h1>
               <p className="text-muted-foreground mb-4 line-clamp-2">{course.description}</p>
@@ -408,7 +442,7 @@ export function AdminCourseDetailPage() {
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
-                  {course.stats.total_students.toLocaleString()} học viên
+                  {course.stats.total_students.toLocaleString()} {t('admin_course_detail.stats.students_suffix')}
                 </span>
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4" />
@@ -420,7 +454,7 @@ export function AdminCourseDetailPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <BookOpen className="h-4 w-4" />
-                  {course.stats.total_lessons} bài học
+                  {course.stats.total_lessons} {t('admin_course_detail.stats.lessons_suffix')}
                 </span>
               </div>
             </div>
@@ -429,7 +463,7 @@ export function AdminCourseDetailPage() {
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate(`/course/${course.id}`)}>
               <Eye className="h-4 w-4 mr-2" />
-              Xem khóa học
+              {t('admin_course_detail.header.view_course')}
             </Button>
             
             <DropdownMenu>
@@ -441,31 +475,31 @@ export function AdminCourseDetailPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => handleCourseAction('edit')}>
                   <Edit className="h-4 w-4 mr-2" />
-                  Chỉnh sửa
+                  {t('admin_course_detail.header.edit_course')}
                 </DropdownMenuItem>
                 {course.status === 'pending' && (
                   <>
                     <DropdownMenuItem onClick={() => openModerationDialog('published')}>
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Phê duyệt
+                      {t('admin_course_detail.header.approve_course')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => openModerationDialog('rejected')}>
                       <XCircle className="h-4 w-4 mr-2" />
-                      Từ chối
+                      {t('admin_course_detail.header.reject_course')}
                     </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => openModerationDialog('archived')}>
                   <AlertCircle className="h-4 w-4 mr-2" />
-                  Lưu trữ
+                  {t('admin_course_detail.header.archive_course')}
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="text-destructive"
                   onClick={() => setConfirmDeleteOpen(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Xóa khóa học
+                  {t('admin_course_detail.header.delete_course')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -476,33 +510,33 @@ export function AdminCourseDetailPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tổng doanh thu</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('admin_course_detail.stats.total_revenue')}</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{formatCurrency(course.stats.total_revenue)}</div>
               <p className="text-xs text-muted-foreground">
-                30 ngày qua: {formatCurrency(course.stats.last_30_days.revenue)}
+                {t('admin_course_detail.stats.last_30_days', { value: formatCurrency(course.stats.last_30_days.revenue) })}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Học viên</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('admin_course_detail.stats.total_students')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{course.stats.total_students.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                30 ngày qua: +{course.stats.last_30_days.enrollments.toLocaleString()}
+                {t('admin_course_detail.stats.last_30_days_with_plus', { value: course.stats.last_30_days.enrollments.toLocaleString() })}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tỷ lệ hoàn thành</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('admin_course_detail.stats.completion_rate')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -513,13 +547,13 @@ export function AdminCourseDetailPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Đánh giá</CardTitle>
+              <CardTitle className="text-sm font-medium">{t('admin_course_detail.stats.reviews')}</CardTitle>
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{course.stats.average_rating}/5</div>
               <p className="text-xs text-muted-foreground">
-                {course.stats.total_reviews.toLocaleString()} đánh giá
+                {t('admin_course_detail.stats.reviews_count', { count: course.stats.total_reviews.toLocaleString() })}
               </p>
             </CardContent>
           </Card>
@@ -527,12 +561,12 @@ export function AdminCourseDetailPage() {
 
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-            <TabsTrigger value="content">Nội dung</TabsTrigger>
-            <TabsTrigger value="students">Học viên</TabsTrigger>
-            <TabsTrigger value="reviews">Đánh giá</TabsTrigger>
-            <TabsTrigger value="instructor">Giảng viên</TabsTrigger>
-            <TabsTrigger value="analytics">Phân tích</TabsTrigger>
+            <TabsTrigger value="overview">{t('admin_course_detail.tabs.overview')}</TabsTrigger>
+            <TabsTrigger value="content">{t('admin_course_detail.tabs.content')}</TabsTrigger>
+            <TabsTrigger value="students">{t('admin_course_detail.tabs.students')}</TabsTrigger>
+            <TabsTrigger value="reviews">{t('admin_course_detail.tabs.reviews')}</TabsTrigger>
+            <TabsTrigger value="instructor">{t('admin_course_detail.tabs.instructor')}</TabsTrigger>
+            <TabsTrigger value="analytics">{t('admin_course_detail.tabs.analytics')}</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -541,33 +575,33 @@ export function AdminCourseDetailPage() {
               {/* Course Info */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Thông tin khóa học</CardTitle>
+                  <CardTitle>{t('admin_course_detail.overview.course_info')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Danh mục:</span>
+                      <span className="text-muted-foreground">{t('admin_course_detail.overview.category')}:</span>
                       <p>{course.category} / {course.subcategory}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Cấp độ:</span>
-                      <p>{course.level}</p>
+                      <span className="text-muted-foreground">{t('admin_course_detail.overview.level')}:</span>
+                      <p>{getLevelLabel(course.level)}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Ngôn ngữ:</span>
+                      <span className="text-muted-foreground">{t('admin_course_detail.overview.language')}:</span>
                       <p>{course.language}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Giá:</span>
+                      <span className="text-muted-foreground">{t('admin_course_detail.overview.price')}:</span>
                       <p>{formatCurrency(course.price)}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Ngày tạo:</span>
+                      <span className="text-muted-foreground">{t('admin_course_detail.overview.created_at')}:</span>
                       <p>{course.created_at.toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Ngày xuất bản:</span>
-                      <p>{course.published_at?.toLocaleDateString() || 'Chưa xuất bản'}</p>
+                      <span className="text-muted-foreground">{t('admin_course_detail.overview.published_at')}:</span>
+                      <p>{course.published_at?.toLocaleDateString() || t('admin_course_detail.overview.unpublished')}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -576,7 +610,7 @@ export function AdminCourseDetailPage() {
               {/* Enrollment Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Lượt đăng ký 7 ngày qua</CardTitle>
+                  <CardTitle>{t('admin_course_detail.overview.enrollments_last_7_days')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={200}>
@@ -595,7 +629,7 @@ export function AdminCourseDetailPage() {
             {/* Progress Distribution */}
             <Card>
               <CardHeader>
-                <CardTitle>Phân bố tiến độ học tập</CardTitle>
+                <CardTitle>{t('admin_course_detail.overview.progress_distribution')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -615,7 +649,7 @@ export function AdminCourseDetailPage() {
           <TabsContent value="content" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Cấu trúc khóa học</CardTitle>
+                <CardTitle>{t('admin_course_detail.content.course_structure')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -634,13 +668,13 @@ export function AdminCourseDetailPage() {
                               <PlayCircle className="h-4 w-4 text-muted-foreground" />
                               <span>{lesson.title}</span>
                               {lesson.is_preview && (
-                                <Badge variant="outline" className="text-xs">Preview</Badge>
+                                <Badge variant="outline" className="text-xs">{t('admin_course_detail.content.preview_badge')}</Badge>
                               )}
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>{formatDuration(lesson.duration)}</span>
-                              <span>{lesson.views.toLocaleString()} views</span>
-                              <span>{lesson.completion_rate}% hoàn thành</span>
+                              <span>{t('admin_course_detail.content.views', { count: lesson.views.toLocaleString() })}</span>
+                              <span>{t('admin_course_detail.content.completion_rate', { value: lesson.completion_rate })}</span>
                             </div>
                           </div>
                         ))}
@@ -657,10 +691,10 @@ export function AdminCourseDetailPage() {
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle>Danh sách học viên</CardTitle>
+                  <CardTitle>{t('admin_course_detail.students.title')}</CardTitle>
                   <Button variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
-                    Xuất danh sách
+                    {t('admin_course_detail.students.export')}
                   </Button>
                 </div>
               </CardHeader>
@@ -668,11 +702,11 @@ export function AdminCourseDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Học viên</TableHead>
-                      <TableHead>Ngày đăng ký</TableHead>
-                      <TableHead>Tiến độ</TableHead>
-                      <TableHead>Thời gian học</TableHead>
-                      <TableHead>Đánh giá</TableHead>
+                      <TableHead>{t('admin_course_detail.students.table.student')}</TableHead>
+                      <TableHead>{t('admin_course_detail.students.table.enrolled_at')}</TableHead>
+                      <TableHead>{t('admin_course_detail.students.table.progress')}</TableHead>
+                      <TableHead>{t('admin_course_detail.students.table.study_time')}</TableHead>
+                      <TableHead>{t('admin_course_detail.students.table.rating')}</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -684,8 +718,8 @@ export function AdminCourseDetailPage() {
                             <AvatarFallback>JD</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">John Doe</p>
-                            <p className="text-sm text-muted-foreground">john@example.com</p>
+                            <p className="font-medium">{t('admin_course_detail.students.sample_name')}</p>
+                            <p className="text-sm text-muted-foreground">{t('admin_course_detail.students.sample_email')}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -720,7 +754,7 @@ export function AdminCourseDetailPage() {
           <TabsContent value="reviews" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Đánh giá từ học viên</CardTitle>
+                <CardTitle>{t('admin_course_detail.reviews.title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -747,7 +781,7 @@ export function AdminCourseDetailPage() {
                                 {review.created_at.toLocaleDateString()}
                               </span>
                               {review.is_featured && (
-                                <Badge variant="outline" className="text-xs">Featured</Badge>
+                                <Badge variant="outline" className="text-xs">{t('admin_course_detail.reviews.featured')}</Badge>
                               )}
                             </div>
                           </div>
@@ -765,7 +799,7 @@ export function AdminCourseDetailPage() {
           <TabsContent value="instructor" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Thông tin giảng viên</CardTitle>
+                <CardTitle>{t('admin_course_detail.instructor.title')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-start gap-6">
@@ -780,15 +814,15 @@ export function AdminCourseDetailPage() {
                     
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Tổng khóa học:</span>
+                        <span className="text-muted-foreground">{t('admin_course_detail.instructor.total_courses')}:</span>
                         <p className="font-medium">{course.instructor.total_courses}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Tổng học viên:</span>
+                        <span className="text-muted-foreground">{t('admin_course_detail.instructor.total_students')}:</span>
                         <p className="font-medium">{course.instructor.total_students.toLocaleString()}</p>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Đánh giá:</span>
+                        <span className="text-muted-foreground">{t('admin_course_detail.instructor.rating')}:</span>
                         <p className="font-medium">{course.instructor.rating}/5</p>
                       </div>
                     </div>
@@ -804,7 +838,7 @@ export function AdminCourseDetailPage() {
               {/* Revenue Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Doanh thu 7 ngày qua</CardTitle>
+                  <CardTitle>{t('admin_course_detail.analytics.revenue_last_7_days')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={250}>
@@ -822,24 +856,24 @@ export function AdminCourseDetailPage() {
               {/* Performance Metrics */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Chỉ số hiệu suất</CardTitle>
+                  <CardTitle>{t('admin_course_detail.analytics.performance_metrics')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span>Tỷ lệ hoàn thành:</span>
+                    <span>{t('admin_course_detail.analytics.completion_rate')}:</span>
                     <span className="font-medium">{course.stats.completion_rate}%</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Tỷ lệ hoàn tiền:</span>
+                    <span>{t('admin_course_detail.analytics.refund_rate')}:</span>
                     <span className="font-medium text-red-500">{course.stats.refund_rate}%</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span>Đánh giá trung bình:</span>
+                    <span>{t('admin_course_detail.analytics.average_rating')}:</span>
                     <span className="font-medium">{course.stats.average_rating}/5</span>
                   </div>
                   <Separator />
                   <div className="text-sm text-muted-foreground">
-                    <p>Khóa học này có hiệu suất tốt với tỷ lệ hoàn thành cao và ít hoàn tiền.</p>
+                    <p>{t('admin_course_detail.analytics.summary')}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -861,12 +895,12 @@ export function AdminCourseDetailPage() {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="course-detail-reason">Moderation reason</Label>
+                <Label htmlFor="course-detail-reason">{t('admin_course_detail.moderation.reason')}</Label>
                 <Textarea
                   id="course-detail-reason"
                   value={moderationReason}
                   onChange={(event) => setModerationReason(event.target.value)}
-                  placeholder="Add context for the instructor or internal audit trail"
+                  placeholder={t('admin_course_detail.moderation.reason_placeholder')}
                   rows={4}
                 />
               </div>
@@ -877,20 +911,20 @@ export function AdminCourseDetailPage() {
                   className="mt-1"
                 />
                 <div className="space-y-1">
-                  <Label htmlFor="course-detail-message">Send notification to instructor</Label>
+                  <Label htmlFor="course-detail-message">{t('admin_course_detail.moderation.send_notification')}</Label>
                   <p className="text-sm text-muted-foreground">
-                    Turn this off if you want to update the status quietly.
+                    {t('admin_course_detail.moderation.send_notification_hint')}
                   </p>
                 </div>
               </div>
               {sendNotification && (
                 <div className="space-y-2">
-                  <Label htmlFor="course-detail-message">Notification message</Label>
+                  <Label htmlFor="course-detail-message">{t('admin_course_detail.moderation.notification_message')}</Label>
                   <Textarea
                     id="course-detail-message"
                     value={notifyMessage}
                     onChange={(event) => setNotifyMessage(event.target.value)}
-                    placeholder="Optional custom message sent with this moderation action"
+                    placeholder={t('admin_course_detail.moderation.notification_placeholder')}
                     rows={3}
                   />
                 </div>
@@ -902,14 +936,14 @@ export function AdminCourseDetailPage() {
                 onClick={() => setModerationState(prev => ({ ...prev, open: false }))}
                 disabled={moderationState.loading}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 variant={moderationState.nextStatus === 'rejected' ? 'destructive' : 'default'}
                 onClick={submitModeration}
                 disabled={moderationState.loading}
               >
-                {moderationState.loading ? 'Saving...' : moderationState.confirmLabel}
+                {moderationState.loading ? t('admin_course_detail.moderation.saving') : moderationState.confirmLabel}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -917,9 +951,9 @@ export function AdminCourseDetailPage() {
         <AdminConfirmDialog
           open={confirmDeleteOpen}
           onOpenChange={setConfirmDeleteOpen}
-          title="Delete course"
-          description={`Delete "${course.title}" permanently? This action cannot be undone.`}
-          confirmLabel="Delete course"
+          title={t('admin_course_detail.dialog.delete_title')}
+          description={t('admin_course_detail.dialog.delete_description', { title: course.title })}
+          confirmLabel={t('admin_course_detail.dialog.delete_confirm')}
           destructive
           loading={isDeleting}
           onConfirm={handleDeleteCourse}

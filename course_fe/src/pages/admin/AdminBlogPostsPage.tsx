@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -40,6 +41,7 @@ interface BlogPost {
 
 export function AdminBlogPostsPage() {
   const { navigate } = useRouter()
+  const { t } = useTranslation()
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -70,7 +72,9 @@ export function AdminBlogPostsPage() {
         ])
         setBlogPosts((res.results ?? []).map(mapApiBlogPost))
         setCategories(categoriesRes.results ?? [])
-      } catch { toast.error('Không thể tải bài viết') }
+      } catch {
+        toast.error(t('admin_blog_posts.toasts.load_failed'))
+      }
       setIsLoading(false)
     }
     fetchPosts()
@@ -94,7 +98,7 @@ export function AdminBlogPostsPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
@@ -135,8 +139,10 @@ export function AdminBlogPostsPage() {
       setBlogPosts(prev => [...prev, mapApiBlogPost(created)])
       setIsCreateDialogOpen(false)
       resetForm()
-      toast.success('Blog post created successfully!')
-    } catch { toast.error('Tạo bài viết thất bại') }
+      toast.success(t('admin_blog_posts.toasts.create_success'))
+    } catch {
+      toast.error(t('admin_blog_posts.toasts.create_failed'))
+    }
   }
 
   const handleUpdatePost = async () => {
@@ -156,16 +162,18 @@ export function AdminBlogPostsPage() {
       setIsEditDialogOpen(false)
       setSelectedPost(null)
       resetForm()
-      toast.success('Blog post updated successfully!')
-    } catch { toast.error('Cập nhật thất bại') }
+      toast.success(t('admin_blog_posts.toasts.update_success'))
+    } catch {
+      toast.error(t('admin_blog_posts.toasts.update_failed'))
+    }
   }
 
   const handleDeletePost = async (postId: string) => {
     try {
       await deleteBlogPost(Number(postId))
       setBlogPosts(prev => prev.filter(p => p.id !== postId))
-      toast.success('Blog post deleted successfully!')
-    } catch { toast.error('X??a th???t b???i') }
+      toast.success(t('admin_blog_posts.toasts.delete_success'))
+    } catch { toast.error(t('admin_blog_posts.toasts.delete_failed')) }
   }
 
   const openConfirm = (
@@ -195,7 +203,7 @@ export function AdminBlogPostsPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -237,7 +245,7 @@ export function AdminBlogPostsPage() {
       setSelectedPostIds([])
       toast.success(successMessage)
     } catch {
-      toast.error('Bulk blog action failed')
+      toast.error(t('admin_blog_posts.toasts.bulk_failed'))
     }
   }
 
@@ -281,11 +289,11 @@ export function AdminBlogPostsPage() {
   const handleFeaturedImageUpload = async (file?: File) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng chọn file ảnh hợp lệ')
+      toast.error(t('admin_blog_posts.toasts.invalid_image'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Kích thước ảnh không được vượt quá 5MB')
+      toast.error(t('admin_blog_posts.toasts.image_too_large'))
       return
     }
     try {
@@ -293,10 +301,10 @@ export function AdminBlogPostsPage() {
       const uploaded = await uploadFiles([file])
       if (!uploaded?.length) throw new Error('Upload failed')
       setFormData((prev) => ({ ...prev, featuredImage: uploaded[0].url }))
-      toast.success('Tải ảnh lên thành công')
+      toast.success(t('admin_blog_posts.toasts.upload_success'))
     } catch (err) {
       console.error('Featured image upload failed:', err)
-      toast.error('Tải ảnh thất bại')
+      toast.error(t('admin_blog_posts.toasts.upload_failed'))
     } finally {
       setIsUploadingFeaturedImage(false)
     }
@@ -307,30 +315,30 @@ export function AdminBlogPostsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Blog Posts</h1>
-          <p className="text-muted-foreground">Manage all blog posts and articles</p>
+          <h1 className="text-3xl font-bold">{t('admin_blog_posts.title')}</h1>
+          <p className="text-muted-foreground">{t('admin_blog_posts.subtitle')}</p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" />
-              Create New Post
+              {t('admin_blog_posts.create_post')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Blog Post</DialogTitle>
+              <DialogTitle>{t('admin_blog_posts.dialogs.create_title')}</DialogTitle>
               <DialogDescription>
-                Add a new blog post to your website
+                {t('admin_blog_posts.dialogs.create_description')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="title">Title *</Label>
+                  <Label htmlFor="title">{t('admin_blog_posts.form.title')}</Label>
                   <Input
                     id="title"
-                    placeholder="Enter post title"
+                    placeholder={t('admin_blog_posts.form.title_placeholder')}
                     value={formData.title}
                     onChange={(e) => {
                       setFormData({ 
@@ -342,31 +350,31 @@ export function AdminBlogPostsPage() {
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="slug">URL Slug *</Label>
+                  <Label htmlFor="slug">{t('admin_blog_posts.form.slug')}</Label>
                   <Input
                     id="slug"
-                    placeholder="post-url-slug"
+                    placeholder={t('admin_blog_posts.form.slug_placeholder')}
                     value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="author">Author *</Label>
+                  <Label htmlFor="author">{t('admin_blog_posts.form.author')}</Label>
                   <Input
                     id="author"
-                    placeholder="Author name"
+                    placeholder={t('admin_blog_posts.form.author_placeholder')}
                     value={formData.author}
                     onChange={(e) => setFormData({ ...formData, author: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="category">{t('admin_blog_posts.form.category')}</Label>
                   <Select 
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={t('admin_blog_posts.form.category_placeholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
@@ -378,53 +386,53 @@ export function AdminBlogPostsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="tags">Tags (comma-separated)</Label>
+                  <Label htmlFor="tags">{t('admin_blog_posts.form.tags')}</Label>
                   <Input
                     id="tags"
-                    placeholder="tag1, tag2, tag3"
+                    placeholder={t('admin_blog_posts.form.tags_placeholder')}
                     value={formData.tags}
                     onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="excerpt">Excerpt *</Label>
+                  <Label htmlFor="excerpt">{t('admin_blog_posts.form.excerpt')}</Label>
                   <Textarea
                     id="excerpt"
-                    placeholder="Short description of the post"
+                    placeholder={t('admin_blog_posts.form.excerpt_placeholder')}
                     rows={3}
                     value={formData.excerpt}
                     onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="content">Content *</Label>
+                  <Label htmlFor="content">{t('admin_blog_posts.form.content')}</Label>
                   <Textarea
                     id="content"
-                    placeholder="Full content of the post (supports markdown)"
+                    placeholder={t('admin_blog_posts.form.content_placeholder')}
                     rows={8}
                     value={formData.content}
                     onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2 col-span-2">
-                  <Label htmlFor="featuredImage">Featured Image</Label>
+                  <Label htmlFor="featuredImage">{t('admin_blog_posts.form.featured_image')}</Label>
                   <Input
                     id="featuredImage"
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleFeaturedImageUpload(e.target.files?.[0])}
                   />
-                  {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">Đang tải ảnh lên...</p>}
+                  {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">{t('admin_blog_posts.uploading')}</p>}
                   {formData.featuredImage && (
                     <ImageWithFallback
                       src={formData.featuredImage}
-                      alt="Featured preview"
+                      alt={t('admin_blog_posts.featured_preview')}
                       className="w-full max-w-sm h-40 rounded object-cover border"
                     />
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status *</Label>
+                  <Label htmlFor="status">{t('admin_blog_posts.form.status')}</Label>
                   <Select 
                     value={formData.status}
                     onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
@@ -433,8 +441,8 @@ export function AdminBlogPostsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="draft">Draft</SelectItem>
-                      <SelectItem value="published">Published</SelectItem>
+                      <SelectItem value="draft">{t('admin_blog_posts.status.draft')}</SelectItem>
+                      <SelectItem value="published">{t('admin_blog_posts.status.published')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -442,10 +450,10 @@ export function AdminBlogPostsPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleCreatePost}>
-                Create Post
+                {t('admin_blog_posts.create_post')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -456,13 +464,13 @@ export function AdminBlogPostsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Total Posts</CardDescription>
+            <CardDescription>{t('admin_blog_posts.stats.total_posts')}</CardDescription>
             <CardTitle className="text-3xl">{blogPosts.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Published</CardDescription>
+            <CardDescription>{t('admin_blog_posts.stats.published')}</CardDescription>
             <CardTitle className="text-3xl text-green-600">
               {blogPosts.filter(p => p.status === 'published').length}
             </CardTitle>
@@ -470,7 +478,7 @@ export function AdminBlogPostsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Drafts</CardDescription>
+            <CardDescription>{t('admin_blog_posts.stats.drafts')}</CardDescription>
             <CardTitle className="text-3xl text-amber-600">
               {blogPosts.filter(p => p.status === 'draft').length}
             </CardTitle>
@@ -478,7 +486,7 @@ export function AdminBlogPostsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Total Views</CardDescription>
+            <CardDescription>{t('admin_blog_posts.stats.total_views')}</CardDescription>
             <CardTitle className="text-3xl">
               {blogPosts.reduce((sum, p) => sum + p.views, 0).toLocaleString()}
             </CardTitle>
@@ -489,13 +497,13 @@ export function AdminBlogPostsPage() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filter Posts</CardTitle>
+          <CardTitle>{t('admin_blog_posts.filter_title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <div className="flex-1">
               <Input
-                placeholder="Search by title, author, or category..."
+                placeholder={t('admin_blog_posts.search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -505,9 +513,9 @@ export function AdminBlogPostsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="all">{t('admin_blog_posts.filters.all_status')}</SelectItem>
+                <SelectItem value="published">{t('admin_blog_posts.status.published')}</SelectItem>
+                <SelectItem value="draft">{t('admin_blog_posts.status.draft')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -516,41 +524,41 @@ export function AdminBlogPostsPage() {
 
       <AdminBulkActionBar
         count={selectedPostIds.length}
-        label="posts selected"
+        label={t('admin_blog_posts.bulk.selected_label')}
         onClear={() => setSelectedPostIds([])}
         actions={[
           {
             key: 'publish',
-            label: 'Publish',
+            label: t('admin_blog_posts.bulk.publish'),
             onClick: () => openConfirm(
-              'Publish selected posts',
-              `Publish ${selectedPostIds.length} selected blog posts?`,
-              'Publish',
-              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'published'), 'Da xuat ban bai viet da chon'),
+              t('admin_blog_posts.bulk.publish_title'),
+              t('admin_blog_posts.bulk.publish_description', { count: selectedPostIds.length }),
+              t('admin_blog_posts.bulk.publish'),
+              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'published'), t('admin_blog_posts.toasts.bulk_publish_success')),
             ),
           },
           {
             key: 'draft',
-            label: 'Move to draft',
+            label: t('admin_blog_posts.bulk.move_to_draft'),
             onClick: () => openConfirm(
-              'Move selected posts to draft',
-              `Move ${selectedPostIds.length} selected posts back to draft?`,
-              'Move to draft',
-              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'draft'), 'Da chuyen bai viet ve draft'),
+              t('admin_blog_posts.bulk.move_to_draft_title'),
+              t('admin_blog_posts.bulk.move_to_draft_description', { count: selectedPostIds.length }),
+              t('admin_blog_posts.bulk.move_to_draft'),
+              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'draft'), t('admin_blog_posts.toasts.bulk_move_to_draft_success')),
             ),
           },
           {
             key: 'delete',
-            label: 'Delete',
+            label: t('common.delete'),
             destructive: true,
             onClick: () => openConfirm(
-              'Delete selected posts',
-              `Delete ${selectedPostIds.length} selected blog posts? This action cannot be undone.`,
-              'Delete',
+              t('admin_blog_posts.bulk.delete_title'),
+              t('admin_blog_posts.bulk.delete_description', { count: selectedPostIds.length }),
+              t('common.delete'),
               async () => {
                 await bulkDeletePosts(selectedPostIds)
                 setSelectedPostIds([])
-                toast.success('Da xoa bai viet da chon')
+                toast.success(t('admin_blog_posts.toasts.bulk_delete_success'))
               },
               true,
             ),
@@ -561,7 +569,7 @@ export function AdminBlogPostsPage() {
       {/* Blog Posts Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Blog Posts ({filteredPosts.length})</CardTitle>
+          <CardTitle>{t('admin_blog_posts.table.title', { count: filteredPosts.length })}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -573,26 +581,26 @@ export function AdminBlogPostsPage() {
                     onCheckedChange={(checked) => toggleAllFilteredPosts(Boolean(checked))}
                   />
                 </TableHead>
-                <TableHead>Post</TableHead>
-                <TableHead>Author</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Views</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('admin_blog_posts.table.post')}</TableHead>
+                <TableHead>{t('admin_blog_posts.table.author')}</TableHead>
+                <TableHead>{t('admin_blog_posts.table.category')}</TableHead>
+                <TableHead>{t('admin_blog_posts.table.status')}</TableHead>
+                <TableHead>{t('admin_blog_posts.table.views')}</TableHead>
+                <TableHead>{t('admin_blog_posts.table.date')}</TableHead>
+                <TableHead className="text-right">{t('admin_blog_posts.table.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    Loading blog posts...
+                    {t('admin_blog_posts.loading')}
                   </TableCell>
                 </TableRow>
               ) : filteredPosts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No blog posts match the current filters.
+                    {t('admin_blog_posts.empty')}
                   </TableCell>
                 </TableRow>
               ) : filteredPosts.map((post) => (
@@ -636,7 +644,7 @@ export function AdminBlogPostsPage() {
                   <TableCell>{post.category}</TableCell>
                   <TableCell>
                     <Badge variant={post.status === 'published' ? 'default' : 'secondary'}>
-                      {post.status}
+                      {post.status === 'published' ? t('admin_blog_posts.status.published') : t('admin_blog_posts.status.draft')}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -664,11 +672,11 @@ export function AdminBlogPostsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openConfirm(
-                          post.status === 'published' ? 'Move post to draft' : 'Publish post',
+                          post.status === 'published' ? t('admin_blog_posts.actions.move_to_draft_title') : t('admin_blog_posts.actions.publish_post_title'),
                           post.status === 'published'
-                            ? `Move "${post.title}" back to draft?`
-                            : `Publish "${post.title}" now?`,
-                          post.status === 'published' ? 'Move to draft' : 'Publish',
+                            ? t('admin_blog_posts.actions.move_to_draft_description', { title: post.title })
+                            : t('admin_blog_posts.actions.publish_post_description', { title: post.title }),
+                          post.status === 'published' ? t('admin_blog_posts.bulk.move_to_draft') : t('admin_blog_posts.bulk.publish'),
                           () => changePostStatus(post.id, post.status === 'published' ? 'draft' : 'published'),
                         )}
                       >
@@ -685,9 +693,9 @@ export function AdminBlogPostsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openConfirm(
-                          'Delete blog post',
-                          `Delete "${post.title}"? This action cannot be undone.`,
-                          'Delete',
+                          t('admin_blog_posts.actions.delete_title'),
+                          t('admin_blog_posts.actions.delete_description', { title: post.title }),
+                          t('common.delete'),
                           () => handleDeletePost(post.id),
                           true,
                         )}
@@ -707,15 +715,15 @@ export function AdminBlogPostsPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Blog Post</DialogTitle>
+            <DialogTitle>{t('admin_blog_posts.dialogs.edit_title')}</DialogTitle>
             <DialogDescription>
-              Make changes to your blog post
+              {t('admin_blog_posts.dialogs.edit_description')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-title">Title *</Label>
+                <Label htmlFor="edit-title">{t('admin_blog_posts.form.title')}</Label>
                 <Input
                   id="edit-title"
                   value={formData.title}
@@ -723,7 +731,7 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-slug">URL Slug *</Label>
+                <Label htmlFor="edit-slug">{t('admin_blog_posts.form.slug')}</Label>
                 <Input
                   id="edit-slug"
                   value={formData.slug}
@@ -731,7 +739,7 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-author">Author *</Label>
+                <Label htmlFor="edit-author">{t('admin_blog_posts.form.author')}</Label>
                 <Input
                   id="edit-author"
                   value={formData.author}
@@ -739,7 +747,7 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-category">Category *</Label>
+                <Label htmlFor="edit-category">{t('admin_blog_posts.form.category')}</Label>
                 <Select 
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
@@ -757,7 +765,7 @@ export function AdminBlogPostsPage() {
                 </Select>
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-tags">Tags</Label>
+                <Label htmlFor="edit-tags">{t('admin_blog_posts.form.tags_edit')}</Label>
                 <Input
                   id="edit-tags"
                   value={formData.tags}
@@ -765,7 +773,7 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-excerpt">Excerpt *</Label>
+                <Label htmlFor="edit-excerpt">{t('admin_blog_posts.form.excerpt')}</Label>
                 <Textarea
                   id="edit-excerpt"
                   rows={3}
@@ -774,7 +782,7 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-content">Content *</Label>
+                <Label htmlFor="edit-content">{t('admin_blog_posts.form.content')}</Label>
                 <Textarea
                   id="edit-content"
                   rows={8}
@@ -783,24 +791,24 @@ export function AdminBlogPostsPage() {
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label htmlFor="edit-featuredImage">Featured Image</Label>
+                <Label htmlFor="edit-featuredImage">{t('admin_blog_posts.form.featured_image')}</Label>
                 <Input
                   id="edit-featuredImage"
                   type="file"
                   accept="image/*"
                   onChange={(e) => handleFeaturedImageUpload(e.target.files?.[0])}
                 />
-                {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">Đang tải ảnh lên...</p>}
+                {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">{t('admin_blog_posts.uploading')}</p>}
                 {formData.featuredImage && (
                   <ImageWithFallback
                     src={formData.featuredImage}
-                    alt="Featured preview"
+                      alt={t('admin_blog_posts.featured_preview')}
                     className="w-full max-w-sm h-40 rounded object-cover border"
                   />
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-status">Status *</Label>
+                <Label htmlFor="edit-status">{t('admin_blog_posts.form.status')}</Label>
                 <Select 
                   value={formData.status}
                   onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
@@ -809,8 +817,8 @@ export function AdminBlogPostsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="published">Published</SelectItem>
+                    <SelectItem value="draft">{t('admin_blog_posts.status.draft')}</SelectItem>
+                    <SelectItem value="published">{t('admin_blog_posts.status.published')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -822,10 +830,10 @@ export function AdminBlogPostsPage() {
               setSelectedPost(null)
               resetForm()
             }}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleUpdatePost}>
-              Update Post
+              {t('admin_blog_posts.update_post')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -843,4 +851,6 @@ export function AdminBlogPostsPage() {
     </div>
   )
 }
+
+
 

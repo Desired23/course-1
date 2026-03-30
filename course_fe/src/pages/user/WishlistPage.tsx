@@ -93,11 +93,11 @@ export function WishlistPage() {
     if (!user?.id) return
     try {
       await addToCartApi({ user: parseInt(user.id, 10), course: item.course })
-      toast.success(`${item.course_detail.title} ${t('wishlist.added_to_cart')}`)
+      toast.success(t('wishlist.added_to_cart_item', { title: item.course_detail.title }))
       await removeWishlistApi(item.id)
       setWishlistItems((items) => items.filter((i) => i.id !== item.id))
     } catch {
-      toast.error('Cannot add to cart')
+      toast.error(t('wishlist.add_to_cart_failed'))
     }
   }
 

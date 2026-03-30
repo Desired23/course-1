@@ -6,6 +6,7 @@ import { ScrollArea } from "./ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs"
 import { cn } from "./ui/utils"
 import { useRouter } from "./Router"
+import { useTranslation } from "react-i18next"
 
 interface Notification {
   id: string
@@ -25,6 +26,7 @@ interface NotificationPopupProps {
 }
 
 export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: NotificationPopupProps) {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
@@ -38,8 +40,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '1',
           type: 'course',
-          title: 'New Lesson Available',
-          message: 'React Advanced Patterns - Module 5 is now available',
+          title: t('notification_popup.mock.user.lesson_available_title'),
+          message: t('notification_popup.mock.user.lesson_available_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 30),
           isRead: false,
           priority: 'medium',
@@ -48,8 +50,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '2',
           type: 'system',
-          title: 'Certificate Ready',
-          message: 'Your certificate for "Web Development Bootcamp" is ready to download',
+          title: t('notification_popup.mock.user.certificate_ready_title'),
+          message: t('notification_popup.mock.user.certificate_ready_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
           isRead: false,
           priority: 'high',
@@ -58,8 +60,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '3',
           type: 'course',
-          title: 'Course Update',
-          message: 'Instructor updated the course materials',
+          title: t('notification_popup.mock.user.course_update_title'),
+          message: t('notification_popup.mock.user.course_update_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
           isRead: true,
           priority: 'low',
@@ -73,8 +75,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '4',
           type: 'instructor',
-          title: 'New Student Enrolled',
-          message: '5 new students enrolled in your course "React Mastery"',
+          title: t('notification_popup.mock.instructor.new_student_title'),
+          message: t('notification_popup.mock.instructor.new_student_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 15),
           isRead: false,
           priority: 'medium',
@@ -83,8 +85,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '5',
           type: 'instructor',
-          title: 'New Review',
-          message: 'John Doe left a 5-star review on your course',
+          title: t('notification_popup.mock.instructor.new_review_title'),
+          message: t('notification_popup.mock.instructor.new_review_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 45),
           isRead: false,
           priority: 'medium',
@@ -92,8 +94,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '6',
           type: 'payment',
-          title: 'Payout Processed',
-          message: '$1,234.56 has been transferred to your account',
+          title: t('notification_popup.mock.instructor.payout_title'),
+          message: t('notification_popup.mock.instructor.payout_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
           isRead: true,
           priority: 'high',
@@ -101,8 +103,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '7',
           type: 'instructor',
-          title: 'Q&A Question',
-          message: '3 new questions from students require your attention',
+          title: t('notification_popup.mock.instructor.qna_title'),
+          message: t('notification_popup.mock.instructor.qna_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 120),
           isRead: false,
           priority: 'high',
@@ -116,8 +118,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '8',
           type: 'admin',
-          title: 'Course Pending Approval',
-          message: '12 courses are waiting for your review',
+          title: t('notification_popup.mock.admin.pending_approval_title'),
+          message: t('notification_popup.mock.admin.pending_approval_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 20),
           isRead: false,
           priority: 'high',
@@ -126,8 +128,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '9',
           type: 'admin',
-          title: 'Reported Content',
-          message: '3 forum posts have been flagged for review',
+          title: t('notification_popup.mock.admin.reported_content_title'),
+          message: t('notification_popup.mock.admin.reported_content_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 60),
           isRead: false,
           priority: 'high',
@@ -136,8 +138,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '10',
           type: 'system',
-          title: 'System Update',
-          message: 'Platform will undergo maintenance on Oct 15',
+          title: t('notification_popup.mock.admin.system_update_title'),
+          message: t('notification_popup.mock.admin.system_update_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
           isRead: true,
           priority: 'medium',
@@ -146,8 +148,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
         {
           id: '11',
           type: 'payment',
-          title: 'Refund Request',
-          message: '5 refund requests need your attention',
+          title: t('notification_popup.mock.admin.refund_request_title'),
+          message: t('notification_popup.mock.admin.refund_request_message'),
           timestamp: new Date(Date.now() - 1000 * 60 * 90),
           isRead: false,
           priority: 'high',
@@ -157,7 +159,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
     }
 
     setNotifications(mockNotifications)
-  }, [userRole])
+  }, [t, userRole])
 
   const filteredNotifications = filter === 'all' 
     ? notifications 
@@ -215,10 +217,10 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    return `${diffDays}d ago`
+    if (diffMins < 1) return t('notification_popup.time.just_now')
+    if (diffMins < 60) return t('notification_popup.time.minutes_ago', { count: diffMins })
+    if (diffHours < 24) return t('notification_popup.time.hours_ago', { count: diffHours })
+    return t('notification_popup.time.days_ago', { count: diffDays })
   }
 
   const groupByType = (notifications: Notification[]) => {
@@ -249,7 +251,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
               <Bell className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h2 className="font-semibold">Notifications</h2>
+              <h2 className="font-semibold">{t('notification_popup.title')}</h2>
               {unreadCount > 0 && (
                 <p className="text-xs text-muted-foreground">{unreadCount} unread</p>
               )}
@@ -264,7 +266,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                 className="gap-2 text-xs"
               >
                 <CheckCheck className="h-4 w-4" />
-                <span className="hidden sm:inline">Mark all</span>
+                <span className="hidden sm:inline">{t('notification_popup.mark_all')}</span>
               </Button>
             )}
             <Button
@@ -304,8 +306,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                   <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
                     <Bell className="h-10 w-10 opacity-50" />
                   </div>
-                  <h3 className="font-medium mb-1">No notifications yet</h3>
-                  <p className="text-sm">When you get notifications, they'll show up here</p>
+                  <h3 className="font-medium mb-1">{t('notification_popup.empty_title')}</h3>
+                  <p className="text-sm">{t('notification_popup.empty_description')}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-border/50">
@@ -363,7 +365,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                                     }}
                                   >
                                     <Trash2 className="h-3 w-3 mr-1" />
-                                    <span className="text-xs">Delete</span>
+                                    <span className="text-xs">{t('notification_popup.delete')}</span>
                                   </Button>
                                 </div>
                               </div>
@@ -385,8 +387,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                   <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-4">
                     <CheckCheck className="h-10 w-10 text-green-600" />
                   </div>
-                  <h3 className="font-medium mb-1">All caught up!</h3>
-                  <p className="text-sm">No unread notifications</p>
+                  <h3 className="font-medium mb-1">{t('notification_popup.all_caught_up')}</h3>
+                  <p className="text-sm">{t('notification_popup.no_unread')}</p>
                 </div>
               ) : (
                 <div className="p-4 md:p-6 space-y-3">
@@ -430,7 +432,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                               }}
                             >
                               <Trash2 className="h-3 w-3 mr-1" />
-                              <span className="text-xs">Delete</span>
+                              <span className="text-xs">{t('notification_popup.delete')}</span>
                             </Button>
                           </div>
                         </div>

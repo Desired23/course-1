@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Trash2, Tag, Clock, Star, Check, Loader2 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Separator } from '../../components/ui/separator'
@@ -37,11 +37,11 @@ export function CartPage() {
     if (user?.id) {
       loadCart(parseInt(user.id))
     }
-  }, [user?.id])
+  }, [loadCart, user?.id])
 
   const handleApplyCoupon = async () => {
     if (!couponInput.trim()) {
-      toast.error(t('cart.enter_coupon', 'Vui lòng nhập mã giảm giá'))
+      toast.error(t('cart.enter_coupon', 'Vui lÃ²ng nháº­p mÃ£ giáº£m giÃ¡'))
       return
     }
     
@@ -49,7 +49,7 @@ export function CartPage() {
     try {
       const success = await applyCoupon(couponInput)
       if (success) {
-        toast.success(t('cart.coupon_applied', 'Đã áp dụng mã giảm giá!'))
+        toast.success(t('cart.coupon_applied', 'ÄÃ£ Ã¡p dá»¥ng mÃ£ giáº£m giÃ¡!'))
         setCouponInput('')
       }
     } finally {
@@ -59,7 +59,7 @@ export function CartPage() {
 
   const handleRemoveCoupon = (courseId?: string) => {
     removeCoupon(courseId)
-    toast.success(t('cart.coupon_removed', 'Đã xóa mã giảm giá'))
+    toast.success(t('cart.coupon_removed', 'ÄÃ£ xÃ³a mÃ£ giáº£m giÃ¡'))
   }
 
   if (cartItems.length === 0) {
@@ -107,7 +107,9 @@ export function CartPage() {
                     
                     <div className="flex-1">
                       <h3 className="font-semibold mb-1 line-clamp-2">{item.title}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">By {item.instructor}</p>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {t('cart.by_instructor', { name: item.instructor })}
+                      </p>
                       
                       <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                         {item.rating && (
@@ -175,7 +177,7 @@ export function CartPage() {
                           <div className="flex items-center gap-2">
                             <Check className="w-4 h-4 text-green-600" />
                             <span className="text-sm text-green-700 dark:text-green-300">
-                              Mã giảm giá: {item.couponCode} (-{formatCartPrice(item.couponDiscount || 0)})
+                              MÃ£ giáº£m giÃ¡: {item.couponCode} (-{formatCartPrice(item.couponDiscount || 0)})
                             </span>
                           </div>
                           <Button
@@ -184,7 +186,7 @@ export function CartPage() {
                             onClick={() => handleRemoveCoupon(item.id)}
                             className="text-green-700 hover:text-green-800"
                           >
-                            {t('cart.remove_coupon', 'Xóa')}
+                            {t('cart.remove_coupon', 'XÃ³a')}
                           </Button>
                         </div>
                       )}
@@ -246,11 +248,11 @@ export function CartPage() {
                         {appliedPromotion && (
                           <p className="text-xs text-green-600 dark:text-green-400">
                             {appliedPromotion.promotion.description || 
-                              `Giảm ${appliedPromotion.promotion.discount_type === 'percentage' 
+                              `Giáº£m ${appliedPromotion.promotion.discount_type === 'percentage' 
                                 ? `${appliedPromotion.promotion.discount_value}%` 
                                 : formatCartPrice(parseFloat(appliedPromotion.promotion.discount_value))}`
                             }
-                            {' · '}Tiết kiệm {formatCartPrice(appliedPromotion.totalDiscount)}
+                            {' Â· '}Tiáº¿t kiá»‡m {formatCartPrice(appliedPromotion.totalDiscount)}
                           </p>
                         )}
                       </div>
@@ -261,14 +263,14 @@ export function CartPage() {
                       onClick={() => handleRemoveCoupon()}
                       className="text-green-700 hover:text-green-800"
                     >
-                      {t('cart.remove_coupon', 'Xóa')}
+                      {t('cart.remove_coupon', 'XÃ³a')}
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Input
-                        placeholder={t('cart.coupon_code', 'Nhập mã giảm giá')}
+                        placeholder={t('cart.coupon_code', 'Nháº­p mÃ£ giáº£m giÃ¡')}
                         value={couponInput}
                         onChange={(e) => setCouponInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
@@ -284,7 +286,7 @@ export function CartPage() {
                         {isApplying ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          t('cart.apply_coupon', 'Áp dụng')
+                          t('cart.apply_coupon', 'Ãp dá»¥ng')
                         )}
                       </Button>
                     </div>
@@ -299,10 +301,10 @@ export function CartPage() {
                     <Tag className="w-4 h-4 text-purple-600 mt-0.5" />
                     <div className="text-sm">
                       <div className="font-medium text-purple-600">
-                        Mã giảm giá của giảng viên
+                        {t('cart.instructor_coupon_title')}
                       </div>
                       <div className="text-muted-foreground">
-                        Áp dụng cho {Object.keys(appliedPromotion.courseDiscounts).length} khóa học trong giỏ hàng
+                        {t('cart.instructor_coupon_description', { count: Object.keys(appliedPromotion.courseDiscounts).length })}
                       </div>
                     </div>
                   </div>

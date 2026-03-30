@@ -64,7 +64,7 @@ export function ProfilePage() {
       setIsEditing(false)
       toast.success(t('profile.profile_updated'))
     } catch {
-      toast.error(t('profile.update_failed', 'Failed to update profile'))
+      toast.error(t('profile.update_failed'))
     } finally {
       setIsSaving(false)
     }
@@ -228,7 +228,10 @@ export function ProfilePage() {
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         <div className="flex-1">
                           <p className="text-sm">
-                            Completed "{activity.lesson_title}" in {activity.course_title}
+                            {t('profile.recent_activity_item', {
+                              lesson: activity.lesson_title,
+                              course: activity.course_title,
+                            })}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {new Date(activity.completed_at).toLocaleDateString()}
@@ -237,7 +240,7 @@ export function ProfilePage() {
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground">No recent activity yet.</p>
+                    <p className="text-sm text-muted-foreground">{t('profile.no_recent_activity')}</p>
                   )}
                 </div>
               </CardContent>
@@ -274,7 +277,7 @@ export function ProfilePage() {
                   <Label htmlFor="bio">{t('profile.bio')}</Label>
                   <Textarea
                     id="bio"
-                    placeholder="Tell us about yourself..."
+                    placeholder={t('profile.placeholders.bio')}
                     value={formData.bio}
                     onChange={(e) => setFormData({...formData, bio: e.target.value})}
                   />
@@ -288,7 +291,7 @@ export function ProfilePage() {
                     <Label htmlFor="website">{t('profile.website')}</Label>
                     <Input
                       id="website"
-                      placeholder="https://yourwebsite.com"
+                      placeholder={t('profile.placeholders.website')}
                       value={formData.website}
                       onChange={(e) => setFormData({...formData, website: e.target.value})}
                     />
@@ -297,7 +300,7 @@ export function ProfilePage() {
                     <Label htmlFor="twitter">{t('profile.twitter')}</Label>
                     <Input
                       id="twitter"
-                      placeholder="@username"
+                      placeholder={t('profile.placeholders.twitter')}
                       value={formData.twitter}
                       onChange={(e) => setFormData({...formData, twitter: e.target.value})}
                     />
@@ -306,7 +309,7 @@ export function ProfilePage() {
                     <Label htmlFor="linkedin">{t('profile.linkedin')}</Label>
                     <Input
                       id="linkedin"
-                      placeholder="linkedin.com/in/username"
+                      placeholder={t('profile.placeholders.linkedin')}
                       value={formData.linkedin}
                       onChange={(e) => setFormData({...formData, linkedin: e.target.value})}
                     />
@@ -315,7 +318,7 @@ export function ProfilePage() {
                     <Label htmlFor="youtube">{t('profile.youtube')}</Label>
                     <Input
                       id="youtube"
-                      placeholder="youtube.com/c/channel"
+                      placeholder={t('profile.placeholders.youtube')}
                       value={formData.youtube}
                       onChange={(e) => setFormData({...formData, youtube: e.target.value})}
                     />
@@ -324,7 +327,7 @@ export function ProfilePage() {
 
                 <div className="flex gap-2">
                   <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? t('profile.saving', 'Saving...') : t('profile.save_changes')}
+                    {isSaving ? t('profile.saving') : t('profile.save_changes')}
                   </Button>
                   <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
                     {t('profile.cancel')}
@@ -351,7 +354,7 @@ export function ProfilePage() {
                         <div>
                           <p className="font-medium">{enrollment.course.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            Enrolled: {new Date(enrollment.enrollment_date).toLocaleDateString()}
+                            {t('profile.enrolled_on', { date: new Date(enrollment.enrollment_date).toLocaleDateString() })}
                           </p>
                         </div>
                         <Badge variant="outline">{enrollment.status}</Badge>

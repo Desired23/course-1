@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useAuth } from './AuthContext'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 export interface Follow {
   follow_id: number
@@ -22,6 +23,7 @@ interface FollowContextType {
 const FollowContext = createContext<FollowContextType | undefined>(undefined)
 
 export function FollowProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [follows, setFollows] = useState<Follow[]>([])
 
@@ -52,12 +54,12 @@ export function FollowProvider({ children }: { children: React.ReactNode }) {
 
   const followInstructor = (instructorId: string) => {
     if (!user) {
-      toast.error('Please login to follow instructors')
+      toast.error(t('follow_context.toasts.login_to_follow'))
       return
     }
 
     if (isFollowing(instructorId)) {
-      toast.info('You are already following this instructor')
+      toast.info(t('follow_context.toasts.already_following'))
       return
     }
 
@@ -69,17 +71,17 @@ export function FollowProvider({ children }: { children: React.ReactNode }) {
     }
 
     setFollows(prev => [...prev, newFollow])
-    toast.success('Successfully followed instructor!')
+    toast.success(t('follow_context.toasts.follow_success'))
   }
 
   const unfollowInstructor = (instructorId: string) => {
     if (!user) {
-      toast.error('Please login to unfollow instructors')
+      toast.error(t('follow_context.toasts.login_to_unfollow'))
       return
     }
 
     setFollows(prev => prev.filter(f => !(f.user_id === user.id && f.instructor_id === instructorId)))
-    toast.success('Unfollowed instructor')
+    toast.success(t('follow_context.toasts.unfollow_success'))
   }
 
   const toggleFollow = (instructorId: string) => {

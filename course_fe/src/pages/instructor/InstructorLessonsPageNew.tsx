@@ -21,11 +21,13 @@ import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCour
 import { getAllLessons, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
 import { getCourseById } from "../../services/course.api"
 import { useAuthStore } from "../../stores/auth.store"
+import { useTranslation } from 'react-i18next'
 
 // Course structure is now fetched from API in the component's useEffect
 
 export function InstructorLessonsPageNew() {
   const { params, navigate } = useRouter()
+  const { t } = useTranslation()
   const courseId = params?.courseId
   const isAdmin = useAuthStore(state => state.hasRole('admin'))
   
@@ -143,7 +145,7 @@ export function InstructorLessonsPageNew() {
 
     if (totalChanges === 0) {
       if (!silentNoChanges) {
-        toast.info('No curriculum changes to save')
+        toast.info(t('instructor_lessons_page_new.toasts.no_curriculum_changes'))
       }
       return
     }
@@ -156,15 +158,15 @@ export function InstructorLessonsPageNew() {
       ])
       syncSavedPositionSnapshot(sections)
       if (showSuccessToast) {
-        toast.success(`Saved ${totalChanges} change(s) successfully!`)
+        toast.success(t('instructor_lessons_page_new.toasts.saved_changes', { count: totalChanges }))
       }
     } catch (err) {
       console.error(err)
-      toast.error('Failed to save curriculum')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_save_curriculum'))
     } finally {
       setIsAutoSaving(false)
     }
-  }, [buildCurriculumChanges, sections, syncSavedPositionSnapshot])
+  }, [buildCurriculumChanges, sections, syncSavedPositionSnapshot, t])
 
   // Fetch course modules and lessons from API
   useEffect(() => {
@@ -212,13 +214,13 @@ export function InstructorLessonsPageNew() {
         syncSavedPositionSnapshot(sectionsData)
         hasLoadedInitialDataRef.current = true
       } catch (err) {
-        console.error('Failed to load course structure:', err)
+        console.error(t('instructor_lessons_page_new.errors.load_course_structure_console'), err)
         // Keep local storage data as fallback
       }
     }
     fetchCourseData()
     return () => { cancelled = true }
-  }, [courseId, syncSavedPositionSnapshot])
+  }, [courseId, syncSavedPositionSnapshot, t])
 
   // Bulk selection state
   const [showBulkSelection, setShowBulkSelection] = useState(false)
@@ -256,13 +258,13 @@ export function InstructorLessonsPageNew() {
           )
         }))
       )
-      toast.success(`Published ${selectedLessonIds.size} lesson(s)`)
+      toast.success(t('instructor_lessons_page_new.toasts.published_lessons', { count: selectedLessonIds.size }))
       handleClearSelection()
     } catch (err) {
       console.error(err)
-      toast.error('Failed to publish some lessons')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_publish_lessons'))
     }
-  }, [selectedLessonIds, setSections, handleClearSelection])
+  }, [selectedLessonIds, setSections, handleClearSelection, t])
 
   const handleBulkUnpublish = useCallback(async () => {
     try {
@@ -279,16 +281,16 @@ export function InstructorLessonsPageNew() {
           )
         }))
       )
-      toast.success(`Unpublished ${selectedLessonIds.size} lesson(s)`)
+      toast.success(t('instructor_lessons_page_new.toasts.unpublished_lessons', { count: selectedLessonIds.size }))
       handleClearSelection()
     } catch (err) {
       console.error(err)
-      toast.error('Failed to unpublish some lessons')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_unpublish_lessons'))
     }
-  }, [selectedLessonIds, setSections, handleClearSelection])
+  }, [selectedLessonIds, setSections, handleClearSelection, t])
 
   const handleBulkDelete = useCallback(async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedLessonIds.size} lesson(s)? This action cannot be undone.`)) {
+    if (!confirm(t('instructor_lessons_page_new.confirms.delete_lessons', { count: selectedLessonIds.size }))) {
       return
     }
 
@@ -299,16 +301,16 @@ export function InstructorLessonsPageNew() {
       setSections(prevSections => 
         prevSections.map(section => ({
           ...section,
-          lessons: section.lessons.filter(lesson => !selectedLessonIds.has(lesson.id))
+            lessons: section.lessons.filter(lesson => !selectedLessonIds.has(lesson.id))
         }))
       )
-      toast.success(`Deleted ${selectedLessonIds.size} lesson(s)`)
+      toast.success(t('instructor_lessons_page_new.toasts.deleted_lessons', { count: selectedLessonIds.size }))
       handleClearSelection()
     } catch (err) {
       console.error(err)
-      toast.error('Failed to delete some lessons')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_delete_lessons'))
     }
-  }, [selectedLessonIds, setSections, handleClearSelection])
+  }, [selectedLessonIds, setSections, handleClearSelection, t])
 
   // Drag & Drop handlers
   const moveSection = useCallback((dragIndex: number, hoverIndex: number) => {
@@ -363,16 +365,19 @@ export function InstructorLessonsPageNew() {
       newSections[fromSectionIndex] = fromSection
       newSections[toSectionIndex] = toSection
       
-      toast.success(`Moved "${lesson.title}" to ${toSection.title}`)
+      toast.success(t('instructor_lessons_page_new.toasts.moved_lesson', {
+        lesson: lesson.title,
+        section: toSection.title,
+      }))
       
       return newSections
     })
-  }, [setSections])
+  }, [setSections, t])
 
   // CRUD handlers
   const handleAddSection = async () => {
     if (!newSection.title.trim()) {
-      toast.error('Please enter a section title')
+      toast.error(t('instructor_lessons_page_new.toasts.enter_section_title'))
       return
     }
 
@@ -393,16 +398,16 @@ export function InstructorLessonsPageNew() {
       sectionOrderRef.current.set(created.id, sections.length + 1)
       setNewSection({ title: '', description: '' })
       setShowAddSection(false)
-      toast.success('Section added successfully')
+      toast.success(t('instructor_lessons_page_new.toasts.section_added'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to add section')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_add_section'))
     }
   }
 
   const handleAddLesson = async (sectionId: number) => {
     if (!newLesson.title.trim()) {
-      toast.error('Please enter a lesson title')
+      toast.error(t('instructor_lessons_page_new.toasts.enter_lesson_title'))
       return
     }
 
@@ -459,10 +464,14 @@ export function InstructorLessonsPageNew() {
 
       setNewLesson({ title: '', type: 'video', description: '', duration: '' })
       setShowAddLesson(null)
-      toast.success(`${newLesson.type === 'quiz' ? 'Quiz' : 'Lesson'} added successfully`)
+      toast.success(
+        newLesson.type === 'quiz'
+          ? t('instructor_lessons_page_new.toasts.quiz_added')
+          : t('instructor_lessons_page_new.toasts.lesson_added')
+      )
     } catch (err) {
       console.error(err)
-      toast.error('Failed to add lesson')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_add_lesson'))
     }
   }
 
@@ -479,23 +488,29 @@ export function InstructorLessonsPageNew() {
         }
         return prevSections.filter(section => section.id !== sectionId)
       })
-      toast.success('Section deleted successfully')
+      toast.success(t('instructor_lessons_page_new.toasts.section_deleted'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to delete section')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_delete_section'))
     }
-  }, [setSections])
+  }, [setSections, t])
 
   const handleUpdateSectionStatus = useCallback(async (sectionId: number, status: 'Draft' | 'Published') => {
     try {
       const payload: any = { status }
 
       if (isAdmin) {
-        const reason = window.prompt(`Reason for changing module status to "${status}" (optional):`, '') || ''
-        const sendNotification = window.confirm('Send notification to instructor?')
+        const statusLabel = status === 'Published'
+          ? t('instructor_lessons_page_new.status.published')
+          : t('instructor_lessons_page_new.status.draft')
+        const reason = window.prompt(
+          t('instructor_lessons_page_new.prompts.status_reason', { status: statusLabel }),
+          ''
+        ) || ''
+        const sendNotification = window.confirm(t('instructor_lessons_page_new.confirms.send_notification'))
         let notifyMessage = ''
         if (sendNotification) {
-          notifyMessage = window.prompt('Notification message (leave blank to use default):', '') || ''
+          notifyMessage = window.prompt(t('instructor_lessons_page_new.prompts.notification_message'), '') || ''
         }
 
         payload.status_reason = reason || undefined
@@ -511,12 +526,12 @@ export function InstructorLessonsPageNew() {
             : section
         )
       )
-      toast.success(`Section status updated to ${status}`)
+      toast.success(t('instructor_lessons_page_new.toasts.section_status_updated', { status: statusLabel }))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to update section status')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_update_section_status'))
     }
-  }, [isAdmin, setSections])
+  }, [isAdmin, setSections, t])
 
   const handleDeleteLesson = useCallback(async (lessonId: number) => {
     try {
@@ -531,12 +546,12 @@ export function InstructorLessonsPageNew() {
       if (selectedLesson?.id === lessonId) {
         setSelectedLesson(null)
       }
-      toast.success('Lesson deleted successfully')
+      toast.success(t('instructor_lessons_page_new.toasts.lesson_deleted'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to delete lesson')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_delete_lesson'))
     }
-  }, [selectedLesson, setSections])
+  }, [selectedLesson, setSections, t])
 
   const handleEditSection = (section: any) => {
     setEditingSection(section)
@@ -549,7 +564,7 @@ export function InstructorLessonsPageNew() {
   const handleSaveSection = useCallback(async () => {
     if (!editingSection) return
     if (!editingSectionForm.title.trim()) {
-      toast.error('Please enter a section title')
+      toast.error(t('instructor_lessons_page_new.toasts.enter_section_title'))
       return
     }
 
@@ -571,12 +586,12 @@ export function InstructorLessonsPageNew() {
       )
       setEditingSection(null)
       setEditingSectionForm({ title: '', description: '' })
-      toast.success('Section updated successfully')
+      toast.success(t('instructor_lessons_page_new.toasts.section_updated'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to update section')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_update_section'))
     }
-  }, [editingSection, editingSectionForm, setSections])
+  }, [editingSection, editingSectionForm, setSections, t])
 
   const handleEditLesson = (lesson: any) => {
     // Navigate to full-page editor
@@ -604,12 +619,12 @@ export function InstructorLessonsPageNew() {
           )
         }))
       )
-      toast.success('Lesson saved successfully')
+      toast.success(t('instructor_lessons_page_new.toasts.lesson_saved'))
     } catch (err) {
       console.error(err)
-      toast.error('Failed to save lesson')
+      toast.error(t('instructor_lessons_page_new.toasts.failed_to_save_lesson'))
     }
-  }, [setSections])
+  }, [setSections, t])
 
   const handlePreviewLesson = (lesson: any) => {
     setPreviewLesson(lesson)
@@ -617,13 +632,13 @@ export function InstructorLessonsPageNew() {
 
   const handleSaveCurriculum = async () => {
     if (sections.length === 0) {
-      toast.error('Add at least one section before saving')
+      toast.error(t('instructor_lessons_page_new.toasts.add_section_before_saving'))
       return
     }
 
     const emptySections = sections.filter(s => s.lessons.length === 0)
     if (emptySections.length > 0) {
-      toast.error('All sections must have at least one lesson')
+      toast.error(t('instructor_lessons_page_new.toasts.all_sections_need_lessons'))
       return
     }
 
@@ -668,22 +683,24 @@ export function InstructorLessonsPageNew() {
               <div className="flex items-center gap-2 mb-3">
                 <Button variant="ghost" size="sm" onClick={() => navigate('/instructor/courses')}>
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to My Courses
+                  {t('instructor_lessons_page_new.actions.back_to_courses')}
                 </Button>
                 {courseId && (
                   <Button variant="outline" size="sm" onClick={() => navigate(`/instructor/courses/${courseId}`)}>
-                    View Course Detail
+                    {t('instructor_lessons_page_new.actions.view_course_detail')}
                   </Button>
                 )}
               </div>
-              <h1 className="mb-1">Course Curriculum</h1>
+              <h1 className="mb-1">{t('instructor_lessons_page_new.title')}</h1>
               <p className="text-muted-foreground">{courseTitle}</p>
             </div>
             
             <div className="flex gap-2">
               <DarkModeToggle />
               <div className="text-xs text-muted-foreground self-center px-2">
-                {isAutoSaving ? 'Auto-saving...' : 'Auto-save on'}
+                {isAutoSaving
+                  ? t('instructor_lessons_page_new.auto_save.saving')
+                  : t('instructor_lessons_page_new.auto_save.enabled')}
               </div>
               
               <Button 
@@ -705,7 +722,9 @@ export function InstructorLessonsPageNew() {
                 }}
               >
                 <CheckSquare className="h-4 w-4 mr-2" />
-                {showBulkSelection ? 'Bulk Edit Mode' : 'Bulk Edit'}
+                {showBulkSelection
+                  ? t('instructor_lessons_page_new.actions.bulk_edit_mode')
+                  : t('instructor_lessons_page_new.actions.bulk_edit')}
               </Button>
             </div>
           </div>
@@ -811,11 +830,11 @@ export function InstructorLessonsPageNew() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Section</DialogTitle>
+            <DialogTitle>{t('instructor_lessons_page_new.dialogs.edit_section_title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-section-title">Section title</Label>
+              <Label htmlFor="edit-section-title">{t('instructor_lessons_page_new.dialogs.section_title')}</Label>
               <Input
                 id="edit-section-title"
                 value={editingSectionForm.title}
@@ -823,7 +842,7 @@ export function InstructorLessonsPageNew() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-section-description">Description</Label>
+              <Label htmlFor="edit-section-description">{t('instructor_lessons_page_new.dialogs.description')}</Label>
               <Textarea
                 id="edit-section-description"
                 rows={4}
@@ -833,8 +852,10 @@ export function InstructorLessonsPageNew() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSection(null)}>Cancel</Button>
-            <Button onClick={handleSaveSection}>Save section</Button>
+            <Button variant="outline" onClick={() => setEditingSection(null)}>
+              {t('instructor_lessons_page_new.actions.cancel')}
+            </Button>
+            <Button onClick={handleSaveSection}>{t('instructor_lessons_page_new.actions.save_section')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

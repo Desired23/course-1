@@ -15,6 +15,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
 import {
   type AdminReport,
   type AdminReportAction,
@@ -54,36 +55,8 @@ const mapReport = (report: AdminReport): ReportItem => ({
   updated_at: toDate(report.updated_at),
 })
 
-const getResolveActions = (report: ReportItem): Array<{ label: string; action: AdminReportAction }> => {
-  if (report.reported_type === 'forum_post') {
-    return [
-      { label: 'Phe duyet', action: 'approve' },
-      { label: 'Khoa chu de', action: 'lock' },
-      { label: 'Xoa chu de', action: 'delete' },
-    ]
-  }
-  if (report.reported_type === 'qa_question') {
-    return [
-      { label: 'Phe duyet Q&A', action: 'approve' },
-      { label: 'Dong Q&A', action: 'close' },
-      { label: 'Xoa Q&A', action: 'delete' },
-    ]
-  }
-  if (report.reported_type === 'message') {
-    return [
-      { label: 'Phe duyet tin nhan', action: 'approve' },
-      { label: 'Thu hoi tin nhan', action: 'revoke' },
-      { label: 'Xoa tin nhan', action: 'delete' },
-    ]
-  }
-  return [
-    { label: 'Phe duyet review', action: 'approve' },
-    { label: 'An review', action: 'hide' },
-    { label: 'Xoa review', action: 'delete' },
-  ]
-}
-
 export function ReportManagementPage() {
+  const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const [reports, setReports] = useState<ReportItem[]>([])
   const [filteredReports, setFilteredReports] = useState<ReportItem[]>([])
@@ -103,11 +76,40 @@ export function ReportManagementPage() {
     open: false,
     title: '',
     description: '',
-    confirmLabel: 'Confirm',
+    confirmLabel: '',
     destructive: false,
     loading: false,
     action: null,
   })
+
+  const getResolveActions = (report: ReportItem): Array<{ label: string; action: AdminReportAction }> => {
+    if (report.reported_type === 'forum_post') {
+      return [
+        { label: t('admin_reports.resolve_actions.approve_forum'), action: 'approve' },
+        { label: t('admin_reports.resolve_actions.lock_topic'), action: 'lock' },
+        { label: t('admin_reports.resolve_actions.delete_topic'), action: 'delete' },
+      ]
+    }
+    if (report.reported_type === 'qa_question') {
+      return [
+        { label: t('admin_reports.resolve_actions.approve_qa'), action: 'approve' },
+        { label: t('admin_reports.resolve_actions.close_qa'), action: 'close' },
+        { label: t('admin_reports.resolve_actions.delete_qa'), action: 'delete' },
+      ]
+    }
+    if (report.reported_type === 'message') {
+      return [
+        { label: t('admin_reports.resolve_actions.approve_message'), action: 'approve' },
+        { label: t('admin_reports.resolve_actions.revoke_message'), action: 'revoke' },
+        { label: t('admin_reports.resolve_actions.delete_message'), action: 'delete' },
+      ]
+    }
+    return [
+      { label: t('admin_reports.resolve_actions.approve_review'), action: 'approve' },
+      { label: t('admin_reports.resolve_actions.hide_review'), action: 'hide' },
+      { label: t('admin_reports.resolve_actions.delete_review'), action: 'delete' },
+    ]
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -125,7 +127,7 @@ export function ReportManagementPage() {
         setReports(mapped)
         setFilteredReports(mapped)
       } catch {
-        toast.error('Khong tai duoc danh sach report')
+        toast.error(t('admin_reports.toasts.load_failed'))
       } finally {
         setLoading(false)
       }
@@ -136,46 +138,46 @@ export function ReportManagementPage() {
   const filterConfigs: FilterConfig[] = useMemo(() => [
     {
       key: 'search',
-      label: 'Tim kiem',
+      label: t('admin_reports.filters.search'),
       type: 'search',
-      placeholder: 'Tim theo tac gia, tieu de, ly do...',
+      placeholder: t('admin_reports.filters.search_placeholder'),
     },
     {
       key: 'status',
-      label: 'Trang thai',
+      label: t('admin_reports.filters.status'),
       type: 'select',
       options: [
-        { label: 'Cho xu ly', value: 'pending', count: reports.filter(r => r.status === 'pending').length },
-        { label: 'Dang xem', value: 'reviewing', count: reports.filter(r => r.status === 'reviewing').length },
-        { label: 'Da xu ly', value: 'resolved', count: reports.filter(r => r.status === 'resolved').length },
-        { label: 'Bo qua', value: 'dismissed', count: reports.filter(r => r.status === 'dismissed').length },
+        { label: t('admin_reports.status.pending'), value: 'pending', count: reports.filter(r => r.status === 'pending').length },
+        { label: t('admin_reports.status.reviewing'), value: 'reviewing', count: reports.filter(r => r.status === 'reviewing').length },
+        { label: t('admin_reports.status.resolved'), value: 'resolved', count: reports.filter(r => r.status === 'resolved').length },
+        { label: t('admin_reports.status.dismissed'), value: 'dismissed', count: reports.filter(r => r.status === 'dismissed').length },
       ],
     },
     {
       key: 'type',
-      label: 'Loai',
+      label: t('admin_reports.filters.type'),
       type: 'select',
       options: [
-        { label: 'Forum post', value: 'forum_post', count: reports.filter(r => r.reported_type === 'forum_post').length },
-        { label: 'Review', value: 'review', count: reports.filter(r => r.reported_type === 'review').length },
-        { label: 'Q&A', value: 'qa_question', count: reports.filter(r => r.reported_type === 'qa_question').length },
-        { label: 'Message', value: 'message', count: reports.filter(r => r.reported_type === 'message').length },
+        { label: t('admin_reports.types.forum_post'), value: 'forum_post', count: reports.filter(r => r.reported_type === 'forum_post').length },
+        { label: t('admin_reports.types.review'), value: 'review', count: reports.filter(r => r.reported_type === 'review').length },
+        { label: t('admin_reports.types.qa_question'), value: 'qa_question', count: reports.filter(r => r.reported_type === 'qa_question').length },
+        { label: t('admin_reports.types.message'), value: 'message', count: reports.filter(r => r.reported_type === 'message').length },
       ],
     },
     {
       key: 'priority',
-      label: 'Muc do',
+      label: t('admin_reports.filters.priority'),
       type: 'select',
       options: [
-        { label: 'Critical', value: 'critical', count: reports.filter(r => r.priority === 'critical').length },
-        { label: 'High', value: 'high', count: reports.filter(r => r.priority === 'high').length },
-        { label: 'Medium', value: 'medium', count: reports.filter(r => r.priority === 'medium').length },
-        { label: 'Low', value: 'low', count: reports.filter(r => r.priority === 'low').length },
+        { label: t('admin_reports.priorities.critical'), value: 'critical', count: reports.filter(r => r.priority === 'critical').length },
+        { label: t('admin_reports.priorities.high'), value: 'high', count: reports.filter(r => r.priority === 'high').length },
+        { label: t('admin_reports.priorities.medium'), value: 'medium', count: reports.filter(r => r.priority === 'medium').length },
+        { label: t('admin_reports.priorities.low'), value: 'low', count: reports.filter(r => r.priority === 'low').length },
       ],
     },
     {
       key: 'date',
-      label: 'Ngay report',
+      label: t('admin_reports.filters.report_date'),
       type: 'daterange',
     },
   ], [reports])
@@ -246,7 +248,7 @@ export function ReportManagementPage() {
         open: false,
         title: '',
         description: '',
-        confirmLabel: 'Confirm',
+        confirmLabel: '',
         destructive: false,
         loading: false,
         action: null,
@@ -270,13 +272,13 @@ export function ReportManagementPage() {
       if (nextStatus === 'dismissed') {
         await resolveAdminReport(report.reported_type, report.reported_id, {
           action: 'dismiss',
-          reason: resolutionText || report.reason || 'Dismissed by admin',
+          reason: resolutionText || report.reason || t('admin_reports.system_notes.dismissed_by_admin'),
           resolution_notes: resolutionText,
         })
         syncReport(report.id, item => ({
           ...item,
           status: 'dismissed',
-          resolution: resolutionText || 'Dismissed by admin',
+          resolution: resolutionText || t('admin_reports.system_notes.dismissed_by_admin'),
           action_taken: 'dismiss',
           resolved_at: new Date(),
           updated_at: new Date(),
@@ -287,20 +289,20 @@ export function ReportManagementPage() {
       if (nextStatus === 'resolved' && action) {
         await resolveAdminReport(report.reported_type, report.reported_id, {
           action,
-          reason: resolutionText || report.reason || 'Resolved by admin',
+          reason: resolutionText || report.reason || t('admin_reports.system_notes.resolved_by_admin'),
           resolution_notes: resolutionText,
         })
         syncReport(report.id, item => ({
           ...item,
           status: 'resolved',
-          resolution: resolutionText || `Resolved with ${action}`,
+          resolution: resolutionText || t('admin_reports.system_notes.resolved_with_action', { action }),
           action_taken: action,
           resolved_at: new Date(),
           updated_at: new Date(),
         }))
       }
     } catch {
-      toast.error('Xu ly report that bai')
+      toast.error(t('admin_reports.toasts.resolve_failed'))
     }
   }
 
@@ -308,20 +310,20 @@ export function ReportManagementPage() {
     try {
       await resolveAdminReport(report.reported_type, report.reported_id, {
         action: 'delete',
-        reason: 'Deleted from report management',
+        reason: t('admin_reports.system_notes.deleted_from_management'),
       })
       syncReport(report.id, () => null)
     } catch {
-      toast.error('Khong the xoa noi dung bi report')
+      toast.error(t('admin_reports.toasts.delete_content_failed'))
     }
   }
 
   const getStatusBadge = (status: UiReportStatus) => {
     const variants = {
-      pending: { variant: 'secondary' as const, label: 'Cho xu ly', icon: Flag },
-      reviewing: { variant: 'default' as const, label: 'Dang xem', icon: Eye },
-      resolved: { variant: 'default' as const, label: 'Da xu ly', icon: CheckCircle },
-      dismissed: { variant: 'outline' as const, label: 'Bo qua', icon: XCircle },
+      pending: { variant: 'secondary' as const, label: t('admin_reports.status.pending'), icon: Flag },
+      reviewing: { variant: 'default' as const, label: t('admin_reports.status.reviewing'), icon: Eye },
+      resolved: { variant: 'default' as const, label: t('admin_reports.status.resolved'), icon: CheckCircle },
+      dismissed: { variant: 'outline' as const, label: t('admin_reports.status.dismissed'), icon: XCircle },
     }
     const config = variants[status]
     const Icon = config.icon
@@ -340,7 +342,7 @@ export function ReportManagementPage() {
       high: 'border-orange-500 text-orange-600',
       critical: 'border-red-500 text-red-600',
     }
-    return <Badge variant="outline" className={variants[priority]}>{priority}</Badge>
+    return <Badge variant="outline" className={variants[priority]}>{t(`admin_reports.priorities.${priority}`)}</Badge>
   }
 
   const getTypeBadge = (type: ReportItem['reported_type']) => {
@@ -351,10 +353,10 @@ export function ReportManagementPage() {
       message: MessageSquare,
     }
     const labels = {
-      forum_post: 'Forum post',
-      review: 'Review',
-      qa_question: 'Q&A',
-      message: 'Message',
+      forum_post: t('admin_reports.types.forum_post'),
+      review: t('admin_reports.types.review'),
+      qa_question: t('admin_reports.system_notes.qa_question'),
+      message: t('admin_reports.types.message'),
     }
     const Icon = icons[type]
     return (
@@ -388,7 +390,7 @@ export function ReportManagementPage() {
       setSelectedReportIds([])
       toast.success(successMessage)
     } catch {
-      toast.error('Bulk report action that bai')
+      toast.error(t('admin_reports.toasts.bulk_failed'))
     }
   }
 
@@ -396,8 +398,8 @@ export function ReportManagementPage() {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center py-12">
-          <h2 className="text-2xl mb-4">Khong co quyen truy cap</h2>
-          <p className="text-muted-foreground">Ban khong co quyen quan ly reports.</p>
+          <h2 className="text-2xl mb-4">{t('admin_reports.permission_denied_title')}</h2>
+          <p className="text-muted-foreground">{t('admin_reports.permission_denied_description')}</p>
         </div>
       </div>
     )
@@ -407,104 +409,104 @@ export function ReportManagementPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl mb-2">Report Management</h1>
-          <p className="text-muted-foreground">Hub report hop nhat cho forum post, review, Q&A va message.</p>
+          <h1 className="text-3xl mb-2">{t('admin_reports.title')}</h1>
+          <p className="text-muted-foreground">{t('admin_reports.subtitle')}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tong report</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reports.cards.total_reports')}</CardTitle>
             <Flag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.length}</div>
-            <p className="text-xs text-muted-foreground">Noi dung dang bi report tren cac domain da noi that</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reports.cards.total_reports_hint')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cho xu ly</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reports.cards.pending')}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-orange-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.filter(r => r.status === 'pending').length}</div>
-            <p className="text-xs text-muted-foreground">Can moderator xu ly</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reports.cards.pending_hint')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High/Critical</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reports.cards.high_critical')}</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.filter(r => r.priority === 'high' || r.priority === 'critical').length}</div>
-            <p className="text-xs text-muted-foreground">Uu tien xu ly som</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reports.cards.high_critical_hint')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Da xu ly</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('admin_reports.cards.resolved')}</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{reports.filter(r => r.status === 'resolved').length}</div>
-            <p className="text-xs text-muted-foreground">Trong session hien tai</p>
+            <p className="text-xs text-muted-foreground">{t('admin_reports.cards.resolved_hint')}</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="all" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="all">Tat ca ({reports.length})</TabsTrigger>
-          <TabsTrigger value="pending">Cho xu ly ({reports.filter(r => r.status === 'pending').length})</TabsTrigger>
-          <TabsTrigger value="reviewing">Dang xem ({reports.filter(r => r.status === 'reviewing').length})</TabsTrigger>
-          <TabsTrigger value="critical">Critical ({reports.filter(r => r.priority === 'critical').length})</TabsTrigger>
+          <TabsTrigger value="all">{t('admin_reports.tabs.all', { count: reports.length })}</TabsTrigger>
+          <TabsTrigger value="pending">{t('admin_reports.tabs.pending', { count: reports.filter(r => r.status === 'pending').length })}</TabsTrigger>
+          <TabsTrigger value="reviewing">{t('admin_reports.tabs.reviewing', { count: reports.filter(r => r.status === 'reviewing').length })}</TabsTrigger>
+          <TabsTrigger value="critical">{t('admin_reports.tabs.critical', { count: reports.filter(r => r.priority === 'critical').length })}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-6">
-          <TableFilter title="Bo loc report" configs={filterConfigs} onFilterChange={handleFilter} />
+          <TableFilter title={t('admin_reports.filter_title')} configs={filterConfigs} onFilterChange={handleFilter} />
 
           <AdminBulkActionBar
             count={selectedReportIds.length}
-            label="reports selected"
+            label={t('admin_reports.bulk.selected_label')}
             onClear={() => setSelectedReportIds([])}
             actions={[
               {
                 key: 'review',
-                label: 'Mark reviewing',
+                label: t('admin_reports.bulk.mark_reviewing'),
                 onClick: () => openConfirm(
-                  'Mark selected reports as reviewing',
-                  `Move ${selectedReportIds.length} selected reports into reviewing?`,
-                  'Mark reviewing',
-                  () => bulkUpdateReports(selectedReportIds, (report) => handleStatusChange(report, 'reviewing'), 'Da chuyen report sang dang xem'),
+                  t('admin_reports.bulk.mark_reviewing_title'),
+                  t('admin_reports.bulk.mark_reviewing_description', { count: selectedReportIds.length }),
+                  t('admin_reports.bulk.mark_reviewing'),
+                  () => bulkUpdateReports(selectedReportIds, (report) => handleStatusChange(report, 'reviewing'), t('admin_reports.toasts.bulk_reviewing_success')),
                 ),
               },
               {
                 key: 'dismiss',
-                label: 'Dismiss',
+                label: t('admin_reports.bulk.dismiss'),
                 destructive: true,
                 onClick: () => openConfirm(
-                  'Dismiss selected reports',
-                  `Dismiss ${selectedReportIds.length} selected reports?`,
-                  'Dismiss',
-                  () => bulkUpdateReports(selectedReportIds, (report) => handleStatusChange(report, 'dismissed'), 'Da bo qua report da chon'),
+                  t('admin_reports.bulk.dismiss_title'),
+                  t('admin_reports.bulk.dismiss_description', { count: selectedReportIds.length }),
+                  t('admin_reports.bulk.dismiss'),
+                  () => bulkUpdateReports(selectedReportIds, (report) => handleStatusChange(report, 'dismissed'), t('admin_reports.toasts.bulk_dismiss_success')),
                   true,
                 ),
               },
               {
                 key: 'delete',
-                label: 'Delete content',
+                label: t('admin_reports.bulk.delete_content'),
                 destructive: true,
                 onClick: () => openConfirm(
-                  'Delete reported content',
-                  `Delete content for ${selectedReportIds.length} selected reports? This action may be irreversible.`,
-                  'Delete content',
-                  () => bulkUpdateReports(selectedReportIds, handleDeleteReport, 'Da xoa noi dung bi report'),
+                  t('admin_reports.bulk.delete_content_title'),
+                  t('admin_reports.bulk.delete_content_description', { count: selectedReportIds.length }),
+                  t('admin_reports.bulk.delete_content'),
+                  () => bulkUpdateReports(selectedReportIds, handleDeleteReport, t('admin_reports.toasts.bulk_delete_success')),
                   true,
                 ),
               },
@@ -513,11 +515,11 @@ export function ReportManagementPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Danh sach report ({filteredReports.length})</CardTitle>
+              <CardTitle>{t('admin_reports.list_title', { count: filteredReports.length })}</CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <p className="text-sm text-muted-foreground">Dang tai reports...</p>
+                <p className="text-sm text-muted-foreground">{t('admin_reports.loading')}</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -528,13 +530,13 @@ export function ReportManagementPage() {
                           onCheckedChange={(checked) => toggleAllFilteredReports(Boolean(checked))}
                         />
                       </TableHead>
-                      <TableHead>Nguoi bi report</TableHead>
-                      <TableHead>Loai</TableHead>
-                      <TableHead>Noi dung</TableHead>
-                      <TableHead>Ly do</TableHead>
-                      <TableHead>Muc do</TableHead>
-                      <TableHead>Trang thai</TableHead>
-                      <TableHead>Ngay</TableHead>
+                      <TableHead>{t('admin_reports.table.reported_user')}</TableHead>
+                      <TableHead>{t('admin_reports.table.type')}</TableHead>
+                      <TableHead>{t('admin_reports.table.content')}</TableHead>
+                      <TableHead>{t('admin_reports.table.reason')}</TableHead>
+                      <TableHead>{t('admin_reports.table.priority')}</TableHead>
+                      <TableHead>{t('admin_reports.table.status')}</TableHead>
+                      <TableHead>{t('admin_reports.table.date')}</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -549,18 +551,18 @@ export function ReportManagementPage() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium text-sm">{report.reported_user_name || 'Unknown user'}</p>
-                            <p className="text-xs text-muted-foreground">{report.report_count} bao cao</p>
+                            <p className="font-medium text-sm">{report.reported_user_name || t('admin_reports.unknown_user')}</p>
+                            <p className="text-xs text-muted-foreground">{t('admin_reports.report_count', { count: report.report_count })}</p>
                           </div>
                         </TableCell>
                         <TableCell>{getTypeBadge(report.reported_type)}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium text-sm line-clamp-1">{report.reported_content_title || 'Khong co tieu de'}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{report.description || 'Khong co mo ta'}</p>
+                            <p className="font-medium text-sm line-clamp-1">{report.reported_content_title || t('admin_reports.no_title')}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{report.description || t('admin_reports.no_description')}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">{report.reason || 'Khong ro'}</TableCell>
+                        <TableCell className="text-sm">{report.reason || t('admin_reports.unknown_reason')}</TableCell>
                         <TableCell>{getPriorityBadge(report.priority)}</TableCell>
                         <TableCell>{getStatusBadge(report.status)}</TableCell>
                         <TableCell className="text-sm">{report.created_at.toLocaleDateString('vi-VN')}</TableCell>
@@ -574,47 +576,47 @@ export function ReportManagementPage() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => setSelectedReport(report)}>
                                 <Eye className="h-4 w-4 mr-2" />
-                                Xem chi tiet
+                                {t('admin_reports.actions.view_details')}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {report.status === 'pending' && (
                                 <DropdownMenuItem onClick={() => openConfirm(
-                                  'Start reviewing report',
-                                  `Move report ${report.id} into reviewing?`,
-                                  'Start reviewing',
+                                  t('admin_reports.actions.start_reviewing_title'),
+                                  t('admin_reports.actions.start_reviewing_description', { id: report.id }),
+                                  t('admin_reports.actions.start_reviewing'),
                                   () => handleStatusChange(report, 'reviewing'),
                                 )}>
                                   <Eye className="h-4 w-4 mr-2" />
-                                  Bat dau xem
+                                  {t('admin_reports.actions.start_reviewing')}
                                 </DropdownMenuItem>
                               )}
                               {(report.status === 'pending' || report.status === 'reviewing') && (
                                 <>
                                   <DropdownMenuItem onClick={() => setSelectedReport(report)}>
                                     <CheckCircle className="h-4 w-4 mr-2" />
-                                    Xu ly
+                                    {t('admin_reports.actions.resolve')}
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => openConfirm(
-                                    'Dismiss report',
-                                    `Dismiss report ${report.id}?`,
-                                    'Dismiss',
+                                    t('admin_reports.actions.dismiss_title'),
+                                    t('admin_reports.actions.dismiss_description', { id: report.id }),
+                                    t('admin_reports.bulk.dismiss'),
                                     () => handleStatusChange(report, 'dismissed'),
                                     true,
                                   )}>
                                     <XCircle className="h-4 w-4 mr-2" />
-                                    Bo qua
+                                    {t('admin_reports.actions.dismiss')}
                                   </DropdownMenuItem>
                                 </>
                               )}
                               <DropdownMenuItem className="text-red-600" onClick={() => openConfirm(
-                                'Delete reported content',
-                                `Delete content associated with report ${report.id}? This action may be irreversible.`,
-                                'Delete content',
+                                t('admin_reports.actions.delete_content_title'),
+                                t('admin_reports.actions.delete_content_description', { id: report.id }),
+                                t('admin_reports.bulk.delete_content'),
                                 () => handleDeleteReport(report),
                                 true,
                               )}>
                                 <Trash2 className="h-4 w-4 mr-2" />
-                                Xoa noi dung
+                                {t('admin_reports.actions.delete_content')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -633,7 +635,7 @@ export function ReportManagementPage() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  {tab === 'pending' ? 'Reports cho xu ly' : tab === 'reviewing' ? 'Reports dang xem' : 'Reports critical'}
+                  {tab === 'pending' ? t('admin_reports.section_titles.pending') : tab === 'reviewing' ? t('admin_reports.section_titles.reviewing') : t('admin_reports.section_titles.critical')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -649,24 +651,24 @@ export function ReportManagementPage() {
                               {getTypeBadge(report.reported_type)}
                               {getStatusBadge(report.status)}
                             </div>
-                            <p className="font-medium">{report.reported_content_title || 'Khong co tieu de'}</p>
-                            <p className="text-sm text-muted-foreground">Tac gia: {report.reported_user_name || 'Unknown'}</p>
-                            <p className="text-sm">Ly do: {report.reason || 'Khong ro'}</p>
-                            <p className="text-sm text-muted-foreground">{report.description || 'Khong co mo ta chi tiet'}</p>
+                            <p className="font-medium">{report.reported_content_title || t('admin_reports.no_title')}</p>
+                            <p className="text-sm text-muted-foreground">{t('admin_reports.author_label', { name: report.reported_user_name || t('admin_reports.unknown_user') })}</p>
+                            <p className="text-sm">{t('admin_reports.reason_label', { reason: report.reason || t('admin_reports.unknown_reason') })}</p>
+                            <p className="text-sm text-muted-foreground">{report.description || t('admin_reports.no_detailed_description')}</p>
                           </div>
                           <div className="flex flex-col gap-2">
                             <Button size="sm" onClick={() => setSelectedReport(report)}>
                               <Eye className="h-4 w-4 mr-2" />
-                              Chi tiet
+                              {t('admin_reports.actions.details')}
                             </Button>
                             {report.status === 'pending' && (
                               <Button size="sm" variant="outline" onClick={() => openConfirm(
-                                'Start reviewing report',
-                                `Move report ${report.id} into reviewing?`,
-                                'Start reviewing',
+                                t('admin_reports.actions.start_reviewing_title'),
+                                t('admin_reports.actions.start_reviewing_description', { id: report.id }),
+                                t('admin_reports.actions.start_reviewing'),
                                 () => handleStatusChange(report, 'reviewing'),
                               )}>
-                                Bat dau xem
+                                {t('admin_reports.actions.start_reviewing')}
                               </Button>
                             )}
                           </div>
@@ -687,7 +689,7 @@ export function ReportManagementPage() {
         }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>Chi tiet report</DialogTitle>
+              <DialogTitle>{t('admin_reports.detail.title')}</DialogTitle>
               <DialogDescription>{selectedReport.id}</DialogDescription>
             </DialogHeader>
 
@@ -700,11 +702,11 @@ export function ReportManagementPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm font-medium mb-1">Nguoi bi report</p>
-                  <p className="text-sm">{selectedReport.reported_user_name || 'Unknown user'}</p>
+                  <p className="text-sm font-medium mb-1">{t('admin_reports.detail.reported_user')}</p>
+                  <p className="text-sm">{selectedReport.reported_user_name || t('admin_reports.unknown_user')}</p>
                 </div>
                 <div>
-                  <p className="text-sm font-medium mb-1">Ngay report</p>
+                  <p className="text-sm font-medium mb-1">{t('admin_reports.detail.report_date')}</p>
                   <p className="text-sm">{selectedReport.created_at.toLocaleString('vi-VN')}</p>
                 </div>
               </div>
@@ -712,57 +714,57 @@ export function ReportManagementPage() {
               {selectedReport.reported_type === 'forum_post' ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium mb-1">Chu de</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.topic')}</p>
                     <p className="text-sm">{selectedReport.reported_content_title}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium mb-1">Noi dung bai viet</p>
-                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || 'Khong co noi dung'}</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.post_content')}</p>
+                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || t('admin_reports.no_content')}</p>
                   </div>
                 </div>
               ) : selectedReport.reported_type === 'qa_question' ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium mb-1">Khoa hoc / Q&A</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.course_or_qa')}</p>
                     <p className="text-sm">{selectedReport.reported_content_title}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium mb-1">Cau hoi</p>
-                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || 'Khong co noi dung'}</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.question')}</p>
+                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || t('admin_reports.no_content')}</p>
                   </div>
                 </div>
               ) : selectedReport.reported_type === 'message' ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium mb-1">Cuoc tro chuyen</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.conversation')}</p>
                     <p className="text-sm">{selectedReport.reported_content_title}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium mb-1">Tin nhan</p>
-                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || 'Khong co noi dung'}</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.message')}</p>
+                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || t('admin_reports.no_content')}</p>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-medium mb-1">Khoa hoc</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.course')}</p>
                     <p className="text-sm">{selectedReport.reported_content_title}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium mb-1">Noi dung review</p>
-                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || 'Khong co noi dung'}</p>
+                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.review_content')}</p>
+                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || t('admin_reports.no_content')}</p>
                   </div>
                 </div>
               )}
 
               <div>
-                <p className="text-sm font-medium mb-1">Ly do gan nhat</p>
-                <Badge variant="outline">{selectedReport.reason || 'Khong ro'}</Badge>
+                <p className="text-sm font-medium mb-1">{t('admin_reports.detail.latest_reason')}</p>
+                <Badge variant="outline">{selectedReport.reason || t('admin_reports.unknown_reason')}</Badge>
               </div>
 
               {selectedReport.resolution && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm font-medium mb-1 text-green-600">Ket qua xu ly</p>
+                  <p className="text-sm font-medium mb-1 text-green-600">{t('admin_reports.detail.resolution_result')}</p>
                   <p className="text-sm">{selectedReport.resolution}</p>
                 </div>
               )}
@@ -770,11 +772,11 @@ export function ReportManagementPage() {
               {(selectedReport.status === 'pending' || selectedReport.status === 'reviewing') && (
                 <div className="space-y-4 pt-4 border-t">
                   <div>
-                    <p className="text-sm font-medium mb-2">Ghi chu xu ly</p>
+                    <p className="text-sm font-medium mb-2">{t('admin_reports.detail.resolution_notes')}</p>
                     <Textarea
                       value={resolutionText}
                       onChange={(e) => setResolutionText(e.target.value)}
-                      placeholder="Nhap ghi chu moderation neu can"
+                      placeholder={t('admin_reports.detail.resolution_placeholder')}
                       rows={3}
                     />
                   </div>
@@ -804,7 +806,7 @@ export function ReportManagementPage() {
                       }}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      Danh dau da xu ly
+                      {t('admin_reports.actions.mark_resolved')}
                     </Button>
                     <Button
                       variant="outline"
@@ -815,7 +817,7 @@ export function ReportManagementPage() {
                       }}
                     >
                       <XCircle className="h-4 w-4 mr-2" />
-                      Bo qua report
+                      {t('admin_reports.actions.dismiss')}
                     </Button>
                   </div>
                 </div>

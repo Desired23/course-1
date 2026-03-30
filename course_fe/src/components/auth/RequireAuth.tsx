@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { useAuth, UserRole } from '../../contexts/AuthContext'
 import { useRouter } from '../Router'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface RequireAuthProps {
   children: React.ReactNode
@@ -20,12 +21,13 @@ export function RequireAuth({
 }: RequireAuthProps) {
   const { user, isAuthenticated, canAccess } = useAuth()
   const { navigate } = useRouter()
+  const { t } = useTranslation()
 
   useEffect(() => {
     // Check if user is authenticated
     if (!isAuthenticated) {
       if (showToast) {
-        toast.error('Please login to access this page')
+        toast.error(t('system_notifications.login_required_description'))
       }
       navigate(redirectTo)
       return
@@ -34,7 +36,7 @@ export function RequireAuth({
     // Check role and permission access
     if (!canAccess(roles, permissions)) {
       if (showToast) {
-        toast.error('You do not have permission to access this page')
+        toast.error(t('system_notifications.access_denied_description'))
       }
       // Redirect based on user's role
       if (user?.roles.includes('admin')) {

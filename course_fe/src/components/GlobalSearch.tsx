@@ -3,8 +3,10 @@ import { Search, X, Clock, TrendingUp, BookOpen } from "lucide-react"
 import { useRouter } from "./Router"
 import { getCoursesWithInstructors } from "../data/db-extended"
 import { Input } from "./ui/input"
+import { useTranslation } from "react-i18next"
 
 export function GlobalSearch() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any[]>([])
@@ -88,7 +90,7 @@ export function GlobalSearch() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input
           type="text"
-          placeholder="Search for anything"
+          placeholder={t("global_search.placeholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsOpen(true)}
@@ -117,7 +119,7 @@ export function GlobalSearch() {
             <div className="p-4">
               <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
-                Courses
+                {t("global_search.courses")}
               </div>
               <div className="space-y-2">
                 {results.map((course) => (
@@ -153,7 +155,7 @@ export function GlobalSearch() {
                 onClick={() => handleSearch(query)}
                 className="w-full mt-3 py-2 text-sm text-primary hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                See all results for "{query}"
+                {t("global_search.see_all_results", { query })}
               </button>
             </div>
           )}
@@ -162,12 +164,12 @@ export function GlobalSearch() {
           {query.length > 2 && results.length === 0 && (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No courses found for "{query}"</p>
+              <p className="text-sm">{t("global_search.no_results", { query })}</p>
               <button
                 onClick={() => handleSearch(query)}
                 className="mt-3 text-sm text-primary hover:underline"
               >
-                Search anyway
+                {t("global_search.search_anyway")}
               </button>
             </div>
           )}
@@ -180,7 +182,7 @@ export function GlobalSearch() {
                 <div>
                   <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
                     <Clock className="w-4 h-4" />
-                    Recent searches
+                    {t("global_search.recent_searches")}
                   </div>
                   <div className="space-y-1">
                     {recentSearches.map((search, index) => (
@@ -201,7 +203,7 @@ export function GlobalSearch() {
               <div>
                 <div className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" />
-                  Popular searches
+                  {t("global_search.popular_searches")}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {popularSearches.map((search, index) => (

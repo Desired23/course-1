@@ -1,9 +1,11 @@
-import { Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen, Loader2 } from "lucide-react"
-import { Button } from "./ui/button"
-import { Card, CardContent } from "./ui/card"
-import { useRouter } from "./Router"
+import { useEffect, useState } from "react"
+import { BookOpen, Briefcase, Code, Database, Loader2, Megaphone, Music, Palette } from "lucide-react"
+import { useTranslation } from "react-i18next"
+
 import { getTopCategories, type Category } from "../services/category.api"
-import { useState, useEffect } from "react"
+import { useRouter } from "./Router"
+import { Card, CardContent } from "./ui/card"
+import { Button } from "./ui/button"
 
 const CATEGORY_COLOR: Record<string, string> = {
   Development: 'bg-blue-100 text-blue-600',
@@ -15,6 +17,7 @@ const CATEGORY_COLOR: Record<string, string> = {
 }
 
 export function Categories() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const [categories, setCategories] = useState<(Category & { icon: string; color: string })[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,22 +25,25 @@ export function Categories() {
   useEffect(() => {
     let cancelled = false
     getTopCategories(6)
-      .then(res => {
+      .then((result) => {
         if (!cancelled) {
-          const topLevel = res.map(c => ({
-            ...c,
-            icon: c.icon || 'BookOpen',
-            color: CATEGORY_COLOR[c.name] || 'bg-gray-100 text-gray-600',
+          const topLevel = result.map((category) => ({
+            ...category,
+            icon: category.icon || 'BookOpen',
+            color: CATEGORY_COLOR[category.name] || 'bg-gray-100 text-gray-600',
           }))
           setCategories(topLevel.slice(0, 6))
           setLoading(false)
         }
       })
-      .catch(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
-  
-  // Icon mapping
+
   const iconMap: Record<string, any> = {
     Code,
     Briefcase,
@@ -45,16 +51,16 @@ export function Categories() {
     Megaphone,
     Database,
     Music,
-    BookOpen
+    BookOpen,
   }
-  
+
   return (
     <section className="py-16 px-4 bg-white dark:bg-gray-950">
       <div className="container mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">Top categories</h2>
+          <h2 className="text-3xl font-bold mb-4">{t('categories_component.title')}</h2>
           <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Choose from thousands of courses created by expert instructors
+            {t('categories_component.subtitle')}
           </p>
         </div>
 
@@ -63,33 +69,30 @@ export function Categories() {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {categories.map((category) => {
-            const Icon = iconMap[category.icon] || BookOpen
-            return (
-              <Card 
-                key={category.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => navigate('/courses', undefined, { category: String(category.id) })}
-              >
-                <CardContent className="p-6 text-center">
-                  <div className={`w-12 h-12 ${category.color} rounded-lg flex items-center justify-center mx-auto mb-3`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="font-semibold mb-1">{category.name}</h3>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {categories.map((category) => {
+              const Icon = iconMap[category.icon] || BookOpen
+              return (
+                <Card
+                  key={category.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate('/courses', undefined, { category: String(category.id) })}
+                >
+                  <CardContent className="p-6 text-center">
+                    <div className={`w-12 h-12 ${category.color} rounded-lg flex items-center justify-center mx-auto mb-3`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className="font-semibold mb-1">{category.name}</h3>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
         )}
 
         <div className="text-center mt-8">
-          <Button 
-            variant="outline"
-            onClick={() => navigate('/categories')}
-          >
-            Explore all categories
+          <Button variant="outline" onClick={() => navigate('/categories')}>
+            {t('categories_component.explore_all')}
           </Button>
         </div>
       </div>

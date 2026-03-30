@@ -10,7 +10,9 @@ from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
 
 from .refund_services import (
+    DELETED_STATUS,
     admin_update_refund_status,
+    admin_refund_action,
     get_admin_refunds,
     user_cancel_refund_request,
     get_refund_details,
@@ -18,7 +20,9 @@ from .refund_services import (
     get_user_refunds,
 )
 from .services import (
+    can_retry_payment,
     create_payment,
+    get_payment_retry_deadline,
     get_payment_status,
     check_enrollment_by_course,
     fix_payment,
@@ -26,7 +30,8 @@ from .services import (
     get_payment_admin_config,
     update_payment_admin_config,
 )
-from .vnpay_services import create_vnpay_payment, send_vnpay_refund_request
+from .momo_services import create_momo_payment, momo_ipn, momo_payment_return
+from .vnpay_services import build_vnpay_payment_data, create_vnpay_payment, send_vnpay_refund_request
 from .vnpay_services import payment_ipn, payment_return
 
 
@@ -41,11 +46,36 @@ class CreateVnpayPaymentView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class CreateMomoPaymentView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
+
+    def post(self, request):
+        try:
+            payment_id = request.data.get("payment_id") or request.data.get("order_id")
+            from .models import Payment
+            payment = Payment.objects.get(id=payment_id, user=request.user, is_deleted=False)
+            return Response(create_momo_payment(payment), status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
 class VnpayIPNView(APIView):
     def get(self, request):
         try:
             return_data = payment_ipn(request)
             return return_data
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MomoIPNView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        try:
+            return momo_ipn(request)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -72,6 +102,24 @@ class VnpayPaymentReturnView(APIView):
             return HttpResponseRedirect(redirect_url)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
+class MomoPaymentReturnView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        try:
+            return momo_payment_return(request)
+        except Exception as e:
+            from django.conf import settings
+            from django.http import HttpResponseRedirect
+            import urllib.parse
+
+            fe_url = settings.FRONTEND_URL
+            redirect_url = f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
+            return HttpResponseRedirect(redirect_url)
+
+
 class CreatePaymentRecordView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'payment'
@@ -80,8 +128,38 @@ class CreatePaymentRecordView(APIView):
         try:
             data = request.data.copy()
             data['user_id'] = request.user.id
-            payment = create_payment(data)
-            return Response(payment, status=status.HTTP_201_CREATED)
+            payment_result = create_payment(data)
+
+            if data.get('payment_method') == 'momo':
+                from .models import Payment
+
+                payment_obj = Payment.objects.get(
+                    id=payment_result['payment']['id'],
+                    user=request.user,
+                    is_deleted=False,
+                )
+                momo_payment = create_momo_payment(payment_obj)
+                payment_result['gateway_payment'] = {
+                    'provider': 'momo',
+                    'url': momo_payment.get('payUrl'),
+                    'payload': momo_payment,
+                }
+            elif data.get('payment_method') == 'vnpay':
+                from .models import Payment
+
+                payment_obj = Payment.objects.get(
+                    id=payment_result['payment']['id'],
+                    user=request.user,
+                    is_deleted=False,
+                )
+                vnpay_payment = build_vnpay_payment_data(request, payment=payment_obj)
+                payment_result['gateway_payment'] = {
+                    'provider': 'vnpay',
+                    'url': vnpay_payment.get('payment_url'),
+                    'payload': vnpay_payment,
+                }
+
+            return Response(payment_result, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -130,12 +208,16 @@ class AdminRefundUpdateView(APIView):
             search = (request.query_params.get('search') or '').strip()
             date_from = request.query_params.get('date_from')
             date_to = request.query_params.get('date_to')
+            include_deleted = request.query_params.get('include_deleted') == 'true'
+            retryable = request.query_params.get('retryable') == 'true'
 
             data = get_admin_refunds(
                 refund_status_filter=refund_status_filter,
                 search=search,
                 date_from=date_from,
                 date_to=date_to,
+                include_deleted=include_deleted,
+                retryable=retryable,
             )
 
             paginator = StandardPagination()
@@ -151,8 +233,31 @@ class AdminRefundUpdateView(APIView):
             refund_status = request.data.get('status')
             response_code = request.data.get('response_code')
             transaction_id = request.data.get('transaction_id')
-            admin_update_refund_status(payment_id, payment_details_ids, refund_status, response_code, transaction_id)
-            return Response({"message": "Refund status updated successfully"}, status=status.HTTP_200_OK)
+            result = admin_update_refund_status(
+                payment_id,
+                payment_details_ids,
+                refund_status,
+                response_code,
+                transaction_id,
+                admin_user=request.user,
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminRefundActionView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'payment'
+
+    def post(self, request):
+        try:
+            action = request.data.get('action')
+            refund_ids = request.data.get('refund_ids') or []
+            note = request.data.get('note')
+            override_status = request.data.get('override_status')
+            result = admin_refund_action(action, refund_ids, request.user, note=note, override_status=override_status)
+            return Response(result, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -280,6 +385,8 @@ class UserPaymentListView(APIView):
                     'payment_method': payment.payment_method,
                     'refund_amount': str(payment.refund_amount),
                     'created_at': payment.created_at.isoformat() if payment.created_at else None,
+                    'retryable_until': get_payment_retry_deadline(payment).isoformat() if get_payment_retry_deadline(payment) else None,
+                    'can_retry_payment': can_retry_payment(payment),
                     'items': [],
                 }
 
@@ -288,7 +395,7 @@ class UserPaymentListView(APIView):
                     enrollment = enrollments_by_course.get(detail.course_id)
                     is_refund_locked = (
                         bool(detail.refund_request_time)
-                        or detail.refund_status in ['approved', 'success', 'rejected', 'failed', 'cancelled']
+                        or detail.refund_status in ['approved', 'processing', 'success', 'rejected', 'failed', 'cancelled']
                     )
 
                     refund_eligible = True
@@ -309,6 +416,8 @@ class UserPaymentListView(APIView):
                             refund_disabled_reason = 'Đã gửi yêu cầu hoàn tiền.'
                         elif detail.refund_status == 'success':
                             refund_disabled_reason = 'Khóa học đã được hoàn tiền.'
+                        elif detail.refund_status == 'processing':
+                            refund_disabled_reason = 'Yêu cầu hoàn tiền đang được xử lý với cổng thanh toán.'
                         elif detail.refund_status == 'cancelled':
                             refund_disabled_reason = 'Yêu cầu hoàn tiền đã bị hủy.'
                         elif detail.refund_status == 'rejected':
@@ -362,6 +471,13 @@ class UserPaymentListView(APIView):
                         'refund_request_time': detail.refund_request_time.isoformat() if detail.refund_request_time else None,
                         'refund_amount': str(detail.refund_amount) if detail.refund_amount else None,
                         'refund_reason': detail.refund_reason,
+                        'gateway_attempt_count': detail.gateway_attempt_count,
+                        'last_gateway_attempt_at': detail.last_gateway_attempt_at.isoformat() if detail.last_gateway_attempt_at else None,
+                        'next_retry_at': detail.next_retry_at.isoformat() if detail.next_retry_at else None,
+                        'last_gateway_error': detail.last_gateway_error,
+                        'internal_note_summary': (detail.internal_note[:120] if detail.internal_note else None),
+                        'is_deleted': detail.is_deleted,
+                        'deleted_at': detail.deleted_at.isoformat() if detail.deleted_at else None,
                         'refund_eligible': refund_eligible,
                         'refund_disabled_reason': refund_disabled_reason,
                         'enrollment_status': enrollment.status if enrollment else None,
@@ -396,6 +512,7 @@ class UserRefundListView(APIView):
             search = (request.query_params.get('search') or '').strip()
             date_from = request.query_params.get('date_from')
             date_to = request.query_params.get('date_to')
+            include_deleted = request.query_params.get('include_deleted') == 'true'
 
             data = get_user_refunds(
                 request.user,
@@ -404,6 +521,17 @@ class UserRefundListView(APIView):
                 date_from=date_from,
                 date_to=date_to,
             )
+
+            if include_deleted:
+                deleted_data = get_user_refunds(
+                    request.user,
+                    DELETED_STATUS if not refund_status_filter else refund_status_filter,
+                    search=search,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
+                if refund_status_filter in [None, '', 'all']:
+                    data = data + deleted_data
 
             paginator = StandardPagination()
             paged_result = paginator.paginate_queryset(data, request, view=self)

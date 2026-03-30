@@ -5,11 +5,14 @@ import { getActiveCategories, type Category } from "../services/category.api"
 import { cn } from "./ui/utils"
 import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
+import { useSiteBranding } from "../hooks/useSiteBranding"
 
 export function Footer() {
   const { t, i18n } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const [apiCategories, setApiCategories] = useState<Category[]>([])
+  const { siteLogo, siteName } = useSiteBranding()
+  const siteInitial = siteName?.charAt(0)?.toUpperCase() || "U"
   
   const isUserDashboard = 
     currentRoute.startsWith('/my-learning') ||
@@ -70,11 +73,11 @@ export function Footer() {
   ]
 
   const socialLinks = [
-    { icon: Facebook, label: "Facebook", url: "https://facebook.com/udemy" },
-    { icon: Twitter, label: "Twitter", url: "https://twitter.com/udemy" },
-    { icon: Youtube, label: "YouTube", url: "https://youtube.com/udemy" },
-    { icon: Linkedin, label: "LinkedIn", url: "https://linkedin.com/company/udemy" },
-    { icon: Instagram, label: "Instagram", url: "https://instagram.com/udemy" }
+    { icon: Facebook, label: t('footer.social.facebook'), url: "https://facebook.com/udemy" },
+    { icon: Twitter, label: t('footer.social.twitter'), url: "https://twitter.com/udemy" },
+    { icon: Youtube, label: t('footer.social.youtube'), url: "https://youtube.com/udemy" },
+    { icon: Linkedin, label: t('footer.social.linkedin'), url: "https://linkedin.com/company/udemy" },
+    { icon: Instagram, label: t('footer.social.instagram'), url: "https://instagram.com/udemy" }
   ]
 
   return (
@@ -163,11 +166,21 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center space-x-1">
-            <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
-              <span className="text-black font-bold">U</span>
-            </div>
-            <span className="font-bold text-xl">Udemy</span>
+          <div className="flex items-center gap-2">
+            {siteLogo ? (
+              <img
+                src={siteLogo}
+                alt={siteName}
+                className="h-8 w-auto max-w-[132px] object-contain shrink-0"
+              />
+            ) : (
+              <>
+                <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+                  <span className="text-black font-bold">{siteInitial}</span>
+                </div>
+                <span className="font-bold text-xl">{siteName}</span>
+              </>
+            )}
           </div>
           
           <p className="text-gray-400 text-sm text-center">

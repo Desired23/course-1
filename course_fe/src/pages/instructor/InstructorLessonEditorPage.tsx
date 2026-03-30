@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from '../../components/Router'
 import { useUIStore } from '../../stores'
 import { Button } from '../../components/ui/button'
-import { Badge } from '../../components/ui/badge'
 import { Switch } from '../../components/ui/switch'
 import { Label } from '../../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import {
   Save,
-  X,
   FileText,
   Settings,
   Paperclip,
@@ -30,11 +28,11 @@ import { QuizTab } from '../../components/QuizTab'
 import { SettingsTab } from '../../components/SettingsTab'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { EnhancedCodeQuizCreator } from '../../components/EnhancedCodeQuizCreator'
-import { InstructorLayout } from '../../components/layouts'
 import { getLessonById, updateLesson as updateLessonApi } from '../../services/lessons.api'
 import { getCourseModuleById } from '../../services/course-modules.api'
 import { getQuestionsByLesson } from '../../services/quiz-questions.api'
 import { getAttachmentsByLesson } from '../../services/lesson-attachments.api'
+import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
@@ -57,14 +55,15 @@ interface Lesson {
 }
 
 const STEPS = [
-  { id: 'basic', title: 'Basic Info', icon: FileText, description: 'Title, type & metadata' },
-  { id: 'content', title: 'Content', icon: Code, description: 'Main lesson content' },
-  { id: 'resources', title: 'Resources', icon: Paperclip, description: 'Attachments & links' },
-  { id: 'settings', title: 'Settings', icon: Settings, description: 'Visibility & access' },
+  { id: 'basic', icon: FileText },
+  { id: 'content', icon: Code },
+  { id: 'resources', icon: Paperclip },
+  { id: 'settings', icon: Settings },
 ]
 
 export function InstructorLessonEditorPage() {
   const { navigate, params } = useRouter()
+  const { t } = useTranslation()
   // params might not be available directly via useRouter depending on implementation, 
   // but typically we can get them. If not, we'll rely on path parsing or just mock it.
   // Assuming a route like /instructor/courses/:courseId/lessons/:lessonId/edit
@@ -164,7 +163,7 @@ export function InstructorLessonEditorPage() {
         // Fetch attachments
         try {
           const attachments = await getAttachmentsByLesson(lesson.id)
-          mapped.resources = attachments.map((a: any) => a.file_name || a.title || 'attachment')
+          mapped.resources = attachments.map((a: any) => a.file_name || a.title || t('instructor_lesson_editor_page.fallbacks.attachment'))
         } catch {
           // No attachments yet
         }
@@ -188,13 +187,13 @@ export function InstructorLessonEditorPage() {
         setIsDirty(false)
         setCurrentStep(0)
       } catch (err) {
-        console.error('Failed to load lesson:', err)
-        toast.error('Failed to load lesson data')
+        console.error(t('instructor_lesson_editor_page.errors.load_lesson_console'), err)
+        toast.error(t('instructor_lesson_editor_page.errors.load_lesson_data'))
       }
     }
     fetchLesson()
     return () => { cancelled = true }
-  }, [params?.lessonId])
+  }, [params?.lessonId, t])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -212,7 +211,7 @@ export function InstructorLessonEditorPage() {
   const handleBackNavigation = () => {
     if (isDirty) {
       const confirmed = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave?'
+        t('instructor_lesson_editor_page.confirms.unsaved_changes')
       )
       if (!confirmed) return
     }
@@ -228,7 +227,7 @@ export function InstructorLessonEditorPage() {
 
     // Validation
     if (!editedLesson.title.trim()) {
-      toast.error('Please enter a lesson title')
+      toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
       setCurrentStep(0)
       return
     }
@@ -263,10 +262,10 @@ export function InstructorLessonEditorPage() {
       
       setIsDirty(false)
       setLastSaved(new Date())
-      toast.success('Lesson saved successfully!')
+      toast.success(t('instructor_lesson_editor_page.toasts.lesson_saved'))
     } catch (error) {
       console.error(error)
-      toast.error('Failed to save lesson')
+      toast.error(t('instructor_lesson_editor_page.errors.save_lesson'))
     } finally {
       setIsSaving(false)
     }
@@ -282,7 +281,7 @@ export function InstructorLessonEditorPage() {
     if (currentStep < STEPS.length - 1) {
       // Validation before moving from Basic
       if (currentStep === 0 && !editedLesson?.title.trim()) {
-        toast.error('Please enter a lesson title')
+        toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
         return
       }
       setCurrentStep(curr => curr + 1)
@@ -310,8 +309,6 @@ export function InstructorLessonEditorPage() {
     }
   }
 
-  const currentStatus = statusConfig[editedLesson.status as keyof typeof statusConfig] || statusConfig.draft
-
   // Render Step Content
   const renderStepContent = () => {
     switch (currentStep) {
@@ -327,10 +324,10 @@ export function InstructorLessonEditorPage() {
               <div className="mb-4">
                 <h3 className="text-lg font-medium flex items-center gap-2">
                   <Code className="h-5 w-5 text-red-500" />
-                  Coding Exercise Configuration
+                  {t('instructor_lesson_editor_page.code_quiz.title')}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Configure the coding problem, test cases, and constraints.
+                  {t('instructor_lesson_editor_page.code_quiz.description')}
                 </p>
               </div>
               <div className="flex-1 border rounded-md overflow-hidden bg-background">
@@ -373,9 +370,13 @@ export function InstructorLessonEditorPage() {
                </Button>
                <div>
                 <h1 className="text-xl font-bold flex items-center gap-3">
-                  {editedLesson.id ? 'Edit Lesson' : 'New Lesson'}
+                  {editedLesson.id
+                    ? t('instructor_lesson_editor_page.header.edit_lesson')
+                    : t('instructor_lesson_editor_page.header.new_lesson')}
                 </h1>
-                <p className="text-sm text-muted-foreground">{editedLesson.title || 'Untitled Lesson'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {editedLesson.title || t('instructor_lesson_editor_page.header.untitled_lesson')}
+                </p>
                </div>
             </div>
             
@@ -388,7 +389,9 @@ export function InstructorLessonEditorPage() {
                       checked={editedLesson.is_free}
                       onCheckedChange={(checked) => handleUpdate({ is_free: checked })}
                     />
-                    <Label htmlFor="free-preview" className="text-sm cursor-pointer font-medium">Free Preview</Label>
+                    <Label htmlFor="free-preview" className="text-sm cursor-pointer font-medium">
+                      {t('instructor_lesson_editor_page.actions.free_preview')}
+                    </Label>
                   </div>
                   
                   <Select 
@@ -405,13 +408,13 @@ export function InstructorLessonEditorPage() {
                       <SelectItem value="draft">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>Draft</span>
+                          <span>{t('instructor_lesson_editor_page.status.draft')}</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="published">
                         <div className="flex items-center gap-2">
                           <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Published</span>
+                          <span>{t('instructor_lesson_editor_page.status.published')}</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -421,22 +424,22 @@ export function InstructorLessonEditorPage() {
                {lastSaved && (
                 <span className="text-xs text-muted-foreground mr-4 flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3" />
-                  Saved {lastSaved.toLocaleTimeString()}
+                  {t('instructor_lesson_editor_page.actions.saved_at', { time: lastSaved.toLocaleTimeString() })}
                 </span>
                )}
                <Button variant="secondary" onClick={() => setShowPreview(true)}>
-                  Preview
+                  {t('instructor_lesson_editor_page.actions.preview')}
                </Button>
                <Button onClick={handleSave} disabled={isSaving}>
                   {isSaving ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving
+                      {t('instructor_lesson_editor_page.actions.saving')}
                     </>
                   ) : (
                     <>
                       <Save className="h-4 w-4 mr-2" />
-                      Save Changes
+                      {t('instructor_lesson_editor_page.actions.save_changes')}
                     </>
                   )}
                </Button>
@@ -472,7 +475,7 @@ export function InstructorLessonEditorPage() {
                         "text-sm font-medium transition-colors",
                         isActive ? "text-primary" : "text-muted-foreground"
                       )}>
-                        {step.title}
+                        {t(`instructor_lesson_editor_page.steps.${step.id}`)}
                       </p>
                     </div>
                   </button>
@@ -501,17 +504,17 @@ export function InstructorLessonEditorPage() {
                     className="w-32"
                   >
                     <ChevronLeft className="h-4 w-4 mr-2" />
-                    Back
+                    {t('instructor_lesson_editor_page.actions.back')}
                   </Button>
                   
                   {currentStep < STEPS.length - 1 ? (
                     <Button onClick={handleNext} className="w-32">
-                      Next
+                      {t('instructor_lesson_editor_page.actions.next')}
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
                     <Button onClick={handleSave} className="w-32">
-                      Finish
+                      {t('instructor_lesson_editor_page.actions.finish')}
                     </Button>
                   )}
               </div>

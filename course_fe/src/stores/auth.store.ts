@@ -58,47 +58,47 @@ export interface User {
 
 export const PERMISSIONS: Permission[] = [
   // Basic User permissions
-  { id: 'user.profile.view', name: 'View Profile', category: 'User', description: 'View user profiles' },
-  { id: 'user.profile.edit', name: 'Edit Profile', category: 'User', description: 'Edit own profile' },
-  { id: 'user.courses.enroll', name: 'Enroll Courses', category: 'User', description: 'Enroll in courses' },
-  { id: 'user.reviews.create', name: 'Create Reviews', category: 'User', description: 'Create course reviews' },
-  { id: 'user.comments.create', name: 'Create Comments', category: 'User', description: 'Create comments on posts' },
-  { id: 'user.comments.vote', name: 'Vote Comments', category: 'User', description: 'Vote on comments and replies' },
-  { id: 'user.blog.read', name: 'Read Blog Posts', category: 'User', description: 'Read blog posts' },
-  { id: 'user.qna.ask', name: 'Ask Questions', category: 'User', description: 'Ask questions in Q&A' },
-  { id: 'user.qna.answer', name: 'Answer Questions', category: 'User', description: 'Answer questions in Q&A' },
-  { id: 'user.social.follow', name: 'Follow Users', category: 'User', description: 'Follow other users' },
+  { id: 'user.profile.view', name: 'View Profile', category: 'User', description: 'permissions_page.permission_descriptions.user_profile_view' },
+  { id: 'user.profile.edit', name: 'Edit Profile', category: 'User', description: 'permissions_page.permission_descriptions.user_profile_edit' },
+  { id: 'user.courses.enroll', name: 'Enroll Courses', category: 'User', description: 'permissions_page.permission_descriptions.user_courses_enroll' },
+  { id: 'user.reviews.create', name: 'Create Reviews', category: 'User', description: 'permissions_page.permission_descriptions.user_reviews_create' },
+  { id: 'user.comments.create', name: 'Create Comments', category: 'User', description: 'permissions_page.permission_descriptions.user_comments_create' },
+  { id: 'user.comments.vote', name: 'Vote Comments', category: 'User', description: 'permissions_page.permission_descriptions.user_comments_vote' },
+  { id: 'user.blog.read', name: 'Read Blog Posts', category: 'User', description: 'permissions_page.permission_descriptions.user_blog_read' },
+  { id: 'user.qna.ask', name: 'Ask Questions', category: 'User', description: 'permissions_page.permission_descriptions.user_qna_ask' },
+  { id: 'user.qna.answer', name: 'Answer Questions', category: 'User', description: 'permissions_page.permission_descriptions.user_qna_answer' },
+  { id: 'user.social.follow', name: 'Follow Users', category: 'User', description: 'permissions_page.permission_descriptions.user_social_follow' },
   // Instructor permissions
-  { id: 'instructor.courses.create', name: 'Create Courses', category: 'Instructor', description: 'Create new courses' },
-  { id: 'instructor.courses.edit', name: 'Edit Courses', category: 'Instructor', description: 'Edit own courses' },
-  { id: 'instructor.courses.delete', name: 'Delete Courses', category: 'Instructor', description: 'Delete own courses' },
-  { id: 'instructor.lessons.manage', name: 'Manage Lessons', category: 'Instructor', description: 'Manage course lessons' },
-  { id: 'instructor.earnings.view', name: 'View Earnings', category: 'Instructor', description: 'View earnings data' },
-  { id: 'instructor.students.manage', name: 'Manage Students', category: 'Instructor', description: 'Manage course students' },
-  { id: 'instructor.blog.create', name: 'Create Blog Posts', category: 'Instructor', description: 'Create blog posts' },
-  { id: 'instructor.blog.edit', name: 'Edit Blog Posts', category: 'Instructor', description: 'Edit own blog posts' },
-  { id: 'instructor.qna.moderate', name: 'Moderate Q&A', category: 'Instructor', description: 'Moderate Q&A in own courses' },
-  { id: 'instructor.comments.moderate', name: 'Moderate Comments', category: 'Instructor', description: 'Moderate comments on own content' },
-  { id: 'instructor.analytics.view', name: 'View Analytics', category: 'Instructor', description: 'View course analytics' },
+  { id: 'instructor.courses.create', name: 'Create Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_create' },
+  { id: 'instructor.courses.edit', name: 'Edit Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_edit' },
+  { id: 'instructor.courses.delete', name: 'Delete Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_delete' },
+  { id: 'instructor.lessons.manage', name: 'Manage Lessons', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_lessons_manage' },
+  { id: 'instructor.earnings.view', name: 'View Earnings', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_earnings_view' },
+  { id: 'instructor.students.manage', name: 'Manage Students', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_students_manage' },
+  { id: 'instructor.blog.create', name: 'Create Blog Posts', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_blog_create' },
+  { id: 'instructor.blog.edit', name: 'Edit Blog Posts', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_blog_edit' },
+  { id: 'instructor.qna.moderate', name: 'Moderate Q&A', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_qna_moderate' },
+  { id: 'instructor.comments.moderate', name: 'Moderate Comments', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_comments_moderate' },
+  { id: 'instructor.analytics.view', name: 'View Analytics', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_analytics_view' },
   // Admin permissions
-  { id: 'admin.users.manage', name: 'Manage Users', category: 'Admin', description: 'Manage all users' },
-  { id: 'admin.users.ban', name: 'Ban Users', category: 'Admin', description: 'Ban/unban users' },
-  { id: 'admin.courses.manage', name: 'Manage All Courses', category: 'Admin', description: 'Manage all courses' },
-  { id: 'admin.courses.approve', name: 'Approve Courses', category: 'Admin', description: 'Approve course submissions' },
-  { id: 'admin.payments.manage', name: 'Manage Payments', category: 'Admin', description: 'Manage payment system' },
-  { id: 'admin.blog.approve', name: 'Approve Blog Posts', category: 'Admin', description: 'Approve blog posts' },
-  { id: 'admin.blog.manage', name: 'Manage All Blogs', category: 'Admin', description: 'Manage all blog content' },
-  { id: 'admin.comments.moderate', name: 'Moderate All Comments', category: 'Admin', description: 'Moderate all comments' },
-  { id: 'admin.qna.moderate', name: 'Moderate All Q&A', category: 'Admin', description: 'Moderate all Q&A content' },
-  { id: 'admin.platform.settings', name: 'Platform Settings', category: 'Admin', description: 'Manage platform settings' },
-  { id: 'admin.website.manage', name: 'Manage Website', category: 'Admin', description: 'Manage website content (banners, logos, etc.)' },
-  { id: 'admin.statistics.view', name: 'View Statistics', category: 'Admin', description: 'View platform statistics' },
-  { id: 'admin.permissions.manage', name: 'Manage Permissions', category: 'Admin', description: 'Manage user permissions' },
-  { id: 'admin.reports.view', name: 'View Reports', category: 'Admin', description: 'View all reports and analytics' },
-  { id: 'admin.reports.manage', name: 'Manage Reports', category: 'Admin', description: 'Moderate platform reports' },
-  { id: 'admin.reviews.manage', name: 'Manage Reviews', category: 'Admin', description: 'Moderate course reviews' },
-  { id: 'admin.logs.view', name: 'View Activity Logs', category: 'Admin', description: 'View system activity logs' },
-  { id: 'admin.system.maintain', name: 'System Maintenance', category: 'Admin', description: 'Perform system maintenance' },
+  { id: 'admin.users.manage', name: 'Manage Users', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_users_manage' },
+  { id: 'admin.users.ban', name: 'Ban Users', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_users_ban' },
+  { id: 'admin.courses.manage', name: 'Manage All Courses', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_courses_manage' },
+  { id: 'admin.courses.approve', name: 'Approve Courses', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_courses_approve' },
+  { id: 'admin.payments.manage', name: 'Manage Payments', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_payments_manage' },
+  { id: 'admin.blog.approve', name: 'Approve Blog Posts', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_blog_approve' },
+  { id: 'admin.blog.manage', name: 'Manage All Blogs', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_blog_manage' },
+  { id: 'admin.comments.moderate', name: 'Moderate All Comments', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_comments_moderate' },
+  { id: 'admin.qna.moderate', name: 'Moderate All Q&A', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_qna_moderate' },
+  { id: 'admin.platform.settings', name: 'Platform Settings', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_platform_settings' },
+  { id: 'admin.website.manage', name: 'Manage Website', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_website_manage' },
+  { id: 'admin.statistics.view', name: 'View Statistics', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_statistics_view' },
+  { id: 'admin.permissions.manage', name: 'Manage Permissions', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_permissions_manage' },
+  { id: 'admin.reports.view', name: 'View Reports', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_reports_view' },
+  { id: 'admin.reports.manage', name: 'Manage Reports', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_reports_manage' },
+  { id: 'admin.reviews.manage', name: 'Manage Reviews', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_reviews_manage' },
+  { id: 'admin.logs.view', name: 'View Activity Logs', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_logs_view' },
+  { id: 'admin.system.maintain', name: 'System Maintenance', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_system_maintain' },
 ]
 
 const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
@@ -160,6 +160,22 @@ interface AuthState {
   canAccess: (requiredRoles?: UserRole[], requiredPermissions?: string[]) => boolean
 }
 
+function getAuthErrorMessage(err: any, fallback: string): string {
+  if (err?.status === 0) {
+    return 'Khong the ket noi toi may chu. Vui long thu lai.'
+  }
+
+  if (err?.status === 401) {
+    return err?.errors?.error || err?.message || 'Ten dang nhap hoac mat khau khong dung.'
+  }
+
+  if (err?.status >= 500) {
+    return 'May chu dang gap loi. Vui long thu lai sau.'
+  }
+
+  return err?.errors?.error || err?.message || fallback
+}
+
 // ─── Store Implementation ─────────────────────────────────────
 
 export const useAuthStore = create<AuthState>()(
@@ -209,7 +225,7 @@ export const useAuthStore = create<AuthState>()(
 
           return true
         } catch (err: any) {
-          const msg = err?.errors?.error || err?.message || 'Login failed'
+          const msg = getAuthErrorMessage(err, 'Dang nhap that bai.')
           set({ isLoading: false, error: msg })
           return false
         }
@@ -248,7 +264,7 @@ export const useAuthStore = create<AuthState>()(
           get().fetchProfile()
           return true
         } catch (err: any) {
-          const msg = err?.errors?.error || err?.message || 'Google login failed'
+          const msg = getAuthErrorMessage(err, 'Google login failed')
           set({ isLoading: false, error: msg })
           return false
         }

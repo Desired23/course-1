@@ -87,7 +87,8 @@ interface LessonLearningData {
 
 function buildCurriculum(
   modules: ModuleSummary[],
-  lessonProgressMap: Map<number, LessonProgress>
+  lessonProgressMap: Map<number, LessonProgress>,
+  t: (key: string, options?: Record<string, unknown>) => string
 ): CurriculumSection[] {
   return modules
     .sort((a, b) => a.order_number - b.order_number)
@@ -97,7 +98,9 @@ function buildCurriculum(
       description: mod.description,
       order: mod.order_number,
       lectures: mod.lessons.length,
-      duration: mod.duration ? formatDuration(mod.duration) : `${mod.lessons.length} lessons`,
+      duration: mod.duration
+        ? formatDuration(mod.duration)
+        : t('course_player.curriculum_duration_fallback', { count: mod.lessons.length }),
       lessons: mod.lessons
         .sort((a, b) => a.order - b.order)
         .map(lesson => {
@@ -251,8 +254,8 @@ export function CoursePlayerPage() {
 
   const curriculum = useMemo(() => {
     if (!course?.modules) return []
-    return buildCurriculum(course.modules, lessonProgressMap)
-  }, [course, lessonProgressMap])
+    return buildCurriculum(course.modules, lessonProgressMap, t)
+  }, [course, lessonProgressMap, t])
   const orderedLessons = useMemo(() => flattenLessons(curriculum), [curriculum])
 
   const serverLearningData = useMemo(() => {
@@ -316,7 +319,7 @@ export function CoursePlayerPage() {
   // â”€â”€ Fetch course & progress â”€â”€
   useEffect(() => {
     if (!courseId || isNaN(courseId)) {
-      setError('Invalid course ID')
+      setError(t('course_player.invalid_course_id'))
       setLoading(false)
       return
     }
@@ -347,7 +350,7 @@ export function CoursePlayerPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [courseId])
+  }, [courseId, t])
 
   // Set initial lesson once curriculum is built
   useEffect(() => {
@@ -384,7 +387,7 @@ export function CoursePlayerPage() {
       const name = u.full_name || u.username
       return { name, initials: name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }
     } catch {
-      return { name: `User #${userId}`, initials: 'U' }
+      return { name: t('course_player.user_fallback', { id: userId }), initials: 'U' }
     }
   }
 
@@ -450,7 +453,10 @@ export function CoursePlayerPage() {
   }
 
   const handleAddNote = async () => {
-    if (!newNote.trim() || !currentLessonId) { toast.error('Please write a note'); return }
+    if (!newNote.trim() || !currentLessonId) {
+      toast.error(t('course_player.write_note_required'))
+      return
+    }
     const currentTime = Math.floor(currentPlaybackTimeSec)
     const minutes = Math.floor(currentTime / 60)
     const seconds = currentTime % 60
@@ -460,7 +466,7 @@ export function CoursePlayerPage() {
       lessonId: currentLessonId,
       timestamp,
       note: newNote.trim(),
-      created: 'Just now',
+      created: t('course_player.just_now'),
     }
     const nextNotes = [createdNote, ...notes]
     const lessonNotes = nextNotes.filter(note => note.lessonId === currentLessonId)
@@ -470,9 +476,9 @@ export function CoursePlayerPage() {
       await persistLearningDataForLesson(currentLessonId, lessonNotes, lessonBookmarks)
       setNotes(nextNotes)
       setNewNote('')
-      toast.success('Note saved successfully!')
+      toast.success(t('course_player.note_saved'))
     } catch {
-      toast.error('Save note failed')
+      toast.error(t('course_player.save_note_failed'))
     }
   }
 
@@ -485,9 +491,9 @@ export function CoursePlayerPage() {
     try {
       await persistLearningDataForLesson(currentLessonId, lessonNotes, lessonBookmarks)
       setNotes(nextNotes)
-      toast.success('Note deleted')
+      toast.success(t('course_player.note_deleted'))
     } catch {
-      toast.error('Delete note failed')
+      toast.error(t('course_player.delete_note_failed'))
     }
   }
 
@@ -502,7 +508,7 @@ export function CoursePlayerPage() {
         [currentLessonId]: nextBookmarks,
       }))
     } catch {
-      toast.error('Save bookmark failed')
+      toast.error(t('course_player.save_bookmark_failed'))
     }
   }
 
@@ -551,7 +557,7 @@ export function CoursePlayerPage() {
   }
 
   const handleDownloadResource = (resourceName: string) => {
-    toast.success(`Downloading ${resourceName}...`)
+    toast.success(t('course_player.downloading_resource', { resourceName }))
   }
 
   const getSavedProgressForLesson = (lessonId: number): number => {
@@ -700,7 +706,10 @@ export function CoursePlayerPage() {
       <div className="p-4 border-b bg-card/50">
         <h3 className="font-semibold">{t('course_player.course_content')}</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          {curriculum.length} sections â€¢ {curriculum.reduce((acc, s) => acc + s.lectures, 0)} lectures
+          {t('course_player.curriculum_summary', {
+            sections: curriculum.length,
+            lectures: curriculum.reduce((acc, s) => acc + s.lectures, 0),
+          })}
         </p>
       </div>
       <div className="flex-1 overflow-y-auto">
@@ -714,7 +723,12 @@ export function CoursePlayerPage() {
                 {expandedSections[section.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 <div>
                   <p className="font-medium text-sm">{section.title}</p>
-                  <p className="text-xs text-muted-foreground">{section.lectures} lectures â€¢ {section.duration}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('course_player.section_summary', {
+                      lectures: section.lectures,
+                      duration: section.duration,
+                    })}
+                  </p>
                 </div>
               </div>
             </button>
@@ -728,7 +742,9 @@ export function CoursePlayerPage() {
                     className={`w-full px-4 py-3 pl-12 flex items-center justify-between transition-colors ${
                       lesson.id === currentLessonId ? 'bg-accent' : ''
                     } ${isLessonUnlocked(lesson.id) ? 'hover:bg-accent/50' : 'opacity-50 cursor-not-allowed'}`}
-                    title={!isLessonUnlocked(lesson.id) ? `Cáº§n hoÃ n thÃ nh bÃ i trÆ°á»›c (>=${LESSON_COMPLETION_THRESHOLD_PERCENT}%)` : undefined}
+                    title={!isLessonUnlocked(lesson.id)
+                      ? t('course_player.unlock_previous_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT })
+                      : undefined}
                   >
                     <div className="flex items-center gap-3 flex-1 text-left">
                       {!isLessonUnlocked(lesson.id) ? (
@@ -863,7 +879,9 @@ export function CoursePlayerPage() {
                 onClick={goToNextLesson}
                 disabled={!findNextLesson(curriculum, currentLessonId!) || !currentLessonCompleted}
                 className="flex-1"
-                title={!currentLessonCompleted ? `Cáº§n hoÃ n thÃ nh ${LESSON_COMPLETION_THRESHOLD_PERCENT}% bÃ i hiá»‡n táº¡i` : undefined}
+                title={!currentLessonCompleted
+                  ? t('course_player.complete_current_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT })
+                  : undefined}
               >
                 {t('course_player.next_lesson')}
                 <ChevronRight className="w-4 h-4 ml-2" />
@@ -1011,9 +1029,9 @@ export function CoursePlayerPage() {
                         <FileText className="w-5 h-5 text-muted-foreground" />
                         <div className="flex-1">
                           <p className="font-medium text-sm">{t('course_player.course_slides')}</p>
-                          <p className="text-xs text-muted-foreground">PDF â€¢ Available soon</p>
+                          <p className="text-xs text-muted-foreground">{t('course_player.resource_pdf_soon')}</p>
                         </div>
-                        <Button size="sm" variant="ghost" onClick={() => handleDownloadResource('Course Slides')}>
+                        <Button size="sm" variant="ghost" onClick={() => handleDownloadResource(t('course_player.course_slides'))}>
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>

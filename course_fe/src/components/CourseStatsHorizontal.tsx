@@ -1,16 +1,17 @@
-import { Card, CardContent } from './ui/card'
-import { Badge } from './ui/badge'
-import { 
-  Video, 
-  FileText, 
-  HelpCircle, 
-  Clock, 
-  CheckCircle, 
-  FileEdit,
-  BookOpen,
-  BarChart3
-} from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
+import {
+  BarChart3,
+  BookOpen,
+  CheckCircle,
+  Clock,
+  FileEdit,
+  FileText,
+  HelpCircle,
+  Video,
+} from 'lucide-react'
+import { Badge } from './ui/badge'
+import { Card, CardContent } from './ui/card'
 
 interface Lesson {
   id: number
@@ -32,28 +33,22 @@ interface CourseStatsHorizontalProps {
 }
 
 export function CourseStatsHorizontal({ sections }: CourseStatsHorizontalProps) {
-  // Calculate stats
+  const { t } = useTranslation()
   const totalSections = sections.length
   const totalLessons = sections.reduce((sum, section) => sum + section.lessons.length, 0)
-  const publishedCount = sections.reduce((sum, section) => 
-    sum + section.lessons.filter(l => l.status === 'published').length, 0
+  const publishedCount = sections.reduce((sum, section) => sum + section.lessons.filter((l) => l.status === 'published').length, 0)
+  const draftCount = sections.reduce((sum, section) => sum + section.lessons.filter((l) => l.status === 'draft').length, 0)
+  const videoCount = sections.reduce((sum, section) => sum + section.lessons.filter((l) => (l.content_type || l.type) === 'video').length, 0)
+  const textCount = sections.reduce(
+    (sum, section) =>
+      sum + section.lessons.filter((l) => {
+        const type = l.content_type || l.type
+        return type === 'text' || type === 'article'
+      }).length,
+    0,
   )
-  const draftCount = sections.reduce((sum, section) => 
-    sum + section.lessons.filter(l => l.status === 'draft').length, 0
-  )
+  const quizCount = sections.reduce((sum, section) => sum + section.lessons.filter((l) => (l.content_type || l.type) === 'quiz').length, 0)
 
-  // Count by content type
-  const videoCount = sections.reduce((sum, section) => 
-    sum + section.lessons.filter(l => (l.content_type || l.type) === 'video').length, 0
-  )
-  const textCount = sections.reduce((sum, section) => 
-    sum + section.lessons.filter(l => (l.content_type || l.type) === 'text' || (l.content_type || l.type) === 'article').length, 0
-  )
-  const quizCount = sections.reduce((sum, section) => 
-    sum + section.lessons.filter(l => (l.content_type || l.type) === 'quiz').length, 0
-  )
-
-  // Calculate total duration
   const totalMinutes = sections.reduce((sum, section) => {
     return sum + section.lessons.reduce((lessonSum, lesson) => {
       const duration = lesson.duration || '0:00'
@@ -68,95 +63,28 @@ export function CourseStatsHorizontal({ sections }: CourseStatsHorizontalProps) 
 
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-
   const completionRate = totalLessons > 0 ? Math.round((publishedCount / totalLessons) * 100) : 0
 
   const stats = [
-    {
-      label: 'Sections',
-      value: totalSections,
-      icon: BookOpen,
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-500/10',
-      borderColor: 'border-indigo-500/20'
-    },
-    {
-      label: 'Total Lessons',
-      value: totalLessons,
-      icon: FileText,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-      borderColor: 'border-blue-500/20'
-    },
-    {
-      label: 'Published',
-      value: publishedCount,
-      icon: CheckCircle,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-      borderColor: 'border-green-500/20'
-    },
-    {
-      label: 'Draft',
-      value: draftCount,
-      icon: FileEdit,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10',
-      borderColor: 'border-orange-500/20'
-    },
-    {
-      label: 'Total Duration',
-      value: `${hours}h ${minutes}m`,
-      icon: Clock,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-      borderColor: 'border-purple-500/20'
-    },
-    {
-      label: 'Completion',
-      value: `${completionRate}%`,
-      icon: BarChart3,
-      color: 'text-emerald-500',
-      bgColor: 'bg-emerald-500/10',
-      borderColor: 'border-emerald-500/20'
-    }
+    { label: t('course_stats_horizontal.stats.sections'), value: totalSections, icon: BookOpen, color: 'text-indigo-500', bgColor: 'bg-indigo-500/10', borderColor: 'border-indigo-500/20' },
+    { label: t('course_stats_horizontal.stats.total_lessons'), value: totalLessons, icon: FileText, color: 'text-blue-500', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20' },
+    { label: t('course_stats_horizontal.stats.published'), value: publishedCount, icon: CheckCircle, color: 'text-green-500', bgColor: 'bg-green-500/10', borderColor: 'border-green-500/20' },
+    { label: t('course_stats_horizontal.stats.draft'), value: draftCount, icon: FileEdit, color: 'text-orange-500', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20' },
+    { label: t('course_stats_horizontal.stats.total_duration'), value: t('course_stats_horizontal.duration_format', { hours, minutes }), icon: Clock, color: 'text-purple-500', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/20' },
+    { label: t('course_stats_horizontal.stats.completion'), value: `${completionRate}%`, icon: BarChart3, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' },
   ]
 
   const contentTypes = [
-    { 
-      label: 'Videos', 
-      count: videoCount, 
-      icon: Video, 
-      color: 'text-red-500',
-      bgColor: 'bg-red-500/10'
-    },
-    { 
-      label: 'Articles', 
-      count: textCount, 
-      icon: FileText, 
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10'
-    },
-    { 
-      label: 'Quizzes', 
-      count: quizCount, 
-      icon: HelpCircle, 
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10'
-    }
+    { label: t('course_stats_horizontal.content_types.videos'), count: videoCount, icon: Video, color: 'text-red-500', bgColor: 'bg-red-500/10' },
+    { label: t('course_stats_horizontal.content_types.articles'), count: textCount, icon: FileText, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
+    { label: t('course_stats_horizontal.content_types.quizzes'), count: quizCount, icon: HelpCircle, color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
   ]
 
   return (
     <div className="space-y-4">
-      {/* Main Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((stat, index) => (
-          <motion.div
-            key={index}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.05 }}
-          >
+          <motion.div key={index} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.05 }}>
             <Card className={`border ${stat.borderColor} hover:shadow-md transition-all cursor-default`}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -174,13 +102,11 @@ export function CourseStatsHorizontal({ sections }: CourseStatsHorizontalProps) 
         ))}
       </div>
 
-      {/* Content Types & Progress Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Content Types Breakdown */}
         <Card className="lg:col-span-1">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium">Content Types</h4>
+              <h4 className="text-sm font-medium">{t('course_stats_horizontal.content_types_title')}</h4>
             </div>
             <div className="space-y-2">
               {contentTypes.map((type, index) => (
@@ -200,43 +126,31 @@ export function CourseStatsHorizontal({ sections }: CourseStatsHorizontalProps) 
           </CardContent>
         </Card>
 
-        {/* Progress Bar */}
         <Card className="lg:col-span-2">
           <CardContent className="p-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">Course Completion Progress</h4>
+                <h4 className="text-sm font-medium">{t('course_stats_horizontal.completion_progress')}</h4>
                 <span className="text-sm font-semibold">{completionRate}%</span>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${completionRate}%` }}
-                    transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-                    className="bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full"
-                  />
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${completionRate}%` }} transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }} className="bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 h-full rounded-full" />
                 </div>
-                
+
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <span className="text-muted-foreground">
-                        {publishedCount} published
-                      </span>
+                      <span className="text-muted-foreground">{t('course_stats_horizontal.published_count', { count: publishedCount })}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-orange-500" />
-                      <span className="text-muted-foreground">
-                        {draftCount} draft
-                      </span>
+                      <span className="text-muted-foreground">{t('course_stats_horizontal.draft_count', { count: draftCount })}</span>
                     </div>
                   </div>
-                  <span className="text-muted-foreground">
-                    {totalLessons} total lessons
-                  </span>
+                  <span className="text-muted-foreground">{t('course_stats_horizontal.total_lessons_count', { count: totalLessons })}</span>
                 </div>
               </div>
             </div>

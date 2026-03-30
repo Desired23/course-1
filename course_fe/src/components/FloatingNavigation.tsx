@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 import { useRouter } from './Router'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -52,7 +53,7 @@ import {
 
 interface NavigationItem {
   id: string
-  label: string
+  labelKey: string
   path: string
   icon: React.ReactNode
   category: 'main' | 'student' | 'instructor' | 'admin' | 'other'
@@ -60,105 +61,98 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
   // --- MAIN PAGES (Public/Core) ---
-  { id: 'home', label: 'Trang chủ', path: '/', icon: <Home size={20} />, category: 'main' },
-  { id: 'courses', label: 'Danh sách Khóa học', path: '/courses', icon: <BookOpen size={20} />, category: 'main' },
-  { id: 'pricing', label: 'Bảng giá (Gói Pro)', path: '/pricing', icon: <DollarSign size={20} />, category: 'main' },
-  { id: 'search', label: 'Tìm kiếm', path: '/search', icon: <Search size={20} />, category: 'main' },
-  { id: 'enhanced-search', label: 'Tìm kiếm nâng cao', path: '/enhanced-search', icon: <Search size={20} />, category: 'main' },
-  { id: 'business', label: 'Udemy Business', path: '/udemy-business', icon: <Building2 size={20} />, category: 'main' },
-  { id: 'teach', label: 'Dạy học trên Udemy', path: '/teach', icon: <GraduationCap size={20} />, category: 'main' },
-  { id: 'blog', label: 'Blog', path: '/blog', icon: <FileText size={20} />, category: 'main' },
-  { id: 'forum', label: 'Diễn đàn cộng đồng', path: '/forum', icon: <MessageSquare size={20} />, category: 'main' },
-  { id: 'login', label: 'Đăng nhập', path: '/login', icon: <LogIn size={20} />, category: 'main' },
-  { id: 'signup', label: 'Đăng ký', path: '/signup', icon: <UserPlus size={20} />, category: 'main' },
+  { id: 'home', labelKey: 'floating_navigation.items.home', path: '/', icon: <Home size={20} />, category: 'main' },
+  { id: 'courses', labelKey: 'floating_navigation.items.courses', path: '/courses', icon: <BookOpen size={20} />, category: 'main' },
+  { id: 'pricing', labelKey: 'floating_navigation.items.pricing', path: '/pricing', icon: <DollarSign size={20} />, category: 'main' },
+  { id: 'search', labelKey: 'floating_navigation.items.search', path: '/search', icon: <Search size={20} />, category: 'main' },
+  { id: 'enhanced-search', labelKey: 'floating_navigation.items.enhanced_search', path: '/enhanced-search', icon: <Search size={20} />, category: 'main' },
+  { id: 'business', labelKey: 'floating_navigation.items.business', path: '/udemy-business', icon: <Building2 size={20} />, category: 'main' },
+  { id: 'teach', labelKey: 'floating_navigation.items.teach', path: '/teach', icon: <GraduationCap size={20} />, category: 'main' },
+  { id: 'blog', labelKey: 'floating_navigation.items.blog', path: '/blog', icon: <FileText size={20} />, category: 'main' },
+  { id: 'forum', labelKey: 'floating_navigation.items.forum', path: '/forum', icon: <MessageSquare size={20} />, category: 'main' },
+  { id: 'login', labelKey: 'floating_navigation.items.login', path: '/login', icon: <LogIn size={20} />, category: 'main' },
+  { id: 'signup', labelKey: 'floating_navigation.items.signup', path: '/signup', icon: <UserPlus size={20} />, category: 'main' },
   
   // --- STUDENT PAGES ---
-  { id: 'my-learning', label: 'Học tập của tôi', path: '/my-learning', icon: <BookOpen size={20} />, category: 'student' },
-  { id: 'cart', label: 'Giỏ hàng', path: '/cart', icon: <ShoppingCart size={20} />, category: 'student' },
-  { id: 'wishlist', label: 'Danh sách yêu thích', path: '/wishlist', icon: <Heart size={20} />, category: 'student' },
-  { id: 'user-subscriptions', label: 'Gói thành viên của tôi', path: '/user/subscriptions', icon: <Crown size={20} />, category: 'student' },
-  { id: 'profile', label: 'Hồ sơ cá nhân', path: '/profile', icon: <User size={20} />, category: 'student' },
-  { id: 'notifications', label: 'Thông báo', path: '/notifications', icon: <Bell size={20} />, category: 'student' },
-  { id: 'checkout', label: 'Thanh toán khóa học', path: '/checkout', icon: <CreditCard size={20} />, category: 'student' },
-  { id: 'sub-checkout-demo', label: 'Thanh toán Gói Pro (Demo)', path: '/checkout/subscription?planId=pro&billing=monthly', icon: <CreditCard size={20} />, category: 'student' },
-  { id: 'course-player', label: 'Trình học (Demo)', path: '/course-player', icon: <Play size={20} />, category: 'student' },
-  { id: 'certificates', label: 'Chứng chỉ của tôi', path: '/certificates', icon: <Award size={20} />, category: 'student' },
-  { id: 'quiz', label: 'Bài kiểm tra (Demo)', path: '/quiz', icon: <TestTube size={20} />, category: 'student' },
-  { id: 'reviews', label: 'Đánh giá của tôi', path: '/reviews', icon: <Star size={20} />, category: 'student' },
-  { id: 'qna', label: 'Hỏi đáp', path: '/qna', icon: <MessageSquare size={20} />, category: 'student' },
-  { id: 'support', label: 'Hỗ trợ', path: '/support', icon: <HelpCircle size={20} />, category: 'student' },
-  { id: 'settings', label: 'Cài đặt tài khoản', path: '/settings', icon: <Settings size={20} />, category: 'student' },
-  { id: 'activity-log', label: 'Nhật ký hoạt động', path: '/activity-log', icon: <Activity size={20} />, category: 'student' },
+  { id: 'my-learning', labelKey: 'floating_navigation.items.my_learning', path: '/my-learning', icon: <BookOpen size={20} />, category: 'student' },
+  { id: 'cart', labelKey: 'floating_navigation.items.cart', path: '/cart', icon: <ShoppingCart size={20} />, category: 'student' },
+  { id: 'wishlist', labelKey: 'floating_navigation.items.wishlist', path: '/wishlist', icon: <Heart size={20} />, category: 'student' },
+  { id: 'user-subscriptions', labelKey: 'floating_navigation.items.user_subscriptions', path: '/user/subscriptions', icon: <Crown size={20} />, category: 'student' },
+  { id: 'profile', labelKey: 'floating_navigation.items.profile', path: '/profile', icon: <User size={20} />, category: 'student' },
+  { id: 'notifications', labelKey: 'floating_navigation.items.notifications', path: '/notifications', icon: <Bell size={20} />, category: 'student' },
+  { id: 'checkout', labelKey: 'floating_navigation.items.checkout', path: '/checkout', icon: <CreditCard size={20} />, category: 'student' },
+  { id: 'sub-checkout-demo', labelKey: 'floating_navigation.items.sub_checkout_demo', path: '/checkout/subscription?planId=pro&billing=monthly', icon: <CreditCard size={20} />, category: 'student' },
+  { id: 'course-player', labelKey: 'floating_navigation.items.course_player', path: '/course-player', icon: <Play size={20} />, category: 'student' },
+  { id: 'certificates', labelKey: 'floating_navigation.items.certificates', path: '/certificates', icon: <Award size={20} />, category: 'student' },
+  { id: 'quiz', labelKey: 'floating_navigation.items.quiz', path: '/quiz', icon: <TestTube size={20} />, category: 'student' },
+  { id: 'reviews', labelKey: 'floating_navigation.items.reviews', path: '/reviews', icon: <Star size={20} />, category: 'student' },
+  { id: 'qna', labelKey: 'floating_navigation.items.qna', path: '/qna', icon: <MessageSquare size={20} />, category: 'student' },
+  { id: 'support', labelKey: 'floating_navigation.items.support', path: '/support', icon: <HelpCircle size={20} />, category: 'student' },
+  { id: 'settings', labelKey: 'floating_navigation.items.settings', path: '/settings', icon: <Settings size={20} />, category: 'student' },
+  { id: 'activity-log', labelKey: 'floating_navigation.items.activity_log', path: '/activity-log', icon: <Activity size={20} />, category: 'student' },
 
   // --- INSTRUCTOR PAGES ---
-  { id: 'instructor', label: 'Dashboard Giảng viên', path: '/instructor', icon: <BarChart3 size={20} />, category: 'instructor' },
+  { id: 'instructor', labelKey: 'floating_navigation.items.instructor', path: '/instructor', icon: <BarChart3 size={20} />, category: 'instructor' },
   // Courses
-  { id: 'instructor-courses', label: 'Quản lý khóa học', path: '/instructor/courses', icon: <BookOpen size={20} />, category: 'instructor' },
-  { id: 'instructor-create-course', label: 'Tạo khóa học mới', path: '/instructor/courses/create', icon: <PlusCircle size={20} />, category: 'instructor' },
-  { id: 'instructor-course-landing', label: 'Trang Landing Page', path: '/instructor/course-landing', icon: <Layout size={20} />, category: 'instructor' },
+  { id: 'instructor-courses', labelKey: 'floating_navigation.items.instructor_courses', path: '/instructor/courses', icon: <BookOpen size={20} />, category: 'instructor' },
+  { id: 'instructor-create-course', labelKey: 'floating_navigation.items.instructor_create_course', path: '/instructor/courses/create', icon: <PlusCircle size={20} />, category: 'instructor' },
+  { id: 'instructor-course-landing', labelKey: 'floating_navigation.items.instructor_course_landing', path: '/instructor/course-landing', icon: <Layout size={20} />, category: 'instructor' },
   // Lessons
-  { id: 'instructor-lessons', label: 'Quản lý bài học', path: '/instructor/lessons', icon: <Play size={20} />, category: 'instructor' },
-  { id: 'instructor-lessons-create', label: 'Tạo bài học mới', path: '/instructor/lessons/create', icon: <PlusCircle size={20} />, category: 'instructor' },
+  { id: 'instructor-lessons', labelKey: 'floating_navigation.items.instructor_lessons', path: '/instructor/lessons', icon: <Play size={20} />, category: 'instructor' },
+  { id: 'instructor-lessons-create', labelKey: 'floating_navigation.items.instructor_lessons_create', path: '/instructor/lessons/create', icon: <PlusCircle size={20} />, category: 'instructor' },
   // Finance
-  { id: 'instructor-earnings', label: 'Thu nhập tổng quan', path: '/instructor/earnings', icon: <DollarSign size={20} />, category: 'instructor' },
-  { id: 'instructor-sub-revenue', label: 'Doanh thu từ Gói Pro', path: '/instructor/subscription-revenue', icon: <Crown size={20} />, category: 'instructor' },
-  { id: 'instructor-payouts', label: 'Lịch sử thanh toán', path: '/instructor/payouts', icon: <CreditCard size={20} />, category: 'instructor' },
+  { id: 'instructor-earnings', labelKey: 'floating_navigation.items.instructor_earnings', path: '/instructor/earnings', icon: <DollarSign size={20} />, category: 'instructor' },
+  { id: 'instructor-sub-revenue', labelKey: 'floating_navigation.items.instructor_sub_revenue', path: '/instructor/subscription-revenue', icon: <Crown size={20} />, category: 'instructor' },
+  { id: 'instructor-payouts', labelKey: 'floating_navigation.items.instructor_payouts', path: '/instructor/payouts', icon: <CreditCard size={20} />, category: 'instructor' },
   // Tools & Analytics
-  { id: 'instructor-analytics', label: 'Phân tích chi tiết', path: '/instructor/analytics', icon: <PieChart size={20} />, category: 'instructor' },
-  { id: 'instructor-quizzes', label: 'Quản lý bài kiểm tra', path: '/instructor/quizzes', icon: <TestTube size={20} />, category: 'instructor' },
-  { id: 'instructor-discounts', label: 'Mã giảm giá', path: '/instructor/discounts', icon: <Tags size={20} />, category: 'instructor' },
-  { id: 'instructor-students', label: 'Danh sách học viên', path: '/instructor/students', icon: <Users size={20} />, category: 'instructor' },
-  { id: 'instructor-communication', label: 'Giao tiếp học viên', path: '/instructor/communication', icon: <MessageCircle size={20} />, category: 'instructor' },
-  { id: 'instructor-resources', label: 'Tài nguyên', path: '/instructor/resources', icon: <FolderOpen size={20} />, category: 'instructor' },
-  { id: 'instructor-profile', label: 'Hồ sơ giảng viên', path: '/instructor/profile', icon: <User size={20} />, category: 'instructor' },
-  { id: 'instructor-onboarding', label: 'Đăng ký giảng viên', path: '/instructor/onboarding', icon: <UserPlus size={20} />, category: 'instructor' },
+  { id: 'instructor-analytics', labelKey: 'floating_navigation.items.instructor_analytics', path: '/instructor/analytics', icon: <PieChart size={20} />, category: 'instructor' },
+  { id: 'instructor-quizzes', labelKey: 'floating_navigation.items.instructor_quizzes', path: '/instructor/quizzes', icon: <TestTube size={20} />, category: 'instructor' },
+  { id: 'instructor-discounts', labelKey: 'floating_navigation.items.instructor_discounts', path: '/instructor/discounts', icon: <Tags size={20} />, category: 'instructor' },
+  { id: 'instructor-students', labelKey: 'floating_navigation.items.instructor_students', path: '/instructor/students', icon: <Users size={20} />, category: 'instructor' },
+  { id: 'instructor-communication', labelKey: 'floating_navigation.items.instructor_communication', path: '/instructor/communication', icon: <MessageCircle size={20} />, category: 'instructor' },
+  { id: 'instructor-resources', labelKey: 'floating_navigation.items.instructor_resources', path: '/instructor/resources', icon: <FolderOpen size={20} />, category: 'instructor' },
+  { id: 'instructor-profile', labelKey: 'floating_navigation.items.instructor_profile', path: '/instructor/profile', icon: <User size={20} />, category: 'instructor' },
+  { id: 'instructor-onboarding', labelKey: 'floating_navigation.items.instructor_onboarding', path: '/instructor/onboarding', icon: <UserPlus size={20} />, category: 'instructor' },
 
   // --- ADMIN PAGES ---
-  { id: 'admin', label: 'Admin Dashboard', path: '/admin', icon: <Settings size={20} />, category: 'admin' },
+  { id: 'admin', labelKey: 'floating_navigation.items.admin', path: '/admin', icon: <Settings size={20} />, category: 'admin' },
   // User Management
-  { id: 'admin-users', label: 'Quản lý người dùng', path: '/admin/users', icon: <Users size={20} />, category: 'admin' },
-  { id: 'admin-users-new', label: 'Thêm người dùng mới', path: '/admin/users/new', icon: <UserPlus size={20} />, category: 'admin' },
-  { id: 'admin-instructor-apps', label: 'Đơn đăng ký giảng viên', path: '/admin/instructor-applications', icon: <ClipboardList size={20} />, category: 'admin' },
+  { id: 'admin-users', labelKey: 'floating_navigation.items.admin_users', path: '/admin/users', icon: <Users size={20} />, category: 'admin' },
+  { id: 'admin-users-new', labelKey: 'floating_navigation.items.admin_users_new', path: '/admin/users/new', icon: <UserPlus size={20} />, category: 'admin' },
+  { id: 'admin-instructor-apps', labelKey: 'floating_navigation.items.admin_instructor_apps', path: '/admin/instructor-applications', icon: <ClipboardList size={20} />, category: 'admin' },
   // Content Management
-  { id: 'admin-courses', label: 'Quản lý khóa học', path: '/admin/courses', icon: <BookOpen size={20} />, category: 'admin' },
-  { id: 'admin-categories', label: 'Quản lý danh mục', path: '/admin/categories', icon: <Tags size={20} />, category: 'admin' },
-  { id: 'admin-reviews', label: 'Quản lý đánh giá', path: '/admin/reviews', icon: <Star size={20} />, category: 'admin' },
-  { id: 'admin-blog', label: 'Quản lý Blog', path: '/admin/blog', icon: <FileText size={20} />, category: 'admin' },
-  { id: 'admin-forum', label: 'Quản lý Diễn đàn', path: '/admin/forum', icon: <MessageSquare size={20} />, category: 'admin' },
+  { id: 'admin-courses', labelKey: 'floating_navigation.items.admin_courses', path: '/admin/courses', icon: <BookOpen size={20} />, category: 'admin' },
+  { id: 'admin-categories', labelKey: 'floating_navigation.items.admin_categories', path: '/admin/categories', icon: <Tags size={20} />, category: 'admin' },
+  { id: 'admin-reviews', labelKey: 'floating_navigation.items.admin_reviews', path: '/admin/reviews', icon: <Star size={20} />, category: 'admin' },
+  { id: 'admin-blog', labelKey: 'floating_navigation.items.admin_blog', path: '/admin/blog', icon: <FileText size={20} />, category: 'admin' },
+  { id: 'admin-forum', labelKey: 'floating_navigation.items.admin_forum', path: '/admin/forum', icon: <MessageSquare size={20} />, category: 'admin' },
   // Finance & Subscription
-  { id: 'admin-subscriptions', label: 'Quản lý Gói Subscription', path: '/admin/subscriptions', icon: <Calendar size={20} />, category: 'admin' },
-  { id: 'admin-payments', label: 'Lịch sử giao dịch', path: '/admin/payments', icon: <CreditCard size={20} />, category: 'admin' },
-  { id: 'admin-payment-methods', label: 'Phương thức thanh toán', path: '/admin/payments/methods', icon: <CreditCard size={20} />, category: 'admin' },
-  { id: 'admin-refunds', label: 'Yêu cầu hoàn tiền', path: '/admin/refunds', icon: <RefreshCw size={20} />, category: 'admin' },
-  { id: 'admin-discounts', label: 'Quản lý mã giảm giá', path: '/admin/discounts', icon: <Tags size={20} />, category: 'admin' },
+  { id: 'admin-subscriptions', labelKey: 'floating_navigation.items.admin_subscriptions', path: '/admin/subscriptions', icon: <Calendar size={20} />, category: 'admin' },
+  { id: 'admin-payments', labelKey: 'floating_navigation.items.admin_payments', path: '/admin/payments', icon: <CreditCard size={20} />, category: 'admin' },
+  { id: 'admin-payment-methods', labelKey: 'floating_navigation.items.admin_payment_methods', path: '/admin/payments/methods', icon: <CreditCard size={20} />, category: 'admin' },
+  { id: 'admin-refunds', labelKey: 'floating_navigation.items.admin_refunds', path: '/admin/refunds', icon: <RefreshCw size={20} />, category: 'admin' },
+  { id: 'admin-discounts', labelKey: 'floating_navigation.items.admin_discounts', path: '/admin/discounts', icon: <Tags size={20} />, category: 'admin' },
   // System & Settings
-  { id: 'admin-analytics', label: 'Phân tích hệ thống', path: '/admin/analytics', icon: <PieChart size={20} />, category: 'admin' },
-  { id: 'admin-statistics', label: 'Thống kê tổng quan', path: '/admin/statistics', icon: <BarChart3 size={20} />, category: 'admin' },
-  { id: 'admin-website', label: 'Quản lý giao diện Web', path: '/admin/website-management', icon: <Monitor size={20} />, category: 'admin' },
-  { id: 'admin-home-layout', label: 'Bố cục trang chủ', path: '/admin/home-layout', icon: <LayoutTemplate size={20} />, category: 'admin' },
-  { id: 'admin-settings', label: 'Cài đặt nền tảng', path: '/admin/settings', icon: <Settings size={20} />, category: 'admin' },
-  { id: 'admin-website-settings', label: 'Cấu hình Website', path: '/admin/website-settings', icon: <Globe size={20} />, category: 'admin' },
-  { id: 'admin-permissions', label: 'Phân quyền vai trò', path: '/admin/permissions', icon: <Shield size={20} />, category: 'admin' },
-  { id: 'admin-reports', label: 'Báo cáo vi phạm', path: '/admin/reports', icon: <Shield size={20} />, category: 'admin' },
-  { id: 'admin-activity', label: 'Nhật ký hệ thống', path: '/admin/activity-log', icon: <Activity size={20} />, category: 'admin' },
-  { id: 'admin-backup', label: 'Sao lưu dữ liệu', path: '/admin/data-backup', icon: <Database size={20} />, category: 'admin' },
+  { id: 'admin-analytics', labelKey: 'floating_navigation.items.admin_analytics', path: '/admin/analytics', icon: <PieChart size={20} />, category: 'admin' },
+  { id: 'admin-statistics', labelKey: 'floating_navigation.items.admin_statistics', path: '/admin/statistics', icon: <BarChart3 size={20} />, category: 'admin' },
+  { id: 'admin-website', labelKey: 'floating_navigation.items.admin_website', path: '/admin/website-management', icon: <Monitor size={20} />, category: 'admin' },
+  { id: 'admin-home-layout', labelKey: 'floating_navigation.items.admin_home_layout', path: '/admin/home-layout', icon: <LayoutTemplate size={20} />, category: 'admin' },
+  { id: 'admin-settings', labelKey: 'floating_navigation.items.admin_settings', path: '/admin/settings', icon: <Settings size={20} />, category: 'admin' },
+  { id: 'admin-website-settings', labelKey: 'floating_navigation.items.admin_website_settings', path: '/admin/website-settings', icon: <Globe size={20} />, category: 'admin' },
+  { id: 'admin-permissions', labelKey: 'floating_navigation.items.admin_permissions', path: '/admin/permissions', icon: <Shield size={20} />, category: 'admin' },
+  { id: 'admin-reports', labelKey: 'floating_navigation.items.admin_reports', path: '/admin/reports', icon: <Shield size={20} />, category: 'admin' },
+  { id: 'admin-activity', labelKey: 'floating_navigation.items.admin_activity', path: '/admin/activity-log', icon: <Activity size={20} />, category: 'admin' },
+  { id: 'admin-backup', labelKey: 'floating_navigation.items.admin_backup', path: '/admin/data-backup', icon: <Database size={20} />, category: 'admin' },
   
   // --- OTHER (Demos/Utility) ---
-  { id: 'test', label: 'Trang Test', path: '/test', icon: <TestTube size={20} />, category: 'other' },
-  { id: 'navigation', label: 'Sơ đồ điều hướng', path: '/navigation', icon: <MapPin size={20} />, category: 'other' },
-  { id: 'blog-post', label: 'Xem bài viết mẫu', path: '/blog/react-hooks-guide', icon: <FileText size={20} />, category: 'other' },
-  { id: 'advanced-features', label: 'Tính năng nâng cao (Demo)', path: '/advanced-features', icon: <Star size={20} />, category: 'other' },
+  { id: 'test', labelKey: 'floating_navigation.items.test', path: '/test', icon: <TestTube size={20} />, category: 'other' },
+  { id: 'navigation', labelKey: 'floating_navigation.items.navigation', path: '/navigation', icon: <MapPin size={20} />, category: 'other' },
+  { id: 'blog-post', labelKey: 'floating_navigation.items.blog_post', path: '/blog/react-hooks-guide', icon: <FileText size={20} />, category: 'other' },
+  { id: 'advanced-features', labelKey: 'floating_navigation.items.advanced_features', path: '/advanced-features', icon: <Star size={20} />, category: 'other' },
 ]
 
-const categoryLabels = {
-  main: 'Chính',
-  student: 'Học viên',
-  instructor: 'Giảng viên',
-  admin: 'Quản trị',
-  other: 'Khác'
-}
-
 export function FloatingNavigation() {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(true)
   const [activeCategory, setActiveCategory] = useState<'main' | 'student' | 'instructor' | 'admin' | 'other'>('main')
   const [showTestLogin, setShowTestLogin] = useState(false)
@@ -184,6 +178,13 @@ export function FloatingNavigation() {
   }
 
   const categories = ['main', 'student', 'instructor', 'admin', 'other'] as const
+  const categoryLabels = {
+    main: t('floating_navigation.categories.main'),
+    student: t('floating_navigation.categories.student'),
+    instructor: t('floating_navigation.categories.instructor'),
+    admin: t('floating_navigation.categories.admin'),
+    other: t('floating_navigation.categories.other'),
+  }
   
   const filteredItems = React.useMemo(() => {
     return navigationItems.filter(item => {
@@ -248,7 +249,7 @@ export function FloatingNavigation() {
                     <>
                       <User size={16} className="text-gray-400" />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Chưa đăng nhập
+                        {t('floating_navigation.not_logged_in')}
                       </span>
                     </>
                   )}
@@ -259,14 +260,14 @@ export function FloatingNavigation() {
                       onClick={logout}
                       className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
                     >
-                      Đăng xuất
+                      {t('floating_navigation.logout')}
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowTestLogin(!showTestLogin)}
                       className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
                     >
-                      Test Login
+                      {t('floating_navigation.test_login')}
                     </button>
                   )}
                 </div>
@@ -277,7 +278,7 @@ export function FloatingNavigation() {
             {showTestLogin && !isAuthenticated && (
               <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                  Chọn tài khoản test:
+                  {t('floating_navigation.choose_test_account')}
                 </p>
                 <div className="space-y-1">
                   {testUsers.map((testUser) => (
@@ -331,7 +332,7 @@ export function FloatingNavigation() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-gray-900 dark:text-gray-100 block text-sm font-medium truncate">
-                        {item.label}
+                        {t(item.labelKey)}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400 truncate block opacity-70">
                         {item.path}
@@ -342,8 +343,8 @@ export function FloatingNavigation() {
                 ))
               ) : (
                 <div className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                  <p className="text-sm">Không có trang nào trong danh mục này</p>
-                  <p className="text-xs mt-1 opacity-70">(Cần quyền truy cập phù hợp)</p>
+                  <p className="text-sm">{t('floating_navigation.no_pages')}</p>
+                  <p className="text-xs mt-1 opacity-70">{t('floating_navigation.no_pages_hint')}</p>
                 </div>
               )}
             </div>
@@ -352,7 +353,7 @@ export function FloatingNavigation() {
             <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div className="flex justify-between items-center text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 <span>{categoryLabels[activeCategory]} ({filteredItems.length})</span>
-                <span>Tổng: {navigationItems.length}</span>
+                <span>{t('floating_navigation.total_count', { count: navigationItems.length })}</span>
               </div>
             </div>
           </motion.div>

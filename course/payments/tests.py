@@ -1,6 +1,8 @@
 from django.test import TestCase
+from django.utils import timezone
 from users.models import User as UserModel
 from decimal import Decimal
+from unittest.mock import patch
 
 # avoid vnpay signature logic during unit tests
 import payments.vnpay as _vnpmod
@@ -18,7 +20,19 @@ from instructors.models import Instructor
 from instructor_levels.models import InstructorLevel
 from users.models import User
 from enrollments.models import Enrollment
-from payments.services import get_payment_status
+from payments.services import create_payment, get_payment_status
+from carts.models import Cart
+from payments.vnpay_services import (
+    _build_vnpay_refund_signature_data,
+    hmacsha512,
+    send_vnpay_refund_request,
+)
+from payments.momo_services import (
+    _momo_create_response_signature,
+    create_momo_payment,
+    send_momo_refund_request,
+    simulate_momo_ipn,
+)
 
 
 
@@ -549,3 +563,588 @@ class PaymentViewsTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertTrue(all(p['has_problem'] for p in data))
+
+
+class RefundWorkflowTests(TestCase):
+    def setUp(self):
+        level = InstructorLevel.objects.create(
+            name="Silver", description="level",
+            min_students=0, min_revenue=Decimal('0'),
+            commission_rate=Decimal('10'), plan_commission_rate=Decimal('10')
+        )
+        instr_user = UserModel.objects.create(
+            username="teacher_refund",
+            email="refund.teacher@example.com",
+            password_hash=make_password("password123"),
+            full_name="Refund Teacher",
+            user_type="instructor", status="active",
+        )
+        self.instructor = Instructor.objects.create(user=instr_user, level=level)
+        self.student = UserModel.objects.create(
+            username="student_refund",
+            email="refund.student@example.com",
+            password_hash=make_password("password123"),
+            full_name="Refund Student",
+            user_type="student", status="active",
+        )
+        self.admin_user = UserModel.objects.create(
+            username="admin_refund",
+            email="refund.admin@example.com",
+            password_hash=make_password("password123"),
+            full_name="Refund Admin",
+            user_type="admin", status="active",
+        )
+        from admins.models import Admin as AdminModel
+        AdminModel.objects.create(user=self.admin_user, department="IT", role="super_admin")
+
+        self.course = Course.objects.create(
+            title="Refund Course",
+            shortdescription="x",
+            description="x",
+            instructor=self.instructor,
+            category_id=None,
+            subcategory_id=None,
+            price=Decimal('100.00'),
+            level="beginner",
+            language="English",
+            duration=120,
+            total_lessons=10,
+        )
+        self.payment = Payment.objects.create(
+            user=self.student,
+            amount=Decimal('100.00'),
+            discount_amount=Decimal('0.00'),
+            total_amount=Decimal('100.00'),
+            payment_status=Payment.PaymentStatus.COMPLETED,
+            payment_method=Payment.PaymentMethod.VNPAY,
+            payment_type=Payment.PaymentType.COURSE_PURCHASE,
+            transaction_id="TXN-REFUND-001",
+        )
+        self.detail = Payment_Details.objects.create(
+            payment=self.payment,
+            course=self.course,
+            price=Decimal('100.00'),
+            discount=Decimal('0.00'),
+            final_price=Decimal('100.00'),
+        )
+        Enrollment.objects.create(
+            user=self.student,
+            course=self.course,
+            payment=self.payment,
+            status=Enrollment.Status.Active,
+            progress=Decimal('10.00'),
+        )
+
+    def _set_refund_settings(self, value):
+        from systems_settings.models import SystemsSetting
+        import json
+        SystemsSetting.objects.update_or_create(
+            setting_key='refund_settings',
+            defaults={
+                'setting_group': 'payments',
+                'setting_value': json.dumps(value),
+                'description': 'Refund workflow settings',
+            }
+        )
+
+    def test_user_refund_request_pending_in_admin_mode(self):
+        from payments.refund_services import user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "admin_approval",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        result = user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        self.detail.refresh_from_db()
+        self.assertEqual(result["mode"], "admin_approval")
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.PENDING)
+
+    @patch('payments.refund_services.send_vnpay_refund_request')
+    def test_user_refund_request_success_in_direct_mode(self, mock_gateway):
+        from payments.refund_services import user_refund_request
+        mock_gateway.return_value = {
+            "status": "success",
+            "response_code": "00",
+            "transaction_id": "RF-001",
+            "message": "Refund completed successfully.",
+        }
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        result = user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        self.detail.refresh_from_db()
+        enrollment = Enrollment.objects.get(payment=self.payment, course=self.course, user=self.student)
+        self.assertEqual(result["results"][0]["status"], "success")
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+        self.assertEqual(enrollment.status, Enrollment.Status.Cancelled)
+
+    @patch('payments.refund_services.send_vnpay_refund_request')
+    def test_gateway_timeout_moves_refund_to_processing(self, mock_gateway):
+        from payments.refund_services import user_refund_request
+        mock_gateway.return_value = {
+            "status": "processing",
+            "response_code": None,
+            "transaction_id": None,
+            "message": "Gateway timeout",
+        }
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        result = user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        self.detail.refresh_from_db()
+        self.assertEqual(result["results"][0]["status"], "processing")
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.PROCESSING)
+        self.assertIsNotNone(self.detail.next_retry_at)
+
+    @patch('payments.refund_services.send_vnpay_refund_request')
+    def test_admin_retry_and_soft_delete(self, mock_gateway):
+        from payments.refund_services import admin_refund_action, user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 0,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        mock_gateway.return_value = {
+            "status": "processing",
+            "response_code": None,
+            "transaction_id": None,
+            "message": "Gateway timeout",
+        }
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        self.detail.refresh_from_db()
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.PROCESSING)
+
+        mock_gateway.return_value = {
+            "status": "success",
+            "response_code": "00",
+            "transaction_id": "RF-RETRY-001",
+            "message": "Refund completed successfully.",
+        }
+        retry_result = admin_refund_action("retry", [self.detail.id], self.admin_user)
+        self.detail.refresh_from_db()
+        self.assertFalse(retry_result["errors"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+
+        archive_result = admin_refund_action("soft_delete", [self.detail.id], self.admin_user, note="Archive")
+        self.detail.refresh_from_db()
+        self.assertFalse(archive_result["errors"])
+        self.assertTrue(self.detail.is_deleted)
+
+    def test_admin_reject_pending_refund(self):
+        from payments.refund_services import admin_refund_action, user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "admin_approval",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        result = admin_refund_action("reject", [self.detail.id], self.admin_user, note="Out of policy")
+        self.detail.refresh_from_db()
+        self.assertFalse(result["errors"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.REJECTED)
+        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+
+    @patch('payments.refund_services.send_vnpay_refund_request')
+    def test_admin_cancel_processing_refund(self, mock_gateway):
+        from payments.refund_services import admin_refund_action, user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        mock_gateway.return_value = {
+            "status": "processing",
+            "response_code": None,
+            "transaction_id": None,
+            "message": "Gateway timeout",
+        }
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        result = admin_refund_action("cancel", [self.detail.id], self.admin_user, note="Ops cancelled")
+        self.detail.refresh_from_db()
+        self.assertFalse(result["errors"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.CANCELLED)
+        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+
+    @patch('payments.refund_services.send_vnpay_refund_request')
+    def test_retry_is_allowed_without_waiting_for_cooldown(self, mock_gateway):
+        from payments.refund_services import admin_refund_action, user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        mock_gateway.return_value = {
+            "status": "processing",
+            "response_code": None,
+            "transaction_id": None,
+            "message": "Gateway timeout",
+        }
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        mock_gateway.return_value = {
+            "status": "success",
+            "response_code": "00",
+            "transaction_id": "RF-IMMEDIATE-001",
+            "message": "Refund completed successfully.",
+        }
+        result = admin_refund_action("retry", [self.detail.id], self.admin_user)
+        self.detail.refresh_from_db()
+        self.assertFalse(result["errors"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+
+    @patch('payments.refund_services.send_vnpay_refund_request')
+    def test_admin_restore_and_add_note(self, mock_gateway):
+        from payments.refund_services import admin_refund_action, user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 0,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        mock_gateway.return_value = {
+            "status": "processing",
+            "response_code": None,
+            "transaction_id": None,
+            "message": "Gateway timeout",
+        }
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        admin_refund_action("add_note", [self.detail.id], self.admin_user, note="Investigating with finance")
+        admin_refund_action("soft_delete", [self.detail.id], self.admin_user, note="Archive")
+        restore_result = admin_refund_action("restore", [self.detail.id], self.admin_user, note="Bring back to queue")
+        self.detail.refresh_from_db()
+        self.assertFalse(restore_result["errors"])
+        self.assertFalse(self.detail.is_deleted)
+        self.assertIn("Investigating with finance", self.detail.internal_note)
+        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+
+    def test_admin_override_status_to_failed(self):
+        from payments.refund_services import admin_refund_action, user_refund_request
+        self._set_refund_settings({
+            "refund_mode": "admin_approval",
+            "refund_retry_cooldown_minutes": 30,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        result = admin_refund_action(
+            "override_status",
+            [self.detail.id],
+            self.admin_user,
+            note="Manual reconciliation found a gateway failure",
+            override_status=Payment_Details.RefundStatus.FAILED,
+        )
+        self.detail.refresh_from_db()
+        self.assertFalse(result["errors"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.FAILED)
+        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+
+    @patch('payments.vnpay_services.requests.post')
+    def test_vnpay_refund_request_uses_pipe_signature_and_32_char_request_id(self, mock_post):
+        class MockResponse:
+            ok = True
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {
+                    "vnp_ResponseCode": "00",
+                    "vnp_Message": "Success",
+                    "vnp_TransactionNo": "RF-001",
+                }
+
+        mock_post.return_value = MockResponse()
+        self.detail.refund_amount = Decimal('100.00')
+        self.detail.save(update_fields=["refund_amount", "updated_at"])
+
+        send_vnpay_refund_request(self.detail, reason="Hoan tien test", create_by="System Admin")
+
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(len(payload["vnp_RequestId"]), 32)
+        self.assertNotIn("-", payload["vnp_RequestId"])
+        expected_signature = hmacsha512(settings.VNPAY_HASH_SECRET_KEY, _build_vnpay_refund_signature_data(payload))
+        self.assertEqual(payload["vnp_SecureHash"], expected_signature)
+
+    @patch('payments.vnpay_services.requests.post')
+    def test_vnpay_refund_request_rejects_invalid_response_signature(self, mock_post):
+        class MockResponse:
+            ok = True
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {
+                    "vnp_ResponseId": "RESP001",
+                    "vnp_Command": "refund",
+                    "vnp_ResponseCode": "00",
+                    "vnp_Message": "Success",
+                    "vnp_TmnCode": settings.VNPAY_TMN_CODE,
+                    "vnp_TxnRef": str(1415),
+                    "vnp_Amount": "10000",
+                    "vnp_BankCode": "NCB",
+                    "vnp_PayDate": "20260328121212",
+                    "vnp_TransactionNo": "RF-002",
+                    "vnp_TransactionType": "02",
+                    "vnp_TransactionStatus": "00",
+                    "vnp_OrderInfo": "Refund 1415",
+                    "vnp_SecureHash": "invalid",
+                }
+
+        mock_post.return_value = MockResponse()
+        self.detail.refund_amount = Decimal('100.00')
+        self.detail.save(update_fields=["refund_amount", "updated_at"])
+
+        result = send_vnpay_refund_request(self.detail, reason="Hoan tien test", create_by="System Admin")
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["response_code"], "97")
+
+
+class MomoIntegrationTests(TestCase):
+    def setUp(self):
+        level = InstructorLevel.objects.create(
+            name="Gold",
+            description="level",
+            min_students=0,
+            min_revenue=Decimal("0"),
+            commission_rate=Decimal("10"),
+            plan_commission_rate=Decimal("10"),
+        )
+        instr_user = UserModel.objects.create(
+            username="teacher_momo",
+            email="teacher.momo@example.com",
+            password_hash=make_password("password123"),
+            full_name="Teacher MoMo",
+            user_type="instructor",
+            status="active",
+        )
+        self.instructor = Instructor.objects.create(user=instr_user, level=level)
+        self.student = UserModel.objects.create(
+            username="student_momo",
+            email="student.momo@example.com",
+            password_hash=make_password("password123"),
+            full_name="Student MoMo",
+            user_type="student",
+            status="active",
+        )
+        self.course = Course.objects.create(
+            title="MoMo Course",
+            shortdescription="momo",
+            description="momo",
+            instructor=self.instructor,
+            category_id=None,
+            subcategory_id=None,
+            price=Decimal("199000.00"),
+            level="beginner",
+            language="English",
+            duration=120,
+            total_lessons=10,
+        )
+        self.payment = Payment.objects.create(
+            user=self.student,
+            amount=Decimal("199000.00"),
+            discount_amount=Decimal("0.00"),
+            total_amount=Decimal("199000.00"),
+            payment_status=Payment.PaymentStatus.PENDING,
+            payment_method=Payment.PaymentMethod.MOMO,
+            payment_type=Payment.PaymentType.COURSE_PURCHASE,
+        )
+        self.detail = Payment_Details.objects.create(
+            payment=self.payment,
+            course=self.course,
+            price=Decimal("199000.00"),
+            discount=Decimal("0.00"),
+            final_price=Decimal("199000.00"),
+        )
+        Cart.objects.create(user=self.student, course=self.course)
+
+    def test_create_payment_keeps_cart_until_payment_is_completed(self):
+        payment_data = create_payment({
+            "user_id": self.student.id,
+            "payment_method": Payment.PaymentMethod.MOMO,
+            "payment_type": Payment.PaymentType.COURSE_PURCHASE,
+            "payment_details": [{"course_id": self.course.id}],
+        })
+
+        self.assertTrue(Cart.objects.filter(user=self.student, course=self.course).exists())
+        self.assertEqual(payment_data["payment"]["payment_status"], Payment.PaymentStatus.PENDING)
+
+    def test_payment_status_includes_retry_window_fields(self):
+        data = get_payment_status(self.payment.id, self.student)
+        self.assertTrue(data["can_retry_payment"])
+        self.assertIsNotNone(data["retryable_until"])
+
+    @patch("payments.momo_services.requests.post")
+    def test_create_momo_payment_signs_request_and_verifies_response_signature(self, mock_post):
+        class MockResponse:
+            status_code = 200
+
+            @staticmethod
+            def raise_for_status():
+                return None
+
+            @staticmethod
+            def json():
+                payload = {
+                    "partnerCode": settings.MOMO_PARTNER_CODE,
+                    "requestId": "momo-request-001",
+                    "orderId": str(1508),
+                    "amount": 199000,
+                    "responseTime": 1721720663942,
+                    "message": "Success",
+                    "resultCode": 0,
+                    "payUrl": "https://test-payment.momo.vn/pay/mock",
+                }
+                payload["signature"] = _momo_create_response_signature(payload)
+                return payload
+
+        mock_post.return_value = MockResponse()
+
+        response = create_momo_payment(self.payment)
+
+        self.assertEqual(response["resultCode"], 0)
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["partnerCode"], settings.MOMO_PARTNER_CODE)
+        self.assertEqual(payload["requestType"], "payWithMethod")
+        self.assertEqual(payload["orderId"], str(self.payment.id))
+        self.assertEqual(payload["amount"], int(self.payment.total_amount))
+        self.assertTrue(payload["signature"])
+
+    def test_simulate_momo_ipn_marks_payment_completed_and_creates_enrollment(self):
+        response = simulate_momo_ipn(self.payment, trans_id=4088878653, result_code=0, message="Successful.")
+        self.assertEqual(response.status_code, 200)
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.COMPLETED)
+        self.assertEqual(self.payment.transaction_id, "4088878653")
+        self.assertEqual(self.payment.payment_gateway, "momo")
+        self.assertTrue(
+            Enrollment.objects.filter(
+                user=self.student,
+                course=self.course,
+                payment=self.payment,
+                is_deleted=False,
+            ).exists()
+        )
+        self.assertFalse(Cart.objects.filter(user=self.student, course=self.course).exists())
+
+    @patch("payments.momo_services.requests.post")
+    def test_send_momo_refund_request_signs_payload_and_maps_success(self, mock_post):
+        class MockResponse:
+            status_code = 200
+
+            @staticmethod
+            def raise_for_status():
+                return None
+
+            @staticmethod
+            def json():
+                return {
+                    "partnerCode": settings.MOMO_PARTNER_CODE,
+                    "orderId": "refund-order-001",
+                    "requestId": "refund-request-001",
+                    "amount": 199000,
+                    "transId": 144518121,
+                    "resultCode": 0,
+                    "message": "Thành công",
+                    "responseTime": 1721720663942,
+                }
+
+        mock_post.return_value = MockResponse()
+        self.payment.payment_status = Payment.PaymentStatus.COMPLETED
+        self.payment.transaction_id = "144492817"
+        self.payment.save(update_fields=["payment_status", "transaction_id", "updated_at"])
+        self.detail.refund_amount = Decimal("199000.00")
+        self.detail.save(update_fields=["refund_amount", "updated_at"])
+
+        result = send_momo_refund_request(self.detail, reason="Hoan tien Momo")
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["response_code"], "0")
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["partnerCode"], settings.MOMO_PARTNER_CODE)
+        self.assertEqual(payload["transId"], 144492817)
+        self.assertEqual(payload["amount"], 199000)
+        self.assertTrue(payload["signature"])
+
+    def test_create_momo_payment_rejects_expired_retry_window(self):
+        self.payment.created_at = timezone.now() - timezone.timedelta(hours=2)
+        self.payment.save(update_fields=["created_at", "updated_at"])
+
+        with self.assertRaisesMessage(Exception, "Đã hết thời hạn thanh toán lại cho giao dịch này."):
+            create_momo_payment(self.payment)
+
+    @patch("payments.refund_services.send_vnpay_refund_request")
+    @patch("payments.refund_services.send_momo_refund_request")
+    def test_refund_workflow_uses_gateway_matching_payment_method(self, mock_momo_refund, mock_vnpay_refund):
+        from payments.refund_services import user_refund_request
+
+        self.payment.payment_status = Payment.PaymentStatus.COMPLETED
+        self.payment.transaction_id = "144492817"
+        self.payment.save(update_fields=["payment_status", "transaction_id", "updated_at"])
+        Enrollment.objects.create(
+            user=self.student,
+            course=self.course,
+            payment=self.payment,
+            status=Enrollment.Status.Active,
+            progress=Decimal("10.00"),
+        )
+        mock_momo_refund.return_value = {
+            "status": "success",
+            "response_code": "0",
+            "transaction_id": "144518121",
+            "message": "Thành công",
+        }
+
+        from systems_settings.models import SystemsSetting
+        import json
+
+        SystemsSetting.objects.update_or_create(
+            setting_key="refund_settings",
+            defaults={
+                "setting_group": "payments",
+                "setting_value": json.dumps({
+                    "refund_mode": "direct_system",
+                    "refund_retry_cooldown_minutes": 30,
+                    "refund_max_retry_count": 3,
+                    "refund_timeout_seconds": 15,
+                    "allow_admin_override_refund_status": True,
+                    "allow_admin_soft_delete_refund": True,
+                }),
+                "description": "Refund workflow settings",
+            },
+        )
+
+        result = user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need MoMo refund")
+
+        self.detail.refresh_from_db()
+        self.assertEqual(result["results"][0]["status"], "success")
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+        mock_momo_refund.assert_called_once()
+        mock_vnpay_refund.assert_not_called()

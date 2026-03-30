@@ -1,15 +1,49 @@
-import React, { useState, useEffect } from 'react'
-import { Check, X, HelpCircle, Star, Zap, Crown, Shield, ArrowRight, User, Minus } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ArrowRight, Check, Crown, HelpCircle, Minus, Shield, Star, X, Zap } from 'lucide-react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
+import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
-import { Switch } from "../../components/ui/switch"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
 import { useRouter } from "../../components/Router"
 import { useAuth } from "../../contexts/AuthContext"
 import { getSubscriptionPlans, type SubscriptionPlanListItem } from "../../services/subscription.api"
 
+type HighlightColor = 'blue' | 'yellow' | undefined
+
+interface DisplayPlan {
+  id: string
+  name: string
+  description: string
+  price: number
+  period: string
+  billingText?: string
+  features: string[]
+  notIncluded: string[]
+  buttonText: string
+  buttonVariant: 'default' | 'outline'
+  popular: boolean
+  disabled: boolean
+  saveText?: string | null
+  highlightColor?: HighlightColor
+  icon?: string
+}
+
+interface ComparisonRow {
+  name: string
+  basic: boolean | string
+  pro: boolean | string
+  premium: boolean | string
+}
+
+interface ComparisonSection {
+  category: string
+  rows: ComparisonRow[]
+}
+
 export function SubscriptionPricingPage() {
+  const { t } = useTranslation()
   const { navigate } = useRouter()
   const { user } = useAuth()
   const [isAnnual, setIsAnnual] = useState(true)
@@ -19,298 +53,408 @@ export function SubscriptionPricingPage() {
     getSubscriptionPlans().then(setApiPlans).catch(() => {})
   }, [])
 
-  // Icon map for plan icons from BE
-  const iconMap: Record<string, React.ComponentType<any>> = { Zap, Crown, Shield }
+  const iconMap: Record<string, ComponentType<any>> = { Zap, Crown, Shield }
 
-  // Map API plans to display format; fall back to hardcoded if API returns empty
-  const plans = apiPlans.length > 0 ? apiPlans.map((p, idx) => {
-    const price = Number(p.price)
-    const discountPrice = p.discount_price ? Number(p.discount_price) : null
-    const isFree = price === 0 && !discountPrice
-    const monthlyPrice = price
-    const annualPerMonth = discountPrice ?? price
-    const displayPrice = isFree ? 0 : (isAnnual ? annualPerMonth : monthlyPrice)
-    const hasDiscount = discountPrice !== null && discountPrice < price
-    return {
-      id: String(p.id),
-      name: p.name,
-      description: p.description || '',
-      price: displayPrice,
-      period: isFree ? 'forever' : '/ tháng',
-      billingText: isFree ? undefined : (isAnnual && hasDiscount
-        ? `Thanh toán ${new Intl.NumberFormat('vi-VN').format(annualPerMonth * 12)}₫ mỗi năm`
-        : 'Thanh toán hàng tháng'),
-      features: p.features || [],
-      notIncluded: p.not_included || [],
-      buttonText: isFree ? (user ? 'Gói hiện tại' : 'Đăng ký miễn phí') : (p.badge_text || `Nâng cấp ${p.name}`),
-      buttonVariant: (p.is_featured ? 'default' : 'outline') as 'default' | 'outline',
-      popular: p.is_featured,
-      disabled: isFree && !!user,
-      saveText: isAnnual && hasDiscount ? `Tiết kiệm ${Math.round((1 - annualPerMonth / monthlyPrice) * 100)}%` : null,
-      highlightColor: p.highlight_color || undefined,
-      icon: p.icon || undefined,
-    }
-  }) : [
+  const formatCurrency = (amount: number) => `${new Intl.NumberFormat('vi-VN').format(amount)} VND`
+
+  const defaultPlans: DisplayPlan[] = [
     {
-      id: "basic",
-      name: "Basic",
-      description: "Khởi đầu hành trình học tập",
+      id: 'basic',
+      name: t('subscription_pricing_page.plans.basic.name'),
+      description: t('subscription_pricing_page.plans.basic.description'),
       price: 0,
-      period: "forever",
+      period: t('subscription_pricing_page.forever'),
       features: [
-        "Truy cập khóa học miễn phí",
-        "Video chất lượng HD 720p",
-        "Thảo luận cộng đồng",
-        "Tài liệu cơ bản"
+        t('subscription_pricing_page.plans.basic.features.0'),
+        t('subscription_pricing_page.plans.basic.features.1'),
+        t('subscription_pricing_page.plans.basic.features.2'),
+        t('subscription_pricing_page.plans.basic.features.3'),
       ],
       notIncluded: [
-        "Chứng chỉ hoàn thành",
-        "Tải xuống video offline",
-        "Hỗ trợ từ giảng viên",
-        "Dự án thực hành",
-        "Mentor 1-1",
-        "AI Coding Assistant"
+        t('subscription_pricing_page.plans.basic.not_included.0'),
+        t('subscription_pricing_page.plans.basic.not_included.1'),
+        t('subscription_pricing_page.plans.basic.not_included.2'),
+        t('subscription_pricing_page.plans.basic.not_included.3'),
+        t('subscription_pricing_page.plans.basic.not_included.4'),
+        t('subscription_pricing_page.plans.basic.not_included.5'),
       ],
-      buttonText: user ? "Gói hiện tại" : "Đăng ký miễn phí",
-      buttonVariant: "outline" as const,
+      buttonText: user
+        ? t('subscription_pricing_page.plan_actions.current_plan')
+        : t('subscription_pricing_page.plan_actions.free_signup'),
+      buttonVariant: 'outline',
       popular: false,
-      disabled: !!user
+      disabled: !!user,
     },
     {
-      id: "pro",
-      name: "Pro Member",
-      description: "Học tập không giới hạn & Chứng chỉ",
+      id: 'pro',
+      name: t('subscription_pricing_page.plans.pro.name'),
+      description: t('subscription_pricing_page.plans.pro.description'),
       price: isAnnual ? 199000 : 249000,
-      period: isAnnual ? "/ tháng" : "/ tháng",
-      billingText: isAnnual ? "Thanh toán 2,388,000₫ mỗi năm" : "Thanh toán hàng tháng",
+      period: t('subscription_pricing_page.per_month'),
+      billingText: isAnnual
+        ? t('subscription_pricing_page.billing.annual', { amount: formatCurrency(2388000) })
+        : t('subscription_pricing_page.billing.monthly'),
       features: [
-        "Truy cập TOÀN BỘ khóa học",
-        "Video Full HD 1080p",
-        "Chứng chỉ hoàn thành",
-        "Tải xuống tài nguyên & Code",
-        "AI Assistant hỗ trợ code",
-        "Cập nhật khóa học mới"
+        t('subscription_pricing_page.plans.pro.features.0'),
+        t('subscription_pricing_page.plans.pro.features.1'),
+        t('subscription_pricing_page.plans.pro.features.2'),
+        t('subscription_pricing_page.plans.pro.features.3'),
+        t('subscription_pricing_page.plans.pro.features.4'),
+        t('subscription_pricing_page.plans.pro.features.5'),
       ],
       notIncluded: [
-        "Mentor 1-1 hàng tháng",
-        "Review CV & Mock Interview"
+        t('subscription_pricing_page.plans.pro.not_included.0'),
+        t('subscription_pricing_page.plans.pro.not_included.1'),
       ],
-      buttonText: "Nâng cấp Pro",
-      buttonVariant: "default" as const,
+      buttonText: t('subscription_pricing_page.plan_actions.upgrade_pro'),
+      buttonVariant: 'default',
       popular: true,
-      saveText: isAnnual ? "Tiết kiệm 20%" : null,
-      highlightColor: "blue"
+      saveText: isAnnual ? t('subscription_pricing_page.savings', { percent: 20 }) : null,
+      highlightColor: 'blue',
     },
     {
-      id: "premium",
-      name: "Premium",
-      description: "Tăng tốc sự nghiệp với Mentor",
+      id: 'premium',
+      name: t('subscription_pricing_page.plans.premium.name'),
+      description: t('subscription_pricing_page.plans.premium.description'),
       price: isAnnual ? 499000 : 599000,
-      period: isAnnual ? "/ tháng" : "/ tháng",
-      billingText: isAnnual ? "Thanh toán 5,988,000₫ mỗi năm" : "Thanh toán hàng tháng",
+      period: t('subscription_pricing_page.per_month'),
+      billingText: isAnnual
+        ? t('subscription_pricing_page.billing.annual', { amount: formatCurrency(5988000) })
+        : t('subscription_pricing_page.billing.monthly'),
       features: [
-        "Mọi quyền lợi của gói Pro",
-        "Mentor 1-1 (30 phút/tháng)",
-        "Review Code dự án cá nhân",
-        "Tư vấn lộ trình nghề nghiệp",
-        "Hỗ trợ ưu tiên 24/7",
-        "Truy cập khóa học Doanh nghiệp"
+        t('subscription_pricing_page.plans.premium.features.0'),
+        t('subscription_pricing_page.plans.premium.features.1'),
+        t('subscription_pricing_page.plans.premium.features.2'),
+        t('subscription_pricing_page.plans.premium.features.3'),
+        t('subscription_pricing_page.plans.premium.features.4'),
+        t('subscription_pricing_page.plans.premium.features.5'),
       ],
       notIncluded: [],
-      buttonText: "Trở thành Premium",
-      buttonVariant: "outline" as const,
+      buttonText: t('subscription_pricing_page.plan_actions.become_premium'),
+      buttonVariant: 'outline',
       popular: false,
-      highlightColor: "yellow"
-    }
+      highlightColor: 'yellow',
+    },
   ]
 
-  // Comparison Data Table
-  const comparisonData = [
+  const plans: DisplayPlan[] =
+    apiPlans.length > 0
+      ? apiPlans.map((plan) => {
+          const price = Number(plan.price)
+          const discountPrice = plan.discount_price ? Number(plan.discount_price) : null
+          const isFree = price === 0 && !discountPrice
+          const monthlyPrice = price
+          const annualPerMonth = discountPrice ?? price
+          const displayPrice = isFree ? 0 : isAnnual ? annualPerMonth : monthlyPrice
+          const hasDiscount = discountPrice !== null && discountPrice < price
+
+          return {
+            id: String(plan.id),
+            name: plan.name,
+            description: plan.description || '',
+            price: displayPrice,
+            period: isFree ? t('subscription_pricing_page.forever') : t('subscription_pricing_page.per_month'),
+            billingText: isFree
+              ? undefined
+              : isAnnual && hasDiscount
+                ? t('subscription_pricing_page.billing.annual', {
+                    amount: formatCurrency(annualPerMonth * 12),
+                  })
+                : t('subscription_pricing_page.billing.monthly'),
+            features: plan.features || [],
+            notIncluded: plan.not_included || [],
+            buttonText: isFree
+              ? user
+                ? t('subscription_pricing_page.plan_actions.current_plan')
+                : t('subscription_pricing_page.plan_actions.free_signup')
+              : plan.badge_text || t('subscription_pricing_page.plan_actions.upgrade_named', { name: plan.name }),
+            buttonVariant: (plan.is_featured ? 'default' : 'outline') as 'default' | 'outline',
+            popular: plan.is_featured,
+            disabled: isFree && !!user,
+            saveText:
+              isAnnual && hasDiscount
+                ? t('subscription_pricing_page.savings', {
+                    percent: Math.round((1 - annualPerMonth / monthlyPrice) * 100),
+                  })
+                : null,
+            highlightColor: (plan.highlight_color as HighlightColor) || undefined,
+            icon: plan.icon || undefined,
+          }
+        })
+      : defaultPlans
+
+  const comparisonData: ComparisonSection[] = [
     {
-      category: "Nội dung học tập",
+      category: t('subscription_pricing_page.comparison.content.category'),
       rows: [
-        { name: "Truy cập khóa học", basic: "Một số (Free)", pro: "Toàn bộ (500+)", premium: "Toàn bộ + Doanh nghiệp" },
-        { name: "Chất lượng video", basic: "HD (720p)", pro: "Full HD (1080p)", premium: "4K UHD / 1080p" },
-        { name: "Tải tài nguyên (Source code)", basic: false, pro: true, premium: true },
-        { name: "Xem Offline (Mobile App)", basic: false, pro: true, premium: true },
-        { name: "Bài tập & Quiz", basic: "Cơ bản", pro: "Đầy đủ", premium: "Nâng cao" },
-      ]
+        {
+          name: t('subscription_pricing_page.comparison.content.rows.course_access.name'),
+          basic: t('subscription_pricing_page.comparison.content.rows.course_access.basic'),
+          pro: t('subscription_pricing_page.comparison.content.rows.course_access.pro'),
+          premium: t('subscription_pricing_page.comparison.content.rows.course_access.premium'),
+        },
+        {
+          name: t('subscription_pricing_page.comparison.content.rows.video_quality.name'),
+          basic: t('subscription_pricing_page.comparison.content.rows.video_quality.basic'),
+          pro: t('subscription_pricing_page.comparison.content.rows.video_quality.pro'),
+          premium: t('subscription_pricing_page.comparison.content.rows.video_quality.premium'),
+        },
+        {
+          name: t('subscription_pricing_page.comparison.content.rows.downloads.name'),
+          basic: false,
+          pro: true,
+          premium: true,
+        },
+        {
+          name: t('subscription_pricing_page.comparison.content.rows.offline.name'),
+          basic: false,
+          pro: true,
+          premium: true,
+        },
+        {
+          name: t('subscription_pricing_page.comparison.content.rows.quizzes.name'),
+          basic: t('subscription_pricing_page.comparison.content.rows.quizzes.basic'),
+          pro: t('subscription_pricing_page.comparison.content.rows.quizzes.pro'),
+          premium: t('subscription_pricing_page.comparison.content.rows.quizzes.premium'),
+        },
+      ],
     },
     {
-      category: "Tính năng & Công cụ",
+      category: t('subscription_pricing_page.comparison.tools.category'),
       rows: [
-        { name: "Chứng chỉ hoàn thành", basic: false, pro: true, premium: true },
-        { name: "AI Coding Assistant", basic: false, pro: true, premium: true },
-        { name: "Ghi chú & Bookmark", basic: true, pro: true, premium: true },
-        { name: "Không quảng cáo", basic: false, pro: true, premium: true },
-      ]
+        {
+          name: t('subscription_pricing_page.comparison.tools.rows.certificate.name'),
+          basic: false,
+          pro: true,
+          premium: true,
+        },
+        {
+          name: t('subscription_pricing_page.comparison.tools.rows.ai_assistant.name'),
+          basic: false,
+          pro: true,
+          premium: true,
+        },
+        {
+          name: t('subscription_pricing_page.comparison.tools.rows.notes.name'),
+          basic: true,
+          pro: true,
+          premium: true,
+        },
+        {
+          name: t('subscription_pricing_page.comparison.tools.rows.no_ads.name'),
+          basic: false,
+          pro: true,
+          premium: true,
+        },
+      ],
     },
     {
-      category: "Hỗ trợ & Sự nghiệp",
+      category: t('subscription_pricing_page.comparison.support.category'),
       rows: [
-        { name: "Hỗ trợ Q&A", basic: "Cộng đồng", pro: "Giảng viên hỗ trợ", premium: "Ưu tiên 1-1" },
-        { name: "Mentor hướng dẫn riêng", basic: false, pro: false, premium: "30 phút / tháng" },
-        { name: "Review CV & Portfolio", basic: false, pro: false, premium: true },
-        { name: "Cam kết việc làm", basic: false, pro: false, premium: "Hỗ trợ kết nối" },
-      ]
-    }
+        {
+          name: t('subscription_pricing_page.comparison.support.rows.qna.name'),
+          basic: t('subscription_pricing_page.comparison.support.rows.qna.basic'),
+          pro: t('subscription_pricing_page.comparison.support.rows.qna.pro'),
+          premium: t('subscription_pricing_page.comparison.support.rows.qna.premium'),
+        },
+        {
+          name: t('subscription_pricing_page.comparison.support.rows.mentor.name'),
+          basic: false,
+          pro: false,
+          premium: t('subscription_pricing_page.comparison.support.rows.mentor.premium'),
+        },
+        {
+          name: t('subscription_pricing_page.comparison.support.rows.cv_review.name'),
+          basic: false,
+          pro: false,
+          premium: true,
+        },
+        {
+          name: t('subscription_pricing_page.comparison.support.rows.career_support.name'),
+          basic: false,
+          pro: false,
+          premium: t('subscription_pricing_page.comparison.support.rows.career_support.premium'),
+        },
+      ],
+    },
   ]
+
+  const faqs = [0, 1, 2, 3].map((index) => ({
+    question: t(`subscription_pricing_page.faq.${index}.q`),
+    answer: t(`subscription_pricing_page.faq.${index}.a`),
+  }))
 
   const handleSubscribe = (planId: string) => {
-    // Free plan: just redirect to signup/login
-    const plan = plans.find(p => p.id === planId)
+    const plan = plans.find((item) => item.id === planId)
     if (plan && plan.price === 0) {
       if (!user) navigate('/signup')
       return
     }
-    
+
     if (!user) {
       navigate('/login')
       return
     }
 
-    const interval = isAnnual ? 'year' : 'month'
-    navigate(`/checkout/subscription?plan=${planId}&interval=${interval}`)
+    navigate(`/checkout/subscription?plan=${planId}&interval=${isAnnual ? 'year' : 'month'}`)
   }
 
   const renderCheck = (value: boolean | string) => {
     if (typeof value === 'string') return <span className="text-sm font-medium">{value}</span>
-    if (value === true) return <Check className="w-5 h-5 text-green-500 mx-auto" />
-    return <Minus className="w-5 h-5 text-slate-300 mx-auto" />
+    if (value === true) return <Check className="mx-auto h-5 w-5 text-green-500" />
+    return <Minus className="mx-auto h-5 w-5 text-slate-300" />
+  }
+
+  const getPlanIcon = (plan: DisplayPlan) => {
+    if (plan.icon && iconMap[plan.icon]) {
+      const IconComp = iconMap[plan.icon]
+      return <IconComp className="h-6 w-6" />
+    }
+    if (plan.id === 'basic') return <Shield className="h-6 w-6" />
+    if (plan.id === 'pro') return <Zap className="h-6 w-6" />
+    if (plan.id === 'premium') return <Crown className="h-6 w-6" />
+    return <Shield className="h-6 w-6" />
+  }
+
+  const getPlanFeatureIntro = (plan: DisplayPlan) => {
+    if (plan.price === 0) return t('subscription_pricing_page.card.basic_features')
+    if (plan.highlightColor === 'yellow') return t('subscription_pricing_page.card.pro_plus')
+    return t('subscription_pricing_page.card.includes')
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden bg-slate-950 text-white pb-56 pt-16 lg:pt-24">
-        {/* Abstract Background Shapes */}
+      <div className="relative overflow-hidden bg-slate-950 pb-56 pt-16 text-white lg:pt-24">
         <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600 rounded-full blur-3xl mix-blend-screen animate-pulse"></div>
-            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-600 rounded-full blur-3xl mix-blend-screen animate-pulse" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute left-1/4 top-0 h-96 w-96 animate-pulse rounded-full bg-blue-600 blur-3xl mix-blend-screen" />
+          <div
+            className="absolute bottom-0 right-1/4 h-96 w-96 animate-pulse rounded-full bg-purple-600 blur-3xl mix-blend-screen"
+            style={{ animationDelay: '1s' }}
+          />
         </div>
 
         <div className="relative container mx-auto px-4 text-center z-10">
-          <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm font-medium bg-blue-500/10 text-blue-200 border-blue-500/30 hover:bg-blue-500/20 transition-all backdrop-blur-sm">
-             <Star className="w-3.5 h-3.5 mr-2 fill-yellow-400 text-yellow-400" />
-             Đầu tư cho sự nghiệp IT của bạn
+          <Badge
+            variant="secondary"
+            className="mb-6 border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm font-medium text-blue-200 backdrop-blur-sm transition-all hover:bg-blue-500/20"
+          >
+            <Star className="mr-2 h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            {t('subscription_pricing_page.hero.badge')}
           </Badge>
-          
-          <h1 className="text-4xl md:text-6xl font-bold mb-6 tracking-tight leading-tight">
-            Học lập trình không giới hạn.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">
-              Mở khóa tiềm nng của bạn.
+
+          <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight md:text-6xl">
+            {t('subscription_pricing_page.hero.title_line_1')}
+            <br />
+            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              {t('subscription_pricing_page.hero.title_line_2')}
             </span>
           </h1>
-          
-          <p className="text-lg md:text-xl text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Truy cập hơn 500+ khóa học chất lượng cao, thực hành dự án thực tế và nhận sự hỗ trợ từ AI Assistant.
-            Chỉ với chi phí bằng một ly cà phê mỗi ngày.
+
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
+            {t('subscription_pricing_page.hero.description')}
           </p>
 
-          {/* Billing Toggle */}
-          <div className="inline-flex items-center justify-center p-1.5 bg-slate-800/50 backdrop-blur-md rounded-full border border-slate-700/50 shadow-xl">
-            <button 
-                onClick={() => setIsAnnual(false)}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 ${!isAnnual ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+          <div className="inline-flex items-center justify-center rounded-full border border-slate-700/50 bg-slate-800/50 p-1.5 shadow-xl backdrop-blur-md">
+            <button
+              onClick={() => setIsAnnual(false)}
+              className={`rounded-full px-6 py-2 text-sm font-medium transition-all duration-300 ${
+                !isAnnual ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+              }`}
             >
-                Thanh toán tháng
+              {t('subscription_pricing_page.billing_toggle.monthly')}
             </button>
-            <button 
-                onClick={() => setIsAnnual(true)}
-                className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 ${isAnnual ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            <button
+              onClick={() => setIsAnnual(true)}
+              className={`flex items-center gap-2 rounded-full px-6 py-2 text-sm font-medium transition-all duration-300 ${
+                isAnnual ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+              }`}
             >
-                Thanh toán năm
-                <Badge variant="secondary" className="bg-green-500 text-white text-[10px] px-1.5 py-0 h-4 border-none shadow-none">
-                    -20%
-                </Badge>
+              {t('subscription_pricing_page.billing_toggle.annual')}
+              <Badge
+                variant="secondary"
+                className="h-4 border-none bg-green-500 px-1.5 py-0 text-[10px] text-white shadow-none"
+              >
+                -20%
+              </Badge>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Pricing Cards */}
-      <div className="container mx-auto px-4 -mt-32 relative z-20 pb-24 mb-12 flex-1">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-start">
+      <div className="container mx-auto relative z-20 mb-12 -mt-32 flex-1 px-4 pb-24">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-8 md:grid-cols-3">
           {plans.map((plan) => (
-            <Card 
-              key={plan.id} 
-              className={`flex flex-col h-full relative transition-all duration-300 ${
-                plan.popular 
-                  ? 'border-blue-500 shadow-2xl shadow-blue-500/10 scale-105 z-10 bg-white dark:bg-slate-900 ring-4 ring-blue-500/10 -mt-8' 
-                  : 'hover:-translate-y-2 hover:shadow-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm'
+            <Card
+              key={plan.id}
+              className={`relative flex h-full flex-col transition-all duration-300 ${
+                plan.popular
+                  ? 'z-10 -mt-8 scale-105 border-blue-500 bg-white shadow-2xl shadow-blue-500/10 ring-4 ring-blue-500/10 dark:bg-slate-900'
+                  : 'bg-white/95 backdrop-blur-sm hover:-translate-y-2 hover:shadow-xl dark:bg-slate-900/95'
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-1 rounded-full text-sm font-bold flex items-center gap-1.5 shadow-lg whitespace-nowrap">
-                  <Crown className="w-3.5 h-3.5 fill-current" /> Đề xuất cho bạn
+                <div className="absolute -top-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-1 text-sm font-bold text-white shadow-lg">
+                  <Crown className="h-3.5 w-3.5 fill-current" />
+                  {t('subscription_pricing_page.card.recommended')}
                 </div>
               )}
 
               <CardHeader className={`pb-4 ${plan.popular ? 'pt-8' : ''}`}>
-                <CardTitle className="text-2xl flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${
-                      plan.highlightColor === 'blue' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                      plan.highlightColor === 'yellow' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                      'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                  }`}>
-                    {(() => {
-                      const IconComp = plan.icon ? iconMap[plan.icon] : null
-                      if (IconComp) return <IconComp className="w-6 h-6" />
-                      // Fallback for hardcoded plans
-                      if (plan.id === 'basic') return <Shield className="w-6 h-6" />
-                      if (plan.id === 'pro') return <Zap className="w-6 h-6" />
-                      if (plan.id === 'premium') return <Crown className="w-6 h-6" />
-                      return <Shield className="w-6 h-6" />
-                    })()}
+                <CardTitle className="flex items-center gap-3 text-2xl">
+                  <div
+                    className={`rounded-lg p-2 ${
+                      plan.highlightColor === 'blue'
+                        ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                        : plan.highlightColor === 'yellow'
+                          ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    {getPlanIcon(plan)}
                   </div>
                   {plan.name}
                 </CardTitle>
-                <CardDescription className="min-h-[40px] text-base pt-2">{plan.description}</CardDescription>
+                <CardDescription className="min-h-[40px] pt-2 text-base">{plan.description}</CardDescription>
               </CardHeader>
-              
-              <CardContent className="flex-1 pb-4 flex flex-col">
-                <div className="mb-6 pb-6 border-b border-dashed">
+
+              <CardContent className="flex flex-1 flex-col pb-4">
+                <div className="mb-6 border-b border-dashed pb-6">
                   <div className="flex items-baseline">
                     <span className="text-4xl font-bold tracking-tight">
-                        {plan.price === 0 ? 'Miễn phí' : new Intl.NumberFormat('vi-VN').format(plan.price)}
+                      {plan.price === 0 ? t('subscription_pricing_page.free') : new Intl.NumberFormat('vi-VN').format(plan.price)}
                     </span>
-                    <span className="text-xl font-bold ml-1 text-muted-foreground">{plan.price !== 0 && '₫'}</span>
-                    <span className="text-muted-foreground ml-2 text-sm font-medium">
-                        {plan.period}
-                    </span>
+                    {plan.price !== 0 && <span className="ml-1 text-xl font-bold text-muted-foreground">VND</span>}
+                    <span className="ml-2 text-sm font-medium text-muted-foreground">{plan.period}</span>
                   </div>
-                  
-                  {plan.billingText && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                          {plan.billingText}
-                      </p>
-                  )}
-                  
+
+                  {plan.billingText && <p className="mt-2 text-sm text-muted-foreground">{plan.billingText}</p>}
+
                   {plan.saveText && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-2.5 py-1 rounded-md text-sm font-medium">
-                        <Zap className="w-3 h-3 fill-current" />
-                        {plan.saveText}
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-green-50 px-2.5 py-1 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                      <Zap className="h-3 w-3 fill-current" />
+                      {plan.saveText}
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-4 flex-1 min-h-[280px]">
-                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                      {plan.price === 0 ? 'Tính năng cơ bản:' : plan.highlightColor === 'yellow' ? 'Tất cả của Pro cộng thêm:' : 'Bao gồm:'}
+                <div className="flex flex-1 flex-col space-y-4 min-h-[280px]">
+                  <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                    {getPlanFeatureIntro(plan)}
                   </p>
-                  {plan.features.map((feature, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div className="rounded-full bg-blue-50 dark:bg-blue-900/20 p-1 flex-shrink-0 mt-0.5">
-                        <Check className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+
+                  {plan.features.map((feature, index) => (
+                    <div key={`${plan.id}-feature-${index}`} className="flex items-start gap-3">
+                      <div className="mt-0.5 flex-shrink-0 rounded-full bg-blue-50 p-1 dark:bg-blue-900/20">
+                        <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <span className="text-sm text-slate-700 dark:text-slate-300">{feature}</span>
                     </div>
                   ))}
-                  
-                  {plan.notIncluded.map((feature, i) => (
-                    <div key={i} className="flex items-start gap-3 text-muted-foreground/60">
-                      <div className="rounded-full bg-slate-100 dark:bg-slate-800 p-1 flex-shrink-0 mt-0.5">
-                        <X className="w-3.5 h-3.5" />
+
+                  {plan.notIncluded.map((feature, index) => (
+                    <div key={`${plan.id}-excluded-${index}`} className="flex items-start gap-3 text-muted-foreground/60">
+                      <div className="mt-0.5 flex-shrink-0 rounded-full bg-slate-100 p-1 dark:bg-slate-800">
+                        <X className="h-3.5 w-3.5" />
                       </div>
                       <span className="text-sm">{feature}</span>
                     </div>
@@ -318,21 +462,21 @@ export function SubscriptionPricingPage() {
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-2 pb-6 px-6 mt-auto">
-                <Button 
-                  className={`w-full h-12 text-base font-bold rounded-xl shadow-md transition-all duration-300 active:scale-95 ${
-                      plan.popular 
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/25 hover:shadow-blue-500/40 hover:-translate-y-1 border-0' 
-                        : plan.highlightColor === 'yellow' 
-                            ? 'bg-slate-900 !text-white hover:bg-slate-800 dark:bg-slate-50 dark:!text-slate-900 dark:hover:bg-slate-200 hover:-translate-y-1 border-0' 
-                            : 'bg-transparent border-2 border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-400 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400'
+              <CardFooter className="mt-auto px-6 pb-6 pt-2">
+                <Button
+                  className={`h-12 w-full rounded-xl text-base font-bold shadow-md transition-all duration-300 active:scale-95 ${
+                    plan.popular
+                      ? 'border-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-blue-500/25 hover:-translate-y-1 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/40'
+                      : plan.highlightColor === 'yellow'
+                        ? 'border-0 bg-slate-900 !text-white hover:-translate-y-1 hover:bg-slate-800 dark:bg-slate-50 dark:!text-slate-900 dark:hover:bg-slate-200'
+                        : 'border-2 border-slate-200 bg-transparent text-slate-600 hover:border-blue-500 hover:text-blue-600 dark:border-slate-800 dark:text-slate-400 dark:hover:border-blue-400 dark:hover:text-blue-400'
                   }`}
                   variant={plan.highlightColor === 'yellow' ? 'default' : plan.buttonVariant}
                   onClick={() => handleSubscribe(plan.id)}
                   disabled={plan.disabled}
                 >
                   {plan.buttonText}
-                  {!plan.disabled && <ArrowRight className="w-4 h-4 ml-2" />}
+                  {!plan.disabled && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>
               </CardFooter>
             </Card>
@@ -340,119 +484,121 @@ export function SubscriptionPricingPage() {
         </div>
       </div>
 
-      {/* Feature Comparison Table */}
-      <div className="container mx-auto px-4 pb-24 max-w-6xl">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold mb-4">So sánh chi tiết quyền lợi</h2>
-          <p className="text-muted-foreground">Chọn gói phù hợp nhất với nhu cầu học tập của bạn</p>
+      <div className="container mx-auto max-w-6xl px-4 pb-24">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 text-3xl font-bold">{t('subscription_pricing_page.comparison.title')}</h2>
+          <p className="text-muted-foreground">{t('subscription_pricing_page.comparison.description')}</p>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <table className="w-full text-left border-collapse bg-white dark:bg-slate-900">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800">
+          <table className="w-full border-collapse bg-white text-left dark:bg-slate-900">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-                <th className="p-4 md:p-6 w-1/3 font-semibold text-lg">Tính năng</th>
-                <th className="p-4 md:p-6 text-center font-semibold text-slate-600 dark:text-slate-400">Basic</th>
-                <th className="p-4 md:p-6 text-center font-bold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/10">Pro Member</th>
-                <th className="p-4 md:p-6 text-center font-bold text-yellow-600 dark:text-yellow-400">Premium</th>
+              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
+                <th className="w-1/3 p-4 text-lg font-semibold md:p-6">
+                  {t('subscription_pricing_page.comparison.headers.feature')}
+                </th>
+                <th className="p-4 text-center font-semibold text-slate-600 dark:text-slate-400 md:p-6">
+                  {t('subscription_pricing_page.plans.basic.name')}
+                </th>
+                <th className="bg-blue-50/50 p-4 text-center font-bold text-blue-600 dark:bg-blue-900/10 dark:text-blue-400 md:p-6">
+                  {t('subscription_pricing_page.plans.pro.name')}
+                </th>
+                <th className="p-4 text-center font-bold text-yellow-600 dark:text-yellow-400 md:p-6">
+                  {t('subscription_pricing_page.plans.premium.name')}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {comparisonData.flatMap((section, idx) => [
-                <tr key={`cat-${idx}`} className="bg-slate-50/50 dark:bg-slate-900/50">
-                  <td colSpan={4} className="p-3 md:px-6 font-bold text-sm uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              {comparisonData.flatMap((section, sectionIndex) => [
+                <tr key={`category-${sectionIndex}`} className="bg-slate-50/50 dark:bg-slate-900/50">
+                  <td
+                    colSpan={4}
+                    className="p-3 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:px-6"
+                  >
                     {section.category}
                   </td>
                 </tr>,
-                ...section.rows.map((row, rIdx) => (
-                  <tr key={`row-${idx}-${rIdx}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                    <td className="p-4 md:px-6 font-medium text-slate-700 dark:text-slate-300 border-r border-dashed border-slate-100 dark:border-slate-800">{row.name}</td>
-                    <td className="p-4 text-center text-slate-500 border-r border-dashed border-slate-100 dark:border-slate-800">
+                ...section.rows.map((row, rowIndex) => (
+                  <tr
+                    key={`row-${sectionIndex}-${rowIndex}`}
+                    className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                  >
+                    <td className="border-r border-dashed border-slate-100 p-4 font-medium text-slate-700 dark:border-slate-800 dark:text-slate-300 md:px-6">
+                      {row.name}
+                    </td>
+                    <td className="border-r border-dashed border-slate-100 p-4 text-center text-slate-500 dark:border-slate-800">
                       {renderCheck(row.basic)}
                     </td>
-                    <td className="p-4 text-center font-medium bg-blue-50/10 dark:bg-blue-900/5 border-r border-dashed border-blue-100 dark:border-blue-900/30">
+                    <td className="border-r border-dashed border-blue-100 bg-blue-50/10 p-4 text-center font-medium dark:border-blue-900/30 dark:bg-blue-900/5">
                       {renderCheck(row.pro)}
                     </td>
-                    <td className="p-4 text-center font-medium">
-                      {renderCheck(row.premium)}
-                    </td>
+                    <td className="p-4 text-center font-medium">{renderCheck(row.premium)}</td>
                   </tr>
-                ))
+                )),
               ])}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Trust Indicators */}
-      <div className="bg-slate-50 dark:bg-slate-900/50 py-20 border-y dark:border-slate-800">
+      <div className="border-y bg-slate-50 py-20 dark:border-slate-800 dark:bg-slate-900/50">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-10">
-            Được tin dùng bởi các team công nghệ tại
+          <p className="mb-10 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+            {t('subscription_pricing_page.trust.title')}
           </p>
-          <div className="flex flex-wrap justify-center items-center gap-12 md:gap-20 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
-             {/* Text-based Logos for simplicity */}
-            <h3 className="text-2xl font-black font-serif tracking-tighter text-slate-800 dark:text-slate-200">ACME<span className="text-blue-600">.corp</span></h3>
-            <h3 className="text-2xl font-bold tracking-tight text-slate-700 dark:text-slate-300 flex items-center gap-1"><div className="w-6 h-6 bg-slate-700 dark:bg-slate-300 rounded-md"></div>StarkInd</h3>
-            <h3 className="text-2xl font-light italic text-slate-800 dark:text-slate-200">Wayne<span className="font-bold not-italic">Tech</span></h3>
-            <h3 className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-200 tracking-tighter">Cyber<span className="text-green-500">Dyne</span></h3>
+          <div className="flex flex-wrap items-center justify-center gap-12 opacity-40 grayscale transition-all duration-700 hover:grayscale-0 md:gap-20">
+            <h3 className="text-2xl font-black tracking-tighter text-slate-800 dark:text-slate-200">
+              ACME<span className="text-blue-600">.corp</span>
+            </h3>
+            <h3 className="flex items-center gap-1 text-2xl font-bold tracking-tight text-slate-700 dark:text-slate-300">
+              <div className="h-6 w-6 rounded-md bg-slate-700 dark:bg-slate-300" />
+              StarkInd
+            </h3>
+            <h3 className="text-2xl italic font-light text-slate-800 dark:text-slate-200">
+              Wayne<span className="font-bold not-italic">Tech</span>
+            </h3>
+            <h3 className="text-2xl font-bold tracking-tighter text-slate-800 dark:text-slate-200">
+              Cyber<span className="text-green-500">Dyne</span>
+            </h3>
           </div>
         </div>
       </div>
 
-      {/* FAQ Section */}
-      <div className="container mx-auto px-4 py-24 max-w-3xl">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Câu hỏi thường gặp</h2>
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Mọi thứ bạn cần biết về gói thành viên và thanh toán
+      <div className="container mx-auto max-w-3xl px-4 py-24">
+        <div className="mb-16 text-center">
+          <h2 className="mb-4 text-3xl font-bold md:text-4xl">{t('subscription_pricing_page.faq_title')}</h2>
+          <p className="mx-auto max-w-xl text-lg text-muted-foreground">
+            {t('subscription_pricing_page.faq_description')}
           </p>
         </div>
 
         <Accordion type="single" collapsible className="w-full space-y-4">
-          {[
-            {
-              q: "Tôi có thể hủy gói đăng ký bất cứ lúc nào không?",
-              a: "Hoàn toàn được. Bạn có thể hủy gia hạn bất cứ lúc nào trong trang Cài đặt tài khoản. Quyền lợi Pro sẽ được duy trì cho đến hết chu kỳ thanh toán hiện tại mà không mất phí."
-            },
-            {
-              q: "Gói Pro khác gì so với mua lẻ từng khóa học?",
-              a: "Mua lẻ giúp bạn sở hữu vĩnh viễn 1 khóa học cụ thể. Gói Pro cho phép bạn truy cập KHÔNG GIỚI HẠN vào thư viện hơn 500+ khóa học hiện có và các khóa học mới trong tương lai. Đây là giải pháp tiết kiệm nhất nếu bạn muốn học nhiều kỹ năng."
-            },
-            {
-              q: "Chính sách hoàn tiền như thế nào?",
-              a: "Chúng tôi cam kết hoàn tiền 100% trong vòng 7 ngày đầu tiên nếu bạn không hài lòng với dịch vụ, bất kể lý do là gì. Chỉ cần gửi email cho support."
-            },
-            {
-              q: "Tôi có được cấp chứng chỉ khi hoàn thành khóa học không?",
-              a: "Có. Tất cả các thành viên Pro và Premium đều nhận được chứng chỉ xác thực (có thể thêm vào LinkedIn) sau khi hoàn thành 100% nội dung khóa học và bài tập."
-            }
-          ].map((faq, index) => (
-            <AccordionItem key={index} value={`item-${index}`} className="border rounded-lg px-4 bg-card shadow-sm">
-              <AccordionTrigger className="text-left font-medium hover:text-blue-600 transition-colors py-4">
-                  {faq.q}
+          {faqs.map((faq, index) => (
+            <AccordionItem key={index} value={`item-${index}`} className="rounded-lg border bg-card px-4 shadow-sm">
+              <AccordionTrigger className="py-4 text-left font-medium transition-colors hover:text-blue-600">
+                {faq.question}
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground leading-relaxed pb-4">
-                {faq.a}
+              <AccordionContent className="pb-4 leading-relaxed text-muted-foreground">
+                {faq.answer}
               </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>
 
         <div className="mt-16 text-center">
-            <div className="inline-flex flex-col items-center justify-center p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 rounded-2xl border border-blue-100 dark:border-slate-700 shadow-sm">
-                <div className="w-12 h-12 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center shadow-md mb-4">
-                    <HelpCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="font-semibold text-lg mb-2">Vẫn còn thắc mắc?</h3>
-                <p className="text-muted-foreground mb-6 max-w-sm">
-                    Chat trực tiếp với đội ngũ hỗ trợ của chúng tôi hoặc gửi email để được giải đáp chi tiết.
-                </p>
-                <div className="flex gap-4">
-                    <Button variant="outline" className="bg-white dark:bg-slate-800">Gửi Email</Button>
-                    <Button>Chat ngay</Button>
-                </div>
+          <div className="inline-flex flex-col items-center justify-center rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md dark:bg-slate-700">
+              <HelpCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
+            <h3 className="mb-2 text-lg font-semibold">{t('subscription_pricing_page.support.title')}</h3>
+            <p className="mb-6 max-w-sm text-muted-foreground">{t('subscription_pricing_page.support.description')}</p>
+            <div className="flex gap-4">
+              <Button variant="outline" className="bg-white dark:bg-slate-800">
+                {t('subscription_pricing_page.support.email')}
+              </Button>
+              <Button>{t('subscription_pricing_page.support.chat')}</Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

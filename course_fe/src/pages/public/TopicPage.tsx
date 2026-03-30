@@ -13,13 +13,14 @@ import { Separator } from '../../components/ui/separator'
 import { Checkbox } from '../../components/ui/checkbox'
 import { useRouter } from '../../components/Router'
 import { formatCategoryName, BreadcrumbItem } from '../../utils/navigation'
+import { useTranslation } from 'react-i18next'
 
 // Mock course data
 const topicCourses: Record<string, any[]> = {
   'react': [
     {
       id: '1',
-      title: "React - The Complete Guide 2024 (incl. React Router & Redux)",
+      titleKey: 'topic_page.courses.react_complete_guide',
       instructor: "Maximilian Schwarzmüller",
       image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800",
       rating: 4.6,
@@ -28,13 +29,13 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.599.000",
       duration: "49 hours",
       students: "650K+",
-      level: "All Levels",
+      levelKey: 'topic_page.levels.all',
       bestseller: true,
       lastUpdated: '10/2024'
     },
     {
       id: '2',
-      title: "Modern React with Redux",
+      titleKey: 'topic_page.courses.modern_react_with_redux',
       instructor: "Stephen Grider",
       image: "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=800",
       rating: 4.7,
@@ -43,13 +44,13 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.299.000",
       duration: "52 hours",
       students: "420K+",
-      level: "Beginner",
+      levelKey: 'topic_page.levels.beginner',
       bestseller: true,
       lastUpdated: '11/2024'
     },
     {
       id: '3',
-      title: "Advanced React and Redux",
+      titleKey: 'topic_page.courses.advanced_react_and_redux',
       instructor: "Stephen Grider",
       image: "https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=800",
       rating: 4.6,
@@ -58,7 +59,7 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫2.999.000",
       duration: "28 hours",
       students: "280K+",
-      level: "Advanced",
+      levelKey: 'topic_page.levels.advanced',
       bestseller: false,
       lastUpdated: '09/2024'
     }
@@ -66,7 +67,7 @@ const topicCourses: Record<string, any[]> = {
   'python': [
     {
       id: '4',
-      title: "100 Days of Code: The Complete Python Pro Bootcamp",
+      titleKey: 'topic_page.courses.hundred_days_python',
       instructor: "Dr. Angela Yu",
       image: "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=800",
       rating: 4.7,
@@ -75,13 +76,13 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.499.000",
       duration: "60 hours",
       students: "780K+",
-      level: "All Levels",
+      levelKey: 'topic_page.levels.all',
       bestseller: true,
       lastUpdated: '11/2024'
     },
     {
       id: '5',
-      title: "Python for Data Science and Machine Learning Bootcamp",
+      titleKey: 'topic_page.courses.python_data_science_bootcamp',
       instructor: "Jose Portilla",
       image: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800",
       rating: 4.6,
@@ -90,7 +91,7 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.199.000",
       duration: "25 hours",
       students: "720K+",
-      level: "Beginner",
+      levelKey: 'topic_page.levels.beginner',
       bestseller: true,
       lastUpdated: '10/2024'
     }
@@ -98,7 +99,7 @@ const topicCourses: Record<string, any[]> = {
   'javascript': [
     {
       id: '6',
-      title: "The Complete JavaScript Course 2024: From Zero to Expert!",
+      titleKey: 'topic_page.courses.complete_javascript_2024',
       instructor: "Jonas Schmedtmann",
       image: "https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=800",
       rating: 4.7,
@@ -107,13 +108,13 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.599.000",
       duration: "69 hours",
       students: "680K+",
-      level: "All Levels",
+      levelKey: 'topic_page.levels.all',
       bestseller: true,
       lastUpdated: '11/2024'
     },
     {
       id: '7',
-      title: "JavaScript: The Advanced Concepts",
+      titleKey: 'topic_page.courses.javascript_advanced_concepts',
       instructor: "Andrei Neagoie",
       image: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=800",
       rating: 4.7,
@@ -122,7 +123,7 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫2.999.000",
       duration: "25 hours",
       students: "320K+",
-      level: "Advanced",
+      levelKey: 'topic_page.levels.advanced',
       bestseller: false,
       lastUpdated: '09/2024'
     }
@@ -130,7 +131,7 @@ const topicCourses: Record<string, any[]> = {
   'nodejs': [
     {
       id: '8',
-      title: "Node.js, Express, MongoDB & More: The Complete Bootcamp",
+      titleKey: 'topic_page.courses.nodejs_bootcamp',
       instructor: "Jonas Schmedtmann",
       image: "https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=800",
       rating: 4.8,
@@ -139,7 +140,7 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.299.000",
       duration: "42 hours",
       students: "480K+",
-      level: "All Levels",
+      levelKey: 'topic_page.levels.all',
       bestseller: true,
       lastUpdated: '11/2024'
     }
@@ -147,7 +148,7 @@ const topicCourses: Record<string, any[]> = {
   'machine-learning': [
     {
       id: '9',
-      title: "Machine Learning A-Z: AI, Python & R + ChatGPT Prize",
+      titleKey: 'topic_page.courses.machine_learning_a_z',
       instructor: "Kirill Eremenko, Hadelin de Ponteves",
       image: "https://images.unsplash.com/photo-1666875753105-c63a6f3bdc86?w=800",
       rating: 4.5,
@@ -156,7 +157,7 @@ const topicCourses: Record<string, any[]> = {
       originalPrice: "₫3.799.000",
       duration: "44 hours",
       students: "1.2M+",
-      level: "Beginner",
+      levelKey: 'topic_page.levels.beginner',
       bestseller: true,
       lastUpdated: '11/2024'
     }
@@ -168,44 +169,45 @@ const ratings = [4.5, 4.0, 3.5, 3.0]
 
 // Topic metadata
 const topicMetadata: Record<string, { 
-  title: string
-  description: string
+  titleKey: string
+  descriptionKey: string
   parentCategory: string
   relatedTopics: string[]
 }> = {
   'react': {
-    title: 'React',
-    description: 'Build powerful, interactive web applications with React - the most popular JavaScript library for building user interfaces',
+    titleKey: 'topic_page.topics.react.title',
+    descriptionKey: 'topic_page.topics.react.description',
     parentCategory: 'Web Development',
     relatedTopics: ['Redux', 'Next.js', 'TypeScript', 'JavaScript']
   },
   'python': {
-    title: 'Python',
-    description: 'Master Python programming from basics to advanced topics including data science, machine learning, and web development',
+    titleKey: 'topic_page.topics.python.title',
+    descriptionKey: 'topic_page.topics.python.description',
     parentCategory: 'Programming Languages',
     relatedTopics: ['Django', 'Flask', 'Data Science', 'Machine Learning']
   },
   'javascript': {
-    title: 'JavaScript',
-    description: 'Learn JavaScript and become a full-stack developer. Master the language that powers the modern web',
+    titleKey: 'topic_page.topics.javascript.title',
+    descriptionKey: 'topic_page.topics.javascript.description',
     parentCategory: 'Web Development',
     relatedTopics: ['Node.js', 'React', 'Vue.js', 'TypeScript']
   },
   'nodejs': {
-    title: 'Node.js',
-    description: 'Build scalable server-side applications with Node.js, the JavaScript runtime for backend development',
+    titleKey: 'topic_page.topics.nodejs.title',
+    descriptionKey: 'topic_page.topics.nodejs.description',
     parentCategory: 'Web Development',
     relatedTopics: ['Express.js', 'MongoDB', 'REST API', 'JavaScript']
   },
   'machine-learning': {
-    title: 'Machine Learning',
-    description: 'Dive into AI and machine learning. Learn to build intelligent systems that learn from data',
+    titleKey: 'topic_page.topics.machine_learning.title',
+    descriptionKey: 'topic_page.topics.machine_learning.description',
     parentCategory: 'Data Science',
     relatedTopics: ['Deep Learning', 'Python', 'TensorFlow', 'PyTorch']
   }
 }
 
 export default function TopicPage() {
+  const { t } = useTranslation()
   const { currentRoute, navigate } = useRouter()
   
   // Extract topic from URL
@@ -218,21 +220,44 @@ export default function TopicPage() {
   const [sortBy, setSortBy] = useState('most-popular')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showFilters, setShowFilters] = useState(false)
+  const levelOptions = [
+    t('topic_page.levels.all'),
+    t('topic_page.levels.beginner'),
+    t('topic_page.levels.intermediate'),
+    t('topic_page.levels.advanced'),
+  ]
   
   // Get topic info and courses
-  const topicInfo = topicMetadata[topicSlug] || {
-    title: formatCategoryName(topicSlug),
-    description: `Learn ${formatCategoryName(topicSlug)} with expert-led courses`,
-    parentCategory: 'All Courses',
-    relatedTopics: []
-  }
-  
-  const courses = topicCourses[topicSlug] || []
+  const topicInfo = (() => {
+    const metadata = topicMetadata[topicSlug]
+
+    if (!metadata) {
+      return {
+        title: formatCategoryName(topicSlug),
+        description: t('topic_page.default_description', { topic: formatCategoryName(topicSlug) }),
+        parentCategory: t('topic_page.all_courses'),
+        relatedTopics: [],
+      }
+    }
+
+    return {
+      title: t(metadata.titleKey),
+      description: t(metadata.descriptionKey),
+      parentCategory: metadata.parentCategory,
+      relatedTopics: metadata.relatedTopics,
+    }
+  })()
+
+  const courses = (topicCourses[topicSlug] || []).map((course) => ({
+    ...course,
+    title: t(course.titleKey),
+    level: t(course.levelKey),
+  }))
   
   // Generate breadcrumb
   const breadcrumbItems: BreadcrumbItem[] = [
-    { label: 'Home', href: '/' },
-    { label: 'Topics', href: '/topics' },
+    { label: t('topic_page.breadcrumb.home'), href: '/' },
+    { label: t('topic_page.breadcrumb.topics'), href: '/topics' },
     { label: topicInfo.title, href: `/topic/${topicSlug}` }
   ]
   
@@ -299,7 +324,7 @@ export default function TopicPage() {
     <div className="space-y-6">
       {/* Ratings */}
       <div>
-        <h3 className="font-semibold mb-3">Ratings</h3>
+        <h3 className="font-semibold mb-3">{t('topic_page.filters.ratings')}</h3>
         <div className="space-y-2">
           {ratings.map(rating => (
             <div key={rating} className="flex items-center gap-2">
@@ -311,7 +336,7 @@ export default function TopicPage() {
               />
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm">{rating} & up</span>
+                <span className="text-sm">{t('topic_page.filters.rating_and_up', { rating })}</span>
               </div>
             </div>
           ))}
@@ -322,9 +347,9 @@ export default function TopicPage() {
       
       {/* Level */}
       <div>
-        <h3 className="font-semibold mb-3">Level</h3>
+        <h3 className="font-semibold mb-3">{t('topic_page.filters.level')}</h3>
         <div className="space-y-2">
-          {levels.map(level => (
+          {levelOptions.map(level => (
             <div key={level} className="flex items-center gap-2">
               <Checkbox
                 checked={selectedLevels.includes(level)}
@@ -350,7 +375,7 @@ export default function TopicPage() {
             className="w-full"
             onClick={clearFilters}
           >
-            Clear all filters
+            {t('topic_page.clear_all_filters')}
           </Button>
         </>
       )}
@@ -377,7 +402,7 @@ export default function TopicPage() {
               </div>
               <div>
                 <p className="text-lg md:text-2xl font-semibold">{courses.length}</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Courses</p>
+                <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.courses')}</p>
               </div>
             </div>
             
@@ -392,7 +417,7 @@ export default function TopicPage() {
                     : `${(totalStudents / 1000).toFixed(0)}K+`
                   }
                 </p>
-                <p className="text-xs md:text-sm text-muted-foreground">Students</p>
+                <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.students')}</p>
               </div>
             </div>
             
@@ -402,7 +427,7 @@ export default function TopicPage() {
               </div>
               <div>
                 <p className="text-lg md:text-2xl font-semibold">{avgRating}</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Avg Rating</p>
+                <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.avg_rating')}</p>
               </div>
             </div>
             
@@ -411,8 +436,8 @@ export default function TopicPage() {
                 <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-lg md:text-2xl font-semibold">Top Rated</p>
-                <p className="text-xs md:text-sm text-muted-foreground">Quality</p>
+                <p className="text-lg md:text-2xl font-semibold">{t('topic_page.stats.top_rated')}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.quality')}</p>
               </div>
             </div>
           </div>
@@ -423,7 +448,7 @@ export default function TopicPage() {
       {topicInfo.relatedTopics.length > 0 && (
         <div className="border-b bg-card">
           <div className="container mx-auto px-4 py-4">
-            <h2 className="text-lg font-semibold mb-3">Related topics</h2>
+            <h2 className="text-lg font-semibold mb-3">{t('topic_page.related_topics')}</h2>
             <div className="flex flex-wrap gap-2">
               {topicInfo.relatedTopics.map(topic => (
                 <Button
@@ -447,7 +472,7 @@ export default function TopicPage() {
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <Card className="p-4 lg:p-6 sticky top-24">
               <div className="flex items-center justify-between mb-4 lg:mb-6">
-                <h2 className="font-semibold text-sm lg:text-base">Filters</h2>
+                <h2 className="font-semibold text-sm lg:text-base">{t('topic_page.filters.title')}</h2>
                 {hasActiveFilters && (
                   <Button
                     variant="ghost"
@@ -455,7 +480,7 @@ export default function TopicPage() {
                     onClick={clearFilters}
                     className="h-auto p-0 text-xs text-purple-400 hover:text-purple-300"
                   >
-                    Clear all
+                    {t('topic_page.filters.clear_all')}
                   </Button>
                 )}
               </div>
@@ -472,7 +497,7 @@ export default function TopicPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                 <Input
                   type="text"
-                  placeholder="Search courses..."
+                  placeholder={t('topic_page.search_placeholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-10"
@@ -491,7 +516,7 @@ export default function TopicPage() {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <p className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
-                    {sortedCourses.length} courses
+                    {t('topic_page.course_count', { count: sortedCourses.length })}
                   </p>
                   
                   {/* Mobile Filter Button */}
@@ -499,7 +524,7 @@ export default function TopicPage() {
                     <SheetTrigger asChild>
                       <Button variant="outline" size="sm" className="lg:hidden text-xs">
                         <Filter className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        Filters
+                        {t('topic_page.filters.title')}
                         {hasActiveFilters && (
                           <Badge className="ml-1 sm:ml-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-xs">
                             !
@@ -509,8 +534,8 @@ export default function TopicPage() {
                     </SheetTrigger>
                     <SheetContent side="left" className="w-80 overflow-y-auto">
                       <SheetHeader>
-                        <SheetTitle>Filters</SheetTitle>
-                        <SheetDescription>Refine your search with filters</SheetDescription>
+                        <SheetTitle>{t('topic_page.filters.title')}</SheetTitle>
+                        <SheetDescription>{t('topic_page.filters.description')}</SheetDescription>
                       </SheetHeader>
                       <div className="mt-6">
                         <FiltersSidebar />
@@ -535,14 +560,14 @@ export default function TopicPage() {
                   {/* Sort By */}
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-full sm:w-[180px] text-xs sm:text-sm">
-                      <SelectValue placeholder="Sort by" />
+                      <SelectValue placeholder={t('topic_page.sort.placeholder')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="most-popular">Most Popular</SelectItem>
-                      <SelectItem value="highest-rated">Highest Rated</SelectItem>
-                      <SelectItem value="newest">Newest</SelectItem>
-                      <SelectItem value="price-low-high">Price: Low to High</SelectItem>
-                      <SelectItem value="price-high-low">Price: High to Low</SelectItem>
+                      <SelectItem value="most-popular">{t('topic_page.sort.most_popular')}</SelectItem>
+                      <SelectItem value="highest-rated">{t('topic_page.sort.highest_rated')}</SelectItem>
+                      <SelectItem value="newest">{t('topic_page.sort.newest')}</SelectItem>
+                      <SelectItem value="price-low-high">{t('topic_page.sort.price_low_high')}</SelectItem>
+                      <SelectItem value="price-high-low">{t('topic_page.sort.price_high_low')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -551,7 +576,7 @@ export default function TopicPage() {
               {/* Active Filters */}
               {hasActiveFilters && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Active filters:</span>
+                  <span className="text-sm text-muted-foreground">{t('topic_page.active_filters')}</span>
                   {selectedLevels.map(level => (
                     <Badge key={level} variant="secondary" className="gap-1">
                       {level}
@@ -563,7 +588,7 @@ export default function TopicPage() {
                   ))}
                   {selectedRating && (
                     <Badge variant="secondary" className="gap-1">
-                      {selectedRating}+ stars
+                      {t('topic_page.selected_rating', { rating: selectedRating })}
                       <X
                         className="w-3 h-3 cursor-pointer"
                         onClick={() => setSelectedRating(null)}
@@ -592,12 +617,12 @@ export default function TopicPage() {
             ) : (
               <Card className="p-12 text-center">
                 <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No courses found</h3>
+                <h3 className="text-lg font-semibold mb-2">{t('topic_page.empty_title')}</h3>
                 <p className="text-muted-foreground mb-4">
-                  Try adjusting your filters or search query
+                  {t('topic_page.empty_description')}
                 </p>
                 {hasActiveFilters && (
-                  <Button onClick={clearFilters}>Clear all filters</Button>
+                  <Button onClick={clearFilters}>{t('topic_page.clear_all_filters')}</Button>
                 )}
               </Card>
             )}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Slider } from './ui/slider'
-import { 
+import {
   Play, 
   Pause, 
   Volume2, 
@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 interface VideoPlayerProps {
   url?: string
@@ -65,6 +66,7 @@ export function VideoPlayer({
   restrictForwardSeeking = true,
   seekToleranceSeconds = 2
 }: VideoPlayerProps) {
+  const { t } = useTranslation()
   const playerRef = useRef<any>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLDivElement>(null)
@@ -175,7 +177,7 @@ export function VideoPlayer({
                     playerRef.current.seekTo(maxWatchedTimeRef.current, true)
                     const now = Date.now()
                     if (now - lastBlockedToastAtRef.current > 3000) {
-                      toast.warning('Bạn chưa thể tua tới đoạn chưa xem')
+                      toast.warning(t('video_player.forward_seek_locked'))
                       lastBlockedToastAtRef.current = now
                     }
                     return
@@ -344,7 +346,7 @@ export function VideoPlayer({
       const safeSeekTime = restrictForwardSeeking ? Math.min(seekTime, maxAllowedTime) : seekTime
 
       if (safeSeekTime + 0.5 < seekTime) {
-        toast.warning('Bạn chỉ có thể tua trong phạm vi đã xem')
+        toast.warning(t('video_player.seek_within_watched'))
       }
 
       playerRef.current.seekTo(safeSeekTime, true)
@@ -363,7 +365,7 @@ export function VideoPlayer({
       const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
       const newTime = restrictForwardSeeking ? Math.min(desiredTime, maxAllowedTime) : desiredTime
       if (newTime + 0.5 < desiredTime) {
-        toast.warning('Không thể tua nhanh qua phần chưa xem')
+        toast.warning(t('video_player.skip_unwatched_blocked'))
       }
       playerRef.current.seekTo(newTime, true)
     } catch (err) {
@@ -434,7 +436,7 @@ export function VideoPlayer({
       const roundedTime = Math.floor(currentTime)
       const nextBookmarks = Array.from(new Set([...bookmarks, roundedTime])).sort((a, b) => a - b)
       void onBookmarksChange?.(nextBookmarks)
-      toast.success('Bookmark added at ' + formatTime(currentTime))
+      toast.success(t('video_player.bookmark_added', { time: formatTime(currentTime) }))
     } catch (err) {
       console.log('Bookmark not available yet')
     }
@@ -447,7 +449,7 @@ export function VideoPlayer({
       const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
       const safeTime = restrictForwardSeeking ? Math.min(time, maxAllowedTime) : time
       if (safeTime + 0.5 < time) {
-        toast.warning('Bookmark nằm ở đoạn chưa mở')
+        toast.warning(t('video_player.bookmark_unavailable'))
       }
       playerRef.current.seekTo(safeTime, true)
     } catch (err) {
