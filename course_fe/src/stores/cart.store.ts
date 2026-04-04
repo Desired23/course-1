@@ -23,7 +23,7 @@ import {
   type PromotionInfo,
 } from '../services/promotion.api'
 
-// ─── Re-export Course type for backward compat with CartContext / CartPage ────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Re-export Course type for backward compat with CartContext / CartPage Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 export interface Course {
   id: string               // cart item id (as string for compat)
   courseId: number          // real course FK id

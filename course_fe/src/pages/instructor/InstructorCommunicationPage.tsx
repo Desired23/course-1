@@ -301,7 +301,7 @@ export function InstructorCommunicationPage() {
           : formatRelativeTime(conversation.updatedAt),
         unread: conversation.unreadCount,
         online: participant?.online ?? false,
-        lastMessageText: conversation.lastMessage?.content || 'ChÆ°a cÃ³ tin nháº¯n',
+        lastMessageText: conversation.lastMessage?.content || 'Chưa có tin nhắn',
       }
     }).filter((conversation) => {
       return conversation.student.name.toLowerCase().includes(keyword)

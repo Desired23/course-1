@@ -1,6 +1,7 @@
 import { ReactNode, useEffect } from 'react'
 import { UserDashboardSidebar } from '../UserDashboardSidebar'
 import { useUIStore } from '../../stores'
+import { useMinWidth } from '../../hooks/useMinWidth'
 
 interface UserDashboardLayoutProps {
   children: ReactNode
@@ -12,6 +13,7 @@ interface UserDashboardLayoutProps {
  */
 export function UserDashboardLayout({ children }: UserDashboardLayoutProps) {
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
+  const isDesktopSidebar = useMinWidth(1024)
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -21,7 +23,7 @@ export function UserDashboardLayout({ children }: UserDashboardLayoutProps) {
     <div className="flex min-h-screen bg-background">
       <UserDashboardSidebar />
       
-      <main className="flex-1 overflow-y-auto w-full md:w-auto md:ml-16">
+      <main className="w-full flex-1 overflow-y-auto" style={isDesktopSidebar ? { marginLeft: "16rem" } : undefined}>
         <div className="min-h-screen">
           {children}
         </div>

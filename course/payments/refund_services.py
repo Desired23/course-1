@@ -12,7 +12,7 @@ from instructor_earnings.models import InstructorEarning
 from payment_details.models import Payment_Details
 from payments.models import Payment
 
-from .momo_services import send_momo_refund_request
+from .momo_services import query_momo_refund_status, send_momo_refund_request
 from .services import get_payment_admin_config
 from .vnpay_services import send_vnpay_refund_request
 
@@ -59,6 +59,36 @@ def _append_timeline(detail, event, actor=None, note=None, metadata=None):
         "timestamp": timezone.now().isoformat(),
     })
     detail.refund_timeline = timeline
+
+
+def _store_gateway_reference(detail, result):
+    refund_order_id = result.get("refund_order_id")
+    refund_request_id = result.get("refund_request_id")
+    if not refund_order_id and not refund_request_id:
+        return
+    timeline = list(detail.refund_timeline or [])
+    for item in reversed(timeline):
+        if item.get("event") == "gateway_attempted":
+            metadata = dict(item.get("metadata") or {})
+            if refund_order_id:
+                metadata["refund_order_id"] = refund_order_id
+            if refund_request_id:
+                metadata["refund_request_id"] = refund_request_id
+            item["metadata"] = metadata
+            break
+    detail.refund_timeline = timeline
+
+
+def _get_latest_gateway_reference(detail):
+    for item in reversed(detail.refund_timeline or []):
+        metadata = item.get("metadata") or {}
+        refund_order_id = metadata.get("refund_order_id")
+        if refund_order_id:
+            return {
+                "refund_order_id": refund_order_id,
+                "refund_request_id": metadata.get("refund_request_id"),
+            }
+    return None
 
 
 def _serialize_refund_detail(detail):
@@ -246,6 +276,36 @@ def _execute_gateway_refund(detail, actor, settings_value):
             timeout_seconds=int(settings_value["refund_timeout_seconds"]),
         )
 
+    _store_gateway_reference(detail, result)
+
+    if result["status"] == "success":
+        _mark_success(
+            detail,
+            actor=actor,
+            message=result["message"],
+            transaction_id=result.get("transaction_id"),
+            response_code=result.get("response_code"),
+        )
+        _apply_success_side_effects(detail)
+    elif result["status"] == "failed":
+        _mark_failed(detail, actor=actor, message=result["message"], response_code=result.get("response_code"))
+    else:
+        _mark_processing(detail, actor=actor, message=result["message"], settings_value=settings_value)
+
+    detail.save()
+    return result
+
+
+def _sync_momo_processing_refund(detail, actor, settings_value):
+    reference = _get_latest_gateway_reference(detail)
+    if not reference or not reference.get("refund_order_id"):
+        raise ValidationError("Khong tim thay refund_order_id de dong bo trang thai MoMo.")
+
+    result = query_momo_refund_status(
+        reference["refund_order_id"],
+        timeout_seconds=int(settings_value["refund_timeout_seconds"]),
+    )
+
     if result["status"] == "success":
         _mark_success(
             detail,
@@ -392,8 +452,23 @@ def admin_refund_action(action, refund_ids, admin_user, note=None, override_stat
                     _log_refund_activity(admin_user.id, "REFUND_REJECTED", detail, f"Admin rejected refund {detail.id}")
                 elif action == "retry":
                     _ensure_retryable(detail, settings_value)
+                    if detail.payment.payment_method == Payment.PaymentMethod.MOMO and detail.refund_status == Payment_Details.RefundStatus.PROCESSING:
+                        sync_result = _sync_momo_processing_refund(detail, actor=actor, settings_value=settings_value)
+                        if sync_result["status"] == "processing":
+                            raise ValidationError("Refund MoMo van dang duoc xu ly. Khong nen retry luc nay.")
+                        if sync_result["status"] == "success":
+                            _log_refund_activity(admin_user.id, "REFUND_SYNCED", detail, f"Admin synced refund {detail.id} from MoMo query")
+                            updated_items.append(_serialize_refund_detail(detail))
+                            continue
                     _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
                     _log_refund_activity(admin_user.id, "REFUND_RETRIED", detail, f"Admin retried refund {detail.id}")
+                elif action == "sync":
+                    if detail.payment.payment_method != Payment.PaymentMethod.MOMO:
+                        raise ValidationError("Sync action hien chi ho tro refund MoMo.")
+                    if detail.refund_status != Payment_Details.RefundStatus.PROCESSING:
+                        raise ValidationError("Chi refund dang processing moi co the sync.")
+                    _sync_momo_processing_refund(detail, actor=actor, settings_value=settings_value)
+                    _log_refund_activity(admin_user.id, "REFUND_SYNCED", detail, f"Admin synced refund {detail.id}")
                 elif action == "cancel":
                     if detail.refund_status not in [Payment_Details.RefundStatus.PENDING, Payment_Details.RefundStatus.PROCESSING]:
                         raise ValidationError("Only pending or processing refunds can be cancelled.")
@@ -563,6 +638,7 @@ def get_admin_refunds(refund_status_filter=None, search=None, date_from=None, da
             "retryable": (
                 not detail.is_deleted
                 and detail.refund_status in [Payment_Details.RefundStatus.PROCESSING, Payment_Details.RefundStatus.FAILED]
+                and (detail.next_retry_at is None or detail.next_retry_at <= timezone.now())
             ),
         })
         if retryable and not item["retryable"]:

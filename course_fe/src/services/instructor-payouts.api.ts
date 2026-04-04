@@ -3,17 +3,17 @@
  * Payout request & management
  *
  * Endpoints:
- *   GET    /api/instructor-payouts/                    — List payouts (?status=, ?period=, ?instructor_id=, ?payout_id=)
- *   POST   /api/instructor/payouts/request/            — Request payout
- *   PATCH  /api/instructor-payouts/                    — Admin update payout
- *   DELETE /api/instructor-payouts/delete/:id/         — Delete payout
- *   PUT    /api/admin/payouts/:id/approve/             — Admin approve
- *   PUT    /api/admin/payouts/:id/reject/              — Admin reject
+ *   GET    /api/instructor-payouts/                    Ã¢â‚¬â€ List payouts (?status=, ?period=, ?instructor_id=, ?payout_id=)
+ *   POST   /api/instructor/payouts/request/            Ã¢â‚¬â€ Request payout
+ *   PATCH  /api/instructor-payouts/                    Ã¢â‚¬â€ Admin update payout
+ *   DELETE /api/instructor-payouts/delete/:id/         Ã¢â‚¬â€ Delete payout
+ *   PUT    /api/admin/payouts/:id/approve/             Ã¢â‚¬â€ Admin approve
+ *   PUT    /api/admin/payouts/:id/reject/              Ã¢â‚¬â€ Admin reject
  */
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export type PayoutStatus = 'pending' | 'processed' | 'cancelled' | 'failed'
 
@@ -52,7 +52,7 @@ export interface PaginatedPayoutResponse<T> {
   results: T[]
 }
 
-// ─── API Functions ────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ API Functions Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 /** List payouts */
 export async function getInstructorPayouts(params?: {
@@ -141,7 +141,7 @@ export async function deletePayout(payoutId: number): Promise<void> {
   return http.delete(`/instructor-payouts/delete/${payoutId}/`)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export function parseDecimal(value: string | null | undefined): number {
   if (!value) return 0
@@ -158,7 +158,7 @@ export function getPayoutStatusLabel(status: PayoutStatus): string {
     pending: 'Chờ xử lý',
     processed: 'Đã xử lý',
     cancelled: 'Đã hủy',
-    failed: 'Thất bại',
+    failed: 'ThÃ¡ÂºÂ¥t bÃ¡ÂºÂ¡i',
   }
   return labels[status] || status
 }

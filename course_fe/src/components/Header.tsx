@@ -27,6 +27,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { LanguageSwitcher } from "./LanguageSwitcher"
 import { useSiteBranding } from "../hooks/useSiteBranding"
+import { useMinWidth } from "../hooks/useMinWidth"
 
 interface HeaderProps {
   hideMobileMenu?: boolean
@@ -38,6 +39,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
   const { darkMode, toggleTheme, setSidebarOpen } = useUIStore()
   const { user, logout, isAuthenticated, hasRole } = useAuth()
   const { siteLogo, siteName } = useSiteBranding()
+  const isDesktopSidebar = useMinWidth(1024)
 
   // Check if current route is a user dashboard route
   const isUserDashboard = 
@@ -72,14 +74,14 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo and Category Menu */}
           <div className="flex items-center gap-4">
-            {shouldHideMobileMenu && <div className="w-10 md:hidden" />} {/* Spacer */}
+            {shouldHideMobileMenu && !isDesktopSidebar && <div className="w-10" />} {/* Spacer */}
             
             {/* Mobile Sidebar Toggle (User Dashboard) */}
-            {isUserDashboard && (
+            {isUserDashboard && !isDesktopSidebar && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="md:hidden -ml-2"
+                className="-ml-2"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Menu className="h-6 w-6" />
@@ -90,7 +92,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
               onClick={() => navigate('/')}
               className={cn(
                 "flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0",
-                isUserDashboard && "md:relative absolute left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0"
+                isUserDashboard && !isDesktopSidebar && "absolute left-1/2 -translate-x-1/2"
               )}
             >
               {siteLogo ? (

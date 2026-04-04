@@ -413,7 +413,7 @@ export function InstructorCoursesPage() {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-muted-foreground">
-                              <span>{course.category_name || 'Uncategorized'} â€¢ {getLevelLabel(course.level)}</span>
+                              <span>{course.category_name || 'Uncategorized'} • {getLevelLabel(course.level)}</span>
                               <span>{course.total_lessons} {t('instructor_courses.lessons')}</span>
                               {course.duration && <span className="hidden sm:inline">{formatDuration(course.duration)}</span>}
                               <span className="hidden lg:inline">{t('instructor_courses.updated')} {new Date(course.updated_at).toLocaleDateString()}</span>
@@ -476,7 +476,7 @@ export function InstructorCoursesPage() {
                             <span className="font-medium">{formatPrice(parseDecimal(course.price))}</span>
                             {course.discount_price && (
                               <>
-                                <span className="text-muted-foreground">â€¢</span>
+                                <span className="text-muted-foreground">•</span>
                                 <span className="text-green-600">{t('instructor_courses.discount')}: {formatPrice(parseDecimal(course.discount_price))}</span>
                               </>
                             )}

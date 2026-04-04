@@ -6,6 +6,7 @@ import { cn } from "./ui/utils"
 import { useTranslation } from "react-i18next"
 import { useState, useEffect } from "react"
 import { useSiteBranding } from "../hooks/useSiteBranding"
+import { useMinWidth } from "../hooks/useMinWidth"
 
 export function Footer() {
   const { t, i18n } = useTranslation()
@@ -13,6 +14,7 @@ export function Footer() {
   const [apiCategories, setApiCategories] = useState<Category[]>([])
   const { siteLogo, siteName } = useSiteBranding()
   const siteInitial = siteName?.charAt(0)?.toUpperCase() || "U"
+  const isDesktopSidebar = useMinWidth(1024)
   
   const isUserDashboard = 
     currentRoute.startsWith('/my-learning') ||
@@ -83,9 +85,9 @@ export function Footer() {
   return (
     <footer className="bg-gray-900 text-white py-12 mt-auto">
       <div className={cn(
-        "container mx-auto px-4",
-        isUserDashboard && "md:pl-[80px]"
-      )}>
+        "container mx-auto px-4"
+      )}
+      style={isUserDashboard && isDesktopSidebar ? { paddingLeft: "16rem" } : undefined}>
         {/* Main Footer Content */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
           {footerSections.map((section, index) => (

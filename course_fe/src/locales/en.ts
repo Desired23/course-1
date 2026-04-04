@@ -2449,12 +2449,15 @@ export const en = {
         approve_description: "Approve refund request for {{name}} on \"{{course}}\"?",
         reject_title: "Reject refund",
         reject_description: "Reject refund request for {{name}} on \"{{course}}\"?",
+        sync_title: "Sync refund status",
+        sync_description: "Check the latest refund status for {{name}} on \"{{course}}\" with MoMo?",
+        sync: "Sync",
         retry_title: "Retry refund",
         retry_description: "Retry refund request for {{name}} on \"{{course}}\"?",
-      retry: "Retry",
-      cancel_title: "Cancel refund",
-      cancel_description: "Cancel refund request for {{name}} on \"{{course}}\"?",
-      cancel: "Cancel",
+        retry: "Retry",
+        cancel_title: "Cancel refund",
+        cancel_description: "Cancel refund request for {{name}} on \"{{course}}\"?",
+        cancel: "Cancel",
       },
       workflow: {
         title: "Refund workflow",
@@ -5034,8 +5037,8 @@ export const en = {
     pay_with_method: "Pay with {{method}} - {{amount}}",
     gateway_options: {
       momo: {
-        title: "MoMo",
-        description: "Pay via the MoMo wallet, QR, domestic ATM, and international cards through the MoMo gateway.",
+        title: "MoMo ATM",
+        description: "Pay with a domestic ATM card through the MoMo payment gateway.",
       },
       vnpay: {
         title: "VNPay",
@@ -5113,8 +5116,8 @@ export const en = {
     payment_methods: {
       card_name: "Credit / debit card",
       card_description: "Visa, Mastercard, JCB, Amex",
-      momo_name: "MoMo e-wallet",
-      momo_description: "Scan a QR code for faster payment",
+      momo_name: "Domestic ATM via MoMo",
+      momo_description: "Enter your domestic ATM card details on the MoMo payment gateway.",
       bank_name: "Bank transfer (QR)",
       bank_description: "Supports VietQR 24/7 with automatic activation",
     },

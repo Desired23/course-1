@@ -816,6 +816,98 @@ class RefundWorkflowTests(TestCase):
         self.assertFalse(result["errors"])
         self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
 
+    @patch('payments.refund_services.query_momo_refund_status')
+    @patch('payments.refund_services.send_momo_refund_request')
+    def test_momo_retry_sync_blocks_when_gateway_still_processing(self, mock_momo_refund, mock_query_status):
+        from payments.refund_services import admin_refund_action, user_refund_request
+
+        self.payment.payment_method = Payment.PaymentMethod.MOMO
+        self.payment.payment_status = Payment.PaymentStatus.COMPLETED
+        self.payment.transaction_id = "4715586608"
+        self.payment.save(update_fields=["payment_method", "payment_status", "transaction_id", "updated_at"])
+
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 0,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+
+        mock_momo_refund.return_value = {
+            "status": "processing",
+            "response_code": "7002",
+            "transaction_id": None,
+            "message": "Gateway processing",
+            "refund_order_id": "refund-ord-001",
+            "refund_request_id": "refund-req-001",
+        }
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        self.detail.refresh_from_db()
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.PROCESSING)
+
+        mock_query_status.return_value = {
+            "status": "processing",
+            "response_code": "7002",
+            "transaction_id": None,
+            "message": "Still processing",
+            "refund_order_id": "refund-ord-001",
+            "refund_request_id": "refund-query-001",
+        }
+        result = admin_refund_action("retry", [self.detail.id], self.admin_user)
+        self.detail.refresh_from_db()
+
+        self.assertTrue(result["errors"])
+        self.assertIn("Khong nen retry", result["errors"][0]["message"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.PROCESSING)
+        self.assertEqual(mock_momo_refund.call_count, 1)
+
+    @patch('payments.refund_services.query_momo_refund_status')
+    @patch('payments.refund_services.send_momo_refund_request')
+    def test_momo_sync_marks_processing_refund_success(self, mock_momo_refund, mock_query_status):
+        from payments.refund_services import admin_refund_action, user_refund_request
+
+        self.payment.payment_method = Payment.PaymentMethod.MOMO
+        self.payment.payment_status = Payment.PaymentStatus.COMPLETED
+        self.payment.transaction_id = "4715586608"
+        self.payment.save(update_fields=["payment_method", "payment_status", "transaction_id", "updated_at"])
+
+        self._set_refund_settings({
+            "refund_mode": "direct_system",
+            "refund_retry_cooldown_minutes": 0,
+            "refund_max_retry_count": 3,
+            "refund_timeout_seconds": 15,
+            "allow_admin_override_refund_status": True,
+            "allow_admin_soft_delete_refund": True,
+        })
+
+        mock_momo_refund.return_value = {
+            "status": "processing",
+            "response_code": "7002",
+            "transaction_id": None,
+            "message": "Gateway processing",
+            "refund_order_id": "refund-ord-002",
+            "refund_request_id": "refund-req-002",
+        }
+        user_refund_request(self.payment.id, [self.detail.id], self.student, reason="Need refund")
+        self.detail.refresh_from_db()
+
+        mock_query_status.return_value = {
+            "status": "success",
+            "response_code": "0",
+            "transaction_id": "1774886589272",
+            "message": "Refund success",
+            "refund_order_id": "refund-ord-002",
+            "refund_request_id": "refund-query-002",
+        }
+        result = admin_refund_action("sync", [self.detail.id], self.admin_user)
+        self.detail.refresh_from_db()
+
+        self.assertFalse(result["errors"])
+        self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+        self.assertEqual(self.detail.refund_transaction_id, "1774886589272")
+
     @patch('payments.refund_services.send_vnpay_refund_request')
     def test_admin_restore_and_add_note(self, mock_gateway):
         from payments.refund_services import admin_refund_action, user_refund_request
@@ -1031,9 +1123,11 @@ class MomoIntegrationTests(TestCase):
         self.assertEqual(response["resultCode"], 0)
         payload = mock_post.call_args.kwargs["json"]
         self.assertEqual(payload["partnerCode"], settings.MOMO_PARTNER_CODE)
-        self.assertEqual(payload["requestType"], "payWithMethod")
+        self.assertEqual(payload["requestType"], "captureWallet")
         self.assertEqual(payload["orderId"], str(self.payment.id))
         self.assertEqual(payload["amount"], int(self.payment.total_amount))
+        self.assertNotIn("items", payload)
+        self.assertNotIn("autoCapture", payload)
         self.assertTrue(payload["signature"])
 
     def test_simulate_momo_ipn_marks_payment_completed_and_creates_enrollment(self):

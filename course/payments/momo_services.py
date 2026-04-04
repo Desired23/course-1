@@ -40,7 +40,7 @@ def _momo_hmac(data: str) -> str:
         data.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
-
+print("")
 
 def _momo_create_signature(payload: dict) -> str:
     raw = (
@@ -91,6 +91,16 @@ def _momo_create_response_signature(payload: dict) -> str:
     return _momo_hmac(raw)
 
 
+def _momo_refund_query_signature(payload: dict) -> str:
+    raw = (
+        f"accessKey={settings.MOMO_ACCESS_KEY}"
+        f"&orderId={payload['orderId']}"
+        f"&partnerCode={payload['partnerCode']}"
+        f"&requestId={payload['requestId']}"
+    )
+    return _momo_hmac(raw)
+
+
 def _encode_extra_data(payment: Payment) -> str:
     payload = {"payment_id": payment.id, "payment_type": payment.payment_type}
     raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -102,27 +112,6 @@ def _sanitize_momo_text(value: str, max_length: int = 255) -> str:
     if not text:
         return ""
     return " ".join(text.split())[:max_length]
-
-
-def _momo_items(payment: Payment) -> list[dict]:
-    items = []
-    for detail in payment.payment_details.filter(is_deleted=False).select_related("course"):
-        if not detail.course:
-            continue
-        items.append({
-            "id": str(detail.course_id),
-            "name": detail.course.title[:255],
-            "description": (detail.course.shortdescription or detail.course.title or "")[:255],
-            "category": getattr(detail.course, "level", "") or "course",
-            "imageUrl": getattr(detail.course, "thumbnail", "") or "",
-            "price": int(detail.final_price),
-            "currency": "VND",
-            "quantity": 1,
-            "unit": "course",
-            "totalPrice": int(detail.final_price),
-            "taxAmount": 0,
-        })
-    return items
 
 
 def _parse_momo_response(response):
@@ -141,9 +130,7 @@ def create_momo_payment(payment: Payment) -> dict:
     order_id = str(payment.id)
     payload = {
         "partnerCode": settings.MOMO_PARTNER_CODE,
-        "partnerName": settings.MOMO_PARTNER_NAME,
-        "storeId": settings.MOMO_STORE_ID,
-        "requestType": "payWithMethod",
+        "requestType": "payWithATM",
         "ipnUrl": settings.MOMO_IPN_URL,
         "redirectUrl": settings.MOMO_REDIRECT_URL,
         "orderId": order_id,
@@ -152,11 +139,8 @@ def create_momo_payment(payment: Payment) -> dict:
         "orderInfo": f"Thanh toán đơn hàng {order_id}",
         "requestId": request_id,
         "extraData": _encode_extra_data(payment),
-        "items": _momo_items(payment),
-        "autoCapture": True,
     }
     payload["signature"] = _momo_create_signature(payload)
-
     logger.info("MoMo create payment request payment_id=%s request_id=%s amount=%s", payment.id, request_id, payload["amount"])
     logger.debug("MoMo create payment payload=%s", {k: v for k, v in payload.items() if k != "signature"})
 
@@ -259,13 +243,25 @@ def send_momo_refund_request(detail, reason=None, timeout_seconds=30):
                 "status": "failed",
                 "message": str(response_data.get("message") or response_data.get("localMessage") or response_data),
                 "response_code": str(response_data.get("resultCode") or response.status_code),
+                "refund_order_id": refund_order_id,
+                "refund_request_id": request_id,
             }
     except requests.Timeout:
         logger.warning("MoMo refund timeout payment_id=%s payment_detail_id=%s", payment.id, detail.id)
-        return {"status": "processing", "message": "MoMo refund request timed out."}
+        return {
+            "status": "processing",
+            "message": "MoMo refund request timed out.",
+            "refund_order_id": refund_order_id,
+            "refund_request_id": request_id,
+        }
     except (requests.RequestException, ValueError) as exc:
         logger.warning("MoMo refund request error payment_id=%s payment_detail_id=%s error=%s", payment.id, detail.id, exc)
-        return {"status": "processing", "message": str(exc)}
+        return {
+            "status": "processing",
+            "message": str(exc),
+            "refund_order_id": refund_order_id,
+            "refund_request_id": request_id,
+        }
 
     result_code = int(response_data.get("resultCode", -1))
     message = response_data.get("message") or "MoMo refund response received."
@@ -278,7 +274,10 @@ def send_momo_refund_request(detail, reason=None, timeout_seconds=30):
     )
     logger.debug("MoMo refund response payload=%s", response_data)
 
-    return map_momo_refund_result(response_data)
+    result = map_momo_refund_result(response_data)
+    result["refund_order_id"] = refund_order_id
+    result["refund_request_id"] = request_id
+    return result
 
 
 def map_momo_refund_result(response_data: dict) -> dict:
@@ -298,6 +297,44 @@ def map_momo_refund_result(response_data: dict) -> dict:
     if result_code in MOMO_REFUND_FINAL_FAILED_CODES or result_code in MOMO_FINAL_FAILED_CODES:
         return {"status": "failed", "message": message, "response_code": str(result_code)}
     return {"status": "failed", "message": message, "response_code": str(result_code)}
+
+
+def query_momo_refund_status(refund_order_id: str, timeout_seconds: int = 30) -> dict:
+    request_id = f"refund-query-{uuid.uuid4().hex[:12]}"
+    payload = {
+        "partnerCode": settings.MOMO_PARTNER_CODE,
+        "orderId": refund_order_id,
+        "requestId": request_id,
+        "lang": "vi",
+    }
+    payload["signature"] = _momo_refund_query_signature(payload)
+
+    logger.info(
+        "MoMo refund query request refund_order_id=%s request_id=%s",
+        refund_order_id,
+        request_id,
+    )
+    logger.debug("MoMo refund query payload=%s", {k: v for k, v in payload.items() if k != "signature"})
+
+    response = requests.post(
+        settings.MOMO_REFUND_QUERY_URL,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=timeout_seconds,
+    )
+    response_data = _parse_momo_response(response)
+    logger.debug(
+        "MoMo refund query raw response status_code=%s body=%s",
+        response.status_code,
+        response_data,
+    )
+    if response.status_code >= 400:
+        raise ValidationError(response_data.get("message") or response_data.get("localMessage") or response_data)
+
+    result = map_momo_refund_result(response_data)
+    result["refund_order_id"] = refund_order_id
+    result["refund_request_id"] = request_id
+    return result
 
 
 def _finalize_momo_success(payment: Payment, payload: dict):
@@ -406,7 +443,7 @@ def simulate_momo_ipn_payload(payment: Payment, trans_id: int, result_code: int 
         "transId": int(trans_id),
         "resultCode": int(result_code),
         "message": message,
-        "payType": "qr",
+        "payType": "napas",
         "responseTime": int(time.time() * 1000),
         "extraData": _encode_extra_data(payment),
     }

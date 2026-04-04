@@ -239,7 +239,7 @@ export function SupportPage() {
                 {t('support.phone_support_desc')}
               </p>
               <div className="rounded-md border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                {t('support.phone_support_real_hint', 'Ho tro dien thoai chua co realtime call. Vui long gui ticket de doi ngu lien he lai.')}
+                {t('support.phone_support_real_hint', 'Hỗ trợ điện thoại chưa có realtime call. Vui lòng gửi ticket để đội ngũ liên hệ lại.')}
               </div>
             </CardContent>
           </Card>

@@ -15,6 +15,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import dj_database_url
 from pathlib import Path
 import os
+from urllib.parse import urlparse
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -104,10 +105,22 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "ahbv oxuf ssvx klkb")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Online Course <{EMAIL_HOST_USER}>")
 
 
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip("/")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+NGROK_URL = os.getenv("NGROK_URL", "").rstrip("/")
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip()
+if NGROK_URL:
+    BACKEND_PUBLIC_URL = NGROK_URL
+if not BACKEND_PUBLIC_URL:
+    BACKEND_PUBLIC_URL = "https://course-1-zelz.onrender.com"
 if not BACKEND_PUBLIC_URL and RENDER_EXTERNAL_HOSTNAME:
     BACKEND_PUBLIC_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}"
+for candidate_url in (FRONTEND_URL, NGROK_URL, BACKEND_PUBLIC_URL):
+    if not candidate_url:
+        continue
+    parsed = urlparse(candidate_url)
+    host = parsed.hostname
+    if host and host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
 EMAIL_VERIFICATION_TOKEN_MINUTES = int(os.getenv("EMAIL_VERIFICATION_TOKEN_MINUTES", "30"))
 EMAIL_VERIFICATION_TOKEN_MINUTES = max(15, min(30, EMAIL_VERIFICATION_TOKEN_MINUTES))
 GOOGLE_OAUTH_CLIENT_IDS = [
@@ -123,11 +136,17 @@ VNPAY_RETURN_URL = os.getenv(
     "VNPAY_RETURN_URL",
     f"{BACKEND_PUBLIC_URL}/api/vnpay/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/vnpay/payment-return/",
 )
-MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMOP93P20260328_TEST")
-MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY", "8TWy20eqRk8cSCns")
-MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY", "mhJrlZRQOM3kncr2RzQycVI3oTejblYJ")
+# MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMOP93P20260328_TEST")
+MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMO")
+# MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY", "8TWy20eqRk8cSCns")
+MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY", "F8BBA842ECF85")
+
+# MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY", "mhJrlZRQOM3kncr2RzQycVI3oTejblYJ")
+MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY", "K951B6PE1waDMi640xX08PD3vg6EkVlz")
+
 MOMO_CREATE_URL = os.getenv("MOMO_CREATE_URL", "https://test-payment.momo.vn/v2/gateway/api/create")
 MOMO_REFUND_URL = os.getenv("MOMO_REFUND_URL", "https://test-payment.momo.vn/v2/gateway/api/refund")
+MOMO_REFUND_QUERY_URL = os.getenv("MOMO_REFUND_QUERY_URL", "https://test-payment.momo.vn/v2/gateway/api/refund/query")
 MOMO_REDIRECT_URL = os.getenv(
     "MOMO_REDIRECT_URL",
     f"{BACKEND_PUBLIC_URL}/api/momo/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/momo/payment-return/",
@@ -379,7 +398,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Add Render frontend URL to CORS if set
-FRONTEND_CORS = os.getenv('FRONTEND_URL', '')
+FRONTEND_CORS = FRONTEND_URL
 if FRONTEND_CORS and FRONTEND_CORS not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_CORS)
 CORS_ALLOW_CREDENTIALS = True

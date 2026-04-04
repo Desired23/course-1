@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -539,7 +539,7 @@ export function PaymentManagementPage() {
 
   const handleRefundAction = async (
     refundIds: number[],
-    action: 'approve' | 'reject' | 'retry' | 'cancel' | 'soft_delete' | 'restore' | 'override_status' | 'add_note',
+    action: 'approve' | 'reject' | 'retry' | 'sync' | 'cancel' | 'soft_delete' | 'restore' | 'override_status' | 'add_note',
     options?: { note?: string; override_status?: 'success' | 'failed' | 'rejected' | 'cancelled' }
   ) => {
     try {
@@ -1060,7 +1060,37 @@ export function PaymentManagementPage() {
                               <Eye className="h-3 w-3" />
                             </Button>
                           </div>
-                        ) : refund.status === 'processing' || refund.status === 'failed' ? (
+                        ) : refund.status === 'processing' ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => openConfirm(
+                                t('payment_management.refunds.actions.sync_title'),
+                                t('payment_management.refunds.actions.sync_description', { name: refund.user_name, course: refund.course_title }),
+                                t('payment_management.refunds.actions.sync'),
+                                () => handleRefundAction([refund.refund_id], 'sync'),
+                              )}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => openConfirm(
+                                t('payment_management.refunds.actions.cancel_title'),
+                                t('payment_management.refunds.actions.cancel_description', { name: refund.user_name, course: refund.course_title }),
+                                t('payment_management.refunds.actions.cancel'),
+                                () => handleRefundAction([refund.refund_id], 'cancel'),
+                                true,
+                              )}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedRefund(refund)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : refund.status === 'failed' ? (
                           <div className="flex gap-1">
                             <Button
                               size="sm"
@@ -1621,7 +1651,7 @@ export function PaymentManagementPage() {
                       <div key={`${entry.timestamp}-${index}`} className="rounded border p-2">
                         <div className="font-medium">{entry.event}</div>
                         <div className="text-xs text-muted-foreground">
-                          {(entry.actor || 'system')} â€¢ {new Date(entry.timestamp).toLocaleString()}
+                          {(entry.actor || 'system')} • {new Date(entry.timestamp).toLocaleString()}
                         </div>
                         {entry.note && <div className="text-xs mt-1">{entry.note}</div>}
                       </div>
@@ -1650,7 +1680,28 @@ export function PaymentManagementPage() {
                   </Button>
                 </div>
               )}
-              {(selectedRefund.status === 'processing' || selectedRefund.status === 'failed') && (
+              {selectedRefund.status === 'processing' && (
+                <div className="flex gap-2 pt-4 flex-wrap">
+                  <Button
+                    onClick={() => {
+                      void handleRefundAction([selectedRefund.refund_id], 'sync')
+                      setSelectedRefund(null)
+                    }}
+                  >
+                    {t('payment_management.refunds.actions.sync')}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      void handleRefundAction([selectedRefund.refund_id], 'cancel')
+                      setSelectedRefund(null)
+                    }}
+                  >
+                    {t('payment_management.refunds.actions.cancel')}
+                  </Button>
+                </div>
+              )}
+              {selectedRefund.status === 'failed' && (
                 <div className="flex gap-2 pt-4 flex-wrap">
                   <Button
                     onClick={() => {

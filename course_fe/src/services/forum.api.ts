@@ -1,29 +1,29 @@
 /**
- * Forum API Service — Forums, Topics, Comments
+ * Forum API Service Ã¢â‚¬â€ Forums, Topics, Comments
  *
  * BE endpoints (all under /api/):
  *   Forums:
- *     GET    /forums/                          — list (paginated), ?course_id, ?forum_id
- *     POST   /forums/create/                   — create
- *     PATCH  /forums/<id>/update/              — update
- *     DELETE /forums/<id>/delete/              — delete
+ *     GET    /forums/                          Ã¢â‚¬â€ list (paginated), ?course_id, ?forum_id
+ *     POST   /forums/create/                   Ã¢â‚¬â€ create
+ *     PATCH  /forums/<id>/update/              Ã¢â‚¬â€ update
+ *     DELETE /forums/<id>/delete/              Ã¢â‚¬â€ delete
  *
  *   Forum Topics:
- *     GET    /forum_topics/                    — list (paginated), ?forum_id, ?user_id, ?topic_id
- *     POST   /forum_topics/create/             — create
- *     PATCH  /forum_topics/<id>/update/        — update
- *     DELETE /forum_topics/<id>/delete/        — delete
+ *     GET    /forum_topics/                    Ã¢â‚¬â€ list (paginated), ?forum_id, ?user_id, ?topic_id
+ *     POST   /forum_topics/create/             Ã¢â‚¬â€ create
+ *     PATCH  /forum_topics/<id>/update/        Ã¢â‚¬â€ update
+ *     DELETE /forum_topics/<id>/delete/        Ã¢â‚¬â€ delete
  *
  *   Forum Comments:
- *     GET    /forum_comments/                  — list (paginated), ?topic_id, ?user_id, ?comment_id
- *     POST   /forum_comments/create/           — create
- *     PATCH  /forum_comments/<id>/update/      — update
- *     DELETE /forum_comments/<id>/delete/      — delete
+ *     GET    /forum_comments/                  Ã¢â‚¬â€ list (paginated), ?topic_id, ?user_id, ?comment_id
+ *     POST   /forum_comments/create/           Ã¢â‚¬â€ create
+ *     PATCH  /forum_comments/<id>/update/      Ã¢â‚¬â€ update
+ *     DELETE /forum_comments/<id>/delete/      Ã¢â‚¬â€ delete
  */
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export interface Forum {
   id: number
@@ -82,7 +82,7 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ─── Forums ───────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Forums Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function getForums(
   params?: { course_id?: number; forum_id?: number; page?: number; page_size?: number }
@@ -132,7 +132,7 @@ export async function deleteForum(forumId: number): Promise<{ message: string }>
   return http.delete<{ message: string }>(`/forums/${forumId}/delete/`)
 }
 
-// ─── Forum Topics ─────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Forum Topics Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function getForumTopics(
   params?: { forum_id?: number; user_id?: number; topic_id?: number; page?: number; page_size?: number }
@@ -211,7 +211,7 @@ export async function moderateForumTopic(
   return http.post<ForumTopic>(`/forum_topics/${topicId}/moderate/`, data)
 }
 
-// ─── Forum Comments ───────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Forum Comments Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export async function getForumComments(
   params?: { topic_id?: number; user_id?: number; comment_id?: number; page?: number; page_size?: number }
@@ -261,14 +261,14 @@ export async function deleteForumComment(commentId: number): Promise<{ message: 
   return http.delete<{ message: string }>(`/forum_comments/${commentId}/delete/`)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 export function formatForumDate(dateStr: string): string {
   const d = new Date(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return 'Vừa xong'
+  if (diffMin < 1) return 'VÃ¡Â»Â«a xong'
   if (diffMin < 60) return `${diffMin} phút trước`
   const diffH = Math.floor(diffMin / 60)
   if (diffH < 24) return `${diffH} giờ trước`
@@ -289,7 +289,7 @@ export function getTopicStatusLabel(status: string): string {
 export function getForumStatusLabel(status: string): string {
   switch (status) {
     case 'active': return 'Hoạt động'
-    case 'archived': return 'Lưu trữ'
+    case 'archived': return 'LÃ†Â°u trÃ¡Â»Â¯'
     case 'deleted': return 'Đã xóa'
     default: return status
   }

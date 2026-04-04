@@ -14,7 +14,7 @@ from django.db import connection
 from subscription_plans.models import (
     SubscriptionUsage,
     UserSubscription,
-    CourseSubscriptionConsent,
+    CourseSubscriptionConsent, 
     PlanCourse,
     SubscriptionPlan,
 )

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from "../../components/Router"
 import { QuizPlayer } from "../../components/QuizPlayer"
 import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
@@ -952,7 +952,7 @@ export function CoursePlayerPage() {
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Clock className="w-3 h-3" />
                                 <span>{note.timestamp}</span>
-                                <span>â€¢</span>
+                                <span>•</span>
                                 <span>{note.created}</span>
                               </div>
                               <Button size="sm" variant="ghost" onClick={() => handleDeleteNote(note.id)}>

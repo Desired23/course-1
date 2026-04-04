@@ -346,7 +346,7 @@ export async function updateAdminRefundStatus(data: {
 }
 
 export async function adminRefundAction(data: {
-  action: 'approve' | 'reject' | 'retry' | 'cancel' | 'soft_delete' | 'restore' | 'override_status' | 'add_note'
+  action: 'approve' | 'reject' | 'retry' | 'sync' | 'cancel' | 'soft_delete' | 'restore' | 'override_status' | 'add_note'
   refund_ids: number[]
   note?: string
   override_status?: 'success' | 'failed' | 'rejected' | 'cancelled'
