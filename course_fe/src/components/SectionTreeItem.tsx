@@ -12,6 +12,8 @@ interface Lesson {
   duration: string
   status: string
   is_free?: boolean
+  transcript_status?: string | null
+  has_published_transcript?: boolean
 }
 
 interface Section {

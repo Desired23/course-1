@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
 import { getAllLessons, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
 import { getCourseById } from "../../services/course.api"
+import { generateLessonTranscript } from "../../services/transcript.api"
 import { useAuthStore } from "../../stores/auth.store"
 import { useTranslation } from 'react-i18next'
 
@@ -56,6 +57,7 @@ export function InstructorLessonsPageNew() {
   const [showStatsPanel, setShowStatsPanel] = useLocalStorage('showStatsPanel', true)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const [previewLesson, setPreviewLesson] = useState<any>(null)
+  const [transcriptActionLessonId, setTranscriptActionLessonId] = useState<number | null>(null)
   const hasLoadedInitialDataRef = useRef(false)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -204,6 +206,8 @@ export function InstructorLessonsPageNew() {
                 videoUrl: l.video_url || '',
                 videoPublicId: l.video_public_id || '',
                 description: l.description || '',
+                transcript_status: l.transcript_status || null,
+                has_published_transcript: l.has_published_transcript || false,
                 resources: [],
               }))
             }
@@ -438,6 +442,8 @@ export function InstructorLessonsPageNew() {
         videoUrl: '',
         videoPublicId: '',
         resources: [],
+        transcript_status: created.transcript_status || null,
+        has_published_transcript: created.has_published_transcript || false,
       }
 
       if (newLesson.type === 'quiz') {
@@ -630,6 +636,36 @@ export function InstructorLessonsPageNew() {
     setPreviewLesson(lesson)
   }
 
+  const handleGenerateTranscript = useCallback(async (lesson: any) => {
+    try {
+      setTranscriptActionLessonId(lesson.id)
+      const job = await generateLessonTranscript(lesson.id)
+      setSections(prevSections =>
+        prevSections.map(section => ({
+          ...section,
+          lessons: section.lessons.map(item =>
+            item.id === lesson.id
+              ? {
+                  ...item,
+                  transcript_status: job.status,
+                }
+              : item
+          )
+        }))
+      )
+      toast.success(
+        lesson.has_published_transcript
+          ? 'Transcript regenerate queued'
+          : 'Transcript generation queued'
+      )
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err?.message || 'Failed to queue transcript generation')
+    } finally {
+      setTranscriptActionLessonId(null)
+    }
+  }, [setSections, t])
+
   const handleSaveCurriculum = async () => {
     if (sections.length === 0) {
       toast.error(t('instructor_lessons_page_new.toasts.add_section_before_saving'))
@@ -762,6 +798,8 @@ export function InstructorLessonsPageNew() {
               onEditLesson={handleEditLesson}
               onPreviewLesson={handlePreviewLesson}
               onDeleteLesson={handleDeleteLesson}
+              onGenerateTranscript={handleGenerateTranscript}
+              transcriptActionLessonId={transcriptActionLessonId}
               onSelectLesson={setSelectedLesson}
               onSaveCurriculum={handleSaveCurriculum}
               moveSection={moveSection}

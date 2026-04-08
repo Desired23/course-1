@@ -14,14 +14,14 @@ export function LearningGoals() {
   ]
 
   return (
-    <section className="py-16 px-4 bg-white">
+    <section className="py-16 px-4 bg-white dark:bg-gray-950">
       <div className="container mx-auto">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <h2 className="text-3xl font-bold">
               {t('learning_goals.title')}
             </h2>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-600 dark:text-gray-400 text-lg">
               {t('learning_goals.subtitle')}
             </p>
             
@@ -31,7 +31,7 @@ export function LearningGoals() {
                   <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
                     <Check className="w-4 h-4 text-white" />
                   </div>
-                  <span className="text-gray-800">{goal}</span>
+                  <span className="text-gray-800 dark:text-gray-200">{goal}</span>
                 </div>
               ))}
             </div>

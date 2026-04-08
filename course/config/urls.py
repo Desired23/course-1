@@ -61,9 +61,12 @@ urlpatterns = [
     path('api/', include('registration_forms.urls')),
     path('api/', include('applications.urls')),
     path('api/', include('certificates.urls')),
+    path('api/', include('learning_paths.urls')),
     path('api/', include('subscription_plans.urls')),
     path('api/', include('payment_methods.urls')),
     path('api/', include('activity_logs.urls')),
     path('api/', include('blog_comments.urls')),
     path('api/', include('realtime.urls')),
+    path('api/', include('search.urls')),
+    path('api/', include('transcripts.urls')),
 ]

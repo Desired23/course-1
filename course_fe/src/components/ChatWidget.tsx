@@ -19,6 +19,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { addConversationParticipants, getOrCreateConversation, removeConversationParticipant, reportConversationMessage, searchChatUsers, updateConversation, updateConversationParticipant, type ChatUserSummary } from '../services/chat.api'
 import { createUploadTask } from '../services/upload.api'
+import { ChatWidgetHeader } from './chat-widget/ChatWidgetHeader'
+import { ChatConversationCard } from './chat-widget/ChatConversationCard'
+import { ChatEmptyState } from './chat-widget/ChatEmptyState'
+import { ChatTypingIndicator } from './chat-widget/ChatTypingIndicator'
 
 export function ChatWidget() {
   const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024
@@ -595,7 +599,7 @@ export function ChatWidget() {
   }
 
   const expandedStyle = getExpandedStyle()
-  const reactionOptions = ['??', '??', '??', '??', '??']
+  const reactionOptions = ['👍', '❤️', '😂', '😮', '🎉']
   const formatMessageTime = (value: Date) => (
     new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
   )
@@ -653,7 +657,7 @@ export function ChatWidget() {
       onDragStart={() => setIsDragging(true)}
       onDragEnd={handleDragEnd}
       whileDrag={{ scale: 1.05, cursor: 'grabbing' }}
-      className="fixed z-50 bottom-6 right-6 touch-none"
+      className="fixed z-50 bottom-3 right-3 touch-none sm:bottom-6 sm:right-6"
       initial={false}
     >
       <AnimatePresence mode="wait">
@@ -685,34 +689,25 @@ export function ChatWidget() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className={`w-[350px] md:w-[400px] h-[600px] bg-background border rounded-xl shadow-2xl flex flex-col overflow-hidden ring-1 ring-black/5 dark:ring-white/10 ${expandedStyle.className}`}
+            style={{
+              width: 'min(96vw, 34rem)',
+              height: 'min(78vh, 680px)',
+              maxWidth: 'calc(100vw - 1rem)',
+            }}
+            className={`rounded-xl border bg-background/95 shadow-2xl ring-1 ring-black/5 backdrop-blur-sm dark:ring-white/10 ${expandedStyle.className} flex flex-col overflow-hidden`}
           >
             {/* Header - Draggable Area */}
-            <div 
-              onPointerDown={(e) => dragControls.start(e)}
-              className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white cursor-grab active:cursor-grabbing select-none"
-            >
-              <div className="flex items-center gap-3">
-                <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
-                  <MessageCircle className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm">
-                    {activeConversation ? t('chat_widget.messages_title') : t('chat_widget.support_chat')}
-                  </h3>
-                  {activeConversation ? (
-                    <p className="text-xs text-blue-100 flex items-center gap-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${isTyping ? 'bg-white animate-pulse' : 'bg-green-400'}`} />
-                      {activeConversation.type === 'group' ? t('chat_widget.group_conversation') : t('chat_widget.chatting_now')}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-blue-100">
-                      {t('chat_widget.reply_immediately')}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
+            <div onPointerDown={(e) => dragControls.start(e)} className="cursor-grab select-none active:cursor-grabbing">
+              <ChatWidgetHeader
+                title={activeConversation ? t('chat_widget.messages_title') : t('chat_widget.support_chat')}
+                subtitle={
+                  activeConversation
+                    ? (activeConversation.type === 'group' ? t('chat_widget.group_conversation') : t('chat_widget.chatting_now'))
+                    : t('chat_widget.reply_immediately')
+                }
+                isTyping={isTyping}
+                hasActiveConversation={Boolean(activeConversation)}
+              >
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20 rounded-full">
@@ -744,11 +739,11 @@ export function ChatWidget() {
                 >
                   <Minus className="w-4 h-4" />
                 </Button>
-              </div>
+              </ChatWidgetHeader>
             </div>
 
             {/* Content Area */}
-            <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-900/50">
+            <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-slate-50 to-white dark:from-gray-900/70 dark:to-gray-900">
               {!state.activeConversationId ? (
                 // Conversation List
                 <ScrollArea className="flex-1">
@@ -763,70 +758,45 @@ export function ChatWidget() {
                       {t('chat_widget.create_group')}
                     </Button>
                     {state.conversations.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
-                          <MessageCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">{t('chat.no_messages_yet')}</h4>
-                        <p className="text-sm text-muted-foreground mt-1 max-w-[200px]">
-                          {t('chat_widget.start_conversation')}
-                        </p>
-                      </div>
+                      <ChatEmptyState
+                        title={t('chat.no_messages_yet')}
+                        description={t('chat_widget.start_conversation')}
+                      />
                     ) : (
                       state.conversations.map((conversation) => (
-                        <motion.button
+                        <ChatConversationCard
                           key={conversation.id}
-                          layoutId={`conversation-${conversation.id}`}
-                          className="w-full p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all text-left group"
+                          id={conversation.id}
+                          title={
+                            conversation.type === 'group'
+                              ? (conversation.title || t('chat_widget.group_chat'))
+                              : (
+                                  conversation.participants.find(
+                                    (participant) => String(participant.id) !== String(user?.id ?? ''),
+                                  )?.name || t('chat_widget.unknown')
+                                )
+                          }
+                          preview={conversation.lastMessage?.content || t('chat.no_messages_yet')}
+                          updatedAt={conversation.updatedAt}
+                          unreadCount={conversation.unreadCount}
+                          avatar={
+                            conversation.type === 'group'
+                              ? undefined
+                              : conversation.participants.find(
+                                  (participant) => String(participant.id) !== String(user?.id ?? ''),
+                                )?.avatar
+                          }
+                          avatarFallback={
+                            conversation.type === 'group'
+                              ? (conversation.title || 'G').slice(0, 2).toUpperCase()
+                              : (
+                                  conversation.participants.find(
+                                    (participant) => String(participant.id) !== String(user?.id ?? ''),
+                                  )?.name?.charAt(0) || 'U'
+                                )
+                          }
                           onClick={() => setActiveConversation(conversation.id)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <Avatar className="h-10 w-10 border-2 border-white dark:border-gray-800 shadow-sm">
-                                <AvatarImage
-                                  src={
-                                    conversation.type === 'group'
-                                      ? undefined
-                                      : conversation.participants.find(
-                                          (participant) => String(participant.id) !== String(user?.id ?? ''),
-                                        )?.avatar
-                                  }
-                                />
-                                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
-                                  {conversation.type === 'group'
-                                    ? (conversation.title || 'G').slice(0, 2).toUpperCase()
-                                    : (
-                                        conversation.participants.find(
-                                          (participant) => String(participant.id) !== String(user?.id ?? ''),
-                                        )?.name?.charAt(0) || 'U'
-                                      )}
-                                </AvatarFallback>
-                              </Avatar>
-                              {conversation.unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-gray-800" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-0.5">
-                                <span className="font-semibold text-sm text-gray-900 dark:text-gray-100 group-hover:text-blue-600 transition-colors">
-                                  {conversation.type === 'group'
-                                    ? (conversation.title || t('chat_widget.group_chat'))
-                                    : (
-                                        conversation.participants.find(
-                                          (participant) => String(participant.id) !== String(user?.id ?? ''),
-                                        )?.name || t('chat_widget.unknown')
-                                      )}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(conversation.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </div>
-                              <p className="text-xs text-muted-foreground truncate font-medium">
-                                {conversation.lastMessage?.content || t('chat.no_messages_yet')}
-                              </p>
-                            </div>
-                          </div>
-                        </motion.button>
+                        />
                       ))
                     )}
                   </div>
@@ -834,25 +804,25 @@ export function ChatWidget() {
               ) : (
                 // Active Chat
                 <div className="flex min-h-0 flex-1 flex-col">
-                  <div className="shrink-0 border-b bg-white px-3 py-2 dark:bg-gray-800">
+                  <div className="shrink-0 border-b bg-white/90 px-3 py-2 backdrop-blur dark:bg-gray-800/90">
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="-ml-1 h-8 px-2 text-xs text-muted-foreground hover:text-foreground group"
+                      className="group -ml-1 h-8 rounded-full px-3 text-xs font-medium text-muted-foreground hover:bg-slate-100 hover:text-foreground dark:hover:bg-slate-700"
                       onClick={handleBackToConversations}
                     >
                       <span className="inline-block transition-transform group-hover:-translate-x-1">{'<'}</span> {t('chat_widget.back')}
                     </Button>
                   </div>
 
-                  <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 overflow-hidden p-3">
+                  <ScrollArea ref={scrollAreaRef} className="min-h-0 flex-1 overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),transparent_35%)] p-3">
                     {messages.length === 0 ? (
-                      <div className="flex h-full flex-col items-center justify-center space-y-2 opacity-50">
-                        <MessageCircle className="w-8 h-8" />
-                        <p className="text-sm">{t('chat_widget.start_chatting')}</p>
-                      </div>
+                      <ChatEmptyState
+                        title={t('chat_widget.start_chatting')}
+                        description={t('chat_widget.reply_immediately')}
+                      />
                     ) : (
-                      <div className="space-y-2.5 pb-1">
+                      <div className="space-y-3 pb-1">
                         {state.activeConversationId && state.messageMeta[state.activeConversationId]?.loadingOlder && (
                           <p className="py-1 text-center text-xs text-muted-foreground">{t('chat_widget.loading_older_messages')}</p>
                         )}
@@ -864,24 +834,29 @@ export function ChatWidget() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               key={message.id}
-                              className={`group flex items-end gap-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}
+                              className={`group flex w-full items-end ${isMe ? 'justify-end pl-10' : 'justify-start pr-10'}`}
                             >
                               {!isMe && (
-                                <Avatar className="h-7 w-7 shrink-0 shadow-sm">
+                                <Avatar className="mr-1 h-7 w-7 shrink-0 shadow-sm ring-2 ring-white/80 dark:ring-slate-700/60">
                                   <AvatarImage src={message.senderAvatar} />
                                   <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
                                 </Avatar>
                               )}
-                              <div className={`flex min-w-0 max-w-[78%] items-end gap-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                              <div className={`flex min-w-0 max-w-[90%] md:max-w-[86%] items-end gap-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                 <div
-                                  className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3.5 py-2 text-[13px] shadow-sm ${
+                                  className={`min-w-0 max-w-full overflow-hidden rounded-2xl px-3.5 py-2.5 text-[13px] shadow-sm ${
                                     isRevoked
                                       ? 'border border-dashed border-gray-300 bg-gray-100 text-gray-500 italic dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400'
                                       : isMe
-                                        ? 'rounded-br-sm bg-blue-600 text-white'
+                                        ? 'rounded-br-sm bg-gradient-to-br from-blue-600 to-indigo-600 text-white ring-1 ring-blue-300/40'
                                         : 'rounded-bl-sm border bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-200'
                                   }`}
                                 >
+                                  {!isMe && activeConversation?.type === 'group' && !isRevoked && (
+                                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-blue-600/80 dark:text-blue-300/80">
+                                      {message.senderName}
+                                    </p>
+                                  )}
                                   {message.replyTo && !isRevoked && (
                                     <div className={`mb-2 rounded-lg border px-2 py-1 text-[11px] ${
                                       isMe
@@ -953,7 +928,7 @@ export function ChatWidget() {
                                                     </div>
                                                     <div className="min-w-0">
                                                       <p className="truncate font-medium">{attachment.fileName}</p>
-                                                      <p className={`text-xs ${isMe ? 'text-blue-100/80' : 'text-muted-foreground'}`}>{meta.label} ? {attachment.mimeType}</p>
+                                                      <p className={`text-xs ${isMe ? 'text-blue-100/80' : 'text-muted-foreground'}`}>{meta.label} · {attachment.mimeType}</p>
                                                     </div>
                                                   </div>
                                                   <Paperclip className="h-4 w-4 shrink-0" />
@@ -990,7 +965,7 @@ export function ChatWidget() {
                                 </div>
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 self-center opacity-0 transition-opacity group-hover:opacity-100">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 self-center rounded-full opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100 hover:bg-slate-100 dark:hover:bg-slate-700">
                                       <MoreVertical className="w-4 h-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
@@ -1043,30 +1018,13 @@ export function ChatWidget() {
                             </motion.div>
                           )
                         })}
-                        {isTyping && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex gap-2"
-                          >
-                            <Avatar className="mt-1 h-8 w-8">
-                              <AvatarFallback>...</AvatarFallback>
-                            </Avatar>
-                            <div className="rounded-2xl rounded-tl-sm border bg-white px-4 py-3 shadow-sm dark:bg-gray-800">
-                              <div className="flex gap-1">
-                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]"></span>
-                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]"></span>
-                                <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400"></span>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
+                        {isTyping && <ChatTypingIndicator />}
                       </div>
                     )}
                   </ScrollArea>
 
                   <div
-                    className="relative shrink-0 border-t bg-white p-3 dark:bg-gray-800"
+                    className="relative shrink-0 border-t bg-white/95 px-3 py-2 backdrop-blur dark:bg-gray-800/95"
                     onDrop={(event) => void handleAttachmentDrop(event)}
                     onDragOver={handleAttachmentDragOver}
                     onDragLeave={handleAttachmentDragLeave}
@@ -1085,7 +1043,7 @@ export function ChatWidget() {
                       onChange={handleAttachmentSelected}
                     />
                     {replyingTo && (
-                      <div className="mb-2 flex items-start justify-between rounded-lg border bg-gray-50 px-3 py-2 text-xs dark:bg-gray-900">
+                      <div className="mb-2 flex items-start justify-between rounded-xl border border-blue-200 bg-blue-50/70 px-3 py-2 text-xs dark:border-blue-800 dark:bg-blue-900/30">
                         <div className="min-w-0">
                           <p className="font-medium text-foreground">{t('chat_widget.replying_to', { name: replyingTo.senderName })}</p>
                           <p className="truncate text-muted-foreground">{replyingTo.content}</p>
@@ -1096,7 +1054,7 @@ export function ChatWidget() {
                       </div>
                     )}
                     {pendingAttachments.length > 0 && (
-                      <div className="mb-3 space-y-2">
+                      <div className="mb-3 max-h-44 space-y-2 overflow-y-auto pr-1">
                         <div className="flex items-center justify-between gap-2 px-1 text-xs text-muted-foreground">
                           <span className="truncate">{t('chat_widget.pending_attachments', { current: pendingAttachments.length, max: MAX_ATTACHMENTS_PER_MESSAGE })}</span>
                           <Button type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={handleCancelAllPendingAttachments}>
@@ -1127,7 +1085,7 @@ export function ChatWidget() {
                                     )}
                                     <div className="min-w-0">
                                       <p className="truncate text-xs font-medium text-foreground">{attachment.fileName}</p>
-                                      <p className="truncate text-[11px] text-muted-foreground">{meta.label} ? {formatFileSize(attachment.fileSize)}</p>
+                                      <p className="truncate text-[11px] text-muted-foreground">{meta.label} · {formatFileSize(attachment.fileSize)}</p>
                                     </div>
                                     <div className="h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-800">
                                       <div
@@ -1166,13 +1124,13 @@ export function ChatWidget() {
                         e.preventDefault()
                         handleSendMessage()
                       }}
-                      className="flex gap-2"
+                      className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50/90 p-2 dark:border-slate-700 dark:bg-slate-900/90"
                     >
                       <div className="flex items-center gap-1">
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground" onClick={handlePickAttachment}>
+                        <Button type="button" variant="ghost" size="icon" className="h-11 w-11 rounded-full text-muted-foreground hover:bg-white hover:text-foreground dark:hover:bg-slate-800" onClick={handlePickAttachment}>
                           <Paperclip className="w-5 h-5" />
                         </Button>
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground" onClick={handlePickAttachment}>
+                        <Button type="button" variant="ghost" size="icon" className="h-11 w-11 rounded-full text-muted-foreground hover:bg-white hover:text-foreground dark:hover:bg-slate-800" onClick={handlePickAttachment}>
                           <ImageIcon className="w-5 h-5" />
                         </Button>
                       </div>
@@ -1181,7 +1139,7 @@ export function ChatWidget() {
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         placeholder={t('chat.type_message')}
-                        className="min-h-[44px] flex-1 rounded-xl border-0 bg-gray-50 px-4 focus-visible:ring-1 focus-visible:ring-blue-500 dark:bg-gray-900"
+                        className="min-h-[44px] flex-1 rounded-full border border-slate-200 bg-white px-4 shadow-inner focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-700 dark:bg-slate-800"
                       />
 
                       <div className="flex items-center gap-1">
@@ -1189,7 +1147,7 @@ export function ChatWidget() {
                           type="submit"
                           size="icon"
                           disabled={(!messageInput.trim() && !hasUploadedAttachments) || hasUploadingAttachments}
-                          className="h-11 w-11 shrink-0 rounded-xl bg-blue-600 shadow-sm transition-colors hover:bg-blue-700"
+                          className="h-11 w-11 shrink-0 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-md transition-all hover:from-blue-700 hover:to-indigo-700"
                         >
                           <Send className="w-5 h-5" />
                         </Button>
@@ -1313,13 +1271,13 @@ export function ChatWidget() {
                 if (!open) resetConversationInfoSearch()
               }}
             >
-              <DialogContent className="sm:max-w-md">
+              <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                   <DialogTitle>{t('chat_widget.conversation_info')}</DialogTitle>
                 </DialogHeader>
                 {activeConversation ? (
                   <div className="space-y-5">
-                    <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-3">
+                    <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:border-blue-900/60 dark:from-blue-950/50 dark:to-indigo-950/30">
                       <Avatar className="h-12 w-12">
                         <AvatarImage src={activeConversation.type === 'group' ? undefined : otherParticipant?.avatar} />
                         <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
@@ -1327,14 +1285,14 @@ export function ChatWidget() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-foreground">{conversationDisplayName}</p>
+                        <p className="truncate text-base font-semibold text-foreground">{conversationDisplayName}</p>
                         <p className="text-sm text-muted-foreground">{conversationSubtitle}</p>
                       </div>
                     </div>
 
                     {activeConversation.type === 'group' ? (
                       <>
-                        <div className="space-y-2">
+                        <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
                           <label className="text-sm font-medium text-foreground">{t('chat_widget.group_name')}</label>
                           <div className="flex gap-2">
                             <Input
@@ -1354,14 +1312,14 @@ export function ChatWidget() {
                         </div>
 
                         {canManageParticipants && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
                             <label className="text-sm font-medium text-foreground">{t('chat_widget.add_members')}</label>
                             <Input
                               value={infoUserSearchQuery}
                               onChange={(e) => setInfoUserSearchQuery(e.target.value)}
                               placeholder={t('chat_widget.search_users_placeholder')}
                             />
-                            <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border p-2">
+                            <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border bg-background p-2">
                               {infoUserSearchLoading ? (
                                 <p className="text-sm text-muted-foreground">{t('chat_widget.searching')}</p>
                               ) : infoUserSearchResults.length > 0 ? (
@@ -1396,7 +1354,7 @@ export function ChatWidget() {
                       </>
                     ) : null}
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Users className="h-4 w-4 text-muted-foreground" />
@@ -1411,7 +1369,7 @@ export function ChatWidget() {
                           return (
                             <div
                               key={participant.id}
-                              className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2"
+                              className="flex items-center justify-between gap-3 rounded-xl border bg-background px-3 py-2"
                             >
                               <div className="flex min-w-0 items-center gap-3">
                                 <Avatar className="h-9 w-9">
@@ -1420,10 +1378,23 @@ export function ChatWidget() {
                                 </Avatar>
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium text-foreground">{participant.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {isCurrentUser ? t('chat_widget.you') : activeConversation.type === 'group' ? t('chat_widget.member') : t('chat_widget.user')}
-                                    {participant.role ? ` ? ${participant.role}` : ''}
-                                  </p>
+                                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                    <span>{isCurrentUser ? t('chat_widget.you') : activeConversation.type === 'group' ? t('chat_widget.member') : t('chat_widget.user')}</span>
+                                    {participant.role ? (
+                                      <Badge
+                                        variant="outline"
+                                        className={`h-5 px-1.5 text-[10px] ${
+                                          participant.role === 'owner'
+                                            ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200'
+                                            : participant.role === 'admin'
+                                              ? 'border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-200'
+                                              : 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200'
+                                        }`}
+                                      >
+                                        {participant.role}
+                                      </Badge>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </div>
 

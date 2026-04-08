@@ -1,5 +1,7 @@
 {
     "python.analysis.typeCheckingMode": "basic",
+    "python.terminal.useEnvFile": true,
+    "python.envFile": "${workspaceFolder}/course/.env",
     "python.analysis.diagnosticSeverityOverrides": {
         "reportAttributeAccessIssue": "information",
         "reportOperatorIssue": "information",

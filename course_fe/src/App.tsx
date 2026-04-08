@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react'
 import './utils/i18n' // Initialize i18n
 import { QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { AuthProvider } from './contexts/AuthContext'
 import { queryClient } from './lib/queryClient'
 
@@ -37,6 +36,7 @@ import { Toaster } from './components/ui/sonner'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { ChatWidget } from './components/ChatWidget'
+import { AiLearningPathLauncher } from './components/AiLearningPathLauncher'
 import { BottomNav } from './components/BottomNav'
 import { FloatingNavigation } from './components/FloatingNavigation'
 
@@ -91,6 +91,9 @@ function AppContent() {
       
       {/* Chat Widget */}
       <ChatWidget />
+
+      {/* Global AI Learning Path Launcher */}
+      <AiLearningPathLauncher />
       
       {/* Bottom Navigation (Mobile) */}
       {!hideHeaderFooter && <BottomNav />}
@@ -148,7 +151,6 @@ export default function App() {
           </LearningProgressProvider>
         </EnrollmentProvider>
       </AuthProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   )
 }

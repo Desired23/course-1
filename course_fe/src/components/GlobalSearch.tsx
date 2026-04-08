@@ -4,31 +4,57 @@ import { useRouter } from "./Router"
 import { getCoursesWithInstructors } from "../data/db-extended"
 import { Input } from "./ui/input"
 import { useTranslation } from "react-i18next"
+import { useAuth } from "../contexts/AuthContext"
+import { getSearchSuggestions, trackSearch } from "../services/search.api"
+
+const RECENT_SEARCHES_STORAGE_KEY = "global-search-recent-searches"
+const MAX_RECENT_SEARCHES = 5
+
+function normalizeSearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, " ").toLowerCase()
+}
+
+function cleanSearchQuery(query: string): string {
+  return query.trim().replace(/\s+/g, " ")
+}
+
+function loadGuestRecentSearches(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY) || "[]")
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : []
+  } catch {
+    return []
+  }
+}
+
+function saveGuestRecentSearches(searches: string[]): void {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(searches))
+}
+
+function pushGuestRecentSearch(query: string): string[] {
+  const cleaned = cleanSearchQuery(query)
+  const normalized = normalizeSearchQuery(cleaned)
+  if (normalized.length < 2) return loadGuestRecentSearches()
+
+  const next = [cleaned, ...loadGuestRecentSearches().filter((item) => normalizeSearchQuery(item) !== normalized)]
+    .slice(0, MAX_RECENT_SEARCHES)
+  saveGuestRecentSearches(next)
+  return next
+}
 
 export function GlobalSearch() {
   const { t } = useTranslation()
+  const { isAuthenticated } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<any[]>([])
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [popularSearches, setPopularSearches] = useState<string[]>([])
   const { navigate } = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
-
-  // Popular searches
-  const popularSearches = [
-    "Web Development",
-    "Python",
-    "React",
-    "UI/UX Design",
-    "Digital Marketing",
-    "Machine Learning"
-  ]
-
-  // Recent searches (mock - in real app would come from localStorage)
-  const recentSearches = [
-    "JavaScript fundamentals",
-    "Node.js",
-    "CSS animations"
-  ]
+  const localizedPopularSearches = (t('hero.popular_searches', { returnObjects: true }) as string[]) || []
 
   // Handle search
   useEffect(() => {
@@ -69,15 +95,58 @@ export function GlobalSearch() {
     return () => document.removeEventListener("keydown", handleEscape)
   }, [])
 
-  const handleSearch = (searchQuery: string) => {
-    if (searchQuery.trim()) {
-      navigate('/search', { query: searchQuery.trim() })
-      setIsOpen(false)
-      setQuery("")
+  const loadSuggestions = async () => {
+    try {
+      const data = await getSearchSuggestions()
+      setPopularSearches(data.popular_searches.length > 0 ? data.popular_searches : localizedPopularSearches)
+      setRecentSearches(isAuthenticated ? data.recent_searches : loadGuestRecentSearches())
+    } catch {
+      setPopularSearches(localizedPopularSearches)
+      setRecentSearches(isAuthenticated ? [] : loadGuestRecentSearches())
     }
   }
 
-  const handleCourseClick = (courseId: number) => {
+  useEffect(() => {
+    if (!isOpen || query.length > 2) return
+    loadSuggestions()
+  }, [isOpen, query, isAuthenticated, t])
+
+  const handleSearch = async (searchQuery: string) => {
+    const cleanedQuery = cleanSearchQuery(searchQuery)
+    if (!cleanedQuery) return
+
+    try {
+      await trackSearch(cleanedQuery, 'global_search')
+    } catch {
+      // Best effort only: search navigation should still work if tracking fails.
+    }
+
+    if (isAuthenticated) {
+      await loadSuggestions()
+    } else {
+      setRecentSearches(pushGuestRecentSearch(cleanedQuery))
+    }
+
+    navigate('/search', { query: cleanedQuery }, { query: cleanedQuery })
+    setIsOpen(false)
+    setQuery("")
+  }
+
+  const handleCourseClick = async (courseId: number) => {
+    const cleanedQuery = cleanSearchQuery(query)
+    if (cleanedQuery) {
+      try {
+        await trackSearch(cleanedQuery, 'global_search')
+      } catch {
+        // Best effort only: navigation should still work.
+      }
+      if (isAuthenticated) {
+        await loadSuggestions()
+      } else {
+        setRecentSearches(pushGuestRecentSearch(cleanedQuery))
+      }
+    }
+
     navigate(`/course/${courseId}`)
     setIsOpen(false)
     setQuery("")

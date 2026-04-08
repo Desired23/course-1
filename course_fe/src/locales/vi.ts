@@ -966,6 +966,7 @@
     password_min: "Mật khẩu phải có ít nhất 8 ký tự",
     name_required: "Họ và tên là bắt buộc",
     username: "Tên đăng nhập",
+    username_placeholder: "Nhập tên đăng nhập",
     username_required: "Vui lòng nhập tên đăng nhập",
     username_min: "Tên đăng nhập phải có ít nhất 3 ký tự",
     enter_name: "Nhập họ và tên của bạn",
@@ -1290,6 +1291,9 @@
     login_required: "Vui lòng đăng nhập để nhắn tin",
     open_chat_failed: "Không thể nhắn tin với {{name}}",
     this_user: "người dùng này",
+    edit_message_failed: "Không thể chỉnh sửa tin nhắn",
+    revoke_message_failed: "Không thể thu hồi tin nhắn",
+    reaction_update_failed: "Không thể cập nhật biểu cảm",
   },
   quiz_question_drag_drop: {
     image: "Hình ảnh",
@@ -3686,6 +3690,7 @@
     promotions_offers: "Khuyến mãi và ưu đãi",
     save_preferences: "Lưu tùy chọn",
     placeholders: {
+      username: "Nhập tên người dùng",
       bio: "Hãy giới thiệu đôi chút về bạn...",
       phone: "+84 123 456 789",
       website: "https://yourwebsite.com",

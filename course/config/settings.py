@@ -20,6 +20,41 @@ from urllib.parse import urlparse
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def load_local_env_file(env_file_path):
+    if not env_file_path.exists():
+        return
+
+    # These runtime keys should follow .env deterministically in local development
+    # to avoid stale shell/session env values overriding recent edits.
+    force_override_keys = {
+        'LEARNING_PATH_PROVIDER',
+        'LEARNING_PATH_FORCE_GEMINI',
+        'LEARNING_PATH_GEMINI_MAX_ATTEMPTS',
+        'LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD',
+        'LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS',
+        'GEMINI_API_KEY',
+        'GEMINI_MODEL',
+        'GEMINI_TIMEOUT_SECONDS',
+    }
+
+    for raw_line in env_file_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            if key in force_override_keys:
+                os.environ[key] = value
+            else:
+                os.environ.setdefault(key, value)
+
+
+load_local_env_file(BASE_DIR / '.env')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -157,6 +192,14 @@ MOMO_IPN_URL = os.getenv(
 )
 MOMO_STORE_ID = os.getenv("MOMO_STORE_ID", "MoMoTestStore")
 MOMO_PARTNER_NAME = os.getenv("MOMO_PARTNER_NAME", "Course Platform Test")
+LEARNING_PATH_PROVIDER = os.getenv("LEARNING_PATH_PROVIDER", "auto")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "45"))
+LEARNING_PATH_GEMINI_MAX_ATTEMPTS = max(1, int(os.getenv("LEARNING_PATH_GEMINI_MAX_ATTEMPTS", "1")))
+LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD = max(1, int(os.getenv("LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD", "2")))
+LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS = max(5, int(os.getenv("LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS", "60")))
+LEARNING_PATH_FORCE_GEMINI = os.getenv("LEARNING_PATH_FORCE_GEMINI", "False") == "True"
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
@@ -209,9 +252,13 @@ INSTALLED_APPS = [
     'registration_forms',
     'applications',
     'certificates',
+    'learning_paths',
     'subscription_plans',
     'payment_methods',
     'blog_comments',
+    'search',
+    'transcripts',
+    'knowledge',
 ]
 
 MIDDLEWARE = [
@@ -414,3 +461,13 @@ if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
 if FRONTEND_CORS:
     CSRF_TRUSTED_ORIGINS.append(FRONTEND_CORS) 
+
+TRANSCRIPT_LOCAL_WHISPER_MODEL = os.getenv("TRANSCRIPT_LOCAL_WHISPER_MODEL", "small")
+TRANSCRIPT_LOCAL_WHISPER_DEVICE = os.getenv("TRANSCRIPT_LOCAL_WHISPER_DEVICE", "cpu")
+TRANSCRIPT_LOCAL_WHISPER_COMPUTE_TYPE = os.getenv("TRANSCRIPT_LOCAL_WHISPER_COMPUTE_TYPE", "int8")
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4.1-mini")
+KNOWLEDGE_MAX_CHUNKS_PER_REQUEST = int(os.getenv("KNOWLEDGE_MAX_CHUNKS_PER_REQUEST", "8"))
+KNOWLEDGE_INCLUDE_DRAFTS_FOR_INSTRUCTOR = os.getenv("KNOWLEDGE_INCLUDE_DRAFTS_FOR_INSTRUCTOR", "true").lower() in ("1", "true", "yes")

@@ -30,6 +30,8 @@ COURSE_CONTENT_FIELDS = {
     'requirements',
     'learning_objectives',
     'target_audience',
+    'skills_taught',
+    'prerequisites',
     'tags',
     'promotional_video',
     'certificate',

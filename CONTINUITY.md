@@ -1,0 +1,236 @@
+Goal (incl. success criteria):
+- Improve AI advisor conversation flexibility so chatbot can both build learning paths and help users search suitable courses contextually.
+- Success = no hardcoded SQL/Python second question in rule-based flow; search intent can return useful course suggestions; FE renders multiline assistant answers clearly.
+
+Constraints/Assumptions:
+- Keep global AI bubble launcher enabled in app shell.
+- Chat widget has its own floating button that can overlap AI controls.
+
+Key decisions:
+- Remove legacy AI card + learning-path tab + advisor-open actions from My Learning page.
+- Keep AI dialog/launcher components untouched globally.
+- Raise AI launcher z-index and increase right offset on desktop to avoid chat overlap.
+- Use explicit responsive width/max-width classes on AI dialog content.
+- Move AI launcher to bottom-left so it is visually separate from user chat bubble.
+- Increase user chat panel width caps by breakpoint (sm/lg).
+- Replace `min(...)` Tailwind arbitrary width with explicit rem-based responsive widths to avoid class parsing/build inconsistencies.
+- Root-cause confirmed: generated `src/index.css` does not include many arbitrary utility classes (`[...]`) used for chat width/AI positioning.
+- Use inline `style` for critical width/position values (chat panel + AI bubble) so UI is correct regardless of utility generation.
+- Force AI dialog to opaque background via inline style and increase modal z-index layers to stay above floating widgets.
+
+State:
+	- Done:
+		- Added admin learning-path action API (`POST /api/learning-paths/admin/<id>/action`) supporting `delete`.
+		- Added admin learning-path bulk-action API (`POST /api/learning-paths/admin/bulk-action`) supporting bulk `delete` via `path_ids`.
+		- Added FE admin API methods for single/bulk learning-path actions.
+		- Implemented action and bulk-action UI in Admin AI Learning Path page: row-level delete, row selection, select-all, and `AdminBulkActionBar` bulk delete.
+		- Added backend tests for admin action and bulk-action delete endpoints; targeted tests pass.
+		- Added optional advisor persistence flag (`persist_conversation`) in advisor request serializer to avoid changing legacy default behavior.
+		- Implemented backend draft-session persistence flow: when `persist_conversation=true` and user is authenticated, advisor chat/stream now auto-creates a draft `LearningPath` + `PathConversation`, upserts messages, and returns `path_id` in result payload.
+		- Wired frontend advisor stream calls to send `persist_conversation: true` and forward `path_id` on subsequent turns.
+		- Updated FE advisor response typing to accept optional `path_id` and store it in dialog state for chat continuity.
+		- Added backend regression test `test_advisor_chat_persists_conversation_when_enabled` and verified targeted tests pass.
+		- Removed React Query Devtools bubble from app root in previous step.
+		- Removed AI hero card and all advisor-open buttons from My Learning page.
+		- Removed My Learning "learning-paths" tab and related data-loading/progress/cart logic.
+		- Verified `course_fe/src/pages/user/MyLearningPage.tsx` has no diagnostics.
+		- Updated AI launcher position/z-index to avoid overlap with user chat widget.
+		- Updated AI dialog width/height responsively by breakpoint.
+		- Verified `course_fe/src/components/AiLearningPathLauncher.tsx` and `course_fe/src/components/AiLearningPathDialog.tsx` have no diagnostics.
+		- Moved AI launcher to left-bottom with safe-area offsets for always-visible placement.
+		- Increased chat widget expanded width caps for larger screens.
+		- Switched chat expanded width to explicit responsive classes: `22rem` (base), `28rem` (`sm`), `34rem` (`lg`).
+		- Verified root cause in `src/index.css`: missing arbitrary classes for `w-[...]`, `max-w-[calc(...)]`, and safe-area position classes.
+		- Updated chat widget expanded panel to inline width/height/maxWidth styles.
+		- Updated AI launcher position to inline left/bottom safe-area styles.
+		- Updated AI dialog content with opaque inline background and z-index 90.
+		- Updated shared dialog overlay to z-index 80 via inline style support.
+		- Removed duplicate toast emissions in AI dialog (single toast per event).
+		- Removed duplicate header close button in AI dialog.
+		- Improved AI dialog spacing and message bubble readability constraints.
+		- Updated weekly-hours input to numeric constraints.
+		- Made chat message action trigger visible on mobile (no hover dependency).
+		- Increased composer attachment button tap targets.
+		- Increased chat message bubble reading width.
+		- Added bounded pending-attachments vertical area in composer.
+		- Verified no diagnostics in modified AI dialog and chat widget files.
+		- Frontend production build passes successfully (`npm run build`).
+		- Added stable auto-scroll behavior for AI dialog chat container.
+		- Updated AI quick-reply buttons to hide after user clicks/submits a reply.
+		- Verified no diagnostics in `course_fe/src/components/AiLearningPathDialog.tsx` after latest fix.
+		- Added first-message goal-quality guard so AI asks for clarification instead of suggesting courses too early.
+		- Verified no diagnostics after goal-clarification logic update.
+		- Removed frontend hardcoded goal-quality guard per user request.
+		- Updated first-submit flow to send user message directly to advisor and let AI decide clarification vs suggestion.
+		- Added goal override parameter in advisor call to avoid stale state on first submit.
+		- Added backend course-search intent detection in rule-based advisor (`provider.py`).
+		- Replaced hardcoded second SQL/Python question with a context-oriented clarification question.
+		- Updated rule-based ranking input to use effective goal text from ongoing user messages.
+		- Added formatted course suggestion response for search-mode requests.
+		- Updated AI dialog message text rendering to support multiline assistant output (`whitespace-pre-wrap`).
+		- Replaced SQL-specific quick action with generic course-suggestion quick action.
+		- Added backend test `test_advisor_chat_supports_course_search_intent`.
+		- Verified no diagnostics in touched FE/BE files.
+		- Added backend advisor message sanitize/merge helpers to deduplicate overlapping history.
+		- Updated advisor chat/recalculate views to merge `path_id` conversation context before inference.
+		- Persisted question-turn assistant responses into path conversation for continuity.
+		- Removed FE duplicate first-turn signal by sending initial goal via `goal_text` only (no duplicate first user message list).
+		- Added backend tests for message merge/sanitize behavior.
+		- Added backend context merge by `path_id` in advisor chat/recalculate views.
+		- Persisted question-turn assistant messages into `PathConversation` to keep continuity.
+		- Updated provider to treat non-empty `goal_text` as implicit first user turn when `messages` is empty.
+		- Deduplicated combined text assembly to reduce duplicated first-turn signals in inference.
+		- Updated FE first submit to avoid sending duplicate first user message payload.
+		- Frontend build passes after latest refactor (`npm run build`).
+		- Implemented slot-based follow-up question planner in rule-based advisor (`goal`, `baseline`, `weekly_hours`).
+		- Added backend-driven suggested quick actions in advisor meta and wired FE dialog quick actions to dynamic backend data.
+		- Targeted advisor tests pass in local `.venv` for path generation and search intent.
+		- Identified dependency confusion root cause: local scripts may run system `python` instead of `.venv` interpreter.
+		- Normalized `course/requirements.txt` text format and expanded runtime dependency pins to reduce missing-module failures.
+		- Fixed known-skill normalization so explicit `known_skills` are not dropped by historical negative text patterns.
+		- Full backend test suite `learning_paths.tests` now passes (17 tests).
+		- Updated `run-local-momo.ps1` to prioritize `.venv\Scripts\python.exe` for `manage.py runserver`.
+		- Removed standalone `Giờ/tuần` input from AI dialog; advisor now collects time-availability context purely via chat messages.
+		- Updated AI dialog roadmap card to look/behave like an assistant chat segment (not full-width fixed panel).
+		- Improved chat scroll behavior: auto-scroll only while user stays near bottom; allow manual history scrolling without snap-back.
+		- Added Gemini provider auto-selection path and explicit fallback metadata propagation.
+		- Updated settings defaults to `LEARNING_PATH_PROVIDER=auto` and empty `GEMINI_API_KEY`.
+		- Added backend tests for provider auto mode and Gemini request-failure fallback metadata.
+		- Verified backend `learning_paths.tests` passes (20 tests) after provider/fallback updates.
+		- Verified frontend production build passes after latest AI dialog chat-flow updates.
+		- Verified runtime settings in local shell: `LEARNING_PATH_PROVIDER=auto`, `GEMINI_API_KEY_LEN=0` (thus advisor selects rule-based directly, not Gemini fallback).
+		- Added startup diagnostics in `run-local-momo.ps1` to print provider and Gemini key length and warn when key is empty.
+		- Migrated Gemini provider from raw REST (`requests`) to `google.genai` SDK.
+		- Gemini call now uses `generate_content_stream` and aggregates stream chunks.
+		- Gemini payload now includes chat-history `contents` with both `user` and `assistant` (`model`) turns for better context continuity.
+		- Updated advisor Gemini tests to mock `genai.Client().models.generate_content_stream`.
+		- Added `google-genai==1.13.0` to backend requirements and installed in local `.venv`.
+		- Verified backend `learning_paths.tests` passes (20 tests) after SDK streaming migration.
+		- Added SSE endpoint `learning-paths/advisor/chat/stream` and FE stream consumer for realtime delta/final events.
+		- Removed rigid first-turn prompt pattern in rule-based flow for greeting-only messages.
+		- Added strict Gemini mode via `LEARNING_PATH_FORCE_GEMINI` to prevent silent fallback to rule-based when AI-only behavior is required.
+		- Enabled strict Gemini mode in local `course/.env` and added startup diagnostics in `run-local-momo.ps1`.
+		- Verified backend `learning_paths.tests` passes (22 tests) after strict-mode and conversational prompt updates.
+		- Enabled workspace setting `python.terminal.useEnvFile=true` in `.vscode/settings.json` so Python terminals can inject variables from `.env`.
+		- Added explicit `python.envFile=${workspaceFolder}/course/.env` in `.vscode/settings.json`.
+		- Verified `course/.env` is not tracked by git in current repo state (`TRACKED_ENV=false`).
+		- Updated `run-local-momo.ps1` env import to skip volatile URL keys (`BACKEND_PUBLIC_URL`, `NGROK_URL`, `MOMO_IPN_URL`, `MOMO_REDIRECT_URL`) and always derive them from active ngrok URL at startup.
+		- Verified startup logs show callback/public URL values sourced from current ngrok tunnel.
+		- Diagnosed Gemini failures with direct SDK probe: `gemini-2.5-pro` returns `429 RESOURCE_EXHAUSTED` (quota), while `gemini-2.5-flash` works for current API key.
+		- Switched local runtime model in `course/.env` to `gemini-2.5-flash` and restarted backend.
+		- Verified ngrok advisor call now succeeds with `provider_used=gemini`, `fallback_triggered=false`, `model=gemini-2.5-flash`.
+		- Verified frontend production build passes (`course_fe`: `npm run build`).
+		- Verified advisor SSE endpoint works via ngrok in frontend-like request mode (`status=200`, `content-type=text/event-stream`, emits `delta` then `final`).
+		- Stabilized AI advisor popup size with inline viewport-aware width/height and ensured chat thread keeps scrollable behavior via `min-h-0` chat container constraints.
+		- Added AI dialog sidebar section for saved chat/history sessions using `getLearningPaths` and quick load via `getLearningPathDetail`.
+		- Updated AI dialog navigation actions to close modal first and defer route change by one tick to avoid modal/focus race.
+		- Updated processing fallback label to `Đang xử lý...` and refresh history list immediately after saving a path.
+		- Added backend delete support for user learning path history via `DELETE /api/learning-paths/<path_id>`.
+		- Added AI dialog history search box (filter by goal/summary) and per-item preview (`summary`, message count, updated time).
+		- Added per-item history delete action in sidebar and wired FE API `deleteLearningPath`.
+		- Replaced browser `window.confirm` delete flow with an in-dialog styled confirmation modal overlay (consistent UI).
+		- Wired history sidebar to pagination metadata (`page`, `total_pages`) and added `Tải thêm lịch sử` action using paginated backend results.
+		- Upgraded history loading from button-driven pagination to infinite scroll triggered near sidebar bottom.
+		- Preserved sidebar scroll position while appending paginated history items.
+		- Deleting the currently opened history now auto-loads the nearest remaining item.
+		- Cleared pending delete-overlay state on dialog close and raised AI launcher/dialog z-index to avoid modal hidden-behind-layer issues after build.
+		- Investigated Radix warning source: `DialogContent requires a DialogTitle` is emitted via `console.error` (accessibility warning), not an exception throw.
+		- Added hidden `DialogTitle` to AI dialog for a11y compliance and to remove runtime warning noise.
+		- Added short initial `onInteractOutside` guard to prevent open-close race right after clicking launcher.
+		- Expanded advisor UX copy (FE) to present two core capabilities: course discovery and learning-path design.
+		- Broadened rule-based search intent detection to handle natural phrasing like `goi y 3 khoa hoc ...` and mixed search+roadmap prompts.
+		- Updated greeting and suggested quick-actions to avoid forcing path-only flow from first turn.
+		- Added backend regression test for mixed search+roadmap prompt and aligned conversation behavior tests to rule-based provider for deterministic assertions.
+		- Verified targeted backend tests pass for course-search intent, greeting behavior, and mixed-intent flow.
+		- Removed hard-coded out-of-scope branch from rule-based provider per user direction.
+		- Moved out-of-scope policy into `GEMINI_SYSTEM_PROMPT` so Gemini handles redirection behavior via model instruction.
+		- Verified targeted advisor behavior tests still pass after removing hard-coded branch.
+		- Removed in-dialog roadmap table/card UI so assistant answers are message-first instead of fixed panel-first.
+		- Path responses now include clickable route links in assistant messages (e.g. `/course/<id>`, `/course-player/<id>`, `/cart`) and clicking a link closes dialog then navigates.
+		- Started runtime/stream architecture refactor implementation: extracted advisor runtime policy into new module `course/learning_paths/runtime.py` with typed runtime snapshot and reusable `GeminiCircuitBreaker` state holder.
+		- Refactored `learning_paths/services.py` to consume centralized runtime config (`get_advisor_runtime_config`) for provider selection, timeout, attempts, strict-mode, and circuit threshold/cooldown instead of scattered direct settings lookups.
+		- Preserved existing behavior contracts after refactor and validated with targeted backend tests for provider auto selection and strict-gemini upstream error handling (4 tests passed).
+		- Continued runtime/stream refactor by introducing `AdvisorOrchestrator` in `course/learning_paths/services.py` to centralize chat + stream provider orchestration, retry/fallback flow, and metadata enrichment logic.
+		- Replaced duplicated `advisor_chat` and `advisor_chat_stream` flow bodies with thin wrappers delegating to `AdvisorOrchestrator` while preserving endpoint behavior.
+		- Verified orchestration refactor with targeted advisor regression tests (5 tests passed), including stream persistence and strict-gemini upstream error handling.
+		- Added explicit advisor error taxonomy module `course/learning_paths/errors.py` with standardized error codes (`upstream_unavailable`, `invalid_request`, `internal_error`) and migrated services to use shared upstream error type.
+		- Added stream contract module `course/learning_paths/contracts.py` supporting contract resolution (`v1` default, `v2` opt-in via query/header) and version-aware SSE payload wrapping.
+		- Updated advisor stream endpoint to emit contract-aware SSE payloads while preserving v1 behavior; v2 now wraps payload as `{version,event,data}` and preserves per-error code semantics.
+		- Added deterministic runtime-state reset hook for tests (`reset_advisor_runtime_state_for_tests`) to avoid circuit-breaker state leakage across test cases.
+		- Added and validated regression test for stream v2 error envelope (`contract=v2`) plus existing strict-gemini upstream tests (focused suite passes).
+		- Extended contract versioning to non-stream advisor endpoints (`/advisor/chat` and `/recalculate`) with v2 wrappers: success payload `{version,data}` and error payload `{version,error:{code,message}}`.
+		- Preserved default v1 behavior for existing clients while enabling v2 via `X-Advisor-Contract: v2` header or `?contract=v2` query.
+		- Added backend tests for non-stream v2 success/error envelopes and reran focused contract regression suite (5 tests passed).
+		- Added lightweight structured observability logs for advisor chat/stream/recalculate upstream/internal failures with contract version and path context.
+		- Added response header `X-Advisor-Contract` on advisor chat, stream, and recalculate endpoints for runtime contract introspection.
+		- Extended v2 non-stream tests to assert `X-Advisor-Contract: v2`; focused suite still passes (5 tests).
+		- Diagnosed user-reported recalculate `503 {"errors":"gemini_request_failed: GeminiProviderError"}`: local runtime is `LEARNING_PATH_PROVIDER=auto`, `LEARNING_PATH_FORCE_GEMINI=True`, `GEMINI_MODEL=gemini-2.5-flash`, API key present.
+		- Verified advisor service can succeed in same environment (direct `advisor_chat` shell probe returned `type=path`), indicating likely transient Gemini upstream failure under strict mode rather than local schema/runtime break.
+		- Added recalculate v2 contract regression coverage in `learning_paths.tests`: success envelope/header and strict-Gemini upstream-error envelope/header.
+		- Stabilized recalculate tests against env strict-mode leakage by making provider expectations explicit (`rule_based` + `LEARNING_PATH_FORCE_GEMINI=False`) where required.
+		- Focused contract suite (`chat/stream/recalculate` v2 + upstream mapping) re-run and passing (5 tests).
+		- Root cause for `.env` model mismatch identified: `load_local_env_file` used `os.environ.setdefault`, so stale shell env values could override updated `.env` Gemini/advisor keys.
+		- Updated `course/config/settings.py` env loader to force-override advisor/Gemini runtime keys from `.env` (`GEMINI_MODEL`, `LEARNING_PATH_FORCE_GEMINI`, provider/attempt/circuit keys) while keeping default behavior for other keys.
+		- Verified runtime now resolves `GEMINI_MODEL=gemini-2.0-flash`, `LEARNING_PATH_FORCE_GEMINI=False`, `LEARNING_PATH_PROVIDER=auto`, `LEARNING_PATH_GEMINI_MAX_ATTEMPTS=1` from `.env`.
+		- Investigated FE issue where non-question advisor result appeared missing despite successful network response.
+		- Root cause confirmed in `AiLearningPathDialog`: `recalculate` detail branch replaced UI thread with `result.messages`, but backend detail payload can contain only user turns (no assistant message), so no visible assistant output.
+		- Fixed FE to synthesize and append assistant summary from `summary + items` when detail/path response lacks trailing assistant message; re-used shared path-summary builder for both `type=path` and detail branches.
+		- Fixed backend root cause for recalculate continuity: `update_learning_path_from_advisor` now synthesizes/merges an assistant message for path results before persisting `PathConversation.messages`, so stored history no longer ends on user-only turns after successful path updates.
+		- Added regression assertions in `test_recalculate_updates_saved_path` to enforce trailing assistant message persistence in conversation history.
+		- Verified focused backend tests pass:
+			- `learning_paths.tests.LearningPathApiTests.test_recalculate_updates_saved_path`
+			- `learning_paths.tests.LearningPathApiTests.test_recalculate_v2_contract_wraps_success_payload`
+		- Fixed AI dialog layout collapse reported in screenshot: history sidebar could dominate width and chat pane collapsed into a narrow strip.
+		- Updated `AiLearningPathDialog` main layout with explicit overflow containment, fixed desktop sidebar width (`md:w-80` + `md:flex-none`), `min-w-0` on chat pane, and improved text wrapping in history cards/messages.
+		- Expanded message bubble max-width behavior (`max-w-full` on smaller widths, constrained on larger breakpoints) so assistant text remains readable when viewport is tighter.
+		- Applied follow-up layout hardening after user screenshot: switched dialog body to deterministic desktop grid (`320px + 1fr`) using runtime viewport detection (`window.innerWidth >= 960`) to avoid breakpoint utility mismatches that allowed sidebar to consume chat area.
+		- Sidebar list now uses full-height internal scroll on desktop and compact max-height on mobile stack mode; quick actions changed to `1 -> 2` responsive columns to prevent button text overlap in narrow panes.
+		- Investigated repeated advisor replies and Vietnamese-without-diacritics complaint; root cause confirmed in `RuleBasedAdvisorProvider` hardcoded no-diacritic templates and narrow greeting detector (did not match variants like `chao ban`).
+		- Updated rule-based advisor copy to Vietnamese with diacritics across greeting, follow-up prompts, course-suggestion text, summary assumptions, and path item reasons.
+		- Added `SMALL_TALK_PATTERNS` and widened greeting detection to treat short chatter (`chao ban`, `sao co`, `lỗi gì ạ`, etc.) as clarification turns instead of forcing repeated `type=path` summary output.
+		- Added backend regression test `test_advisor_chat_greeting_variant_does_not_repeat_path_summary` and accent-aware assertion helper `fold_text` for robust checks.
+		- Verified focused tests pass:
+			- `test_advisor_chat_greeting_variant_does_not_repeat_path_summary`
+			- `test_advisor_chat_supports_course_search_intent`
+			- `test_advisor_chat_returns_question_then_path`
+		- Investigated FE runtime error `Advisor stream ended without final result.`; root cause found in stream parser expecting only v1 payload shape (`data.result`) and requiring `\n\n`-terminated final block.
+		- Fixed `chatWithLearningAdvisorStream` parser to unwrap v2 SSE envelopes (`{version,event,data}`) and to parse trailing residual block when stream ends without a final double-newline boundary.
+		- Verified TypeScript diagnostics are clean and frontend production build passes after stream parser fix.
+		- Investigated backend stream warnings showing Gemini 404 model-not-found for `models/gemini-2.0-flash`.
+		- Updated local runtime config in `course/.env` from `GEMINI_MODEL=gemini-2.0-flash` to `GEMINI_MODEL=gemini-2.5-flash`.
+		- Verified Django settings now resolve `GEMINI_MODEL=gemini-2.5-flash` in shell.
+		- Added backend hardening for Gemini model resolution: deprecated model identifiers (e.g. `gemini-2.0-flash`, `models/gemini-2.0-flash`) are now auto-normalized to `gemini-2.5-flash` before provider initialization.
+		- Preserved admin SystemsSetting override behavior while applying normalization to both env model and admin model values.
+		- Added regression tests for deprecated env/admin model mapping and verified focused suite passes.
+		- Updated Gemini model precedence per user request: `.env` (`GEMINI_MODEL`) is now highest priority; SystemsSetting (`learning_path_gemini_model`) is secondary fallback when env model is empty/unset.
+		- Refined resolver to distinguish explicit empty env model from configured value, so fallback-to-setting works only when env does not provide a model.
+		- Updated and validated focused tests for new precedence behavior and deprecated-model normalization (4 tests passed).
+		- Investigated user-facing FE error `Advisor stream ended without final result.` after SSE partial streams.
+		- Added FE stream resilience: when SSE ends without `final` but deltas were received, parser now returns a safe fallback advisor response using accumulated delta text instead of throwing hard error.
+		- Verified FE diagnostics clean and production build passes after fallback handling update.
+		- Identified root cause for persistent `200 but no final result` parsing failures: backend SSE formatter emitted escaped `\\n` sequences instead of real newline delimiters in `sse_event`.
+		- Fixed `course/learning_paths/contracts.py::sse_event` to emit RFC-compliant SSE blocks (`event: ...\ndata: ...\n\n`).
+		- Verified with focused backend stream tests (3 pass) and live raw stream probe showing parseable `event: delta` + `event: final` framing.
+		- Updated Gemini system prompt to make roadmap presentation prompt-driven: for `type=path`, `summary` now requires a markdown table aligned with returned `path` rows/ordering.
+		- No FE hardcoded table renderer was added; formatting is requested from model output via prompt only.
+		- Verified advisor behavior tests still pass (2 focused tests); one model-string-specific test remains environment-sensitive when `.env` model differs.
+Open questions (UNCONFIRMED if needed):
+- Optional: tune Gemini prompt constraints for more adaptive Vietnamese conversational tone.
+
+Working set (files/ids/commands):
+- CONTINUITY.md
+- course_fe/src/App.tsx
+- course_fe/src/pages/user/MyLearningPage.tsx
+- course_fe/src/components/AiLearningPathLauncher.tsx
+- course_fe/src/components/AiLearningPathDialog.tsx
+- course_fe/src/components/ChatWidget.tsx
+- course_fe/src/components/chat-widget/ChatWidgetHeader.tsx
+- course_fe/src/components/chat-widget/ChatConversationCard.tsx
+- course_fe/src/components/ChatWidget.tsx
+- course/learning_paths/provider.py
+- course/learning_paths/services.py
+- course/config/settings.py
+- course/learning_paths/tests.py
+- course/learning_paths/runtime.py
+- course/learning_paths/errors.py
+- course/learning_paths/contracts.py

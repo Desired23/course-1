@@ -31,11 +31,13 @@ interface CourseData {
   whatYouWillLearn: string[]
   requirements: string[]
   targetAudience: string[]
+  skillsTaught: string[]
+  prerequisites: string[]
 }
 
 const initialData: CourseData = {
   title: '', subtitle: '', description: '', category: '', subcategory: '', level: '', language: 'Vietnamese',
-  price: '', thumbnail: '', whatYouWillLearn: [''], requirements: [''], targetAudience: [''],
+  price: '', thumbnail: '', whatYouWillLearn: [''], requirements: [''], targetAudience: [''], skillsTaught: [''], prerequisites: [''],
 }
 
 export function InstructorCreateCoursePage() {
@@ -118,6 +120,8 @@ export function InstructorCreateCoursePage() {
         learning_objectives: data.whatYouWillLearn.filter((x) => x.trim()),
         requirements: data.requirements.filter((x) => x.trim()).join('\n'),
         target_audience: data.targetAudience.filter((x) => x.trim()),
+        skills_taught: data.skillsTaught.filter((x) => x.trim()),
+        prerequisites: data.prerequisites.filter((x) => x.trim()),
         status: saveStatus === 'submit_review' ? 'pending' : 'draft',
       }
       if (instructorId) courseData.instructor = instructorId
@@ -153,12 +157,12 @@ export function InstructorCreateCoursePage() {
     }
   }
 
-  const addArrayItem = (field: 'whatYouWillLearn' | 'requirements' | 'targetAudience') => setData({ ...data, [field]: [...data[field], ''] })
-  const removeArrayItem = (field: 'whatYouWillLearn' | 'requirements' | 'targetAudience', index: number) => {
+  const addArrayItem = (field: 'whatYouWillLearn' | 'requirements' | 'targetAudience' | 'skillsTaught' | 'prerequisites') => setData({ ...data, [field]: [...data[field], ''] })
+  const removeArrayItem = (field: 'whatYouWillLearn' | 'requirements' | 'targetAudience' | 'skillsTaught' | 'prerequisites', index: number) => {
     const next = data[field].filter((_, i) => i !== index)
     setData({ ...data, [field]: next.length > 0 ? next : [''] })
   }
-  const updateArrayItem = (field: 'whatYouWillLearn' | 'requirements' | 'targetAudience', index: number, value: string) => {
+  const updateArrayItem = (field: 'whatYouWillLearn' | 'requirements' | 'targetAudience' | 'skillsTaught' | 'prerequisites', index: number, value: string) => {
     const next = [...data[field]]
     next[index] = value
     setData({ ...data, [field]: next })
@@ -171,7 +175,7 @@ export function InstructorCreateCoursePage() {
   }
 
   const renderArrayField = (
-    field: 'whatYouWillLearn' | 'requirements' | 'targetAudience',
+    field: 'whatYouWillLearn' | 'requirements' | 'targetAudience' | 'skillsTaught' | 'prerequisites',
     labelKey: string,
     hintKey: string,
     placeholderKey: string,
@@ -301,6 +305,8 @@ export function InstructorCreateCoursePage() {
                   {renderArrayField('whatYouWillLearn', 'instructor_create_course_page.learning_content.objectives_label', 'instructor_create_course_page.learning_content.objectives_hint', 'instructor_create_course_page.learning_content.objectives_placeholder', 'instructor_create_course_page.learning_content.add_objective')}
                   {renderArrayField('requirements', 'instructor_create_course_page.learning_content.requirements_label', 'instructor_create_course_page.learning_content.requirements_hint', 'instructor_create_course_page.learning_content.requirements_placeholder', 'instructor_create_course_page.learning_content.add_requirement')}
                   {renderArrayField('targetAudience', 'instructor_create_course_page.learning_content.audience_label', 'instructor_create_course_page.learning_content.audience_hint', 'instructor_create_course_page.learning_content.audience_placeholder', 'instructor_create_course_page.learning_content.add_audience')}
+                  {renderArrayField('skillsTaught', 'Catalog skills_taught', 'Nhập các kỹ năng khóa học sẽ dạy. Đây là dữ liệu cốt lõi cho AI advisor.', 'VD: SQL JOIN, Power Query, Pandas', '+ Thêm kỹ năng')}
+                  {renderArrayField('prerequisites', 'Catalog prerequisites', 'Nhập các kỹ năng/kiến thức cần có trước khi học khóa này.', 'VD: Excel cơ bản, tư duy bảng dữ liệu', '+ Thêm tiên quyết')}
                 </CardContent>
               </Card>
             )}

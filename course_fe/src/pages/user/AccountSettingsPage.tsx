@@ -191,7 +191,7 @@ export function AccountSettingsPage() {
   // Profile Data
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
-    username: user?.email?.split('@')[0] || '',
+    username: user?.username || user?.email?.split('@')[0] || '',
     email: user?.email || '',
     bio: user?.bio || '',
     phone: user?.phone || '',
@@ -603,6 +603,7 @@ export function AccountSettingsPage() {
                 <Input
                   id="username"
                   value={profileData.username}
+                  placeholder={t('account_settings.placeholders.username')}
                   onChange={(e) => {
                     setProfileData({ ...profileData, username: e.target.value })
                     setHasUnsavedChanges(true)

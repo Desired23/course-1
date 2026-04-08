@@ -6,6 +6,7 @@ from users.models import User
 from notifications.services import create_notification
 from activity_logs.services import log_activity
 from courses.services import mark_course_content_changed
+from transcripts.services import enqueue_transcript_generation, get_lesson_source_snapshot, mark_lesson_transcripts_stale
 
 
 def validate_lesson_data(data):
@@ -13,6 +14,31 @@ def validate_lesson_data(data):
     if serializer.is_valid():
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
+
+
+def _sync_lesson_transcript_generation(lesson, previous_snapshot=None, force=False):
+    current_snapshot = get_lesson_source_snapshot(lesson)
+    if not current_snapshot or lesson.content_type != Lesson.ContentType.VIDEO:
+        if previous_snapshot:
+            mark_lesson_transcripts_stale(lesson, current_snapshot="")
+        return None
+
+    if previous_snapshot and previous_snapshot != current_snapshot:
+        mark_lesson_transcripts_stale(lesson, current_snapshot=current_snapshot)
+        return enqueue_transcript_generation(
+            lesson,
+            trigger_source='video_updated',
+            force=True,
+        )
+
+    if not previous_snapshot:
+        return enqueue_transcript_generation(
+            lesson,
+            trigger_source='auto_upload',
+            force=force,
+        )
+
+    return None
 
 
 def get_lessons(filters=None):
@@ -84,6 +110,7 @@ def create_lesson(data, user):
     serializer = LessonSerializer(data=modified_data, context={'request': None})
     if serializer.is_valid(raise_exception=True):
         lesson = serializer.save()
+        _sync_lesson_transcript_generation(lesson, previous_snapshot=None)
         course = getattr(getattr(lesson, 'coursemodule', None), 'course', None)
         if course:
             mark_course_content_changed(course)
@@ -128,9 +155,11 @@ def update_lesson(lesson_id, data, requesting_user=None):
 
     update_payload, status_meta = _pop_status_update_meta(data)
     old_status = lesson.status
+    previous_snapshot = get_lesson_source_snapshot(lesson)
     serializer = LessonSerializer(lesson, data=update_payload, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_lesson = serializer.save()
+        _sync_lesson_transcript_generation(updated_lesson, previous_snapshot=previous_snapshot)
         course = getattr(getattr(updated_lesson, 'coursemodule', None), 'course', None)
         if not is_admin and course:
             mark_course_content_changed(course)

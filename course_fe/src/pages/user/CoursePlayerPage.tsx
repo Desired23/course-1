@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from "../../components/Router"
 import { QuizPlayer } from "../../components/QuizPlayer"
 import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
+import { TranscriptVideoPlayer } from "../../components/TranscriptVideoPlayer"
 import { Button } from "../../components/ui/button"
 import { Progress } from "../../components/ui/progress"
 import { Separator } from "../../components/ui/separator"
@@ -42,6 +43,7 @@ import {
 } from "../../services/lesson-comments.api"
 import { getUserById, type UserProfile } from "../../services/auth.api"
 import { useAuth } from "../../contexts/AuthContext"
+import { getLessonTranscript, type LessonTranscriptDTO } from "../../services/transcript.api"
 import { useTranslation } from "react-i18next"
 
 // â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -60,6 +62,8 @@ interface CurriculumLesson {
   id: number
   title: string
   videoUrl: string | null
+  transcriptStatus?: string | null
+  hasPublishedTranscript?: boolean
   duration: string
   type: 'video' | 'quiz' | 'text'
   isFree: boolean
@@ -109,6 +113,8 @@ function buildCurriculum(
             id: lesson.lesson_id,
             title: lesson.title,
             videoUrl: lesson.signed_video_url || lesson.video_url || null,
+            transcriptStatus: lesson.transcript_status || null,
+            hasPublishedTranscript: lesson.has_published_transcript || false,
             duration: lesson.duration ? formatDuration(lesson.duration) : '',
             type: lesson.has_quiz ? 'quiz' as const : lesson.content_type === 'text' ? 'text' as const : 'video' as const,
             isFree: lesson.is_free,
@@ -192,6 +198,11 @@ function serializeLessonLearningData(data: LessonLearningData): string {
   })
 }
 
+function isDirectVideoUrl(url?: string | null): boolean {
+  if (!url) return false
+  return !/(youtube\.com|youtu\.be)/i.test(url)
+}
+
 export function CoursePlayerPage() {
   const { t } = useTranslation()
   const { navigate, params } = useRouter()
@@ -206,6 +217,7 @@ export function CoursePlayerPage() {
   const [currentLessonId, setCurrentLessonId] = useState<number | null>(null)
   const [progress, setProgress] = useState([0])
   const [currentPlaybackTimeSec, setCurrentPlaybackTimeSec] = useState(0)
+  const [currentTranscript, setCurrentTranscript] = useState<LessonTranscriptDTO | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({})
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isCurriculumCollapsed, setIsCurriculumCollapsed] = useState(() => {
@@ -430,6 +442,24 @@ export function CoursePlayerPage() {
 
   useEffect(() => {
     if (currentLessonId) loadComments(currentLessonId)
+  }, [currentLessonId])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadTranscript() {
+      if (!currentLessonId) {
+        setCurrentTranscript(null)
+        return
+      }
+      try {
+        const transcript = await getLessonTranscript(currentLessonId)
+        if (!cancelled) setCurrentTranscript(transcript)
+      } catch {
+        if (!cancelled) setCurrentTranscript(null)
+      }
+    }
+    void loadTranscript()
+    return () => { cancelled = true }
   }, [currentLessonId])
 
   useEffect(() => {
@@ -838,19 +868,35 @@ export function CoursePlayerPage() {
             </div>
           ) : (
             <div className="flex-shrink-0">
-              <VideoPlayer
-                key={currentLessonId}
-                url={currentLesson.videoUrl || 'https://www.youtube.com/watch?v=qz0aGYrrlhU'}
-                title={currentLesson.title}
-                lessonId={currentLessonId!}
-                bookmarks={bookmarksByLesson[currentLessonId!] || []}
-                onBookmarksChange={handleBookmarksChange}
-                onProgress={handleVideoProgress}
-                onComplete={() => handleLessonComplete(currentLessonId!)}
-                savedProgress={getSavedProgressForLesson(currentLessonId!)}
-                completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
-                restrictForwardSeeking={true}
-              />
+              {isDirectVideoUrl(currentLesson.videoUrl) ? (
+                <TranscriptVideoPlayer
+                  key={currentLessonId}
+                  url={currentLesson.videoUrl || ''}
+                  title={currentLesson.title}
+                  transcript={currentTranscript}
+                  bookmarks={bookmarksByLesson[currentLessonId!] || []}
+                  onBookmarksChange={handleBookmarksChange}
+                  onProgress={handleVideoProgress}
+                  onComplete={() => handleLessonComplete(currentLessonId!)}
+                  savedProgress={getSavedProgressForLesson(currentLessonId!)}
+                  completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
+                  restrictForwardSeeking={true}
+                />
+              ) : (
+                <VideoPlayer
+                  key={currentLessonId}
+                  url={currentLesson.videoUrl || 'https://www.youtube.com/watch?v=qz0aGYrrlhU'}
+                  title={currentLesson.title}
+                  lessonId={currentLessonId!}
+                  bookmarks={bookmarksByLesson[currentLessonId!] || []}
+                  onBookmarksChange={handleBookmarksChange}
+                  onProgress={handleVideoProgress}
+                  onComplete={() => handleLessonComplete(currentLessonId!)}
+                  savedProgress={getSavedProgressForLesson(currentLessonId!)}
+                  completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
+                  restrictForwardSeeking={true}
+                />
+              )}
             </div>
           )}
 

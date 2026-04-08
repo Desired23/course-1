@@ -1,22 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Award, BookOpen, Loader2, Play } from 'lucide-react'
+
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Play, Clock, BookOpen, Award, Loader2, Info } from 'lucide-react'
 import { useRouter } from "../../components/Router"
-import { useTranslation } from "react-i18next"
+import { UserPagination } from '../../components/UserPagination'
 import { getMyEnrollments, type Enrollment, parseProgress } from '../../services/enrollment.api'
 import { formatDuration } from '../../services/course.api'
-import { UserPagination } from '../../components/UserPagination'
 
 type SortBy = 'recent_access' | 'newest_enrollment' | 'oldest_enrollment' | 'title_asc' | 'progress_desc'
+type LearningTab = 'in-progress' | 'completed' | 'bookmarks'
 
 export function MyLearningPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
-  const [selectedTab, setSelectedTab] = useState("in-progress")
+
+  const [selectedTab, setSelectedTab] = useState<LearningTab>('in-progress')
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
   const [inProgressCount, setInProgressCount] = useState(0)
   const [completedCount, setCompletedCount] = useState(0)
@@ -34,12 +37,19 @@ export function MyLearningPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
 
+  const isCourseTab = selectedTab === 'in-progress' || selectedTab === 'completed'
+
   useEffect(() => {
+    if (!isCourseTab) {
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
     setLoading(true)
     setError(null)
 
-    const statusFilter = selectedTab === 'in-progress' ? 'active' : selectedTab === 'completed' ? 'complete' : undefined
+    const statusFilter = selectedTab === 'in-progress' ? 'active' : 'complete'
 
     getMyEnrollments({
       page: currentPage,
@@ -59,22 +69,21 @@ export function MyLearningPage() {
         setTotalPages(listRes.total_pages || 1)
         if (selectedTab === 'in-progress') {
           setInProgressCount(listRes.count || 0)
-        } else if (selectedTab === 'completed') {
+        } else {
           setCompletedCount(listRes.count || 0)
         }
       })
       .catch((err) => {
-        if (!cancelled) {
-          if (err?.message?.includes('No enrollments found') || err?.response?.status === 400) {
-            setEnrollments([])
-            setTotalCount(0)
-            setTotalPages(1)
-            setInProgressCount(0)
-            setCompletedCount(0)
-          } else {
-            setError(t('my_learning.load_failed'))
-          }
+        if (cancelled) return
+        if (err?.message?.includes('No enrollments found') || err?.response?.status === 400) {
+          setEnrollments([])
+          setTotalCount(0)
+          setTotalPages(1)
+          if (selectedTab === 'in-progress') setInProgressCount(0)
+          if (selectedTab === 'completed') setCompletedCount(0)
+          return
         }
+        setError(t('my_learning.load_failed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -83,7 +92,7 @@ export function MyLearningPage() {
     return () => {
       cancelled = true
     }
-  }, [selectedTab, currentPage, pageSize, search, sortBy, enrollmentDateFrom, enrollmentDateTo, purchaseDateFrom, purchaseDateTo])
+  }, [selectedTab, currentPage, pageSize, search, sortBy, enrollmentDateFrom, enrollmentDateTo, purchaseDateFrom, purchaseDateTo, isCourseTab, t])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -97,7 +106,106 @@ export function MyLearningPage() {
     navigate(`/course-player/${courseId}`)
   }
 
-  if (loading) {
+  const renderCourseGrid = (items: Enrollment[], completedMode = false) => {
+    if (items.length === 0) {
+      return (
+        <div className="text-center py-12 text-muted-foreground">
+          {completedMode ? <Award className="h-12 w-12 mx-auto mb-4 opacity-50" /> : <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />}
+          <p>{completedMode ? t('my_learning.no_completed') : t('my_learning.empty_not_enrolled')}</p>
+          {!completedMode && <Button className="mt-4" onClick={() => navigate('/courses')}>{t('my_learning.explore_courses')}</Button>}
+        </div>
+      )
+    }
+
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {items.map((enrollment) => {
+            const course = enrollment.course
+            const progress = parseProgress(enrollment.progress)
+            return (
+              <Card key={enrollment.enrollment_id} className="group hover:shadow-lg transition-shadow">
+                <div className="relative">
+                  <img
+                    src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&h=200&fit=crop'}
+                    alt={course.title}
+                    className="w-full h-40 object-cover rounded-t-lg"
+                  />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                    <Button size="sm" className="gap-2" onClick={() => handleContinueLearning(course.course_id)}>
+                      <Play className="h-4 w-4" />
+                      {t('my_learning.continue_learning')}
+                    </Button>
+                    <Button size="sm" variant="secondary" className="gap-2" onClick={() => navigate(`/course/${course.course_id}`)}>
+                      {t('my_learning.view_details')}
+                    </Button>
+                  </div>
+                  {completedMode && enrollment.certificate_issue_date && (
+                    <div className="absolute top-2 right-2">
+                      <Badge className="bg-green-500 hover:bg-green-600">
+                        <Award className="h-3 w-3 mr-1" />
+                        {t('common.certificate')}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                <CardHeader className="pb-3">
+                  <CardTitle className="line-clamp-2">{course.title}</CardTitle>
+                  <CardDescription>{t('my_learning.by_instructor', { name: course.instructor_name || t('my_learning.instructor_fallback') })}</CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {!completedMode ? (
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>{t('my_learning.progress')}</span>
+                          <span>{Math.round(progress)}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <BookOpen className="h-4 w-4" />
+                          <span>{course.total_lessons} {t('my_learning.lessons_completed')}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span>{course.duration ? formatDuration(course.duration) : ''}</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {enrollment.completion_date && (
+                        <div className="text-sm text-muted-foreground">
+                          {t('my_learning.completed_on', { date: new Date(enrollment.completion_date).toLocaleDateString('vi-VN') })}
+                        </div>
+                      )}
+                      {enrollment.certificate_issue_date && (
+                        <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/certificate')}>
+                          <Award className="h-4 w-4" />
+                          {t('my_learning.view_certificate')}
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center justify-between pt-4">
+          <p className="text-sm text-muted-foreground">{t('my_learning.pagination', { current: currentPage, totalPages, totalCount })}</p>
+          <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </div>
+      </>
+    )
+  }
+
+  if (loading && isCourseTab) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -122,41 +230,39 @@ export function MyLearningPage() {
           <p className="text-muted-foreground">{t('my_learning.subtitle')}</p>
         </div>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+        <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as LearningTab)} className="w-full">
           <TabsList className="grid w-full grid-cols-3 h-auto">
             <TabsTrigger value="in-progress" className="text-xs sm:text-sm px-2 sm:px-4">
-              <span className="hidden sm:inline">{t('my_learning.in_progress')} </span>
-              <span className="sm:hidden">{t('my_learning.in_progress')} </span>
-              ({inProgressCount})
+              {t('my_learning.in_progress')} ({inProgressCount})
             </TabsTrigger>
             <TabsTrigger value="completed" className="text-xs sm:text-sm px-2 sm:px-4">
-              <span className="hidden sm:inline">{t('my_learning.completed')} </span>
-              <span className="sm:hidden">{t('my_learning.completed')} </span>
-              ({completedCount})
+              {t('my_learning.completed')} ({completedCount})
             </TabsTrigger>
-            <TabsTrigger value="bookmarks" className="text-xs sm:text-sm px-2 sm:px-4">{t('my_learning.archived')}</TabsTrigger>
+            <TabsTrigger value="bookmarks" className="text-xs sm:text-sm px-2 sm:px-4">
+              {t('my_learning.archived')}
+            </TabsTrigger>
           </TabsList>
 
-          {(selectedTab === 'in-progress' || selectedTab === 'completed') && (
+          {isCourseTab && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <input
                 className="h-9 rounded-md border px-3 text-sm"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(event) => setSearch(event.target.value)}
                 placeholder={t('my_learning.search_placeholder')}
               />
-              <select className="h-9 rounded-md border px-3 text-sm" value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}>
+              <select className="h-9 rounded-md border px-3 text-sm" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortBy)}>
                 <option value="recent_access">{t('my_learning.sort_recent')}</option>
                 <option value="newest_enrollment">{t('my_learning.sort_newest_enrollment')}</option>
                 <option value="oldest_enrollment">{t('my_learning.sort_oldest_enrollment')}</option>
                 <option value="title_asc">{t('my_learning.sort_title')}</option>
                 <option value="progress_desc">{t('my_learning.sort_progress')}</option>
               </select>
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateFrom} onChange={(e) => setEnrollmentDateFrom(e.target.value)} title={t('my_learning.enrollment_from')} />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateTo} onChange={(e) => setEnrollmentDateTo(e.target.value)} title={t('my_learning.enrollment_to')} />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateFrom} onChange={(e) => setPurchaseDateFrom(e.target.value)} title={t('my_learning.purchase_from')} />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateTo} onChange={(e) => setPurchaseDateTo(e.target.value)} title={t('my_learning.purchase_to')} />
-              <select className="h-9 rounded-md border px-3 text-sm" value={String(pageSize)} onChange={(e) => setPageSize(Number(e.target.value))}>
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateFrom} onChange={(event) => setEnrollmentDateFrom(event.target.value)} />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateTo} onChange={(event) => setEnrollmentDateTo(event.target.value)} />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateFrom} onChange={(event) => setPurchaseDateFrom(event.target.value)} />
+              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateTo} onChange={(event) => setPurchaseDateTo(event.target.value)} />
+              <select className="h-9 rounded-md border px-3 text-sm" value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))}>
                 <option value="6">{t('my_learning.page_size.six')}</option>
                 <option value="9">{t('my_learning.page_size.nine')}</option>
                 <option value="12">{t('my_learning.page_size.twelve')}</option>
@@ -179,151 +285,11 @@ export function MyLearningPage() {
           )}
 
           <TabsContent value="in-progress" className="mt-6 md:mt-8">
-            {enrollments.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>{t('my_learning.empty_not_enrolled')}</p>
-                <Button className="mt-4" onClick={() => navigate('/courses')}>{t('my_learning.explore_courses')}</Button>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                  {enrollments.map((enrollment) => {
-                    const course = enrollment.course
-                    const progress = parseProgress(enrollment.progress)
-                    return (
-                      <Card key={enrollment.enrollment_id} className="group hover:shadow-lg transition-shadow">
-                        <div className="relative">
-                          <img
-                            src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&h=200&fit=crop'}
-                            alt={course.title}
-                            className="w-full h-40 object-cover rounded-t-lg"
-                          />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                            <Button size="sm" className="gap-2" onClick={() => handleContinueLearning(course.course_id)}>
-                              <Play className="h-4 w-4" />
-                              {t('my_learning.continue_learning')}
-                            </Button>
-                            <Button size="sm" variant="secondary" className="gap-2" onClick={() => navigate(`/course/${course.course_id}`)}>
-                              <Info className="h-4 w-4" />
-                              {t('my_learning.view_details')}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <CardHeader className="pb-3">
-                          <CardTitle className="line-clamp-2">{course.title}</CardTitle>
-                          <CardDescription>{t('my_learning.by_instructor', { name: course.instructor_name || t('my_learning.instructor_fallback') })}</CardDescription>
-                        </CardHeader>
-
-                        <CardContent className="space-y-4">
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                              <span>{t('my_learning.progress')}</span>
-                              <span>{Math.round(progress)}%</span>
-                            </div>
-                            <Progress value={progress} className="h-2" />
-                          </div>
-
-                          <div className="flex items-center justify-between text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <BookOpen className="h-4 w-4" />
-                              <span>{course.total_lessons} {t('my_learning.lessons_completed')}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              <span>{course.duration ? formatDuration(course.duration) : ''}</span>
-                            </div>
-                          </div>
-
-                          {enrollment.last_access_date && (
-                            <div className="text-sm">
-                              <span className="text-muted-foreground">{t('my_learning.last_watched')}: </span>
-                              <span>{new Date(enrollment.last_access_date).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-
-                <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">{t('my_learning.pagination', { current: currentPage, totalPages, totalCount })}</p>
-                  <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-                </div>
-              </>
-            )}
+            {renderCourseGrid(enrollments)}
           </TabsContent>
 
           <TabsContent value="completed" className="mt-6 md:mt-8">
-            {enrollments.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>{t('my_learning.no_completed')}</p>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                  {enrollments.map((enrollment) => {
-                    const course = enrollment.course
-                    return (
-                      <Card key={enrollment.enrollment_id} className="group hover:shadow-lg transition-shadow">
-                        <div className="relative">
-                          <img
-                            src={course.thumbnail || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=200&fit=crop'}
-                            alt={course.title}
-                            className="w-full h-40 object-cover rounded-t-lg"
-                          />
-                          <div className="absolute top-2 right-2 flex gap-2">
-                            {enrollment.certificate_issue_date && (
-                              <Badge className="bg-green-500 hover:bg-green-600">
-                                <Award className="h-3 w-3 mr-1" />
-                                {t('common.certificate')}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                            <Button size="sm" className="gap-2" onClick={() => navigate(`/course-player/${course.course_id}`)}>
-                              <Play className="h-4 w-4" />
-                              {t('my_learning.continue_learning')}
-                            </Button>
-                            <Button size="sm" variant="secondary" className="gap-2" onClick={() => navigate(`/course/${course.course_id}`)}>
-                              <Info className="h-4 w-4" />
-                              {t('my_learning.view_details')}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <CardHeader className="pb-3">
-                          <CardTitle className="line-clamp-2">{course.title}</CardTitle>
-                          <CardDescription>{t('my_learning.by_instructor', { name: course.instructor_name || t('my_learning.instructor_fallback') })}</CardDescription>
-                        </CardHeader>
-
-                        <CardContent className="space-y-3">
-                          {enrollment.completion_date && (
-                            <div className="text-sm text-muted-foreground">
-                              {t('my_learning.completed_on', { date: new Date(enrollment.completion_date).toLocaleDateString('vi-VN') })}
-                            </div>
-                          )}
-                          {enrollment.certificate_issue_date && (
-                            <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/certificate')}>
-                              <Award className="h-4 w-4" />
-                              {t('my_learning.view_certificate')}
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-
-                <div className="flex items-center justify-between pt-4">
-                  <p className="text-sm text-muted-foreground">{t('my_learning.pagination', { current: currentPage, totalPages, totalCount })}</p>
-                  <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-                </div>
-              </>
-            )}
+            {renderCourseGrid(enrollments, true)}
           </TabsContent>
 
           <TabsContent value="bookmarks" className="mt-6 md:mt-8">
@@ -333,6 +299,7 @@ export function MyLearningPage() {
             </div>
           </TabsContent>
         </Tabs>
+
       </div>
     </div>
   )

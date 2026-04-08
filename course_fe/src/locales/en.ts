@@ -966,6 +966,7 @@ export const en = {
     password_min: "Password must be at least 8 characters",
     name_required: "Full Name is required",
     username: "Username",
+    username_placeholder: "Enter your username",
     username_required: "Please enter your username",
     username_min: "Username must be at least 3 characters",
     enter_name: "Enter your name",
@@ -1290,6 +1291,9 @@ export const en = {
     login_required: "Please log in to send messages",
     open_chat_failed: "Unable to message {{name}}",
     this_user: "this user",
+    edit_message_failed: "Unable to edit message",
+    revoke_message_failed: "Unable to revoke message",
+    reaction_update_failed: "Unable to update reaction",
   },
   quiz_question_drag_drop: {
     image: "Image",
@@ -3685,6 +3689,7 @@ export const en = {
     promotions_offers: "Promotions & Offers",
     save_preferences: "Save Preferences",
     placeholders: {
+      username: "Enter your username",
       bio: "Tell us about yourself...",
       phone: "+84 123 456 789",
       website: "https://yourwebsite.com",

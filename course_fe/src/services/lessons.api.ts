@@ -28,6 +28,11 @@ export interface Lesson {
   video_public_id: string | null
   signed_video_url?: string | null
   signed_video_expires_at?: string | null
+  transcript_status?: 'queued' | 'processing' | 'failed' | 'draft' | 'reviewed' | 'published' | 'stale' | null
+  has_published_transcript?: boolean
+  transcript_language_codes?: string[]
+  latest_transcript_version?: number | null
+  transcript_last_generated_at?: string | null
   file_path: string | null
   duration: number | null
   is_free: boolean

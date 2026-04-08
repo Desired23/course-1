@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
 import { useTranslation } from 'react-i18next'
-import { GripVertical, Play, FileText, HelpCircle, Clock, Edit3, Eye, Trash2 } from 'lucide-react'
+import { GripVertical, Play, FileText, HelpCircle, Clock, Edit3, Eye, Trash2, Captions, RefreshCw, Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 
@@ -15,6 +15,8 @@ interface Lesson {
   description?: string
   resources?: string[]
   questions?: number
+  transcript_status?: string | null
+  has_published_transcript?: boolean
 }
 
 interface DraggableLessonProps {
@@ -29,6 +31,8 @@ interface DraggableLessonProps {
   isSelected: boolean
   onClick: () => void
   sectionIndex: number
+  onGenerateTranscript?: (lesson: Lesson) => void
+  transcriptActionLessonId?: number | null
 }
 
 interface DragItem {
@@ -77,7 +81,9 @@ export function DraggableLessonCard({
   onDelete,
   isSelected,
   onClick,
-  sectionIndex
+  sectionIndex,
+  onGenerateTranscript,
+  transcriptActionLessonId
 }: DraggableLessonProps) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
@@ -155,6 +161,29 @@ export function DraggableLessonCard({
 
   const opacity = isDragging ? 0.3 : 1
   drag(drop(ref))
+  const transcriptStatus = lesson.transcript_status || (lesson.has_published_transcript ? 'published' : null)
+  const isTranscriptLoading = transcriptActionLessonId === lesson.id
+  const canGenerateTranscript = lesson.type === 'video' || lesson.content_type === 'video'
+
+  const renderTranscriptBadge = () => {
+    if (!transcriptStatus) return null
+
+    const tone =
+      transcriptStatus === 'published'
+        ? 'bg-blue-500 hover:bg-blue-600'
+        : transcriptStatus === 'failed' || transcriptStatus === 'stale'
+          ? 'bg-red-500 hover:bg-red-600'
+          : transcriptStatus === 'processing' || transcriptStatus === 'queued'
+            ? 'bg-amber-500 hover:bg-amber-600'
+            : 'bg-slate-500 hover:bg-slate-600'
+
+    return (
+      <Badge className={tone}>
+        <Captions className="mr-1 h-3 w-3" />
+        {transcriptStatus}
+      </Badge>
+    )
+  }
 
   return (
     <div
@@ -185,10 +214,26 @@ export function DraggableLessonCard({
           <Clock className="h-3 w-3" />
           <span>{lesson.duration}</span>
         </div>
+        {renderTranscriptBadge()}
         {getStatusBadge(lesson.status, t)}
       </div>
       
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        {canGenerateTranscript && onGenerateTranscript && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
+            onClick={(e) => {
+              e.stopPropagation()
+              onGenerateTranscript(lesson)
+            }}
+            title={lesson.has_published_transcript ? 'Regenerate transcript' : 'Generate transcript'}
+            disabled={isTranscriptLoading}
+          >
+            {isTranscriptLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

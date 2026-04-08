@@ -28,6 +28,7 @@ import { QuizTab } from '../../components/QuizTab'
 import { SettingsTab } from '../../components/SettingsTab'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { EnhancedCodeQuizCreator } from '../../components/EnhancedCodeQuizCreator'
+import { TranscriptEditorPanel } from '../../components/TranscriptEditorPanel'
 import { getLessonById, updateLesson as updateLessonApi } from '../../services/lessons.api'
 import { getCourseModuleById } from '../../services/course-modules.api'
 import { getQuestionsByLesson } from '../../services/quiz-questions.api'
@@ -36,6 +37,7 @@ import { useTranslation } from 'react-i18next'
 
 interface Lesson {
   id: number
+  courseId?: number | null
   title: string
   type: string
   content_type?: string
@@ -44,6 +46,7 @@ interface Lesson {
   is_free?: boolean
   description?: string
   videoUrl?: string
+  signedVideoUrl?: string
   videoPublicId?: string
   content?: string
   filePath?: string
@@ -54,7 +57,7 @@ interface Lesson {
   quizData?: any
 }
 
-const STEPS = [
+const BASE_STEPS = [
   { id: 'basic', icon: FileText },
   { id: 'content', icon: Code },
   { id: 'resources', icon: Paperclip },
@@ -124,6 +127,7 @@ export function InstructorLessonEditorPage() {
 
         const mapped: any = {
           id: lesson.id,
+          courseId: null,
           title: lesson.title,
           type: lesson.content_type || 'video',
           content_type: lesson.content_type || 'video',
@@ -132,6 +136,7 @@ export function InstructorLessonEditorPage() {
           is_free: lesson.is_free || false,
           description: lesson.description || '',
           videoUrl: lesson.video_url || '',
+          signedVideoUrl: lesson.signed_video_url || '',
           videoPublicId: lesson.video_public_id || '',
           content: lesson.content || '',
           filePath: lesson.file_path || '',
@@ -171,12 +176,15 @@ export function InstructorLessonEditorPage() {
         // Resolve where to navigate back to
         const queryCourseId = new URLSearchParams(window.location.search).get('courseId')
         if (queryCourseId && /^\d+$/.test(queryCourseId)) {
-          setReturnCourseId(Number(queryCourseId))
+          const parsedCourseId = Number(queryCourseId)
+          setReturnCourseId(parsedCourseId)
+          mapped.courseId = parsedCourseId
         } else if (lesson.coursemodule) {
           try {
             const module = await getCourseModuleById(lesson.coursemodule)
             if (typeof module.course === 'number') {
               setReturnCourseId(module.course)
+              mapped.courseId = module.course
             }
           } catch {
             // keep fallback
@@ -278,7 +286,7 @@ export function InstructorLessonEditorPage() {
   }
 
   const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
+      if (currentStep < steps.length - 1) {
       // Validation before moving from Basic
       if (currentStep === 0 && !editedLesson?.title.trim()) {
         toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
@@ -297,6 +305,9 @@ export function InstructorLessonEditorPage() {
   if (!editedLesson) return <div className="p-8 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
 
   const contentType = editedLesson.content_type || editedLesson.type
+  const steps = contentType === 'video'
+    ? [...BASE_STEPS, { id: 'transcript', icon: FileText }]
+    : BASE_STEPS
   
   const statusConfig = {
     published: {
@@ -349,6 +360,13 @@ export function InstructorLessonEditorPage() {
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
       case 3: // Settings
         return <SettingsTab lesson={editedLesson} onUpdate={handleUpdate} />
+      case 4: // Transcript
+        return (
+          <TranscriptEditorPanel
+            lessonId={editedLesson.id}
+            videoUrl={editedLesson.signedVideoUrl || editedLesson.videoUrl}
+          />
+        )
       default:
         return null
     }
@@ -449,7 +467,7 @@ export function InstructorLessonEditorPage() {
           {/* Stepper */}
           <div className="px-6 pb-0">
             <div className="flex items-center justify-center gap-12 pb-4">
-              {STEPS.map((step, index) => {
+              {steps.map((step, index) => {
                 const isActive = index === currentStep
                 const isCompleted = index < currentStep
                 const Icon = step.icon
@@ -507,7 +525,7 @@ export function InstructorLessonEditorPage() {
                     {t('instructor_lesson_editor_page.actions.back')}
                   </Button>
                   
-                  {currentStep < STEPS.length - 1 ? (
+                  {currentStep < steps.length - 1 ? (
                     <Button onClick={handleNext} className="w-32">
                       {t('instructor_lesson_editor_page.actions.next')}
                       <ChevronRight className="h-4 w-4 ml-2" />

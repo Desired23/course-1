@@ -9,7 +9,8 @@ import {
   File, 
   Link,
   CheckCircle,
-  Clock
+  Clock,
+  Captions
 } from 'lucide-react'
 import { cn } from './ui/utils'
 
@@ -21,6 +22,8 @@ interface Lesson {
   duration: string
   status: string
   is_free?: boolean
+  transcript_status?: string | null
+  has_published_transcript?: boolean
 }
 
 interface LessonTreeItemProps {
@@ -70,6 +73,7 @@ export function LessonTreeItem({
   const type = lesson.content_type || lesson.type
   const Icon = LESSON_ICONS[type as keyof typeof LESSON_ICONS] || FileText
   const statusConfig = STATUS_CONFIG[lesson.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.draft
+  const transcriptStatus = lesson.transcript_status || (lesson.has_published_transcript ? 'published' : null)
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -149,6 +153,16 @@ export function LessonTreeItem({
           )}>
             {lesson.duration}
           </span>
+
+          {transcriptStatus && (
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4 bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400"
+            >
+              <Captions className="mr-0.5 h-2.5 w-2.5" />
+              {transcriptStatus}
+            </Badge>
+          )}
           
           {lesson.is_free && (
             <Badge 

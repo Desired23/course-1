@@ -35,6 +35,8 @@ interface DraggableSectionCardProps {
   onEditLesson: (lesson: any) => void
   onPreviewLesson: (lesson: any) => void
   onDeleteLesson: (lessonId: number) => void
+  onGenerateTranscript?: (lesson: any) => void
+  transcriptActionLessonId?: number | null
   selectedLessonId?: number
   onSelectLesson: (lesson: any) => void
   showAddLesson?: boolean
@@ -57,6 +59,8 @@ export function DraggableSectionCard({
   onEditLesson,
   onPreviewLesson,
   onDeleteLesson,
+  onGenerateTranscript,
+  transcriptActionLessonId,
   selectedLessonId,
   onSelectLesson,
   showAddLesson,
@@ -236,6 +240,8 @@ export function DraggableSectionCard({
               onEdit={onEditLesson}
               onPreview={onPreviewLesson}
               onDelete={onDeleteLesson}
+              onGenerateTranscript={onGenerateTranscript}
+              transcriptActionLessonId={transcriptActionLessonId}
               isSelected={selectedLessonId === lesson.id}
               onClick={() => onSelectLesson(lesson)}
               sectionIndex={index}

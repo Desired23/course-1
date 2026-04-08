@@ -39,8 +39,11 @@ export interface CourseListItem {
   requirements: string | null
   learning_objectives: string[]      // JSON array of learning objective strings
   target_audience: string[]          // JSON array of target audience strings
+  skills_taught: string[]
+  prerequisites: string[]
   tags: string[]                     // JSON array of tag strings
   promotional_video: string | null   // URL of promotional video
+  duration_hours?: number | null
   status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
   is_featured: boolean
   is_public: boolean
@@ -95,6 +98,11 @@ export interface LessonSummary {
   video_public_id?: string | null
   signed_video_url?: string | null
   signed_video_expires_at?: string | null
+  transcript_status?: 'queued' | 'processing' | 'failed' | 'draft' | 'reviewed' | 'published' | 'stale' | null
+  has_published_transcript?: boolean
+  transcript_language_codes?: string[]
+  latest_transcript_version?: number | null
+  transcript_last_generated_at?: string | null
   duration: number | null
   is_free: boolean
   order: number
@@ -151,8 +159,11 @@ export interface CourseDetail {
   requirements: string | null
   learning_objectives: string[]
   target_audience: string[]
+  skills_taught: string[]
+  prerequisites: string[]
   tags: string[]
   promotional_video: string | null
+  duration_hours?: number | null
   status: string
   is_featured: boolean
   is_public: boolean

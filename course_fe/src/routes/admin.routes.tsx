@@ -28,6 +28,8 @@ const WebsiteManagementPage = lazy(() => import('../pages/admin/WebsiteManagemen
 const AdminWebsiteSettingsPage = lazy(() => import('../pages/admin/AdminWebsiteSettingsPage').then((module) => ({ default: module.AdminWebsiteSettingsPage })))
 const AdminHomeLayoutPage = lazy(() => import('../pages/admin/AdminHomeLayoutPage').then((module) => ({ default: module.AdminHomeLayoutPage })))
 const AdminDataBackupPage = lazy(() => import('../pages/admin/AdminDataBackupPage').then((module) => ({ default: module.AdminDataBackupPage })))
+const AdminCourseMetadataPage = lazy(() => import('../pages/admin/AdminCourseMetadataPage').then((module) => ({ default: module.AdminCourseMetadataPage })))
+const AdminLearningPathAdvisorPage = lazy(() => import('../pages/admin/AdminLearningPathAdvisorPage').then((module) => ({ default: module.AdminLearningPathAdvisorPage })))
 
 interface AdminRouteDefinition {
   path: string
@@ -73,6 +75,8 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/website-settings', page: <AdminWebsiteSettingsPage /> },
   { path: '/admin/home-layout', page: <AdminHomeLayoutPage /> },
   { path: '/admin/data-backup', page: <AdminDataBackupPage /> },
+  { path: '/admin/catalog-metadata', page: <AdminCourseMetadataPage /> },
+  { path: '/admin/ai-learning-paths', page: <AdminLearningPathAdvisorPage /> },
 ]
 
 export const adminRoutes: RouteConfig[] = adminRouteDefinitions.map((route) => ({

@@ -5,12 +5,19 @@ from categories.models import Category
 from instructors.serializers import InstructorSerializers  # giả sử đã có sẵn
 
 from lessons.video_signing import build_signed_video_url
+from transcripts.services import (
+    get_latest_transcript_version,
+    get_lesson_transcript_languages,
+    get_lesson_transcript_status,
+    get_transcript_last_generated_at,
+)
 
 class CourseSerializer(serializers.ModelSerializer):
     instructor_name = serializers.SerializerMethodField()
     instructor_avatar = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
     subcategory_name = serializers.SerializerMethodField()
+    duration_hours = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -35,6 +42,8 @@ class CourseSerializer(serializers.ModelSerializer):
             'requirements',
             'learning_objectives',
             'target_audience',
+            'skills_taught',
+            'prerequisites',
             'tags',
             'promotional_video',
             'status',
@@ -52,6 +61,7 @@ class CourseSerializer(serializers.ModelSerializer):
             'instructor_avatar',
             'category_name',
             'subcategory_name',
+            'duration_hours',
         ]
         read_only_fields = [
             'rating', 'total_reviews', 'total_students'
@@ -76,6 +86,11 @@ class CourseSerializer(serializers.ModelSerializer):
         if obj.subcategory:
             return obj.subcategory.name
         return None
+
+    def get_duration_hours(self, obj):
+        if obj.duration is None:
+            return None
+        return round(obj.duration / 60, 2)
 
 
 # ---- Nested serializers for detail response ----
@@ -113,6 +128,11 @@ class LessonSummarySerializer(serializers.Serializer):
     order = serializers.IntegerField()
     has_quiz = serializers.SerializerMethodField()
     quiz_count = serializers.SerializerMethodField()
+    transcript_status = serializers.SerializerMethodField()
+    has_published_transcript = serializers.SerializerMethodField()
+    transcript_language_codes = serializers.SerializerMethodField()
+    latest_transcript_version = serializers.SerializerMethodField()
+    transcript_last_generated_at = serializers.SerializerMethodField()
 
     def get_has_quiz(self, obj):
         return obj.quiz_question_lesson.filter(is_deleted=False).exists()
@@ -136,6 +156,21 @@ class LessonSummarySerializer(serializers.Serializer):
     def get_signed_video_expires_at(self, obj):
         _, expires_at = self._get_signed_tuple(obj)
         return expires_at
+
+    def get_transcript_status(self, obj):
+        return get_lesson_transcript_status(obj)
+
+    def get_has_published_transcript(self, obj):
+        return obj.transcripts.filter(status='published').exists()
+
+    def get_transcript_language_codes(self, obj):
+        return get_lesson_transcript_languages(obj)
+
+    def get_latest_transcript_version(self, obj):
+        return get_latest_transcript_version(obj)
+
+    def get_transcript_last_generated_at(self, obj):
+        return get_transcript_last_generated_at(obj)
 
 
 class ModuleSummarySerializer(serializers.Serializer):
@@ -170,6 +205,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     modules = serializers.SerializerMethodField()
     user_enrollment = serializers.SerializerMethodField()
     access_info = serializers.SerializerMethodField()
+    duration_hours = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -194,6 +230,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'requirements',
             'learning_objectives',
             'target_audience',
+            'skills_taught',
+            'prerequisites',
             'tags',
             'promotional_video',
             'status',
@@ -210,6 +248,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'modules',
             'user_enrollment',
             'access_info',
+            'duration_hours',
         ]
 
     def get_modules(self, obj):
@@ -228,6 +267,11 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             return UserEnrollmentSerializer(enrollment).data
         except Exception:
             return None
+
+    def get_duration_hours(self, obj):
+        if obj.duration is None:
+            return None
+        return round(obj.duration / 60, 2)
 
     def get_access_info(self, obj):
         """

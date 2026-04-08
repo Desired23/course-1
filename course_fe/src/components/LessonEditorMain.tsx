@@ -63,6 +63,8 @@ interface LessonEditorMainProps {
   onEditLesson: (lesson: Lesson) => void
   onPreviewLesson: (lesson: Lesson) => void
   onDeleteLesson: (lessonId: number) => void
+  onGenerateTranscript?: (lesson: Lesson) => void
+  transcriptActionLessonId?: number | null
   onSelectLesson: (lesson: Lesson) => void
   onSaveCurriculum: () => void
   moveSection: (dragIndex: number, hoverIndex: number) => void
@@ -89,6 +91,8 @@ export function LessonEditorMain({
   onEditLesson,
   onPreviewLesson,
   onDeleteLesson,
+  onGenerateTranscript,
+  transcriptActionLessonId,
   onSelectLesson,
   onSaveCurriculum,
   moveSection,
@@ -185,6 +189,8 @@ export function LessonEditorMain({
               onEditLesson={onEditLesson}
               onPreviewLesson={onPreviewLesson}
               onDeleteLesson={onDeleteLesson}
+              onGenerateTranscript={onGenerateTranscript}
+              transcriptActionLessonId={transcriptActionLessonId}
               selectedLessonId={selectedLesson?.id}
               onSelectLesson={onSelectLesson}
               showAddLesson={showAddLesson === section.id}

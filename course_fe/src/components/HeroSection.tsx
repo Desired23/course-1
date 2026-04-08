@@ -6,6 +6,7 @@ import { Search, TrendingUp, Users, Award } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { getPublicStats, type PublicStats } from "../services/course.api"
+import { openAiLearningPath } from "./AiLearningPathLauncher"
 
 function formatLargeNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M+`
@@ -89,6 +90,14 @@ export function HeroSection() {
                 onClick={() => navigate(isAuthenticated ? '/courses' : '/signup')}
               >
                 {isAuthenticated ? t('hero.explore_courses') : t('hero.join_free')}
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-2 border-blue-300/60 bg-white/90 font-semibold hover:border-blue-500 dark:border-blue-500/50 dark:bg-gray-800"
+                onClick={() => openAiLearningPath()}
+              >
+                AI tư vấn lộ trình
               </Button>
               <Button 
                 size="lg" 

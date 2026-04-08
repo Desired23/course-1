@@ -157,11 +157,15 @@ function aggregateReactions(
   return Array.from(grouped.values())
 }
 
-function mapConversationMessageToLocal(m: ApiConversationMessage, currentUserId: string): ChatMessage {
+function mapConversationMessageToLocal(
+  m: ApiConversationMessage,
+  currentUserId: string,
+  unknownLabel = 'Unknown',
+): ChatMessage {
   return {
     id: String(m.id),
     senderId: String(m.sender?.id ?? ''),
-    senderName: m.sender?.name || 'Unknown',
+    senderName: m.sender?.name || unknownLabel,
     senderAvatar: m.sender?.avatar || undefined,
     content: m.text_content || '',
     timestamp: new Date(m.created_at),
@@ -190,14 +194,14 @@ function mapConversationMessageToLocal(m: ApiConversationMessage, currentUserId:
   }
 }
 
-function mapApiRoomToConv(r: ApiRoom, currentUserId: string): ChatConversation {
+function mapApiRoomToConv(r: ApiRoom, currentUserId: string, currentUserName = 'You'): ChatConversation {
   const lastMsg = r.last_message
     ? mapApiMsgToLocal(r.last_message, currentUserId)
     : undefined
   return {
     id: String(r.id),
     participants: [
-      { id: currentUserId, name: 'You', online: true },
+      { id: currentUserId, name: currentUserName, online: true },
       { id: String(r.other_user_id), name: r.other_user_name, online: false },
     ],
     lastMessage: lastMsg,
@@ -207,11 +211,11 @@ function mapApiRoomToConv(r: ApiRoom, currentUserId: string): ChatConversation {
   }
 }
 
-function mapConversationToLocal(c: ApiConversation, currentUserId: string): ChatConversation {
+function mapConversationToLocal(c: ApiConversation, currentUserId: string, currentUserName = 'You'): ChatConversation {
   const otherParticipants = c.participants.filter((participant) => String(participant.user.id) !== currentUserId)
   const participantList = c.type === 'direct' && otherParticipants.length > 0
     ? [
-        { id: currentUserId, name: 'You', online: true, role: c.my_membership?.role },
+        { id: currentUserId, name: currentUserName, online: true, role: c.my_membership?.role },
         ...otherParticipants.map((participant) => ({
           id: String(participant.user.id),
           name: participant.nickname || participant.user.name,
@@ -440,6 +444,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth()
   const { t } = useTranslation()
   const userId = user?.id ?? null
+  const currentUserDisplayName = user?.name || t('chat.you')
+  const unknownSenderLabel = t('chat_widget.unknown')
   const wsRoomRef = useRef<string | null>(null)
 
   // ── Fetch rooms on mount ──────────────────────────────────────
@@ -452,13 +458,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         try {
           const conversationsResp = await getChatConversations({ page: 1, page_size: 100 })
           mappedConversations = (conversationsResp.results || []).map((conversation) =>
-            mapConversationToLocal(conversation, userId),
+            mapConversationToLocal(conversation, userId, currentUserDisplayName),
           )
         } catch (conversationErr) {
           console.warn('[Chat] Falling back to legacy rooms:', conversationErr)
           const roomsResp = await getChatRooms()
           const roomsList = Array.isArray(roomsResp) ? roomsResp : (roomsResp && (roomsResp as any).results) ? (roomsResp as any).results : []
-          mappedConversations = roomsList.map((r: any) => mapApiRoomToConv(r, userId))
+          mappedConversations = roomsList.map((r: any) => mapApiRoomToConv(r, userId, currentUserDisplayName))
         }
         if (!cancelled) {
           dispatch({
@@ -471,7 +477,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     })()
     return () => { cancelled = true }
-  }, [isAuthenticated, userId])
+  }, [isAuthenticated, userId, currentUserDisplayName])
 
   // ── Load messages when active conversation changes ────────────
   useEffect(() => {
@@ -483,7 +489,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         let msgs: ChatMessage[] = []
         try {
           const res = await getConversationMessages(conversationId, 1, 30)
-          msgs = res.results.map(m => mapConversationMessageToLocal(m, userId)).reverse()
+          msgs = res.results.map(m => mapConversationMessageToLocal(m, userId, unknownSenderLabel)).reverse()
           if (!cancelled) {
             dispatch({
               type: 'SET_MESSAGES',
@@ -516,7 +522,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     })()
     return () => { cancelled = true }
-  }, [state.activeConversationId, userId])
+  }, [state.activeConversationId, userId, unknownSenderLabel])
 
   // ── WebSocket per active room ─────────────────────────────────
   const handleChatWsMessage = useCallback(
@@ -525,7 +531,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const d = data.data
         const roomId = String(d.room)
         const msg: ChatMessage = d.conversation_message
-          ? mapConversationMessageToLocal(d.conversation_message, String(userId ?? ''))
+          ? mapConversationMessageToLocal(d.conversation_message, String(userId ?? ''), unknownSenderLabel)
           : {
               id: String(d.id),
               senderId: String(d.sender),
@@ -538,7 +544,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'RECEIVE_MESSAGE', payload: { conversationId: roomId, message: msg } })
       }
     },
-    [userId],
+    [userId, unknownSenderLabel],
   )
 
   const wsPath = state.activeConversationId ? `/ws/chat/${state.activeConversationId}/` : ''
@@ -586,7 +592,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               file_size: attachment.fileSize,
             })),
           })
-          localMessage = mapConversationMessageToLocal(sent, userId)
+          localMessage = mapConversationMessageToLocal(sent, userId, unknownSenderLabel)
         } catch (conversationErr) {
           console.warn('[Chat] Falling back to legacy send:', conversationErr)
           const sent = await sendChatMessageRest(Number(conversationId), Number(userId), message.content)
@@ -635,7 +641,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const conversation = await getConversationById(Number(conversationId))
       dispatch({
         type: 'UPDATE_CONVERSATION',
-        payload: mapConversationToLocal(conversation, userId),
+        payload: mapConversationToLocal(conversation, userId, currentUserDisplayName),
       })
     } catch (err) {
       console.error('[Chat] Failed to refresh conversation:', err)
@@ -692,11 +698,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         payload: {
           conversationId,
           messageId,
-          updates: mapConversationMessageToLocal(updated, String(userId ?? '')),
+          updates: mapConversationMessageToLocal(updated, String(userId ?? ''), unknownSenderLabel),
         },
       })
     } catch (err: any) {
-      toast.error(err?.message || 'Khong the chinh sua tin nhan')
+      toast.error(err?.message || t('chat_context.edit_message_failed'))
     }
   }
 
@@ -708,11 +714,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         payload: {
           conversationId,
           messageId,
-          updates: mapConversationMessageToLocal(updated, String(userId ?? '')),
+          updates: mapConversationMessageToLocal(updated, String(userId ?? ''), unknownSenderLabel),
         },
       })
     } catch (err: any) {
-      toast.error(err?.message || 'Khong the thu hoi tin nhan')
+      toast.error(err?.message || t('chat_context.revoke_message_failed'))
     }
   }
 
@@ -747,7 +753,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         },
       })
     } catch (err: any) {
-      toast.error(err?.message || 'Khong the cap nhat reaction')
+      toast.error(err?.message || t('chat_context.reaction_update_failed'))
     }
   }
 
