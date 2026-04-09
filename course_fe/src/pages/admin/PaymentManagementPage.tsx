@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -51,6 +51,7 @@ import type { AdminRefundItem } from '../../services/payment.api'
 import type { RefundSettings } from '../../services/payment.api'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
+import { UserPagination } from '../../components/UserPagination'
 
 
 // Payment interfaces
@@ -147,6 +148,7 @@ interface DiscountRule {
 }
 
 type PaymentConfigEditorType = 'policies' | 'instructor-rates' | 'discounts' | 'refund-settings'
+const ITEMS_PER_PAGE = 10
 
 function mapPolicies(value: any[]): PaymentPolicy[] {
   return (value || []).map((item: any) => ({
@@ -234,6 +236,7 @@ export function PaymentManagementPage() {
     allow_admin_soft_delete_refund: true,
   })
   const [filteredPayments, setFilteredPayments] = useState<AdminPayment[]>([])
+  const [paymentsPage, setPaymentsPage] = useState(1)
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<number[]>([])
   const [selectedRefundIds, setSelectedRefundIds] = useState<string[]>([])
   const [selectedPayment, setSelectedPayment] = useState<FullPayment | null>(null)
@@ -266,6 +269,7 @@ export function PaymentManagementPage() {
   const [overrideTargetRefundId, setOverrideTargetRefundId] = useState<number | null>(null)
   const [overrideStatusValue, setOverrideStatusValue] = useState<'success' | 'failed' | 'rejected' | 'cancelled'>('failed')
   const [overrideNoteValue, setOverrideNoteValue] = useState('')
+  const [refundsPage, setRefundsPage] = useState(1)
 
   const getRefundModeLabel = (mode: RefundSettings['refund_mode']) =>
     t(`payment_management.refunds.settings.mode_options.${mode}`)
@@ -363,7 +367,7 @@ export function PaymentManagementPage() {
   }
 
   // Filter configurations
-  const paymentFilterConfigs: FilterConfig[] = [
+  const paymentFilterConfigs: FilterConfig[] = useMemo(() => [
     {
       key: 'search',
       label: t('payment_management.filters.search'),
@@ -412,9 +416,9 @@ export function PaymentManagementPage() {
       label: t('payment_management.filters.date'),
       type: 'daterange'
     }
-  ]
+  ], [payments, t])
 
-  const refundFilterConfigs: FilterConfig[] = [
+  const refundFilterConfigs: FilterConfig[] = useMemo(() => [
     {
       key: 'search',
       label: t('payment_management.filters.search'),
@@ -442,9 +446,9 @@ export function PaymentManagementPage() {
         { label: t('payment_management.refunds.ready_to_retry'), value: 'true', count: refundRequests.filter(r => r.retryable).length },
       ]
     }
-  ]
+  ], [refundRequests, t])
 
-  const handlePaymentFilter = (filters: any) => {
+  const handlePaymentFilter = useCallback((filters: any) => {
     let filtered = payments
 
     if (filters.search) {
@@ -487,7 +491,8 @@ export function PaymentManagementPage() {
     }
 
     setFilteredPayments(filtered)
-  }
+    setPaymentsPage(1)
+  }, [payments])
 
   const mergeRefundUpdates = (updatedItems: AdminRefundItem[] = []) => {
     if (updatedItems.length === 0) return
@@ -598,7 +603,7 @@ export function PaymentManagementPage() {
     }
   }
 
-  const handleRefundFilter = (filters: any) => {
+  const handleRefundFilter = useCallback((filters: any) => {
     let filtered = refundRequests
 
     if (filters.search) {
@@ -627,14 +632,20 @@ export function PaymentManagementPage() {
 
     setFilteredRefundRequests(filtered)
     setSelectedRefundIds([])
-  }
+    setRefundsPage(1)
+  }, [refundRequests])
 
   const togglePaymentSelection = (paymentId: number, checked: boolean) => {
     setSelectedPaymentIds(prev => checked ? [...prev, paymentId] : prev.filter(id => id !== paymentId))
   }
 
   const toggleAllPayments = (checked: boolean) => {
-    setSelectedPaymentIds(checked ? filteredPayments.map(payment => payment.payment_id) : [])
+    const currentPageIds = pagedPayments.map(payment => payment.payment_id)
+    if (checked) {
+      setSelectedPaymentIds(prev => Array.from(new Set([...prev, ...currentPageIds])))
+      return
+    }
+    setSelectedPaymentIds(prev => prev.filter(id => !currentPageIds.includes(id)))
   }
 
   const toggleRefundSelection = (refundId: string, checked: boolean) => {
@@ -642,7 +653,12 @@ export function PaymentManagementPage() {
   }
 
   const toggleAllRefunds = (checked: boolean) => {
-    setSelectedRefundIds(checked ? filteredRefundRequests.map(refund => refund.id) : [])
+    const currentPageIds = pagedRefundRequests.map(refund => refund.id)
+    if (checked) {
+      setSelectedRefundIds(prev => Array.from(new Set([...prev, ...currentPageIds])))
+      return
+    }
+    setSelectedRefundIds(prev => prev.filter(id => !currentPageIds.includes(id)))
   }
 
   const bulkFixPayments = async () => {
@@ -698,6 +714,30 @@ export function PaymentManagementPage() {
       currency: 'VND'
     }).format(amount)
   }
+
+  const paymentsTotalPages = Math.max(1, Math.ceil(filteredPayments.length / ITEMS_PER_PAGE))
+  const refundsTotalPages = Math.max(1, Math.ceil(filteredRefundRequests.length / ITEMS_PER_PAGE))
+
+  const pagedPayments = filteredPayments.slice(
+    (paymentsPage - 1) * ITEMS_PER_PAGE,
+    paymentsPage * ITEMS_PER_PAGE,
+  )
+  const pagedRefundRequests = filteredRefundRequests.slice(
+    (refundsPage - 1) * ITEMS_PER_PAGE,
+    refundsPage * ITEMS_PER_PAGE,
+  )
+
+  useEffect(() => {
+    if (paymentsPage > paymentsTotalPages) {
+      setPaymentsPage(paymentsTotalPages)
+    }
+  }, [paymentsPage, paymentsTotalPages])
+
+  useEffect(() => {
+    if (refundsPage > refundsTotalPages) {
+      setRefundsPage(refundsTotalPages)
+    }
+  }, [refundsPage, refundsTotalPages])
 
   const handleFix = async (paymentId: number) => {
     try {
@@ -839,7 +879,10 @@ export function PaymentManagementPage() {
                   <TableRow>
                     <TableHead className="w-[48px]">
                       <Checkbox
-                        checked={filteredPayments.length > 0 && selectedPaymentIds.length === filteredPayments.length}
+                        checked={
+                          pagedPayments.length > 0 &&
+                          pagedPayments.every((payment) => selectedPaymentIds.includes(payment.payment_id))
+                        }
                         onCheckedChange={(checked) => toggleAllPayments(Boolean(checked))}
                       />
                     </TableHead>
@@ -854,7 +897,7 @@ export function PaymentManagementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPayments.map((payment) => (
+                  {pagedPayments.map((payment) => (
                     <TableRow key={payment.payment_id}>
                       <TableCell>
                         <Checkbox
@@ -927,6 +970,12 @@ export function PaymentManagementPage() {
                   ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Trang {paymentsPage}/{paymentsTotalPages} - Tổng {filteredPayments.length} giao dịch
+                </p>
+                <UserPagination currentPage={paymentsPage} totalPages={paymentsTotalPages} onPageChange={setPaymentsPage} />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -978,7 +1027,10 @@ export function PaymentManagementPage() {
                   <TableRow>
                     <TableHead className="w-[48px]">
                       <Checkbox
-                        checked={filteredRefundRequests.length > 0 && selectedRefundIds.length === filteredRefundRequests.length}
+                        checked={
+                          pagedRefundRequests.length > 0 &&
+                          pagedRefundRequests.every((refund) => selectedRefundIds.includes(refund.id))
+                        }
                         onCheckedChange={(checked) => toggleAllRefunds(Boolean(checked))}
                       />
                     </TableHead>
@@ -996,7 +1048,7 @@ export function PaymentManagementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRefundRequests.map((refund) => (
+                  {pagedRefundRequests.map((refund) => (
                     <TableRow key={refund.id}>
                       <TableCell>
                         <Checkbox
@@ -1130,6 +1182,12 @@ export function PaymentManagementPage() {
                   ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Trang {refundsPage}/{refundsTotalPages} - Tổng {filteredRefundRequests.length} yêu cầu hoàn tiền
+                </p>
+                <UserPagination currentPage={refundsPage} totalPages={refundsTotalPages} onPageChange={setRefundsPage} />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

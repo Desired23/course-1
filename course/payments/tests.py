@@ -252,6 +252,34 @@ class IPNTests(TestCase):
         from enrollments.models import Enrollment
         self.assertTrue(Enrollment.objects.filter(user=self.student, course=self.course1, is_deleted=False).exists())
 
+    def test_ipn_success_creates_subscription_for_subscription_payment(self):
+        from subscription_plans.models import SubscriptionPlan, UserSubscription
+
+        plan = SubscriptionPlan.objects.create(
+            name='IPN Plan',
+            price=Decimal('199000.00'),
+            duration_type='monthly',
+            duration_days=30,
+            status='active',
+        )
+        self.payment.payment_type = Payment.PaymentType.SUBSCRIPTION
+        self.payment.subscription_plan = plan
+        self.payment.save(update_fields=['payment_type', 'subscription_plan', 'updated_at'])
+        Payment_Details.objects.filter(payment=self.payment).delete()
+
+        resp = self._make_ipn_request({
+            'vnp_TxnRef': str(self.payment.id),
+            'vnp_Amount': str(int(self.payment.total_amount * 100)),
+            'vnp_ResponseCode': '00',
+        })
+
+        import json
+        data = json.loads(resp.content)
+        self.assertEqual(data['RspCode'], '00')
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.COMPLETED)
+        self.assertTrue(UserSubscription.objects.filter(payment=self.payment, user=self.student, plan=plan, is_deleted=False).exists())
+
     def test_ipn_exception_results_in_99(self):
         # monkey-patch create_enrollments to throw
         import payments.vnpay_services as vs
@@ -1147,6 +1175,28 @@ class MomoIntegrationTests(TestCase):
             ).exists()
         )
         self.assertFalse(Cart.objects.filter(user=self.student, course=self.course).exists())
+
+    def test_simulate_momo_ipn_creates_subscription_for_subscription_payment(self):
+        from subscription_plans.models import SubscriptionPlan, UserSubscription
+
+        plan = SubscriptionPlan.objects.create(
+            name='MoMo Plan',
+            price=Decimal('299000.00'),
+            duration_type='monthly',
+            duration_days=30,
+            status='active',
+        )
+        self.payment.payment_type = Payment.PaymentType.SUBSCRIPTION
+        self.payment.subscription_plan = plan
+        self.payment.save(update_fields=['payment_type', 'subscription_plan', 'updated_at'])
+        Payment_Details.objects.filter(payment=self.payment).delete()
+
+        response = simulate_momo_ipn(self.payment, trans_id=5088878653, result_code=0, message='Successful.')
+        self.assertEqual(response.status_code, 200)
+
+        self.payment.refresh_from_db()
+        self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.COMPLETED)
+        self.assertTrue(UserSubscription.objects.filter(payment=self.payment, user=self.student, plan=plan, is_deleted=False).exists())
 
     @patch("payments.momo_services.requests.post")
     def test_send_momo_refund_request_signs_payload_and_maps_success(self, mock_post):

@@ -97,8 +97,7 @@ class VnpayPaymentReturnView(APIView):
             from django.http import HttpResponseRedirect
             import urllib.parse
 
-            fe_url = settings.FRONTEND_URL
-            redirect_url = f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
+            redirect_url = f"{settings.VNPAY_FE_RETURN_URL}?status=error&message={urllib.parse.quote_plus(str(e))}"
             return HttpResponseRedirect(redirect_url)
 
 
@@ -115,8 +114,7 @@ class MomoPaymentReturnView(APIView):
             from django.http import HttpResponseRedirect
             import urllib.parse
 
-            fe_url = settings.FRONTEND_URL
-            redirect_url = f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
+            redirect_url = f"{settings.MOMO_FE_RETURN_URL}?status=error&message={urllib.parse.quote_plus(str(e))}"
             return HttpResponseRedirect(redirect_url)
 
 

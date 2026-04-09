@@ -1,5 +1,6 @@
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -281,30 +282,30 @@ class UserSubscriptionCoursesView(APIView):
 
     def get(self, request):
         try:
-            from courses.models import Course
-            from courses.serializers import CourseSerializer
-            from enrollments.models import Enrollment
+            from .models import PlanCourse
 
-            course_ids = get_user_accessible_courses(request.user)
-            courses = Course.objects.filter(
-                id__in=course_ids, is_deleted=False
-            ).select_related('instructor__user', 'category')
+            now = timezone.now()
+            search = (request.query_params.get('search') or '').strip()
+            results = PlanCourse.objects.filter(
+                plan__subscriptions__user=request.user,
+                plan__subscriptions__status='active',
+                plan__subscriptions__is_deleted=False,
+                status='active',
+                is_deleted=False,
+                plan__is_deleted=False,
+                course__is_deleted=False,
+            ).filter(
+                Q(plan__subscriptions__end_date__isnull=True) |
+                Q(plan__subscriptions__end_date__gte=now)
+            ).select_related('course', 'course__instructor__user').distinct().order_by('-added_at')
 
-            course_list = []
-            for course in courses:
-                data = CourseSerializer(course).data
-                # Check if user has enrollment for this course
-                enrollment = Enrollment.objects.filter(
-                    user=request.user, course=course, is_deleted=False
-                ).first()
-                data['enrollment_status'] = enrollment.status if enrollment else None
-                data['enrollment_source'] = enrollment.source if enrollment else None
-                course_list.append(data)
+            if search:
+                results = results.filter(
+                    Q(course__title__icontains=search) |
+                    Q(course__instructor__user__full_name__icontains=search)
+                )
 
-            return Response({
-                "count": len(course_list),
-                "courses": course_list,
-            }, status=status.HTTP_200_OK)
+            return paginate_queryset(results, request, PlanCourseSerializer)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 

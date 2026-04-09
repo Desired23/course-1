@@ -4,6 +4,7 @@ import hmac
 import json
 import logging
 import time
+import urllib.parse
 import uuid
 
 import requests
@@ -377,17 +378,18 @@ def momo_payment_return(request):
     result_code = int(params.get("resultCode", "-1"))
     message = params.get("message") or "MoMo payment result"
     trans_id = params.get("transId")
-    fe_url = settings.FRONTEND_URL
+    result_url = settings.MOMO_FE_RETURN_URL
+    encoded_message = urllib.parse.quote_plus(message)
     if result_code in MOMO_SUCCESS_CODES:
         return HttpResponseRedirect(
-            f"{fe_url}/payment/result?status=success&payment_id={order_id}&transaction={trans_id}"
+            f"{result_url}?status=success&payment_id={order_id}&transaction={trans_id}"
         )
     if result_code in MOMO_PENDING_CODES:
         return HttpResponseRedirect(
-            f"{fe_url}/payment/result?status=error&payment_id={order_id}&message={message}"
+            f"{result_url}?status=error&payment_id={order_id}&message={encoded_message}"
         )
     return HttpResponseRedirect(
-        f"{fe_url}/payment/result?status=failed&payment_id={order_id}&code={result_code}&message={message}"
+        f"{result_url}?status=failed&payment_id={order_id}&code={result_code}&message={encoded_message}"
     )
 
 

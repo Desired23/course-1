@@ -142,6 +142,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Online Course <{EMAIL_HOS
 
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+PAYMENT_RESULT_URL = os.getenv("PAYMENT_RESULT_URL", f"{FRONTEND_URL}/payment/result").rstrip("/")
+VNPAY_FE_RETURN_URL = os.getenv("VNPAY_FE_RETURN_URL", PAYMENT_RESULT_URL).rstrip("/")
+MOMO_FE_RETURN_URL = os.getenv("MOMO_FE_RETURN_URL", PAYMENT_RESULT_URL).rstrip("/")
 NGROK_URL = os.getenv("NGROK_URL", "").rstrip("/")
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip()
 if NGROK_URL:
@@ -150,7 +153,7 @@ if not BACKEND_PUBLIC_URL:
     BACKEND_PUBLIC_URL = "https://course-1-zelz.onrender.com"
 if not BACKEND_PUBLIC_URL and RENDER_EXTERNAL_HOSTNAME:
     BACKEND_PUBLIC_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}"
-for candidate_url in (FRONTEND_URL, NGROK_URL, BACKEND_PUBLIC_URL):
+for candidate_url in (FRONTEND_URL, PAYMENT_RESULT_URL, VNPAY_FE_RETURN_URL, MOMO_FE_RETURN_URL, NGROK_URL, BACKEND_PUBLIC_URL):
     if not candidate_url:
         continue
     parsed = urlparse(candidate_url)

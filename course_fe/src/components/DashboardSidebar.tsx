@@ -128,8 +128,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       key: "commerce",
       label: t("dashboard_sidebar.groups.commerce"),
       items: [
-        { label: t("dashboard_sidebar.items.payments"), icon: <CreditCard className="h-5 w-5" />, href: "/admin/payments" },
-        { label: t("dashboard_sidebar.items.refunds"), icon: <DollarSign className="h-5 w-5" />, href: "/admin/refunds" },
+        { label: t("dashboard_sidebar.items.purchase_and_refunds"), icon: <CreditCard className="h-5 w-5" />, href: "/admin/payments" },
         { label: t("dashboard_sidebar.items.payment_methods"), icon: <CreditCard className="h-5 w-5" />, href: "/admin/payments/methods" },
         { label: t("dashboard_sidebar.items.subscriptions"), icon: <Calendar className="h-5 w-5" />, href: "/admin/subscriptions" },
         { label: t("dashboard_sidebar.items.discounts"), icon: <Tag className="h-5 w-5" />, href: "/admin/discounts" },

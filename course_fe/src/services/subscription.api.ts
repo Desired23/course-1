@@ -158,9 +158,17 @@ export async function getMySubscriptions(params?: {
   return http.get<PaginatedResponse<UserSubscription>>(`/subscriptions/me/${qs ? `?${qs}` : ''}`)
 }
 
-export async function getMySubscriptionCourses(): Promise<PlanCourse[]> {
-  const res = await http.get<PaginatedResponse<PlanCourse> | PlanCourse[]>('/subscriptions/me/courses/')
-  return Array.isArray(res) ? res : res.results
+export async function getMySubscriptionCourses(params?: {
+  page?: number
+  page_size?: number
+  search?: string
+}): Promise<PaginatedResponse<PlanCourse>> {
+  const searchParams = new URLSearchParams()
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  if (params?.search) searchParams.set('search', params.search)
+  const qs = searchParams.toString()
+  return http.get<PaginatedResponse<PlanCourse>>(`/subscriptions/me/courses/${qs ? `?${qs}` : ''}`)
 }
 
 export async function cancelSubscription(subscriptionId: number): Promise<{ message: string }> {

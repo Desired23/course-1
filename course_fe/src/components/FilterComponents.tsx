@@ -42,7 +42,7 @@ interface TableFilterProps {
   showCount?: boolean
 }
 
-export function TableFilter({
+function TableFilterBase({
   title,
   configs,
   onFilterChange,
@@ -351,6 +351,9 @@ export function TableFilter({
     </Card>
   )
 }
+
+export const TableFilter = React.memo(TableFilterBase)
+TableFilter.displayName = "TableFilter"
 
 export function QuickSearch({
   placeholder,

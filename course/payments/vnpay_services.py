@@ -211,7 +211,32 @@ def create_vnpay_payment(request: HttpRequest):
     return JsonResponse({'payment_url': vn_payment_url})
 
 def create_enrollments_from_payment(payment):
-    """Create enrollments for all courses in a completed payment."""
+    """Finalize entitlement for a completed payment.
+
+    - course_purchase: create course enrollments
+    - subscription: create a UserSubscription linked to the payment
+    """
+    if payment.payment_type == Payment.PaymentType.SUBSCRIPTION:
+        from subscription_plans.models import UserSubscription
+        from subscription_plans.services import subscribe_to_plan
+
+        if not payment.subscription_plan_id:
+            print(f"[WARN] Payment {payment.id} is subscription type but has no subscription_plan, skipping")
+            return
+
+        existing_subscription = UserSubscription.objects.filter(
+            payment=payment,
+            is_deleted=False,
+        ).first()
+        if existing_subscription:
+            return
+
+        try:
+            subscribe_to_plan(payment.user, payment.subscription_plan_id, payment.id)
+        except Exception as e:
+            print(f"[WARN] Failed to create subscription for payment {payment.id}: {e}")
+        return
+
     from carts.models import Cart
     from enrollments.services import create_enrollment
     from enrollments.models import Enrollment
@@ -244,12 +269,12 @@ def create_enrollments_from_payment(payment):
 def payment_return(request):
     """Handle VNPay browser redirect after payment. Redirects to FE result page."""
     from django.http import HttpResponseRedirect
-    fe_url = settings.FRONTEND_URL
+    result_url = settings.VNPAY_FE_RETURN_URL
 
     try:
         inputData = request.GET
         if not inputData:
-            return HttpResponseRedirect(f"{fe_url}/payment/result?status=error&message=No+data")
+            return HttpResponseRedirect(f"{result_url}?status=error&message=No+data")
 
         vnp = vnpay()
         vnp.responseData = inputData.dict()
@@ -262,24 +287,24 @@ def payment_return(request):
 
         if not vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
             return HttpResponseRedirect(
-                f"{fe_url}/payment/result?status=error&payment_id={order_id}&message=Invalid+checksum"
+                f"{result_url}?status=error&payment_id={order_id}&message=Invalid+checksum"
             )
         # IMPORTANT: Browser return should NOT perform DB state changes (enrollments/earnings).
         # IPN (server-to-server) is authoritative and will update DB. Here we only validate
         # the checksum and redirect the user back to the frontend with the payment id.
         if vnp_ResponseCode == "00":
             return HttpResponseRedirect(
-                f"{fe_url}/payment/result?status=success&payment_id={order_id}&amount={amount}&transaction={vnp_TransactionNo}"
+                f"{result_url}?status=success&payment_id={order_id}&amount={amount}&transaction={vnp_TransactionNo}"
             )
         else:
             return HttpResponseRedirect(
-                f"{fe_url}/payment/result?status=failed&payment_id={order_id}&code={vnp_ResponseCode}"
+                f"{result_url}?status=failed&payment_id={order_id}&code={vnp_ResponseCode}"
             )
 
     except Exception as e:
         import urllib.parse
         return HttpResponseRedirect(
-            f"{fe_url}/payment/result?status=error&message={urllib.parse.quote_plus(str(e))}"
+            f"{result_url}?status=error&message={urllib.parse.quote_plus(str(e))}"
         )
 
 

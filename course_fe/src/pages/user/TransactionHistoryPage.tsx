@@ -214,6 +214,14 @@ export function TransactionHistoryPage() {
     setRefundDialogOpen(true)
   }
 
+  const closeRefundDialog = () => {
+    if (submittingRefund) return
+    setRefundDialogOpen(false)
+    setRefundDialogData(null)
+    setSelectedRefundItemIds([])
+    setRefundReason("")
+  }
+
   const toggleRefundItem = (itemId: number, enabled: boolean) => {
     if (!enabled) return
     setSelectedRefundItemIds((prev) => (prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]))
@@ -265,10 +273,7 @@ export function TransactionHistoryPage() {
       })
       const hasProcessing = response.results.some((item) => item.status === "processing")
       toast.success(hasProcessing ? t("transaction_history_page.toasts.refund_request_processing") : t("transaction_history_page.toasts.refund_request_submitted"))
-      setRefundDialogOpen(false)
-      setRefundDialogData(null)
-      setSelectedRefundItemIds([])
-      setRefundReason("")
+      closeRefundDialog()
       await loadCurrentData()
     } catch (err: any) {
       toast.error(err?.message || t("transaction_history_page.errors.submit_refund"))
@@ -549,7 +554,16 @@ export function TransactionHistoryPage() {
         </Tabs>
       </div>
 
-      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+      <Dialog
+        open={refundDialogOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setRefundDialogOpen(true)
+            return
+          }
+          closeRefundDialog()
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("transaction_history_page.refund_dialog.title")}</DialogTitle>
@@ -573,7 +587,7 @@ export function TransactionHistoryPage() {
           </div>
           <Textarea value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder={t("transaction_history_page.refund_dialog.reason_placeholder")} rows={4} />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRefundDialogOpen(false)} disabled={submittingRefund}>{t("common.cancel")}</Button>
+            <Button variant="outline" onClick={closeRefundDialog} disabled={submittingRefund}>{t("common.cancel")}</Button>
             <Button onClick={() => void submitRefundRequest()} disabled={submittingRefund}>{submittingRefund ? t("transaction_history_page.refund_dialog.submitting") : t("transaction_history_page.refund_dialog.submit")}</Button>
           </DialogFooter>
         </DialogContent>
