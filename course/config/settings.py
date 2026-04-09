@@ -16,6 +16,7 @@ import dj_database_url
 from pathlib import Path
 import os
 from urllib.parse import urlparse
+from corsheaders.defaults import default_headers
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -448,6 +449,9 @@ CORS_ALLOWED_ORIGINS = [
 FRONTEND_CORS = FRONTEND_URL
 if FRONTEND_CORS and FRONTEND_CORS not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_CORS)
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'ngrok-skip-browser-warning',
+]
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF Trusted Origins (needed for POST requests in production)

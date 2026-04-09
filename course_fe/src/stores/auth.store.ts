@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { login as apiLogin, googleLogin as apiGoogleLogin, register as apiRegister, getUserById, updateProfile as apiUpdateProfile } from '../services/auth.api'
-import { setTokens, getAccessToken, getRefreshToken, API_BASE_URL } from '../services/http'
+import { setTokens, getAccessToken, getRefreshToken, API_BASE_URL, getApiTransportHeaders } from '../services/http'
 import { clearSessionData } from '../services/sessionCleanup'
 import type { UserType } from '../services/auth.api'
 
@@ -297,7 +297,10 @@ export const useAuthStore = create<AuthState>()(
         if (refresh) {
           fetch(`${API_BASE_URL}/users/logout`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...getApiTransportHeaders(),
+            },
             body: JSON.stringify({ refresh_token: refresh }),
           }).catch(() => {})
         }

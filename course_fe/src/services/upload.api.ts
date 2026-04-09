@@ -1,4 +1,4 @@
-﻿import { API_BASE_URL, getAccessToken, http } from './http'
+﻿import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 
 export interface UploadedFile {
   url: string
@@ -55,6 +55,10 @@ export function createUploadTask(
 
   const promise = new Promise<UploadedFile>((resolve, reject) => {
     xhr.open('POST', `${API_BASE_URL}/cloudinary/upload/`)
+    const transportHeaders = getApiTransportHeaders()
+    Object.entries(transportHeaders).forEach(([key, value]) => {
+      xhr.setRequestHeader(key, value)
+    })
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`)
     }
@@ -91,6 +95,7 @@ export async function deleteUploadedFiles(publicIds: string[]): Promise<Array<{ 
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
+      ...getApiTransportHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({ public_ids: publicIds }),

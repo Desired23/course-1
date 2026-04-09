@@ -4,7 +4,7 @@ import {
   updateSystemSetting,
   type SystemSetting,
 } from "../../services/admin.api"
-import { API_BASE_URL } from "../../services/http"
+import { API_BASE_URL, getApiTransportHeaders } from "../../services/http"
 import {
   createDefaultSection,
   getDefaultHomeSchemaV2,
@@ -60,7 +60,12 @@ type PublicHomeSettingsPayload = {
 
 async function getPublicHomeSettings(): Promise<PublicHomeSettingsPayload | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/systems_settings/public/homepage/`, { method: "GET" })
+    const response = await fetch(`${API_BASE_URL}/systems_settings/public/homepage/`, {
+      method: "GET",
+      headers: {
+        ...getApiTransportHeaders(),
+      },
+    })
     if (!response.ok) return null
     const data = (await response.json()) as PublicHomeSettingsPayload
     return data && typeof data === "object" ? data : null

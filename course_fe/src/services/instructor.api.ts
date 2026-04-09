@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAccessToken, http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -190,6 +190,7 @@ export async function exportInstructorStudents(instructorId?: number, courseId?:
     `${API_BASE_URL}/instructor/students/export/${params.toString() ? `?${params.toString()}` : ''}`,
     {
       headers: {
+        ...getApiTransportHeaders(),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     }

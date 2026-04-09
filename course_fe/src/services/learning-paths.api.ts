@@ -1,4 +1,4 @@
-import { API_BASE_URL, getAccessToken, http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 import type { PaginatedResponse } from './common/pagination'
 
 export interface AdvisorMessage {
@@ -180,6 +180,7 @@ export async function chatWithLearningAdvisorStream(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getApiTransportHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(payload),

@@ -10,6 +10,14 @@
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
+export function getApiTransportHeaders(): Record<string, string> {
+  if (API_BASE_URL.includes('.ngrok-free.dev')) {
+    // ngrok free domains serve an interstitial page unless this header is present.
+    return { 'ngrok-skip-browser-warning': 'true' }
+  }
+  return {}
+}
+
 // simple in-memory cache for GET responses
 const getCache: Map<string, { expiry: number; data: any }> = new Map()
 const CACHE_TTL = 30 * 1000 // 30 seconds
@@ -97,7 +105,10 @@ export async function refreshAccessToken(): Promise<string> {
   try {
     const response = await fetch(`${API_BASE_URL}/users/refresh-token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...getApiTransportHeaders(),
+      },
       body: JSON.stringify({ refresh_token: refreshTkn }),
     })
 
@@ -140,6 +151,7 @@ class HttpService {
 
     const defaultHeaders: HeadersInit = {
       'Content-Type': 'application/json',
+      ...getApiTransportHeaders(),
       ...(token && { Authorization: `Bearer ${token}` }),
     }
 
