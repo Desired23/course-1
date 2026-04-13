@@ -1,4 +1,4 @@
-# realtime/consumers.py
+
 
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -21,7 +21,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
 
     async def receive_json(self, content, **kwargs):
-        # Client can send ping to keep alive
+
         msg_type = content.get("type")
         if msg_type == "ping":
             await self.send_json({"type": "pong"})
@@ -58,7 +58,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         self.group_name = f"chat_{self.room_id}"
         self.user = user
 
-        # Verify user belongs to this room
+
         is_member = await self.check_room_membership(self.room_id, user.id)
         if not is_member:
             await self.close()
@@ -86,10 +86,10 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 })
                 return
 
-            # Save to DB
+
             msg_data = await self.save_message(self.room_id, self.user.id, text)
 
-            # Broadcast to room
+
             await self.channel_layer.group_send(
                 self.group_name,
                 {
@@ -98,7 +98,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 }
             )
 
-            # Also push notification to the other user
+
             other_user_id = await self.get_other_user_id(self.room_id, self.user.id)
             should_notify = await self.should_send_chat_notification(self.room_id, self.user.id)
             if other_user_id and should_notify:
@@ -187,7 +187,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         msg = ChatMessage.objects.create(
             room_id=room_id, sender_id=sender_id, content=content
         )
-        # Update room's updated_at
+
         ChatRoom.objects.filter(pk=room_id).update(updated_at=msg.created_at)
         return {
             "id": msg.id,

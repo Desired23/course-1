@@ -10,7 +10,7 @@ class LearningProgressSerializer(serializers.ModelSerializer):
     course_id = serializers.IntegerField(source='course.id', read_only=True)
     last_access_date = serializers.DateTimeField(source='last_accessed', read_only=True)
     notes = serializers.CharField(allow_blank=True, allow_null=True, required=False)
-    
+
     class Meta:
         model = LearningProgress
         fields = [
@@ -27,7 +27,7 @@ class LearningProgressSerializer(serializers.ModelSerializer):
             'completion_date'
         ]
         read_only_fields = ['id', 'user', 'last_accessed']
-    
+
     def validate_course(self, value):
         """Validate course exists and is not deleted"""
         if value is None:
@@ -35,7 +35,7 @@ class LearningProgressSerializer(serializers.ModelSerializer):
         if value.is_deleted:
             raise serializers.ValidationError("Course has been deleted.")
         return value
-    
+
     def validate_lesson(self, value):
         """Validate lesson exists and is not deleted"""
         if value is None:

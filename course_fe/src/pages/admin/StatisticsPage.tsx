@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Button } from '../../components/ui/button'
@@ -14,6 +15,28 @@ import { useTranslation } from 'react-i18next'
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#ff6b6b', '#4ecdc4', '#45b7d1']
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function StatisticsPage() {
   const { t } = useTranslation()
   const { canAccess } = useAuth()
@@ -28,6 +51,14 @@ export function StatisticsPage() {
   const [stats, setStats] = useState<any>({})
 
   useEffect(() => {
+    const ensureArray = <T,>(payload: unknown): T[] => {
+      if (Array.isArray(payload)) return payload as T[]
+      if (payload && typeof payload === 'object' && Array.isArray((payload as any).results)) {
+        return (payload as any).results as T[]
+      }
+      return []
+    }
+
     async function load() {
       try {
         const [dashStats, revenue, users, courses, categories] = await Promise.all([
@@ -38,18 +69,23 @@ export function StatisticsPage() {
           getAllCategories().catch(() => [])
         ])
         if (dashStats) setStats(dashStats)
-        setRevenueData(revenue.map((r: any) => ({
+        const revenueRows = ensureArray<any>(revenue)
+        const userRows = ensureArray<any>(users)
+        const courseRows = ensureArray<any>(courses)
+        const categoryRows = ensureArray<any>(categories)
+
+        setRevenueData(revenueRows.map((r: any) => ({
           month: r.date,
           revenue: r.revenue,
           courses: 0,
           students: 0
         })))
-        setUserGrowth(users.map((u: any) => ({
+        setUserGrowth(userRows.map((u: any) => ({
           date: u.date,
           students: u.new_users,
           instructors: 0
         })))
-        setDetailedCourses(courses.map((c: any) => ({
+        setDetailedCourses(courseRows.map((c: any) => ({
           id: c.course_id,
           title: c.title,
           instructor: c.instructor_name || t('admin_statistics.not_available'),
@@ -58,7 +94,7 @@ export function StatisticsPage() {
           rating: c.rating,
           status: 'active'
         })))
-        setCourseCategories(categories.map((cat: any, idx: number) => ({
+        setCourseCategories(categoryRows.map((cat: any, idx: number) => ({
           name: cat.name,
           value: cat.course_count || 1,
           color: COLORS[idx % COLORS.length]
@@ -154,8 +190,14 @@ export function StatisticsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 overflow-x-hidden">
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="p-6 space-y-6 overflow-x-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('admin_statistics.title')}</h1>
           <p className="text-muted-foreground">{t('admin_statistics.subtitle')}</p>
@@ -170,18 +212,31 @@ export function StatisticsPage() {
             {t('admin_statistics.schedule_report')}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">{t('admin_statistics.tabs.overview')}</TabsTrigger>
-          <TabsTrigger value="detailed">{t('admin_statistics.tabs.detailed')}</TabsTrigger>
-          <TabsTrigger value="trends">{t('admin_statistics.tabs.trends')}</TabsTrigger>
-          <TabsTrigger value="reports">{t('admin_statistics.tabs.reports')}</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-4 p-1">
+          <TabsTrigger value="overview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'overview' && <motion.span layoutId="statistics-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_statistics.tabs.overview')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="detailed" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'detailed' && <motion.span layoutId="statistics-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_statistics.tabs.detailed')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="trends" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'trends' && <motion.span layoutId="statistics-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_statistics.tabs.trends')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'reports' && <motion.span layoutId="statistics-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_statistics.tabs.reports')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          {/* Key Metrics */}
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -237,7 +292,7 @@ export function StatisticsPage() {
             </Card>
           </div>
 
-          {/* Chart Controls */}
+
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -392,7 +447,7 @@ export function StatisticsPage() {
                 <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
               </CardContent>
             </Card>
-            
+
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="text-lg">{t('admin_statistics.reports.instructor.title')}</CardTitle>
@@ -402,7 +457,7 @@ export function StatisticsPage() {
                 <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
               </CardContent>
             </Card>
-            
+
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle className="text-lg">{t('admin_statistics.reports.revenue.title')}</CardTitle>
@@ -415,6 +470,8 @@ export function StatisticsPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

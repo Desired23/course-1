@@ -14,6 +14,7 @@ from .services import (
 )
 from .dashboard_services import get_instructor_dashboard_stats, get_course_analytics, get_instructor_analytics_timeseries
 from .student_services import get_instructor_students, export_instructor_students_csv, get_instructor_student_detail
+from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 class InstructorListView(APIView):
@@ -39,7 +40,7 @@ class InstructorDetailView(APIView):
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, instructor_id):
-        # Ownership check: instructor can only update their own profile, admin can update any
+
         if not hasattr(request.user, 'admin'):
             user_instructor = getattr(request.user, 'instructor', None)
             if not user_instructor or user_instructor.id != instructor_id:
@@ -51,7 +52,7 @@ class InstructorDetailView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, instructor_id):
-        # Only admin can delete instructor
+
         if not hasattr(request.user, 'admin'):
             return Response({"error": "Chỉ admin mới có quyền xóa giảng viên."}, status=status.HTTP_403_FORBIDDEN)
         try:
@@ -116,7 +117,7 @@ class InstructorCourseAnalyticsView(APIView):
         admin = getattr(user, 'admin', None)
 
         if admin:
-            # Admin: must provide instructor_id param or infer from course
+
             from courses.models import Course
             try:
                 course = Course.objects.get(id=course_id, is_deleted=False)
@@ -176,6 +177,9 @@ class InstructorStudentsView(APIView):
         admin = getattr(user, 'admin', None)
         instructor_id = request.query_params.get('instructor_id')
         course_id = request.query_params.get('course_id')
+        search = request.query_params.get('search')
+        status_filter = request.query_params.get('status')
+        sort_by = request.query_params.get('sort_by')
 
         if admin and instructor_id:
             try:
@@ -187,8 +191,16 @@ class InstructorStudentsView(APIView):
             if not instructor:
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
-        data = get_instructor_students(instructor, course_id=course_id)
-        return Response(data)
+        data = get_instructor_students(
+            instructor,
+            course_id=course_id,
+            search=search,
+            status=status_filter,
+            sort_by=sort_by,
+        )
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(data, request)
+        return paginator.get_paginated_response(page)
 
 
 class InstructorStudentsExportView(APIView):

@@ -31,7 +31,7 @@ class Review(models.Model):
     response_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        ordering = ['-created_at']  # Mới nhất lên đầu
+        ordering = ['-created_at']
 
     def __str__(self):
         return f'Review by {self.user} for {self.course}'

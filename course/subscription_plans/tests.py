@@ -16,13 +16,13 @@ from users.models import User
 
 def build_access_token(user):
 	payload = {
-		"user_id": user.id,
-		"username": user.username,
-		"email": user.email,
-		"user_type": [user.user_type],
-		"token_type": "access",
-		"exp": 9999999999,
-		"iat": 1,
+	 "user_id": user.id,
+	 "username": user.username,
+	 "email": user.email,
+	 "user_type": [user.user_type],
+	 "token_type": "access",
+	 "exp": 9999999999,
+	 "iat": 1,
 	}
 	return jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
 
@@ -30,31 +30,31 @@ def build_access_token(user):
 class UserSubscriptionListSerializerTests(TestCase):
 	def test_includes_plan_detail_for_frontend_card(self):
 		user = User.objects.create(
-			username='sub-user',
-			email='sub-user@example.com',
-			password_hash='hashed',
-			full_name='Subscription User',
-			user_type='student',
+		 username='sub-user',
+		 email='sub-user@example.com',
+		 password_hash='hashed',
+		 full_name='Subscription User',
+		 user_type='student',
 		)
 		plan = SubscriptionPlan.objects.create(
-			name='Pro Plan',
-			description='Pro access',
-			price=Decimal('299000.00'),
-			discount_price=Decimal('199000.00'),
-			duration_type='monthly',
-			duration_days=30,
-			status='active',
-			features=['A', 'B'],
-			icon='Zap',
-			highlight_color='blue',
+		 name='Pro Plan',
+		 description='Pro access',
+		 price=Decimal('299000.00'),
+		 discount_price=Decimal('199000.00'),
+		 duration_type='monthly',
+		 duration_days=30,
+		 status='active',
+		 features=['A', 'B'],
+		 icon='Zap',
+		 highlight_color='blue',
 		)
 		subscription = UserSubscription.objects.create(
-			user=user,
-			plan=plan,
-			status='active',
-			start_date=timezone.now(),
-			end_date=timezone.now() + timezone.timedelta(days=30),
-			auto_renew=True,
+		 user=user,
+		 plan=plan,
+		 status='active',
+		 start_date=timezone.now(),
+		 end_date=timezone.now() + timezone.timedelta(days=30),
+		 auto_renew=True,
 		)
 
 		payload = UserSubscriptionListSerializer(subscription).data
@@ -69,55 +69,55 @@ class UserSubscriptionCoursesApiTests(TestCase):
 	def setUp(self):
 		self.client = APIClient()
 		self.user = User.objects.create(
-			username='student-sub',
-			email='student-sub@example.com',
-			password_hash='hashed',
-			full_name='Student Subscription',
-			user_type='student',
-			status='active',
+		 username='student-sub',
+		 email='student-sub@example.com',
+		 password_hash='hashed',
+		 full_name='Student Subscription',
+		 user_type='student',
+		 status='active',
 		)
 		token = build_access_token(self.user)
 		self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
 		instructor_user = User.objects.create(
-			username='inst-sub',
-			email='inst-sub@example.com',
-			password_hash='hashed',
-			full_name='Instructor One',
-			user_type='instructor',
-			status='active',
+		 username='inst-sub',
+		 email='inst-sub@example.com',
+		 password_hash='hashed',
+		 full_name='Instructor One',
+		 user_type='instructor',
+		 status='active',
 		)
 		instructor = Instructor.objects.create(user=instructor_user)
 		category = Category.objects.create(name='Sub Cat', status='active')
 
 		self.plan = SubscriptionPlan.objects.create(
-			name='Plan A',
-			price=Decimal('300000.00'),
-			duration_type='monthly',
-			duration_days=30,
-			status='active',
+		 name='Plan A',
+		 price=Decimal('300000.00'),
+		 duration_type='monthly',
+		 duration_days=30,
+		 status='active',
 		)
 		self.course_python = Course.objects.create(
-			title='Python for Analysts',
-			instructor=instructor,
-			category=category,
-			status='published',
-			is_public=True,
+		 title='Python for Analysts',
+		 instructor=instructor,
+		 category=category,
+		 status='published',
+		 is_public=True,
 		)
 		self.course_sql = Course.objects.create(
-			title='SQL for Reports',
-			instructor=instructor,
-			category=category,
-			status='published',
-			is_public=True,
+		 title='SQL for Reports',
+		 instructor=instructor,
+		 category=category,
+		 status='published',
+		 is_public=True,
 		)
 
 		UserSubscription.objects.create(
-			user=self.user,
-			plan=self.plan,
-			status='active',
-			start_date=timezone.now(),
-			end_date=timezone.now() + timezone.timedelta(days=30),
+		 user=self.user,
+		 plan=self.plan,
+		 status='active',
+		 start_date=timezone.now(),
+		 end_date=timezone.now() + timezone.timedelta(days=30),
 		)
 		self.plan.plan_courses.create(course=self.course_python, status='active')
 		self.plan.plan_courses.create(course=self.course_sql, status='active')
@@ -141,25 +141,25 @@ class UserSubscriptionCoursesApiTests(TestCase):
 
 	def test_excludes_expired_subscriptions_courses(self):
 		expired_plan = SubscriptionPlan.objects.create(
-			name='Expired Plan',
-			price=Decimal('100000.00'),
-			duration_type='monthly',
-			duration_days=30,
-			status='active',
+		 name='Expired Plan',
+		 price=Decimal('100000.00'),
+		 duration_type='monthly',
+		 duration_days=30,
+		 status='active',
 		)
 		expired_course = Course.objects.create(
-			title='Legacy Course',
-			instructor=self.course_python.instructor,
-			category=self.course_python.category,
-			status='published',
-			is_public=True,
+		 title='Legacy Course',
+		 instructor=self.course_python.instructor,
+		 category=self.course_python.category,
+		 status='published',
+		 is_public=True,
 		)
 		UserSubscription.objects.create(
-			user=self.user,
-			plan=expired_plan,
-			status='active',
-			start_date=timezone.now() - timezone.timedelta(days=60),
-			end_date=timezone.now() - timezone.timedelta(days=1),
+		 user=self.user,
+		 plan=expired_plan,
+		 status='active',
+		 start_date=timezone.now() - timezone.timedelta(days=60),
+		 end_date=timezone.now() - timezone.timedelta(days=1),
 		)
 		expired_plan.plan_courses.create(course=expired_course, status='active')
 

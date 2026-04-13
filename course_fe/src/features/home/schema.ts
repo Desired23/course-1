@@ -581,7 +581,12 @@ interface LegacySectionSetting {
 
 function mapLegacySection(component: string, order: number): HomeSection {
   if (component === "HeroSection") {
-    return createDefaultSection("hero", order)
+    const section = createDefaultSection("hero", order)
+    section.layout = {
+      ...section.layout,
+      container: "full",
+    }
+    return section
   }
 
   if (component === "FeaturedCourses") {

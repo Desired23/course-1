@@ -1,13 +1,36 @@
 import { AnalyticsCharts } from "../../components/AnalyticsCharts"
 import { BarChart3 } from "lucide-react"
+import { motion } from 'motion/react'
 import { useTranslation } from "react-i18next"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function AdminAnalyticsPage() {
   const { t } = useTranslation()
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <motion.div className="p-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
             <BarChart3 className="h-6 w-6 text-primary" />
@@ -17,9 +40,11 @@ export function AdminAnalyticsPage() {
             <p className="text-sm text-muted-foreground">{t("admin_analytics.subtitle")}</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <AnalyticsCharts type="platform" />
-    </div>
+      <motion.div variants={fadeInUp}>
+        <AnalyticsCharts type="platform" />
+      </motion.div>
+    </motion.div>
   )
 }

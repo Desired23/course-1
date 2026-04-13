@@ -446,7 +446,7 @@ class LearningPathApiTests(TestCase):
         self.assertEqual(data["id"], path_id)
         self.assertGreaterEqual(len(data["items"]), 1)
         self.assertIn("advisor_meta", data)
-    
+
     @override_settings(LEARNING_PATH_PROVIDER="rule_based", LEARNING_PATH_FORCE_GEMINI=False)
     def test_admin_can_delete_learning_path_via_action_endpoint(self):
         chat = self.client.post(

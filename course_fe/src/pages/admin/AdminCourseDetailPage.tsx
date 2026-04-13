@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -9,11 +10,11 @@ import { Progress } from '../../components/ui/progress'
 import { Checkbox } from '../../components/ui/checkbox'
 import { Label } from '../../components/ui/label'
 import { Textarea } from '../../components/ui/textarea'
-import { 
-  ArrowLeft, 
-  Users, 
-  Star, 
-  Clock, 
+import {
+  ArrowLeft,
+  Users,
+  Star,
+  Clock,
   Calendar,
   DollarSign,
   TrendingUp,
@@ -46,9 +47,11 @@ import {
 } from "../../components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+import { UserPagination } from '../../components/UserPagination'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { useTranslation } from 'react-i18next'
+import { getCourseStudents, type CourseStudentRow } from '../../services/course.api'
 
 interface CourseDetail {
   id: string
@@ -77,13 +80,13 @@ interface CourseDetail {
   updated_at: Date
   published_at?: Date
   last_activity: Date
-  
-  // Statistics
+
+
   stats: {
     total_students: number
     total_revenue: number
     total_lessons: number
-    total_duration: number // in minutes
+    total_duration: number
     completion_rate: number
     average_rating: number
     total_reviews: number
@@ -95,8 +98,8 @@ interface CourseDetail {
       avg_rating: number
     }
   }
-  
-  // Content structure
+
+
   sections: Array<{
     id: string
     title: string
@@ -110,8 +113,8 @@ interface CourseDetail {
       completion_rate: number
     }>
   }>
-  
-  // Reviews and feedback
+
+
   reviews: Array<{
     id: string
     student_name: string
@@ -121,19 +124,41 @@ interface CourseDetail {
     created_at: Date
     is_featured: boolean
   }>
-  
-  // Enrollment and revenue data
+
+
   enrollment_data: Array<{
     date: string
     enrollments: number
     revenue: number
   }>
-  
-  // Student progress data
+
+
   progress_data: Array<{
     completion_percentage: number
     student_count: number
   }>
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 
@@ -163,8 +188,14 @@ export function AdminCourseDetailPage() {
   const [moderationReason, setModerationReason] = useState('')
   const [sendNotification, setSendNotification] = useState(true)
   const [notifyMessage, setNotifyMessage] = useState('')
-  
-  // Extract course ID from URL
+  const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'students' | 'reviews' | 'instructor' | 'analytics'>('overview')
+  const [studentRows, setStudentRows] = useState<CourseStudentRow[]>([])
+  const [studentPage, setStudentPage] = useState(1)
+  const [studentCount, setStudentCount] = useState(0)
+  const [studentTotalPages, setStudentTotalPages] = useState(1)
+  const [studentLoading, setStudentLoading] = useState(false)
+
+
   const courseId = currentRoute.split('/admin/courses/')[1]
 
   useEffect(() => {
@@ -247,6 +278,37 @@ export function AdminCourseDetailPage() {
     }
     fetchCourseData()
   }, [courseId, t])
+
+  useEffect(() => {
+    const numId = Number(courseId)
+    if (!numId) return
+
+    let cancelled = false
+    const loadStudents = async () => {
+      try {
+        setStudentLoading(true)
+        const response = await getCourseStudents(numId, studentPage, 10)
+        if (!cancelled) {
+          setStudentRows(response.results)
+          setStudentCount(response.count)
+          setStudentTotalPages(response.total_pages || 1)
+        }
+      } catch {
+        if (!cancelled) {
+          setStudentRows([])
+          setStudentCount(0)
+          setStudentTotalPages(1)
+        }
+      } finally {
+        if (!cancelled) setStudentLoading(false)
+      }
+    }
+
+    loadStudents()
+    return () => {
+      cancelled = true
+    }
+  }, [courseId, studentPage])
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -399,9 +461,15 @@ export function AdminCourseDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-6 max-w-7xl">
-        {/* Breadcrumb */}
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="container mx-auto p-6 max-w-7xl" variants={sectionStagger} initial="hidden" animate="show">
+
+        <motion.div variants={fadeInUp}>
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -417,18 +485,19 @@ export function AdminCourseDetailPage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+        </motion.div>
 
-        {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+
+        <motion.div className="flex items-start justify-between mb-8" variants={fadeInUp}>
           <div className="flex items-start gap-6">
-            <img 
-              src={course.thumbnail} 
+            <img
+              src={course.thumbnail}
               alt={course.title}
               className="w-32 h-24 object-cover rounded-lg"
             />
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <Badge 
+                <Badge
                   className={`${getStatusColor(course.status)} text-white`}
                 >
                   {getStatusLabel(course.status)}
@@ -438,7 +507,7 @@ export function AdminCourseDetailPage() {
               </div>
               <h1 className="text-3xl mb-2">{course.title}</h1>
               <p className="text-muted-foreground mb-4 line-clamp-2">{course.description}</p>
-              
+
               <div className="flex items-center gap-6 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
@@ -465,7 +534,7 @@ export function AdminCourseDetailPage() {
               <Eye className="h-4 w-4 mr-2" />
               {t('admin_course_detail.header.view_course')}
             </Button>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -494,7 +563,7 @@ export function AdminCourseDetailPage() {
                   <AlertCircle className="h-4 w-4 mr-2" />
                   {t('admin_course_detail.header.archive_course')}
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => setConfirmDeleteOpen(true)}
                 >
@@ -504,10 +573,10 @@ export function AdminCourseDetailPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
+        <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={fadeInUp}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_course_detail.stats.total_revenue')}</CardTitle>
@@ -557,22 +626,41 @@ export function AdminCourseDetailPage() {
               </p>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">{t('admin_course_detail.tabs.overview')}</TabsTrigger>
-            <TabsTrigger value="content">{t('admin_course_detail.tabs.content')}</TabsTrigger>
-            <TabsTrigger value="students">{t('admin_course_detail.tabs.students')}</TabsTrigger>
-            <TabsTrigger value="reviews">{t('admin_course_detail.tabs.reviews')}</TabsTrigger>
-            <TabsTrigger value="instructor">{t('admin_course_detail.tabs.instructor')}</TabsTrigger>
-            <TabsTrigger value="analytics">{t('admin_course_detail.tabs.analytics')}</TabsTrigger>
+        <motion.div variants={fadeInUp}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'content' | 'students' | 'reviews' | 'instructor' | 'analytics')} className="space-y-6">
+          <TabsList className="relative h-auto flex-wrap p-1">
+            <TabsTrigger value="overview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'overview' && <motion.span layoutId="admin-course-detail-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('admin_course_detail.tabs.overview')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="content" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'content' && <motion.span layoutId="admin-course-detail-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('admin_course_detail.tabs.content')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="students" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'students' && <motion.span layoutId="admin-course-detail-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('admin_course_detail.tabs.students')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'reviews' && <motion.span layoutId="admin-course-detail-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('admin_course_detail.tabs.reviews')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="instructor" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'instructor' && <motion.span layoutId="admin-course-detail-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('admin_course_detail.tabs.instructor')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'analytics' && <motion.span layoutId="admin-course-detail-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('admin_course_detail.tabs.analytics')}</span>
+            </TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
+
           <TabsContent value="overview" className="space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Course Info */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>{t('admin_course_detail.overview.course_info')}</CardTitle>
@@ -607,7 +695,7 @@ export function AdminCourseDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Enrollment Chart */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>{t('admin_course_detail.overview.enrollments_last_7_days')}</CardTitle>
@@ -626,7 +714,7 @@ export function AdminCourseDetailPage() {
               </Card>
             </div>
 
-            {/* Progress Distribution */}
+
             <Card>
               <CardHeader>
                 <CardTitle>{t('admin_course_detail.overview.progress_distribution')}</CardTitle>
@@ -645,7 +733,7 @@ export function AdminCourseDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Content Tab */}
+
           <TabsContent value="content" className="space-y-6">
             <Card>
               <CardHeader>
@@ -686,13 +774,13 @@ export function AdminCourseDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Students Tab */}
+
           <TabsContent value="students" className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>{t('admin_course_detail.students.title')}</CardTitle>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled>
                     <Download className="h-4 w-4 mr-2" />
                     {t('admin_course_detail.students.export')}
                   </Button>
@@ -711,46 +799,78 @@ export function AdminCourseDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback>JD</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{t('admin_course_detail.students.sample_name')}</p>
-                            <p className="text-sm text-muted-foreground">{t('admin_course_detail.students.sample_email')}</p>
+                    {studentRows.map((student) => (
+                      <TableRow key={student.student_id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={student.avatar || undefined} />
+                              <AvatarFallback>{student.full_name?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{student.full_name}</p>
+                              <p className="text-sm text-muted-foreground">{student.email}</p>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>15/01/2024</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <Progress value={75} className="w-20" />
-                          <span className="text-xs text-muted-foreground">75%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>23h 45m</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span>4.5</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    {/* More student rows would be here */}
+                        </TableCell>
+                        <TableCell>{student.enrolled_at ? new Date(student.enrolled_at).toLocaleDateString() : '-'}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Progress value={student.average_progress} className="w-20" />
+                            <span className="text-xs text-muted-foreground">{student.average_progress}%</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDuration(student.study_time_minutes)}</TableCell>
+                        <TableCell>
+                          {student.rating ? (
+                            <div className="flex items-center gap-1">
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              <span>{student.rating.toFixed(1)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
+                {studentLoading && (
+                  <div className="py-6 text-center text-muted-foreground">
+                    {t('common.loading')}
+                  </div>
+                )}
+                {!studentLoading && studentCount === 0 && (
+                  <div className="py-6 text-center text-muted-foreground">
+                    {t('admin_course_detail.students.empty')}
+                  </div>
+                )}
+                {studentCount > 0 && (
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      {t('admin_course_detail.students.pagination', {
+                        from: (studentPage - 1) * 10 + 1,
+                        to: Math.min(studentPage * 10, studentCount),
+                        total: studentCount,
+                      })}
+                    </div>
+                    <UserPagination
+                      currentPage={studentPage}
+                      totalPages={studentTotalPages}
+                      onPageChange={setStudentPage}
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Reviews Tab */}
+
           <TabsContent value="reviews" className="space-y-6">
             <Card>
               <CardHeader>
@@ -771,9 +891,9 @@ export function AdminCourseDetailPage() {
                             <div className="flex items-center gap-2">
                               <div className="flex">
                                 {[...Array(5)].map((_, i) => (
-                                  <Star 
-                                    key={i} 
-                                    className={`h-4 w-4 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} 
+                                  <Star
+                                    key={i}
+                                    className={`h-4 w-4 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
                                   />
                                 ))}
                               </div>
@@ -795,7 +915,7 @@ export function AdminCourseDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Instructor Tab */}
+
           <TabsContent value="instructor" className="space-y-6">
             <Card>
               <CardHeader>
@@ -811,7 +931,7 @@ export function AdminCourseDetailPage() {
                     <h3 className="text-xl font-medium">{course.instructor.name}</h3>
                     <p className="text-muted-foreground mb-4">{course.instructor.email}</p>
                     <p className="text-sm mb-4">{course.instructor.bio}</p>
-                    
+
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">{t('admin_course_detail.instructor.total_courses')}:</span>
@@ -832,10 +952,10 @@ export function AdminCourseDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* Analytics Tab */}
+
           <TabsContent value="analytics" className="space-y-6">
             <div className="grid lg:grid-cols-2 gap-6">
-              {/* Revenue Chart */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>{t('admin_course_detail.analytics.revenue_last_7_days')}</CardTitle>
@@ -853,7 +973,7 @@ export function AdminCourseDetailPage() {
                 </CardContent>
               </Card>
 
-              {/* Performance Metrics */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>{t('admin_course_detail.analytics.performance_metrics')}</CardTitle>
@@ -880,6 +1000,7 @@ export function AdminCourseDetailPage() {
             </div>
           </TabsContent>
         </Tabs>
+        </motion.div>
         <Dialog
           open={moderationState.open}
           onOpenChange={(open) => {
@@ -958,8 +1079,8 @@ export function AdminCourseDetailPage() {
           loading={isDeleting}
           onConfirm={handleDeleteCourse}
         />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

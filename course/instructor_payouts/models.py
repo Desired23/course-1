@@ -12,10 +12,10 @@ class InstructorPayout(models.Model):
 
     id = models.AutoField(primary_key=True)
     instructor = models.ForeignKey(Instructor, on_delete=models.CASCADE, related_name='payouts')
-    amount = models.DecimalField(max_digits=15, decimal_places=2)         # Tổng số tiền
-    fee = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00')) # Phí nền tảng (nếu có)
-    net_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)     # Tiền thực nhận
-    payment_method = models.CharField(max_length=100)                     # Ví dụ: Bank Transfer
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    fee = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
+    net_amount = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    payment_method = models.CharField(max_length=100)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=20, choices=PayoutStatusChoices.choices, default=PayoutStatusChoices.PENDING)
     request_date = models.DateTimeField(auto_now_add=True)
@@ -26,7 +26,7 @@ class InstructorPayout(models.Model):
     is_deleted = models.BooleanField(default=False)
     processed_date = models.DateTimeField(blank=True, null=True)
     notes = models.TextField(blank=True, null=True)
-    period = models.CharField(max_length=20)  # Ví dụ: "2025-07" để thống kê tháng
+    period = models.CharField(max_length=20)
     processed_by = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_payouts')
 
     class Meta:

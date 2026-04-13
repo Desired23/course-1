@@ -40,7 +40,7 @@ class BlogPost(models.Model):
 
     class Meta:
         db_table = "blog_posts"
-    
+
     def __str__(self):
         return f"BlogPost {self.title} - {self.status}"
 

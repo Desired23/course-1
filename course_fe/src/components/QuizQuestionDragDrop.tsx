@@ -33,16 +33,16 @@ interface DragItem {
   index: number
 }
 
-export function DraggableQuestionCard({ 
-  question, 
-  index, 
-  moveQuestion, 
-  onEdit, 
-  onDelete 
+export function DraggableQuestionCard({
+  question,
+  index,
+  moveQuestion,
+  onEdit,
+  onDelete
 }: DraggableQuestionProps) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
-  
+
   const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: any }>({
     accept: 'QUIZ_QUESTION',
     collect(monitor) {
@@ -57,48 +57,48 @@ export function DraggableQuestionCard({
       const dragIndex = item.index
       const hoverIndex = index
 
-      // Don't replace items with themselves
+
       if (dragIndex === hoverIndex) {
         return
       }
 
-      // Determine rectangle on screen
+
       const hoverBoundingRect = ref.current.getBoundingClientRect()
 
-      // Get vertical middle
+
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
 
-      // Determine mouse position
+
       const clientOffset = monitor.getClientOffset()
 
       if (!clientOffset) {
         return
       }
 
-      // Get pixels to the top
+
       const hoverClientY = clientOffset.y - hoverBoundingRect.top
 
-      // Only perform the move when the mouse has crossed half of the items height
-      // When dragging downwards, only move when the cursor is below 50%
-      // When dragging upwards, only move when the cursor is above 50%
 
-      // Dragging downwards
+
+
+
+
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
         return
       }
 
-      // Dragging upwards
+
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
         return
       }
 
-      // Time to actually perform the action
+
       moveQuestion(dragIndex, hoverIndex)
 
-      // Note: we're mutating the monitor item here!
-      // Generally it's better to avoid mutations,
-      // but it's good here for the sake of performance
-      // to avoid expensive index searches.
+
+
+
+
       item.index = hoverIndex
     },
   })
@@ -117,7 +117,7 @@ export function DraggableQuestionCard({
   drag(drop(ref))
 
   return (
-    <Card 
+    <Card
       ref={ref}
       data-handler-id={handlerId}
       style={{ opacity }}
@@ -150,9 +150,9 @@ export function DraggableQuestionCard({
                 <p className="font-medium">Q{index + 1}. {question.question}</p>
               </div>
               <div className="flex gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={(e) => {
                     e.stopPropagation()
                     onEdit(question)
@@ -175,8 +175,8 @@ export function DraggableQuestionCard({
             {question.options && (
               <ul className="text-sm text-muted-foreground ml-4 list-disc">
                 {question.options.map((option, i) => (
-                  <li 
-                    key={i} 
+                  <li
+                    key={i}
                     className={
                       (typeof question.correctAnswer === 'string' && question.correctAnswer === option) ||
                       (Array.isArray(question.correctAnswer) && question.correctAnswer.includes(option))

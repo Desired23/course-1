@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import { Progress } from '../../components/ui/progress'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { UserPagination } from '../../components/UserPagination'
 import { DollarSign, Calendar, ShoppingCart, Layers, Loader2, AlertCircle } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useAuth } from '../../contexts/AuthContext'
 import { getMyInstructorProfile, getInstructorDashboardStats, type InstructorDashboardStats } from '../../services/instructor.api'
 import {
@@ -19,6 +21,29 @@ import {
   type InstructorEarning,
 } from '../../services/instructor-earnings.api'
 import { useTranslation } from 'react-i18next'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 const TRANSACTIONS_PER_PAGE = 10
 const COURSES_PER_PAGE = 6
@@ -43,6 +68,41 @@ export function InstructorEarningsPage() {
   const [transactions, setTransactions] = useState<InstructorEarning[]>([])
   const [transactionsTotalPages, setTransactionsTotalPages] = useState(1)
   const [transactionsTotalCount, setTransactionsTotalCount] = useState(0)
+
+  const renderEarningsSkeleton = () => (
+    <div className="container mx-auto px-4 py-8 space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-5 w-80" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`instructor-earnings-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-32" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border bg-card p-6 space-y-3">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    </div>
+  )
+
+  const renderTransactionSkeleton = () => (
+    <div className="space-y-2 py-2">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={`earning-transaction-skeleton-${index}`} className="grid grid-cols-6 gap-3">
+          <Skeleton className="h-9 col-span-1" />
+          <Skeleton className="h-9 col-span-2" />
+          <Skeleton className="h-9 col-span-1" />
+          <Skeleton className="h-9 col-span-1" />
+          <Skeleton className="h-9 col-span-1" />
+        </div>
+      ))}
+    </div>
+  )
 
   useEffect(() => {
     if (!user) return
@@ -136,12 +196,7 @@ export function InstructorEarningsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-20 flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">{t('instructor_earnings_page.loading')}</p>
-      </div>
-    )
+    return renderEarningsSkeleton()
   }
 
   if (error) {
@@ -168,24 +223,52 @@ export function InstructorEarningsPage() {
   const transactionEnd = Math.min(transactionsPage * TRANSACTIONS_PER_PAGE, transactionsTotalCount)
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
+    <motion.div className="container mx-auto px-4 py-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <h1 className="text-2xl font-bold mb-1">{t('instructor_earnings_page.title')}</h1>
         <p className="text-muted-foreground">{t('instructor_earnings_page.subtitle')}</p>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalNet)}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.total_net_income')}</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><Calendar className="h-8 w-8 text-blue-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalAmount)}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.total_gross_revenue')}</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><ShoppingCart className="h-8 w-8 text-purple-500" /><div><p className="text-2xl font-bold">{summary?.retail.count ?? 0}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.retail')}</p></div></div></CardContent></Card>
-        <Card><CardContent className="p-6"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-orange-500" /><div><p className="text-2xl font-bold">{summary?.subscription.count ?? 0}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.subscription_plan')}</p></div></div></CardContent></Card>
-      </div>
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" variants={fadeInUp}>
+        <Card className="app-interactive"><CardContent className="p-6"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalNet)}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.total_net_income')}</p></div></div></CardContent></Card>
+        <Card className="app-interactive"><CardContent className="p-6"><div className="flex items-center gap-3"><Calendar className="h-8 w-8 text-blue-500" /><div><p className="text-2xl font-bold">{formatEarningVND(totalAmount)}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.total_gross_revenue')}</p></div></div></CardContent></Card>
+        <Card className="app-interactive"><CardContent className="p-6"><div className="flex items-center gap-3"><ShoppingCart className="h-8 w-8 text-purple-500" /><div><p className="text-2xl font-bold">{summary?.retail.count ?? 0}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.retail')}</p></div></div></CardContent></Card>
+        <Card className="app-interactive"><CardContent className="p-6"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-orange-500" /><div><p className="text-2xl font-bold">{summary?.subscription.count ?? 0}</p><p className="text-sm text-muted-foreground">{t('instructor_earnings_page.metrics.subscription_plan')}</p></div></div></CardContent></Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">{t('instructor_earnings_page.tabs.overview')}</TabsTrigger>
-          <TabsTrigger value="courses">{t('instructor_earnings_page.tabs.by_course')}</TabsTrigger>
-          <TabsTrigger value="transactions">{t('instructor_earnings_page.tabs.transactions')}</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-3 p-1">
+          <TabsTrigger value="overview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'overview' && (
+              <motion.span
+                layoutId="instructor-earnings-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_earnings_page.tabs.overview')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="courses" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'courses' && (
+              <motion.span
+                layoutId="instructor-earnings-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_earnings_page.tabs.by_course')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'transactions' && (
+              <motion.span
+                layoutId="instructor-earnings-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_earnings_page.tabs.transactions')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-8">
@@ -206,7 +289,13 @@ export function InstructorEarningsPage() {
           ) : (
             <div className="space-y-4">
               {paginatedCourses.map((cs) => (
-                <Card key={cs.course_id}>
+                <motion.div
+                  key={cs.course_id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={listItemTransition(paginatedCourses.findIndex((c) => c.course_id === cs.course_id))}
+                >
+                <Card className="app-interactive">
                   <CardContent className="p-6">
                     <h3 className="font-semibold mb-3">{cs.title}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
@@ -218,6 +307,7 @@ export function InstructorEarningsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               ))}
               <UserPagination currentPage={coursesPage} totalPages={courseTotalPages} onPageChange={setCoursesPage} />
             </div>
@@ -256,7 +346,7 @@ export function InstructorEarningsPage() {
             </CardHeader>
             <CardContent>
               {transactionsLoading ? (
-                <div className="py-10 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+                renderTransactionSkeleton()
               ) : transactions.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">{t('instructor_earnings_page.empty.no_transactions')}</p>
               ) : (
@@ -301,6 +391,7 @@ export function InstructorEarningsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

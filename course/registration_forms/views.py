@@ -70,6 +70,9 @@ class RegistrationFormPublicView(APIView):
             form = get_active_form_by_type(form_type)
             return Response(form, status=status.HTTP_200_OK)
         except ValidationError as e:
+            error_detail = e.detail.get('error') if isinstance(e.detail, dict) else ''
+            if isinstance(error_detail, str) and error_detail.startswith('No active form found'):
+                return Response(None, status=status.HTTP_200_OK)
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 

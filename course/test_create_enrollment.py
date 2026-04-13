@@ -7,7 +7,7 @@ from users.models import User
 from courses.models import Course
 from enrollments.services import create_enrollment
 
-# Pick a student user
+
 student = User.objects.filter(user_type='student').first()
 free_course = Course.objects.filter(price__in=[0, '0', None]).first()
 print('student', student and student.id)

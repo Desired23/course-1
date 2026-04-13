@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -14,16 +14,16 @@ import { Card, CardContent } from './ui/card'
 import { Checkbox } from './ui/checkbox'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { ScrollArea } from './ui/scroll-area'
-import { 
-  CheckCircle2, 
-  ChevronRight, 
-  ChevronLeft, 
-  X, 
-  Plus, 
-  Image as ImageIcon, 
-  Code, 
-  FileText, 
-  Settings, 
+import {
+  CheckCircle2,
+  ChevronRight,
+  ChevronLeft,
+  X,
+  Plus,
+  Image as ImageIcon,
+  Code,
+  FileText,
+  Settings,
   AlertCircle,
   Trash2,
   GripVertical,
@@ -36,7 +36,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useTranslation } from 'react-i18next'
 
-// Re-defining QuizQuestion to match InstructorQuizzesPage
+
 export interface QuizQuestion {
   id: string
   question: string
@@ -60,14 +60,14 @@ interface QuestionWizardProps {
   questionOrder: number
 }
 
-// Draggable Test Case Component (Internal)
-function DraggableTestCase({ 
-  testCase, 
-  index, 
-  onUpdate, 
-  onDelete, 
-  onMove 
-}: { 
+
+function DraggableTestCase({
+  testCase,
+  index,
+  onUpdate,
+  onDelete,
+  onMove
+}: {
   testCase: TestCase
   index: number
   onUpdate: (index: number, updated: TestCase) => void
@@ -120,12 +120,12 @@ function DraggableTestCase({
                   </Button>
                 </div>
               </div>
-              
+
               {isExpanded && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs text-muted-foreground">{t('question_wizard.test_case.input')}</Label>
-                    <Textarea 
+                    <Textarea
                       value={testCase.input}
                       onChange={(e) => onUpdate(index, { ...testCase, input: e.target.value })}
                       className="font-mono text-xs mt-1 h-16"
@@ -134,7 +134,7 @@ function DraggableTestCase({
                   </div>
                   <div>
                     <Label className="text-xs text-muted-foreground">{t('question_wizard.test_case.output')}</Label>
-                    <Textarea 
+                    <Textarea
                       value={testCase.expectedOutput}
                       onChange={(e) => onUpdate(index, { ...testCase, expectedOutput: e.target.value })}
                       className="font-mono text-xs mt-1 h-16"
@@ -160,18 +160,18 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
     { id: 'media', title: t('question_wizard.steps.media'), icon: ImageIcon },
     { id: 'review', title: t('question_wizard.steps.review'), icon: CheckCircle2 },
   ]
-  
-  // Base State
+
+
   const [questionText, setQuestionText] = useState('')
   const [type, setType] = useState<'single' | 'multiple' | 'text' | 'code'>('single')
   const [points, setPoints] = useState(10)
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium')
-  
-  // Content State (Options)
+
+
   const [options, setOptions] = useState<string[]>(['', '', '', ''])
   const [correctAnswer, setCorrectAnswer] = useState<string | string[]>('')
-  
-  // Enhanced Code Quiz Data State
+
+
   const [codeData, setCodeData] = useState<EnhancedCodeQuizData>({
     title: '',
     problemStatement: { description: '', inputFormat: '', outputFormat: '' },
@@ -185,7 +185,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
     points: 10
   })
 
-  // Media State
+
   const [explanation, setExplanation] = useState('')
   const [image, setImage] = useState('')
   const [codeSnippet, setCodeSnippet] = useState('')
@@ -202,13 +202,13 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       setImage(initialQuestion.image || '')
       setCodeSnippet(initialQuestion.code || '')
       setCodeSnippetLang(initialQuestion.codeLanguage || 'javascript')
-      
+
       if (initialQuestion.enhancedCodeQuizData) {
         setCodeData(initialQuestion.enhancedCodeQuizData)
-        // Sync code title with question text if needed, but keep them separate for flexibility
+
       }
     } else if (isOpen && !initialQuestion) {
-      // Reset
+
       setCurrentStep(0)
       setQuestionText('')
       setType('single')
@@ -218,7 +218,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       setExplanation('')
       setImage('')
       setCodeSnippet('')
-      // Reset code data
+
       setCodeData({
         title: '',
         problemStatement: { description: '', inputFormat: '', outputFormat: '' },
@@ -263,29 +263,29 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       correctAnswer: type !== 'code' ? correctAnswer : undefined,
       enhancedCodeQuizData: type === 'code' ? {
         ...codeData,
-        title: questionText, // Sync title
-        points: points, // Sync points
-        learningObjectives: { ...codeData.learningObjectives, difficulty } // Sync difficulty
+        title: questionText,
+        points: points,
+        learningObjectives: { ...codeData.learningObjectives, difficulty }
       } : undefined
     }
     onSave(question)
     onClose()
   }
 
-  // --- Render Steps ---
+
 
   const renderConfigStep = () => (
     <div className="space-y-4 py-2">
       <div className="space-y-2">
         <Label>{t('question_wizard.config.question_text')}</Label>
-        <Textarea 
-          value={questionText} 
-          onChange={e => setQuestionText(e.target.value)} 
+        <Textarea
+          value={questionText}
+          onChange={e => setQuestionText(e.target.value)}
           placeholder={t('question_wizard.config.question_text_placeholder')}
           rows={3}
         />
       </div>
-      
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t('question_wizard.config.question_type')}</Label>
@@ -301,7 +301,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
             </SelectContent>
           </Select>
         </div>
-        
+
         <div className="space-y-2">
           <Label>{t('question_wizard.config.difficulty')}</Label>
           <Select value={difficulty} onValueChange={(v: any) => setDifficulty(v)}>
@@ -318,11 +318,11 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
 
         <div className="space-y-2">
           <Label>{t('question_wizard.config.points')}</Label>
-          <Input 
-            type="number" 
-            min={1} 
-            value={points} 
-            onChange={e => setPoints(parseInt(e.target.value) || 0)} 
+          <Input
+            type="number"
+            min={1}
+            value={points}
+            onChange={e => setPoints(parseInt(e.target.value) || 0)}
           />
         </div>
       </div>
@@ -357,7 +357,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
                 <Plus className="h-3 w-3 mr-1" /> {t('question_wizard.content.add_case')}
               </Button>
             </div>
-            
+
             <div className="max-h-[300px] overflow-y-auto pr-2">
                 {codeData.testCases.length === 0 ? (
                   <div className="text-center py-8 border border-dashed rounded-lg text-muted-foreground text-sm">
@@ -365,9 +365,9 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
                   </div>
                 ) : (
                   codeData.testCases.map((tc, idx) => (
-                    <DraggableTestCase 
-                      key={tc.id} 
-                      testCase={tc} 
+                    <DraggableTestCase
+                      key={tc.id}
+                      testCase={tc}
                       index={idx}
                       onUpdate={(i, updated) => {
                         const newCases = [...codeData.testCases]
@@ -392,7 +392,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       )
     }
 
-    // Standard Options Logic
+
     if (type === 'text') {
       return (
         <div className="py-8 text-center border border-dashed rounded-lg bg-muted/20">
@@ -418,7 +418,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
                     <RadioGroupItem value={opt} id={`opt-${idx}`} disabled={!opt} />
                   </RadioGroup>
                 ) : (
-                  <Checkbox 
+                  <Checkbox
                     checked={(correctAnswer as string[] || []).includes(opt)}
                     onCheckedChange={(checked) => {
                       const current = (correctAnswer as string[]) || []
@@ -429,8 +429,8 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
                   />
                 )}
               </div>
-              <Input 
-                value={opt} 
+              <Input
+                value={opt}
                 onChange={e => {
                   const newOpts = [...options]
                   newOpts[idx] = e.target.value
@@ -457,28 +457,28 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
     <div className="space-y-4 py-2">
       <div className="space-y-2">
         <Label>{t('question_wizard.resources.explanation')}</Label>
-        <Textarea 
-          value={explanation} 
-          onChange={e => setExplanation(e.target.value)} 
+        <Textarea
+          value={explanation}
+          onChange={e => setExplanation(e.target.value)}
           placeholder={t('question_wizard.resources.explanation_placeholder')}
           rows={4}
         />
       </div>
-      
+
       <div className="space-y-2">
         <Label>{t('question_wizard.resources.image_url')}</Label>
-        <Input 
-          value={image} 
-          onChange={e => setImage(e.target.value)} 
+        <Input
+          value={image}
+          onChange={e => setImage(e.target.value)}
           placeholder="https://..."
         />
       </div>
 
       <div className="space-y-2">
         <Label>{t('question_wizard.resources.code_snippet')}</Label>
-        <Textarea 
-          value={codeSnippet} 
-          onChange={e => setCodeSnippet(e.target.value)} 
+        <Textarea
+          value={codeSnippet}
+          onChange={e => setCodeSnippet(e.target.value)}
           placeholder={t('question_wizard.resources.code_snippet_placeholder')}
           className="font-mono text-sm"
           rows={4}
@@ -545,7 +545,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
           </DialogDescription>
         </DialogHeader>
 
-        {/* Steps Indicator */}
+
         <div className="px-6 py-2 bg-muted/20 border-b">
           <div className="flex items-center justify-between">
             {steps.map((step, idx) => {
@@ -554,10 +554,10 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
               const isCompleted = idx < currentStep
               return (
                 <div key={step.id} className="flex flex-col items-center gap-1 z-10 relative">
-                   <div 
+                   <div
                     className={`
                       w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300
-                      ${isActive ? 'bg-primary text-primary-foreground scale-110' : 
+                      ${isActive ? 'bg-primary text-primary-foreground scale-110' :
                         isCompleted ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}
                     `}
                   >
@@ -569,13 +569,13 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
                 </div>
               )
             })}
-            {/* Progress Bar Background */}
-            <div className="absolute left-6 right-6 top-[78px] h-[2px] bg-muted -z-0 hidden md:block" /> 
-            {/* Note: positioning absolute for progress bar requires relative parent which isn't easy with flex-between. Skipping bar for simplicity or need custom css */}
+
+            <div className="absolute left-6 right-6 top-[78px] h-[2px] bg-muted -z-0 hidden md:block" />
+
           </div>
         </div>
 
-        {/* Content Area */}
+
         <ScrollArea className="flex-1 p-6">
           <AnimatePresence mode="wait">
             <motion.div

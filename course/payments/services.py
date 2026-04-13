@@ -49,7 +49,7 @@ PAYMENT_ADMIN_CONFIGS = {
 
 
 def create_payment(payment_data):
-    # Khóa mốc thời gian ngay khi bắt đầu để tránh độ trễ ảnh hưởng tính giá
+
     payment_time = timezone.now()
     try:
         with transaction.atomic():
@@ -57,10 +57,10 @@ def create_payment(payment_data):
             payment_method = payment_data.get("payment_method")
             payment_type = payment_data.get("payment_type", "course_purchase")
             payment_detail_input = payment_data.get("payment_details", [])
-            promotion_id = payment_data.get("promotion_id")  # ADMIN-level promotion
+            promotion_id = payment_data.get("promotion_id")
             billing_cycle = str(payment_data.get("billing_cycle", "monthly")).lower()
 
-            # Subscription payments cannot use promotions
+
             if payment_type == "subscription":
                 if promotion_id:
                     raise ValidationError("Thanh toán gói subscription không được áp dụng mã giảm giá.")
@@ -104,7 +104,7 @@ def create_payment(payment_data):
                     total_discount = Decimal("0.00")
                     total_amount = total_original
             else:
-                # Tính chi tiết từng khóa học
+
                 for item in payment_detail_input:
                     course_id = item.get("course_id")
                     detail_promotion_id = item.get("promotion_id")
@@ -116,7 +116,7 @@ def create_payment(payment_data):
                     except Course.DoesNotExist:
                         raise ValidationError(f"Course ID {course_id} không tồn tại.")
 
-                    # Kiểm tra user đã sở hữu khóa học chưa (đã enroll active/complete)
+
                     already_enrolled = Enrollment.objects.filter(
                         user_id=user_id,
                         course_id=course_id,
@@ -130,7 +130,7 @@ def create_payment(payment_data):
 
                     courses_detail.append(course)
 
-                    # Tính giá thực tế: ưu tiên discount_price nếu đang trong thời gian giảm giá
+
                     original_price = Decimal(course.price)
                     if (
                         course.discount_price
@@ -144,7 +144,7 @@ def create_payment(payment_data):
                         price = original_price
                     discount = Decimal("0.0")
 
-                    # Áp dụng promotion của instructor (nếu có)
+
                     if detail_promotion_id:
                         try:
                             promotion = Promotion.objects.get(id=detail_promotion_id)
@@ -159,14 +159,14 @@ def create_payment(payment_data):
                             if promotion.usage_limit and promotion.used_count >= promotion.usage_limit:
                                 raise ValidationError(f"Khuyến mãi ID {detail_promotion_id} đã hết lượt sử dụng.")
 
-                            # kiểm tra hợp lệ
+
                             course_valid = promotion.applicable_courses.filter(pk=course.pk).exists()
 
                             if not (course_valid):
                                 raise ValidationError(
                                     f"Khuyến mãi ID {promotion.id} không áp dụng cho khóa học {course.title}"
                                 )
-                            # Tính discount
+
                             if promotion.discount_type == Promotion.DiscountTypeChoices.PERCENTAGE:
                                 discount = price * Decimal(promotion.discount_value) / 100
                             elif promotion.discount_type == Promotion.DiscountTypeChoices.FIXED_AMOUNT:
@@ -190,7 +190,7 @@ def create_payment(payment_data):
                         "promotion": detail_promotion_id
                     })
 
-            # Áp dụng promotion cho toàn đơn hàng nếu có (admin-level)
+
             admin_discount = Decimal("0.0")
             if promotion_id:
                 try:
@@ -198,8 +198,8 @@ def create_payment(payment_data):
 
                     if not promotion.admin:
                         raise ValidationError("Mã giảm giá không hợp lệ (chỉ admin mới áp dụng toàn đơn hàng).")
-                    
-                    # Kiểm tra tất cả courses trong đơn hàng đều thuộc category được áp dụng
+
+
                     applicable_category_ids = set(
                         promotion.applicable_categories.values_list('pk', flat=True)
                     )
@@ -232,7 +232,7 @@ def create_payment(payment_data):
                 total_discount += admin_discount
                 total_amount = total_original - total_discount
 
-            # Tạo payment
+
             transaction_id = generate_unique_transaction_id()
             payment_serializer = PaymentCreateSerializer(data={
                 "user": user_id,
@@ -253,7 +253,7 @@ def create_payment(payment_data):
             payment = Payment.objects.get(transaction_id=transaction_id)
             payment_details_data = []
             if payment_detail_arr:
-                # Gán payment vào từng chi tiết
+
                 for detail in payment_detail_arr:
                     detail["payment"] = payment.id
 
@@ -265,16 +265,16 @@ def create_payment(payment_data):
                 payment_details_data = payment_detail_serializer.data
             used_promotions = set()
 
-            # Thêm promotion của từng khóa học
+
             for detail in payment_detail_arr:
                 if detail.get("promotion"):
                     used_promotions.add(detail["promotion"])
 
-            # Thêm promotion toàn đơn
+
             if promotion_id:
                 used_promotions.add(promotion_id)
 
-            # Cập nhật used_count
+
             for promo_id in used_promotions:
                 try:
                     promo = Promotion.objects.select_for_update().get(id=promo_id)
@@ -282,7 +282,7 @@ def create_payment(payment_data):
                     promo.save()
                 except Promotion.DoesNotExist:
                     raise ValidationError(f"Khuyến mãi ID {promo_id} không tồn tại khi cập nhật lượt dùng.")
-            # Xoá giỏ hàng của user sau khi thanh toán thành công
+
             log_activity(
                 user_id=user_id,
                 action="PAYMENT_INITIATED",
@@ -318,7 +318,7 @@ def get_payment_status(payment_id, user):
         ).first()
 
         course_obj = detail.course
-        # gather metadata that frontend may want
+
         thumbnail = getattr(course_obj, "thumbnail", None) if course_obj else None
         slug = getattr(course_obj, "slug", None) if course_obj else None
         instructor_name = None
@@ -369,9 +369,9 @@ def get_payment_status(payment_id, user):
     }
 
 
-# ---------------------------------------------------------------------------
-# administration helpers
-# ---------------------------------------------------------------------------
+
+
+
 
 def list_admin_payments(problematic: bool = False):
     """Return a list of payments with minimal metadata for admin dashboards.
@@ -391,7 +391,7 @@ def list_admin_payments(problematic: bool = False):
     from enrollments.models import Enrollment
 
     qs = Payment.objects.filter(is_deleted=False)
-    # only completed payments can be problematic, but admin may want to see all
+
     if problematic:
         qs = qs.filter(payment_status=Payment.PaymentStatus.COMPLETED)
 
@@ -415,7 +415,7 @@ def list_admin_payments(problematic: bool = False):
                 has_problem_flag = True
         if problematic and not has_problem_flag:
             continue
-        # flatten some commonly used fields to keep frontend simpler
+
         first_course = course_list[0] if course_list else {}
         instructor_name = None
         if details and details[0].course and hasattr(details[0].course, 'instructor') and details[0].course.instructor:
@@ -458,7 +458,7 @@ def fix_payment(payment_id):
     created_earnings = 0
 
     with transaction.atomic():
-        # enrollments
+
         details = Payment_Details.objects.filter(payment=payment, is_deleted=False).select_related('course')
         for detail in details:
             if not detail.course:
@@ -484,7 +484,7 @@ def fix_payment(payment_id):
                     existing.source = Enrollment.Source.PURCHASE
                 existing.save(update_fields=["payment", "source", "updated_at"])
 
-        # earnings
+
         for detail in details:
             if not detail.course:
                 continue
@@ -506,7 +506,7 @@ def check_enrollment_by_course(course_id, user):
     except Course.DoesNotExist:
         raise ValidationError(f"Course ID {course_id} không tồn tại.")
 
-    # Find the latest payment detail for this course & user
+
     payment_detail = (
         Payment_Details.objects
         .filter(course_id=course_id, payment__user=user, payment__is_deleted=False, is_deleted=False)

@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react"
+import { motion } from "motion/react"
 import {
   Activity,
   Award,
@@ -199,16 +200,23 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       <Tooltip key={item.href}>
         <TooltipTrigger asChild>
           <Button
-            variant={active ? "secondary" : "ghost"}
+            variant="ghost"
             className={cn(
-              "w-full gap-3 transition-all",
+              "relative w-full gap-3 overflow-hidden transition-all",
               sidebarCollapsed ? "justify-center px-2" : "justify-start",
-              active && "bg-secondary"
+              active && "text-foreground"
             )}
             onClick={() => goTo(item.href)}
           >
-            {item.icon}
-            {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
+            {active && (
+              <motion.span
+                layoutId={`sidebar-glider-${type}`}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-secondary"
+              />
+            )}
+            <span className="relative z-10 flex items-center justify-center">{item.icon}</span>
+            {!sidebarCollapsed && <span className="relative z-10 truncate">{item.label}</span>}
           </Button>
         </TooltipTrigger>
         {sidebarCollapsed && (

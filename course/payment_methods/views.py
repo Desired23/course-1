@@ -104,7 +104,7 @@ class UserPaymentMethodSetDefaultView(APIView):
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ─── Instructor Payout Methods ───────────────────────────────────────────────
+
 
 class InstructorPayoutMethodListCreateView(APIView):
     """

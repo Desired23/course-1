@@ -5,7 +5,7 @@ from .models import InstructorLevel
 from .serializers import InstructorLevelSerializer
 
 
-# ─── CRUD ────────────────────────────────────────────────────────────────────
+
 
 def list_instructor_levels():
     return InstructorLevel.objects.filter(is_deleted=False).order_by('min_plan_minutes', 'min_revenue')
@@ -42,7 +42,7 @@ def delete_instructor_level(level_id: int, deleted_by_user):
     return {"detail": "Đã xóa InstructorLevel."}
 
 
-# ─── LEVEL UPGRADE (dựa trên tổng phút học qua plan) ─────────────────────────
+
 
 def check_and_upgrade_instructor_levels():
     """
@@ -54,7 +54,7 @@ def check_and_upgrade_instructor_levels():
     from instructors.models import Instructor
     from subscription_plans.models import SubscriptionUsage
 
-    # Lấy tất cả level, sắp xếp từ cao → thấp
+
     levels = list(
         InstructorLevel.objects.filter(is_deleted=False, min_plan_minutes__gt=0)
         .order_by('-min_plan_minutes')
@@ -62,7 +62,7 @@ def check_and_upgrade_instructor_levels():
     if not levels:
         return {"upgraded": [], "detail": "Không có level nào có ngưỡng min_plan_minutes > 0."}
 
-    # Tính tổng consumed_minutes cho từng instructor
+
     usage_agg = (
         SubscriptionUsage.objects
         .values('course__instructor__id')
@@ -82,7 +82,7 @@ def check_and_upgrade_instructor_levels():
             except Instructor.DoesNotExist:
                 continue
 
-            # Tìm level phù hợp cao nhất (min_plan_minutes <= total_minutes)
+
             target_level = None
             for lvl in levels:
                 if total_minutes >= lvl.min_plan_minutes:
@@ -92,7 +92,7 @@ def check_and_upgrade_instructor_levels():
             if target_level is None:
                 continue
 
-            # Chỉ nâng, không hạ
+
             current_min = instructor.level.min_plan_minutes if instructor.level else -1
             if target_level.min_plan_minutes > current_min:
                 old_level_name = instructor.level.name if instructor.level else 'Chưa có'

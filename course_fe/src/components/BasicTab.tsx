@@ -57,13 +57,13 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
   const { t } = useTranslation()
   const [isQuizInfoOpen, setIsQuizInfoOpen] = useState(false)
   const [isVideoInfoOpen, setIsVideoInfoOpen] = useState(false)
-  
+
   const contentType = lesson.content_type || lesson.type
   const currentType = CONTENT_TYPES.find(t => t.value === contentType) || CONTENT_TYPES[0]
 
   return (
     <div className="space-y-6">
-      {/* Lesson Title */}
+
       <div className="space-y-2">
         <Label htmlFor="title">{t('lesson_editor.lesson_title')}</Label>
         <Input
@@ -78,7 +78,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         </p>
       </div>
 
-      {/* Content Type */}
+
       <div className="space-y-2">
         <Label htmlFor="content-type">{t('lesson_editor.content_type')}</Label>
         <Select
@@ -106,9 +106,9 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         </Select>
       </div>
 
-      {/* 2 Column Layout: Duration & Status */}
+
       <div className="grid grid-cols-2 gap-4">
-        {/* Duration */}
+
         <div className="space-y-2">
           <Label htmlFor="duration">
             <Clock className="h-3.5 w-3.5 inline mr-1" />
@@ -125,7 +125,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
           </p>
         </div>
 
-        {/* Status */}
+
         <div className="space-y-2">
           <Label htmlFor="status">{t('lesson_editor.publication_status')}</Label>
           <Select
@@ -153,7 +153,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         </div>
       </div>
 
-      {/* Description */}
+
       <div className="space-y-2">
         <Label htmlFor="description">{t('lesson_editor.description')}</Label>
         <Textarea
@@ -169,7 +169,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         </p>
       </div>
 
-      {/* Free Preview Toggle */}
+
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
@@ -193,7 +193,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         </div>
       </Card>
 
-      {/* Quiz-specific info */}
+
       {contentType === 'quiz' && (
         <Collapsible open={isQuizInfoOpen} onOpenChange={setIsQuizInfoOpen}>
           <Card className="overflow-hidden border-orange-500/20 bg-orange-500/5">
@@ -215,7 +215,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
                 )}
               </div>
             </CollapsibleTrigger>
-            
+
             <CollapsibleContent>
               <div className="px-3 pb-3 pt-1">
                 <div className="text-xs text-muted-foreground space-y-1">
@@ -229,7 +229,7 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
         </Collapsible>
       )}
 
-      {/* Video-specific info */}
+
       {contentType === 'video' && (
         <Card className="overflow-hidden border-purple-500/20 bg-purple-500/5">
           <div className="p-3">

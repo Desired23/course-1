@@ -17,23 +17,23 @@ class LearningProgressUpdateView(APIView):
     """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
-    
+
     def post(self, request):
         try:
             user_id = request.user.id
             lesson_id = request.data.get('lesson_id')
-            
+
             if not lesson_id:
                 raise ValidationError({"lesson_id": "lesson_id is required."})
-            
+
             progress_data = {}
             for field in ['progress_percentage', 'time_spent', 'is_completed', 'last_position', 'notes']:
                 if field in request.data:
                     progress_data[field] = request.data.get(field)
-            
+
             result = update_learning_progress(user_id, lesson_id, progress_data)
             return Response(result, status=status.HTTP_201_CREATED)
-        
+
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -42,19 +42,19 @@ class LearningProgressUpdateView(APIView):
 class LearningProgressDetailView(APIView):
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
-    
+
     def put(self, request, lesson_id):
         try:
             user_id = request.user.id
-            
+
             progress_data = {}
             for field in ['progress_percentage', 'time_spent', 'is_completed', 'last_position', 'notes']:
                 if field in request.data:
                     progress_data[field] = request.data.get(field)
-            
+
             result = update_lesson_progress(lesson_id, user_id, progress_data)
             return Response(result, status=status.HTTP_200_OK)
-        
+
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
@@ -68,13 +68,13 @@ class CourseProgressView(APIView):
     """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
-    
+
     def get(self, request, course_id):
         try:
             user_id = request.user.id
             result = get_course_progress(user_id, course_id)
             return Response(result, status=status.HTTP_200_OK)
-        
+
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

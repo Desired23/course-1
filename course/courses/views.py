@@ -8,11 +8,12 @@ from .services import (
     delete_course,
     get_all_courses,
     get_course_by_id,
-    get_public_stats
+    get_public_stats,
+    get_course_students,
 )
 from utils.permissions import RolePermissionFactory
 from .serializers import CourseSerializer
-from utils.pagination import paginate_queryset
+from utils.pagination import paginate_queryset, StandardPagination
 from django.conf import settings
 import jwt
 from users.models import User
@@ -95,8 +96,8 @@ class CourseListView(APIView):
         self.check_permissions(request)
         try:
             payload = request.data.copy()
-            # Security/data consistency: instructor-created courses must always
-            # belong to the authenticated instructor (not client-provided id).
+
+
             if hasattr(request.user, 'instructor') and request.user.instructor:
                 payload['instructor'] = request.user.instructor.id
             course = create_course(payload)
@@ -121,12 +122,12 @@ class CourseListView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
-        
+
 class CourseDetailView(APIView):
     throttle_scope = 'search'
     def get(self, request, course_id):
         try:
-            # Optional JWT: parse token if present (public endpoint, no 401 if missing)
+
             user = None
             auth_header = request.headers.get("Authorization", "")
             if auth_header.startswith("Bearer "):
@@ -135,8 +136,22 @@ class CourseDetailView(APIView):
                     payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
                     user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
                 except Exception:
-                    user = None  # invalid/expired token → treat as anonymous
+                    user = None
             course = get_course_by_id(course_id, user=user)
             return Response(course, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CourseStudentsView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'search'
+
+    def get(self, request, course_id):
+        try:
+            students = get_course_students(course_id)
+            paginator = StandardPagination()
+            page = paginator.paginate_queryset(students, request)
+            return paginator.get_paginated_response(page)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)

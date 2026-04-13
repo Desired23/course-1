@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Course
 from instructors.models import Instructor
 from categories.models import Category
-from instructors.serializers import InstructorSerializers  # giả sử đã có sẵn
+from instructors.serializers import InstructorSerializers
 
 from lessons.video_signing import build_signed_video_url
 from transcripts.services import (
@@ -93,7 +93,7 @@ class CourseSerializer(serializers.ModelSerializer):
         return round(obj.duration / 60, 2)
 
 
-# ---- Nested serializers for detail response ----
+
 
 class InstructorSummarySerializer(serializers.Serializer):
     """Lightweight instructor info for course detail"""
@@ -282,7 +282,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         """
         user = self.context.get('user')
         if not user:
-            # Check if course is in any subscription plan (for anonymous users)
+
             from subscription_plans.models import PlanCourse
             in_sub = PlanCourse.objects.filter(
                 course=obj, status='active', is_deleted=False,

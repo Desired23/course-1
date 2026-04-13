@@ -40,6 +40,28 @@ const initialData: CourseData = {
   price: '', thumbnail: '', whatYouWillLearn: [''], requirements: [''], targetAudience: [''], skillsTaught: [''], prerequisites: [''],
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function InstructorCreateCoursePage() {
   const { navigate } = useRouter()
   const { user } = useAuth()
@@ -199,15 +221,21 @@ export function InstructorCreateCoursePage() {
   )
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
-      <div className="mb-6 md:mb-8">
+    <motion.div
+      className="container mx-auto px-4 py-6 md:py-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-6 md:mb-8" variants={fadeInUp}>
         <Button variant="ghost" onClick={() => navigate('/instructor/courses')} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />{t('instructor_create_course_page.back_to_courses')}
         </Button>
         <h1 className="mb-2">{t('instructor_create_course_page.title')}</h1>
         <p className="text-muted-foreground">{t('instructor_create_course_page.subtitle')}</p>
-      </div>
-      <div className="mb-8">
+      </motion.div>
+      <motion.div className="mb-8" variants={fadeInUp}>
         <div className="flex items-center justify-between mb-4">
           <h2>{t('instructor_create_course_page.step_counter', { current: currentStep, total: totalSteps })}</h2>
           <Badge variant="outline">{t('instructor_create_course_page.progress_complete', { percent: Math.round(progress) })}</Badge>
@@ -226,8 +254,8 @@ export function InstructorCreateCoursePage() {
             )
           })}
         </div>
-      </div>
-      <div className="max-w-4xl mx-auto">
+      </motion.div>
+      <motion.div className="max-w-4xl mx-auto" variants={fadeInUp}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div key={currentStep} custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}>
             {currentStep === 1 && (
@@ -372,7 +400,8 @@ export function InstructorCreateCoursePage() {
             </ul>
           </CardContent>
         </Card>
-      </div>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -5,11 +5,13 @@ import { useRouter } from "../../components/Router"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Progress } from "../../components/ui/progress"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Input } from "../../components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { UserPagination } from "../../components/UserPagination"
+import { motion } from 'motion/react'
 import {
   BookOpen,
   Users,
@@ -22,6 +24,29 @@ import {
 } from 'lucide-react'
 import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
 import { getCourses, type CourseListItem, formatPrice, parseDecimal } from '../../services/course.api'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function InstructorDashboard() {
   const { user, hasRole } = useAuth()
@@ -31,6 +56,7 @@ export function InstructorDashboard() {
   const [stats, setStats] = useState<InstructorDashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [listLoading, setListLoading] = useState(false)
+  const [selectedTab, setSelectedTab] = useState<'courses' | 'analytics' | 'earnings'>('courses')
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -41,6 +67,38 @@ export function InstructorDashboard() {
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [editCourseId, setEditCourseId] = useState<number | null>(null)
+
+  const renderDashboardSkeleton = () => (
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`instructor-dashboard-skeleton-${index}`} className="rounded-lg border bg-card p-5 space-y-3">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border bg-card p-5 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    </div>
+  )
+
+  const renderCourseListSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: itemsPerPage }).map((_, index) => (
+        <div key={`instructor-dashboard-course-skeleton-${index}`} className="rounded-lg border bg-card p-4 space-y-3">
+          <Skeleton className="h-6 w-1/2" />
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  )
 
   useEffect(() => {
     if (!hasRole('instructor')) return
@@ -173,11 +231,7 @@ export function InstructorDashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    return renderDashboardSkeleton()
   }
 
   if (error || !stats) {
@@ -194,9 +248,9 @@ export function InstructorDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
+    <motion.div className="p-4 md:p-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={fadeInUp}>
+        <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('instructor_dashboard.total_courses')}</CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
@@ -212,7 +266,7 @@ export function InstructorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('instructor_dashboard.total_students')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -225,7 +279,7 @@ export function InstructorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('instructor_dashboard.total_earnings')}</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -240,7 +294,7 @@ export function InstructorDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('instructor_dashboard.avg_rating')}</CardTitle>
             <Star className="h-4 w-4 text-muted-foreground" />
@@ -255,17 +309,45 @@ export function InstructorDashboard() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="courses" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="courses">{t('instructor_dashboard.courses_tab')}</TabsTrigger>
-          <TabsTrigger value="analytics">{t('instructor_dashboard.analytics_tab')}</TabsTrigger>
-          <TabsTrigger value="earnings">{t('instructor_dashboard.earnings_tab')}</TabsTrigger>
+      <motion.div variants={fadeInUp}>
+      <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'courses' | 'analytics' | 'earnings')} className="space-y-6">
+        <TabsList className="relative p-1">
+          <TabsTrigger value="courses" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'courses' && (
+              <motion.span
+                layoutId="instructor-dashboard-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_dashboard.courses_tab')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'analytics' && (
+              <motion.span
+                layoutId="instructor-dashboard-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_dashboard.analytics_tab')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="earnings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'earnings' && (
+              <motion.span
+                layoutId="instructor-dashboard-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_dashboard.earnings_tab')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="courses" className="space-y-6">
-          <Card>
+          <Card className="app-surface-elevated">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{t('instructor_dashboard.course_management')}</CardTitle>
@@ -306,22 +388,26 @@ export function InstructorDashboard() {
 
               <div className="space-y-4">
                 {listLoading ? (
-                  <div className="min-h-[160px] flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
+                  renderCourseListSkeleton()
                 ) : courses.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">
                     {t('instructor_dashboard.empty_courses')}
                   </p>
                 ) : (
-                  courses.map((course) => {
+                  courses.map((course, index) => {
                     const extra = courseStatsMap.get(course.id)
                     const completionRate = extra?.completion_rate ?? 0
                     const newStudentsThisMonth = extra?.new_students_this_month ?? 0
                     const earnings = extra?.earnings ?? parseDecimal(course.price)
 
                     return (
-                      <div key={course.id} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg">
+                      <motion.div
+                        key={course.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={listItemTransition(index)}
+                        className="app-interactive flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg"
+                      >
                         <div className="flex-1 w-full">
                           <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-2 gap-2">
                             <div>
@@ -371,7 +457,7 @@ export function InstructorDashboard() {
                             </p>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                     )
                   })
                 )}
@@ -482,6 +568,7 @@ export function InstructorDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
 
       <Dialog open={editCourseId !== null} onOpenChange={(open) => !open && handleCloseEditChoice()}>
         <DialogContent>
@@ -501,6 +588,6 @@ export function InstructorDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

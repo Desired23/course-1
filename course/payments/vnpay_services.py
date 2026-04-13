@@ -22,19 +22,19 @@ from instructor_earnings.models import InstructorEarning
 from utils.mailer.mailer import send_payment_invoice
 from activity_logs.services import log_activity
 from .services import ensure_payment_retryable
-# from orders.models import Order
-# VNPAY cấu hình
+
+
 
 vnp_TmnCode = settings.VNPAY_TMN_CODE
 vnp_HashSecret = settings.VNPAY_HASH_SECRET_KEY
 vnp_Url =  settings.VNPAY_URL
-# vnp_Url = 'https://sandbox.vnpayment.vn/paymentv2/vpc
+
 vnp_ReturnUrl = settings.VNPAY_RETURN_URL
 logger = logging.getLogger(__name__)
 
 
 def get_payment_url(vnpay_payment_url, params, secret_key):
-    # Sắp xếp các tham số theo thứ tự alphabet
+
     input_data = sorted(params.items())
     query_string = ''
     seq = 0
@@ -166,20 +166,20 @@ def create_vnpay_payment(request: HttpRequest):
     order_id = data.get('order_id') or datetime.now().strftime('%Y%m%d%H%M%S')
     order_desc = data.get('order_desc', f'Thanh toan don hang {order_id}')
 
-    # Always read the amount from the stored payment — single source of truth
-    # This eliminates FE/BE price mismatch entirely.
+
+
     try:
         payment = Payment.objects.get(id=order_id)
         ensure_payment_retryable(payment)
-        amount = int(payment.total_amount) * 100   # VNPay expects VND * 100
+        amount = int(payment.total_amount) * 100
     except Payment.DoesNotExist:
-        amount = int(data.get('amount', 0)) * 100   # fallback for non-payment flows
+        amount = int(data.get('amount', 0)) * 100
     order_type = data.get('order_type', 'other')
     language = data.get('language', 'vn')
     bank_code = data.get('bank_code')
     ip_address = get_client_ip(request)
 
-    # Lấy thời gian hiện tại theo múi giờ GMT+7
+
     tz = pytz.timezone('Asia/Ho_Chi_Minh')
 
     params = {
@@ -191,7 +191,7 @@ def create_vnpay_payment(request: HttpRequest):
         'vnp_TxnRef': order_id,
         'vnp_OrderInfo': order_desc,
         'vnp_OrderType': order_type,
-        'vnp_ReturnUrl': vnp_ReturnUrl,  # Bỏ order_id khỏi URL nếu trước đó có
+        'vnp_ReturnUrl': vnp_ReturnUrl,
         'vnp_IpAddr': ip_address,
     }
     if language and language != '':
@@ -205,7 +205,7 @@ def create_vnpay_payment(request: HttpRequest):
     params['vnp_IpAddr'] = ip_address
     params['vnp_ReturnUrl'] = vnp_ReturnUrl
     params['vnp_CreateDate'] = datetime.now(tz).strftime('%Y%m%d%H%M%S')
-    # print(f"Creating VNPAY payment with params: {params}")
+
     vn_payment_url = get_payment_url(vnp_Url, params, vnp_HashSecret)
 
     return JsonResponse({'payment_url': vn_payment_url})
@@ -244,10 +244,10 @@ def create_enrollments_from_payment(payment):
     for detail in details:
         course_obj = detail.course
         if not course_obj:
-            # course was deleted; log and continue
+
             print(f"[WARN] PaymentDetail {detail.id} has no course, skipping enrollment")
             continue
-        # Skip if already enrolled
+
         existing = Enrollment.objects.filter(
             user=payment.user, course=course_obj, is_deleted=False
         ).first()
@@ -279,7 +279,7 @@ def payment_return(request):
         vnp = vnpay()
         vnp.responseData = inputData.dict()
         order_id = inputData['vnp_TxnRef']
-        # Use Decimal arithmetic to avoid float precision mismatch
+
         vnp_amount = Decimal(inputData['vnp_Amount']) / Decimal('100')
         amount = vnp_amount
         vnp_TransactionNo = inputData.get('vnp_TransactionNo', '')
@@ -289,9 +289,9 @@ def payment_return(request):
             return HttpResponseRedirect(
                 f"{result_url}?status=error&payment_id={order_id}&message=Invalid+checksum"
             )
-        # IMPORTANT: Browser return should NOT perform DB state changes (enrollments/earnings).
-        # IPN (server-to-server) is authoritative and will update DB. Here we only validate
-        # the checksum and redirect the user back to the frontend with the payment id.
+
+
+
         if vnp_ResponseCode == "00":
             return HttpResponseRedirect(
                 f"{result_url}?status=success&payment_id={order_id}&amount={amount}&transaction={vnp_TransactionNo}"
@@ -330,11 +330,11 @@ def payment_ipn(request):
         vnp_TransactionNo = inputData.get('vnp_TransactionNo', '')
         vnp_ResponseCode = inputData.get('vnp_ResponseCode', '')
 
-        # validate signature first
+
         if not vnp.validate_response(settings.VNPAY_HASH_SECRET_KEY):
             return JsonResponse({'RspCode': '97', 'Message': 'Invalid Signature'})
 
-        # load payment record
+
         try:
             payment = Payment.objects.get(id=order_id)
         except Payment.DoesNotExist:
@@ -389,7 +389,7 @@ def payment_ipn(request):
         logging.error(f"IPN error for order {locals().get('order_id')} : {e}\n" + traceback.format_exc())
         return JsonResponse({'RspCode': '99', 'Message': 'Internal error'})
 
-# def local_ipn()
+
 def send_vnpay_refund_request(payment_detail, reason=None, create_by="system", timeout_seconds=15):
     try:
         payment = payment_detail.payment

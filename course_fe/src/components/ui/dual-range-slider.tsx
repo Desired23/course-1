@@ -24,7 +24,7 @@ const DualRangeSlider = React.memo(function DualRangeSlider({
   const [isDragging, setIsDragging] = useState<'min' | 'max' | null>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
 
-  // Sync local value with prop value ONLY when not dragging
+
   useEffect(() => {
     if (!isDragging) {
       setLocalValue(value)
@@ -104,24 +104,24 @@ const DualRangeSlider = React.memo(function DualRangeSlider({
           const rect = e.currentTarget.getBoundingClientRect()
           const percent = ((e.clientX - rect.left) / rect.width) * 100
           const newValue = getValueFromPercent(percent)
-          
-          // Snap to closest thumb
+
+
           const distToMin = Math.abs(newValue - localValue[0])
           const distToMax = Math.abs(newValue - localValue[1])
-          
+
           const newRange: [number, number] = distToMin < distToMax
             ? [newValue, localValue[1]]
             : [localValue[0], newValue]
-          
+
           setLocalValue(newRange)
           onChange?.(newRange)
           onAfterChange?.(newRange)
         }}
       >
-        {/* Background track */}
+
         <div className="absolute inset-0 rounded-full bg-muted" />
-        
-        {/* Active range */}
+
+
         <div
           className="absolute h-full rounded-full bg-[#a435f0] transition-all duration-100"
           style={{
@@ -130,7 +130,7 @@ const DualRangeSlider = React.memo(function DualRangeSlider({
           }}
         />
 
-        {/* Min thumb */}
+
         <div
           className={cn(
             'absolute top-1/2 -translate-y-1/2 -translate-x-1/2',
@@ -155,7 +155,7 @@ const DualRangeSlider = React.memo(function DualRangeSlider({
           )}
         </div>
 
-        {/* Max thumb */}
+
         <div
           className={cn(
             'absolute top-1/2 -translate-y-1/2 -translate-x-1/2',
@@ -183,7 +183,7 @@ const DualRangeSlider = React.memo(function DualRangeSlider({
     </div>
   )
 }, (prevProps, nextProps) => {
-  // Custom comparison: only re-render if value, min, max, step, or className changed
+
   return (
     prevProps.value[0] === nextProps.value[0] &&
     prevProps.value[1] === nextProps.value[1] &&

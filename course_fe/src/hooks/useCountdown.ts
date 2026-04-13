@@ -9,11 +9,11 @@ export interface CountdownTime {
   isExpired: boolean
 }
 
-/**
- * Hook that counts down to a target date.
- * Returns remaining time updated every second.
- * Calls `onExpire` once when the countdown reaches zero.
- */
+
+
+
+
+
 export function useCountdown(
   targetDate: string | Date | null | undefined,
   onExpire?: () => void

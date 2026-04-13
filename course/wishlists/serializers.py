@@ -43,7 +43,7 @@ class WishlistSerializer(serializers.ModelSerializer):
             'id',
             'created_at'
         ]
-    
+
     def validate_course(self, value):
         """Validate course exists and is not deleted"""
         if value is None:

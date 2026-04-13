@@ -70,7 +70,7 @@ class QnASerializer(serializers.ModelSerializer):
         if value.is_deleted:
             raise serializers.ValidationError("Lesson has been deleted.")
         return value
-    
+
     def validate_user(self, value):
         """Validate user exists"""
         if value is None:

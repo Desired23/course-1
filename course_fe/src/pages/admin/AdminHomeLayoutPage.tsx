@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useState, type DragEvent } from "react"
+import { motion } from 'motion/react'
 import { toast } from "sonner"
-import { Copy, Download, Eye, EyeOff, Plus, RotateCcw, Save, Trash2, Upload } from "lucide-react"
+import { Copy, Eye, EyeOff, Plus, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -9,19 +10,14 @@ import { Switch } from "../../components/ui/switch"
 import { Textarea } from "../../components/ui/textarea"
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { AdminConfirmDialog } from "../../components/admin/AdminConfirmDialog"
 import { Trans, useTranslation } from "react-i18next"
 import { DynamicHomeSections } from "../../features/home/DynamicHomeRenderer"
 import {
-  ensureInitialHomeSchemaBackup,
   loadHomeSchemaV2,
-  loadLegacyHomeSchemaV2,
-  loadPreSchemaDrivenLegacySchemaV2,
-  loadInitialHomeSchemaBackup,
-  saveInitialHomeSchemaBackup,
   saveHomeSchemaV2,
 } from "../../features/home/service"
+import { HARDCODED_BACKUP_HOME_SCHEMA } from "../../features/home/hardcodedBackupSchema"
 import {
   createDefaultSection,
   getDefaultHomeSchemaV2,
@@ -61,15 +57,6 @@ type ConfirmState = {
   action: null | (() => Promise<void> | void)
 }
 
-type ImportPreview = {
-  schema: HomeSchemaV2
-  summary: {
-    total: number
-    enabled: number
-    types: Record<string, number>
-  }
-}
-
 function normalizeOrder(sections: HomeSection[]): HomeSection[] {
   return sections
     .slice()
@@ -84,7 +71,7 @@ function parseJsonObject(value: string): Record<string, unknown> {
       return parsed as Record<string, unknown>
     }
   } catch {
-    // ignore invalid JSON
+
   }
   return {}
 }
@@ -120,6 +107,28 @@ function setLocalizedValue(value: unknown, locale: "vi" | "en", text: string): R
   }
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function AdminHomeLayoutPage() {
   const { t } = useTranslation()
   const [schema, setSchema] = useState<HomeSchemaV2>(getDefaultHomeSchemaV2)
@@ -131,17 +140,13 @@ export function AdminHomeLayoutPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [contentJson, setContentJson] = useState("{}")
   const [dataSourceJson, setDataSourceJson] = useState("{}")
-  const [importOpen, setImportOpen] = useState(false)
-  const [importJson, setImportJson] = useState("")
-  const [importError, setImportError] = useState<string | null>(null)
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
   const [jsonError, setJsonError] = useState<string | null>(null)
-  const [initialBackupSchema, setInitialBackupSchema] = useState<HomeSchemaV2 | null>(null)
   const [categoryOptions, setCategoryOptions] = useState<Category[]>([])
   const [subcategoryOptions, setSubcategoryOptions] = useState<Category[]>([])
   const [pinnedCourseOptions, setPinnedCourseOptions] = useState<CourseListItem[]>([])
   const [courseSearch, setCourseSearch] = useState("")
   const [courseSearchLoading, setCourseSearchLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor')
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
     title: "",
@@ -161,9 +166,6 @@ export function AdminHomeLayoutPage() {
         setLoadedSource(loaded.source)
         const firstSectionId = loaded.schema.sections[0]?.id || null
         setSelectedSectionId(firstSectionId)
-        await ensureInitialHomeSchemaBackup(loaded.schema)
-        const backup = await loadInitialHomeSchemaBackup()
-        setInitialBackupSchema(backup)
       } catch {
         const fallback = getDefaultHomeSchemaV2()
         setSchema(fallback)
@@ -320,22 +322,32 @@ export function AdminHomeLayoutPage() {
     setSections(next)
   }
 
-  const saveSchema = async () => {
+  const restoreOriginalUiFromDefault = async () => {
     try {
       setIsSaving(true)
-      const normalizedBeforeSave = normalizeHomeSchemaV2(schema)
-      const result = await saveHomeSchemaV2(normalizedBeforeSave, settingId, 0)
+      const normalized = normalizeHomeSchemaV2(HARDCODED_BACKUP_HOME_SCHEMA)
+      setSchema(normalized)
+      setSelectedSectionId(normalized.sections[0]?.id || null)
+
+      const result = await saveHomeSchemaV2(normalized, settingId, 0)
       setSettingId(result.settingId)
+
       const reloaded = await loadHomeSchemaV2()
       setLoadedSource(reloaded.source)
       setSchema(reloaded.schema)
       setSelectedSectionId((prev) => prev || reloaded.schema.sections[0]?.id || null)
 
-      const expected = JSON.stringify(normalizedBeforeSave.sections)
+      const expected = JSON.stringify(normalized.sections)
       const actual = JSON.stringify(reloaded.schema.sections)
       if (reloaded.source !== "v2" || expected !== actual) {
         toast.error(t("admin_home_layout.toasts.save_schema_mismatch"))
         return
+      }
+
+      try {
+        window.localStorage.removeItem("homepage_schema_v2_cached")
+      } catch {
+
       }
 
       toast.success(t("admin_home_layout.toasts.save_schema_success"))
@@ -344,47 +356,6 @@ export function AdminHomeLayoutPage() {
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const resetToDefault = () => {
-    const next = getDefaultHomeSchemaV2()
-    setSchema(next)
-    setSelectedSectionId(next.sections[0]?.id || null)
-    setLoadedSource("default")
-    toast.success(t("admin_home_layout.toasts.reset_schema_success"))
-  }
-
-  const loadLegacyFakeData = async () => {
-    const legacy = await loadLegacyHomeSchemaV2()
-    const normalized = normalizeHomeSchemaV2(legacy.schema)
-    setSchema(normalized)
-    setSelectedSectionId(normalized.sections[0]?.id || null)
-    setLoadedSource("legacy_layout")
-    if (legacy.source === "legacy_settings") {
-      toast.success(t("admin_home_layout.toasts.loaded_legacy_config"))
-    } else {
-      toast.success(t("admin_home_layout.toasts.loaded_legacy_default"))
-    }
-  }
-
-  const restoreInitialBackup = async () => {
-    const legacy = await loadPreSchemaDrivenLegacySchemaV2()
-    const normalized = normalizeHomeSchemaV2(legacy.schema)
-    setSchema(normalized)
-    setSelectedSectionId(normalized.sections[0]?.id || null)
-    setLoadedSource("legacy_layout")
-    if (legacy.source === "legacy_settings") {
-      toast.success(t("admin_home_layout.toasts.restored_initial_backup"))
-    } else {
-      toast.success(t("admin_home_layout.toasts.restored_initial_default"))
-    }
-  }
-
-  const setCurrentAsInitialBackup = async () => {
-    await saveInitialHomeSchemaBackup(schema)
-    const backup = await loadInitialHomeSchemaBackup()
-    setInitialBackupSchema(backup)
-    toast.success(t("admin_home_layout.toasts.updated_initial_backup"))
   }
 
   const openConfirm = (
@@ -452,65 +423,6 @@ export function AdminHomeLayoutPage() {
     }))
 
     toast.success(t("admin_home_layout.toasts.content_data_updated"))
-  }
-
-  const exportSchema = () => {
-    const payload = JSON.stringify(normalizeHomeSchemaV2(schema), null, 2)
-    const blob = new Blob([payload], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement("a")
-    anchor.href = url
-    anchor.download = `homepage_schema_v2_${new Date().toISOString().slice(0, 10)}.json`
-    anchor.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const applyImport = () => {
-    if (!importPreview) {
-      toast.error(t("admin_home_layout.toasts.preview_import_required"))
-      return
-    }
-
-    const normalized = importPreview.schema
-    setSchema(normalized)
-    setSelectedSectionId(normalized.sections[0]?.id || null)
-    setImportOpen(false)
-    setImportJson("")
-    setImportPreview(null)
-    setImportError(null)
-    toast.success(t("admin_home_layout.toasts.import_success"))
-  }
-
-  const previewImport = () => {
-    if (!importJson.trim()) {
-      setImportError(t("admin_home_layout.toasts.import_empty"))
-      setImportPreview(null)
-      return
-    }
-
-    try {
-      const parsed = JSON.parse(importJson)
-      const normalized = normalizeHomeSchemaV2(parsed)
-      const types: Record<string, number> = {}
-      for (const section of normalized.sections) {
-        types[section.type] = (types[section.type] || 0) + 1
-      }
-      setImportPreview({
-        schema: normalized,
-        summary: {
-          total: normalized.sections.length,
-          enabled: normalized.sections.filter((section) => section.enabled).length,
-          types,
-        },
-      })
-      setImportError(null)
-      toast.success(t("admin_home_layout.toasts.import_preview_success"))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : t("admin_home_layout.validation.invalid_json")
-      setImportError(message)
-      setImportPreview(null)
-      toast.error(message)
-    }
   }
 
   const renderLocalizedField = (
@@ -698,7 +610,7 @@ export function AdminHomeLayoutPage() {
                     {selectedPinnedIds.map((id, index) => (
                       <div key={id} className="flex items-center justify-between gap-2 rounded border px-2 py-1">
                         <span>
-                          #{index + 1} - course_id: {id}
+
                         </span>
                         <div className="flex items-center gap-1">
                           <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => movePinnedCourse(id, "up")}>
@@ -993,8 +905,14 @@ export function AdminHomeLayoutPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <motion.div
+      className="space-y-6 p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex flex-wrap items-center justify-between gap-3" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-semibold">{t("admin_home_layout.title")}</h1>
           <p className="text-muted-foreground">
@@ -1003,29 +921,6 @@ export function AdminHomeLayoutPage() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportSchema}>
-            <Download className="mr-2 h-4 w-4" />
-            {t("admin_home_layout.actions.export")}
-          </Button>
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            {t("admin_home_layout.actions.import")}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              openConfirm(
-                t("admin_home_layout.actions.reset_layout"),
-                t("admin_home_layout.confirm.reset_schema_title"),
-                t("admin_home_layout.actions.reset_layout"),
-                resetToDefault,
-                true,
-              )
-            }
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            {t("admin_home_layout.actions.reset_to_default")}
-          </Button>
           <Button
             variant="outline"
             onClick={() =>
@@ -1033,49 +928,18 @@ export function AdminHomeLayoutPage() {
                 t("admin_home_layout.confirm.load_fake_data_title"),
                 t("admin_home_layout.confirm.load_fake_data_description"),
                 t("admin_home_layout.confirm.load_fake_data_confirm"),
-                loadLegacyFakeData,
+                restoreOriginalUiFromDefault,
                 false,
               )
             }
+            disabled={isSaving}
           >
-            {t("admin_home_layout.confirm.load_fake_data_title")}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              openConfirm(
-                t("admin_home_layout.confirm.restore_ui_title"),
-                t("admin_home_layout.confirm.restore_ui_description"),
-                t("admin_home_layout.confirm.restore_ui_confirm"),
-                restoreInitialBackup,
-                false,
-              )
-            }
-          >
-            {t("admin_home_layout.confirm.restore_ui_title")}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              openConfirm(
-                t("admin_home_layout.confirm.set_backup_title"),
-                t("admin_home_layout.confirm.set_backup_description"),
-                t("admin_home_layout.confirm.set_backup_confirm"),
-                setCurrentAsInitialBackup,
-                false,
-              )
-            }
-          >
-            {t("admin_home_layout.confirm.set_backup_title")}
-          </Button>
-          <Button onClick={saveSchema} disabled={isSaving}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? t("common.loading") : t("admin_home_layout.actions.save_layout")}
+            {isSaving ? t("common.loading") : t("admin_home_layout.confirm.load_fake_data_title")}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+      <motion.div className="grid grid-cols-1 gap-6 xl:grid-cols-12" variants={fadeInUp}>
         <Card className="xl:col-span-4">
           <CardHeader>
             <CardTitle>{t("admin_home_layout.current_layout.title")}</CardTitle>
@@ -1168,10 +1032,16 @@ export function AdminHomeLayoutPage() {
               {t("admin_home_layout.source_db_notice")}
             </div>
           )}
-          <Tabs defaultValue="editor" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="editor">{t("admin_home_layout.tabs.editor")}</TabsTrigger>
-              <TabsTrigger value="preview">{t("admin_home_layout.tabs.preview")}</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'editor' | 'preview')} className="space-y-4">
+            <TabsList className="relative p-1">
+              <TabsTrigger value="editor" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                {activeTab === 'editor' && <motion.span layoutId="admin-home-layout-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                <span className="relative z-10">{t("admin_home_layout.tabs.editor")}</span>
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                {activeTab === 'preview' && <motion.span layoutId="admin-home-layout-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                <span className="relative z-10">{t("admin_home_layout.tabs.preview")}</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="editor">
@@ -1466,7 +1336,7 @@ export function AdminHomeLayoutPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </div>
+      </motion.div>
 
       <AdminConfirmDialog
         open={confirmState.open}
@@ -1478,45 +1348,8 @@ export function AdminHomeLayoutPage() {
         onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
         onConfirm={runConfirm}
       />
-
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t("admin_home_layout.labels.import_title")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t("admin_home_layout.labels.import_description")}
-            </p>
-            <Textarea rows={16} value={importJson} onChange={(event) => setImportJson(event.target.value)} />
-            {importError ? <p className="text-sm text-destructive">{importError}</p> : null}
-            {importPreview ? (
-              <div className="rounded-md border bg-muted/20 p-3 text-sm">
-                <div className="font-medium">{t("admin_home_layout.labels.import_preview")}</div>
-                <div>{t("admin_home_layout.fields.total_sections", { count: importPreview.summary.total })}</div>
-                <div>{t("admin_home_layout.fields.enabled_sections", { count: importPreview.summary.enabled })}</div>
-                <div className="mt-1 text-muted-foreground">
-                  {t("admin_home_layout.fields.types", {
-                    types: Object.entries(importPreview.summary.types)
-                      .map(([type, count]) => `${type}:${count}`)
-                      .join(", "),
-                  })}
-                </div>
-              </div>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setImportOpen(false)}>
-                {t("admin_home_layout.actions.cancel")}
-              </Button>
-              <Button variant="outline" onClick={previewImport}>
-                {t("admin_home_layout.actions.preview_import")}
-              </Button>
-              <Button onClick={applyImport}>{t("admin_home_layout.actions.apply_import")}</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Slider } from './ui/slider'
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
   Settings,
   Subtitles,
   SkipForward,
@@ -76,7 +76,7 @@ export function VideoPlayerWithSubtitles({
     }
   }, [autoplay])
 
-  // Update subtitles based on current time
+
   useEffect(() => {
     if (subtitleLanguage === 'off') {
       setCurrentSubtitle('')
@@ -164,7 +164,7 @@ export function VideoPlayerWithSubtitles({
     const hours = Math.floor(time / 3600)
     const minutes = Math.floor((time % 3600) / 60)
     const seconds = Math.floor(time % 60)
-    
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
     }
@@ -173,7 +173,7 @@ export function VideoPlayerWithSubtitles({
 
   return (
     <div className="relative bg-black rounded-lg overflow-hidden group">
-      {/* Video Element */}
+
       <video
         ref={videoRef}
         src={videoUrl}
@@ -183,7 +183,7 @@ export function VideoPlayerWithSubtitles({
         onClick={handlePlayPause}
       />
 
-      {/* Subtitles Overlay */}
+
       {currentSubtitle && subtitleLanguage !== 'off' && (
         <div className="absolute bottom-20 left-0 right-0 text-center">
           <div className="inline-block bg-black/80 text-white px-4 py-2 rounded text-lg">
@@ -192,9 +192,9 @@ export function VideoPlayerWithSubtitles({
         </div>
       )}
 
-      {/* Controls Overlay */}
+
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Progress Bar */}
+
         <Slider
           value={[currentTime]}
           min={0}
@@ -204,10 +204,10 @@ export function VideoPlayerWithSubtitles({
           className="mb-4"
         />
 
-        {/* Controls */}
+
         <div className="flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            {/* Play/Pause */}
+
             <Button
               variant="ghost"
               size="icon"
@@ -217,7 +217,7 @@ export function VideoPlayerWithSubtitles({
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             </Button>
 
-            {/* Skip Backward */}
+
             <Button
               variant="ghost"
               size="icon"
@@ -227,7 +227,7 @@ export function VideoPlayerWithSubtitles({
               <SkipBack className="w-5 h-5" />
             </Button>
 
-            {/* Skip Forward */}
+
             <Button
               variant="ghost"
               size="icon"
@@ -237,7 +237,7 @@ export function VideoPlayerWithSubtitles({
               <SkipForward className="w-5 h-5" />
             </Button>
 
-            {/* Volume */}
+
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -261,14 +261,14 @@ export function VideoPlayerWithSubtitles({
               />
             </div>
 
-            {/* Time */}
+
             <span className="text-sm">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Subtitles */}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -298,7 +298,7 @@ export function VideoPlayerWithSubtitles({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Settings */}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -344,7 +344,7 @@ export function VideoPlayerWithSubtitles({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Fullscreen */}
+
             <Button
               variant="ghost"
               size="icon"

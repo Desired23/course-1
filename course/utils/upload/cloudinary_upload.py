@@ -1,4 +1,4 @@
-from config import cloudinary_config  # noqa: F401 - ensure Cloudinary config is initialized
+from config import cloudinary_config
 import cloudinary.uploader
 from cloudinary.exceptions import Error as CloudinaryError
 

@@ -1,7 +1,7 @@
-/**
- * Mock Auth Data
- * Simulates authentication API
- */
+
+
+
+
 
 export interface LoginCredentials {
   email: string
@@ -28,12 +28,12 @@ export interface AuthResponse {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-// Mock user database
+
 const MOCK_USERS = [
   {
     id: '1',
     email: 'john@example.com',
-    password: 'password123', // In real app, this would be hashed
+    password: 'password123',
     name: 'John Doe',
     roles: ['user'],
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John'
@@ -57,7 +57,7 @@ const MOCK_USERS = [
 ]
 
 export async function mockLogin(credentials: LoginCredentials): Promise<AuthResponse> {
-  await delay(800) // Simulate network delay
+  await delay(800)
 
   const user = MOCK_USERS.find(u => u.email === credentials.email)
 
@@ -69,7 +69,7 @@ export async function mockLogin(credentials: LoginCredentials): Promise<AuthResp
     throw new Error('Invalid password')
   }
 
-  // Generate mock JWT token
+
   const token = `mock_jwt_token_${user.id}_${Date.now()}`
 
   return {
@@ -87,7 +87,7 @@ export async function mockLogin(credentials: LoginCredentials): Promise<AuthResp
 export async function mockSignup(data: SignupData): Promise<AuthResponse> {
   await delay(1000)
 
-  // Check if email already exists
+
   if (MOCK_USERS.some(u => u.email === data.email)) {
     throw new Error('Email already exists')
   }
@@ -119,13 +119,13 @@ export async function mockSignup(data: SignupData): Promise<AuthResponse> {
 
 export async function mockLogout(): Promise<void> {
   await delay(300)
-  // In real app, would invalidate token on server
+
 }
 
 export async function mockGetCurrentUser(token: string): Promise<AuthResponse['user'] | null> {
   await delay(400)
 
-  // Parse token to get user id (mock)
+
   const match = token.match(/mock_jwt_token_(\d+)/)
   if (!match) return null
 
@@ -145,7 +145,7 @@ export async function mockGetCurrentUser(token: string): Promise<AuthResponse['u
 
 export async function mockRefreshToken(token: string): Promise<string> {
   await delay(500)
-  
+
   const user = await mockGetCurrentUser(token)
   if (!user) {
     throw new Error('Invalid token')

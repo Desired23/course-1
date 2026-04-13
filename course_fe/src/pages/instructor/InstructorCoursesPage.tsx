@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Input } from "../../components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Plus, Search, Eye, Edit, BarChart3, Users, Star, DollarSign, BookOpen, Loader2 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { useAuth } from "../../contexts/AuthContext"
 import { PreviewCourseModal } from "../../components/PreviewCourseModal"
@@ -16,8 +18,31 @@ import { UserPagination } from '../../components/UserPagination'
 import { getCourses, updateCourse, deleteCourse, type CourseListItem, formatPrice, parseDecimal, getLevelLabel, formatDuration } from '../../services/course.api'
 import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
 import { toast } from 'sonner'
+import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 6
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function InstructorCoursesPage() {
   const { navigate } = useRouter()
@@ -44,6 +69,24 @@ export function InstructorCoursesPage() {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [editCourseId, setEditCourseId] = useState<number | null>(null)
   const [mutatingCourseId, setMutatingCourseId] = useState<number | null>(null)
+
+  const renderCourseSkeleton = () => (
+    <div className="space-y-4 md:space-y-6">
+      {Array.from({ length: ITEMS_PER_PAGE }).map((_, index) => (
+        <div key={`instructor-course-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-3">
+          <div className="flex flex-col md:flex-row gap-4">
+            <Skeleton className="h-32 w-full md:w-48 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-6 w-2/3" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-4/5" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
@@ -155,7 +198,7 @@ export function InstructorCoursesPage() {
 
   const handleCloseEditChoice = () => {
     setEditCourseId(null)
-    // Prevent stale body lock when closing dialog during route changes
+
     if (typeof document !== 'undefined') {
       requestAnimationFrame(() => {
         document.body.style.pointerEvents = ''
@@ -247,8 +290,12 @@ export function InstructorCoursesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="container mx-auto px-4 py-6 md:py-8 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-5 w-80" />
+        </div>
+        {renderCourseSkeleton()}
       </div>
     )
   }
@@ -266,8 +313,8 @@ export function InstructorCoursesPage() {
   const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+    <motion.div className="container mx-auto px-4 py-6 md:py-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8" variants={fadeInUp}>
         <div>
           <h1 className="mb-2">{t('instructor_courses.title')}</h1>
           <p className="text-muted-foreground">
@@ -279,10 +326,10 @@ export function InstructorCoursesPage() {
           <Plus className="h-4 w-4" />
           {t('instructor_courses.create_course')}
         </Button>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 md:mb-8">
-        <Card>
+      <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 md:mb-8" variants={fadeInUp}>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <BookOpen className="h-8 w-8 text-blue-500" />
@@ -294,7 +341,7 @@ export function InstructorCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <Users className="h-8 w-8 text-green-500" />
@@ -306,7 +353,7 @@ export function InstructorCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <DollarSign className="h-8 w-8 text-yellow-500" />
@@ -318,7 +365,7 @@ export function InstructorCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
               <Star className="h-8 w-8 text-purple-500" />
@@ -329,9 +376,9 @@ export function InstructorCoursesPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <motion.div className="app-surface-elevated flex flex-col md:flex-row gap-4 mb-6 rounded-lg p-4" variants={fadeInUp}>
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -364,36 +411,38 @@ export function InstructorCoursesPage() {
             <SelectItem value="rating">{t('instructor_courses.highest_rated')}</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </motion.div>
 
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger value="all" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4">
-            <span className="hidden sm:inline">{t('instructor_courses.all_courses_tab')} </span>
-            <span className="sm:hidden">{t('common.all')} </span>
-            ({stats?.total_courses ?? totalCount})
+      <motion.div variants={fadeInUp}>
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+        <TabsList className="relative grid w-full grid-cols-3 h-auto p-1">
+          <TabsTrigger value="all" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'all' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10"><span className="hidden sm:inline">{t('instructor_courses.all_courses_tab')} </span><span className="sm:hidden">{t('common.all')} </span>({stats?.total_courses ?? totalCount})</span>
           </TabsTrigger>
-          <TabsTrigger value="published" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4">
-            <span className="hidden sm:inline">{t('instructor_courses.published_tab')} </span>
-            <span className="sm:hidden">{t('instructor_courses.published_short')} </span>
-            ({stats?.published_courses ?? 0})
+          <TabsTrigger value="published" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'published' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10"><span className="hidden sm:inline">{t('instructor_courses.published_tab')} </span><span className="sm:hidden">{t('instructor_courses.published_short')} </span>({stats?.published_courses ?? 0})</span>
           </TabsTrigger>
-          <TabsTrigger value="draft" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4">
-            <span className="hidden sm:inline">{t('instructor_courses.drafts_tab')} </span>
-            <span className="sm:hidden">{t('instructor_courses.draft_short')} </span>
-            ({stats?.draft_courses ?? 0})
+          <TabsTrigger value="draft" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'draft' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10"><span className="hidden sm:inline">{t('instructor_courses.drafts_tab')} </span><span className="sm:hidden">{t('instructor_courses.draft_short')} </span>({stats?.draft_courses ?? 0})</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value={selectedTab} className="mt-6 md:mt-8">
           {listLoading ? (
-            <div className="min-h-[220px] flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            renderCourseSkeleton()
           ) : (
             <div className="space-y-4 md:space-y-6">
-              {courses.map((course) => (
-                <Card key={course.id} className="hover:shadow-lg transition-shadow">
+              {courses.map((course, index) => (
+                <motion.div
+                  key={course.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={listItemTransition(index)}
+                >
+                <Card className="app-interactive hover:shadow-lg">
                   <CardContent className="p-4 md:p-6">
                     <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                       <div className="flex-shrink-0">
@@ -521,6 +570,7 @@ export function InstructorCoursesPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               ))}
 
               {courses.length === 0 && (
@@ -552,7 +602,8 @@ export function InstructorCoursesPage() {
             </div>
           )}
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </motion.div>
 
       <PreviewCourseModal
         isOpen={isPreviewOpen}
@@ -583,7 +634,7 @@ export function InstructorCoursesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }
 

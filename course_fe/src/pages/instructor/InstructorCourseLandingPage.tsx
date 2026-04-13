@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -34,6 +35,28 @@ const levelOptions = [
   { value: 'intermediate', label: 'Intermediate' },
   { value: 'advanced', label: 'Advanced' },
 ]
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function InstructorCourseLandingPage() {
   const { navigate, params } = useRouter()
@@ -148,8 +171,14 @@ export function InstructorCourseLandingPage() {
   const renderItemList = (items: Item[], remove: (id: number) => void, icon = false) => items.length > 0 && <div className="space-y-2">{items.map((item) => <div key={item.id} className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">{icon && <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />}<span className="text-sm flex-1">{item.text}</span><Button variant="ghost" size="sm" onClick={() => remove(item.id)}><X className="h-4 w-4" /></Button></div>)}</div>
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
-      <div className="mb-6 md:mb-8">
+    <motion.div
+      className="container mx-auto px-4 py-6 md:py-8 max-w-7xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-6 md:mb-8" variants={fadeInUp}>
         <Button variant="ghost" onClick={() => navigate('/instructor/courses')} className="mb-4"><ArrowLeft className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.back_to_courses')}</Button>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div><h1 className="mb-2">{t('instructor_course_landing_page.title')}</h1><p className="text-muted-foreground">{t('instructor_course_landing_page.subtitle')}</p></div>
@@ -159,21 +188,34 @@ export function InstructorCourseLandingPage() {
             <Button onClick={() => save('submit_review')}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mb-6 flex gap-2 flex-wrap">
+      <motion.div className="mb-6 flex gap-2 flex-wrap" variants={fadeInUp}>
         <Badge variant={data.title ? "default" : "outline"} className="gap-1">{data.title ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.title')}</Badge>
         <Badge variant={data.description && data.description.length >= 200 ? "default" : "outline"} className="gap-1">{data.description && data.description.length >= 200 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.description')}</Badge>
         <Badge variant={data.learningObjectives.length >= 4 ? "default" : "outline"} className="gap-1">{data.learningObjectives.length >= 4 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.objectives', { count: data.learningObjectives.length })}</Badge>
         <Badge variant={data.courseImagePreview ? "default" : "outline"} className="gap-1">{data.courseImagePreview ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.course_image')}</Badge>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="basic">{t('instructor_course_landing_page.tabs.basic')}</TabsTrigger>
-          <TabsTrigger value="target">{t('instructor_course_landing_page.tabs.target')}</TabsTrigger>
-          <TabsTrigger value="media">{t('instructor_course_landing_page.tabs.media')}</TabsTrigger>
-          <TabsTrigger value="pricing">{t('instructor_course_landing_page.tabs.pricing')}</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-4 p-1">
+          <TabsTrigger value="basic" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'basic' && <motion.span layoutId="instructor-course-landing-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_course_landing_page.tabs.basic')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="target" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'target' && <motion.span layoutId="instructor-course-landing-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_course_landing_page.tabs.target')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="media" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'media' && <motion.span layoutId="instructor-course-landing-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_course_landing_page.tabs.media')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="pricing" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'pricing' && <motion.span layoutId="instructor-course-landing-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_course_landing_page.tabs.pricing')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic">
@@ -208,14 +250,16 @@ export function InstructorCourseLandingPage() {
           <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.tags.title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.tags.description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.tags.placeholder')} value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addTag()} /><Button onClick={addTag} disabled={data.tags.length >= 10}><Plus className="h-4 w-4" /></Button></div>{data.tags.length > 0 && <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <Badge key={tag} variant="secondary" className="gap-2">{tag}<X className="w-3 h-3 cursor-pointer" onClick={() => setData((prev) => ({ ...prev, tags: prev.tags.filter((item) => item !== tag) }))} /></Badge>)}</div>}<p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.tags.count', { count: data.tags.length })}</p></CardContent></Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
 
-      <div className="flex justify-between items-center pt-6 border-t">
+      <motion.div className="flex justify-between items-center pt-6 border-t" variants={fadeInUp}>
         <Button variant="outline" onClick={() => save('draft')} disabled={saving}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => setShowPreview(true)}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
           <Button onClick={() => save('submit_review')} disabled={saving}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

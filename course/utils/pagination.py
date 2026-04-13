@@ -32,14 +32,14 @@ class StandardPagination(PageNumberPagination):
 def paginate_queryset(queryset, request, serializer_class, page_size=None, context=None):
     """
     Helper function to paginate a queryset in an APIView.
-    
+
     Args:
         queryset: Django QuerySet to paginate
         request: DRF Request object
         serializer_class: Serializer class to use
         page_size: Optional custom page size (overrides default 20)
         context: Optional serializer context dict
-    
+
     Returns:
         Response with paginated data in format:
         {
@@ -51,10 +51,10 @@ def paginate_queryset(queryset, request, serializer_class, page_size=None, conte
             "page_size": 20,
             "results": [...]
         }
-        
+
     Usage:
         from utils.pagination import paginate_queryset
-        
+
         def get(self, request):
             queryset = MyModel.objects.all()
             return paginate_queryset(queryset, request, MySerializer)
@@ -63,9 +63,9 @@ def paginate_queryset(queryset, request, serializer_class, page_size=None, conte
     if page_size:
         paginator.page_size = page_size
 
-    # Sanitize page and page_size query params to avoid malformed values (e.g. "[object Object]")
+
     try:
-        # request is a DRF Request; underlying Django request is request._request
+
         raw_req = getattr(request, '_request', None)
         if raw_req is not None and hasattr(raw_req, 'GET'):
             from django.http import QueryDict
@@ -73,24 +73,24 @@ def paginate_queryset(queryset, request, serializer_class, page_size=None, conte
             page_key = paginator.page_query_param
             page_val = q.get(page_key)
             if page_val is not None:
-                # allow numeric strings only
+
                 if not str(page_val).lstrip('-').isdigit():
                     q.pop(page_key, None)
-            # sanitize page_size too
+
             psize_key = paginator.page_size_query_param
             psize_val = q.get(psize_key)
             if psize_val is not None and not str(psize_val).isdigit():
                 q.pop(psize_key, None)
             raw_req.GET = q
     except Exception:
-        # If sanitization fails, continue and let paginator handle errors
+
         pass
 
     result_page = paginator.paginate_queryset(queryset, request)
-    
+
     serializer_context = {'request': request}
     if context:
         serializer_context.update(context)
-    
+
     serializer = serializer_class(result_page, many=True, context=serializer_context)
     return paginator.get_paginated_response(serializer.data)

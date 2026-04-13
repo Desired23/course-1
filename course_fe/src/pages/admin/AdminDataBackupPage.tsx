@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type ChangeEvent } from "react"
+import { motion } from "motion/react"
 import { Download, FileUp, Loader2, RefreshCw, ShieldAlert } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
@@ -123,6 +124,28 @@ function downloadJsonFile(filename: string, payload: unknown) {
   link.download = filename
   link.click()
   window.URL.revokeObjectURL(url)
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function AdminDataBackupPage() {
@@ -475,7 +498,13 @@ export function AdminDataBackupPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <motion.div
+      className="p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
       <input
         ref={inputRef}
         type="file"
@@ -484,15 +513,15 @@ export function AdminDataBackupPage() {
         onChange={(event) => void handleFileChange(event)}
       />
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <motion.div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-semibold">{t("admin_data_backup.title")}</h1>
           <p className="text-muted-foreground">{t("admin_data_backup.subtitle")}</p>
         </div>
         <Badge variant="secondary">{t("admin_data_backup.badge")}</Badge>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <motion.div className="grid gap-6 xl:grid-cols-2" variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle>{t("admin_data_backup.export.title")}</CardTitle>
@@ -586,9 +615,10 @@ export function AdminDataBackupPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {restoreSummaries.length > 0 && (
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle>{t("admin_data_backup.summary.title")}</CardTitle>
@@ -623,6 +653,7 @@ export function AdminDataBackupPage() {
             ))}
           </CardContent>
         </Card>
+        </motion.div>
       )}
 
       <AdminConfirmDialog
@@ -635,6 +666,7 @@ export function AdminDataBackupPage() {
         onConfirm={() => void handleRestore()}
         onOpenChange={setConfirmRestoreOpen}
       />
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

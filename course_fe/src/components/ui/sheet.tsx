@@ -2,6 +2,7 @@ import * as React from "react"
 import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 import { cn } from "./utils"
+import { interactiveTransitionStyle } from "../../lib/motion"
 
 const Sheet = SheetPrimitive.Root
 
@@ -14,10 +15,11 @@ const SheetPortal = SheetPrimitive.Portal
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
->(({ className, ...props }, ref) => (
+>(({ className, style, ...props }, ref) => (
   <SheetPrimitive.Overlay
+    style={{ ...interactiveTransitionStyle, ...style }}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/70 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:duration-200 data-[state=open]:duration-300",
       className
     )}
     {...props}
@@ -50,8 +52,9 @@ const SheetContent = React.forwardRef<
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
+      style={{ ...interactiveTransitionStyle, ...(props.style ?? {}) }}
       className={cn(
-        "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+        "fixed z-50 gap-4 bg-background p-6 shadow-xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300",
         sheetVariants.side[side],
         className
       )}

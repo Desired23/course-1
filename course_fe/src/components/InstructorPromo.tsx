@@ -41,7 +41,7 @@ export function InstructorPromo() {
             <p className="text-xl mb-8 opacity-90">
               {t('instructor_promo.subtitle')}
             </p>
-            
+
             <div className="space-y-6 mb-8">
               {benefits.map((benefit, index) => (
                 <motion.div
@@ -62,8 +62,8 @@ export function InstructorPromo() {
               ))}
             </div>
 
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={() => navigate('/teach')}
               className="font-semibold shadow-lg hover:scale-105 transition-all hover:bg-gray-100 border-none"
               style={{ backgroundColor: '#ffffff', color: '#2563eb' }}

@@ -46,8 +46,8 @@ class NotificationView(APIView):
     throttle_scope = 'notification'
     def post(self, request):
         try:
-            receiver_id = request.data.get('receiver_id') or request.data.get('user_id')  # Backward compatible
-            sender = request.data.get('sender') or request.data.get('sender_id')  # Accept both sender and sender_id
+            receiver_id = request.data.get('receiver_id') or request.data.get('user_id')
+            sender = request.data.get('sender') or request.data.get('sender_id')
             title = request.data.get('title')
             message = request.data.get('message')
             type = request.data.get('type')
@@ -105,7 +105,7 @@ class NotificationView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
+
 class NotificationByAdminView(APIView):
     permission_classes = [RolePermissionFactory("admin")]
     throttle_scope = 'burst'

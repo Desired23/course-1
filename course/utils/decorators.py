@@ -3,7 +3,7 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 import jwt
 from django.conf import settings
 
-# utils/decorators.py (bổ sung version có optional method check)
+
 
 def role_required(roles, methods=None):
     """
@@ -17,11 +17,11 @@ def role_required(roles, methods=None):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            # Nếu có chỉ định methods và request không nằm trong đó => bỏ qua
+
             if methods and request.method.upper() not in [m.upper() for m in methods]:
                 return view_func(request, *args, **kwargs)
 
-            # --- Token check như cũ ---
+
             auth_header = request.headers.get("Authorization")
             if not auth_header or not auth_header.startswith("Bearer "):
                 raise AuthenticationFailed("Thiếu token hoặc sai định dạng.")

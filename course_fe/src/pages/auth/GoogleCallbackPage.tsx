@@ -1,9 +1,32 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { parseGoogleCallback } from '../../config/googleOAuth'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function GoogleCallbackPage() {
   const { t } = useTranslation()
@@ -46,9 +69,14 @@ export function GoogleCallbackPage() {
   }, [navigate, loginWithGoogle, t])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+    <motion.div
+      className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-md w-full" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="bg-white p-8 rounded-lg shadow-sm border text-center" variants={fadeInUp}>
           {status === 'loading' && (
             <>
               <div className="flex justify-center mb-4">
@@ -90,14 +118,14 @@ export function GoogleCallbackPage() {
               <p className="text-sm text-gray-500">{t('google_callback_page.redirect_login')}</p>
             </>
           )}
-        </div>
+        </motion.div>
 
-        <div className="mt-6 text-center">
+        <motion.div className="mt-6 text-center" variants={fadeInUp}>
           <button onClick={() => navigate('/login')} className="text-sm text-primary hover:text-primary/80">
             {t('google_callback_page.back_to_login')}
           </button>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

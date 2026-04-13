@@ -15,10 +15,10 @@ from qnas.models import QnA
 from qna_answers.models import QnAAnswer
 from forums.models import Forum
 from forum_topics.models import ForumTopic
-from forum_comments.models import ForumComment 
+from forum_comments.models import ForumComment
 from systems_settings.models import SystemsSetting
 from supports.models import Support
-# from reviews.models import Review
+
 from payments.models import Payment
 from reviews.models import Review
 from blog_posts.models import BlogPost
@@ -41,11 +41,11 @@ admin.site.register(User)
 admin.site.register(Course)
 admin.site.register(Instructor)
 admin.site.register(Admin)
-# admin.site.register(Order)
+
 admin.site.register(Enrollment)
 admin.site.register(Payment)
 admin.site.register(Payment_Details)
-# admin.site.register(Review)
+
 admin.site.register(Notification)
 admin.site.register(Promotion)
 admin.site.register(Cart)

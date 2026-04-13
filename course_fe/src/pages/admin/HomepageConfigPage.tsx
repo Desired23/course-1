@@ -1,4 +1,5 @@
 import { useEffect, useState, type DragEvent } from "react"
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
@@ -65,8 +66,31 @@ const DEFAULT_CONFIG: HomepageConfig = {
   popular_skills: [],
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function HomepageConfigPage() {
   const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState<'hero' | 'sections' | 'banners' | 'featured'>('hero')
   const [config, setConfig] = useState<HomepageConfig>(DEFAULT_CONFIG)
   const [configSettingId, setConfigSettingId] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -114,7 +138,7 @@ export function HomepageConfigPage() {
           setConfig(DEFAULT_CONFIG)
         }
       } catch {
-        // Keep default state when homepage config cannot be loaded.
+
       }
     }
 
@@ -267,12 +291,18 @@ export function HomepageConfigPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-7xl p-6">
-      <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <motion.div
+      className="container mx-auto max-w-7xl p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" variants={fadeInUp}>
         {t('homepage_config.legacy_notice')}
-      </div>
+      </motion.div>
 
-      <div className="mb-6 flex items-center justify-between">
+      <motion.div className="mb-6 flex items-center justify-between" variants={fadeInUp}>
         <div>
           <h1 className="mb-2 text-3xl font-bold">{t('homepage_config.title')}</h1>
           <p className="text-muted-foreground">{t('homepage_config.subtitle')}</p>
@@ -289,14 +319,27 @@ export function HomepageConfigPage() {
             {isSaving ? t('homepage_config.saving') : t('homepage_config.save_changes')}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="hero" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="hero">{t('homepage_config.tabs.hero')}</TabsTrigger>
-          <TabsTrigger value="sections">{t('homepage_config.tabs.sections')}</TabsTrigger>
-          <TabsTrigger value="banners">{t('homepage_config.tabs.banners')}</TabsTrigger>
-          <TabsTrigger value="featured">{t('homepage_config.tabs.featured')}</TabsTrigger>
+      <motion.div variants={fadeInUp}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'hero' | 'sections' | 'banners' | 'featured')} className="space-y-6">
+        <TabsList className="relative grid w-full grid-cols-4 p-1">
+          <TabsTrigger value="hero" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'hero' && <motion.span layoutId="homepage-config-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('homepage_config.tabs.hero')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="sections" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'sections' && <motion.span layoutId="homepage-config-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('homepage_config.tabs.sections')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="banners" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'banners' && <motion.span layoutId="homepage-config-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('homepage_config.tabs.banners')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="featured" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'featured' && <motion.span layoutId="homepage-config-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('homepage_config.tabs.featured')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="hero" className="space-y-4">
@@ -595,6 +638,7 @@ export function HomepageConfigPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
 
       {showPreview && (
         <Dialog open={showPreview} onOpenChange={setShowPreview}>
@@ -666,6 +710,7 @@ export function HomepageConfigPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

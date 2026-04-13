@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { AlertTriangle, CheckCircle2, Loader2, Search, Sparkles, WandSparkles } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -49,6 +50,28 @@ function buildDraft(course: CourseListItem): DraftFields {
     skills_taught: toMultiline(course.skills_taught),
     prerequisites: toMultiline(course.prerequisites),
   }
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function AdminCourseMetadataPage() {
@@ -200,8 +223,14 @@ export function AdminCourseMetadataPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 md:p-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <motion.div
+      className="space-y-6 p-4 md:p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between" variants={fadeInUp}>
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1 text-sm text-amber-700">
             <Sparkles className="h-4 w-4" />
@@ -226,9 +255,10 @@ export function AdminCourseMetadataPage() {
             Mo trang quan ly khoa hoc
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {returnToRoute && (
+        <motion.div variants={fadeInUp}>
         <Card className="border-blue-200 bg-blue-50/70">
           <CardContent className="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
@@ -246,9 +276,10 @@ export function AdminCourseMetadataPage() {
             </Button>
           </CardContent>
         </Card>
+        </motion.div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <motion.div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" variants={fadeInUp}>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Tong khoa hoc</CardDescription>
@@ -273,8 +304,9 @@ export function AdminCourseMetadataPage() {
             <CardTitle>{metrics.published}</CardTitle>
           </CardHeader>
         </Card>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardContent className="grid gap-4 p-5 lg:grid-cols-[1.4fr_220px_220px]">
           <div className="space-y-2">
@@ -311,7 +343,9 @@ export function AdminCourseMetadataPage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       {loading ? (
         <div className="flex min-h-[240px] items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -458,6 +492,8 @@ export function AdminCourseMetadataPage() {
           })}
         </div>
       )}
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -3,6 +3,10 @@ from rest_framework.exceptions import ValidationError
 from .models import Course
 from .serializers import CourseSerializer, CourseDetailSerializer
 from activity_logs.services import log_activity
+from django.db.models import Avg, Sum
+from enrollments.models import Enrollment
+from learning_progress.models import LearningProgress
+from reviews.models import Review
 
 
 INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS = {
@@ -84,6 +88,63 @@ def get_course_by_id(course_id, user=None):
         raise
     except Exception:
         raise ValidationError("Lỗi khi lấy thông tin khóa học.")
+
+
+def get_course_students(course_id):
+    try:
+        course = Course.objects.get(id=course_id, is_deleted=False)
+        enrollments = list(
+            Enrollment.objects.filter(
+                course=course,
+                is_deleted=False,
+                user__is_deleted=False,
+            ).select_related('user', 'course').order_by('-last_access_date', '-updated_at')
+        )
+        if not enrollments:
+            return []
+
+        progress_by_enrollment = {
+            row['enrollment_id']: row
+            for row in LearningProgress.objects.filter(
+                enrollment_id__in=[enrollment.id for enrollment in enrollments],
+                is_deleted=False,
+            )
+            .values('enrollment_id')
+            .annotate(
+                total_time_spent=Sum('time_spent'),
+                avg_progress=Avg('progress_percentage'),
+            )
+        }
+
+        review_by_user = {
+            row['user_id']: row['rating']
+            for row in Review.objects.filter(course=course, is_deleted=False)
+            .values('user_id', 'rating')
+        }
+
+        rows = []
+        for enrollment in enrollments:
+            progress_data = progress_by_enrollment.get(enrollment.id, {})
+            rows.append({
+                'student_id': enrollment.user_id,
+                'full_name': enrollment.user.full_name,
+                'email': enrollment.user.email,
+                'avatar': enrollment.user.avatar,
+                'status': enrollment.status,
+                'enrolled_at': enrollment.enrollment_date,
+                'last_access_date': enrollment.last_access_date,
+                'average_progress': round(float(enrollment.progress or progress_data.get('avg_progress') or 0), 2),
+                'study_time_minutes': int(progress_data.get('total_time_spent') or 0),
+                'rating': review_by_user.get(enrollment.user_id),
+            })
+
+        return rows
+    except Course.DoesNotExist:
+        raise ValidationError("Course not found")
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError("Lỗi khi lấy danh sách học viên của khóa học.")
 
 def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
                     status=None, is_featured=None, level=None, search=None,
@@ -190,7 +251,7 @@ def update_course(course_id, data, requesting_user=None):
         course = Course.objects.get(id=course_id, is_deleted=False)
         is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
 
-        # Ownership check: instructor can only update own courses
+
         if requesting_user and not is_admin:
             instructor = getattr(requesting_user, 'instructor', None)
             if not instructor or course.instructor_id != instructor.id:
@@ -295,7 +356,7 @@ def update_course(course_id, data, requesting_user=None):
                                 notification_code='course_status_changed_by_admin',
                             )
                         except Exception:
-                            # Notification failures should not block status update.
+
                             pass
             elif not is_admin and content_fields_being_updated and old_status in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
                 if updated_course.content_changed_since_publish:
@@ -309,7 +370,7 @@ def update_course(course_id, data, requesting_user=None):
 def delete_course(course_id, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
-        # Ownership check: instructor can only delete own courses
+
         if requesting_user and not hasattr(requesting_user, 'admin'):
             instructor = getattr(requesting_user, 'instructor', None)
             if not instructor or course.instructor_id != instructor.id:

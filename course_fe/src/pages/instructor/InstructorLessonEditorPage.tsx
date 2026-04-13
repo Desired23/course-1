@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { useUIStore } from '../../stores'
 import { Button } from '../../components/ui/button'
@@ -64,17 +65,39 @@ const BASE_STEPS = [
   { id: 'settings', icon: Settings },
 ]
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function InstructorLessonEditorPage() {
   const { navigate, params } = useRouter()
   const { t } = useTranslation()
-  // params might not be available directly via useRouter depending on implementation, 
-  // but typically we can get them. If not, we'll rely on path parsing or just mock it.
-  // Assuming a route like /instructor/courses/:courseId/lessons/:lessonId/edit
-  
+
+
+
+
   const { darkMode } = useUIStore()
 
-  // FORCE FIX: Ensure theme state is synchronized correctly when entering this page
-  // This addresses the issue where the page might incorrectly switch to dark mode
+
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -82,7 +105,7 @@ export function InstructorLessonEditorPage() {
       document.documentElement.classList.remove('dark')
     }
   }, [darkMode])
-  
+
   const [currentStep, setCurrentStep] = useState(0)
   const [editedLesson, setEditedLesson] = useState<Lesson | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -114,7 +137,7 @@ export function InstructorLessonEditorPage() {
     return undefined
   }
 
-  // Fetch lesson data from API
+
   useEffect(() => {
     const lessonId = params?.lessonId
     if (!lessonId) return
@@ -147,33 +170,33 @@ export function InstructorLessonEditorPage() {
           settings: {},
         }
 
-        // Fetch quiz data if it's a quiz or code type
+
         if (lesson.content_type === 'quiz' || lesson.content_type === 'code') {
           try {
             const questions = await getQuestionsByLesson(lesson.id)
             mapped.questions = questions.length
-            // If there's quiz data stored in content as JSON, parse it
+
             if (lesson.content) {
               try {
                 mapped.quizData = JSON.parse(lesson.content)
               } catch {
-                // content is not JSON, leave quizData undefined
+
               }
             }
           } catch {
-            // No quiz questions yet
+
           }
         }
 
-        // Fetch attachments
+
         try {
           const attachments = await getAttachmentsByLesson(lesson.id)
           mapped.resources = attachments.map((a: any) => a.file_name || a.title || t('instructor_lesson_editor_page.fallbacks.attachment'))
         } catch {
-          // No attachments yet
+
         }
 
-        // Resolve where to navigate back to
+
         const queryCourseId = new URLSearchParams(window.location.search).get('courseId')
         if (queryCourseId && /^\d+$/.test(queryCourseId)) {
           const parsedCourseId = Number(queryCourseId)
@@ -187,7 +210,7 @@ export function InstructorLessonEditorPage() {
               mapped.courseId = module.course
             }
           } catch {
-            // keep fallback
+
           }
         }
 
@@ -203,10 +226,10 @@ export function InstructorLessonEditorPage() {
     return () => { cancelled = true }
   }, [params?.lessonId, t])
 
-  // Keyboard shortcuts
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S or Cmd+S to save
+
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
         handleSave()
@@ -233,7 +256,7 @@ export function InstructorLessonEditorPage() {
   const handleSave = async () => {
     if (!editedLesson) return
 
-    // Validation
+
     if (!editedLesson.title.trim()) {
       toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
       setCurrentStep(0)
@@ -261,13 +284,13 @@ export function InstructorLessonEditorPage() {
         updateData.content = editedLesson.content || editedLesson.description || ''
       }
 
-      // Store quiz data as JSON in content field
+
       if ((editedLesson.type === 'quiz' || editedLesson.type === 'code') && editedLesson.quizData) {
         updateData.content = JSON.stringify(editedLesson.quizData)
       }
 
       await updateLessonApi(editedLesson.id, updateData)
-      
+
       setIsDirty(false)
       setLastSaved(new Date())
       toast.success(t('instructor_lesson_editor_page.toasts.lesson_saved'))
@@ -287,7 +310,7 @@ export function InstructorLessonEditorPage() {
 
   const handleNext = () => {
       if (currentStep < steps.length - 1) {
-      // Validation before moving from Basic
+
       if (currentStep === 0 && !editedLesson?.title.trim()) {
         toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
         return
@@ -308,7 +331,7 @@ export function InstructorLessonEditorPage() {
   const steps = contentType === 'video'
     ? [...BASE_STEPS, { id: 'transcript', icon: FileText }]
     : BASE_STEPS
-  
+
   const statusConfig = {
     published: {
       icon: CheckCircle,
@@ -320,12 +343,12 @@ export function InstructorLessonEditorPage() {
     }
   }
 
-  // Render Step Content
+
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: // Basic
+      case 0:
         return <BasicTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 1: // Content
+      case 1:
         if (contentType === 'quiz') {
           return <QuizTab lesson={editedLesson} onUpdate={handleUpdate} />
         }
@@ -342,13 +365,13 @@ export function InstructorLessonEditorPage() {
                 </p>
               </div>
               <div className="flex-1 border rounded-md overflow-hidden bg-background">
-                {/* Embedded Code Quiz Creator */}
+
                 <div className="p-0 h-full overflow-y-auto">
-                   <EnhancedCodeQuizCreator 
+                   <EnhancedCodeQuizCreator
                       initialData={editedLesson.quizData}
                       onChange={(data) => handleUpdate({ quizData: data })}
                       onSave={(data) => handleUpdate({ quizData: data })}
-                      onCancel={undefined} 
+                      onCancel={undefined}
                    />
                 </div>
               </div>
@@ -356,11 +379,11 @@ export function InstructorLessonEditorPage() {
           )
         }
         return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 2: // Resources
+      case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 3: // Settings
+      case 3:
         return <SettingsTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 4: // Transcript
+      case 4:
         return (
           <TranscriptEditorPanel
             lessonId={editedLesson.id}
@@ -373,14 +396,17 @@ export function InstructorLessonEditorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-       {/* Top Bar - No Header/Footer from layout to maximize space, 
-           but we need to ensure it looks consistent. 
-           Actually user wanted a "separate page". 
-           I'll keep it clean. */}
-        
-        {/* Header */}
-        <div className="border-b bg-background sticky top-0 z-10">
+    <motion.div
+      className="min-h-screen bg-background flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="flex-1 flex flex-col" variants={sectionStagger} initial="hidden" animate="show">
+
+
+
+        <motion.div className="border-b bg-background sticky top-0 z-10" variants={fadeInUp}>
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
                <Button variant="ghost" size="icon" onClick={handleBackNavigation}>
@@ -397,13 +423,13 @@ export function InstructorLessonEditorPage() {
                 </p>
                </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
-               {/* Status & Settings Controls */}
+
                <div className="flex items-center gap-4 mr-2 border-r pr-4 h-8">
                   <div className="flex items-center gap-2">
-                    <Switch 
-                      id="free-preview" 
+                    <Switch
+                      id="free-preview"
                       checked={editedLesson.is_free}
                       onCheckedChange={(checked) => handleUpdate({ is_free: checked })}
                     />
@@ -411,9 +437,9 @@ export function InstructorLessonEditorPage() {
                       {t('instructor_lesson_editor_page.actions.free_preview')}
                     </Label>
                   </div>
-                  
-                  <Select 
-                    value={editedLesson.status} 
+
+                  <Select
+                    value={editedLesson.status}
                     onValueChange={(value) => handleUpdate({ status: value })}
                   >
                     <SelectTrigger className={cn(
@@ -464,7 +490,7 @@ export function InstructorLessonEditorPage() {
             </div>
           </div>
 
-          {/* Stepper */}
+
           <div className="px-6 pb-0">
             <div className="flex items-center justify-center gap-12 pb-4">
               {steps.map((step, index) => {
@@ -480,10 +506,10 @@ export function InstructorLessonEditorPage() {
                   >
                     <div className={cn(
                       "w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-200",
-                      isActive 
-                        ? "border-primary bg-primary text-primary-foreground" 
-                        : isCompleted 
-                          ? "border-primary text-primary bg-primary/10" 
+                      isActive
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : isCompleted
+                          ? "border-primary text-primary bg-primary/10"
                           : "border-muted-foreground/30 text-muted-foreground"
                     )}>
                       {isCompleted ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
@@ -501,19 +527,19 @@ export function InstructorLessonEditorPage() {
               })}
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 bg-muted/10 p-6 overflow-hidden flex flex-col">
+
+        <motion.div className="flex-1 bg-muted/10 p-6 overflow-hidden flex flex-col" variants={fadeInUp}>
           <div className="max-w-5xl mx-auto w-full h-full flex flex-col">
              <div className={cn(
                 "bg-card rounded-xl border shadow-sm p-8 flex-1 overflow-y-auto",
-                // Remove padding/border for code editor to give it max space
+
                 currentStep === 1 && contentType === 'code' ? "p-0 overflow-hidden border-0 shadow-none bg-transparent" : ""
               )}>
                 {renderStepContent()}
               </div>
-              
+
               <div className="mt-6 flex justify-between items-center">
                  <Button
                     variant="outline"
@@ -524,7 +550,7 @@ export function InstructorLessonEditorPage() {
                     <ChevronLeft className="h-4 w-4 mr-2" />
                     {t('instructor_lesson_editor_page.actions.back')}
                   </Button>
-                  
+
                   {currentStep < steps.length - 1 ? (
                     <Button onClick={handleNext} className="w-32">
                       {t('instructor_lesson_editor_page.actions.next')}
@@ -537,14 +563,15 @@ export function InstructorLessonEditorPage() {
                   )}
               </div>
           </div>
-        </div>
-      
-      {/* Preview Modal */}
-      <LessonPreviewModal 
-        open={showPreview} 
-        onOpenChange={setShowPreview} 
-        lesson={editedLesson} 
+        </motion.div>
+      </motion.div>
+
+
+      <LessonPreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        lesson={editedLesson}
       />
-    </div>
+    </motion.div>
   )
 }

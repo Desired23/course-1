@@ -23,19 +23,19 @@ def create_blog_post(data, request=None):
     except ValidationError as e:
         raise ValidationError({"error": str(e)})
 
-# def update_blog_post(blog_post_id, data):
-#     try:
-#         blog_post = BlogPost.objects.get(blog_post_id=blog_post_id)
-#         serializer = BlogPostSerializer(blog_post, data=data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return serializer.data
-#         else:
-#             raise ValidationError(serializer.errors)
-#     except BlogPost.DoesNotExist:
-#         raise ValidationError({"error": "Blog post not found"})
-#     except ValidationError as e:
-#         raise ValidationError({"error": str(e)})
+
+
+
+
+
+
+
+
+
+
+
+
+
 def update_blog_post(blog_post_id, data, request=None):
     try:
         blog_post = BlogPost.objects.get(id=blog_post_id)

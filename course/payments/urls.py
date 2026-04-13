@@ -24,10 +24,10 @@ urlpatterns = [
     path('payments/refund/admin/', AdminRefundUpdateView.as_view(), name='admin-refund-update'),
     path('payments/refund/admin/action/', AdminRefundActionView.as_view(), name='admin-refund-action'),
 
-    # User payment history
+
     path('payments/my/', UserPaymentListView.as_view(), name='user-payment-list'),
 
-    # Refund endpoints
+
     path('refunds/', UserRefundListView.as_view(), name='user-refund-list'),
     path('refunds/request/', UserRefundListView.as_view(), name='user-refund-request'),
     path('refunds/details/', RefundDetailView.as_view(), name='refund-details'),

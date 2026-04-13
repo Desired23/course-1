@@ -44,10 +44,10 @@ class QuizQuestionManagementView(APIView):
                 lesson_id = request.query_params.get('lesson_id')
                 quiz_questions = get_quiz_questions_by_lesson(lesson_id)
                 return paginate_queryset(quiz_questions, request, QuizQuestionSerializer)
-            # elif 'user_id' in request.query_params:
-            #     user_id = request.query_params.get('user_id')
-            #     quiz_questions = get_quiz_questions_by_user_id(user_id)
-            #     return paginate_queryset(quiz_questions, request, QuizQuestionSerializer)
+
+
+
+
             else:
                 quiz_questions = get_all_quiz_questions()
                 return paginate_queryset(quiz_questions, request, QuizQuestionSerializer)
@@ -107,7 +107,7 @@ class QuizTestCaseView(APIView):
             question_id = request.query_params.get('question_id')
             if not question_id:
                 return Response({"error": "question_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             test_cases = get_test_cases_by_question(question_id)
             return paginate_queryset(test_cases, request, QuizTestCaseSerializer)
         except ValidationError as e:

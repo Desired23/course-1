@@ -82,7 +82,7 @@ def update_user_by_admin(user_id, data):
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
-    
+
     serializer = Userserializers(user, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_user = serializer.save()
@@ -101,7 +101,7 @@ def delete_user(user_id, request=None):
                 entity_id=user_id,
                 description="Xóa tài khoản người dùng"
             )
-        # Soft delete instead of hard delete
+
         user.is_deleted = True
         user.deleted_at = timezone.now()
         if request and hasattr(request, 'user'):
@@ -150,7 +150,7 @@ def get_users(filters=None):
         users = users.filter(user_type=user_type)
 
     return users.order_by('-created_at', '-id')
-    
+
 def get_user_by_id(user_id, viewer_id=None, is_admin=False):
         try:
             user = User.objects.select_related('instructor', 'admin').get(id=user_id)
@@ -166,9 +166,9 @@ def register(data):
         data['email'] = data['email'].strip().lower()
         serializer = Userserializers(data=data)
         serializer.is_valid(raise_exception=True)
-        user  = serializer.save() 
-        assert isinstance(user, User) 
-        # Gửi email xác nhận
+        user  = serializer.save()
+        assert isinstance(user, User)
+
         _send_email_verification(user)
         log_activity(
             user_id=user.id,
@@ -177,15 +177,15 @@ def register(data):
             entity_id=user.id,
             description="Người dùng đăng ký tài khoản mới"
         )
-        
+
     return serializer.data
 
 
 def _build_user_types(user):
     user_type = ["student"]
-    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:  # type: ignore
+    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:
         user_type.append("admin")
-    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:  # type: ignore
+    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:
         user_type.append("instructor")
     return user_type
 
@@ -368,7 +368,7 @@ def refresh_token(token):
     from .models import RefreshToken
     try:
         payload = decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        # Only accept refresh tokens
+
         if payload.get('token_type') != 'refresh':
             raise ValidationError({"error": "Invalid token type. Expected refresh token."})
         jti = payload.get('jti')
@@ -387,17 +387,17 @@ def refresh_token(token):
         raise ValidationError({"error": "Invalid token."})
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
-    
-    user_type = ["student"]  # Mặc định luôn có student
-    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:  # type: ignore
+
+    user_type = ["student"]
+    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:
         user_type.append("admin")
-    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:  # type: ignore
+    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:
         user_type.append("instructor")
 
-    # keep remember_me policy during rotation (legacy tokens fallback to default)
+
     remember_me = bool(payload.get('remember_me', False))
 
-    # revoke old refresh token and rotate
+
     refresh_days = REFRESH_TOKEN_DAYS_REMEMBER if remember_me else REFRESH_TOKEN_DAYS_DEFAULT
     new_expires = datetime.now(dt_timezone.utc) + timedelta(days=refresh_days)
     rt_obj.revoked_at = datetime.now(dt_timezone.utc)
@@ -459,7 +459,7 @@ def revoke_all_refresh_tokens_for_user(user_id):
     RefreshToken.objects.filter(user_id=user_id, revoked_at__isnull=True).update(revoked_at=timezone.now())
 
 
-# convenience wrapper used by view or other callers
+
 def logout_user(refresh_token: str):
     """Decode a refresh token, revoke it in the database.
     Returns True if token was invalidated or False if token was missing/invalid.
@@ -482,7 +482,7 @@ def user_reset_password(data):
         user = User.objects.get(email=email)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
-    
+
     reset_token = encode(
         {'user_id': user.id, 'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=30)},
         JWT_SECRET,
@@ -505,7 +505,7 @@ def confirm_reset_password(token, new_password):
         raise ValidationError({"error": "Invalid token."})
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
-    
+
     user.password_hash = make_password(new_password)
     user.save()
     log_activity(
@@ -550,13 +550,13 @@ def user_confirm_email(token):
 
     if payload.get("token_type") not in [None, EMAIL_VERIFICATION_TOKEN_TYPE]:
         raise ValidationError({"error": "Invalid token type."})
-    
+
     if user.status == 'active':
         return {
             "message": "Email already verified.",
             "status": "already_verified",
         }
-    
+
     user.status = 'active'
     user.save()
     log_activity(

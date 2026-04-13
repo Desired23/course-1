@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -83,6 +84,28 @@ interface PaymentMethod {
   enabled: boolean
   fees: number
   processingTime: string
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 
@@ -266,8 +289,14 @@ export function PlatformSettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 overflow-x-hidden">
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="p-6 space-y-6 overflow-x-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('platform_settings.title')}</h1>
           <p className="text-muted-foreground">{t('platform_settings.subtitle')}</p>
@@ -276,16 +305,35 @@ export function PlatformSettingsPage() {
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? 'Dang luu...' : t('platform_settings.save_changes')}
         </Button>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="general">{t('platform_settings.tabs.general')}</TabsTrigger>
-          <TabsTrigger value="financial">{t('platform_settings.tabs.financial')}</TabsTrigger>
-          <TabsTrigger value="policies">{t('platform_settings.tabs.policies')}</TabsTrigger>
-          <TabsTrigger value="features">{t('platform_settings.tabs.features')}</TabsTrigger>
-          <TabsTrigger value="notifications">{t('platform_settings.tabs.notifications')}</TabsTrigger>
-          <TabsTrigger value="security">{t('platform_settings.tabs.security')}</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-6 p-1">
+          <TabsTrigger value="general" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'general' && <motion.span layoutId="platform-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('platform_settings.tabs.general')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="financial" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'financial' && <motion.span layoutId="platform-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('platform_settings.tabs.financial')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="policies" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'policies' && <motion.span layoutId="platform-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('platform_settings.tabs.policies')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="features" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'features' && <motion.span layoutId="platform-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('platform_settings.tabs.features')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'notifications' && <motion.span layoutId="platform-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('platform_settings.tabs.notifications')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'security' && <motion.span layoutId="platform-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('platform_settings.tabs.security')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -316,7 +364,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="siteDescription">{t('platform_settings.general.site_description')}</Label>
                 <Textarea
@@ -326,7 +374,7 @@ export function PlatformSettingsPage() {
                   rows={3}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="supportEmail">{t('platform_settings.general.support_email')}</Label>
@@ -353,7 +401,7 @@ export function PlatformSettingsPage() {
                   </Select>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="logoUrl">{t('platform_settings.general.logo_url')}</Label>
@@ -418,7 +466,7 @@ export function PlatformSettingsPage() {
                   <p className="text-xs text-muted-foreground mt-1">{t('platform_settings.financial.minimum_payout_hint')}</p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="refundPeriod">{t('platform_settings.financial.refund_period')}</Label>
@@ -534,7 +582,7 @@ export function PlatformSettingsPage() {
                     </DialogContent>
                   </Dialog>
                 </div>
-                
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -618,7 +666,7 @@ export function PlatformSettingsPage() {
                   placeholder={t('platform_settings.policies.terms_placeholder')}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="privacyPolicy">{t('platform_settings.policies.privacy_policy')}</Label>
                 <Textarea
@@ -629,7 +677,7 @@ export function PlatformSettingsPage() {
                   placeholder={t('platform_settings.policies.privacy_placeholder')}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="refundPolicy">{t('platform_settings.policies.refund_policy')}</Label>
                 <Textarea
@@ -640,7 +688,7 @@ export function PlatformSettingsPage() {
                   placeholder={t('platform_settings.policies.refund_placeholder')}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="communityGuidelines">{t('platform_settings.policies.community_guidelines')}</Label>
                 <Textarea
@@ -676,7 +724,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'allowUserRegistration', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.email_verification')}</Label>
@@ -687,7 +735,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'requireEmailVerification', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.course_reviews')}</Label>
@@ -698,7 +746,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'enableCourseReviews', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.qa_section')}</Label>
@@ -709,7 +757,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'enableQA', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.blog_posts')}</Label>
@@ -720,7 +768,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'enableBlog', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.certificates')}</Label>
@@ -731,7 +779,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'enableCertificates', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.discussions')}</Label>
@@ -742,7 +790,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('features', 'enableDiscussions', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.features.live_streaming')}</Label>
@@ -779,7 +827,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('notifications', 'emailNotifications', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.notifications.push_notifications')}</Label>
@@ -790,7 +838,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('notifications', 'pushNotifications', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.notifications.sms_notifications')}</Label>
@@ -801,7 +849,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('notifications', 'smsNotifications', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.notifications.marketing_emails')}</Label>
@@ -850,7 +898,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="maxLoginAttempts">{t('platform_settings.security.max_login_attempts')}</Label>
                 <Input
@@ -864,7 +912,7 @@ export function PlatformSettingsPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">{t('platform_settings.security.max_login_attempts_hint')}</p>
               </div>
-              
+
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -876,7 +924,7 @@ export function PlatformSettingsPage() {
                     onCheckedChange={(checked) => updateSettings('security', 'requireStrongPassword', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>{t('platform_settings.security.two_factor')}</Label>
@@ -888,7 +936,7 @@ export function PlatformSettingsPage() {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <Label htmlFor="ipWhitelist">{t('platform_settings.security.ip_whitelist')}</Label>
                 <Textarea
@@ -904,6 +952,8 @@ export function PlatformSettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
+      </motion.div>
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -914,6 +964,6 @@ export function PlatformSettingsPage() {
         onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }

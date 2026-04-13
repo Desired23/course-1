@@ -31,7 +31,7 @@ class Promotion(models.Model):
 
     admin = models.ForeignKey(Admin, on_delete=models.SET_NULL, related_name='promotions_admin', null=True)
     instructor = models.ForeignKey(Instructor, on_delete=models.SET_NULL, related_name='promotions_instructor', null=True)
-    
+
     status = models.CharField(max_length=10, choices=StatusChoices.choices, default=StatusChoices.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

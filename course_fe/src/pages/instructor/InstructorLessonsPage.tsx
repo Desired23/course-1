@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { motion } from 'motion/react'
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -123,6 +124,28 @@ function createLegacyCourseStructure(t: (key: string) => string) {
       },
     ],
   }
+}
+
+const sectionStagger: any = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp: any = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: 'easeOut',
+    },
+  },
 }
 
 export function InstructorLessonsPage() {
@@ -277,12 +300,17 @@ export function InstructorLessonsPage() {
   const publishedLessons = sections.reduce((total, section) => total + section.lessons.filter((lesson) => lesson.status === 'published').length, 0)
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="container mx-auto px-4 py-8" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" variants={fadeInUp}>
           {t('instructor_lessons_page.legacy_notice')}
-        </div>
-        <div className="mb-8">
+        </motion.div>
+        <motion.div className="mb-8" variants={fadeInUp}>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="mb-2">{t('instructor_lessons_page.course_curriculum')}</h1>
@@ -305,8 +333,8 @@ export function InstructorLessonsPage() {
             <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{publishedLessons}</p><p className="text-sm text-muted-foreground">{t('instructor_lessons_page.published')}</p></CardContent></Card>
             <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalLessons - publishedLessons}</p><p className="text-sm text-muted-foreground">{t('instructor_lessons_page.drafts')}</p></CardContent></Card>
           </div>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        </motion.div>
+        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-8" variants={fadeInUp}>
           <div className="lg:col-span-2 space-y-6">
             <DndProvider backend={HTML5Backend}>
               {sections.map((section, sectionIndex) => (
@@ -359,7 +387,7 @@ export function InstructorLessonsPage() {
               <Card><CardContent className="p-8 text-center"><FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" /><h3 className="font-medium mb-2">{t('instructor_lessons_page.select_a_lesson')}</h3><p className="text-sm text-muted-foreground">{t('instructor_lessons_page.select_a_lesson_desc')}</p></CardContent></Card>
             )}
           </div>
-        </div>
+        </motion.div>
         {editingLesson && editingLesson.type !== 'quiz' && (
           <Dialog open={!!editingLesson} onOpenChange={() => setEditingLesson(null)}>
             <DialogContent className="max-w-2xl">
@@ -396,7 +424,7 @@ export function InstructorLessonsPage() {
             </DialogContent>
           </Dialog>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

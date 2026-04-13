@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 from .services import (
 create_blog_post
 , update_blog_post, delete_blog_post, get_blog_post, get_all_blog_posts,
@@ -51,7 +52,7 @@ class AdminBlogPostView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 class ClientBlogPostView(APIView):
     throttle_scope = 'search'
-    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    permission_classes = [AllowAny]
 
     def get(self, request):
         try:
@@ -70,4 +71,4 @@ class ClientBlogPostView(APIView):
             return Response(blog_post, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+

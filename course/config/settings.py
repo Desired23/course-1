@@ -9,15 +9,15 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-# import sys
-# print(">>> settings loaded from:", __file__)
-# print(">>> sys.modules count:", len(sys.modules))
+
+
+
 import dj_database_url
 from pathlib import Path
 import os
 from urllib.parse import urlparse
 from corsheaders.defaults import default_headers
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -25,8 +25,8 @@ def load_local_env_file(env_file_path):
     if not env_file_path.exists():
         return
 
-    # These runtime keys should follow .env deterministically in local development
-    # to avoid stale shell/session env values overriding recent edits.
+
+
     force_override_keys = {
         'LEARNING_PATH_PROVIDER',
         'LEARNING_PATH_FORCE_GEMINI',
@@ -56,16 +56,16 @@ def load_local_env_file(env_file_path):
 load_local_env_file(BASE_DIR / '.env')
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
+
+
+
 SECRET_KEY = os.getenv(
     'DJANGO_SECRET_KEY',
     'django-insecure-&fdfpm3&397v^3-cay1lhfg$5ktshko79(^56-vu&)zx29eclj'
 )
 
-# SECURITY WARNING: don't run with debug turned on in production!
+
 ASGI_APPLICATION = "config.asgi.application"
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
@@ -74,7 +74,7 @@ ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
-# Allow additional hosts from env (comma-separated)
+
 extra_hosts = os.getenv('ALLOWED_HOSTS', '')
 if extra_hosts:
     ALLOWED_HOSTS.extend(extra_hosts.split(','))
@@ -101,7 +101,7 @@ if REDIS_URL:
         },
     }
 else:
-    # Fallback: InMemory channel layer (works for single-process daphne)
+
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels.layers.InMemoryChannelLayer",
@@ -110,7 +110,7 @@ else:
 
 
 
-# Cloudinary config values
+
 CLOUDINARY_CLOUD_NAME = get_env("CLOUDINARY_CLOUD_NAME", default="dqzopvk2t")
 CLOUDINARY_API_KEY = get_env("CLOUDINARY_API_KEY", default="791785722646617")
 CLOUDINARY_API_SECRET = get_env("CLOUDINARY_API_SECRET", default="eYOL6HTUSbXlZNdtAyY4chQlgrk")
@@ -120,18 +120,18 @@ VIDEO_SIGNED_URL_TTL_SECONDS = int(get_env("VIDEO_SIGNED_URL_TTL_SECONDS", defau
 
 
 
-REFUND_DAYS = 7  # Số ngày được hoàn tiền kể từ ngày mua khóa học
+REFUND_DAYS = 7
 VNPAY_HASH_SECRET_KEY = os.getenv('VNPAY_HASH_SECRET_KEY', 'T84Y15XCZM36DT7YQHRHN7RT2V2JBA6T')
 
 
 
 
 
-# Application definition
+
 VNPAY_REFUND_URL = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction"
 VNPAY_URL = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
 VNPAY_TMN_CODE = os.getenv('VNPAY_TMN_CODE', 'BDF9QK1Y')
-# email
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
@@ -170,17 +170,17 @@ GOOGLE_OAUTH_CLIENT_IDS = [
     ).split(",")
     if client_id.strip()
 ]
-# VNPAY_RETURN_URL = "http://127.0.0.1:8000/api/vnpay/return/"
+
 VNPAY_RETURN_URL = os.getenv(
     "VNPAY_RETURN_URL",
     f"{BACKEND_PUBLIC_URL}/api/vnpay/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/vnpay/payment-return/",
 )
-# MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMOP93P20260328_TEST")
+
 MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMO")
-# MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY", "8TWy20eqRk8cSCns")
+
 MOMO_ACCESS_KEY = os.getenv("MOMO_ACCESS_KEY", "F8BBA842ECF85")
 
-# MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY", "mhJrlZRQOM3kncr2RzQycVI3oTejblYJ")
+
 MOMO_SECRET_KEY = os.getenv("MOMO_SECRET_KEY", "K951B6PE1waDMi640xX08PD3vg6EkVlz")
 
 MOMO_CREATE_URL = os.getenv("MOMO_CREATE_URL", "https://test-payment.momo.vn/v2/gateway/api/create")
@@ -216,9 +216,9 @@ INSTALLED_APPS = [
     'cloudinary_storage',
     'corsheaders',
     'channels',
-    'realtime',  
+    'realtime',
     'activity_logs',
-    # 'uvicorn',
+
     'users',
     'rest_framework',
     'config',
@@ -297,10 +297,10 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
- 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 if DATABASE_URL:
@@ -311,7 +311,7 @@ if DATABASE_URL:
             ssl_require=True
         )
     }
- 
+
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
     DATABASES["default"].setdefault("OPTIONS", {})
@@ -331,8 +331,8 @@ else:
         }
     }
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -379,8 +379,8 @@ LOGGING = {
 }
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
+
+
 
 LANGUAGE_CODE = 'en-us'
 
@@ -391,22 +391,22 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        # RolePermissionFactory tự xử lý authentication + permission
-        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+
+
     ),
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -414,11 +414,11 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        # Global defaults
-        'anon': '200/min',           # Anonymous users
-        'user': '600/min',           # Authenticated users (global)
 
-        # Scoped rates — sensitive endpoints
+        'anon': '200/min',
+        'user': '600/min',
+
+
         'login': '50/min',
         'register': '30/min',
         'password_reset': '30/hour',
@@ -426,21 +426,21 @@ REST_FRAMEWORK = {
         'quiz_submit': '50/min',
         'upload': '100/min',
 
-        # Scoped rates — content interaction
+
         'review': '50/min',
         'support': '50/min',
         'notification': '300/min',
 
-        # Scoped rates — browsing / search
+
         'search': '300/min',
 
-        # Scoped rates — general authenticated burst
+
         'burst': '600/min',
     },
 }
 
-# CORS Settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Chỉ cho phép tất cả trong dev
+
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
@@ -448,7 +448,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
 ]
 
-# Add Render frontend URL to CORS if set
+
 FRONTEND_CORS = FRONTEND_URL
 if FRONTEND_CORS and FRONTEND_CORS not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(FRONTEND_CORS)
@@ -457,7 +457,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
-# CSRF Trusted Origins (needed for POST requests in production)
+
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',
@@ -467,7 +467,7 @@ CSRF_TRUSTED_ORIGINS = [
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
 if FRONTEND_CORS:
-    CSRF_TRUSTED_ORIGINS.append(FRONTEND_CORS) 
+    CSRF_TRUSTED_ORIGINS.append(FRONTEND_CORS)
 
 TRANSCRIPT_LOCAL_WHISPER_MODEL = os.getenv("TRANSCRIPT_LOCAL_WHISPER_MODEL", "small")
 TRANSCRIPT_LOCAL_WHISPER_DEVICE = os.getenv("TRANSCRIPT_LOCAL_WHISPER_DEVICE", "cpu")

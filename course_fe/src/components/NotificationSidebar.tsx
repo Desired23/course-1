@@ -15,29 +15,29 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
-  // the context itself now holds the source of truth
+
   const { user } = useAuth()
   const { navigate } = useRouter()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // Note: notifications now come from context; no REST fetch on mount.
-  // We still keep the effect in case the sidebar wants to auto-refresh when
-  // the logged-in user ID changes, but it will call the context helper.
+
+
+
   const { state: notifState } = useNotifications() as any
 
-  // sidebar does not trigger its own refresh; context handles loading and WS updates
+
   useEffect(() => {
-    // nothing here
+
   }, [])
 
-  // mirror context state locally for UI
+
   useEffect(() => {
     setNotifications(notifState.notifications)
     setUnreadCount(notifState.unreadCount)
   }, [notifState])
 
-  // Handle mouse enter with delay
+
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
@@ -48,7 +48,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     }, 300)
   }
 
-  // Handle mouse leave with delay
+
   const handleMouseLeave = () => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current)
@@ -59,7 +59,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     }, 300)
   }
 
-  // Cleanup timeout on unmount
+
   useEffect(() => {
     return () => {
       if (hoverTimeoutRef.current) {
@@ -134,7 +134,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
       onMouseLeave={handleMouseLeave}
       className="relative"
     >
-      {/* Notification Icon Button */}
+
       <button
         className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
         onClick={() => navigate('/notifications')}
@@ -147,10 +147,10 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
         )}
       </button>
 
-      {/* Sidebar Dropdown */}
+
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-[400px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 z-50 max-h-[600px] flex flex-col">
-          {/* Header */}
+
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold flex items-center gap-2">
@@ -182,7 +182,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
               </div>
             </div>
 
-            {/* Mark all as read button */}
+
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
@@ -194,7 +194,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
             )}
           </div>
 
-          {/* Notifications List */}
+
           <div className="flex-1 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -220,12 +220,12 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                       }
                     }}
                   >
-                    {/* Icon */}
+
                     <div className="flex-shrink-0 text-2xl">
                       {getNotificationIcon(notification.type)}
                     </div>
 
-                    {/* Content */}
+
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-medium mb-1">{notification.title}</h4>
                       <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
@@ -241,7 +241,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                       </div>
                     </div>
 
-                    {/* Actions */}
+
                     <div className="flex flex-col gap-1 flex-shrink-0">
                       {!(notification.is_read ?? notification.read) && (
                         <button
@@ -272,7 +272,7 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
             )}
           </div>
 
-          {/* Footer */}
+
           {notifications.length > 0 && (
             <div className="p-3 border-t border-gray-200 dark:border-gray-700">
               <button

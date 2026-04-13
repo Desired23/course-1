@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { AlertTriangle, BookOpen, CheckCircle, Eye, Flag, MessageSquare, MoreVertical, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -55,9 +56,32 @@ const mapReport = (report: AdminReport): ReportItem => ({
   updated_at: toDate(report.updated_at),
 })
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function ReportManagementPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'reviewing' | 'critical'>('all')
   const [reports, setReports] = useState<ReportItem[]>([])
   const [filteredReports, setFilteredReports] = useState<ReportItem[]>([])
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null)
@@ -406,15 +430,15 @@ export function ReportManagementPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <motion.div className="p-6 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl mb-2">{t('admin_reports.title')}</h1>
           <p className="text-muted-foreground">{t('admin_reports.subtitle')}</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={fadeInUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('admin_reports.cards.total_reports')}</CardTitle>
@@ -458,14 +482,27 @@ export function ReportManagementPage() {
             <p className="text-xs text-muted-foreground">{t('admin_reports.cards.resolved_hint')}</p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="all" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="all">{t('admin_reports.tabs.all', { count: reports.length })}</TabsTrigger>
-          <TabsTrigger value="pending">{t('admin_reports.tabs.pending', { count: reports.filter(r => r.status === 'pending').length })}</TabsTrigger>
-          <TabsTrigger value="reviewing">{t('admin_reports.tabs.reviewing', { count: reports.filter(r => r.status === 'reviewing').length })}</TabsTrigger>
-          <TabsTrigger value="critical">{t('admin_reports.tabs.critical', { count: reports.filter(r => r.priority === 'critical').length })}</TabsTrigger>
+      <motion.div variants={fadeInUp}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'pending' | 'reviewing' | 'critical')} className="space-y-6">
+        <TabsList className="relative p-1">
+          <TabsTrigger value="all" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'all' && <motion.span layoutId="report-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reports.tabs.all', { count: reports.length })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'pending' && <motion.span layoutId="report-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reports.tabs.pending', { count: reports.filter(r => r.status === 'pending').length })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="reviewing" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'reviewing' && <motion.span layoutId="report-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reports.tabs.reviewing', { count: reports.filter(r => r.status === 'reviewing').length })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="critical" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'critical' && <motion.span layoutId="report-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reports.tabs.critical', { count: reports.filter(r => r.priority === 'critical').length })}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-6">
@@ -681,6 +718,7 @@ export function ReportManagementPage() {
           </TabsContent>
         ))}
       </Tabs>
+      </motion.div>
 
       {selectedReport && (
         <Dialog open={!!selectedReport} onOpenChange={() => {
@@ -837,6 +875,6 @@ export function ReportManagementPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }

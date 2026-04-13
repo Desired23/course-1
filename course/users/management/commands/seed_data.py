@@ -23,7 +23,7 @@ from reviews.models import Review
 from notifications.models import Notification
 from wishlists.models import Wishlist
 
-# ── Image URLs provided ──────────────────────────────────────────────
+
 
 COURSE_THUMBNAILS = {
     "javascript": "https://img-c.udemycdn.com/course/750x422/851712_fc61_6.jpg",
@@ -50,14 +50,14 @@ COURSE_THUMBNAILS = {
 }
 
 AVATARS = [
-    "https://img-c.udemycdn.com/user/200_H/31926668_94e7_6.jpg",   # male 1
-    "https://img-c.udemycdn.com/user/200_H/38516954_b11c_3.jpg",   # male 2
-    "https://img-c.udemycdn.com/user/200_H/13952972_e853.jpg",     # male 3
-    "https://img-c.udemycdn.com/user/200_H/9685726_67e7_4.jpg",    # male 4
-    "https://img-c.udemycdn.com/user/200_H/199907082_3148_2.jpg",  # female 1
-    "https://img-c.udemycdn.com/user/200_H/35906398_7c0c_3.jpg",   # female 2
-    "https://img-c.udemycdn.com/user/200_H/51770164_07e5_2.jpg",   # female 3
-    "https://img-c.udemycdn.com/user/200_H/6014906_bceb_5.jpg",    # female 4
+    "https://img-c.udemycdn.com/user/200_H/31926668_94e7_6.jpg",
+    "https://img-c.udemycdn.com/user/200_H/38516954_b11c_3.jpg",
+    "https://img-c.udemycdn.com/user/200_H/13952972_e853.jpg",
+    "https://img-c.udemycdn.com/user/200_H/9685726_67e7_4.jpg",
+    "https://img-c.udemycdn.com/user/200_H/199907082_3148_2.jpg",
+    "https://img-c.udemycdn.com/user/200_H/35906398_7c0c_3.jpg",
+    "https://img-c.udemycdn.com/user/200_H/51770164_07e5_2.jpg",
+    "https://img-c.udemycdn.com/user/200_H/6014906_bceb_5.jpg",
 ]
 
 DEFAULT_PASSWORD = make_password("password123")
@@ -93,11 +93,11 @@ class Command(BaseCommand):
         self._seed()
         self.stdout.write(self.style.SUCCESS("✓ Seed data created successfully!"))
 
-    # ──────────────────────────────────────────────────────────────────
+
     def _seed(self):
         now = timezone.now()
 
-        # 1. Instructor level (required FK)
+
         level, _ = InstructorLevel.objects.get_or_create(
             name="Silver",
             defaults={
@@ -109,7 +109,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"  InstructorLevel: {level}")
 
-        # 2. Categories (parent + sub)
+
         cats_data = [
             ("Lập trình", "Các khóa học về lập trình và phát triển phần mềm", [
                 "JavaScript", "Python", "Java", "C++", "TypeScript",
@@ -151,7 +151,7 @@ class Command(BaseCommand):
                 sub_cats[sname] = sub
         self.stdout.write(f"  Categories: {len(parent_cats)} parents, {len(sub_cats)} subs")
 
-        # 3. Admin user
+
         admin_user, _ = User.objects.get_or_create(
             username="admin",
             defaults={
@@ -165,7 +165,7 @@ class Command(BaseCommand):
         )
         self.stdout.write(f"  Admin user: {admin_user.username}")
 
-        # 4. Users — instructors
+
         instructor_users_data = [
             ("nguyenvana", "Nguyễn Văn A", "nguyenvana@example.com", AVATARS[0]),
             ("tranthib", "Trần Thị B", "tranthib@example.com", AVATARS[4]),
@@ -188,7 +188,7 @@ class Command(BaseCommand):
             instructor_users.append(u)
         self.stdout.write(f"  Instructor users: {len(instructor_users)}")
 
-        # 4. Users — students
+
         student_users_data = [
             ("student01", "Hoàng Minh", "student01@example.com", AVATARS[2]),
             ("student02", "Lý Thị Mai", "student02@example.com", AVATARS[6]),
@@ -212,7 +212,7 @@ class Command(BaseCommand):
             student_users.append(u)
         self.stdout.write(f"  Student users: {len(student_users)}")
 
-        # 5. Instructor profiles
+
         instructor_profiles_data = [
             {
                 "user": instructor_users[0],
@@ -278,10 +278,10 @@ class Command(BaseCommand):
             instructors.append(inst)
         self.stdout.write(f"  Instructors: {len(instructors)}")
 
-        # 6. Courses
+
         thumb_keys = list(COURSE_THUMBNAILS.keys())
         courses_data = [
-            # instructor_idx, title, short_desc, cat_parent, cat_sub, thumb_key, price, level, duration, total_lessons, total_modules, is_featured
+
             (0, "Khóa học JavaScript từ cơ bản đến nâng cao",
              "Học JavaScript toàn diện: cú pháp, DOM, Async, ES6+ và xây dựng dự án thực tế.",
              "Lập trình", "JavaScript", "javascript", 799000, "beginner", 1800, 85, 12, True),
@@ -387,7 +387,7 @@ class Command(BaseCommand):
             courses.append(c)
         self.stdout.write(f"  Courses: {len(courses)}")
 
-        # 7. Course Modules + Lessons
+
         module_titles_pool = [
             "Giới thiệu", "Cơ bản", "Cấu trúc dữ liệu", "Hàm và Modules",
             "OOP", "Xử lý lỗi", "Async Programming", "APIs & HTTP",
@@ -411,7 +411,7 @@ class Command(BaseCommand):
                     status="active",
                 )
                 module_count += 1
-                # Lessons per module
+
                 num_lessons = random.randint(3, 7)
                 for l_idx in range(num_lessons):
                     content_type = random.choice(["video", "video", "video", "text", "quiz"])
@@ -423,17 +423,17 @@ class Command(BaseCommand):
                         content=f"<p>Nội dung bài học {l_idx + 1}</p>" if content_type == "text" else "",
                         video_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ" if content_type == "video" else "",
                         duration=random.randint(5, 30),
-                        is_free=(l_idx == 0),  # first lesson free
+                        is_free=(l_idx == 0),
                         order=l_idx + 1,
                         status="published",
                     )
                     lesson_count += 1
         self.stdout.write(f"  Modules: {module_count}, Lessons: {lesson_count}")
 
-        # 8. Enrollments
+
         enrollment_count = 0
         for student in student_users:
-            # Each student enrolls in 3-6 random courses
+
             enrolled_courses = random.sample(courses, min(random.randint(3, 6), len(courses)))
             for course in enrolled_courses:
                 _, created = Enrollment.objects.get_or_create(
@@ -449,7 +449,7 @@ class Command(BaseCommand):
                     enrollment_count += 1
         self.stdout.write(f"  Enrollments: {enrollment_count}")
 
-        # 9. Reviews
+
         review_comments = [
             "Khóa học rất hay và dễ hiểu! Giảng viên giải thích rõ ràng từng bước.",
             "Nội dung phong phú, nhiều bài tập thực hành. Rất đáng tiền!",
@@ -468,7 +468,7 @@ class Command(BaseCommand):
             "Cảm ơn bạn đã đánh giá! Rất vui khi khóa học giúp ích cho bạn.",
             "Cảm ơn feedback! Mình sẽ cập nhật thêm bài tập trong thời gian tới.",
             "Chúc bạn thành công với kiến thức đã học! 🎉",
-            None, None, None,  # some reviews have no response
+            None, None, None,
         ]
         review_count = 0
         for student in student_users:
@@ -493,7 +493,7 @@ class Command(BaseCommand):
                         review_count += 1
         self.stdout.write(f"  Reviews: {review_count}")
 
-        # 10. Notifications
+
         notif_templates = [
             ("system", "Chào mừng bạn đến với hệ thống!", "Hãy bắt đầu hành trình học tập của bạn ngay hôm nay."),
             ("course", "Khóa học mới đã được cập nhật", "Khóa học bạn đăng ký vừa có nội dung mới. Hãy kiểm tra ngay!"),
@@ -518,7 +518,7 @@ class Command(BaseCommand):
                 notif_count += 1
         self.stdout.write(f"  Notifications: {notif_count}")
 
-        # 11. Wishlists (each student wishlists 1-3 non-enrolled courses)
+
         wishlist_count = 0
         for student in student_users:
             enrolled_ids = set(Enrollment.objects.filter(user=student).values_list("course_id", flat=True))
@@ -534,7 +534,7 @@ class Command(BaseCommand):
                         wishlist_count += 1
         self.stdout.write(f"  Wishlists: {wishlist_count}")
 
-        # Summary
+
         self.stdout.write("")
         self.stdout.write("  ─── Summary ───")
         self.stdout.write(f"  Users:        {User.objects.count()}")

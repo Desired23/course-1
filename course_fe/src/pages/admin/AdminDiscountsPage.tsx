@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { motion } from "motion/react"
 import { FilterComponents } from "../../components/FilterComponents"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -61,6 +62,28 @@ interface Discount {
   status: "active" | "expired" | "disabled"
   creatorRole: "admin" | "instructor"
   applicableTo: "all" | "specific"
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function AdminDiscountsPage() {
@@ -342,8 +365,14 @@ export function AdminDiscountsPage() {
     : 0
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <motion.div
+      className="p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -482,9 +511,9 @@ export function AdminDiscountsPage() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" variants={fadeInUp}>
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
@@ -529,9 +558,9 @@ export function AdminDiscountsPage() {
             </div>
           </div>
         </Card>
-      </div>
+      </motion.div>
 
-      <div className="mb-6 space-y-4">
+      <motion.div className="mb-6 space-y-4" variants={fadeInUp}>
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -566,8 +595,9 @@ export function AdminDiscountsPage() {
             className="w-full md:w-48"
           />
         </div>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <AdminBulkActionBar
         count={selectedDiscountIds.length}
         label={t("admin_discounts.bulk.selected_label")}
@@ -604,8 +634,9 @@ export function AdminDiscountsPage() {
           },
         ]}
       />
+      </motion.div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <motion.div className="border rounded-lg overflow-hidden" variants={fadeInUp}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -764,7 +795,7 @@ export function AdminDiscountsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </motion.div>
 
       <AdminConfirmDialog
         open={confirmState.open}
@@ -776,6 +807,7 @@ export function AdminDiscountsPage() {
         onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

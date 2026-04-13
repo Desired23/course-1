@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
@@ -8,8 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Switch } from '../../components/ui/switch'
 import { Badge } from '../../components/ui/badge'
 import { toast } from 'sonner'
-import { 
-  Upload, Save, Settings, Image as ImageIcon, Globe, 
+import {
+  Upload, Save, Settings, Image as ImageIcon, Globe,
   Palette, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube,
   Linkedin, GripVertical, Eye, EyeOff
 } from 'lucide-react'
@@ -37,8 +38,31 @@ interface SocialLinks {
   linkedin?: string
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function AdminWebsiteSettingsPage() {
   const { t } = useTranslation()
+  const [activeTab, setActiveTab] = useState<'general' | 'branding' | 'contact' | 'social' | 'banners'>('general')
   const [settingsMap, setSettingsMap] = useState<Record<string, SystemSetting>>({})
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const [pendingUploadTarget, setPendingUploadTarget] = useState<string | null>(null)
@@ -49,11 +73,11 @@ export function AdminWebsiteSettingsPage() {
   const [favicon, setFavicon] = useState('/favicon.ico')
   const [primaryColor, setPrimaryColor] = useState('#A435F0')
   const [secondaryColor, setSecondaryColor] = useState('#5624D0')
-  
+
   const [contactEmail, setContactEmail] = useState('support@udemy.com')
   const [contactPhone, setContactPhone] = useState('+84 123 456 789')
   const [contactAddress, setContactAddress] = useState('123 Learning Street, Education City')
-  
+
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({
     facebook: 'https://facebook.com/udemy',
     twitter: 'https://twitter.com/udemy',
@@ -155,7 +179,7 @@ export function AdminWebsiteSettingsPage() {
   }
 
   const handleToggleBanner = (id: string) => {
-    setBanners(banners.map(banner => 
+    setBanners(banners.map(banner =>
       banner.id === id ? { ...banner, enabled: !banner.enabled } : banner
     ))
   }
@@ -175,16 +199,16 @@ export function AdminWebsiteSettingsPage() {
     const dragIndex = parseInt(e.dataTransfer.getData('text/html'))
     const newBanners = [...banners]
     const draggedBanner = newBanners[dragIndex]
-    
+
     newBanners.splice(dragIndex, 1)
     newBanners.splice(dropIndex, 0, draggedBanner)
-    
-    // Update order
+
+
     const reorderedBanners = newBanners.map((banner, index) => ({
       ...banner,
       order: index + 1
     }))
-    
+
     setBanners(reorderedBanners)
     toast.success(t('admin_website_settings.banner_order_updated'))
   }
@@ -241,7 +265,13 @@ export function AdminWebsiteSettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <motion.div
+      className="p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
       <input
         ref={uploadInputRef}
         type="file"
@@ -250,36 +280,37 @@ export function AdminWebsiteSettingsPage() {
         onChange={(event) => void handleFileSelected(event)}
       />
 
-      <div>
+      <motion.div variants={fadeInUp}>
         <h1 className="text-3xl font-semibold">{t('admin_website_settings.title')}</h1>
         <p className="text-muted-foreground">{t('admin_website_settings.subtitle')}</p>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general">
-            <Settings className="w-4 h-4 mr-2" />
-            {t('admin_website_settings.tabs.general')}
+      <motion.div variants={fadeInUp}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'general' | 'branding' | 'contact' | 'social' | 'banners')} className="space-y-6">
+        <TabsList className="relative grid w-full grid-cols-5 p-1">
+          <TabsTrigger value="general" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'general' && <motion.span layoutId="admin-website-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center"><Settings className="w-4 h-4 mr-2" />{t('admin_website_settings.tabs.general')}</span>
           </TabsTrigger>
-          <TabsTrigger value="branding">
-            <Palette className="w-4 h-4 mr-2" />
-            {t('admin_website_settings.tabs.branding')}
+          <TabsTrigger value="branding" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'branding' && <motion.span layoutId="admin-website-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center"><Palette className="w-4 h-4 mr-2" />{t('admin_website_settings.tabs.branding')}</span>
           </TabsTrigger>
-          <TabsTrigger value="contact">
-            <Phone className="w-4 h-4 mr-2" />
-            {t('admin_website_settings.tabs.contact')}
+          <TabsTrigger value="contact" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'contact' && <motion.span layoutId="admin-website-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center"><Phone className="w-4 h-4 mr-2" />{t('admin_website_settings.tabs.contact')}</span>
           </TabsTrigger>
-          <TabsTrigger value="social">
-            <Globe className="w-4 h-4 mr-2" />
-            {t('admin_website_settings.tabs.social')}
+          <TabsTrigger value="social" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'social' && <motion.span layoutId="admin-website-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center"><Globe className="w-4 h-4 mr-2" />{t('admin_website_settings.tabs.social')}</span>
           </TabsTrigger>
-          <TabsTrigger value="banners">
-            <ImageIcon className="w-4 h-4 mr-2" />
-            {t('admin_website_settings.tabs.banners')}
+          <TabsTrigger value="banners" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'banners' && <motion.span layoutId="admin-website-settings-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center"><ImageIcon className="w-4 h-4 mr-2" />{t('admin_website_settings.tabs.banners')}</span>
           </TabsTrigger>
         </TabsList>
 
-        {/* General Settings */}
+
         <TabsContent value="general" className="space-y-6">
           <Card>
             <CardHeader>
@@ -316,7 +347,7 @@ export function AdminWebsiteSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Branding */}
+
         <TabsContent value="branding" className="space-y-6">
           <Card>
             <CardHeader>
@@ -440,7 +471,7 @@ export function AdminWebsiteSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Contact Information */}
+
         <TabsContent value="contact" className="space-y-6">
           <Card>
             <CardHeader>
@@ -497,7 +528,7 @@ export function AdminWebsiteSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Social Media */}
+
         <TabsContent value="social" className="space-y-6">
           <Card>
             <CardHeader>
@@ -578,7 +609,7 @@ export function AdminWebsiteSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Banners */}
+
         <TabsContent value="banners" className="space-y-6">
           <Card>
             <CardHeader>
@@ -693,8 +724,8 @@ export function AdminWebsiteSettingsPage() {
               ))}
 
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     const newBanner: BannerConfig = {
                       id: Date.now().toString(),
@@ -723,6 +754,8 @@ export function AdminWebsiteSettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

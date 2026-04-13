@@ -10,6 +10,28 @@ import { toast } from 'sonner'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function SignupPage() {
   const { t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
@@ -26,13 +48,13 @@ export function SignupPage() {
 
   const validate = () => {
     const newErrors: {username?: string, fullName?: string, email?: string, password?: string} = {}
-    
+
     if (!formData.username.trim()) {
       newErrors.username = t('auth.username_required', 'Vui lòng nhập tên đăng nhập')
     } else if (formData.username.trim().length < 3) {
       newErrors.username = t('auth.username_min', 'Tên đăng nhập phải có ít nhất 3 ký tự')
     }
-    
+
     if (!formData.fullName.trim()) {
       newErrors.fullName = t('auth.name_required')
     }
@@ -42,24 +64,24 @@ export function SignupPage() {
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = t('auth.email_invalid')
     }
-    
+
     if (!formData.password) {
       newErrors.password = t('auth.password_required')
     } else if (formData.password.length < 8) {
       newErrors.password = t('auth.password_min')
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validate()) return
 
     setIsSubmitting(true)
-    
+
     try {
       const success = await signup(
         formData.username.trim(),
@@ -97,16 +119,16 @@ export function SignupPage() {
   }
 
   return (
-    <AuthLayout 
+    <AuthLayout
       title={t('auth.create_account')}
       subtitle={t('auth.create_account_subtitle')}
       image="https://images.unsplash.com/photo-1623485101793-082c03565fa9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxzdHVkZW50JTIwbGVhcm5pbmclMjBvbmxpbmUlMjBsYXB0b3AlMjBsaWJyYXJ5JTIwYWVzdGhldGljfGVufDF8fHx8MTc2ODA0ODMwMnww&ixlib=rb-4.1.0&q=80&w=1080"
       quote="The more that you read, the more things you will know. The more that you learn, the more places you'll go."
       author="Dr. Seuss"
     >
-      <div className="grid gap-6">
+      <motion.div className="grid gap-6" variants={sectionStagger} initial="hidden" animate="show">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.15 }}
@@ -124,14 +146,14 @@ export function SignupPage() {
                 onBlur={validate}
                 placeholder={t('auth.username_placeholder', 'Nhập tên đăng nhập')}
                 className={`pl-10 h-11 bg-gray-50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 focus:bg-white dark:focus:bg-zinc-800 transition-colors ${
-                  errors.username 
-                    ? 'border-red-500 focus-visible:ring-red-500' 
+                  errors.username
+                    ? 'border-red-500 focus-visible:ring-red-500'
                     : 'focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400'
                 }`}
               />
             </div>
             {errors.username && (
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 className="text-red-500 text-xs font-medium flex items-center gap-1 mt-1"
@@ -141,7 +163,7 @@ export function SignupPage() {
             )}
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.25 }}
@@ -159,14 +181,14 @@ export function SignupPage() {
                 onBlur={validate}
                 placeholder={t('auth.enter_name')}
                 className={`pl-10 h-11 bg-gray-50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 focus:bg-white dark:focus:bg-zinc-800 transition-colors ${
-                  errors.fullName 
-                    ? 'border-red-500 focus-visible:ring-red-500' 
+                  errors.fullName
+                    ? 'border-red-500 focus-visible:ring-red-500'
                     : 'focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400'
                 }`}
               />
             </div>
             {errors.fullName && (
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 className="text-red-500 text-xs font-medium flex items-center gap-1 mt-1"
@@ -176,7 +198,7 @@ export function SignupPage() {
             )}
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.35 }}
@@ -194,14 +216,14 @@ export function SignupPage() {
                 onBlur={validate}
                 placeholder={t('auth.email_placeholder')}
                 className={`pl-10 h-11 bg-gray-50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 focus:bg-white dark:focus:bg-zinc-800 transition-colors ${
-                  errors.email 
-                    ? 'border-red-500 focus-visible:ring-red-500' 
+                  errors.email
+                    ? 'border-red-500 focus-visible:ring-red-500'
                     : 'focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400'
                 }`}
               />
             </div>
             {errors.email && (
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 className="text-red-500 text-xs font-medium flex items-center gap-1 mt-1"
@@ -211,7 +233,7 @@ export function SignupPage() {
             )}
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.45 }}
@@ -229,8 +251,8 @@ export function SignupPage() {
                 onBlur={validate}
                 placeholder={t('auth.create_password')}
                 className={`pl-10 pr-10 h-11 bg-gray-50 dark:bg-zinc-800/50 border-gray-200 dark:border-zinc-700 focus:bg-white dark:focus:bg-zinc-800 transition-colors ${
-                  errors.password 
-                    ? 'border-red-500 focus-visible:ring-red-500' 
+                  errors.password
+                    ? 'border-red-500 focus-visible:ring-red-500'
                     : 'focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400'
                 }`}
               />
@@ -247,7 +269,7 @@ export function SignupPage() {
               </button>
             </div>
             {errors.password ? (
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 className="text-red-500 text-xs font-medium flex items-center gap-1 mt-1"
@@ -279,9 +301,9 @@ export function SignupPage() {
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
           >
-            <Button 
-              type="submit" 
-              className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold shadow-lg shadow-indigo-500/20 transition-all duration-300" 
+            <Button
+              type="submit"
+              className="w-full h-11 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold shadow-lg shadow-indigo-500/20 transition-all duration-300"
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -294,7 +316,7 @@ export function SignupPage() {
           </motion.div>
         </form>
 
-        <div className="relative my-2">
+        <motion.div className="relative my-2" variants={fadeInUp}>
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-gray-200 dark:border-zinc-800" />
           </div>
@@ -303,9 +325,9 @@ export function SignupPage() {
               {t('auth.or_continue_with')}
             </span>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div className="grid grid-cols-2 gap-4" variants={fadeInUp}>
            <Button variant="outline" className="w-full h-10 bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors">
             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -315,16 +337,16 @@ export function SignupPage() {
             </svg>
             {t('common.google')}
           </Button>
-          
+
           <Button variant="outline" className="w-full h-10 bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors">
             <svg className="w-4 h-4 mr-2 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
             </svg>
             {t('common.facebook')}
           </Button>
-        </div>
+        </motion.div>
 
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+        <motion.div className="text-center text-sm text-gray-600 dark:text-gray-400" variants={fadeInUp}>
           {t('auth.have_account')}{' '}
           <button
             onClick={() => navigate('/login')}
@@ -332,8 +354,8 @@ export function SignupPage() {
           >
             {t('auth.login')}
           </button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </AuthLayout>
   )
 }

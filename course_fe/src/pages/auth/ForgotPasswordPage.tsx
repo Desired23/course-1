@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, CheckCircle2, Loader2, Mail } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -7,6 +8,28 @@ import { useRouter } from '../../components/Router'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function ForgotPasswordPage() {
   const { t } = useTranslation()
@@ -40,10 +63,16 @@ export function ForgotPasswordPage() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+      <motion.div
+        className="min-h-screen bg-background flex items-center justify-center p-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
+        <motion.div variants={sectionStagger} initial="hidden" animate="show" className="max-w-md w-full">
+          <Card>
           <CardContent className="pt-6">
-            <div className="text-center space-y-4">
+            <motion.div className="text-center space-y-4" variants={fadeInUp}>
               <div className="flex justify-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="w-10 h-10 text-green-600" />
@@ -62,27 +91,36 @@ export function ForgotPasswordPage() {
               <Button onClick={() => navigate('/login')} className="w-full">
                 {t('forgot_password_page.back_to_login')}
               </Button>
-            </div>
+            </motion.div>
           </CardContent>
-        </Card>
-      </div>
+          </Card>
+        </motion.div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
+    <motion.div
+      className="min-h-screen bg-background flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div variants={sectionStagger} initial="hidden" animate="show" className="max-w-md w-full">
+        <Card>
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+          <motion.div className="flex justify-center mb-4" variants={fadeInUp}>
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
               <Mail className="w-8 h-8 text-primary" />
             </div>
-          </div>
-          <CardTitle>{t('forgot_password_page.title')}</CardTitle>
-          <CardDescription>{t('forgot_password_page.subtitle')}</CardDescription>
+          </motion.div>
+          <motion.div variants={fadeInUp}>
+            <CardTitle>{t('forgot_password_page.title')}</CardTitle>
+            <CardDescription>{t('forgot_password_page.subtitle')}</CardDescription>
+          </motion.div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <motion.form onSubmit={handleSubmit} className="space-y-4" variants={fadeInUp}>
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('auth.email')}</label>
               <Input
@@ -113,9 +151,10 @@ export function ForgotPasswordPage() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               {t('forgot_password_page.back_to_login')}
             </Button>
-          </form>
+          </motion.form>
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </motion.div>
+    </motion.div>
   )
 }

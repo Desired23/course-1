@@ -11,7 +11,7 @@ export function SimpleFloatingNav() {
   const { navigate } = useRouter()
   const auth = useAuth()
 
-  // Basic navigation items
+
   const basicItems = [
     { id: 'home', label: t('simple_floating_nav.home'), path: '/', icon: Home },
     { id: 'courses', label: t('simple_floating_nav.courses'), path: '/courses', icon: BookOpen },
@@ -45,7 +45,7 @@ export function SimpleFloatingNav() {
                 </button>
               ))}
             </div>
-            
+
             <div className="mt-4 pt-4 border-t">
               <p className="text-xs text-gray-500">
                 {t('simple_floating_nav.auth_status')}: {auth?.isAuthenticated ? t('simple_floating_nav.logged_in') : t('simple_floating_nav.not_logged_in')}
@@ -59,7 +59,7 @@ export function SimpleFloatingNav() {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"

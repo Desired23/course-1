@@ -11,6 +11,28 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { useAuth } from '../../contexts/AuthContext'
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function SignupPage() {
   const { t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
@@ -102,7 +124,7 @@ export function SignupPage() {
       quote={t('auth.signup_quote')}
       author={t('auth.signup_quote_author')}
     >
-      <div className="grid gap-6">
+      <motion.div className="grid gap-6" variants={sectionStagger} initial="hidden" animate="show">
         <form onSubmit={handleSubmit} className="space-y-4">
           <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }} className="space-y-2">
             <Label htmlFor="username" className="text-gray-700 dark:text-gray-300">
@@ -261,7 +283,7 @@ export function SignupPage() {
           </motion.div>
         </form>
 
-        <div className="relative my-2">
+        <motion.div className="relative my-2" variants={fadeInUp}>
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-gray-200 dark:border-zinc-800" />
           </div>
@@ -270,9 +292,9 @@ export function SignupPage() {
               {t('auth.or_continue_with')}
             </span>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div className="grid grid-cols-2 gap-4" variants={fadeInUp}>
           <Button variant="outline" className="w-full h-10 bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors">
             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
               <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -289,9 +311,9 @@ export function SignupPage() {
             </svg>
             {t('auth.facebook')}
           </Button>
-        </div>
+        </motion.div>
 
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+        <motion.div className="text-center text-sm text-gray-600 dark:text-gray-400" variants={fadeInUp}>
           {t('auth.have_account')}{' '}
           <button
             onClick={() => navigate('/login')}
@@ -299,8 +321,8 @@ export function SignupPage() {
           >
             {t('auth.login')}
           </button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </AuthLayout>
   )
 }

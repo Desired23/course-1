@@ -11,18 +11,18 @@ interface ArticlePreviewProps {
   className?: string
 }
 
-export function ArticlePreview({ 
-  title, 
-  content, 
+export function ArticlePreview({
+  title,
+  content,
   duration,
-  className 
+  className
 }: ArticlePreviewProps) {
   const { t } = useTranslation()
   const mockContent = content || t('article_preview.mock_content')
 
   return (
     <Card className={cn("overflow-hidden", className)}>
-      {/* Header */}
+
       <div className="border-b bg-muted/30 p-6">
         <div className="flex items-start gap-4">
           <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
@@ -41,9 +41,9 @@ export function ArticlePreview({
         </div>
       </div>
 
-      {/* Content */}
+
       <div className="p-8">
-        <div 
+        <div
           className="prose prose-sm dark:prose-invert max-w-none
             prose-headings:font-bold
             prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4

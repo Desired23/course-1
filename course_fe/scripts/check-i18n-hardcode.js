@@ -97,12 +97,12 @@ function shouldIgnoreSnippet(snippet) {
     return true
   }
 
-  // Ignore translation keys and other key-like identifiers after i18n migration.
+
   if (/^[a-z0-9_]+(?:\.[a-z0-9_]+)+$/i.test(trimmed)) {
     return true
   }
 
-  // Ignore obvious code fragments that the regexes occasionally capture.
+
   if (/[(){}=>]/.test(trimmed) || trimmed.includes('&&') || trimmed.includes('||')) {
     return true
   }

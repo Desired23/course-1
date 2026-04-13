@@ -1,73 +1,73 @@
-// ============================================
-// EXTENDED MOCK DATA - Complete DB Structure
-// ============================================
-// Import base data
+
+
+
+
 import { categories as baseCategories, users as baseUsers, instructors as baseInstructors, courses as baseCourses } from './db'
 
-// Re-export base data
+
 export { baseCategories as categories, baseUsers as users, baseInstructors as instructors, baseCourses as courses }
 
-// ============================================
-// SUBCATEGORIES (Based on parent_category relationship)
-// ============================================
+
+
+
 export const subcategories = [
-  // Development subcategories
+
   { category_id: 101, name: "Web Development", parent_category: 1, description: "Learn HTML, CSS, JavaScript, React, and more", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 102, name: "Mobile Development", parent_category: 1, description: "iOS, Android, React Native, Flutter", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 103, name: "Programming Languages", parent_category: 1, description: "Python, Java, C++, JavaScript, and more", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 104, name: "Game Development", parent_category: 1, description: "Unity, Unreal Engine, C#", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 105, name: "Database Design", parent_category: 1, description: "SQL, MongoDB, PostgreSQL", status: "active", created_at: new Date(), updated_at: new Date() },
-  
-  // Business subcategories
+
+
   { category_id: 201, name: "Entrepreneurship", parent_category: 2, description: "Start and grow your business", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 202, name: "Communication", parent_category: 2, description: "Public speaking, writing, presentation", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 203, name: "Management", parent_category: 2, description: "Leadership, project management", status: "active", created_at: new Date(), updated_at: new Date() },
-  
-  // Design subcategories
+
+
   { category_id: 301, name: "Graphic Design", parent_category: 3, description: "Photoshop, Illustrator, branding", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 302, name: "UX/UI Design", parent_category: 3, description: "User experience, interface design", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 303, name: "3D & Animation", parent_category: 3, description: "Blender, Maya, After Effects", status: "active", created_at: new Date(), updated_at: new Date() },
-  
-  // Marketing subcategories
+
+
   { category_id: 401, name: "Digital Marketing", parent_category: 4, description: "SEO, SEM, content marketing", status: "active", created_at: new Date(), updated_at: new Date() },
   { category_id: 402, name: "Social Media Marketing", parent_category: 4, description: "Facebook, Instagram, TikTok", status: "active", created_at: new Date(), updated_at: new Date() }
 ]
 
-// ============================================
-// COURSE MODULES
-// ============================================
+
+
+
 export const courseModules = [
-  // Course 1 modules
+
   { module_id: 1, course_id: 1, title: "Introduction to Web Development", description: "Get started with web development basics", order_number: 1, duration: 120, status: "published", created_date: new Date(), updated_date: new Date() },
   { module_id: 2, course_id: 1, title: "HTML Fundamentals", description: "Master HTML structure and elements", order_number: 2, duration: 180, status: "published", created_date: new Date(), updated_date: new Date() },
   { module_id: 3, course_id: 1, title: "CSS Styling", description: "Style your websites with CSS", order_number: 3, duration: 240, status: "published", created_date: new Date(), updated_date: new Date() },
   { module_id: 4, course_id: 1, title: "JavaScript Basics", description: "Learn JavaScript programming", order_number: 4, duration: 300, status: "published", created_date: new Date(), updated_date: new Date() },
-  
-  // Course 2 modules
+
+
   { module_id: 5, course_id: 2, title: "React Fundamentals", description: "Learn React basics", order_number: 1, duration: 150, status: "published", created_date: new Date(), updated_date: new Date() },
   { module_id: 6, course_id: 2, title: "React Hooks", description: "Master React Hooks", order_number: 2, duration: 180, status: "published", created_date: new Date(), updated_date: new Date() },
   { module_id: 7, course_id: 2, title: "State Management", description: "Redux and Context API", order_number: 3, duration: 200, status: "published", created_date: new Date(), updated_date: new Date() },
 ]
 
-// ============================================
-// LESSONS
-// ============================================
+
+
+
 export const lessons = [
-  // Module 1 lessons
+
   { lesson_id: 1, coursemodule_id: 1, title: "Course Introduction", description: "Welcome to the course", content_type: "video", content: null, video_url: "https://www.youtube.com/watch?v=VBKNoLcj8jA", file_path: null, duration: 15, is_free: true, order: 1, status: "published", created_at: new Date(), updated_at: new Date() },
   { lesson_id: 2, coursemodule_id: 1, title: "What is Web Development?", description: "Overview of web development", content_type: "video", content: null, video_url: "https://www.youtube.com/watch?v=VBKNoLcj8jA", file_path: null, duration: 25, is_free: true, order: 2, status: "published", created_at: new Date(), updated_at: new Date() },
   { lesson_id: 3, coursemodule_id: 1, title: "Setting Up Your Environment", description: "Install necessary tools", content_type: "video", content: null, video_url: "https://www.youtube.com/watch?v=VBKNoLcj8jA", file_path: null, duration: 30, is_free: true, order: 3, status: "published", created_at: new Date(), updated_at: new Date() },
   { lesson_id: 4, coursemodule_id: 1, title: "Module 1 Quiz", description: "Test your knowledge", content_type: "quiz", content: null, video_url: null, file_path: null, duration: 10, is_free: false, order: 4, status: "published", created_at: new Date(), updated_at: new Date() },
-  
-  // Module 2 lessons
+
+
   { lesson_id: 5, coursemodule_id: 2, title: "HTML Structure", description: "Learn HTML document structure", content_type: "video", content: null, video_url: "https://www.youtube.com/watch?v=VBKNoLcj8jA", file_path: null, duration: 35, is_free: false, order: 1, status: "published", created_at: new Date(), updated_at: new Date() },
   { lesson_id: 6, coursemodule_id: 2, title: "HTML Elements", description: "Common HTML elements", content_type: "video", content: null, video_url: "https://www.youtube.com/watch?v=VBKNoLcj8jA", file_path: null, duration: 40, is_free: false, order: 2, status: "published", created_at: new Date(), updated_at: new Date() },
   { lesson_id: 7, coursemodule_id: 2, title: "Programming Challenge - Code Quiz", description: "Test your coding skills with Two Sum and FizzBuzz challenges", content_type: "quiz", content: null, video_url: null, file_path: null, duration: 30, is_free: false, order: 3, status: "published", created_at: new Date(), updated_at: new Date() },
 ]
 
-// ============================================
-// QUIZ QUESTIONS
-// ============================================
+
+
+
 export const quizQuestions = [
   {
     question_id: 1,
@@ -95,7 +95,7 @@ export const quizQuestions = [
     created_at: new Date(),
     updated_at: new Date()
   },
-  // CODE QUIZ - Lesson 5 (Programming Challenge)
+
   {
     question_id: 3,
     lesson_id: 7,
@@ -108,17 +108,17 @@ export const quizQuestions = [
     order_number: 1,
     created_at: new Date(),
     updated_at: new Date(),
-    // Code question specific fields
+
     code_config: {
       description: "Given an array of integers nums and an integer target, return the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution.\n\nExample:\nInput: nums = [2,7,11,15], target = 9\nOutput: [2,7]\nExplanation: Because nums[0] + nums[1] == 9, we return [2, 7].",
-      allowedLanguages: [63, 71, 62], // JavaScript, Python, Java
+      allowedLanguages: [63, 71, 62],
       starterCode: {
         javascript: `function twoSum(nums, target) {
-  // Your code here
-  
+
+
 }`,
         python: `def two_sum(nums, target):
-    # Your code here
+
     pass`
       },
       testCases: [
@@ -154,7 +154,7 @@ export const quizQuestions = [
       ]
     }
   },
-  // CODE QUIZ - FizzBuzz Challenge
+
   {
     question_id: 4,
     lesson_id: 7,
@@ -169,16 +169,16 @@ export const quizQuestions = [
     updated_at: new Date(),
     code_config: {
       description: "Write a function that returns an array of strings from 1 to n. For multiples of 3, return 'Fizz' instead of the number. For multiples of 5, return 'Buzz'. For multiples of both 3 and 5, return 'FizzBuzz'.\n\nExample:\nInput: n = 5\nOutput: ['1', '2', 'Fizz', '4', 'Buzz']\nExplanation: The function returns an array where multiples of 3 are 'Fizz' and multiples of 5 are 'Buzz'.",
-      allowedLanguages: [63, 71, 62, 54, 50], // JS, Python, Java, C++, C
+      allowedLanguages: [63, 71, 62, 54, 50],
       starterCode: {
         javascript: `function fizzBuzz(n) {
-  // Your code here
-  // Return an array of strings
-  
+
+
+
 }`,
         python: `def fizz_buzz(n):
-    # Your code here
-    # Return a list of strings
+
+
     pass`
       },
       testCases: [
@@ -216,9 +216,9 @@ export const quizQuestions = [
   }
 ]
 
-// ============================================
-// ENROLLMENTS
-// ============================================
+
+
+
 export const enrollments = [
   {
     enrollment_id: 1,
@@ -250,9 +250,9 @@ export const enrollments = [
   }
 ]
 
-// ============================================
-// REVIEWS
-// ============================================
+
+
+
 export const reviews = [
   {
     review_id: 1,
@@ -298,9 +298,9 @@ export const reviews = [
   }
 ]
 
-// ============================================
-// CART
-// ============================================
+
+
+
 export const cart = [
   {
     cart_id: 1,
@@ -318,9 +318,9 @@ export const cart = [
   }
 ]
 
-// ============================================
-// WISHLIST
-// ============================================
+
+
+
 export const wishlist = [
   {
     wishlist_id: 1,
@@ -336,9 +336,9 @@ export const wishlist = [
   }
 ]
 
-// ============================================
-// PROMOTIONS
-// ============================================
+
+
+
 export const promotions = [
   {
     promotion_id: 1,
@@ -382,9 +382,9 @@ export const promotions = [
   }
 ]
 
-// ============================================
-// NOTIFICATIONS
-// ============================================
+
+
+
 export const notifications = [
   {
     notification_id: 1,
@@ -421,9 +421,9 @@ export const notifications = [
   }
 ]
 
-// ============================================
-// LEARNING PROGRESS
-// ============================================
+
+
+
 export const learningProgress = [
   {
     progress_id: 1,
@@ -466,9 +466,9 @@ export const learningProgress = [
   }
 ]
 
-// ============================================
-// HOMEPAGE CONFIG (For Admin Customization)
-// ============================================
+
+
+
 export const homepageConfig = {
   hero: {
     enabled: true,
@@ -508,9 +508,9 @@ export const homepageConfig = {
   ]
 }
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
+
+
+
 
 export function getCoursesWithInstructors() {
   return baseCourses.map(course => {
@@ -518,10 +518,10 @@ export function getCoursesWithInstructors() {
     const instructorUser = baseUsers.find(user => user.user_id === instructor?.user_id)
     const category = baseCategories.find(cat => cat.category_id === course.category_id)
     const reviewsCount = reviews.filter(r => r.course_id === course.course_id).length
-    const avgRating = reviewsCount > 0 
-      ? reviews.filter(r => r.course_id === course.course_id).reduce((acc, r) => acc + r.rating, 0) / reviewsCount 
+    const avgRating = reviewsCount > 0
+      ? reviews.filter(r => r.course_id === course.course_id).reduce((acc, r) => acc + r.rating, 0) / reviewsCount
       : course.rating
-    
+
     return {
       ...course,
       instructor_details: instructor,
@@ -663,9 +663,9 @@ export function getStatistics() {
 
 export function getActivePromotions() {
   const now = new Date()
-  return promotions.filter(p => 
-    p.status === "active" && 
-    p.start_date <= now && 
+  return promotions.filter(p =>
+    p.status === "active" &&
+    p.start_date <= now &&
     p.end_date >= now
   )
 }
@@ -674,7 +674,7 @@ export function getHomepageConfig() {
   return homepageConfig
 }
 
-// Export all data
+
 export default {
   categories: baseCategories,
   subcategories,
@@ -692,7 +692,7 @@ export default {
   notifications,
   learningProgress,
   homepageConfig,
-  // Helper functions
+
   getCoursesWithInstructors,
   getCourseById,
   getFeaturedCourses,

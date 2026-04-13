@@ -26,6 +26,7 @@ interface TranscriptVideoPlayerProps {
   completionThresholdPercent?: number
   restrictForwardSeeking?: boolean
   seekToleranceSeconds?: number
+  externalSeekRequest?: { seconds: number; nonce: number } | null
 }
 
 export function TranscriptVideoPlayer({
@@ -40,6 +41,7 @@ export function TranscriptVideoPlayer({
   completionThresholdPercent = 85,
   restrictForwardSeeking = true,
   seekToleranceSeconds = 2,
+  externalSeekRequest = null,
 }: TranscriptVideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const completionTriggeredRef = useRef(false)
@@ -125,6 +127,13 @@ export function TranscriptVideoPlayer({
     videoRef.current.currentTime = seconds
     setCurrentTime(seconds)
   }
+
+  useEffect(() => {
+    if (!externalSeekRequest || !videoRef.current) return
+    const safeSeconds = Math.max(0, Math.min(externalSeekRequest.seconds, duration || Number.MAX_SAFE_INTEGER))
+    videoRef.current.currentTime = safeSeconds
+    setCurrentTime(safeSeconds)
+  }, [externalSeekRequest, duration])
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">

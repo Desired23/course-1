@@ -12,7 +12,7 @@ export function NewsletterSection() {
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!email || !email.includes("@")) {
       toast.error(t('newsletter.invalid_email'))
       return
@@ -21,7 +21,7 @@ export function NewsletterSection() {
     setIsSubscribed(true)
     toast.success(t('newsletter.subscribed_success'))
     setEmail("")
-    
+
     setTimeout(() => setIsSubscribed(false), 3000)
   }
 
@@ -32,11 +32,11 @@ export function NewsletterSection() {
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <Mail className="w-8 h-8" />
           </div>
-          
+
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
             {t('newsletter.title')}
           </h2>
-          
+
           <p className="text-lg mb-8 opacity-90">
             {t('newsletter.subtitle')}
           </p>
@@ -51,7 +51,7 @@ export function NewsletterSection() {
                 className="flex-1 bg-white text-gray-900 border-none"
                 required
               />
-              <Button 
+              <Button
                 type="submit"
                 size="lg"
                 className="bg-white !text-gray-900 hover:bg-gray-100 border-none"

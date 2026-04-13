@@ -17,7 +17,7 @@ from decimal import Decimal
 def calculate_quiz_evaluation(quiz_result_id):
     try:
         quiz_result = QuizResult.objects.get(pk=quiz_result_id)
-        lesson_id = quiz_result.lesson.id  # Fix: use lesson.id instead of lesson_id_id
+        lesson_id = quiz_result.lesson.id
         answers = quiz_result.answers or {}
 
         quiz_questions = QuizQuestion.objects.filter(lesson=lesson_id)
@@ -28,7 +28,7 @@ def calculate_quiz_evaluation(quiz_result_id):
 
         for question in quiz_questions:
             total_points += question.points
-            student_answer = answers.get(str(question.id))  # Đảm bảo question id là string
+            student_answer = answers.get(str(question.id))
             correct_answer = question.correct_answer
 
             if student_answer is not None and str(student_answer).lower() == str(correct_answer).lower():
@@ -40,18 +40,18 @@ def calculate_quiz_evaluation(quiz_result_id):
             score = (student_points / total_points) * 100
 
         passed = False
-        # Lấy điểm đạt từ Lesson, mặc định 70 nếu không có
+
         lesson = Lesson.objects.get(pk=lesson_id)
         passing_score = getattr(lesson, 'passing_score', 70)
         if score >= passing_score:
             passed = True
 
-        # Tính thời gian làm bài nếu chưa có
+
         time_taken = quiz_result.time_taken
         if quiz_result.start_time and quiz_result.submit_time and time_taken is None:
             time_taken = int((quiz_result.submit_time - quiz_result.start_time).total_seconds())
 
-        # Cập nhật các trường trong QuizResult
+
         quiz_result.total_questions = total_questions
         quiz_result.correct_answers = correct_answers
         quiz_result.total_points = total_points
@@ -149,13 +149,13 @@ def delete_quiz_result(quiz_result_id):
         raise ValidationError(f"Error deleting quiz result: {str(e)}")
 
 
-# New services for Quiz API
+
 def submit_quiz(data, user):
     """
     Submit quiz answers and calculate results
     """
     try:
-        # Validate input data
+
         serializer = QuizSubmitSerializer(data=data)
         if not serializer.is_valid():
             raise ValidationError(serializer.errors)
@@ -165,13 +165,13 @@ def submit_quiz(data, user):
         answers_data = validated_data['answers']
         time_spent = validated_data['time_spent']
 
-        # Validate lesson exists
+
         try:
             lesson = Lesson.objects.get(id=lesson_id, is_deleted=False)
         except Lesson.DoesNotExist:
             raise ValidationError({"error": "Lesson not found."})
 
-        # Get user's enrollment for this course
+
         try:
             enrollment = Enrollment.objects.get(
                 user=user,
@@ -181,7 +181,7 @@ def submit_quiz(data, user):
         except Enrollment.DoesNotExist:
             raise ValidationError({"error": "User is not enrolled in this course."})
 
-        # Get all questions for this lesson
+
         questions = QuizQuestion.objects.filter(
             lesson=lesson,
             is_deleted=False
@@ -190,17 +190,17 @@ def submit_quiz(data, user):
         if not questions.exists():
             raise ValidationError({"error": "No quiz questions found for this lesson."})
 
-        # Calculate score
+
         total_points = Decimal('0')
         earned_points = Decimal('0')
         answer_results = []
 
-        # Create answers dict for storage
+
         answers_dict = {}
 
         for answer_data in answers_data:
             question_id = answer_data['question_id']
-            
+
             try:
                 question = questions.get(id=question_id)
             except QuizQuestion.DoesNotExist:
@@ -208,14 +208,14 @@ def submit_quiz(data, user):
 
             total_points += Decimal(str(question.points))
 
-            # Check if answer is correct
+
             is_correct = False
             selected_option_id = answer_data.get('selected_option_id')
             text_answer = answer_data.get('text_answer', '')
             code_answer = answer_data.get('code_answer', '')
             actual_output = answer_data.get('actual_output', '')
 
-            # Store answer
+
             answers_dict[str(question_id)] = {
                 'selected_option_id': selected_option_id,
                 'text_answer': text_answer,
@@ -223,12 +223,12 @@ def submit_quiz(data, user):
                 'actual_output': actual_output
             }
 
-            # Validate answer based on question type
+
             if question.question_type == 'multiple' or question.question_type == 'multiple_choice':
-                # For multiple choice, check if selected option matches correct_answer
+
                 if selected_option_id is not None:
                     correct_answer = question.correct_answer
-                    # Try to parse correct_answer as integer if possible
+
                     try:
                         if str(selected_option_id) == str(correct_answer):
                             is_correct = True
@@ -236,21 +236,21 @@ def submit_quiz(data, user):
                         pass
 
             elif question.question_type in ['short', 'short_answer', 'text_input']:
-                # For text answers, do case-insensitive comparison
+
                 if text_answer:
                     if text_answer.strip().lower() == question.correct_answer.strip().lower():
                         is_correct = True
 
             elif question.question_type in ['truefalse', 'true_false']:
-                # For true/false
+
                 if selected_option_id is not None:
                     if str(selected_option_id) == str(question.correct_answer):
                         is_correct = True
 
             elif question.question_type == 'code':
-                # For code questions, check test cases
+
                 from quiz_questions.models import QuizTestCase
-                
+
                 test_cases = QuizTestCase.objects.filter(
                     question=question,
                     is_deleted=False
@@ -261,19 +261,19 @@ def submit_quiz(data, user):
                 total_test_cases = test_cases.count()
 
                 if total_test_cases > 0 and actual_output:
-                    # Split actual output by lines (each line is output for one test case)
+
                     actual_outputs = actual_output.strip().split('\n')
-                    
+
                     for idx, test_case in enumerate(test_cases):
-                        # Get the actual output for this test case (or empty if not provided)
+
                         actual_test_output = actual_outputs[idx].strip() if idx < len(actual_outputs) else ""
                         expected_test_output = test_case.expected_output.strip()
-                        
-                        # Compare actual output with expected output
+
+
                         test_passed = (actual_test_output == expected_test_output)
                         if test_passed:
                             passed_test_cases += 1
-                        
+
                         test_cases_results.append({
                             'test_case_id': test_case.id,
                             'order_number': test_case.order_number,
@@ -283,8 +283,8 @@ def submit_quiz(data, user):
                             'passed': test_passed,
                             'points': float(test_case.points) if test_passed else 0
                         })
-                    
-                    # Calculate points based on test cases passed
+
+
                     if total_test_cases > 0:
                         points_ratio = Decimal(str(passed_test_cases)) / Decimal(str(total_test_cases))
                         points_earned = Decimal(str(question.points)) * points_ratio
@@ -295,13 +295,13 @@ def submit_quiz(data, user):
                     points_earned = Decimal('0')
                     test_cases_results = []
 
-            # Calculate points for non-code questions
+
             if question.question_type != 'code':
                 points_earned = Decimal(str(question.points)) if is_correct else Decimal('0')
-            
+
             earned_points += points_earned
 
-            # Build answer result
+
             answer_result = {
                 'question_id': question_id,
                 'selected_option_id': selected_option_id,
@@ -312,26 +312,26 @@ def submit_quiz(data, user):
                 'points_earned': float(points_earned),
                 'correct_answer_explanation': question.explanation or ""
             }
-            
-            # Add test cases results for code questions
+
+
             if question.question_type == 'code' and 'test_cases_results' in locals():
                 answer_result['test_cases_results'] = test_cases_results
-            
+
             answer_results.append(answer_result)
 
-        # Calculate percentage score
+
         score = (earned_points / total_points * 100) if total_points > 0 else Decimal('0')
-        passing_score = 70  # Default passing score
+        passing_score = 70
         passed = score >= passing_score
 
-        # Get current attempt number
+
         existing_result = QuizResult.objects.filter(
             enrollment=enrollment,
             lesson=lesson,
         ).first()
         attempt = (existing_result.attempt + 1) if existing_result else 1
 
-        # Update or create quiz result (UNIQUE constraint on enrollment + lesson)
+
         quiz_result, created = QuizResult.objects.update_or_create(
             enrollment=enrollment,
             lesson=lesson,
@@ -350,7 +350,7 @@ def submit_quiz(data, user):
             }
         )
 
-        # Build response
+
         result_data = {
             'quiz_result_id': quiz_result.id,
             'quiz_id': lesson.id,
@@ -379,13 +379,13 @@ def get_user_quiz_history(user_id):
     Get all quiz results for a user
     """
     try:
-        # Validate user exists
+
         try:
             user = User.objects.get(id=user_id, is_deleted=False)
         except User.DoesNotExist:
             raise ValidationError({"error": "User not found."})
 
-        # Get all enrollments for this user
+
         enrollments = Enrollment.objects.filter(
             user=user,
             is_deleted=False
@@ -394,7 +394,7 @@ def get_user_quiz_history(user_id):
         if not enrollments.exists():
             return []
 
-        # Get all quiz results for these enrollments
+
         quiz_results = QuizResult.objects.filter(
             enrollment__in=enrollments,
             is_deleted=False
@@ -403,7 +403,7 @@ def get_user_quiz_history(user_id):
         if not quiz_results.exists():
             return []
 
-        # Format results
+
         history_data = []
         for result in quiz_results:
             history_data.append({
@@ -431,7 +431,7 @@ def get_quiz_result_detail(quiz_result_id):
     Get detailed information about a specific quiz result
     """
     try:
-        # Get quiz result
+
         try:
             quiz_result = QuizResult.objects.select_related(
                 'lesson', 'enrollment', 'enrollment__user'
@@ -439,7 +439,7 @@ def get_quiz_result_detail(quiz_result_id):
         except QuizResult.DoesNotExist:
             raise ValidationError({"error": "Quiz result not found."})
 
-        # Get questions to build detailed answer results
+
         questions = QuizQuestion.objects.filter(
             lesson=quiz_result.lesson,
             is_deleted=False
@@ -450,13 +450,13 @@ def get_quiz_result_detail(quiz_result_id):
 
         for question in questions:
             question_answer = answers_dict.get(str(question.id), {})
-            
-            # Determine if answer was correct
+
+
             is_correct = False
             selected_option_id = question_answer.get('selected_option_id')
             text_answer = question_answer.get('text_answer', '')
 
-            # Recalculate correctness (same logic as submit)
+
             if question.question_type == 'multiple' or question.question_type == 'multiple_choice':
                 if selected_option_id is not None:
                     if str(selected_option_id) == str(question.correct_answer):
@@ -481,7 +481,7 @@ def get_quiz_result_detail(quiz_result_id):
                 'correct_answer_explanation': question.explanation or ""
             })
 
-        # Build response
+
         result_data = {
             'quiz_result_id': quiz_result.id,
             'quiz_id': quiz_result.lesson.id,
@@ -489,7 +489,7 @@ def get_quiz_result_detail(quiz_result_id):
             'score': float(quiz_result.score),
             'total_points': float(quiz_result.total_points),
             'earned_points': float(quiz_result.score * quiz_result.total_points / 100) if quiz_result.total_points > 0 else 0.0,
-            'passing_score': 70,  # Default
+            'passing_score': 70,
             'passed': quiz_result.passed,
             'time_spent': quiz_result.time_taken or 0,
             'submitted_at': quiz_result.submit_time,

@@ -19,16 +19,16 @@ def generate_invoice_pdf(payment, payment_details):
     styles = getSampleStyleSheet()
     elements = []
 
-    # Tiêu đề
+
     elements.append(Paragraph("HÓA ĐƠN THANH TOÁN", styles['Title']))
     elements.append(Paragraph(f"Mã đơn hàng: {payment.id}", styles['Normal']))
     elements.append(Paragraph(f"Ngày thanh toán: {payment.payment_date.strftime('%d/%m/%Y')}", styles['Normal']))
     elements.append(Spacer(1, 12))
 
-    # Header bảng
+
     data = [["Khóa học", "Giá", "Giảm giá", "Thành tiền"]]
 
-    # Dữ liệu bảng
+
     for item in payment_details:
         data.append([
             item.course.title,
@@ -37,10 +37,10 @@ def generate_invoice_pdf(payment, payment_details):
             f"{item.final_price:,.0f} đ"
         ])
 
-    # Tổng cộng
+
     data.append(["", "", "Tổng cộng", f"{payment.total_amount:,.0f} đ"])
 
-    # Tạo bảng
+
     table = Table(data, colWidths=[200, 80, 80, 80])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
@@ -50,12 +50,12 @@ def generate_invoice_pdf(payment, payment_details):
     ]))
     elements.append(table)
 
-    # Footer
+
     elements.append(Spacer(1, 20))
     elements.append(Paragraph("Cảm ơn bạn đã mua khóa học tại MyCourse!", styles['Italic']))
     elements.append(Paragraph("Nếu có thắc mắc, vui lòng liên hệ support@example.com", styles['Italic']))
 
-    # Xuất PDF
+
     doc.build(elements)
     pdf_value = buffer.getvalue()
     buffer.close()
@@ -74,13 +74,13 @@ def send_email(
     Gửi email HTML (có thể kèm file đính kèm).
     attachments: List[Tuple[filename, filedata_bytes, mimetype]]
     """
-    # Chuẩn hóa người nhận
+
     recipient_list = [to] if isinstance(to, str) else to
 
-    # Render HTML
+
     html_content = render_to_string(template_name, context)
 
-    # Tạo email
+
     email = EmailMessage(
         subject=subject,
         body=html_content,
@@ -89,7 +89,7 @@ def send_email(
     )
     email.content_subtype = "html"
 
-    # Thêm file đính kèm nếu có
+
     if attachments:
         for filename, filedata, mimetype in attachments:
             email.attach(filename, filedata, mimetype)
@@ -102,14 +102,14 @@ def send_email(
         return False
 
 def send_payment_invoice(user_email, payment):
-    # Lấy danh sách chi tiết thanh toán
+
     payment_details = payment.payment_details.all()
-    
+
     if not payment_details.exists():
         logger.warning(f"[Invoice Error] Không tìm thấy payment_details cho payment_id={payment.id}")
         return False
 
-    # HTML email
+
     context = {
         "payment": payment,
         "payment_details": payment_details,
@@ -118,10 +118,10 @@ def send_payment_invoice(user_email, payment):
     }
     html_content = render_to_string("payment_invoice.html", context)
 
-    # PDF từ payment
+
     pdf_data = generate_invoice_pdf(payment, payment_details)
 
-    # Email
+
     email = EmailMessage(
         subject="Xác nhận thanh toán - Hóa đơn mua khóa học",
         body=html_content,
@@ -130,7 +130,7 @@ def send_payment_invoice(user_email, payment):
     )
     email.content_subtype = "html"
 
-    # Đính kèm PDF
+
     email.attach(
         f"invoice_{payment.id}.pdf",
         pdf_data,
@@ -145,7 +145,7 @@ def send_payment_invoice(user_email, payment):
         return False
 
 
-#kefm pdf cho thanh toan thanh cong
+
 def send_promotion(user_email, promo_code, discount, expire_date):
     context = {
         "promo_code": promo_code,

@@ -54,7 +54,7 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Access Control */}
+
       <Card className="p-4">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
       <Separator />
 
-      {/* Publishing Options */}
+
       <Card className="p-4">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
       <Separator />
 
-      {/* Student Features */}
+
       <Card className="p-4">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -210,7 +210,7 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
       <Separator />
 
-      {/* Additional Metadata */}
+
       <Card className="p-4">
         <div className="space-y-4">
           <div className="flex items-center gap-2">

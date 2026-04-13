@@ -3,7 +3,7 @@ from rest_framework.exceptions import ValidationError
 from .models import UserPaymentMethod, InstructorPayoutMethod
 
 
-# ─── User Payment Methods ────────────────────────────────────────────────────
+
 
 def get_user_payment_methods(user_id):
     return UserPaymentMethod.objects.filter(user_id=user_id, is_deleted=False)
@@ -20,7 +20,7 @@ def create_user_payment_method(user, data):
     method_type = data.get('method_type')
     is_default = data.get('is_default', False)
 
-    # If this is set as default, unset other defaults first
+
     if is_default:
         UserPaymentMethod.objects.filter(user=user, is_deleted=False).update(is_default=False)
 
@@ -69,7 +69,7 @@ def set_default_user_payment_method(method_id, user):
     return method
 
 
-# ─── Instructor Payout Methods ───────────────────────────────────────────────
+
 
 def get_instructor_payout_methods(instructor_id):
     return InstructorPayoutMethod.objects.filter(instructor_id=instructor_id, is_deleted=False)

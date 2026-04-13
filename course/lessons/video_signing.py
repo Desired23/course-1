@@ -36,7 +36,7 @@ def _extract_cloudinary_asset(url: str) -> CloudinaryAssetRef | None:
     if len(parts) < 4:
         return None
 
-    # path: /<cloud_name>/<resource_type>/<delivery_type>/.../v123/<public_id>.<ext>
+
     resource_type = parts[1]
     delivery_type = parts[2]
     tail = parts[3:]

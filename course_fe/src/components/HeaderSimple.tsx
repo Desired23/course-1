@@ -7,12 +7,12 @@ export function HeaderSimple() {
   const { navigate } = useRouter()
   const { siteLogo, siteName } = useSiteBranding()
   const { t } = useTranslation()
-  
+
   return (
     <header className="border-b bg-background sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <button 
+          <button
             onClick={() => navigate('/')}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
@@ -31,7 +31,7 @@ export function HeaderSimple() {
               </>
             )}
           </button>
-          
+
           <div className="flex items-center gap-2">
             <Button onClick={() => navigate('/login')}>{t('auth.login')}</Button>
             <Button onClick={() => navigate('/signup')}>{t('auth.signup')}</Button>

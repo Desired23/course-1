@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge'
 import { Switch } from './ui/switch'
 import { Separator } from './ui/separator'
-import { 
-  Plus, 
-  Trash2, 
-  GripVertical, 
-  Code2, 
+import {
+  Plus,
+  Trash2,
+  GripVertical,
+  Code2,
   Play,
   Loader2,
   Save,
@@ -39,7 +39,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { toast } from 'sonner'
 
-// ==================== INTERFACES ====================
+
 
 export interface TestCase {
   id: number
@@ -62,11 +62,11 @@ export interface ProblemConstraint {
 }
 
 export interface LearningObjective {
-  algorithm?: string[] // e.g., ["Two Pointers", "Binary Search"]
-  dataStructure?: string[] // e.g., ["Array", "Hash Map"]
-  skills?: string[] // e.g., ["Edge Case Handling", "Optimization"]
+  algorithm?: string[]
+  dataStructure?: string[]
+  skills?: string[]
   difficulty: 'easy' | 'medium' | 'hard'
-  estimatedTime?: number // minutes
+  estimatedTime?: number
 }
 
 export interface SolutionData {
@@ -79,51 +79,51 @@ export interface SolutionData {
 }
 
 export interface EnhancedCodeQuizData {
-  // Basic Info
+
   id?: number
   title: string
-  
-  // Problem Statement (Markdown supported)
+
+
   problemStatement: {
-    description: string // Main problem description
-    inputFormat: string // How input is provided
-    outputFormat: string // What to return
-    notes?: string // Additional notes/assumptions
+    description: string
+    inputFormat: string
+    outputFormat: string
+    notes?: string
   }
-  
-  // Examples (with explanation)
+
+
   examples: ProblemExample[]
-  
-  // Constraints
+
+
   constraints: ProblemConstraint[]
-  
-  // Learning Objectives
+
+
   learningObjectives: LearningObjective
-  
-  // Solution (for instructors only)
+
+
   solution?: SolutionData
-  
-  // Code Execution
+
+
   allowedLanguages: number[]
-  starterCode?: Record<number, string> // Per-language starter code
-  functionSignature?: Record<number, string> // Function signature per language
-  
-  // Test Cases
+  starterCode?: Record<number, string>
+  functionSignature?: Record<number, string>
+
+
   testCases: TestCase[]
-  
-  // Settings
+
+
   timeLimit?: number
   memoryLimit?: number
   points: number
-  
-  // Hints
+
+
   hints: Array<{
     level: number
     content: string
     type: 'idea' | 'data-structure' | 'algorithm' | 'pseudocode'
   }>
-  
-  // Metadata
+
+
   lessonId?: number
   tags?: string[]
 }
@@ -173,16 +173,16 @@ function createDefaultEnhancedCodeQuizData(): EnhancedCodeQuizData {
   }
 }
 
-// ==================== SUB-COMPONENTS ====================
 
-// Draggable Test Case Card
-function DraggableTestCase({ 
-  testCase, 
-  index, 
-  onUpdate, 
-  onDelete, 
-  onMove 
-}: { 
+
+
+function DraggableTestCase({
+  testCase,
+  index,
+  onUpdate,
+  onDelete,
+  onMove
+}: {
   testCase: TestCase
   index: number
   onUpdate: (index: number, updated: TestCase) => void
@@ -218,7 +218,7 @@ function DraggableTestCase({
       <Card className="mb-3">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            {/* Drag Handle */}
+
             <div
               ref={drag}
               className="cursor-move pt-2 text-muted-foreground hover:text-foreground"
@@ -226,9 +226,9 @@ function DraggableTestCase({
               <GripVertical className="h-5 w-5" />
             </div>
 
-            {/* Content */}
+
             <div className="flex-1 space-y-3">
-              {/* Header */}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Label className="font-semibold">{t('enhanced_code_quiz_creator.test_case_number', { number: index + 1 })}</Label>
@@ -258,7 +258,7 @@ function DraggableTestCase({
 
               {isExpanded && (
                 <>
-                  {/* Input */}
+
                   <div>
                     <Label className="text-xs text-muted-foreground">{t('enhanced_code_quiz_creator.input_stdin')}</Label>
                     <Textarea
@@ -273,7 +273,7 @@ function DraggableTestCase({
                     </p>
                   </div>
 
-                  {/* Expected Output */}
+
                   <div>
                     <Label className="text-xs text-muted-foreground">{t('enhanced_code_quiz_creator.expected_output')}</Label>
                     <Textarea
@@ -285,16 +285,16 @@ function DraggableTestCase({
                     />
                   </div>
 
-                  {/* Points */}
+
                   <div className="flex items-center gap-4">
                     <div className="flex-1">
                       <Label className="text-xs text-muted-foreground">{t('enhanced_code_quiz_creator.points_optional')}</Label>
                       <Input
                         type="number"
                         value={testCase.points || ''}
-                        onChange={(e) => onUpdate(index, { 
-                          ...testCase, 
-                          points: e.target.value ? parseInt(e.target.value) : undefined 
+                        onChange={(e) => onUpdate(index, {
+                          ...testCase,
+                          points: e.target.value ? parseInt(e.target.value) : undefined
                         })}
                         placeholder={t('enhanced_code_quiz_creator.auto')}
                         className="mt-1"
@@ -311,7 +311,7 @@ function DraggableTestCase({
   )
 }
 
-// ==================== MAIN COMPONENT ====================
+
 
 export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCancel }: EnhancedCodeQuizCreatorProps) {
   const { t } = useTranslation()
@@ -360,8 +360,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     setFormData((prev) => (typeof updater === 'function' ? updater(prev) : updater))
   }
 
-  // ==================== VALIDATION ====================
-  
+
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
 
@@ -395,8 +395,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     }
   }
 
-  // ==================== EXAMPLES MANAGEMENT ====================
-  
+
+
   const addExample = () => {
     updateFormData((prev) => ({
       ...prev,
@@ -427,8 +427,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     }))
   }
 
-  // ==================== CONSTRAINTS MANAGEMENT ====================
-  
+
+
   const addConstraint = () => {
     updateFormData((prev) => ({
       ...prev,
@@ -457,8 +457,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     }))
   }
 
-  // ==================== TEST CASES MANAGEMENT ====================
-  
+
+
   const addTestCase = () => {
     updateFormData((prev) => ({
       ...prev,
@@ -498,8 +498,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     })
   }
 
-  // ==================== HINTS MANAGEMENT ====================
-  
+
+
   const addHint = (type: 'idea' | 'data-structure' | 'algorithm' | 'pseudocode', content: string) => {
     if (content.trim()) {
       updateFormData((prev) => ({
@@ -527,8 +527,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     })
   }
 
-  // ==================== TAGS MANAGEMENT ====================
-  
+
+
   const addTag = () => {
     if (currentTag.trim() && !formData.tags?.includes(currentTag.trim())) {
       updateFormData((prev) => ({
@@ -546,8 +546,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
     }))
   }
 
-  // ==================== LANGUAGE MANAGEMENT ====================
-  
+
+
   const toggleLanguage = (languageId: number) => {
     if (formData.allowedLanguages.includes(languageId)) {
       if (formData.allowedLanguages.length > 1) {
@@ -679,7 +679,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-6 pb-20">
-        {/* Header */}
+
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -707,7 +707,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
           </CardHeader>
         </Card>
 
-        {/* Validation Errors */}
+
         {Object.keys(errors).length > 0 && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -723,49 +723,49 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList className="grid grid-cols-7 w-full p-1 bg-muted/50 h-auto">
-            <TabsTrigger 
-              value="overview" 
+            <TabsTrigger
+              value="overview"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
               <Target className="h-4 w-4 mr-2" />
               {t('enhanced_code_quiz_creator.overview')}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="problem"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
               <BookOpen className="h-4 w-4 mr-2" />
               {t('enhanced_code_quiz_creator.problem')}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="examples"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
               <Sparkles className="h-4 w-4 mr-2" />
               {t('enhanced_code_quiz_creator.examples')}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="testcases"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
               <TestTube className="h-4 w-4 mr-2" />
               {t('enhanced_code_quiz_creator.tests_tab', { count: formData.testCases.length })}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="hints"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
               <Lightbulb className="h-4 w-4 mr-2" />
               {t('enhanced_code_quiz_creator.hints_tab', { count: formData.hints.length })}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="solution"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
               <Eye className="h-4 w-4 mr-2" />
               {t('enhanced_code_quiz_creator.solution')}
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="settings"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all py-2"
             >
@@ -774,7 +774,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </TabsTrigger>
           </TabsList>
 
-          {/* ==================== TAB 1: OVERVIEW & LEARNING OBJECTIVES ==================== */}
+
           <TabsContent value="overview" className="space-y-4">
             <Card>
               <CardHeader>
@@ -784,7 +784,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Title */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.problem_title')}</Label>
                   <Input
@@ -800,14 +800,14 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Difficulty & Time */}
+
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label>{t('enhanced_code_quiz_creator.difficulty_level')}</Label>
                     <Select
                       value={formData.learningObjectives.difficulty}
-                      onValueChange={(value: any) => updateFormData({ 
-                        ...formData, 
+                      onValueChange={(value: any) => updateFormData({
+                        ...formData,
                         learningObjectives: { ...formData.learningObjectives, difficulty: value }
                       })}
                     >
@@ -827,11 +827,11 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                     <Input
                       type="number"
                       value={formData.learningObjectives.estimatedTime || ''}
-                      onChange={(e) => updateFormData({ 
-                        ...formData, 
-                        learningObjectives: { 
-                          ...formData.learningObjectives, 
-                          estimatedTime: parseInt(e.target.value) || undefined 
+                      onChange={(e) => updateFormData({
+                        ...formData,
+                        learningObjectives: {
+                          ...formData.learningObjectives,
+                          estimatedTime: parseInt(e.target.value) || undefined
                         }
                       })}
                       placeholder={t('enhanced_code_quiz_creator.estimated_time_placeholder')}
@@ -851,7 +851,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Tags */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.tags')}</Label>
                   <div className="flex gap-2 mt-2">
@@ -881,16 +881,16 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Learning Categories */}
+
                 <div className="grid md:grid-cols-3 gap-4">
                   <div>
                     <Label>{`🧮 ${t('enhanced_code_quiz_creator.algorithms_taught')}`}</Label>
                     <Textarea
                       value={formData.learningObjectives.algorithm?.join('\n') || ''}
-                      onChange={(e) => updateFormData({ 
-                        ...formData, 
-                        learningObjectives: { 
-                          ...formData.learningObjectives, 
+                      onChange={(e) => updateFormData({
+                        ...formData,
+                        learningObjectives: {
+                          ...formData.learningObjectives,
                           algorithm: e.target.value.split('\n').filter(s => s.trim())
                         }
                       })}
@@ -903,10 +903,10 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                     <Label>{`📊 ${t('enhanced_code_quiz_creator.data_structures_used')}`}</Label>
                     <Textarea
                       value={formData.learningObjectives.dataStructure?.join('\n') || ''}
-                      onChange={(e) => updateFormData({ 
-                        ...formData, 
-                        learningObjectives: { 
-                          ...formData.learningObjectives, 
+                      onChange={(e) => updateFormData({
+                        ...formData,
+                        learningObjectives: {
+                          ...formData.learningObjectives,
                           dataStructure: e.target.value.split('\n').filter(s => s.trim())
                         }
                       })}
@@ -919,10 +919,10 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                     <Label>{`💡 ${t('enhanced_code_quiz_creator.skills_developed')}`}</Label>
                     <Textarea
                       value={formData.learningObjectives.skills?.join('\n') || ''}
-                      onChange={(e) => updateFormData({ 
-                        ...formData, 
-                        learningObjectives: { 
-                          ...formData.learningObjectives, 
+                      onChange={(e) => updateFormData({
+                        ...formData,
+                        learningObjectives: {
+                          ...formData.learningObjectives,
                           skills: e.target.value.split('\n').filter(s => s.trim())
                         }
                       })}
@@ -935,7 +935,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </Card>
           </TabsContent>
 
-          {/* ==================== TAB 2: PROBLEM STATEMENT ==================== */}
+
           <TabsContent value="problem" className="space-y-4">
             <Card>
               <CardHeader>
@@ -945,13 +945,13 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Main Description */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.problem_description')}</Label>
                   <Textarea
                     value={formData.problemStatement.description}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       problemStatement: { ...formData.problemStatement, description: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.problem_description_placeholder')}
@@ -968,13 +968,13 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Input Format */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.input_format')}</Label>
                   <Textarea
                     value={formData.problemStatement.inputFormat}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       problemStatement: { ...formData.problemStatement, inputFormat: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.input_format_placeholder')}
@@ -985,13 +985,13 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                   </p>
                 </div>
 
-                {/* Output Format */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.output_format')}</Label>
                   <Textarea
                     value={formData.problemStatement.outputFormat}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       problemStatement: { ...formData.problemStatement, outputFormat: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.output_format_placeholder')}
@@ -1004,13 +1004,13 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Notes / Assumptions */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.notes_assumptions')}</Label>
                   <Textarea
                     value={formData.problemStatement.notes}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       problemStatement: { ...formData.problemStatement, notes: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.notes_assumptions_placeholder')}
@@ -1020,7 +1020,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
               </CardContent>
             </Card>
 
-            {/* Constraints Card */}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1066,7 +1066,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                     ))}
                   </div>
                 )}
-                
+
                 <Alert className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
@@ -1083,7 +1083,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </Card>
           </TabsContent>
 
-          {/* ==================== TAB 3: EXAMPLES ==================== */}
+
           <TabsContent value="examples" className="space-y-4">
             <Card>
               <CardHeader>
@@ -1175,7 +1175,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </Card>
           </TabsContent>
 
-          {/* ==================== TAB 4: TEST CASES ==================== */}
+
           <TabsContent value="testcases" className="space-y-4">
             <Card>
               <CardHeader>
@@ -1222,7 +1222,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
               </CardContent>
             </Card>
 
-            {/* Test Case Guidelines */}
+
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -1239,7 +1239,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </Alert>
           </TabsContent>
 
-          {/* ==================== TAB 5: HINTS ==================== */}
+
           <TabsContent value="hints" className="space-y-4">
             <Card>
               <CardHeader>
@@ -1249,7 +1249,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Add Hint Section */}
+
                 <div className="grid grid-cols-4 gap-2">
                   <Button
                     variant="outline"
@@ -1283,7 +1283,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Hints List */}
+
                 {formData.hints.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Lightbulb className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -1348,7 +1348,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </Card>
           </TabsContent>
 
-          {/* ==================== TAB 6: SOLUTION (INSTRUCTOR ONLY) ==================== */}
+
           <TabsContent value="solution" className="space-y-4">
             <Card>
               <CardHeader>
@@ -1361,13 +1361,13 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Approach */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.approach_strategy')}</Label>
                   <Textarea
                     value={formData.solution?.approach}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       solution: { ...formData.solution!, approach: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.approach_placeholder')}
@@ -1375,14 +1375,14 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                   />
                 </div>
 
-                {/* Complexity */}
+
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label>{t('enhanced_code_quiz_creator.time_complexity')}</Label>
                     <Input
                       value={formData.solution?.timeComplexity}
-                      onChange={(e) => updateFormData({ 
-                        ...formData, 
+                      onChange={(e) => updateFormData({
+                        ...formData,
                         solution: { ...formData.solution!, timeComplexity: e.target.value }
                       })}
                       placeholder={t('enhanced_code_quiz_creator.time_complexity_placeholder')}
@@ -1393,8 +1393,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                     <Label>{t('enhanced_code_quiz_creator.space_complexity')}</Label>
                     <Input
                       value={formData.solution?.spaceComplexity}
-                      onChange={(e) => updateFormData({ 
-                        ...formData, 
+                      onChange={(e) => updateFormData({
+                        ...formData,
                         solution: { ...formData.solution!, spaceComplexity: e.target.value }
                       })}
                       placeholder={t('enhanced_code_quiz_creator.space_complexity_placeholder')}
@@ -1405,15 +1405,15 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Solution Code */}
+
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label>{t('enhanced_code_quiz_creator.solution_code')}</Label>
                     <div className="flex items-center gap-2">
                       <Select
                         value={formData.solution?.codeLanguage.toString()}
-                        onValueChange={(value) => updateFormData({ 
-                          ...formData, 
+                        onValueChange={(value) => updateFormData({
+                          ...formData,
                           solution: { ...formData.solution!, codeLanguage: parseInt(value) }
                         })}
                       >
@@ -1449,8 +1449,8 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                   </div>
                   <Textarea
                     value={formData.solution?.code}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       solution: { ...formData.solution!, code: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.solution_code_placeholder')}
@@ -1487,13 +1487,13 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
 
                 <Separator />
 
-                {/* Detailed Explanation */}
+
                 <div>
                   <Label>{t('enhanced_code_quiz_creator.detailed_explanation')}</Label>
                   <Textarea
                     value={formData.solution?.explanation}
-                    onChange={(e) => updateFormData({ 
-                      ...formData, 
+                    onChange={(e) => updateFormData({
+                      ...formData,
                       solution: { ...formData.solution!, explanation: e.target.value }
                     })}
                     placeholder={t('enhanced_code_quiz_creator.detailed_explanation_placeholder')}
@@ -1504,9 +1504,9 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
             </Card>
           </TabsContent>
 
-          {/* ==================== TAB 7: SETTINGS ==================== */}
+
           <TabsContent value="settings" className="space-y-4">
-            {/* Languages */}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">{t('enhanced_code_quiz_creator.allowed_languages')}</CardTitle>
@@ -1539,7 +1539,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
               </CardContent>
             </Card>
 
-            {/* Execution Settings */}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">{t('enhanced_code_quiz_creator.execution_settings')}</CardTitle>
@@ -1581,7 +1581,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
               </CardContent>
             </Card>
 
-            {/* Function Signature (Advanced) */}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">{t('enhanced_code_quiz_creator.function_signature')}</CardTitle>
@@ -1593,17 +1593,17 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
                 {formData.allowedLanguages.map((langId) => {
                   const lang = SUPPORTED_LANGUAGES.find(l => l.id === langId)
                   if (!lang) return null
-                  
+
                   return (
                     <div key={langId}>
                       <Label>{lang.value}</Label>
                       <Textarea
                         value={formData.functionSignature?.[langId] || ''}
-                        onChange={(e) => updateFormData({ 
-                          ...formData, 
-                          functionSignature: { 
-                            ...formData.functionSignature, 
-                            [langId]: e.target.value 
+                        onChange={(e) => updateFormData({
+                          ...formData,
+                          functionSignature: {
+                            ...formData.functionSignature,
+                            [langId]: e.target.value
                           }
                         })}
                         placeholder={

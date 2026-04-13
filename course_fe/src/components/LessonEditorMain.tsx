@@ -100,12 +100,12 @@ export function LessonEditorMain({
   moveLessonBetweenSections
 }: LessonEditorMainProps) {
   const { t } = useTranslation()
-  
+
   const totalLessons = sections.reduce((total, section) => total + section.lessons.length, 0)
 
   return (
     <div className="flex-1 space-y-6">
-      {/* Header Actions */}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">{t('lesson_editor_main.title')}</h2>
@@ -113,10 +113,10 @@ export function LessonEditorMain({
             {t('lesson_editor_main.summary', { sections: sections.length, lessons: totalLessons })}
           </p>
         </div>
-        
+
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onShowAddSection(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -129,7 +129,7 @@ export function LessonEditorMain({
         </div>
       </div>
 
-      {/* Add Section Form */}
+
       {showAddSection && (
         <Card className="p-6 border-primary/50 shadow-lg">
           <h3 className="font-semibold mb-4">{t('lesson_editor_main.add_new_section')}</h3>
@@ -153,8 +153,8 @@ export function LessonEditorMain({
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 onClick={() => {
                   onShowAddSection(false)
                   onNewSectionChange({ title: '', description: '' })
@@ -171,7 +171,7 @@ export function LessonEditorMain({
         </Card>
       )}
 
-      {/* Sections with Drag & Drop */}
+
       <DndProvider backend={HTML5Backend}>
         <div className="space-y-4">
           {sections.map((section, index) => (
@@ -208,7 +208,7 @@ export function LessonEditorMain({
                           autoFocus
                         />
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.type')}</label>
@@ -229,7 +229,7 @@ export function LessonEditorMain({
                             </SelectContent>
                           </Select>
                         </div>
-                        
+
                         <div>
                           <label className="text-xs font-medium mb-1 block">{t('common.duration')}</label>
                           <Input
@@ -239,7 +239,7 @@ export function LessonEditorMain({
                           />
                         </div>
                       </div>
-                      
+
                       <div>
                         <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.description_optional')}</label>
                         <Textarea
@@ -249,10 +249,10 @@ export function LessonEditorMain({
                           rows={2}
                         />
                       </div>
-                      
+
                       <div className="flex gap-2 justify-end pt-2">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => {
                             onShowAddLesson(null)
@@ -261,7 +261,7 @@ export function LessonEditorMain({
                         >
                           {t('common.cancel')}
                         </Button>
-                        <Button 
+                        <Button
                           size="sm"
                           onClick={() => onAddLesson(section.id)}
                         >
@@ -278,7 +278,7 @@ export function LessonEditorMain({
         </div>
       </DndProvider>
 
-      {/* Empty State */}
+
       {sections.length === 0 && !showAddSection && (
         <Card className="p-12 text-center border-dashed">
           <div className="max-w-md mx-auto space-y-4">

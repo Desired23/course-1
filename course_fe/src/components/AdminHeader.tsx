@@ -6,7 +6,7 @@ import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { Badge } from "./ui/badge"
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,11 +14,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
-import { 
-  Menu, 
-  Bell, 
-  User, 
-  Settings, 
+import {
+  Menu,
+  Bell,
+  User,
+  Settings,
   LogOut,
   Search,
   Shield,
@@ -36,9 +36,9 @@ interface AdminHeaderProps {
   isRefreshing?: boolean
 }
 
-export function AdminHeader({ 
-  title, 
-  subtitle, 
+export function AdminHeader({
+  title,
+  subtitle,
   className,
   showRefresh = false,
   onRefresh,
@@ -65,9 +65,9 @@ export function AdminHeader({
   return (
     <header className={cn("sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border", className)}>
       <div className="flex items-center justify-between px-4 md:px-8 py-4">
-        {/* Left section - Menu toggle + Title */}
+
         <div className="flex items-center gap-4">
-          {/* Menu toggle button - visible on all screen sizes */}
+
           <Button
             variant="ghost"
             size="icon"
@@ -77,14 +77,14 @@ export function AdminHeader({
             <Menu className="h-5 w-5" />
           </Button>
 
-          {/* Title and subtitle */}
+
           <div>
             {title && (
               <div className="flex items-center gap-2">
                 <h1 className="font-medium">{title}</h1>
                 {showRefresh && (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     className="h-8 w-8"
                     onClick={onRefresh}
@@ -99,24 +99,24 @@ export function AdminHeader({
           </div>
         </div>
 
-        {/* Right section - Search, Notifications, Profile */}
+
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Search - hidden on small mobile */}
+
           <div className="hidden md:block relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder={t('admin_header.search_placeholder')} 
+            <Input
+              placeholder={t('admin_header.search_placeholder')}
               className="pl-9 w-64"
             />
           </div>
 
-          {/* Notifications */}
+
           <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
             <Bell className="h-5 w-5" />
             <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
           </Button>
 
-          {/* User Profile Dropdown */}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2">

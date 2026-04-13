@@ -6,10 +6,10 @@ import { Checkbox } from './ui/checkbox'
 import { Label } from './ui/label'
 import { Badge } from './ui/badge'
 import { Progress } from './ui/progress'
-import { 
-  HelpCircle, 
-  CheckCircle, 
-  XCircle, 
+import {
+  HelpCircle,
+  CheckCircle,
+  XCircle,
   Clock,
   Award,
   ChevronRight,
@@ -38,13 +38,13 @@ interface QuizPreviewProps {
   className?: string
 }
 
-export function QuizPreview({ 
-  title, 
+export function QuizPreview({
+  title,
   questions = [],
   passingScore = 70,
   timeLimit,
   showAnswers = false,
-  className 
+  className
 }: QuizPreviewProps) {
   const { t } = useTranslation()
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -75,10 +75,10 @@ export function QuizPreview({
     if (!isSubmitted || !showAnswers) return null
     const question = questions.find(q => q.id === questionId)
     if (!question) return null
-    
+
     const userAnswer = answers[questionId]
     const correctAnswer = question.correctAnswer
-    
+
     if (Array.isArray(correctAnswer)) {
       return JSON.stringify(userAnswer?.sort()) === JSON.stringify(correctAnswer.sort())
     }
@@ -135,7 +135,7 @@ export function QuizPreview({
               {passed ? 'Congratulations! 🎉' : 'Keep Practicing!'}
             </h2>
             <p className="text-muted-foreground">
-              {passed 
+              {passed
                 ? 'You have successfully passed this quiz!'
                 : `You need ${passingScore}% to pass. Try again!`
               }
@@ -185,7 +185,7 @@ export function QuizPreview({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* Quiz Header */}
+
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -212,10 +212,10 @@ export function QuizPreview({
         <Progress value={progress} className="h-1 mt-4" />
       </Card>
 
-      {/* Question Card */}
+
       <Card className="p-6">
         <div className="space-y-6">
-          {/* Question */}
+
           <div>
             <div className="flex items-start gap-3">
               <Badge variant="outline" className="mt-1">
@@ -226,16 +226,16 @@ export function QuizPreview({
                   {currentQ.question}
                 </h4>
 
-                {/* Image if present */}
+
                 {currentQ.image && (
-                  <img 
-                    src={currentQ.image} 
-                    alt={t('quiz_preview.question_image_alt')} 
+                  <img
+                    src={currentQ.image}
+                    alt={t('quiz_preview.question_image_alt')}
                     className="rounded-lg border mb-4 max-h-48 object-cover"
                   />
                 )}
 
-                {/* Code if present */}
+
                 {currentQ.code && (
                   <pre className="bg-muted p-4 rounded-lg mb-4 overflow-x-auto">
                     <code className="text-sm">{currentQ.code}</code>
@@ -245,7 +245,7 @@ export function QuizPreview({
             </div>
           </div>
 
-          {/* Options */}
+
           <div className="space-y-3">
             {currentQ.type === 'single' ? (
               <RadioGroup
@@ -257,7 +257,7 @@ export function QuizPreview({
                   const isSelected = answers[currentQ.id] === index
                   const isAnswerCorrect = isCorrect(currentQ.id)
                   const isThisCorrect = currentQ.correctAnswer === index
-                  
+
                   return (
                     <div
                       key={index}
@@ -268,11 +268,11 @@ export function QuizPreview({
                         isSubmitted && isSelected && !isThisCorrect && "border-red-500 bg-red-50 dark:bg-red-900/20"
                       )}
                     >
-                      <RadioGroupItem 
-                        value={index.toString()} 
+                      <RadioGroupItem
+                        value={index.toString()}
                         id={`q-${currentQ.id}-option-${index}`}
                       />
-                      <Label 
+                      <Label
                         htmlFor={`q-${currentQ.id}-option-${index}`}
                         className="flex-1 cursor-pointer"
                       >
@@ -293,7 +293,7 @@ export function QuizPreview({
                 {currentQ.options.map((option, index) => {
                   const selected = (answers[currentQ.id] as number[] || []).includes(index)
                   const isThisCorrect = (currentQ.correctAnswer as number[] || []).includes(index)
-                  
+
                   return (
                     <div
                       key={index}
@@ -314,11 +314,11 @@ export function QuizPreview({
                         }
                       }}
                     >
-                      <Checkbox 
+                      <Checkbox
                         checked={selected}
                         id={`q-${currentQ.id}-option-${index}`}
                       />
-                      <Label 
+                      <Label
                         htmlFor={`q-${currentQ.id}-option-${index}`}
                         className="flex-1 cursor-pointer"
                       >
@@ -348,7 +348,7 @@ export function QuizPreview({
             )}
           </div>
 
-          {/* Explanation (shown after submission) */}
+
           {isSubmitted && currentQ.explanation && (
             <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 p-4">
               <h5 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">
@@ -362,7 +362,7 @@ export function QuizPreview({
         </div>
       </Card>
 
-      {/* Navigation */}
+
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
@@ -383,7 +383,7 @@ export function QuizPreview({
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         ) : (
-          <Button 
+          <Button
             onClick={submitQuiz}
             disabled={Object.keys(answers).length < totalQuestions}
           >

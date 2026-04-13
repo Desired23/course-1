@@ -115,7 +115,7 @@ class CertificateDownloadView(APIView):
         except Certificate.DoesNotExist:
             return Response({"error": "Certificate not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Only owner or admin can download
+
         is_admin = getattr(request.user, 'admin', None)
         if cert.user_id != request.user.id and not is_admin:
             return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
@@ -126,7 +126,7 @@ class CertificateDownloadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Redirect browser to Cloudinary URL (or return URL for client-side download)
+
         return Response({
             "certificate_id": cert.id,
             "download_url": cert.certificate_url,

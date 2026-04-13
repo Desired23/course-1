@@ -8,7 +8,7 @@ import {
   type Notification as ApiNotification,
 } from '../services/notification.api'
 
-// ─── Types (keep the same external interface) ─────────────────────
+
 
 interface Notification {
   id: string
@@ -45,7 +45,7 @@ const initialState: NotificationState = {
   loaded: false,
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────
+
 
 function mapApiNotification(n: ApiNotification): Notification {
   return {
@@ -60,7 +60,7 @@ function mapApiNotification(n: ApiNotification): Notification {
   }
 }
 
-// ─── Reducer ──────────────────────────────────────────────────────
+
 
 const notificationReducer = (state: NotificationState, action: NotificationAction): NotificationState => {
   switch (action.type) {
@@ -76,7 +76,7 @@ const notificationReducer = (state: NotificationState, action: NotificationActio
         timestamp: new Date(),
         read: false,
       }
-      // Deduplicate by id
+
       if (state.notifications.some(n => n.id === newNotification.id)) return state
       return {
         ...state,
@@ -141,7 +141,7 @@ const notificationReducer = (state: NotificationState, action: NotificationActio
   }
 }
 
-// ─── Context ──────────────────────────────────────────────────────
+
 
 interface NotificationContextType {
   state: NotificationState
@@ -159,7 +159,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user, isAuthenticated } = useAuth()
   const userId = user?.id ? Number(user.id) : null
 
-  // ── Fetch initial notifications from REST API ──────────────────
+
   useEffect(() => {
     if (!isAuthenticated || !userId) {
       dispatch({ type: 'CLEAR_ALL_NOTIFICATIONS' })
@@ -179,7 +179,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [isAuthenticated, userId])
 
-  // ── WebSocket for real-time push ──────────────────────────────
+
   const handleWsMessage = useCallback((data: any) => {
     if (data.type === 'notification' && data.data) {
       const d = data.data
@@ -225,7 +225,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     onClose: () => console.log('[WS] Notification disconnected'),
   })
 
-  // ── Actions ───────────────────────────────────────────────────
+
   const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     dispatch({ type: 'ADD_NOTIFICATION', payload: notification })
   }
@@ -234,7 +234,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'MARK_AS_READ', payload: id })
     try {
       await apiMarkRead(Number(id))
-    } catch { /* API call is best-effort */ }
+    } catch (err) {
+      console.error('[Notification] Mark as read failed:', err)
+    }
   }
 
   const markAllAsRead = async () => {
@@ -242,7 +244,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (userId) {
       try {
         await apiMarkAllRead(userId)
-      } catch { /* best-effort */ }
+      } catch (err) {
+        console.error('[Notification] Mark all as read failed:', err)
+      }
     }
   }
 
@@ -254,14 +258,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'CLEAR_ALL_NOTIFICATIONS' })
   }
 
-  // helper to re-fetch via REST (called by components if they need a manual refresh)
-  // include a simple throttle: never fetch more than once every 30 seconds
+
+
   let _lastRefresh = 0
   const refreshNotifications = async () => {
     if (!isAuthenticated || !userId) return
     const now = Date.now()
     if (now - _lastRefresh < 30000) {
-      // too soon, skip
+
       return
     }
     _lastRefresh = now

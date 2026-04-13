@@ -12,7 +12,7 @@ export function TrustedCompanies() {
         <p className="text-gray-600 dark:text-gray-400 mb-8">
           {t('trusted.text')}
         </p>
-        
+
         <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
           {companies.map((company) => (
             <div key={company} className="text-gray-400 dark:text-gray-500 font-bold text-xl md:text-2xl hover:text-gray-600 dark:hover:text-gray-300 transition-colors">

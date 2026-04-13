@@ -87,7 +87,7 @@ function DraggableQuestion({
       const hoverBoundingRect = ref.current.getBoundingClientRect()
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
       const clientOffset = monitor.getClientOffset()
-      
+
       if (!clientOffset) return
 
       const hoverClientY = clientOffset.y - hoverBoundingRect.top
@@ -106,11 +106,11 @@ function DraggableQuestion({
   drag(drop(ref))
 
   return (
-    <Card 
+    <Card
       ref={ref}
       className={`overflow-hidden transition-all ${isDragging ? 'opacity-50' : ''} ${isOver ? 'ring-2 ring-primary' : ''}`}
     >
-      <div 
+      <div
         className="p-4 bg-muted/50 cursor-pointer hover:bg-muted flex items-center justify-between"
         onClick={onToggleExpand}
       >
@@ -169,7 +169,7 @@ function DraggableQuestion({
             />
           </div>
 
-          {/* Code Snippet */}
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Switch
@@ -193,7 +193,7 @@ function DraggableQuestion({
             )}
           </div>
 
-          {/* Image URL */}
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Switch
@@ -215,7 +215,7 @@ function DraggableQuestion({
             )}
           </div>
 
-          {/* Answer Options */}
+
           {(question.type === 'multiple_choice' || question.type === 'true_false') && (
             <div className="space-y-2">
               <Label>{t('quiz_editor.question_card.answer_options')}</Label>
@@ -338,7 +338,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
   }
 
   const updateQuestion = (id: number, updates: Partial<QuizQuestion>) => {
-    setQuestions(questions.map(q => 
+    setQuestions(questions.map(q =>
       q.id === id ? { ...q, ...updates } : q
     ))
   }
@@ -393,7 +393,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
       return
     }
 
-    // Validate questions
+
     for (const q of questions) {
       if (!q.question.trim()) {
         toast.error(t('quiz_editor.toasts.question_text_required'))
@@ -416,7 +416,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
 
   return (
     <div className="space-y-6">
-      {/* Quiz Settings */}
+
       <Card>
         <CardHeader>
           <CardTitle>{t('quiz_editor.settings.title')}</CardTitle>
@@ -466,7 +466,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
         </CardContent>
       </Card>
 
-      {/* Questions */}
+
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">{t('quiz_editor.questions.title', { count: questions.length })}</h3>
@@ -505,7 +505,7 @@ export function QuizEditor({ quizData, onSave, onCancel }: QuizEditorProps) {
         ))}
       </div>
 
-      {/* Action Buttons */}
+
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button variant="outline" onClick={onCancel}>
           {t('quiz_editor.actions.cancel')}

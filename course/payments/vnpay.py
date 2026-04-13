@@ -23,7 +23,7 @@ class vnpay:
 
     def validate_response(self, secret_key):
         vnp_SecureHash = self.responseData['vnp_SecureHash']
-        # Remove hash params
+
         if 'vnp_SecureHash' in self.responseData.keys():
             self.responseData.pop('vnp_SecureHash')
 

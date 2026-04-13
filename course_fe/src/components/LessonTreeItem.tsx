@@ -1,12 +1,12 @@
 import { Badge } from './ui/badge'
 import { Checkbox } from './ui/checkbox'
 import { useTranslation } from 'react-i18next'
-import { 
-  Video, 
-  FileText, 
-  HelpCircle, 
-  ClipboardList, 
-  File, 
+import {
+  Video,
+  FileText,
+  HelpCircle,
+  ClipboardList,
+  File,
   Link,
   CheckCircle,
   Clock,
@@ -94,7 +94,7 @@ export function LessonTreeItem({
         isSelected && "bg-primary/10 border border-primary/30 shadow-sm ring-1 ring-primary/20"
       )}
     >
-      {/* Checkbox (Left) */}
+
       {showCheckbox && (
         <div onClick={handleCheckboxClick} className="flex-shrink-0 pt-0.5">
           <Checkbox
@@ -104,31 +104,31 @@ export function LessonTreeItem({
         </div>
       )}
 
-      {/* Icon */}
+
       <div className={cn(
         "p-1.5 rounded-md transition-all flex-shrink-0",
-        isSelected 
-          ? "bg-primary/20 text-primary" 
+        isSelected
+          ? "bg-primary/20 text-primary"
           : "bg-muted/50 text-muted-foreground group-hover:bg-muted group-hover:text-foreground"
       )}>
         <Icon className="h-3.5 w-3.5" />
       </div>
-      
-      {/* Content */}
+
+
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <p className={cn(
             "text-sm truncate leading-snug",
-            isSelected 
-              ? "font-semibold text-primary" 
+            isSelected
+              ? "font-semibold text-primary"
               : "font-medium group-hover:text-foreground"
           )}>
             {lessonIndex + 1}. {lesson.title}
           </p>
-          
-          {/* Status Badge */}
-          <Badge 
-            variant="outline" 
+
+
+          <Badge
+            variant="outline"
             className={cn(
               "text-[10px] px-1.5 py-0 h-4 font-semibold flex-shrink-0 border",
               statusConfig.color,
@@ -144,8 +144,8 @@ export function LessonTreeItem({
             {lesson.status === 'published' ? t('lesson_tree_item.status.published') : t('lesson_tree_item.status.draft')}
           </Badge>
         </div>
-        
-        {/* Meta Info */}
+
+
         <div className="flex items-center gap-2 mt-1.5">
           <span className={cn(
             "text-xs transition-colors",
@@ -163,10 +163,10 @@ export function LessonTreeItem({
               {transcriptStatus}
             </Badge>
           )}
-          
+
           {lesson.is_free && (
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className="text-[10px] px-1.5 py-0 h-4 bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400"
             >
               {t('lesson_tree_item.free_preview')}
@@ -175,7 +175,7 @@ export function LessonTreeItem({
         </div>
       </div>
 
-      {/* Selection Indicator */}
+
       {isSelected && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
       )}

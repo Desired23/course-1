@@ -91,7 +91,7 @@ export function ChatWidget() {
     error?: string
     canRetry?: boolean
   }>>([])
-  
+
   const dragControls = useDragControls()
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -100,7 +100,7 @@ export function ChatWidget() {
   const uploadAbortMapRef = useRef<Record<string, () => void>>({})
   const pendingAttachmentsRef = useRef(pendingAttachments)
 
-  // Auto-scroll to bottom of messages
+
   useEffect(() => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
@@ -137,14 +137,14 @@ export function ChatWidget() {
 
   const handleToggle = () => {
     if (isDragging) return
-    
+
     if (!state.isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect()
       const x = rect.left + rect.width / 2 > window.innerWidth / 2 ? 'right' : 'left'
       const y = rect.top + rect.height / 2 > window.innerHeight / 2 ? 'bottom' : 'top'
       setAlignment({ x, y })
     }
-    
+
     toggleChat()
   }
 
@@ -170,7 +170,7 @@ export function ChatWidget() {
     ? (conversationDisplayName || 'G').slice(0, 2).toUpperCase()
     : (otherParticipant?.name?.charAt(0) || 'U')
 
-  // Get messages for the active conversation from the dictionary
+
   const messages = state.activeConversationId ? state.messages[state.activeConversationId] || [] : []
   const previewAttachment = pendingAttachments.find((attachment) => attachment.id === previewAttachmentId) || null
 
@@ -265,7 +265,7 @@ export function ChatWidget() {
         fileSize: attachment.fileSize,
         thumbnailUrl: attachment.kind === 'image' ? attachment.fileUrl : undefined,
       }))
-    
+
     sendMessage(conversationId, {
       senderId: user.id,
         senderName: user.name || t('chat.you'),
@@ -274,7 +274,7 @@ export function ChatWidget() {
       replyToMessageId: replyingTo?.id,
       attachments: uploadedAttachments,
     })
-    
+
     setMessageInput('')
     setReplyingTo(null)
     pendingAttachments.forEach((attachment) => {
@@ -592,7 +592,7 @@ export function ChatWidget() {
     const vertical = alignment.y === 'bottom' ? 'bottom-0 origin-bottom-' : 'top-0 origin-top-'
     const horizontal = alignment.x === 'right' ? 'right-0' : 'left-0'
     const origin = vertical + (alignment.x === 'right' ? 'right' : 'left')
-    
+
     return {
       className: `absolute ${vertical.split(' ')[0]} ${horizontal} ${origin}`,
     }
@@ -647,12 +647,16 @@ export function ChatWidget() {
     return t('chat_widget.uploading_progress', { progress: attachment.progress })
   }
 
+  if (!state.isOpen) {
+    return null
+  }
+
   return (
     <motion.div
       ref={containerRef}
       drag
       dragControls={dragControls}
-      dragListener={!state.isOpen}
+      dragListener
       dragMomentum={false}
       onDragStart={() => setIsDragging(true)}
       onDragEnd={handleDragEnd}
@@ -661,42 +665,19 @@ export function ChatWidget() {
       initial={false}
     >
       <AnimatePresence mode="wait">
-        {!state.isOpen ? (
-          <motion.div
-            key="collapsed"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.1 }}
-            className="relative"
-          >
-            <Button
-              size="icon"
-              className="w-16 h-16 rounded-full shadow-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 border-2 border-white dark:border-gray-800"
-              onClick={handleToggle}
-            >
-              <MessageCircle className="w-8 h-8 text-white" />
-              {state.totalUnreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white border-2 border-white dark:border-gray-900 animate-in zoom-in">
-                  {state.totalUnreadCount}
-                </span>
-              )}
-            </Button>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            style={{
-              width: 'min(96vw, 34rem)',
-              height: 'min(78vh, 680px)',
-              maxWidth: 'calc(100vw - 1rem)',
-            }}
-            className={`rounded-xl border bg-background/95 shadow-2xl ring-1 ring-black/5 backdrop-blur-sm dark:ring-white/10 ${expandedStyle.className} flex flex-col overflow-hidden`}
-          >
-            {/* Header - Draggable Area */}
+        <motion.div
+          key="expanded"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          style={{
+            width: 'min(96vw, 34rem)',
+            height: 'min(78vh, 680px)',
+            maxWidth: 'calc(100vw - 1rem)',
+          }}
+          className={`rounded-xl border bg-background/95 shadow-2xl ring-1 ring-black/5 backdrop-blur-sm dark:ring-white/10 ${expandedStyle.className} flex flex-col overflow-hidden`}
+        >
+
             <div onPointerDown={(e) => dragControls.start(e)} className="cursor-grab select-none active:cursor-grabbing">
               <ChatWidgetHeader
                 title={activeConversation ? t('chat_widget.messages_title') : t('chat_widget.support_chat')}
@@ -731,9 +712,9 @@ export function ChatWidget() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="h-8 w-8 text-white hover:bg-white/20 rounded-full"
                   onClick={toggleChat}
                 >
@@ -742,10 +723,10 @@ export function ChatWidget() {
               </ChatWidgetHeader>
             </div>
 
-            {/* Content Area */}
+
             <div className="flex min-h-0 flex-1 flex-col bg-gradient-to-b from-slate-50 to-white dark:from-gray-900/70 dark:to-gray-900">
               {!state.activeConversationId ? (
-                // Conversation List
+
                 <ScrollArea className="flex-1">
                   <div className="p-2 space-y-2">
                     <Button
@@ -802,7 +783,7 @@ export function ChatWidget() {
                   </div>
                 </ScrollArea>
               ) : (
-                // Active Chat
+
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="shrink-0 border-b bg-white/90 px-3 py-2 backdrop-blur dark:bg-gray-800/90">
                     <Button
@@ -1464,8 +1445,7 @@ export function ChatWidget() {
                 ) : null}
               </DialogContent>
             </Dialog>
-          </motion.div>
-        )}
+        </motion.div>
       </AnimatePresence>
     </motion.div>
   )

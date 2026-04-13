@@ -14,6 +14,28 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useAuthStore } from '../../stores/auth.store'
 import { debugGoogleOAuthConfig } from '../../utils/debugGoogleOAuth'
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function LoginPage() {
   const { t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
@@ -88,7 +110,7 @@ export function LoginPage() {
       quote={t('auth.login_quote')}
       author={t('auth.login_quote_author')}
     >
-      <div className="grid gap-6">
+      <motion.div className="grid gap-6" variants={sectionStagger} initial="hidden" animate="show">
         <form onSubmit={handleSubmit} className="space-y-5">
           <motion.div
             initial={{ opacity: 0, x: -10 }}
@@ -220,7 +242,7 @@ export function LoginPage() {
           </motion.div>
         </form>
 
-        <div className="relative my-2">
+        <motion.div className="relative my-2" variants={fadeInUp}>
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-gray-200 dark:border-zinc-800" />
           </div>
@@ -229,9 +251,9 @@ export function LoginPage() {
               {t('auth.or_continue_with')}
             </span>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div className="grid grid-cols-2 gap-4" variants={fadeInUp}>
           <GoogleLoginButton
             useCustomButton
             buttonText={t('auth.google')}
@@ -246,9 +268,9 @@ export function LoginPage() {
             </svg>
             {t('auth.facebook')}
           </Button>
-        </div>
+        </motion.div>
 
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400">
+        <motion.div className="text-center text-sm text-gray-600 dark:text-gray-400" variants={fadeInUp}>
           {t('auth.no_account')}{' '}
           <button
             onClick={() => navigate('/signup')}
@@ -256,8 +278,8 @@ export function LoginPage() {
           >
             {t('auth.signup')}
           </button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </AuthLayout>
   )
 }

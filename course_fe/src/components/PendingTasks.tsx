@@ -28,7 +28,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
   const { navigate } = useRouter()
   const [filter, setFilter] = useState<'all' | 'pending' | 'urgent'>('all')
 
-  // Mock tasks based on user role
+
   const getMockTasks = (): Task[] => {
     if (userRole === 'admin') {
       return [
@@ -133,7 +133,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       ]
     }
 
-    // User tasks
+
     return [
       {
         id: '11',
@@ -267,7 +267,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
                   )}>
                     <PriorityIcon className="h-5 w-5" />
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h3 className="font-medium text-sm">{task.title}</h3>
@@ -276,7 +276,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
                     <p className="text-sm text-muted-foreground mb-3">
                       {task.description}
                     </p>
-                    
+
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="secondary" className={statusConfig.color}>
                         {statusConfig.label}

@@ -32,7 +32,7 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
         serializer = NotificationSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
-            # Send WebSocket notification if channel layer is available
+
             channel_layer = get_channel_layer()
             if channel_layer:
                 dataws = dict(serializer.data)
@@ -41,16 +41,16 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
                     {
                         "type": "send_notification",
                         "data":  dataws,
-                        
+
                     }
                 )
-            
+
             return serializer.data
         else:
             raise ValidationError(serializer.errors)
     except Exception as e:
         raise ValidationError(f"Error creating notification: {str(e)}")
-    
+
 def get_notification_by_id(notification_id, user_id=None):
     try:
         qs = Notification.objects.filter(id=notification_id, is_deleted=False)
@@ -134,7 +134,7 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
 
             if serializer.is_valid():
                 serializer.save()
-                # Send WebSocket notification if channel layer is available
+
                 if channel_layer:
                     dataws = dict(serializer.data)
                     async_to_sync(channel_layer.group_send)(
@@ -142,11 +142,11 @@ def notification_to_users(notification_code, user_ids, title, message, type, rel
                         {
                             "type": "send_notification",
                             "data":  dataws,
-                            
+
                         }
                     )
                 success_count += 1
-                
+
             else:
                 raise ValidationError(serializer.errors)
         return {

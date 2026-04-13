@@ -26,10 +26,10 @@ export function TestimonialsSection() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return
-    
+
     const scrollAmount = 400
     const container = scrollContainerRef.current
-    
+
     if (direction === 'left') {
       container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
     } else {
@@ -39,10 +39,10 @@ export function TestimonialsSection() {
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return
-    
+
     const container = scrollContainerRef.current
     const { scrollLeft, scrollWidth, clientWidth } = container
-    
+
     setShowLeftArrow(scrollLeft > 10)
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10)
   }
@@ -63,7 +63,7 @@ export function TestimonialsSection() {
         </motion.div>
 
         <div className="relative group">
-          {/* Left Arrow */}
+
           {showLeftArrow && (
             <button
               onClick={() => scroll('left')}
@@ -74,7 +74,7 @@ export function TestimonialsSection() {
             </button>
           )}
 
-          {/* Testimonials Slider */}
+
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -92,7 +92,7 @@ export function TestimonialsSection() {
                 <Card className="h-full hover:shadow-xl transition-shadow">
                   <CardContent className="p-6 flex flex-col h-full">
                     <Quote className="w-10 h-10 text-primary mb-4 opacity-20" />
-                    
+
                     <div className="flex mb-3">
                       {[...Array(testimonial.rating)].map((_, i) => (
                         <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
@@ -120,7 +120,7 @@ export function TestimonialsSection() {
             ))}
           </div>
 
-          {/* Right Arrow */}
+
           {showRightArrow && (
             <button
               onClick={() => scroll('right')}

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -38,6 +39,28 @@ interface RoleTemplate {
   description: string
   permissions: string[]
   isDefault: boolean
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 
@@ -187,23 +210,23 @@ export function PermissionsPage() {
 
   const handleTogglePermission = (permissionId: string) => {
     if (!editingUser) return
-    
+
     const hasPermission = editingUser.permissions.includes(permissionId)
     const updatedPermissions = hasPermission
       ? editingUser.permissions.filter(p => p !== permissionId)
       : [...editingUser.permissions, permissionId]
-    
+
     setEditingUser({ ...editingUser, permissions: updatedPermissions })
   }
 
   const handleToggleRole = (role: UserRole) => {
     if (!editingUser) return
-    
+
     const hasRole = editingUser.roles.includes(role)
     const updatedRoles = hasRole
       ? editingUser.roles.filter(r => r !== role)
       : [...editingUser.roles, role]
-    
+
     setEditingUser({ ...editingUser, roles: updatedRoles })
   }
 
@@ -215,7 +238,7 @@ export function PermissionsPage() {
       acc[permission.category].push(permission)
       return acc
     }, {} as Record<string, Permission[]>)
-    
+
     return categories
   }
 
@@ -229,21 +252,40 @@ export function PermissionsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 overflow-x-hidden">
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="p-6 space-y-6 overflow-x-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('permissions_page.title')}</h1>
           <p className="text-muted-foreground">{t('permissions_page.subtitle')}</p>
         </div>
         <Badge variant="outline">{t('permissions_page.badges.backend_backed')}</Badge>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="users">{t('permissions_page.tabs.users')}</TabsTrigger>
-          <TabsTrigger value="roles">{t('permissions_page.tabs.roles')}</TabsTrigger>
-          <TabsTrigger value="permissions">{t('permissions_page.tabs.permissions')}</TabsTrigger>
-          <TabsTrigger value="audit">{t('permissions_page.tabs.audit')}</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-4 p-1">
+          <TabsTrigger value="users" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'users' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('permissions_page.tabs.users')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'roles' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('permissions_page.tabs.roles')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="permissions" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'permissions' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('permissions_page.tabs.permissions')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'audit' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('permissions_page.tabs.audit')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="space-y-4">
@@ -314,7 +356,7 @@ export function PermissionsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={user.status === 'active' ? 'default' : 
+                        <Badge variant={user.status === 'active' ? 'default' :
                                      user.status === 'inactive' ? 'secondary' : 'destructive'}>
                           {getStatusLabel(user.status)}
                         </Badge>
@@ -446,8 +488,10 @@ export function PermissionsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
+      </motion.div>
 
-      {/* Edit User Dialog */}
+
       {editingUser && (
         <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -457,7 +501,7 @@ export function PermissionsPage() {
                 {t('permissions_page.manage_roles_permissions', { name: editingUser.name })}
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-6">
               <div>
                 <Label className="text-base font-semibold">{t('permissions_page.user_roles')}</Label>
@@ -473,13 +517,13 @@ export function PermissionsPage() {
                     </div>
                   ))}
                 </div>
-                
+
                 {editingUser.roles.includes('admin') && (
                   <div className="mt-4">
                     <Label>{t('permissions_page.admin_level')}</Label>
-                    <Select 
-                      value={editingUser.adminLevel || 'sub'} 
-                      onValueChange={(value: 'super' | 'sub') => 
+                    <Select
+                      value={editingUser.adminLevel || 'sub'}
+                      onValueChange={(value: 'super' | 'sub') =>
                         setEditingUser({ ...editingUser, adminLevel: value })
                       }
                     >
@@ -494,9 +538,9 @@ export function PermissionsPage() {
                   </div>
                 )}
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <Label className="text-base font-semibold">{t('permissions_page.individual_permissions')}</Label>
                 <div className="space-y-4 mt-3">
@@ -522,7 +566,7 @@ export function PermissionsPage() {
                 </div>
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-2 pt-4 border-t">
               <Button variant="outline" onClick={() => setIsUserDialogOpen(false)}>
                 {t('common.cancel')}
@@ -579,7 +623,7 @@ export function PermissionsPage() {
         </Dialog>
       )}
 
-      {/* View User Details Dialog */}
+
       {selectedUser && (
         <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
           <DialogContent className="max-w-2xl">
@@ -589,7 +633,7 @@ export function PermissionsPage() {
                 {t('permissions_page.user_details_description')}
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
@@ -611,9 +655,9 @@ export function PermissionsPage() {
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <Label>{t('permissions_page.created')}</Label>
@@ -634,9 +678,9 @@ export function PermissionsPage() {
                   <p>{t('permissions_page.permissions_assigned', { count: selectedUser.permissions.length })}</p>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <Label className="font-semibold">{t('permissions_page.assigned_permissions')}</Label>
                 <div className="grid grid-cols-1 gap-2 mt-2 max-h-40 overflow-y-auto">
@@ -655,7 +699,7 @@ export function PermissionsPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </motion.div>
   )
 }
 

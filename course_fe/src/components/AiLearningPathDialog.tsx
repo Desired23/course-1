@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, ReactNode } from 'react'
 import { toast } from 'sonner'
 import {
   ArrowRight,
-  BrainCircuit,
+  Bot,
   ListChecks,
   Play,
   Save,
@@ -64,24 +64,24 @@ const FALLBACK_QUICK_ACTIONS = [
   'Gợi ý cho tôi các khóa học phù hợp với mục tiêu này.',
 ]
 
-// Markdown table parsing utilities
+
 function parseMarkdownTable(tableStr: string): { headers: string[]; rows: string[][] } | null {
   const lines = tableStr.trim().split('\n')
   if (lines.length < 3) return null
 
-  // Parse header
+
   const headerLine = lines[0].trim()
   const headers = headerLine
     .split('|')
     .map((h) => h.trim())
     .filter((h) => h)
 
-  // Check separator line
+
   const separatorLine = lines[1].trim()
   const isSeparator = /^\|?[\s\-|:]+\|?$/.test(separatorLine)
   if (!isSeparator || headers.length === 0) return null
 
-  // Parse data rows
+
   const rows: string[][] = []
   for (let i = 2; i < lines.length; i++) {
     const line = lines[i].trim()
@@ -104,16 +104,16 @@ function parseMessageBlocks(content: string): MessageBlock[] {
   let i = 0
 
   while (i < lines.length) {
-    // Try to match a table starting at current line
+
     let tableEndIdx = i
     let foundTable = false
 
-    // First line must start with |
+
     if (lines[i].trim().startsWith('|')) {
-      // Find table end (next |, header, separator, or data)
+
       tableEndIdx = i + 1
       if (tableEndIdx < lines.length && /^\|?[\s\-|:]+\|?$/.test(lines[tableEndIdx].trim())) {
-        // Has separator, now find data rows
+
         tableEndIdx = i + 2
         while (tableEndIdx < lines.length && lines[tableEndIdx].trim().startsWith('|')) {
           tableEndIdx++
@@ -129,7 +129,7 @@ function parseMessageBlocks(content: string): MessageBlock[] {
         blocks.push({ type: 'table', headers: parsed.headers, rows: parsed.rows })
         i = tableEndIdx
       } else {
-        // Not a valid table, add as paragraph
+
         const paragraphLines: string[] = []
         while (i < lines.length && !lines[i].trim().startsWith('|')) {
           paragraphLines.push(lines[i])
@@ -140,7 +140,7 @@ function parseMessageBlocks(content: string): MessageBlock[] {
         }
       }
     } else {
-      // Collect non-table lines as paragraph
+
       const paragraphLines: string[] = []
       while (i < lines.length && !lines[i].trim().startsWith('|')) {
         paragraphLines.push(lines[i])
@@ -707,12 +707,12 @@ export function AiLearningPathDialog({
       <div className="space-y-3">
         {blocks.map((block, blockIdx) => {
           if (block.type === 'table') {
-            // Try to find course_id column index
+
             const courseIdColIdx = block.headers.findIndex((h) =>
               /course[_\s]*id|^id$/.test(h.toLowerCase())
             )
-            
-            // Try to find course name column
+
+
             const courseNameColIdx = block.headers.findIndex((h) =>
               /khóa\s*học|khoa\s*hoc|course|tên|ten/.test(h.toLowerCase())
             )
@@ -731,10 +731,10 @@ export function AiLearningPathDialog({
                   </thead>
                   <tbody>
                     {block.rows.map((row, rowIdx) => {
-                      // Extract course_id and check if owned
+
                       let courseId: number | null = null
                       if (courseIdColIdx >= 0 && row[courseIdColIdx]) {
-                        // Parse course_id, removing any whitespace or special chars
+
                         const idStr = row[courseIdColIdx].replace(/[^\d]/g, '')
                         courseId = idStr ? parseInt(idStr, 10) : null
                       }
@@ -750,7 +750,7 @@ export function AiLearningPathDialog({
                           }`}
                         >
                           {row.map((cell, colIdx) => {
-                            // Render course name as a clickable button
+
                             if (colIdx === courseNameColIdx && courseId) {
                               return (
                                 <td key={`cell-${rowIdx}-${colIdx}`} className="border-r border-slate-700/20 px-3 py-2 text-slate-100 last:border-r-0 break-words">
@@ -770,7 +770,7 @@ export function AiLearningPathDialog({
                               )
                             }
 
-                            // Regular cell rendering
+
                             return (
                               <td
                                 key={`cell-${rowIdx}-${colIdx}`}
@@ -799,7 +799,7 @@ export function AiLearningPathDialog({
             )
           }
 
-          // Process text block with link handling
+
           const textContent = block.content
           const markdownLinkRegex = /\[([^\]]+)\]\((\/course-player\/\d+|\/course\/\d+|\/cart)\)/g
           const routeLabelFromPath = (path: string) => {
@@ -911,11 +911,11 @@ export function AiLearningPathDialog({
         <DialogDescription className="sr-only">
           Trợ lý AI tư vấn lộ trình học tập, lịch sử hội thoại và các hành động điều hướng khóa học.
         </DialogDescription>
-        {/* Header */}
+
         <div className="border-b border-slate-800/50 px-4 py-4 sm:px-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500/30 to-purple-500/30 text-blue-300">
-              <BrainCircuit className="h-5 w-5" />
+              <Bot className="h-5 w-5" />
             </span>
             <div>
               <h2 className="text-lg font-semibold text-white">AI Advisor</h2>
@@ -924,7 +924,7 @@ export function AiLearningPathDialog({
           </div>
         </div>
 
-        {/* Main Content */}
+
         <div
           className={isDesktopDialogLayout ? 'flex-1 min-h-0 overflow-hidden grid' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}
           style={isDesktopDialogLayout ? { gridTemplateColumns: '320px minmax(0, 1fr)' } : undefined}
@@ -1003,14 +1003,14 @@ export function AiLearningPathDialog({
           </aside>
 
           <div className="flex-1 min-h-0 min-w-0 flex flex-col">
-            {/* Chat Area */}
+
             <div
               ref={chatContainerRef}
               onScroll={handleChatScroll}
               style={{ WebkitOverflowScrolling: 'touch', minHeight: 0 }}
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-4 sm:px-5"
             >
-            {/* Intro Messages */}
+
             {!goalText && messages.length === 0 && (
               <div className="flex flex-col gap-3 py-4">
                 <div className="rounded-lg bg-slate-800/40 border border-slate-700/50 px-4 py-3">
@@ -1022,7 +1022,7 @@ export function AiLearningPathDialog({
               </div>
             )}
 
-            {/* Messages Thread */}
+
             {goalText && (
               <div className="flex justify-end">
                 <div className="bg-blue-600/70 rounded-lg px-4 py-2 max-w-full sm:max-w-[78%] lg:max-w-[70%]">
@@ -1073,9 +1073,9 @@ export function AiLearningPathDialog({
 
           </div>
 
-            {/* Input Area */}
+
             <div className="border-t border-slate-800/50 px-4 py-4 space-y-3 sm:px-5">
-            {/* Quick Actions */}
+
             {goalText && showQuickReplies && visibleQuickActions.length > 0 && (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {visibleQuickActions.map((action, index) => (
@@ -1095,7 +1095,7 @@ export function AiLearningPathDialog({
               </div>
             )}
 
-            {/* Message Input Form */}
+
             <form
               onSubmit={(event) => {
                 event.preventDefault()

@@ -55,7 +55,7 @@ class UserUpdateView(APIView):
     throttle_scope = 'burst'
 
     def patch(self, request, user_id):
-        # Only the user themselves or admin can update profile
+
         if request.user.id != user_id and not hasattr(request.user, 'admin'):
             return Response({"error": "Bạn không có quyền cập nhật thông tin người dùng khác."}, status=status.HTTP_403_FORBIDDEN)
         try:

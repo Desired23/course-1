@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -7,10 +8,10 @@ import { Switch } from '../../components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Separator } from '../../components/ui/separator'
-import { 
-  CreditCard, 
-  Wallet, 
-  Smartphone, 
+import {
+  CreditCard,
+  Wallet,
+  Smartphone,
   CheckCircle2,
   AlertCircle,
   Eye,
@@ -37,9 +38,32 @@ interface PaymentGateway {
   }
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function PaymentGatewaySettingsPage() {
   const { t } = useTranslation()
   const [gatewaySettingId, setGatewaySettingId] = useState<number | null>(null)
+  const [activeGatewayTab, setActiveGatewayTab] = useState('stripe')
   const [gateways, setGateways] = useState<PaymentGateway[]>([
     {
       id: 'stripe',
@@ -124,7 +148,7 @@ export function PaymentGatewaySettingsPage() {
 
   const updateCredential = (gatewayId: string, key: string, value: string) => {
     setGateways(prev => prev.map(g =>
-      g.id === gatewayId 
+      g.id === gatewayId
         ? { ...g, credentials: { ...g.credentials, [key]: value } }
         : g
     ))
@@ -147,7 +171,7 @@ export function PaymentGatewaySettingsPage() {
 
   const testConnection = async (gatewayId: string) => {
     toast.loading(t('payment_gateway_settings.testing_connection'))
-    // Simulate API call
+
     setTimeout(() => {
       toast.dismiss()
       toast.success(
@@ -163,24 +187,31 @@ export function PaymentGatewaySettingsPage() {
   }
 
   return (
-    <div className="p-6 overflow-y-auto">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
+    <motion.div
+      className="p-6 overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-5xl mx-auto space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+
+        <motion.div variants={fadeInUp}>
           <h1 className="text-3xl mb-2">{t('payment_gateway_settings.title')}</h1>
           <p className="text-muted-foreground">{t('payment_gateway_settings.subtitle')}</p>
-        </div>
+        </motion.div>
 
-        {/* Info Alert */}
+
+        <motion.div variants={fadeInUp}>
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             {t('payment_gateway_settings.security_notice')}
           </AlertDescription>
         </Alert>
+        </motion.div>
 
-        {/* Gateway Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-4" variants={fadeInUp}>
           {gateways.map(gateway => {
             const Icon = gateway.icon
             return (
@@ -211,14 +242,26 @@ export function PaymentGatewaySettingsPage() {
               </Card>
             )
           })}
-        </div>
+        </motion.div>
 
-        {/* Configuration Tabs */}
-        <Tabs defaultValue="stripe" className="space-y-4">
-          <TabsList>
+
+        <motion.div variants={fadeInUp}>
+        <Tabs value={activeGatewayTab} onValueChange={setActiveGatewayTab} className="space-y-4">
+          <TabsList className="relative w-fit max-w-full overflow-x-auto p-1">
             {gateways.map(gateway => (
-              <TabsTrigger key={gateway.id} value={gateway.id}>
-                {gateway.name}
+              <TabsTrigger
+                key={gateway.id}
+                value={gateway.id}
+                className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+              >
+                {activeGatewayTab === gateway.id && (
+                  <motion.span
+                    layoutId="payment-gateway-tabs-glider"
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute inset-0 rounded-md bg-background shadow-sm"
+                  />
+                )}
+                <span className="relative z-10">{gateway.name}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -233,7 +276,7 @@ export function PaymentGatewaySettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Test Mode */}
+
                   <div className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
                       <p className="font-medium">{t('payment_gateway_settings.test_mode')}</p>
@@ -249,7 +292,7 @@ export function PaymentGatewaySettingsPage() {
 
                   <Separator />
 
-                  {/* Credentials */}
+
                   <div className="space-y-4">
                     {Object.entries(gateway.credentials).map(([key, value]) => (
                       <div key={key} className="space-y-2">
@@ -287,16 +330,16 @@ export function PaymentGatewaySettingsPage() {
 
                   <Separator />
 
-                  {/* Actions */}
+
                   <div className="flex gap-3">
-                    <Button 
+                    <Button
                       onClick={() => saveGatewaySettings(gateway.id)}
                       className="flex-1"
                     >
                       <Save className="w-4 h-4 mr-2" />
                       {t('payment_gateway_settings.save_settings')}
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => testConnection(gateway.id)}
                       disabled={!gateway.enabled}
@@ -305,14 +348,14 @@ export function PaymentGatewaySettingsPage() {
                     </Button>
                   </div>
 
-                  {/* Documentation Link */}
+
                   <Alert>
                     <AlertDescription className="flex items-center justify-between">
                       <span>{t('payment_gateway_settings.need_help')}</span>
                       <Button variant="link" size="sm" asChild>
-                        <a 
-                          href={`https://docs.${gateway.id}.com`} 
-                          target="_blank" 
+                        <a
+                          href={`https://docs.${gateway.id}.com`}
+                          target="_blank"
                           rel="noopener noreferrer"
                         >
                           {t('payment_gateway_settings.view_docs')}
@@ -323,7 +366,7 @@ export function PaymentGatewaySettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Webhooks Configuration */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>{t('payment_gateway_settings.webhook_title')}</CardTitle>
@@ -366,8 +409,9 @@ export function PaymentGatewaySettingsPage() {
             </TabsContent>
           ))}
         </Tabs>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 

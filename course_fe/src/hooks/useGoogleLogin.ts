@@ -26,7 +26,7 @@ export function useGoogleLogin({ onSuccess, onError, autoLoad = false, disabled 
   const ensureInitialized = useCallback(async (): Promise<boolean> => {
     if (isReady) return true
 
-    // Validate configuration
+
     const validation = validateGoogleOAuthConfig()
     if (!validation.valid) {
       const errorMsg = validation.errors.join(', ')
@@ -85,7 +85,7 @@ export function useGoogleLogin({ onSuccess, onError, autoLoad = false, disabled 
     const ready = isReady || await ensureInitialized()
     if (!ready) return
 
-    // Trigger Google One Tap
+
     if ((window as any).google) {
       ;(window as any).google.accounts.id.prompt((notification: any) => {
         if (!notification) return
@@ -94,7 +94,7 @@ export function useGoogleLogin({ onSuccess, onError, autoLoad = false, disabled 
           notification.isSkippedMoment?.() ||
           notification.isDismissedMoment?.()
         ) {
-          // User closed/ignored One Tap or browser skipped it; not a hard error.
+
           setError(null)
         }
       })

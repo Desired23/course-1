@@ -27,7 +27,7 @@ class EnrollmentManageByUserView(APIView):
     def get(self, request):
         from django.db import DatabaseError
         user = request.user.id
-        # diagnostic logging
+
         try:
             user_type = getattr(request.user, 'user_type', None)
             logger.info(f"Enrollment request for user_id={user} (caller id={request.user.id}, type={user_type})")
@@ -82,7 +82,7 @@ class EnrollmentManageByUserView(APIView):
             elif sort_by == 'progress_desc':
                 enrollments = enrollments.order_by('-progress')
             else:
-                # recent_access default
+
                 enrollments = enrollments.order_by('-last_access_date', '-enrollment_date')
 
             if not enrollments.exists():
@@ -113,15 +113,15 @@ class EnrollmentManageByUserView(APIView):
                 "caller": {"id": request.user.id, "type": user_type},
             }, status=status.HTTP_400_BAD_REQUEST)
         except DatabaseError as e:
-            # Database issues (connection closed, timeouts) should return 503
+
             return Response({"error": "Database unavailable. Please try again later."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
-            # Unexpected errors -> 500 with safe message
+
             return Response({"error": "Internal server error."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     def post(self, request):
         try:
             data = request.data.copy()
-            data['user_id'] = request.user.id  # enforce from token
+            data['user_id'] = request.user.id
             enrollment = create_enrollment(data)
             return Response(enrollment, status=status.HTTP_201_CREATED)
         except ValidationError as e:
@@ -133,7 +133,7 @@ class EnrollmentDetailView(APIView):
     def get(self, request, enrollment_id):
         try:
             enrollment = find_enrollment_by_id(enrollment_id)
-            # Ownership check: students can only view their own enrollments
+
             if not hasattr(request.user, 'admin') and not hasattr(request.user, 'instructor'):
                 if enrollment.get('user_id') != request.user.id:
                     return Response({"error": "Bạn không có quyền xem thông tin đăng ký này."}, status=status.HTTP_403_FORBIDDEN)

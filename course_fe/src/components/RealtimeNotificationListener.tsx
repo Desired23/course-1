@@ -3,10 +3,10 @@ import { useNotifications } from '../contexts/NotificationContext'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 
-/**
- * Shows a toast whenever a new notification arrives in the context.
- * The actual WebSocket is managed inside NotificationContext.
- */
+
+
+
+
 export function RealtimeNotificationListener() {
   const { state } = useNotifications()
   const { isAuthenticated } = useAuth()
@@ -15,7 +15,7 @@ export function RealtimeNotificationListener() {
   useEffect(() => {
     if (!isAuthenticated) return
 
-    // When a new notification is prepended, show toast
+
     const currentCount = state.notifications.length
     if (currentCount > prevCountRef.current && state.notifications.length > 0) {
       const newest = state.notifications[0]

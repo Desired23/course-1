@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.utils.text import slugify
 from django.contrib.auth.hashers import make_password
 
-# ── Import all models ────────────────────────────────────────────────
+
 from users.models import User
 from admins.models import Admin
 from categories.models import Category
@@ -70,13 +70,13 @@ def future(days_max=365):
 
 print("🌱 Seeding database...")
 
-# ═══════════════════════════════════════════════════════════════════
-# 1. USERS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Users...")
 pw = hashed("password123")
 
-# admin user (use email for uniqueness)
+
 admin_user, _ = User.objects.update_or_create(
     email="admin@example.com",
     defaults={
@@ -142,18 +142,18 @@ for i, uname in enumerate(student_names, 1):
 
 all_users = [admin_user] + instructor_users + student_users
 
-# ═══════════════════════════════════════════════════════════════════
-# 2. ADMIN
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Admin...")
 admin_obj, _ = Admin.objects.update_or_create(
     user=admin_user,
     defaults={'department': "IT", 'role': "super_admin"}
 )
 
-# ═══════════════════════════════════════════════════════════════════
-# 3. CATEGORIES  (8 parents, each with 3-4 subs)
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Categories...")
 cat_data = {
     "Lập trình": ["Python", "JavaScript", "Java", "C/C++"],
@@ -166,14 +166,14 @@ cat_data = {
     "Mobile": ["React Native", "Flutter", "iOS Swift"],
 }
 
-# icon choices for seeding
+
 icon_choices = [
     "Code", "Briefcase", "Palette", "Megaphone",
     "Database", "Music", "BookOpen", "Folder",
 ]
 
-categories = {}   # name → Category
-subcategories = {}  # name → Category
+categories = {}
+subcategories = {}
 for i, (parent_name, subs) in enumerate(cat_data.items()):
     icon = icon_choices[i % len(icon_choices)]
     parent, _ = Category.objects.update_or_create(
@@ -202,9 +202,9 @@ for i, (parent_name, subs) in enumerate(cat_data.items()):
 all_parent_cats = list(categories.values())
 all_sub_cats = list(subcategories.values())
 
-# ═══════════════════════════════════════════════════════════════════
-# 4. INSTRUCTOR LEVELS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Instructor Levels...")
 levels_data = [
     ("Bronze", 0, 0, 20),
@@ -227,9 +227,9 @@ for name, min_s, min_r, comm in levels_data:
     )
     inst_levels.append(lv)
 
-# ═══════════════════════════════════════════════════════════════════
-# 5. INSTRUCTORS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Instructors...")
 specializations = ["Web Development", "AI/ML", "Mobile Dev", "UI/UX", "Cloud", "Data", "DevOps", "Language"]
 instructors = []
@@ -250,12 +250,12 @@ for i, u in enumerate(instructor_users):
     )
     instructors.append(inst)
 
-# ═══════════════════════════════════════════════════════════════════
-# 6. COURSES  (~50 courses spread across categories)
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Courses...")
 course_templates = [
-    # (title, parent_cat_name, sub_cat_name, level, language, price, has_cert)
+
     ("Lập trình Python từ cơ bản đến nâng cao", "Lập trình", "Python", "beginner", "Tiếng Việt", 499000, True),
     ("Python cho Data Science", "Lập trình", "Python", "intermediate", "Tiếng Việt", 699000, True),
     ("Tự động hoá với Python", "Lập trình", "Python", "advanced", "Tiếng Việt", 899000, True),
@@ -316,7 +316,7 @@ for idx, (title, pcat, subcat, level, lang, price, cert) in enumerate(course_tem
     total_students = random.randint(50, 150000) if price > 0 else random.randint(500, 300000)
     total_reviews = max(1, total_students // random.randint(5, 15))
     rating = round(random.uniform(3.0, 5.0), 2)
-    duration = random.randint(120, 3600)  # 2h - 60h in minutes
+    duration = random.randint(120, 3600)
 
     disc_price = None
     disc_start = None
@@ -363,14 +363,14 @@ for idx, (title, pcat, subcat, level, lang, price, cert) in enumerate(course_tem
     )
     courses.append(c)
 
-# Update instructor total_courses
+
 for inst in instructors:
     inst.total_courses = Course.objects.filter(instructor=inst, is_deleted=False).count()
     inst.save(update_fields=['total_courses'])
 
-# ═══════════════════════════════════════════════════════════════════
-# 7. COURSE MODULES & LESSONS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Modules & Lessons...")
 all_lessons = []
 for course in courses:
@@ -401,7 +401,7 @@ for course in courses:
             )
             all_lessons.append(lesson)
 
-            # Attachments for some lessons
+
             if random.random() < 0.3:
                 LessonAttachment.objects.create(
                     lesson=lesson,
@@ -411,12 +411,12 @@ for course in courses:
                     file_size=random.randint(50000, 5000000),
                 )
 
-# ═══════════════════════════════════════════════════════════════════
-# 8. QUIZ QUESTIONS & TEST CASES
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Quiz Questions...")
 quiz_lessons = [l for l in all_lessons if l.content_type == "quiz"]
-for lesson in quiz_lessons[:80]:  # limit to first 80 quiz lessons
+for lesson in quiz_lessons[:80]:
     num_q = random.randint(3, 8)
     for q_idx in range(1, num_q + 1):
         qtype = random.choice(["multiple", "truefalse", "multiple", "code"])
@@ -458,9 +458,9 @@ for lesson in quiz_lessons[:80]:  # limit to first 80 quiz lessons
                     order_number=tc_idx,
                 )
 
-# ═══════════════════════════════════════════════════════════════════
-# 9. SUBSCRIPTION PLANS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Subscription Plans...")
 plans_data = [
     ("Cơ bản", 99000, "monthly", 30, ["Truy cập khóa học cơ bản", "Hỗ trợ email"], ["Khóa học nâng cao", "Certificate"]),
@@ -487,16 +487,16 @@ for name, price, dtype, days, features, not_inc in plans_data:
     )
     sub_plans.append(sp)
 
-# PlanCourse — add random courses to plans
+
 for sp in sub_plans:
     if courses:
         plan_courses_list = random.sample(courses, k=min(random.randint(10, 30), len(courses)))
         for c in plan_courses_list:
             PlanCourse.objects.get_or_create(plan=sp, course=c, defaults={'status': "active", 'added_by': admin_user})
 
-# ═══════════════════════════════════════════════════════════════════
-# 10. PROMOTIONS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Promotions...")
 promos = []
 promo_data = [
@@ -531,30 +531,30 @@ for code, dtype, val, min_p, max_d in promo_data:
         p.applicable_categories.set(random.sample(all_parent_cats, k=min(random.randint(1, 3), len(all_parent_cats))))
     promos.append(p)
 
-# ═══════════════════════════════════════════════════════════════════
-# 11. PAYMENTS & ENROLLMENTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Payments & Enrollments...")
 payments_list = []
 enrollments_list = []
 
 for student in student_users:
-    # every student makes a few transactions, and each transaction may include one or
-    # more course purchases. this more closely mimics a real checkout, where a user
-    # might buy several courses in a single payment.
+
+
+
     txns = random.randint(2, 5)
-    # shuffle courses so we don't always pick the same ones for each student
+
     available = random.sample(courses, k=len(courses))
     idx = 0
     for _ in range(txns):
-        # pick 1–4 courses for this transaction
+
         count = random.randint(1, 4)
         bought = available[idx:idx + count]
         idx += count
         if not bought:
             break
 
-        # create payment record with amounts aggregated below
+
         pmt = Payment.objects.create(
             user=student,
             payment_type="course_purchase",
@@ -562,7 +562,7 @@ for student in student_users:
             discount_amount=Decimal('0.00'),
             total_amount=Decimal('0.00'),
             transaction_id=f"TXN_{uuid.uuid4().hex[:16].upper()}",
-            # explicit completed flag, even though model default now does the same
+
             payment_status=Payment.PaymentStatus.COMPLETED,
             payment_method=random.choice(["vnpay", "momo"]),
             promotion=None,
@@ -614,19 +614,19 @@ for student in student_users:
             )
             enrollments_list.append(enr)
 
-        # update the top-level payment amounts now that we know all details
+
         pmt.amount = running_amount
         pmt.discount_amount = running_discount
         pmt.total_amount = running_amount - running_discount
         pmt.save()
         payments_list.append(pmt)
 
-# ═══════════════════════════════════════════════════════════════════
-# 12. USER SUBSCRIPTIONS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → User Subscriptions...")
 user_subs = []
-for student in student_users[:10]:  # first 10 students have subscriptions
+for student in student_users[:10]:
     plan = random.choice(sub_plans)
     start = past(60)
     us = UserSubscription.objects.create(
@@ -637,12 +637,12 @@ for student in student_users[:10]:  # first 10 students have subscriptions
     )
     user_subs.append(us)
 
-# ═══════════════════════════════════════════════════════════════════
-# 13. LEARNING PROGRESS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Learning Progress...")
 lp_count = 0
-for enr in enrollments_list[:100]:  # limit for speed
+for enr in enrollments_list[:100]:
     course_lessons = Lesson.objects.filter(
         coursemodule__course=enr.course, is_deleted=False
     ).order_by('coursemodule__order_number', 'order')[:10]
@@ -664,9 +664,9 @@ for enr in enrollments_list[:100]:  # limit for speed
                 lp_count += 1
 print(f"    ({lp_count} records)")
 
-# ═══════════════════════════════════════════════════════════════════
-# 14. QUIZ RESULTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Quiz Results...")
 qr_count = 0
 for enr in enrollments_list[:60]:
@@ -693,9 +693,9 @@ for enr in enrollments_list[:60]:
             qr_count += 1
 print(f"    ({qr_count} records)")
 
-# ═══════════════════════════════════════════════════════════════════
-# 15. CERTIFICATES
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Certificates...")
 cert_count = 0
 complete_enrollments = [e for e in enrollments_list if e.status == "complete" and e.course.certificate]
@@ -714,9 +714,9 @@ for enr in complete_enrollments[:40]:
         pass
 print(f"    ({cert_count} records)")
 
-# ═══════════════════════════════════════════════════════════════════
-# 16. REVIEWS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Reviews...")
 review_comments = [
     "Khóa học rất tuyệt vời, giảng viên dạy dễ hiểu!",
@@ -745,9 +745,9 @@ for enr in enrollments_list[:80]:
         except Exception:
             pass
 
-# ═══════════════════════════════════════════════════════════════════
-# 17. BLOG POSTS & COMMENTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Blog Posts & Comments...")
 blog_titles = [
     "10 tips học lập trình hiệu quả",
@@ -788,7 +788,7 @@ for i, title in enumerate(blog_titles):
     )
     blog_posts.append(bp)
 
-    # Comments — these can still accumulate multiple times if rerun
+
     for _ in range(random.randint(2, 8)):
         BlogComment.objects.create(
             blog_post=bp,
@@ -802,9 +802,9 @@ for i, title in enumerate(blog_titles):
             likes=random.randint(0, 20),
         )
 
-# ═══════════════════════════════════════════════════════════════════
-# 18. FORUMS, TOPICS, FORUM COMMENTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Forums & Topics...")
 forums_list = []
 for course in courses[:20]:
@@ -842,9 +842,9 @@ for course in courses[:20]:
                 likes=random.randint(0, 10),
             )
 
-# ═══════════════════════════════════════════════════════════════════
-# 19. Q&A
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Q&A...")
 for course in courses[:25]:
     course_lessons_qs = Lesson.objects.filter(coursemodule__course=course, is_deleted=False)[:5]
@@ -873,9 +873,9 @@ for course in courses[:25]:
                     likes=random.randint(0, 10),
                 )
 
-# ═══════════════════════════════════════════════════════════════════
-# 20. LESSON COMMENTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Lesson Comments...")
 for lesson in all_lessons[:100]:
     if random.random() < 0.4:
@@ -891,30 +891,30 @@ for lesson in all_lessons[:100]:
                 votes=random.randint(0, 15),
             )
 
-# ═══════════════════════════════════════════════════════════════════
-# 21. CARTS & WISHLISTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Carts & Wishlists...")
 for student in student_users:
     enrolled_ids = set(Enrollment.objects.filter(user=student).values_list('course_id', flat=True))
     available = [c for c in courses if c.id not in enrolled_ids]
     if available:
-        # Cart: 1-3 items
+
         for c in random.sample(available, k=min(random.randint(1, 3), len(available))):
             try:
                 Cart.objects.create(user=student, course=c)
             except Exception:
                 pass
-        # Wishlist: 2-5 items
+
         for c in random.sample(available, k=min(random.randint(2, 5), len(available))):
             try:
                 Wishlist.objects.create(user=student, course=c)
             except Exception:
                 pass
 
-# ═══════════════════════════════════════════════════════════════════
-# 22. PAYMENT METHODS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Payment Methods...")
 for student in student_users[:15]:
     UserPaymentMethod.objects.create(
@@ -937,9 +937,9 @@ for inst in instructors:
         account_name=inst.user.full_name.upper(),
     )
 
-# ═══════════════════════════════════════════════════════════════════
-# 23. INSTRUCTOR EARNINGS & PAYOUTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Instructor Earnings & Payouts...")
 for inst in instructors:
     payout = InstructorPayout.objects.create(
@@ -973,9 +973,9 @@ for inst in instructors:
             except Exception:
                 pass
 
-# ═══════════════════════════════════════════════════════════════════
-# 24. NOTIFICATIONS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Notifications...")
 notif_templates = [
     ("Chào mừng!", "system", "Chào mừng bạn đến với nền tảng học trực tuyến!"),
@@ -992,9 +992,9 @@ for student in student_users:
             type=ntype,
         )
 
-# ═══════════════════════════════════════════════════════════════════
-# 25. SUPPORTS & REPLIES
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Supports...")
 support_subjects = [
     "Không thể truy cập khóa học",
@@ -1022,9 +1022,9 @@ for i in range(15):
             message="Chúng tôi đã ghi nhận vấn đề của bạn và đang xử lý.",
         )
 
-# ═══════════════════════════════════════════════════════════════════
-# 26. SYSTEM SETTINGS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → System Settings...")
 settings_data = [
     ("general", "site_name", "EduPlatform", "Tên website"),
@@ -1050,9 +1050,9 @@ for group, key, val, desc in settings_data:
         }
     )
 
-# ═══════════════════════════════════════════════════════════════════
-# 27. ACTIVITY LOGS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Activity Logs...")
 log_actions = ["LOGIN", "LOGOUT", "ENROLL", "VIEW_LESSON", "PAYMENT_SUCCESS", "PROFILE_UPDATED", "COMMENT"]
 for _ in range(100):
@@ -1066,19 +1066,19 @@ for _ in range(100):
         ip_address=f"192.168.1.{random.randint(1, 254)}",
     )
 
-# ═══════════════════════════════════════════════════════════════════
-# 28. REALTIME CHAT
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Realtime chat...")
 from realtime.models import ChatRoom, ChatMessage
 
 for _ in range(10):
     stud = random.choice(student_users)
     instr = random.choice(instructor_users)
-    # ensure consistent ordering for unique_together
+
     u1, u2 = (stud, instr) if stud.id < instr.id else (instr, stud)
     room, _ = ChatRoom.objects.get_or_create(user1=u1, user2=u2)
-    # create a few messages with back-and-forth
+
     for m in range(random.randint(1, 5)):
         sender = random.choice([stud, instr])
         ChatMessage.objects.create(
@@ -1087,9 +1087,9 @@ for _ in range(10):
             content=f"Seed message {m+1} in room {room.id} by {sender.username}",
         )
 
-# ═══════════════════════════════════════════════════════════════════
-# 28. REGISTRATION FORMS & APPLICATIONS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Registration Forms & Applications...")
 form, _ = RegistrationForm.objects.update_or_create(
     type="instructor_application",
@@ -1138,7 +1138,7 @@ q4, _ = FormQuestion.objects.update_or_create(
     }
 )
 
-# Some applications from instructor users
+
 for u in instructor_users[:5]:
     app, _ = Application.objects.update_or_create(
         user=u, form=form,
@@ -1149,13 +1149,13 @@ for u in instructor_users[:5]:
             'admin_notes': "Đáp ứng yêu cầu.",
         }
     )
-    # responses -- update or create by question
+
     ApplicationResponse.objects.update_or_create(application=app, question=q1, defaults={'value': "Web Development"})
     ApplicationResponse.objects.update_or_create(application=app, question=q2, defaults={'value': 5})
     ApplicationResponse.objects.update_or_create(application=app, question=q3, defaults={'value': "Muốn chia sẻ kiến thức"})
     ApplicationResponse.objects.update_or_create(application=app, question=q4, defaults={'value': "Có"})
 
-# Pending applications from some students
+
 for u in student_users[:3]:
     app, _ = Application.objects.update_or_create(
         user=u, form=form,
@@ -1166,9 +1166,9 @@ for u in student_users[:3]:
     ApplicationResponse.objects.update_or_create(application=app, question=q3, defaults={'value': "Muốn thử sức"})
     ApplicationResponse.objects.update_or_create(application=app, question=q4, defaults={'value': "Không"})
 
-# ═══════════════════════════════════════════════════════════════════
-# 29. COURSE SUBSCRIPTION CONSENTS
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Subscription Consents...")
 for course in courses[:30]:
     if course.instructor:
@@ -1182,9 +1182,9 @@ for course in courses[:30]:
         except Exception:
             pass
 
-# ═══════════════════════════════════════════════════════════════════
-# 30. SUBSCRIPTION USAGE
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("  → Subscription Usage...")
 for us in user_subs:
     plan_course_ids = PlanCourse.objects.filter(plan=us.plan, status="active").values_list('course_id', flat=True)[:5]
@@ -1200,9 +1200,9 @@ for us in user_subs:
         except Exception:
             pass
 
-# ═══════════════════════════════════════════════════════════════════
-# DONE
-# ═══════════════════════════════════════════════════════════════════
+
+
+
 print("\n✅ Seed complete!")
 print(f"   Users: {User.objects.count()}")
 print(f"   Categories: {Category.objects.count()}")

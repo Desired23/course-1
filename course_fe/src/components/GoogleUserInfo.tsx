@@ -1,7 +1,7 @@
-/**
- * Google User Info Component
- * Displays user information after successful Google login
- */
+
+
+
+
 
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
@@ -38,14 +38,14 @@ export function GoogleUserInfo() {
               <User className="w-8 h-8 text-primary" />
             </div>
           )}
-          
+
           <div>
             <h3 className="font-semibold text-lg">{user.name}</h3>
             <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
               <Mail className="w-4 h-4" />
               {user.email}
             </div>
-            
+
             {user.roles && user.roles.length > 0 && (
               <div className="flex items-center gap-2 mt-2">
                 <Shield className="w-4 h-4 text-gray-500" />

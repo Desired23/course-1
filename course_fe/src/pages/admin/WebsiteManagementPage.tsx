@@ -10,14 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Badge } from '../../components/ui/badge'
 import { Switch } from '../../components/ui/switch'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
-import { 
-  Upload, 
-  Image, 
-  Settings, 
-  Palette, 
-  Globe, 
-  Mail, 
-  Phone, 
+import {
+  Upload,
+  Image,
+  Settings,
+  Palette,
+  Globe,
+  Mail,
+  Phone,
   MapPin,
   Save,
   Eye,
@@ -96,6 +96,28 @@ interface WebsiteConfig {
   }
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 function WebsiteImagePreview({
   src,
   alt,
@@ -122,6 +144,7 @@ export function WebsiteManagementPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const [activeDevice, setActiveDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
+  const [activeTab, setActiveTab] = useState<'general' | 'banners' | 'contact' | 'appearance' | 'features' | 'preview'>('general')
   const [websiteSettingId, setWebsiteSettingId] = useState<number | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const [pendingImageTarget, setPendingImageTarget] = useState<string | null>(null)
@@ -195,7 +218,9 @@ export function WebsiteManagementPage() {
           try {
             const parsed = JSON.parse(ws.value)
             setConfig({ ...defaultConfig, ...parsed })
-          } catch { /* keep defaults */ }
+          } catch {
+            setConfig(defaultConfig)
+          }
         }
       } catch (e) {
         console.error('Failed to load website settings', e)
@@ -383,7 +408,12 @@ export function WebsiteManagementPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-background">
+      <motion.div
+        className="min-h-screen bg-background"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
       <input
         ref={imageInputRef}
         type="file"
@@ -391,8 +421,8 @@ export function WebsiteManagementPage() {
         className="hidden"
         onChange={(event) => void handleImageSelected(event)}
       />
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <motion.div className="max-w-7xl mx-auto px-4 py-8" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="flex items-center justify-between mb-8" variants={fadeInUp}>
           <div>
             <h1 className="mb-2">{t('website_management.title')}</h1>
             <p className="text-muted-foreground">
@@ -400,7 +430,7 @@ export function WebsiteManagementPage() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            {/* Device Preview Toggles */}
+
             <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
               {(['desktop', 'tablet', 'mobile'] as const).map((device) => (
                 <Button
@@ -418,19 +448,38 @@ export function WebsiteManagementPage() {
               {isSaving ? t('website_management.saving') : t('website_management.save_changes')}
             </Button>
           </div>
-        </div>
+        </motion.div>
 
-        <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="general">{t('website_management.tab_general')}</TabsTrigger>
-            <TabsTrigger value="banners">{t('website_management.tab_banners')}</TabsTrigger>
-            <TabsTrigger value="contact">{t('website_management.tab_contact')}</TabsTrigger>
-            <TabsTrigger value="appearance">{t('website_management.tab_appearance')}</TabsTrigger>
-            <TabsTrigger value="features">{t('website_management.tab_features')}</TabsTrigger>
-            <TabsTrigger value="preview">{t('website_management.tab_preview')}</TabsTrigger>
+        <motion.div variants={fadeInUp}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'general' | 'banners' | 'contact' | 'appearance' | 'features' | 'preview')} className="space-y-6">
+          <TabsList className="relative grid w-full grid-cols-6 p-1">
+            <TabsTrigger value="general" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'general' && <motion.span layoutId="website-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('website_management.tab_general')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="banners" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'banners' && <motion.span layoutId="website-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('website_management.tab_banners')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="contact" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'contact' && <motion.span layoutId="website-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('website_management.tab_contact')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="appearance" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'appearance' && <motion.span layoutId="website-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('website_management.tab_appearance')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="features" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'features' && <motion.span layoutId="website-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('website_management.tab_features')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'preview' && <motion.span layoutId="website-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('website_management.tab_preview')}</span>
+            </TabsTrigger>
           </TabsList>
 
-          {/* General Settings */}
+
           <TabsContent value="general" className="space-y-6">
             <Card>
               <CardHeader>
@@ -452,7 +501,7 @@ export function WebsiteManagementPage() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="tagline">{t('website_management.tagline')}</Label>
                     <Input
@@ -464,7 +513,7 @@ export function WebsiteManagementPage() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="description">{t('common.description')}</Label>
                     <Textarea
@@ -477,7 +526,7 @@ export function WebsiteManagementPage() {
                       rows={3}
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="keywords">{t('website_management.meta_keywords')}</Label>
                     <Input
@@ -491,7 +540,7 @@ export function WebsiteManagementPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label>{t('website_management.logo')}</Label>
@@ -501,8 +550,8 @@ export function WebsiteManagementPage() {
                         alt={t('website_management.logo')}
                         className="h-12 w-24 rounded border object-contain"
                       />
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => openImageUpload('general.logo')}
                         disabled={uploadingField === 'general.logo'}
                       >
@@ -511,7 +560,7 @@ export function WebsiteManagementPage() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.favicon')}</Label>
                     <div className="flex items-center gap-4">
@@ -520,7 +569,7 @@ export function WebsiteManagementPage() {
                         alt={t('website_management.favicon')}
                         className="h-8 w-8 rounded border object-contain"
                       />
-                      <Button 
+                      <Button
                         variant="outline"
                         onClick={() => openImageUpload('general.favicon')}
                         disabled={uploadingField === 'general.favicon'}
@@ -535,9 +584,9 @@ export function WebsiteManagementPage() {
             </Card>
           </TabsContent>
 
-          {/* Banner Management */}
+
           <TabsContent value="banners" className="space-y-6">
-            {/* Hero Banner */}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -572,7 +621,7 @@ export function WebsiteManagementPage() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.subtitle_label')}</Label>
                     <Textarea
@@ -587,7 +636,7 @@ export function WebsiteManagementPage() {
                       rows={3}
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{t('website_management.cta_text')}</Label>
@@ -617,7 +666,7 @@ export function WebsiteManagementPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <Label>{t('website_management.hero_image')}</Label>
                   <div className="mt-2">
@@ -626,8 +675,8 @@ export function WebsiteManagementPage() {
                       alt={t('website_management.hero_banner')}
                       className="w-full h-40 object-cover rounded border mb-4"
                     />
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full"
                       onClick={() => openImageUpload('banners.hero.image')}
                       disabled={uploadingField === 'banners.hero.image'}
@@ -640,7 +689,7 @@ export function WebsiteManagementPage() {
               </CardContent>
             </Card>
 
-            {/* Promotional Banner */}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -672,7 +721,7 @@ export function WebsiteManagementPage() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.content')}</Label>
                     <Textarea
@@ -687,7 +736,7 @@ export function WebsiteManagementPage() {
                       rows={2}
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{t('website_management.discount')}</Label>
@@ -718,7 +767,7 @@ export function WebsiteManagementPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <Label>{t('website_management.promotional_image')}</Label>
                   <div className="mt-2">
@@ -727,8 +776,8 @@ export function WebsiteManagementPage() {
                       alt={t('website_management.promotional_banner')}
                       className="w-full h-32 object-cover rounded border mb-4"
                     />
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full"
                       onClick={() => openImageUpload('banners.promotional.image')}
                       disabled={uploadingField === 'banners.promotional.image'}
@@ -741,7 +790,7 @@ export function WebsiteManagementPage() {
               </CardContent>
             </Card>
 
-            {/* Announcement Banner */}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -774,19 +823,19 @@ export function WebsiteManagementPage() {
                       rows={2}
                     />
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <Label>{t('website_management.type')}</Label>
-                      <select 
+                      <select
                         className="w-full p-2 border rounded"
                         value={config.banners.announcement.type}
                         onChange={(e) => setConfig(prev => ({
                           ...prev,
                           banners: {
                             ...prev.banners,
-                            announcement: { 
-                              ...prev.banners.announcement, 
+                            announcement: {
+                              ...prev.banners.announcement,
                               type: e.target.value as 'info' | 'warning' | 'success' | 'error'
                             }
                           }
@@ -798,7 +847,7 @@ export function WebsiteManagementPage() {
                         <option value="error">{t('website_management.announcement_error')}</option>
                       </select>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Switch
                         id="dismissible"
@@ -819,7 +868,7 @@ export function WebsiteManagementPage() {
             </Card>
           </TabsContent>
 
-          {/* Contact Information */}
+
           <TabsContent value="contact" className="space-y-6">
             <Card>
               <CardHeader>
@@ -841,7 +890,7 @@ export function WebsiteManagementPage() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.phone')}</Label>
                     <Input
@@ -852,7 +901,7 @@ export function WebsiteManagementPage() {
                       }))}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.address')}</Label>
                     <Textarea
@@ -864,7 +913,7 @@ export function WebsiteManagementPage() {
                       rows={3}
                     />
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.working_hours')}</Label>
                     <Input
@@ -876,10 +925,10 @@ export function WebsiteManagementPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <h3 className="font-medium">{t('website_management.social_media_links')}</h3>
-                  
+
                   {Object.entries(config.contact.socialMedia).map(([platform, url]) => (
                     <div key={platform}>
                       <Label className="capitalize">{platform}</Label>
@@ -904,7 +953,7 @@ export function WebsiteManagementPage() {
             </Card>
           </TabsContent>
 
-          {/* Appearance Settings */}
+
           <TabsContent value="appearance" className="space-y-6">
             <Card>
               <CardHeader>
@@ -937,7 +986,7 @@ export function WebsiteManagementPage() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.secondary_color')}</Label>
                     <div className="flex items-center gap-2 mt-1">
@@ -960,7 +1009,7 @@ export function WebsiteManagementPage() {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.accent_color')}</Label>
                     <div className="flex items-center gap-2 mt-1">
@@ -984,11 +1033,11 @@ export function WebsiteManagementPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <Label>{t('website_management.font_family')}</Label>
-                    <select 
+                    <select
                       className="w-full p-2 border rounded mt-1"
                       value={config.appearance.font}
                       onChange={(e) => setConfig(prev => ({
@@ -1003,10 +1052,10 @@ export function WebsiteManagementPage() {
                       <option value="Poppins">Poppins</option>
                     </select>
                   </div>
-                  
+
                   <div>
                     <Label>{t('website_management.default_theme')}</Label>
-                    <select 
+                    <select
                       className="w-full p-2 border rounded mt-1"
                       value={config.appearance.theme}
                       onChange={(e) => setConfig(prev => ({
@@ -1024,7 +1073,7 @@ export function WebsiteManagementPage() {
             </Card>
           </TabsContent>
 
-          {/* Feature Toggles */}
+
           <TabsContent value="features" className="space-y-6">
             <Card>
               <CardHeader>
@@ -1056,7 +1105,7 @@ export function WebsiteManagementPage() {
             </Card>
           </TabsContent>
 
-          {/* Preview */}
+
           <TabsContent value="preview" className="space-y-6">
             <Card>
               <CardHeader>
@@ -1074,17 +1123,17 @@ export function WebsiteManagementPage() {
                       {config.banners.hero.ctaText}
                     </Button>
                   </div>
-                  
+
                   {config.banners.announcement.enabled && (
                     <div className={`p-3 text-center text-sm ${getAnnouncementClass(config.banners.announcement.type)}`}>
                       {config.banners.announcement.text}
                     </div>
                   )}
-                  
+
                   <div className="p-6">
                     <h2 className="text-2xl font-bold mb-4">{t('website_management.welcome_to', { siteName: config.general.siteName })}</h2>
                     <p className="text-muted-foreground mb-4">{config.general.description}</p>
-                    
+
                     {config.banners.promotional.enabled && (
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                         <h3 className="font-semibold text-yellow-800">{config.banners.promotional.title}</h3>
@@ -1097,8 +1146,9 @@ export function WebsiteManagementPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}

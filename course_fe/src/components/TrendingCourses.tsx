@@ -14,8 +14,8 @@ export function TrendingCourses() {
   const [showRightArrow, setShowRightArrow] = useState(true)
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Fetch trending courses from API (ordered by most students)
+
+
   useEffect(() => {
     let cancelled = false
     getCourses({ ordering: '-total_students', status: 'published', page_size: 8 })
@@ -40,8 +40,8 @@ export function TrendingCourses() {
     price: formatPrice(getEffectivePrice(course)),
     originalPrice: hasActiveDiscount(course) ? formatPrice(parseDecimal(course.price)) : undefined,
     duration: formatDuration(course.duration),
-    students: course.total_students >= 1000 
-      ? `${Math.floor(course.total_students / 1000)}K+` 
+    students: course.total_students >= 1000
+      ? `${Math.floor(course.total_students / 1000)}K+`
       : `${course.total_students}`,
     level: getLevelLabel(course.level),
     category: course.category_name || '',
@@ -52,10 +52,10 @@ export function TrendingCourses() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return
-    
+
     const scrollAmount = 400
     const container = scrollContainerRef.current
-    
+
     if (direction === 'left') {
       container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
     } else {
@@ -65,14 +65,14 @@ export function TrendingCourses() {
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return
-    
+
     const container = scrollContainerRef.current
     const { scrollLeft, scrollWidth, clientWidth } = container
-    
+
     setShowLeftArrow(scrollLeft > 10)
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10)
   }
-  
+
   return (
     <section className="py-16 px-4 bg-white dark:bg-gray-950">
       <div className="container mx-auto">
@@ -81,7 +81,7 @@ export function TrendingCourses() {
             <h2 className="text-3xl font-bold mb-2">{t('trending_courses.title')}</h2>
             <p className="text-gray-600 dark:text-gray-400">{t('trending_courses.subtitle')}</p>
           </div>
-          <Button 
+          <Button
             variant="outline"
             onClick={() => navigate('/courses')}
           >
@@ -98,7 +98,7 @@ export function TrendingCourses() {
             <p className="text-center text-gray-500 py-12">{t('trending_courses.empty')}</p>
           ) : (
           <>
-          {/* Left Arrow */}
+
           {showLeftArrow && (
             <button
               onClick={() => scroll('left')}
@@ -109,7 +109,7 @@ export function TrendingCourses() {
             </button>
           )}
 
-          {/* Slider Container */}
+
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -123,7 +123,7 @@ export function TrendingCourses() {
             ))}
           </div>
 
-          {/* Right Arrow */}
+
           {showRightArrow && (
             <button
               onClick={() => scroll('right')}

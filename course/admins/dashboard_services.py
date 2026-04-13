@@ -18,7 +18,7 @@ def get_admin_dashboard_stats():
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    # Users
+
     total_users = User.objects.filter(is_deleted=False).count()
     new_users_this_month = User.objects.filter(is_deleted=False, created_at__gte=month_start).count()
     total_instructors = User.objects.filter(is_deleted=False, user_type='instructor').count()
@@ -26,20 +26,20 @@ def get_admin_dashboard_stats():
         is_deleted=False, user_type='student', status='active'
     ).count()
 
-    # Courses
+
     courses_qs = Course.objects.filter(is_deleted=False)
     total_courses = courses_qs.count()
     published_courses = courses_qs.filter(status='published').count()
     pending_courses = courses_qs.filter(status='pending').count()
 
-    # Revenue
+
     payments_qs = Payment.objects.filter(payment_status=Payment.PaymentStatus.COMPLETED)
     total_revenue = payments_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
     this_month_revenue = payments_qs.filter(
         payment_date__gte=month_start
     ).aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
 
-    # Enrollments
+
     enrollments_qs = Enrollment.objects.filter(is_deleted=False)
     total_enrollments = enrollments_qs.count()
     this_month_enrollments = enrollments_qs.filter(enrollment_date__gte=month_start).count()
@@ -48,15 +48,15 @@ def get_admin_dashboard_stats():
         completed_enrollments / total_enrollments * 100, 1
     ) if total_enrollments else 0
 
-    # Reviews pending approval
+
     pending_reviews = Review.objects.filter(is_deleted=False, status='pending').count()
 
-    # Support tickets open
+
     pending_support_tickets = Support.objects.filter(
         is_deleted=False, status__in=['open', 'pending']
     ).count()
 
-    # Platform rating
+
     platform_rating = Review.objects.filter(
         is_deleted=False, status='approved'
     ).aggregate(avg=Avg('rating'))['avg'] or 0

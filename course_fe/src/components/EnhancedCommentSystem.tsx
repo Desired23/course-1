@@ -8,14 +8,14 @@ import { Avatar } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { Card, CardContent } from './ui/card'
 import { SafeCommentContent } from './SafeCommentContent'
-import { 
-  ThumbsUp, 
-  ThumbsDown, 
-  Reply, 
-  MoreVertical, 
-  Flag, 
-  Edit, 
-  Trash2, 
+import {
+  ThumbsUp,
+  ThumbsDown,
+  Reply,
+  MoreVertical,
+  Flag,
+  Edit,
+  Trash2,
   CheckCircle,
   XCircle,
   AlertTriangle,
@@ -94,8 +94,8 @@ export function EnhancedCommentSystem({
   const [editingComment, setEditingComment] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
-  
-  // Internal state for comments if not provided via props
+
+
   const [internalComments, setInternalComments] = useState<Comment[]>([
     {
       id: '1',
@@ -155,8 +155,8 @@ export function EnhancedCommentSystem({
       votes: []
     }
   ])
-  
-  // Use provided comments or internal state
+
+
   const comments = propComments || internalComments || []
 
   const isAdmin = hasRole('admin')
@@ -169,11 +169,11 @@ export function EnhancedCommentSystem({
         showNotification.warning(t('enhanced_comment_system.enter_comment'))
         return
       }
-      
+
       if (onAddComment) {
         onAddComment(newComment)
       } else {
-        // Internal comment management
+
         const newCommentObj: Comment = {
           id: Date.now().toString(),
           author: {
@@ -195,7 +195,7 @@ export function EnhancedCommentSystem({
         }
         setInternalComments(prev => [...prev, newCommentObj])
       }
-      
+
       setNewComment('')
       showNotification.success(t('enhanced_comment_system.comment_added'))
     })
@@ -207,11 +207,11 @@ export function EnhancedCommentSystem({
         showNotification.warning(t('enhanced_comment_system.enter_reply'))
         return
       }
-      
+
       if (onAddComment) {
         onAddComment(replyContent, parentId)
       } else {
-        // Internal comment management
+
         const newReplyObj: Comment = {
           id: Date.now().toString(),
           author: {
@@ -233,7 +233,7 @@ export function EnhancedCommentSystem({
         }
         setInternalComments(prev => [...prev, newReplyObj])
       }
-      
+
       setReplyContent('')
       setReplyingTo(null)
       showNotification.success(t('enhanced_comment_system.reply_added'))
@@ -245,18 +245,18 @@ export function EnhancedCommentSystem({
       showNotification.warning(t('enhanced_comment_system.enter_comment_content'))
       return
     }
-    
+
     if (onUpdateComment) {
       onUpdateComment(commentId, editContent)
     } else {
-      // Internal comment management
-      setInternalComments(prev => prev.map(comment => 
-        comment.id === commentId 
+
+      setInternalComments(prev => prev.map(comment =>
+        comment.id === commentId
           ? { ...comment, content: editContent, isEdited: true, updatedAt: new Date() }
           : comment
       ))
     }
-    
+
     setEditingComment(null)
     setEditContent('')
     showNotification.success(t('enhanced_comment_system.comment_updated'))
@@ -267,7 +267,7 @@ export function EnhancedCommentSystem({
       if (onVoteComment) {
         onVoteComment(commentId, voteType)
       } else {
-        // Internal voting management
+
         setInternalComments(prev => prev.map(comment => {
           if (comment.id === commentId) {
             const newComment = { ...comment }
@@ -290,9 +290,9 @@ export function EnhancedCommentSystem({
       if (onPinComment) {
         onPinComment(commentId)
       } else {
-        // Internal pin management
-        setInternalComments(prev => prev.map(comment => 
-          comment.id === commentId 
+
+        setInternalComments(prev => prev.map(comment =>
+          comment.id === commentId
             ? { ...comment, isPinned: !comment.isPinned }
             : comment
         ))
@@ -316,9 +316,9 @@ export function EnhancedCommentSystem({
       if (onApproveComment) {
         onApproveComment(commentId, status, note)
       } else {
-        // Internal approval management
-        setInternalComments(prev => prev.map(comment => 
-          comment.id === commentId 
+
+        setInternalComments(prev => prev.map(comment =>
+          comment.id === commentId
             ? { ...comment, isApproved: status, moderationNote: note }
             : comment
         ))
@@ -332,8 +332,8 @@ export function EnhancedCommentSystem({
       if (onDeleteComment) {
         onDeleteComment(commentId)
       } else {
-        // Internal delete management - remove comment and its replies
-        setInternalComments(prev => prev.filter(comment => 
+
+        setInternalComments(prev => prev.filter(comment =>
           comment.id !== commentId && comment.parentId !== commentId
         ))
       }
@@ -356,7 +356,7 @@ export function EnhancedCommentSystem({
     const diff = now.getTime() - date.getTime()
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(hours / 24)
-    
+
     if (days > 0) return t('enhanced_comment_system.days_ago', { count: days })
     if (hours > 0) return t('enhanced_comment_system.hours_ago', { count: hours })
     return t('enhanced_comment_system.just_now')
@@ -375,7 +375,7 @@ export function EnhancedCommentSystem({
 
   const renderComment = (comment: Comment, depth: number = 0) => {
     const replies = getReplies(comment.id)
-    
+
     return (
     <motion.div
       key={comment.id}
@@ -422,7 +422,7 @@ export function EnhancedCommentSystem({
               </div>
             </div>
 
-            {/* Moderation Status */}
+
             {showModerationControls && (
               <div className="flex items-center gap-2">
                 {comment.isApproved === 'pending' && (
@@ -455,14 +455,14 @@ export function EnhancedCommentSystem({
                 className="min-h-[80px]"
               />
               <div className="flex gap-2">
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={() => handleEditComment(comment.id, editContent)}
                 >
                   {t('enhanced_comment_system.save')}
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => {
                     setEditingComment(null)
@@ -482,7 +482,7 @@ export function EnhancedCommentSystem({
                   codeClassName="text-xs font-mono"
                 />
               </div>
-              
+
               {comment.moderationNote && (
                 <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border-l-4 border-yellow-400 mb-3">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
@@ -541,7 +541,7 @@ export function EnhancedCommentSystem({
                 </div>
 
                 <div className="flex items-center gap-2">
-            {/* Author controls */}
+
             {user?.id === comment.author.id && allowEditing && (
               <>
                 <Button
@@ -565,7 +565,7 @@ export function EnhancedCommentSystem({
               </>
             )}
 
-            {/* Report control for non-authors */}
+
             {user?.id !== comment.author.id && (
               <Button
                 variant="ghost"
@@ -578,7 +578,7 @@ export function EnhancedCommentSystem({
               </Button>
             )}
 
-            {/* Moderation controls */}
+
             {canModerate && (
               <>
                 {canPin && (
@@ -615,7 +615,7 @@ export function EnhancedCommentSystem({
                         </>
                       )}
 
-                      {/* Only show Moderator Delete if the user is NOT the author (to avoid duplicate buttons) */}
+
                       {user?.id !== comment.author.id && (
                         <Button
                           variant="ghost"
@@ -634,7 +634,7 @@ export function EnhancedCommentSystem({
             </>
           )}
 
-          {/* Reply Form */}
+
           <AnimatePresence>
             {replyingTo === comment.id && (
               <motion.div
@@ -656,14 +656,14 @@ export function EnhancedCommentSystem({
                       rows={2}
                     />
                     <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         onClick={() => handleAddReply(comment.id)}
                       >
                         {t('enhanced_comment_system.reply')}
                       </Button>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => setReplyingTo(null)}
                       >
@@ -678,9 +678,9 @@ export function EnhancedCommentSystem({
         </CardContent>
       </Card>
 
-      {/* Nested Replies */}
+
       <AnimatePresence>
-        {(expandedComments.has(comment.id) || replies.length <= 2) && 
+        {(expandedComments.has(comment.id) || replies.length <= 2) &&
          replies.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -697,7 +697,7 @@ export function EnhancedCommentSystem({
 
   return (
     <div className="space-y-6">
-      {/* Add Comment Form */}
+
       {isAuthenticated ? (
         <Card>
           <CardContent className="p-4">
@@ -729,12 +729,12 @@ export function EnhancedCommentSystem({
         </Card>
       )}
 
-      {/* Comments List */}
+
       <div className="space-y-6">
         {comments
           .filter(comment => !comment.parentId)
           .sort((a, b) => {
-            // Pin comments first, then by date
+
             if (a.isPinned && !b.isPinned) return -1
             if (!a.isPinned && b.isPinned) return 1
             return b.createdAt.getTime() - a.createdAt.getTime()

@@ -8,7 +8,7 @@ export interface WishlistItem {
   user_id: string
   course_id: string
   added_date: string
-  // Additional course info for display
+
   title?: string
   instructor?: string
   price?: number
@@ -34,7 +34,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([])
 
   useEffect(() => {
-    // Load wishlist from localStorage
+
     if (!user) {
       setWishlist([])
       return
@@ -56,7 +56,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   }, [user])
 
   useEffect(() => {
-    // Save wishlist to localStorage
+
     if (user) {
       localStorage.setItem(`wishlist_${user.id}`, JSON.stringify(wishlist))
     }
@@ -112,8 +112,8 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // This would integrate with CartContext
-    // For now, just remove from wishlist
+
+
     removeFromWishlist(courseId)
     toast.success(t('wishlist_context.toasts.moved_to_cart'))
   }

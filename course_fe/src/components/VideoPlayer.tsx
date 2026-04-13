@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Slider } from './ui/slider'
 import {
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
   Volume1,
-  Maximize, 
+  Maximize,
   Minimize,
   Settings,
   SkipBack,
@@ -36,6 +36,7 @@ interface VideoPlayerProps {
   completionThresholdPercent?: number
   restrictForwardSeeking?: boolean
   seekToleranceSeconds?: number
+  externalSeekRequest?: VideoSeekRequest | null
 }
 
 export interface VideoProgressPayload {
@@ -45,7 +46,12 @@ export interface VideoProgressPayload {
   maxWatchedTime: number
 }
 
-// YouTube IFrame API types
+export interface VideoSeekRequest {
+  seconds: number
+  nonce: number
+}
+
+
 declare global {
   interface Window {
     YT: any
@@ -53,8 +59,8 @@ declare global {
   }
 }
 
-export function VideoPlayer({ 
-  url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 
+export function VideoPlayer({
+  url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
   title,
   onProgress,
   onComplete,
@@ -64,7 +70,8 @@ export function VideoPlayer({
   onBookmarksChange,
   completionThresholdPercent = 85,
   restrictForwardSeeking = true,
-  seekToleranceSeconds = 2
+  seekToleranceSeconds = 2,
+  externalSeekRequest = null,
 }: VideoPlayerProps) {
   const { t } = useTranslation()
   const playerRef = useRef<any>(null)
@@ -72,7 +79,7 @@ export function VideoPlayer({
   const iframeRef = useRef<HTMLDivElement>(null)
   const isMountedRef = useRef(true)
   const progressIntervalRef = useRef<NodeJS.Timeout>()
-  
+
   const [playing, setPlaying] = useState(false)
   const [volume, setVolume] = useState(80)
   const [muted, setMuted] = useState(false)
@@ -82,13 +89,13 @@ export function VideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [playerReady, setPlayerReady] = useState(false)
-  
+
   const controlsTimeoutRef = useRef<NodeJS.Timeout>()
   const maxWatchedTimeRef = useRef(0)
   const completionTriggeredRef = useRef(false)
   const lastBlockedToastAtRef = useRef(0)
 
-  // Extract YouTube video ID from URL
+
   const getYouTubeVideoId = (url: string): string | null => {
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/
     const match = url.match(regExp)
@@ -97,7 +104,7 @@ export function VideoPlayer({
 
   const videoId = getYouTubeVideoId(url)
 
-  // Load YouTube IFrame API
+
   useEffect(() => {
     if (!window.YT) {
       const tag = document.createElement('script')
@@ -118,7 +125,7 @@ export function VideoPlayer({
     }
   }, [])
 
-  // Initialize YouTube Player
+
   useEffect(() => {
     if (!videoId || !iframeRef.current) return
 
@@ -128,7 +135,7 @@ export function VideoPlayer({
         return
       }
 
-      // Destroy existing player
+
       if (playerRef.current) {
         playerRef.current.destroy()
       }
@@ -163,8 +170,8 @@ export function VideoPlayer({
             if (initialWatched > 0) {
               event.target.seekTo(initialWatched, true)
             }
-            
-            // Start progress tracking
+
+
             progressIntervalRef.current = setInterval(() => {
               if (playerRef.current && isMountedRef.current) {
                 try {
@@ -190,9 +197,9 @@ export function VideoPlayer({
 
                   const playedFraction = currentTime / duration
                   const watchedPercent = (updatedMaxWatched / duration) * 100
-                  
+
                   setPlayed(playedFraction)
-                  
+
                   if (onProgress) {
                     onProgress({
                       percentage: Math.min(watchedPercent, 100),
@@ -201,14 +208,14 @@ export function VideoPlayer({
                       maxWatchedTime: updatedMaxWatched,
                     })
                   }
-                  
-                  // Auto-complete only once when reaching completion threshold
+
+
                   if (!completionTriggeredRef.current && watchedPercent >= completionThresholdPercent && onComplete) {
                     completionTriggeredRef.current = true
                     onComplete()
                   }
                 } catch (err) {
-                  // Player not ready yet
+
                 }
               }
             }, 1000)
@@ -240,13 +247,13 @@ export function VideoPlayer({
         try {
           playerRef.current.destroy()
         } catch (err) {
-          // Player already destroyed
+
         }
       }
     }
   }, [videoId, lessonId])
 
-  // Keyboard shortcuts
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -309,7 +316,7 @@ export function VideoPlayer({
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [playerReady, volume, muted])
 
-  // Handle mouse movement to show/hide controls
+
   const handleMouseMove = () => {
     setShowControls(true)
     if (controlsTimeoutRef.current) {
@@ -324,7 +331,7 @@ export function VideoPlayer({
 
   const togglePlay = () => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const state = playerRef.current.getPlayerState()
       if (state === window.YT.PlayerState.PLAYING) {
@@ -339,7 +346,7 @@ export function VideoPlayer({
 
   const handleSeek = (value: number[]) => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const seekTime = (value[0] / 100) * duration
       const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
@@ -358,7 +365,7 @@ export function VideoPlayer({
 
   const skipForward = () => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const currentTime = playerRef.current.getCurrentTime()
       const desiredTime = Math.min(duration, currentTime + 10)
@@ -375,7 +382,7 @@ export function VideoPlayer({
 
   const skipBackward = () => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const currentTime = playerRef.current.getCurrentTime()
       const newTime = Math.max(0, currentTime - 10)
@@ -387,7 +394,7 @@ export function VideoPlayer({
 
   const toggleMute = () => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       if (muted) {
         playerRef.current.unMute()
@@ -403,7 +410,7 @@ export function VideoPlayer({
 
   const handleVolumeChange = (value: number[]) => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const newVolume = value[0]
       playerRef.current.setVolume(newVolume)
@@ -419,7 +426,7 @@ export function VideoPlayer({
 
   const handlePlaybackRateChange = (rate: number) => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       playerRef.current.setPlaybackRate(rate)
       setPlaybackRate(rate)
@@ -430,7 +437,7 @@ export function VideoPlayer({
 
   const addBookmark = () => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const currentTime = playerRef.current.getCurrentTime()
       const roundedTime = Math.floor(currentTime)
@@ -444,7 +451,7 @@ export function VideoPlayer({
 
   const jumpToBookmark = (time: number) => {
     if (!playerRef.current || !playerReady) return
-    
+
     try {
       const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
       const safeTime = restrictForwardSeeking ? Math.min(time, maxAllowedTime) : time
@@ -456,6 +463,25 @@ export function VideoPlayer({
       console.log('Jump to bookmark not available yet')
     }
   }
+
+  useEffect(() => {
+    if (!externalSeekRequest || !playerRef.current || !playerReady) return
+
+    try {
+      const requestedTime = Math.max(0, externalSeekRequest.seconds)
+      const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
+      const safeTime = restrictForwardSeeking ? Math.min(requestedTime, maxAllowedTime) : requestedTime
+
+      if (safeTime + 0.5 < requestedTime) {
+        toast.warning(t('video_player.seek_within_watched'))
+      }
+
+      playerRef.current.seekTo(safeTime, true)
+      setPlayed(duration > 0 ? safeTime / duration : 0)
+    } catch {
+
+    }
+  }, [externalSeekRequest, duration, playerReady, restrictForwardSeeking, seekToleranceSeconds, t])
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -471,7 +497,7 @@ export function VideoPlayer({
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)
     const s = Math.floor(seconds % 60)
-    
+
     if (h > 0) {
       return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
     }
@@ -485,19 +511,19 @@ export function VideoPlayer({
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="relative bg-black group"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => playing && setShowControls(false)}
     >
-      {/* YouTube Player */}
+
       <div className="w-full" style={{ aspectRatio: '16/9' }}>
         <div ref={iframeRef} className="w-full h-full" />
       </div>
 
-      {/* Play/Pause Overlay */}
-      <div 
+
+      <div
         className="absolute inset-0 flex items-center justify-center cursor-pointer"
         onClick={togglePlay}
       >
@@ -508,14 +534,14 @@ export function VideoPlayer({
         )}
       </div>
 
-      {/* Controls */}
-      <div 
+
+      <div
         className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent transition-opacity duration-300 ${
           showControls ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div className="p-4 space-y-2">
-          {/* Progress Bar */}
+
           <div className="flex items-center gap-2">
             <Slider
               value={[played * 100]}
@@ -526,7 +552,7 @@ export function VideoPlayer({
             />
           </div>
 
-          {/* Bookmarks */}
+
           {bookmarks.length > 0 && (
             <div className="flex items-center gap-1 flex-wrap">
               {bookmarks.map((bookmark, index) => (
@@ -544,10 +570,10 @@ export function VideoPlayer({
             </div>
           )}
 
-          {/* Control Buttons */}
+
           <div className="flex items-center justify-between text-white">
             <div className="flex items-center gap-2">
-              {/* Play/Pause */}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -557,7 +583,7 @@ export function VideoPlayer({
                 {playing ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
               </Button>
 
-              {/* Skip Backward */}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -567,7 +593,7 @@ export function VideoPlayer({
                 <SkipBack className="w-4 h-4" />
               </Button>
 
-              {/* Skip Forward */}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -577,7 +603,7 @@ export function VideoPlayer({
                 <SkipForward className="w-4 h-4" />
               </Button>
 
-              {/* Volume */}
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -596,14 +622,14 @@ export function VideoPlayer({
                 />
               </div>
 
-              {/* Time Display */}
+
               <span className="text-sm">
                 {formatTime(played * duration)} / {formatTime(duration)}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Add Bookmark */}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -614,7 +640,7 @@ export function VideoPlayer({
                 <Bookmark className="w-4 h-4" />
               </Button>
 
-              {/* Playback Speed */}
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -628,7 +654,7 @@ export function VideoPlayer({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                   {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(rate => (
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       key={rate}
                       onClick={() => handlePlaybackRateChange(rate)}
                       className={playbackRate === rate ? 'bg-accent' : ''}
@@ -639,7 +665,7 @@ export function VideoPlayer({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Fullscreen */}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -652,7 +678,7 @@ export function VideoPlayer({
             </div>
           </div>
 
-          {/* Keyboard Shortcuts Help */}
+
           <div className="text-xs text-white/60 text-center">
             Shortcuts: Space (Play/Pause) • ← → (Skip 10s) • ↑ ↓ (Volume) • M (Mute) • F (Fullscreen) • B (Bookmark)
           </div>

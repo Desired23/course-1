@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { motion } from "motion/react"
 
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -10,6 +11,28 @@ import { ArrowLeft, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import { createUser } from "../../services/admin.api"
 import { useTranslation } from "react-i18next"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function CreateUserPage() {
   const { t } = useTranslation()
@@ -90,8 +113,14 @@ export function CreateUserPage() {
   }
 
   return (
-    <div className="p-8 max-w-3xl">
-      <div className="mb-8">
+    <motion.div
+      className="p-8 max-w-3xl"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <Button
           variant="ghost"
           onClick={() => navigate("/admin/users")}
@@ -112,8 +141,9 @@ export function CreateUserPage() {
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card className="p-6">
           <h3 className="font-medium mb-4">{t("admin_user_form.user_information")}</h3>
@@ -203,6 +233,8 @@ export function CreateUserPage() {
           <Button type="submit">{t("admin_user_form.create.submit")}</Button>
         </div>
       </form>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

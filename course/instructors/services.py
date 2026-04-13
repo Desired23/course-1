@@ -13,7 +13,7 @@ def get_instructors():
     instructors = Instructor.objects.all()
     if not instructors.exists():
         raise ValidationError({"error": "No instructors found."})
-    return instructors # Trả về queryset trực tiếp
+    return instructors
 
 def get_instructor_by_id(instructor_id):
     try:
@@ -31,18 +31,18 @@ def create_instructor(data):
     except User.DoesNotExist:
         raise ValidationError({"user_id": "User with this ID does not exist."})
 
-    # Kiểm tra nếu user đã là Instructor
+
     if user_instance.user_type == User.UserTypeChoices.INSTRUCTOR:
         raise ValidationError({"user_id": "This user is already an instructor."})
 
-    # Cập nhật user_type thành 'Instructor'
+
     user_instance.user_type = User.UserTypeChoices.INSTRUCTOR
     user_instance.save()
-    
-    # Gửi user_id (không phải user) đến serializer
+
+
     modified_data = data.copy()
     modified_data['user_id'] = user_id
-    
+
     serializer = InstructorSerializers(data=modified_data, context={'request': None})
     if serializer.is_valid(raise_exception=True):
         instructor = serializer.save()

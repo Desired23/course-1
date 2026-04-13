@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
@@ -10,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Textarea } from "../../components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Search, Eye, Edit, Trash2, Check, X, Clock, Users, Star, DollarSign, BookOpen, Loader2 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { toast } from 'sonner'
 import { UserPagination } from '../../components/UserPagination'
@@ -17,8 +19,31 @@ import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Checkbox } from "../../components/ui/checkbox"
 import { getCourses, updateCourse, deleteCourse as deleteCourseApi, type CourseListItem, parseDecimal } from '../../services/course.api'
+import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 10
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function AdminCoursesPage() {
   const { navigate } = useRouter()
@@ -81,6 +106,24 @@ export function AdminCoursesPage() {
     rejected: 0,
   })
 
+  const renderAdminCourseSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: ITEMS_PER_PAGE }).map((_, index) => (
+        <div key={`admin-course-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-3">
+          <div className="flex flex-col md:flex-row gap-4">
+            <Skeleton className="h-32 w-full md:w-48 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-6 w-3/5" />
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-4 w-4/5" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
     return () => clearTimeout(t)
@@ -119,7 +162,7 @@ export function AdminCoursesPage() {
         rejected: rejectedRes.count || 0,
       })
     } catch {
-      // counts are supplemental; ignore if BE does not support a status filter
+
     }
   }
 
@@ -320,14 +363,14 @@ export function AdminCoursesPage() {
   const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <div className="mb-6 md:mb-8">
+    <motion.div className="p-4 sm:p-6 lg:p-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-6 md:mb-8" variants={fadeInUp}>
         <h1 className="mb-2">{t('admin_courses.title')}</h1>
         <p className="text-muted-foreground">{t('admin_courses.subtitle')}</p>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-        <Card>
+      <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8" variants={fadeInUp}>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -339,7 +382,7 @@ export function AdminCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -351,7 +394,7 @@ export function AdminCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -363,7 +406,7 @@ export function AdminCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="app-interactive">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -374,9 +417,9 @@ export function AdminCoursesPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <motion.div className="app-surface-elevated flex flex-col md:flex-row gap-4 mb-6 rounded-lg p-4" variants={fadeInUp}>
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -397,8 +440,9 @@ export function AdminCoursesPage() {
             <SelectItem value="rating">{t('admin_courses.sort_rating')}</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <AdminBulkActionBar
         count={selectedCourseIds.length}
         label={t('admin_courses.bulk.selected_label')}
@@ -440,27 +484,78 @@ export function AdminCoursesPage() {
           },
         ]}
       />
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
         <div className="overflow-x-auto mb-6">
-          <TabsList className="inline-flex w-auto min-w-full">
-            <TabsTrigger value="all" className="whitespace-nowrap">{t('admin_courses.tabs.all', { count: statusCounts.all })}</TabsTrigger>
-            <TabsTrigger value="published" className="whitespace-nowrap">{t('admin_courses.tabs.published', { count: statusCounts.published })}</TabsTrigger>
-            <TabsTrigger value="pending" className="whitespace-nowrap">{t('admin_courses.tabs.pending', { count: statusCounts.pending })}</TabsTrigger>
-            <TabsTrigger value="draft" className="whitespace-nowrap">{t('admin_courses.tabs.draft', { count: statusCounts.draft })}</TabsTrigger>
-            <TabsTrigger value="rejected" className="whitespace-nowrap">{t('admin_courses.tabs.rejected', { count: statusCounts.rejected })}</TabsTrigger>
+          <TabsList className="relative inline-flex w-auto min-w-full p-1">
+            <TabsTrigger value="all" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {statusFilter === 'all' && (
+                <motion.span
+                  layoutId="admin-courses-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('admin_courses.tabs.all', { count: statusCounts.all })}</span>
+            </TabsTrigger>
+            <TabsTrigger value="published" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {statusFilter === 'published' && (
+                <motion.span
+                  layoutId="admin-courses-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('admin_courses.tabs.published', { count: statusCounts.published })}</span>
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {statusFilter === 'pending' && (
+                <motion.span
+                  layoutId="admin-courses-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('admin_courses.tabs.pending', { count: statusCounts.pending })}</span>
+            </TabsTrigger>
+            <TabsTrigger value="draft" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {statusFilter === 'draft' && (
+                <motion.span
+                  layoutId="admin-courses-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('admin_courses.tabs.draft', { count: statusCounts.draft })}</span>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {statusFilter === 'rejected' && (
+                <motion.span
+                  layoutId="admin-courses-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('admin_courses.tabs.rejected', { count: statusCounts.rejected })}</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value={statusFilter}>
           {loading ? (
-            <div className="min-h-[220px] flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            renderAdminCourseSkeleton()
           ) : (
             <div className="space-y-4">
-              {courses.map((course) => (
-                <Card key={course.id} className="hover:shadow-md transition-shadow">
+              {courses.map((course, index) => (
+                <motion.div
+                  key={course.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={listItemTransition(index)}
+                >
+                <Card className="app-interactive hover:shadow-md">
                   <CardContent className="p-4 md:p-6">
                     <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                       <div className="pt-1">
@@ -572,6 +667,7 @@ export function AdminCoursesPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               ))}
 
               {courses.length === 0 && (
@@ -607,6 +703,7 @@ export function AdminCoursesPage() {
           )}
         </TabsContent>
       </Tabs>
+      </motion.div>
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -686,6 +783,6 @@ export function AdminCoursesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

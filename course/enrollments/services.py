@@ -7,12 +7,12 @@ from courses.models import Course
 from django.db import IntegrityError
 from django.db.models import F
 from activity_logs.services import log_activity
-    
+
 logger = logging.getLogger(__name__)
 
 def create_enrollment(data):
-    try: 
-        # Accept either {'user_id', 'course_id'} or {'user', 'course'} inputs.
+    try:
+
         user_val = data.get('user_id') if 'user_id' in data else data.get('user')
         course_val = data.get('course_id') if 'course_id' in data else data.get('course')
 
@@ -20,7 +20,7 @@ def create_enrollment(data):
             'user': user_val,
             'course': course_val,
             'payment': data.get('payment'),
-            'enrollment_date': datetime.now(),   
+            'enrollment_date': datetime.now(),
             'status': Enrollment.Status.Active,
             'expiry_date': data.get('expiry_date', None),
             'source': data.get('source', Enrollment.Source.PURCHASE),
@@ -28,7 +28,7 @@ def create_enrollment(data):
             'progress': 0,
             'certificate_issue_date': None,
         }
-        # If caller passed model instances instead of ids, normalize to ids
+
         if hasattr(dataCopy.get('user'), 'id'):
             dataCopy['user'] = getattr(dataCopy['user'], 'id')
         if hasattr(dataCopy.get('course'), 'id'):
@@ -38,14 +38,14 @@ def create_enrollment(data):
         if hasattr(dataCopy.get('subscription'), 'id'):
             dataCopy['subscription'] = getattr(dataCopy['subscription'], 'id')
 
-        # If enrollment already exists, return it (idempotent)
+
         try:
             if dataCopy.get('user') and dataCopy.get('course'):
                 existing = Enrollment.objects.filter(user_id=dataCopy.get('user'), course_id=dataCopy.get('course'), is_deleted=False).first()
             if existing:
                 return EnrollmentCreateSerializer(existing).data
         except Exception:
-            # ignore existence check failures and proceed to create
+
             existing = None
 
         serializer = EnrollmentCreateSerializer(data=dataCopy)
@@ -54,7 +54,7 @@ def create_enrollment(data):
                 enrollment = serializer.save()
             except IntegrityError:
                 raise ValidationError({"error": "User has already enrolled in this course."})
-            # Resolve course id from normalized dataCopy ('course' key holds id)
+
             course = Course.objects.get(id=dataCopy.get('course'))
             Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
             log_activity(
@@ -64,13 +64,13 @@ def create_enrollment(data):
                 entity_id=enrollment.id,
                 description=f"Đăng ký khóa học: {course.title}"
             )
-            return EnrollmentCreateSerializer(enrollment).data 
+            return EnrollmentCreateSerializer(enrollment).data
         raise ValidationError(serializer.errors)
     except ValidationError:
-        # propagate serializer/validation errors as-is so caller can return 400 with details
+
         raise
     except Exception as e:
-        # Unexpected error — include message for debugging
+
         raise ValidationError({"error": f"Lỗi khi tạo enrollment: {str(e)}"})
 def get_enrollment_by_user(user_id):
     logger = logging.getLogger(__name__)
@@ -117,22 +117,22 @@ def has_access(user_id, course_id):
         raise ValidationError({"error": "Enrollment not found."})
     except Exception as e:
         raise ValidationError({"error": str(e)})
-# def process_enrollment(enrollment_id):
-#     try:
-#         enrollment = Enrollment.objects.get(enrollment_id=enrollment_id)
-#         if enrollment.progress == 100:
-#             enrollment.status = Enrollment.Status.Complete
-#             enrollment.completion_date = datetime.now()
-#             enrollment.certificate = "Certificate of Completion"
-#             enrollment.certificate_issue_date = datetime.now()
-#             enrollment.save()
-#         else:
-#             enrollment.progress 
-#         return {"message": "Enrollment completed successfully."}
-#     except Enrollment.DoesNotExist:
-#         raise ValidationError({"error": "Enrollment not found."})
-#     except Exception as e:
-#         raise ValidationError({"error": str(e)})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def user_has_course_access(user_id, course_id):
     return Enrollment.objects.filter(
         user_id=user_id,

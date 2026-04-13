@@ -49,7 +49,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
   const [showSolution, setShowSolution] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(enrollmentId ? 'saved' : 'idle')
-  
+
   const { saveQuizAnswer, getQuizAnswer } = useQuizStore()
   const saveStatusLabel = saveStatus === 'saving'
     ? t('enhanced_code_quiz_player.saving')
@@ -73,7 +73,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
     return ''
   }
 
-  // Load saved answer
+
   useEffect(() => {
     if (quiz.id) {
       const saved = getQuizAnswer(quiz.id, lessonId)
@@ -86,9 +86,9 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
           setIsSubmitted(true)
         }
       } else {
-        // Load starter code or function signature
-        const starterCode = quiz.starterCode?.[selectedLanguage] || 
-                           quiz.functionSignature?.[selectedLanguage] || 
+
+        const starterCode = quiz.starterCode?.[selectedLanguage] ||
+                           quiz.functionSignature?.[selectedLanguage] ||
                            getDefaultStarterCode(selectedLanguage)
         setCode(starterCode)
       }
@@ -132,13 +132,13 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
     return () => { cancelled = true }
   }, [quiz.id, lessonId, enrollmentId])
 
-  // Auto-save code (debounced)
+
   useEffect(() => {
     if (!quiz.id) return
     if (enrollmentId) {
       setSaveStatus('saving')
     }
-    
+
     const timer = setTimeout(() => {
       if (code.trim()) {
         saveQuizAnswer({
@@ -176,7 +176,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
     return () => clearTimeout(timer)
   }, [code, selectedLanguage, quiz.id, lessonId, enrollmentId, isSubmitted])
 
-  // Get default starter code based on language
+
   const getDefaultStarterCode = (languageId: number): string => {
     const lang = SUPPORTED_LANGUAGES.find(l => l.id === languageId)
     if (!lang) return ''
@@ -195,7 +195,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
     }
   }
 
-  // Run test cases
+
   const handleRun = async () => {
     if (!code.trim()) {
       toast.error(t('enhanced_code_quiz_player.write_code_first'))
@@ -210,12 +210,12 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
         timeLimit: quiz.timeLimit,
         memoryLimit: quiz.memoryLimit
       })
-      
+
       setTestResults(results)
-      
+
       const passed = results.filter(r => r.passed).length
       const total = results.length
-      
+
       if (passed === total) {
         toast.success(t('enhanced_code_quiz_player.all_tests_passed', { passed, total }))
       } else {
@@ -228,7 +228,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
     }
   }
 
-  // Submit solution
+
   const handleSubmit = async () => {
     if (!code.trim()) {
       toast.error(t('enhanced_code_quiz_player.write_code_first'))
@@ -242,9 +242,9 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
         timeLimit: quiz.timeLimit,
         memoryLimit: quiz.memoryLimit
       })
-      
+
       setTestResults(results)
-      
+
       const passed = results.filter(r => r.passed).length
       const total = results.length
       const score = Math.round((passed / total) * quiz.points)
@@ -252,7 +252,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
       setIsSubmitted(true)
 
-      // Save submission
+
       if (quiz.id) {
         saveQuizAnswer({
           questionId: quiz.id,
@@ -281,7 +281,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
     }
   }
 
-  // Toggle hint visibility
+
   const toggleHint = (index: number) => {
     if (showHints.includes(index)) {
       setShowHints(showHints.filter(i => i !== index))
@@ -306,7 +306,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Header */}
+
       <div className="border-b bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -340,9 +340,9 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
         </div>
       </div>
 
-      {/* Main Content */}
+
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Problem Description */}
+
         <div className="w-1/2 border-r overflow-y-auto p-6">
           <Tabs defaultValue="description">
             <TabsList className="w-full grid grid-cols-3">
@@ -362,9 +362,9 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
               )}
             </TabsList>
 
-            {/* Description Tab */}
+
             <TabsContent value="description" className="space-y-6 mt-6">
-              {/* Problem Statement */}
+
               <div>
                 <h2 className="text-lg font-semibold mb-3">{t('enhanced_code_quiz_player.problem')}</h2>
                 <div className="prose prose-sm max-w-none">
@@ -376,7 +376,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
               <Separator />
 
-              {/* Examples */}
+
               {quiz.examples.length > 0 && (
                 <div>
                   <h2 className="text-lg font-semibold mb-3">{t('enhanced_code_quiz_player.examples')}</h2>
@@ -414,7 +414,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
               <Separator />
 
-              {/* Constraints */}
+
               {quiz.constraints.length > 0 && (
                 <div>
                   <h2 className="text-lg font-semibold mb-3">{t('enhanced_code_quiz_player.constraints')}</h2>
@@ -429,7 +429,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
                 </div>
               )}
 
-              {/* Input/Output Format */}
+
               {(quiz.problemStatement.inputFormat || quiz.problemStatement.outputFormat) && (
                 <>
                   <Separator />
@@ -454,7 +454,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
                 </>
               )}
 
-              {/* Notes */}
+
               {quiz.problemStatement.notes && (
                 <>
                   <Separator />
@@ -468,7 +468,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
                 </>
               )}
 
-              {/* Learning Objectives */}
+
               <Separator />
               <div>
                 <h2 className="text-lg font-semibold mb-3">{t('enhanced_code_quiz_player.learning_title')}</h2>
@@ -513,7 +513,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
               </div>
             </TabsContent>
 
-            {/* Hints Tab */}
+
             <TabsContent value="hints" className="space-y-4 mt-6">
               {quiz.hints.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
@@ -564,7 +564,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
               )}
             </TabsContent>
 
-            {/* Solution Tab */}
+
             {quiz.solution && (
               <TabsContent value="solution" className="space-y-4 mt-6">
                 <Alert>
@@ -628,9 +628,9 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
           </Tabs>
         </div>
 
-        {/* Right Panel - Code Editor */}
+
         <div className="w-1/2 flex flex-col">
-          {/* Editor Header */}
+
           <div className="border-b p-3 flex items-center justify-between bg-card">
             <Select
               value={selectedLanguage.toString()}
@@ -670,7 +670,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
             </div>
           </div>
 
-          {/* Monaco Editor */}
+
           <div className="flex-1">
             <Editor
               height="100%"
@@ -690,7 +690,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
             />
           </div>
 
-          {/* Test Results */}
+
           {testResults.length > 0 && (
             <div className="border-t max-h-[300px] overflow-y-auto">
               <div className="p-4 space-y-3">

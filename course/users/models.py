@@ -13,7 +13,7 @@ class User(models.Model):
         ADMIN = 'admin', 'admin'
 
     id = models.AutoField(primary_key=True)
-    
+
     username = models.CharField(max_length=255, unique=True)
     email = models.EmailField(max_length=255, unique=True)
     password_hash = models.CharField(max_length=255)
@@ -42,8 +42,8 @@ class User(models.Model):
     class Meta:
         db_table = 'Users'
 
-    # Django expects is_authenticated on request.user (AuthenticationMiddleware).
-    # Our User inherits models.Model, not AbstractBaseUser, so we add it manually.
+
+
     @property
     def is_authenticated(self):
         return True
@@ -56,11 +56,11 @@ class User(models.Model):
         return f"{self.username} ({self.user_type} - User_id = {self.id})"
 
 
-# new model to track refresh tokens for rotation/revocation
+
 def generate_refresh_jti():
-    import uuid 
+    import uuid
     return str(uuid.uuid4())
- 
+
 class RefreshToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='refresh_tokens')
     jti = models.CharField(max_length=36, unique=True, default=generate_refresh_jti)

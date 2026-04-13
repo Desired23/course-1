@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -11,14 +12,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Switch } from '../../components/ui/switch'
 import { Separator } from '../../components/ui/separator'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
-import { 
-  CreditCard, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Shield, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  CreditCard,
+  Plus,
+  Edit,
+  Trash2,
+  Shield,
+  CheckCircle,
+  AlertCircle,
   Calendar,
   DollarSign,
   Percent,
@@ -86,6 +87,28 @@ interface PaymentSettings {
   ipWhitelist: boolean
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 
 
 export function PaymentMethodsPage() {
@@ -143,7 +166,7 @@ export function PaymentMethodsPage() {
     }
     load()
   }, [])
-  
+
   const [newMethod, setNewMethod] = useState({
     name: '',
     type: 'credit_card' as PaymentMethod['type'],
@@ -278,8 +301,14 @@ export function PaymentMethodsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="container mx-auto p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('payment_methods_admin.title')}</h1>
           <p className="text-muted-foreground">{t('payment_methods_admin.subtitle')}</p>
@@ -329,7 +358,7 @@ export function PaymentMethodsPage() {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div>
                   <Label>{t('payment_methods_admin.provider')}</Label>
                   <Input
@@ -338,7 +367,7 @@ export function PaymentMethodsPage() {
                     placeholder={t('payment_methods_admin.provider_placeholder')}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>{t('payment_methods_admin.api_key')}</Label>
@@ -370,7 +399,7 @@ export function PaymentMethodsPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label>{t('payment_methods_admin.webhook_url')}</Label>
                   <Input
@@ -379,7 +408,7 @@ export function PaymentMethodsPage() {
                     placeholder={t('payment_methods_admin.webhook_placeholder')}
                   />
                 </div>
-                
+
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsAddMethodOpen(false)}>
                     {t('common.cancel')}
@@ -392,14 +421,27 @@ export function PaymentMethodsPage() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+        </motion.div>
 
+        <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="methods">{t('payment_methods_admin.tabs.methods')}</TabsTrigger>
-          <TabsTrigger value="settings">{t('payment_methods_admin.tabs.settings')}</TabsTrigger>
-          <TabsTrigger value="fees">{t('payment_methods_admin.tabs.fees')}</TabsTrigger>
-          <TabsTrigger value="security">{t('payment_methods_admin.tabs.security')}</TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-4 p-1">
+          <TabsTrigger value="methods" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'methods' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_methods_admin.tabs.methods')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'settings' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_methods_admin.tabs.settings')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="fees" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'fees' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_methods_admin.tabs.fees')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'security' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_methods_admin.tabs.security')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="methods" className="space-y-6">
@@ -494,7 +536,7 @@ export function PaymentMethodsPage() {
                   onCheckedChange={(checked) => setSettings({...settings, autoRetry: checked})}
                 />
               </div>
-              
+
               {settings.autoRetry && (
                 <div className="grid grid-cols-2 gap-4 ml-6">
                   <div>
@@ -527,9 +569,9 @@ export function PaymentMethodsPage() {
                   </div>
                 </div>
               )}
-              
+
               <Separator />
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-base">{t('payment_methods_admin.send_receipts')}</Label>
@@ -540,7 +582,7 @@ export function PaymentMethodsPage() {
                   onCheckedChange={(checked) => setSettings({...settings, sendReceipts: checked})}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-base">{t('payment_methods_admin.require_cvv')}</Label>
@@ -551,7 +593,7 @@ export function PaymentMethodsPage() {
                   onCheckedChange={(checked) => setSettings({...settings, requireCVV: checked})}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-base">{t('payment_methods_admin.save_payment_methods')}</Label>
@@ -625,7 +667,7 @@ export function PaymentMethodsPage() {
                   onCheckedChange={(checked) => setSettings({...settings, twoFactorAuth: checked})}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-base">{t('payment_methods_admin.fraud_detection')}</Label>
@@ -636,7 +678,7 @@ export function PaymentMethodsPage() {
                   onCheckedChange={(checked) => setSettings({...settings, fraudDetection: checked})}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-base">{t('payment_methods_admin.ip_whitelist')}</Label>
@@ -647,9 +689,9 @@ export function PaymentMethodsPage() {
                   onCheckedChange={(checked) => setSettings({...settings, ipWhitelist: checked})}
                 />
               </div>
-              
+
               <Separator />
-              
+
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center gap-2">
                   <Shield className="h-5 w-5" />
@@ -678,8 +720,10 @@ export function PaymentMethodsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
+      </motion.div>
 
-      {/* Method Details Dialog */}
+
       {selectedMethod && (
         <Dialog open={!!selectedMethod} onOpenChange={() => setSelectedMethod(null)}>
           <DialogContent className="max-w-2xl">
@@ -690,7 +734,7 @@ export function PaymentMethodsPage() {
               </DialogTitle>
               <DialogDescription>{t('payment_methods_admin.method_detail_description')}</DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -702,9 +746,9 @@ export function PaymentMethodsPage() {
                   <p className="font-medium capitalize">{selectedMethod.type.replace('_', ' ')}</p>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <Label className="text-base font-semibold">{t('payment_methods_admin.detail.fees_limits')}</Label>
                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -726,9 +770,9 @@ export function PaymentMethodsPage() {
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div>
                 <Label className="text-base font-semibold">{t('payment_methods_admin.detail.supported_regions')}</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -737,7 +781,7 @@ export function PaymentMethodsPage() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <Label className="text-base font-semibold">{t('payment_methods_admin.detail.supported_currencies')}</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -746,7 +790,7 @@ export function PaymentMethodsPage() {
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <Label className="text-base font-semibold">{t('payment_methods_admin.detail.security_features')}</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -772,6 +816,6 @@ export function PaymentMethodsPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }

@@ -15,8 +15,8 @@ export function Footer() {
   const { siteLogo, siteName } = useSiteBranding()
   const siteInitial = siteName?.charAt(0)?.toUpperCase() || "U"
   const isDesktopSidebar = useMinWidth(1024)
-  
-  const isUserDashboard = 
+
+  const isUserDashboard =
     currentRoute.startsWith('/my-learning') ||
     currentRoute.startsWith('/cart') ||
     currentRoute.startsWith('/wishlist') ||
@@ -25,7 +25,7 @@ export function Footer() {
     currentRoute.startsWith('/notifications') ||
     currentRoute.startsWith('/account-settings');
 
-  // Fetch categories from API
+
   useEffect(() => {
     let cancelled = false
     getActiveCategories({ page_size: 6 })
@@ -88,7 +88,7 @@ export function Footer() {
         "container mx-auto px-4"
       )}
       style={isUserDashboard && isDesktopSidebar ? { paddingLeft: "16rem" } : undefined}>
-        {/* Main Footer Content */}
+
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
           {footerSections.map((section, index) => (
             <div key={index}>
@@ -96,7 +96,7 @@ export function Footer() {
               <ul className="space-y-2">
                 {section.links.map((link, linkIndex) => (
                   <li key={linkIndex}>
-                    <button 
+                    <button
                       onClick={link.action}
                       className="text-gray-300 hover:text-white hover:underline transition-colors text-sm text-left"
                     >
@@ -107,19 +107,19 @@ export function Footer() {
               </ul>
             </div>
           ))}
-          
-          {/* Language Selector */}
+
+
           <div className="flex flex-col gap-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 w-full justify-start"
             >
               <Globe className="w-4 h-4 mr-2" />
               {i18n.language === 'vi' ? t('language_switcher.vietnamese') : t('language_switcher.english')}
             </Button>
-            
-            {/* Social Links */}
+
+
             <div className="mt-4">
               <h3 className="font-semibold mb-3 text-white text-sm">{t('footer.follow_us')}</h3>
               <div className="flex gap-2">
@@ -143,7 +143,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Newsletter Section */}
+
         <div className="border-t border-gray-800 pt-8 pb-8">
           <div className="max-w-2xl">
             <h3 className="font-semibold mb-2 text-white">{t('footer.stay_updated')}</h3>
@@ -156,8 +156,8 @@ export function Footer() {
                 placeholder={t('footer.newsletter_placeholder')}
                 className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:ring-2 focus:ring-primary text-white placeholder-gray-500"
               />
-              <Button 
-                className="px-6 hover:bg-gray-200 border-none" 
+              <Button
+                className="px-6 hover:bg-gray-200 border-none"
                 style={{ backgroundColor: '#ffffff', color: '#000000' }}
               >
                 {t('footer.subscribe')}
@@ -166,7 +166,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
+
         <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             {siteLogo ? (
@@ -184,11 +184,11 @@ export function Footer() {
               </>
             )}
           </div>
-          
+
           <p className="text-gray-400 text-sm text-center">
             {t('footer.copyright')}
           </p>
-          
+
           <div className="flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <button onClick={() => navigate('/terms')} className="hover:text-white dark:hover:text-gray-200 transition-colors">
               {t('footer.terms')}

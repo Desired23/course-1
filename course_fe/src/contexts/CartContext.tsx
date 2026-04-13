@@ -2,10 +2,10 @@ import React, { useEffect } from 'react'
 import { useCartStore, Course, Coupon, AppliedPromotion } from '../stores/cart.store'
 import { useAuthStore } from '../stores/auth.store'
 
-// Re-export types for backward compatibility
+
 export type { Course, Coupon, AppliedPromotion }
 
-// CartProvider is now just a wrapper (State managed by Zustand)
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const userId = useAuthStore((state) => state.user?.id)
   const loadCart = useCartStore((state) => state.loadCart)
@@ -22,10 +22,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// Hook adapter
+
 export function useCart() {
   const store = useCartStore()
-  
+
   return {
     cartItems: store.cartItems,
     orderCoupon: store.orderCoupon,

@@ -80,7 +80,7 @@ export function Chat() {
 
   return (
     <div className="fixed bottom-4 right-4 w-80 h-96 bg-background border rounded-lg shadow-lg z-50 flex flex-col">
-      {/* Chat Header */}
+
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
@@ -97,10 +97,10 @@ export function Chat() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Conversations List */}
+
         {!state.activeConversationId && (
           <div className="flex-1 flex flex-col">
-            {/* Search */}
+
             <div className="p-3 border-b">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -113,7 +113,7 @@ export function Chat() {
               </div>
             </div>
 
-            {/* Conversations */}
+
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1">
                 {filteredConversations.map((conversation) => {
@@ -164,10 +164,10 @@ export function Chat() {
           </div>
         )}
 
-        {/* Active Conversation */}
+
         {state.activeConversationId && activeConversation && (
           <div className="flex-1 flex flex-col">
-            {/* Conversation Header */}
+
             <div className="flex items-center justify-between p-3 border-b">
               <div className="flex items-center gap-3">
                 <Button
@@ -190,16 +190,16 @@ export function Chat() {
                 <div>
                   <p className="font-medium text-sm">{otherParticipant?.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {otherParticipant?.online 
-                      ? t('chat.online') 
-                      : otherParticipant?.lastSeen 
+                    {otherParticipant?.online
+                      ? t('chat.online')
+                      : otherParticipant?.lastSeen
                         ? t('chat.last_seen', { time: formatLastSeen(otherParticipant.lastSeen) })
                         : t('chat.offline')
                     }
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex gap-1">
                 <Button variant="ghost" size="sm">
                   <Phone className="h-4 w-4" />
@@ -213,12 +213,12 @@ export function Chat() {
               </div>
             </div>
 
-            {/* Messages */}
+
             <ScrollArea className="flex-1 p-3">
               <div className="space-y-4">
                 {activeMessages.map((message) => {
                   const isOwn = message.senderId === user?.id
-                  
+
                   return (
                     <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                       <div className={`flex gap-2 max-w-[80%] ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -228,10 +228,10 @@ export function Chat() {
                             <AvatarFallback>{message.senderName.slice(0, 2)}</AvatarFallback>
                           </Avatar>
                         )}
-                        
+
                         <div className={`rounded-lg p-2 ${
-                          isOwn 
-                            ? 'bg-primary text-primary-foreground' 
+                          isOwn
+                            ? 'bg-primary text-primary-foreground'
                             : 'bg-muted'
                         }`}>
                           <p className="text-sm">{message.content}</p>
@@ -249,7 +249,7 @@ export function Chat() {
               </div>
             </ScrollArea>
 
-            {/* Message Input */}
+
             <div className="p-3 border-t">
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <div className="flex-1 relative">

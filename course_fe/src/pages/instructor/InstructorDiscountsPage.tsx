@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react"
+import { motion } from 'motion/react'
 
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Badge } from "../../components/ui/badge"
 import { Card } from "../../components/ui/card"
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -13,15 +14,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../../components/ui/dialog-fixed"
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "../../components/ui/table"
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,11 +30,11 @@ import {
 } from "../../components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Checkbox } from "../../components/ui/checkbox"
-import { 
-  Search, 
-  Plus, 
-  MoreVertical, 
-  Edit, 
+import {
+  Search,
+  Plus,
+  MoreVertical,
+  Edit,
   Trash2,
   Tag,
   DollarSign,
@@ -59,7 +60,7 @@ import {
 } from "../../services/promotions.api"
 import { getAllCourses, type CourseListItem } from "../../services/course.api"
 
-// Adapter type that maps BE Promotion to what the UI expects
+
 interface Discount {
   id: number
   code: string
@@ -77,7 +78,29 @@ interface Discount {
 
 const ITEMS_PER_PAGE = 10
 
-/** Map BE Promotion → FE Discount for UI display */
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+
 function promotionToDiscount(p: Promotion, coursesMap: Map<number, string>): Discount {
   const statusMap: Record<PromotionStatus, 'active' | 'expired' | 'disabled'> = {
     active: 'active',
@@ -96,7 +119,7 @@ function promotionToDiscount(p: Promotion, coursesMap: Map<number, string>): Dis
     status: statusMap[p.status] ?? 'active',
     applicableCourses: p.applicable_courses.map(id => coursesMap.get(id) || `Course #${id}`),
     applicableCourseIds: p.applicable_courses,
-    revenue: 0, // BE doesn't track per-promotion revenue
+    revenue: 0,
   }
 }
 
@@ -116,7 +139,7 @@ export function InstructorDiscountsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
-  
+
   const [newDiscount, setNewDiscount] = useState({
     code: '',
     type: 'percentage' as 'percentage' | 'fixed',
@@ -127,15 +150,15 @@ export function InstructorDiscountsPage() {
     selectedCourses: [] as string[]
   })
 
-  // Instructor's courses from API
+
   const [instructorCourses, setInstructorCourses] = useState<{ id: string; title: string }[]>([])
-  // Instructor ID for API calls
+
   const [instructorId, setInstructorId] = useState<number | null>(null)
   const [coursesMap, setCoursesMap] = useState<Map<number, string>>(new Map())
 
-  // State for current page discounts
+
   const [discounts, setDiscounts] = useState<Discount[]>([])
-  // State for summary cards
+
   const [allDiscountsForStats, setAllDiscountsForStats] = useState<Discount[]>([])
 
   const backendStatus = useMemo<PromotionStatus | undefined>(() => {
@@ -151,7 +174,7 @@ export function InstructorDiscountsPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // Fetch base instructor/courses info
+
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
@@ -186,7 +209,7 @@ export function InstructorDiscountsPage() {
     return () => { cancelled = true }
   }, [user?.id])
 
-  // Fetch table data from BE with server-side pagination/filter
+
   useEffect(() => {
     if (!instructorId) return
     let cancelled = false
@@ -224,7 +247,7 @@ export function InstructorDiscountsPage() {
     return () => { cancelled = true }
   }, [instructorId, currentPage, backendStatus, debouncedSearch, selectedCourse, coursesMap, refreshKey, t])
 
-  // Fetch all promotions only for summary cards
+
   useEffect(() => {
     if (!instructorId) return
     let cancelled = false
@@ -434,9 +457,15 @@ export function InstructorDiscountsPage() {
   const activeDiscounts = allDiscountsForStats.filter(d => d.status === 'active').length
 
   return (
-    <div className="p-8">
-          {/* Header */}
-          <div className="mb-8">
+    <motion.div
+      className="p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+
+          <motion.div className="mb-8" variants={fadeInUp}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -477,8 +506,8 @@ export function InstructorDiscountsPage() {
                       </div>
                       <div>
                         <Label htmlFor="type">{t('instructor_discounts_page.form.type')}</Label>
-                        <Select 
-                          value={newDiscount.type} 
+                        <Select
+                          value={newDiscount.type}
                           onValueChange={(value: any) => setNewDiscount(prev => ({ ...prev, type: value }))}
                         >
                           <SelectTrigger className="mt-1.5">
@@ -581,10 +610,10 @@ export function InstructorDiscountsPage() {
                 </DialogContent>
               </Dialog>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+
+          <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" variants={fadeInUp}>
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
@@ -618,10 +647,10 @@ export function InstructorDiscountsPage() {
                 </div>
               </div>
             </Card>
-          </div>
+          </motion.div>
 
-          {/* Filters */}
-          <div className="mb-6 flex gap-4">
+
+          <motion.div className="mb-6 flex gap-4" variants={fadeInUp}>
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -653,10 +682,10 @@ export function InstructorDiscountsPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </motion.div>
 
-          {/* Discounts Table */}
-          <div className="border rounded-lg overflow-hidden">
+
+          <motion.div className="border rounded-lg overflow-hidden" variants={fadeInUp}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -688,7 +717,7 @@ export function InstructorDiscountsPage() {
                   discounts.map((discount) => {
                     const statusBadge = getStatusBadge(discount.status)
                     const usagePercent = discount.usageLimit > 0 ? (discount.usedCount / discount.usageLimit) * 100 : 0
-                    
+
                     return (
                       <TableRow key={discount.id}>
                         <TableCell>
@@ -719,8 +748,8 @@ export function InstructorDiscountsPage() {
                           <div>
                             <p className="font-medium text-sm">{discount.usedCount} / {discount.usageLimit}</p>
                             <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                              <div 
-                                className="bg-primary h-1.5 rounded-full" 
+                              <div
+                                className="bg-primary h-1.5 rounded-full"
                                 style={{ width: `${Math.min(usagePercent, 100)}%` }}
                               />
                             </div>
@@ -743,7 +772,7 @@ export function InstructorDiscountsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             variant={statusBadge.variant}
                             className={cn("capitalize", statusBadge.className)}
                           >
@@ -766,7 +795,7 @@ export function InstructorDiscountsPage() {
                                 <Copy className="h-4 w-4 mr-2" />
                                 {t('instructor_discounts_page.actions.copy_code')}
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleDeleteDiscount(discount.id)}
                                 className="text-destructive"
                               >
@@ -782,10 +811,10 @@ export function InstructorDiscountsPage() {
                 )}
               </TableBody>
             </Table>
-          </div>
+          </motion.div>
 
           {totalCount > 0 && (
-            <div className="mt-4">
+            <motion.div className="mt-4" variants={fadeInUp}>
               <div className="text-sm text-muted-foreground mb-3">
                 {t('instructor_discounts_page.pagination.showing', {
                   from: Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount),
@@ -798,10 +827,11 @@ export function InstructorDiscountsPage() {
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
               />
-            </div>
+            </motion.div>
           )}
+      </motion.div>
 
-          {/* Edit Discount Dialog */}
+
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -824,8 +854,8 @@ export function InstructorDiscountsPage() {
                   </div>
                   <div>
                     <Label htmlFor="edit-type">{t('instructor_discounts_page.form.type')}</Label>
-                    <Select 
-                      value={newDiscount.type} 
+                    <Select
+                      value={newDiscount.type}
                       onValueChange={(value: any) => setNewDiscount(prev => ({ ...prev, type: value }))}
                     >
                       <SelectTrigger className="mt-1.5">
@@ -930,6 +960,6 @@ export function InstructorDiscountsPage() {
               </div>
             </DialogContent>
           </Dialog>
-    </div>
+    </motion.div>
   )
 }

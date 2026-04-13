@@ -114,7 +114,7 @@ def add_course_to_plan(plan_id, course_id, admin_user=None, added_reason=None):
         plan = SubscriptionPlan.objects.get(id=plan_id, is_deleted=False)
         course = Course.objects.get(id=course_id, is_deleted=False)
 
-        # Kiểm tra instructor đã opt-in chưa
+
         consent = CourseSubscriptionConsent.objects.filter(
             course=course, is_deleted=False
         ).first()
@@ -168,7 +168,7 @@ def remove_course_from_plan(plan_id, course_id, admin_user=None):
     except PlanCourse.DoesNotExist:
         raise ValidationError({"error": "Course not found in this plan."})
 
-    # Lên lịch xóa sau 7 ngày và thông báo cho subscriber
+
     result = schedule_plan_course_removal(
         pc.id, admin_user,
         reason="Admin removed course from plan"
@@ -223,13 +223,13 @@ def subscribe_to_plan(user, plan_id, payment_id=None):
     if plan.duration_days > 0:
         end_date = now + timedelta(days=plan.duration_days)
 
-    # Link to payment if provided
+
     payment = None
     if payment_id:
         from payments.models import Payment
         try:
             payment = Payment.objects.get(id=payment_id, user=user)
-            # Verify payment is completed before activating subscription
+
             if payment.payment_status != 'completed':
                 raise ValidationError({"error": "Thanh toán chưa hoàn tất. Không thể kích hoạt gói."})
         except Payment.DoesNotExist:
@@ -252,7 +252,7 @@ def subscribe_to_plan(user, plan_id, payment_id=None):
         description=f"Đăng ký gói: {plan.name}"
     )
 
-    # Reactivate các enrollment đã bị suspend (gia hạn lại)
+
     reactivate_subscription_enrollments(subscription)
 
     return UserSubscriptionSerializer(subscription).data
@@ -290,7 +290,7 @@ def cancel_subscription(subscription_id, user):
     sub.cancelled_at = timezone.now()
     sub.save(update_fields=['status', 'cancelled_at', 'updated_at'])
 
-    # Suspend tất cả enrollment gắn với sub này
+
     Enrollment.objects.filter(
         subscription=sub,
         status=Enrollment.Status.Active,
@@ -496,7 +496,7 @@ def upsert_course_subscription_consent(user, course_id, consent_status, note='')
         description=f"Course {course.id} consent set to {consent_status}"
     )
 
-    # Nếu instructor opt-out và khóa học đang active trong plan → lên lịch xóa 7 ngày
+
     if consent_status == CourseSubscriptionConsent.ConsentStatus.OPTED_OUT:
         active_plan_courses = PlanCourse.objects.filter(
             course=course,
@@ -622,9 +622,9 @@ def track_subscription_usage(user, course_id, usage_type='course_access', consum
     return SubscriptionUsageSerializer(usage).data
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PHASE 3 — Expiry Notifications, Suspend/Reactivate, Course Removal
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 
 def _create_notification(receiver, title, message, notification_code, related_id=None):
     """Helper: tạo Notification cho user."""
@@ -649,7 +649,7 @@ def send_subscription_expiry_notifications():
     now = timezone.now()
     sent = {'7d': 0, '3d': 0}
 
-    # --- 7 ngày ---
+
     window_7d_start = now + timedelta(days=6, hours=23)
     window_7d_end = now + timedelta(days=7, hours=1)
     subs_7d = UserSubscription.objects.filter(
@@ -676,7 +676,7 @@ def send_subscription_expiry_notifications():
         sub.save(update_fields=['notified_7d'])
         sent['7d'] += 1
 
-    # --- 3 ngày ---
+
     window_3d_start = now + timedelta(days=2, hours=23)
     window_3d_end = now + timedelta(days=3, hours=1)
     subs_3d = UserSubscription.objects.filter(
@@ -732,7 +732,7 @@ def expire_subscriptions_and_suspend_enrollments():
             sub.save(update_fields=['status', 'updated_at'])
             expired_ids.append(sub.id)
 
-            # Suspend enrollments thuộc sub này
+
             count = Enrollment.objects.filter(
                 subscription=sub,
                 status=Enrollment.Status.Active,
@@ -740,7 +740,7 @@ def expire_subscriptions_and_suspend_enrollments():
             ).update(status=Enrollment.Status.SUSPENDED)
             suspended_count += count
 
-            # Thông báo cho user
+
             _create_notification(
                 receiver=sub.user,
                 title=f"Gói {sub.plan.name} đã hết hạn",
@@ -777,7 +777,7 @@ def reactivate_subscription_enrollments(new_subscription: UserSubscription):
         'status': Enrollment.Status.Active,
         'subscription': new_subscription,
     }
-    # Lifetime plan: end_date = None → không đặt expiry_date
+
     if new_subscription.end_date is not None:
         update_kwargs['expiry_date'] = new_subscription.end_date
 
@@ -788,7 +788,7 @@ def reactivate_subscription_enrollments(new_subscription: UserSubscription):
         is_deleted=False,
     ).update(**update_kwargs)
 
-    # Thông báo gia hạn thành công
+
     end_label = (
         new_subscription.end_date.strftime('%d/%m/%Y')
         if new_subscription.end_date
@@ -827,10 +827,10 @@ def schedule_plan_course_removal(plan_course_id: int, admin_user, reason: str = 
     removal_date = timezone.now() + timedelta(days=7)
     plan_course.scheduled_removal_at = removal_date
     if reason:
-        plan_course.added_reason = reason  # tái dụng field
+        plan_course.added_reason = reason
     plan_course.save(update_fields=['scheduled_removal_at', 'added_reason'])
 
-    # Thông báo tất cả user đang có subscription active cho plan này
+
     active_users = (
         UserSubscription.objects
         .filter(plan=plan_course.plan, status=UserSubscription.Status.ACTIVE, is_deleted=False)

@@ -73,7 +73,7 @@ export function LessonEditorDialog({
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [showPreview, setShowPreview] = useState(false)
 
-  // Initialize edited lesson when dialog opens
+
   useEffect(() => {
     if (lesson && open) {
       setEditedLesson({ ...lesson })
@@ -82,7 +82,7 @@ export function LessonEditorDialog({
     }
   }, [lesson, open])
 
-  // Track changes
+
   useEffect(() => {
     if (editedLesson && lesson) {
       const hasChanges = JSON.stringify(editedLesson) !== JSON.stringify(lesson)
@@ -90,10 +90,10 @@ export function LessonEditorDialog({
     }
   }, [editedLesson, lesson])
 
-  // Keyboard shortcuts
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+S or Cmd+S to save
+
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
         handleSave()
@@ -104,7 +104,7 @@ export function LessonEditorDialog({
       window.addEventListener('keydown', handleKeyDown)
       return () => window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [open, isDirty, editedLesson]) // Added editedLesson dependency for closure
+  }, [open, isDirty, editedLesson])
 
   const handleClose = () => {
     if (isDirty) {
@@ -119,7 +119,7 @@ export function LessonEditorDialog({
   const handleSave = async () => {
     if (!editedLesson) return
 
-    // Validation
+
     if (!editedLesson.title.trim()) {
       toast.error(t('lesson_editor_dialog.enter_lesson_title'))
       setCurrentStep(0)
@@ -129,9 +129,9 @@ export function LessonEditorDialog({
     setIsSaving(true)
 
     try {
-      // Simulate API call
+
       await new Promise(resolve => setTimeout(resolve, 500))
-      
+
       onSave(editedLesson)
       setIsDirty(false)
       setLastSaved(new Date())
@@ -150,7 +150,7 @@ export function LessonEditorDialog({
 
   const handleNext = () => {
     if (currentStep < STEPS.length - 1) {
-      // Validation before moving from Basic
+
       if (currentStep === 0 && !editedLesson?.title.trim()) {
         toast.error(t('lesson_editor_dialog.enter_lesson_title'))
         return
@@ -194,7 +194,7 @@ export function LessonEditorDialog({
       description: t('lesson_editor_dialog.steps.settings.description'),
     },
   ]
-  
+
   const statusConfig = {
     published: {
       icon: CheckCircle,
@@ -208,12 +208,12 @@ export function LessonEditorDialog({
 
   const currentStatus = statusConfig[editedLesson.status as keyof typeof statusConfig] || statusConfig.draft
 
-  // Render Step Content
+
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0: // Basic
+      case 0:
         return <BasicTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 1: // Content
+      case 1:
         if (contentType === 'quiz') {
           return <QuizTab lesson={editedLesson} onUpdate={handleUpdate} />
         }
@@ -230,14 +230,14 @@ export function LessonEditorDialog({
                 </p>
               </div>
               <div className="flex-1 border rounded-md overflow-hidden bg-background">
-                {/* Embedded Code Quiz Creator */}
+
                 <div className="p-4 h-full overflow-y-auto">
-                   <EnhancedCodeQuizCreator 
+                   <EnhancedCodeQuizCreator
                       initialData={editedLesson.quizData}
                       onChange={(data) => handleUpdate({ quizData: data })}
                       onSave={(data) => handleUpdate({ quizData: data })}
-                      // Hide cancel button in embedded mode
-                      onCancel={undefined} 
+
+                      onCancel={undefined}
                    />
                 </div>
               </div>
@@ -245,9 +245,9 @@ export function LessonEditorDialog({
           )
         }
         return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 2: // Resources
+      case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 3: // Settings
+      case 3:
         return <SettingsTab lesson={editedLesson} onUpdate={handleUpdate} />
       default:
         return null
@@ -257,7 +257,7 @@ export function LessonEditorDialog({
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 gap-0 flex flex-col overflow-hidden bg-background">
-        {/* Header */}
+
         <div className="flex flex-col border-b bg-muted/10">
           <DialogHeader className="p-6 pb-2">
             <div className="flex items-start justify-between gap-4">
@@ -287,7 +287,7 @@ export function LessonEditorDialog({
             </div>
           </DialogHeader>
 
-          {/* Stepper Header */}
+
           <div className="px-6 pb-4">
             <div className="relative flex items-center justify-between w-full max-w-3xl mx-auto">
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-muted -z-10" />
@@ -302,10 +302,10 @@ export function LessonEditorDialog({
                       onClick={() => setCurrentStep(index)}
                       className={cn(
                         "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200",
-                        isActive 
-                          ? "border-primary bg-primary text-primary-foreground scale-110 shadow-md" 
-                          : isCompleted 
-                            ? "border-primary/50 bg-primary/10 text-primary" 
+                        isActive
+                          ? "border-primary bg-primary text-primary-foreground scale-110 shadow-md"
+                          : isCompleted
+                            ? "border-primary/50 bg-primary/10 text-primary"
                             : "border-muted bg-muted text-muted-foreground"
                       )}
                     >
@@ -326,7 +326,7 @@ export function LessonEditorDialog({
           </div>
         </div>
 
-        {/* Main Content Area */}
+
         <div className="flex-1 overflow-hidden flex flex-col bg-muted/5">
           <div className="flex-1 overflow-y-auto p-6 sm:p-8">
             <div className="max-w-5xl mx-auto h-full">
@@ -340,7 +340,7 @@ export function LessonEditorDialog({
           </div>
         </div>
 
-        {/* Footer Navigation */}
+
         <DialogFooter className="p-4 border-t bg-background flex items-center justify-between sm:justify-between">
           <div className="flex items-center gap-2">
              {lastSaved && (
@@ -350,7 +350,7 @@ export function LessonEditorDialog({
               </span>
              )}
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -361,7 +361,7 @@ export function LessonEditorDialog({
               <ChevronLeft className="h-4 w-4 mr-2" />
               {t('lesson_editor_dialog.back')}
             </Button>
-            
+
             {currentStep < steps.length - 1 ? (
               <Button onClick={handleNext} className="w-24">
                 {t('lesson_editor_dialog.next')}
@@ -390,12 +390,12 @@ export function LessonEditorDialog({
           </div>
         </DialogFooter>
       </DialogContent>
-      
-      {/* Preview Modal */}
-      <LessonPreviewModal 
-        open={showPreview} 
-        onOpenChange={setShowPreview} 
-        lesson={editedLesson} 
+
+
+      <LessonPreviewModal
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        lesson={editedLesson}
       />
     </Dialog>
   )

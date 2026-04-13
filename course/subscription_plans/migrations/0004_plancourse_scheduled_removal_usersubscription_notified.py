@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # UserSubscription: notification flags
+
         migrations.AddField(
             model_name='usersubscription',
             name='notified_7d',
@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             name='notified_3d',
             field=models.BooleanField(default=False, help_text='Đã gửi thông báo 3 ngày trước khi hết hạn'),
         ),
-        # PlanCourse: scheduled removal
+
         migrations.AddField(
             model_name='plancourse',
             name='scheduled_removal_at',

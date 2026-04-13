@@ -1,62 +1,62 @@
-/**
- * useWebSocket - Generic reconnecting WebSocket hook
- *
- * Connects to a Django Channels WS endpoint with JWT auth.
- * Supports auto-reconnect, heartbeat (ping/pong), and typed messages.
- */
+
+
+
+
+
+
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { getAccessToken, refreshAccessToken } from '../services/http'
 
-// ─── Helpers ──────────────────────────────────────────────────────
+
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
-/** Derive the WebSocket base from the HTTP API base URL. */
+
 function getWsBase(): string {
-  // Strip /api suffix
+
   const httpBase = API_BASE.replace(/\/api\/?$/, '')
-  // http → ws, https → wss
+
   return httpBase.replace(/^http/, 'ws')
 }
 
-// ─── Types ────────────────────────────────────────────────────────
+
 
 export interface UseWebSocketOptions {
-  /** WS path, e.g. "/ws/notifications/" */
+
   path: string
-  /** Called on every incoming JSON message */
+
   onMessage?: (data: any) => void
-  /** Called when WS connection opens */
+
   onOpen?: () => void
-  /** Called when WS connection closes */
+
   onClose?: (event: CloseEvent) => void
-  /** Called on error */
+
   onError?: (event: Event) => void
-  /** Whether to auto-connect (default: true) */
+
   enabled?: boolean
-  /** Max reconnect attempts (default: 10) */
+
   maxRetries?: number
-  /** Base delay in ms for exponential back-off (default: 1000) */
+
   baseDelay?: number
-  /** Heartbeat interval in ms (default: 30000) */
+
   heartbeatInterval?: number
 }
 
 export interface UseWebSocketReturn {
-  /** Send a JSON message to the server */
+
   sendJsonMessage: (data: any) => void
-  /** Current connection state */
+
   readyState: number
-  /** Whether connected */
+
   isConnected: boolean
-  /** Manually reconnect */
+
   reconnect: () => void
-  /** Manually disconnect */
+
   disconnect: () => void
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────
+
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const {
@@ -79,7 +79,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
   const [readyState, setReadyState] = useState<number>(WebSocket.CLOSED)
 
-  // Stable callback refs
+
   const onMessageRef = useRef(onMessage)
   const onOpenRef = useRef(onOpen)
   const onCloseRef = useRef(onClose)
@@ -107,19 +107,19 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   const connect = useCallback(async () => {
     cleanup()
 
-    // make sure access token is fresh before opening websocket
+
     let token = getAccessToken()
     if (token) {
       try {
         token = await refreshAccessToken()
       } catch {
-        token = getAccessToken() // may have been cleared
+        token = getAccessToken()
       }
     }
-    if (!token) return // Not authenticated or refresh failed
+    if (!token) return
 
     const url = `${getWsBase()}${path}${path.includes('?') ? '&' : '?'}token=${token}`
-    
+
     const ws = new WebSocket(url)
     wsRef.current = ws
 
@@ -129,7 +129,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       setReadyState(WebSocket.OPEN)
       onOpenRef.current?.()
 
-      // Start heartbeat
+
       heartbeatTimerRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }))
@@ -141,10 +141,10 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       if (!mountedRef.current) return
       try {
         const data = JSON.parse(event.data)
-        if (data.type === 'pong') return // Heartbeat response
+        if (data.type === 'pong') return
         onMessageRef.current?.(data)
       } catch {
-        // Ignore non-JSON messages
+
       }
     }
 
@@ -159,7 +159,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       setReadyState(WebSocket.CLOSED)
       onCloseRef.current?.(event)
 
-      // Auto-reconnect with exponential back-off
+
       if (retriesRef.current < maxRetries && mountedRef.current) {
         const delay = Math.min(baseDelay * Math.pow(2, retriesRef.current), 30000)
         retriesRef.current++
@@ -179,7 +179,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   }, [])
 
   const disconnect = useCallback(() => {
-    retriesRef.current = maxRetries // Prevent auto-reconnect
+    retriesRef.current = maxRetries
     cleanup()
     setReadyState(WebSocket.CLOSED)
   }, [cleanup, maxRetries])

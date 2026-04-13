@@ -20,7 +20,7 @@ def log_activity(request = None, action = None, description = None, entity_type 
     ip_address = None
     user_agent = None
     if request:
-        ip_address = get_client_ip(request) 
+        ip_address = get_client_ip(request)
         user_agent = request.META.get("HTTP_USER_AGENT", None)
     data = ActivityLog.objects.create(
         user=user if user else None,

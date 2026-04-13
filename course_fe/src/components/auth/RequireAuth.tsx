@@ -12,9 +12,9 @@ interface RequireAuthProps {
   showToast?: boolean
 }
 
-export function RequireAuth({ 
-  children, 
-  roles, 
+export function RequireAuth({
+  children,
+  roles,
   permissions,
   redirectTo = '/login',
   showToast = true
@@ -24,7 +24,7 @@ export function RequireAuth({
   const { t } = useTranslation()
 
   useEffect(() => {
-    // Check if user is authenticated
+
     if (!isAuthenticated) {
       if (showToast) {
         toast.error(t('system_notifications.login_required_description'))
@@ -33,12 +33,12 @@ export function RequireAuth({
       return
     }
 
-    // Check role and permission access
+
     if (!canAccess(roles, permissions)) {
       if (showToast) {
         toast.error(t('system_notifications.access_denied_description'))
       }
-      // Redirect based on user's role
+
       if (user?.roles.includes('admin')) {
         navigate('/admin')
       } else if (user?.roles.includes('instructor')) {
@@ -49,16 +49,16 @@ export function RequireAuth({
     }
   }, [isAuthenticated, user, roles, permissions, navigate, redirectTo, showToast, canAccess])
 
-  // Show nothing while redirecting
+
   if (!isAuthenticated) {
     return null
   }
 
-  // Show nothing if user doesn't have access
+
   if (!canAccess(roles, permissions)) {
     return null
   }
 
-  // Render children if authenticated and authorized
+
   return <>{children}</>
 }

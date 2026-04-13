@@ -6,7 +6,7 @@ class Command(BaseCommand):
     help = "Scan payments with many IPN attempts and pending status; print alerts."
 
     def handle(self, *args, **options):
-        # simple alert: payments pending longer than one hour
+
         old = timezone.now() - timezone.timedelta(hours=1)
         payments = Payment.objects.filter(
             payment_status=Payment.PaymentStatus.PENDING,

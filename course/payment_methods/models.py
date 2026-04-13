@@ -20,13 +20,13 @@ class UserPaymentMethod(models.Model):
     nickname = models.CharField(max_length=100, blank=True, null=True,
                                 help_text="Tên hiển thị ví dụ: 'Thẻ cá nhân', 'Ví MoMo công ty'")
 
-    # VNPay / MoMo: lưu token/alias do gateway cấp (không lưu số thẻ thô)
+
     gateway_token = models.CharField(max_length=512, blank=True, null=True,
                                      help_text="Token từ payment gateway (không phải số thẻ thô)")
     masked_account = models.CharField(max_length=50, blank=True, null=True,
                                       help_text="VD: ****6789 hoặc 09*****23")
 
-    # Bank transfer details (for generic bank saved info)
+
     bank_name = models.CharField(max_length=100, blank=True, null=True)
     bank_branch = models.CharField(max_length=200, blank=True, null=True)
     account_number = models.CharField(max_length=50, blank=True, null=True)
@@ -62,13 +62,13 @@ class InstructorPayoutMethod(models.Model):
     nickname = models.CharField(max_length=100, blank=True, null=True,
                                 help_text="VD: 'Tài khoản VCB cá nhân'")
 
-    # Bank transfer
+
     bank_name = models.CharField(max_length=100, blank=True, null=True)
     bank_branch = models.CharField(max_length=200, blank=True, null=True)
     account_number = models.CharField(max_length=50, blank=True, null=True)
     account_name = models.CharField(max_length=200, blank=True, null=True)
 
-    # MoMo / VNPay wallet
+
     wallet_phone = models.CharField(max_length=20, blank=True, null=True,
                                     help_text="Số điện thoại ví điện tử")
     masked_account = models.CharField(max_length=50, blank=True, null=True)

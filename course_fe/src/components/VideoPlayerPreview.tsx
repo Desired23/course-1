@@ -2,12 +2,12 @@ import { useState, useRef } from 'react'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { Slider } from './ui/slider'
-import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
   Settings,
   SkipBack,
   SkipForward
@@ -22,11 +22,11 @@ interface VideoPlayerPreviewProps {
   className?: string
 }
 
-export function VideoPlayerPreview({ 
-  videoUrl, 
-  title, 
+export function VideoPlayerPreview({
+  videoUrl,
+  title,
   duration,
-  className 
+  className
 }: VideoPlayerPreviewProps) {
   const { t } = useTranslation()
   const [isPlaying, setIsPlaying] = useState(false)
@@ -82,12 +82,12 @@ export function VideoPlayerPreview({
   }
 
   return (
-    <Card 
+    <Card
       className={cn("overflow-hidden bg-black relative group", className)}
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(isPlaying ? false : true)}
     >
-      {/* Video Element */}
+
       <div className="relative aspect-video bg-black flex items-center justify-center">
         {videoUrl && !hasError ? (
           <video
@@ -117,7 +117,7 @@ export function VideoPlayerPreview({
           </div>
         )}
 
-        {/* Play/Pause Overlay */}
+
         {!isPlaying && videoUrl && (
           <button
             onClick={togglePlay}
@@ -129,14 +129,14 @@ export function VideoPlayerPreview({
           </button>
         )}
 
-        {/* Controls Overlay */}
-        <div 
+
+        <div
           className={cn(
             "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300",
             showControls ? "opacity-100" : "opacity-0"
           )}
         >
-          {/* Progress Bar */}
+
           <Slider
             value={progress}
             onValueChange={handleProgressChange}
@@ -145,10 +145,10 @@ export function VideoPlayerPreview({
             className="mb-3 cursor-pointer"
           />
 
-          {/* Controls */}
+
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              {/* Play/Pause */}
+
               <Button
                 size="sm"
                 variant="ghost"
@@ -162,7 +162,7 @@ export function VideoPlayerPreview({
                 )}
               </Button>
 
-              {/* Skip Backward */}
+
               <Button
                 size="sm"
                 variant="ghost"
@@ -172,7 +172,7 @@ export function VideoPlayerPreview({
                 <SkipBack className="h-4 w-4" />
               </Button>
 
-              {/* Skip Forward */}
+
               <Button
                 size="sm"
                 variant="ghost"
@@ -182,7 +182,7 @@ export function VideoPlayerPreview({
                 <SkipForward className="h-4 w-4" />
               </Button>
 
-              {/* Volume */}
+
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -205,9 +205,9 @@ export function VideoPlayerPreview({
                 />
               </div>
 
-              {/* Time */}
+
               <span className="text-xs text-white/80 ml-2">
-                {videoRef.current 
+                {videoRef.current
                   ? formatTime(videoRef.current.currentTime)
                   : '0:00'
                 } / {duration || '0:00'}
@@ -215,7 +215,7 @@ export function VideoPlayerPreview({
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Settings */}
+
               <Button
                 size="sm"
                 variant="ghost"
@@ -224,7 +224,7 @@ export function VideoPlayerPreview({
                 <Settings className="h-4 w-4" />
               </Button>
 
-              {/* Fullscreen */}
+
               <Button
                 size="sm"
                 variant="ghost"
@@ -242,7 +242,7 @@ export function VideoPlayerPreview({
         </div>
       </div>
 
-      {/* Video Title */}
+
       <div className="p-4 bg-background border-t">
         <h3 className="font-semibold">{title}</h3>
         <p className="text-sm text-muted-foreground mt-1">

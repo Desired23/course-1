@@ -1,19 +1,20 @@
 import { useRouter } from "./Router"
+import { motion } from 'motion/react'
 import { useAuth } from "../contexts/AuthContext"
 import { useUIStore } from "../stores"
 import { cn } from "./ui/utils"
 import { useTranslation } from "react-i18next"
 import { LanguageSwitcher } from "./LanguageSwitcher"
 import { useMinWidth } from "../hooks/useMinWidth"
-import { 
-  BookOpen, 
-  ShoppingCart, 
-  Heart, 
-  Star, 
-  User, 
-  Bell, 
-  Settings, 
-  CreditCard, 
+import {
+  BookOpen,
+  ShoppingCart,
+  Heart,
+  Star,
+  User,
+  Bell,
+  Settings,
+  CreditCard,
   Package,
   Receipt,
   LogOut,
@@ -28,6 +29,18 @@ interface SidebarItem {
 
 interface UserDashboardSidebarProps {
   className?: string
+}
+
+function getRoutePath(route: string) {
+  return route.split('?')[0]
+}
+
+function isRouteActive(currentRoute: string, href: string) {
+  const path = getRoutePath(currentRoute)
+  if (href === '/my-learning' || href === '/profile' || href === '/wishlist' || href === '/notifications') {
+    return path === href
+  }
+  return path === href || path.startsWith(`${href}/`)
 }
 
 export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
@@ -60,7 +73,7 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
   return (
     <>
       {!isDesktopSidebar && sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={() => setSidebarOpen(false)}
         />
@@ -87,28 +100,40 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
           <div>
             {menuItems.map((item) => (
               <div key={item.href}>
+                {(() => {
+                  const active = isRouteActive(currentRoute, item.href)
+                  return (
                 <button
                   className={cn(
-                    "mx-1 w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-white/10 sm:px-4 sm:py-2.5",
-                    currentRoute === item.href && "bg-white/10"
+                    "relative mx-1 w-full overflow-hidden rounded-md px-3 py-2 text-left transition-colors hover:bg-white/10 sm:px-4 sm:py-2.5",
+                    active && "text-white"
                   )}
                   onClick={() => {
                     navigate(item.href)
                     if (!isDesktopSidebar) setSidebarOpen(false)
                   }}
                 >
-                  <span className="flex items-center gap-2 sm:gap-3">
+                  {active && (
+                    <motion.span
+                      layoutId="user-sidebar-glider"
+                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute inset-0 rounded-md bg-white/12"
+                    />
+                  )}
+                  <span className="relative z-10 flex items-center gap-2 sm:gap-3">
                     {item.icon}
                     <span className="text-xs sm:text-sm">{item.label}</span>
                   </span>
                 </button>
+                  )
+                })()}
                 {item.dividerAfter && (
                   <div className="my-2 border-t border-white/10" />
                 )}
               </div>
             ))}
           </div>
-          
+
           <div className="mt-auto px-4 py-2">
             <div className="mb-2 flex items-center justify-between gap-3">
               <span className="text-xs text-gray-400">{t('common.language')}</span>

@@ -5,8 +5,8 @@ class CourseModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourseModule
         fields = [
-            'id',           # Tương ứng với ModuleID
-            'course',       # Tương ứng với CourseID (ForeignKey)
+            'id',
+            'course',
             'title',
             'description',
             'order_number',

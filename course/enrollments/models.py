@@ -9,7 +9,7 @@ class Enrollment(models.Model):
         Complete = "complete"
         Expired = "expired"
         Cancelled = "cancelled"
-        SUSPENDED = "suspended"  # gói subscription hết hạn, chờ gia hạn
+        SUSPENDED = "suspended"
 
     class Source(models.TextChoices):
         PURCHASE = 'purchase', 'Purchase'

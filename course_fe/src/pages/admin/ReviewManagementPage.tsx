@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import {
   AlertTriangle,
   CheckCircle,
@@ -63,9 +64,32 @@ const mapStatus = (status: string, reportCount: number): ReviewStatus => {
   return 'pending'
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function ReviewManagementPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'flagged' | 'stats'>('all')
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [filteredReviews, setFilteredReviews] = useState<ReviewRow[]>([])
   const [selectedReview, setSelectedReview] = useState<ReviewRow | null>(null)
@@ -369,15 +393,15 @@ export function ReviewManagementPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <motion.div className="p-6 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl mb-2">{t('admin_reviews.title')}</h1>
           <p className="text-muted-foreground">{t('admin_reviews.subtitle')}</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={fadeInUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('admin_reviews.cards.total_reviews')}</CardTitle>
@@ -421,14 +445,27 @@ export function ReviewManagementPage() {
             <p className="text-xs text-muted-foreground">{t('admin_reviews.cards.needs_moderation')}</p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="all" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="all">{t('admin_reviews.tabs.all', { count: reviews.length })}</TabsTrigger>
-          <TabsTrigger value="pending">{t('admin_reviews.tabs.pending', { count: reviews.filter(r => r.status === 'pending').length })}</TabsTrigger>
-          <TabsTrigger value="flagged">{t('admin_reviews.tabs.flagged', { count: reviews.filter(r => r.status === 'flagged').length })}</TabsTrigger>
-          <TabsTrigger value="stats">{t('admin_reviews.tabs.stats')}</TabsTrigger>
+      <motion.div variants={fadeInUp}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'all' | 'pending' | 'flagged' | 'stats')} className="space-y-6">
+        <TabsList className="relative p-1">
+          <TabsTrigger value="all" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'all' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reviews.tabs.all', { count: reviews.length })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'pending' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reviews.tabs.pending', { count: reviews.filter(r => r.status === 'pending').length })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="flagged" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'flagged' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reviews.tabs.flagged', { count: reviews.filter(r => r.status === 'flagged').length })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="stats" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'stats' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('admin_reviews.tabs.stats')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="all" className="space-y-6">
@@ -749,6 +786,7 @@ export function ReviewManagementPage() {
           </div>
         </TabsContent>
       </Tabs>
+      </motion.div>
 
       {selectedReview && (
         <Dialog open={!!selectedReview} onOpenChange={() => setSelectedReview(null)}>
@@ -871,6 +909,6 @@ export function ReviewManagementPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }

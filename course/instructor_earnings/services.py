@@ -20,11 +20,11 @@ def generate_instructor_earnings_from_payment(payment_id):
 
             for detail in payment.payment_details.all():
                 instructor = detail.course.instructor
-                # print("detail:", detail.__dict__)
-                if not instructor:
-                    continue  # Bỏ qua nếu chưa gán instructor cho khóa học
 
-                # Tính commission_rate
+                if not instructor:
+                    continue
+
+
                 if not instructor or not instructor.level:
                     commission_rate = Decimal("30.00")
                 else:
@@ -34,7 +34,7 @@ def generate_instructor_earnings_from_payment(payment_id):
                 net_amount = amount * (Decimal(100) - commission_rate) / Decimal(100)
 
                 try:
-                    # Create idempotently: unique constraint on (payment, course, instructor)
+
                     earning, created = InstructorEarning.objects.get_or_create(
                         payment=payment,
                         course=detail.course,
@@ -46,21 +46,21 @@ def generate_instructor_earnings_from_payment(payment_id):
                             'earning_date': timezone.now(),
                         }
                     )
-                    # If already exists, don't duplicate — optionally update fields if needed
+
                     results.append(InstructorEarningSerializer(earning).data)
                 except Exception as ie:
-                    # Handle rare race/constraint errors gracefully
+
                     try:
                         from django.db import IntegrityError
                         if isinstance(ie, IntegrityError):
-                            # Try fetch existing record and continue
+
                             existing = InstructorEarning.objects.filter(payment=payment, course=detail.course, instructor=instructor).first()
                             if existing:
                                 results.append(InstructorEarningSerializer(existing).data)
                                 continue
                     except Exception:
                         pass
-                    # Re-raise for unexpected errors
+
                     raise
 
             return results
@@ -82,7 +82,7 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None, source=
         if status:
             earnings = earnings.filter(status=status)
 
-        # source filter: 'retail' | 'subscription'
+
         if source == 'retail':
             earnings = earnings.filter(payment__isnull=False, user_subscription__isnull=True)
         elif source == 'subscription':
@@ -133,8 +133,8 @@ def update_instructor_earning_status(earning_id, new_status):
     except Exception as e:
         raise ValidationError(f"Lỗi khi cập nhật trạng thái earnings: {str(e)}")
 def update_instructor_earning_with_payout(payout_id):
-# gán trạng thái cho earnings từ payout khi đã thanh toán hoặc hủy ,
-# chỉ chuyển từ AVAILABLE sang PAID hoặc CANCELLED
+
+
     try:
         with transaction.atomic():
             payout = InstructorPayout.objects.prefetch_related(
@@ -153,7 +153,7 @@ def update_instructor_earning_with_payout(payout_id):
                 new_status = InstructorEarning.StatusChoices.CANCELLED
                 assign_payout = None
             else:
-                return InstructorEarning.objects.none()  # Trạng thái không hợp lệ thì không làm gì cả
+                return InstructorEarning.objects.none()
 
             for earning in earnings:
                 if earning.status == InstructorEarning.StatusChoices.AVAILABLE:
@@ -165,7 +165,7 @@ def update_instructor_earning_with_payout(payout_id):
         raise ValidationError("Không tìm thấy Payout.")
     except Exception as e:
         raise ValidationError(f"Lỗi khi cập nhật earnings với payout: {str(e)}")
-def update_earnings_available(): #cronjob
+def update_earnings_available():
     """
     Chuyển InstructorEarning từ PENDING → AVAILABLE sau khi hết thời gian refund.
     Xử lý cả 2 nguồn:
@@ -180,14 +180,14 @@ def update_earnings_available(): #cronjob
             refund_days = settings.REFUND_DAYS
             refund_time = timezone.now() - timedelta(days=refund_days)
 
-            # Nguồn bán lẻ: payment không null và đã qua refund window
+
             retail_earnings = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.PENDING,
                 payment__isnull=False,
                 payment__payment_date__lt=refund_time,
                 user_subscription__isnull=True,
             )
-            # Nguồn subscription: không có payment, chỉ cần đủ 1 ngày để settle
+
             sub_settle_time = timezone.now() - timedelta(days=1)
             subscription_earnings = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.PENDING,
@@ -208,9 +208,9 @@ def update_earnings_available(): #cronjob
         raise ValidationError(f"Lỗi khi cập nhật earnings thành AVAILABLE: {str(e)}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Phase 3 — Subscription Revenue Sharing
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 
 def calculate_subscription_earnings_for_month(year: int, month: int):
     """
@@ -233,7 +233,7 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
     from subscription_plans.models import UserSubscription, SubscriptionUsage
     from instructors.models import Instructor
 
-    # Lấy subscriptions có start_date trong tháng (đã thanh toán = có payment)
+
     first_day = timezone.datetime(year, month, 1, tzinfo=timezone.utc)
     last_day = timezone.datetime(
         year, month, calendar.monthrange(year, month)[1],
@@ -253,16 +253,16 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
         for sub in subscriptions:
             plan_revenue = sub.plan.effective_price
 
-            # Tổng consumed_minutes của toàn subscription
+
             total_minutes_row = SubscriptionUsage.objects.filter(
                 user_subscription=sub
             ).aggregate(total=Sum('consumed_minutes'))
             total_minutes = total_minutes_row['total'] or 0
 
             if total_minutes == 0:
-                continue  # Không ai học → bỏ qua
+                continue
 
-            # Aggregate theo instructor (thông qua course)
+
             instructor_usage = (
                 SubscriptionUsage.objects
                 .filter(user_subscription=sub)
@@ -281,18 +281,18 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
                 except Instructor.DoesNotExist:
                     continue
 
-                # Commission rate từ level của instructor
+
                 if instructor.level and instructor.level.plan_commission_rate is not None:
                     commission_rate = instructor.level.plan_commission_rate
                 else:
                     commission_rate = Decimal('30.00')
 
-                # Tính earning
+
                 share_ratio = Decimal(str(instructor_minutes)) / Decimal(str(total_minutes))
                 instructor_pool = plan_revenue * (Decimal('100') - commission_rate) / Decimal('100')
                 net_amount = (instructor_pool * share_ratio).quantize(Decimal('0.01'))
 
-                # Tạo earning (idempotent)
+
                 earning, created = InstructorEarning.objects.get_or_create(
                     user_subscription=sub,
                     course_id=course_id,
@@ -326,9 +326,9 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Instructor Earnings Summary (cả 2 nguồn: retail + subscription)
-# ─────────────────────────────────────────────────────────────────────────────
+
+
+
 
 def get_instructor_earnings_summary(instructor_id):
     """

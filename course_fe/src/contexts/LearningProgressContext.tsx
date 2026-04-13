@@ -16,17 +16,17 @@ export interface LessonProgress {
   notes?: string
 }
 
-// ✅ Quiz Answer State (for code quiz, MCQ, etc.)
+
 export interface QuizAnswer {
   questionId: number
   lessonId: number
   type: 'code' | 'multiple_choice' | 'true_false'
-  // For code quiz
+
   code?: string
-  language?: number // Judge0 language ID
-  // For MCQ/True-False
+  language?: number
+
   selectedAnswers?: number[]
-  // Metadata
+
   isSubmitted: boolean
   isCorrect?: boolean
   score?: number
@@ -48,7 +48,7 @@ interface LearningProgressContextType {
   }
   addTimeSpent: (lessonId: number, seconds: number) => void
   getTotalTimeSpent: (courseId: string) => number
-  // ✅ Quiz answer management
+
   quizAnswers: QuizAnswer[]
   saveQuizAnswer: (answer: QuizAnswer) => void
   getQuizAnswer: (questionId: number, lessonId: number) => QuizAnswer | undefined
@@ -64,7 +64,7 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
   const [quizAnswers, setQuizAnswers] = useState<QuizAnswer[]>([])
 
   useEffect(() => {
-    // Load progress from localStorage
+
     if (!user) {
       setLessonProgress([])
       setQuizAnswers([])
@@ -84,7 +84,7 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
       setLessonProgress([])
     }
 
-    // ✅ Load quiz answers
+
     const savedQuizAnswers = localStorage.getItem(`quizAnswers_${user.id}`)
     if (savedQuizAnswers) {
       try {
@@ -100,7 +100,7 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
   }, [user])
 
   useEffect(() => {
-    // Save progress to localStorage
+
     if (!user) return
     if (lessonProgress.length > 0) {
       localStorage.setItem(`learningProgress_${user.id}`, JSON.stringify(lessonProgress))
@@ -109,7 +109,7 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
     localStorage.removeItem(`learningProgress_${user.id}`)
   }, [lessonProgress, user])
 
-  // ✅ Save quiz answers to localStorage
+
   useEffect(() => {
     if (!user) return
     if (quizAnswers.length > 0) {
@@ -128,17 +128,17 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
 
     setLessonProgress(prev => {
       const existing = prev.find(p => p.lesson_id === lessonId)
-      
+
       if (existing) {
-        return prev.map(p => 
-          p.lesson_id === lessonId 
+        return prev.map(p =>
+          p.lesson_id === lessonId
             ? { ...p, ...data, last_accessed: new Date().toISOString() }
             : p
         )
       } else {
         const newProgress: LessonProgress = {
           progress_id: Date.now(),
-          enrollment_id: 0, // Should be linked to actual enrollment
+          enrollment_id: 0,
           lesson_id: lessonId,
           progress: 0,
           last_accessed: new Date().toISOString(),
@@ -159,8 +159,8 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
       completion_time: new Date().toISOString()
     })
 
-    // Update course progress
-    // Note: In real app, you'd calculate this based on all lessons in the course
+
+
   }
 
   const markLessonIncomplete = (lessonId: number) => {
@@ -184,11 +184,11 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
   }
 
   const getCourseCompletionStats = (courseId: string) => {
-    // This would need to be linked with course data to get all lessons
-    // For now, return mock stats
+
+
     const completed = lessonProgress.filter(p => p.status === 'completed').length
-    const total = 20 // Mock total lessons
-    
+    const total = 20
+
     return {
       completed,
       total,
@@ -206,11 +206,11 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
   }
 
   const getTotalTimeSpent = (courseId: string): number => {
-    // Would need to filter by course's lessons
+
     return lessonProgress.reduce((total, p) => total + p.time_spent, 0)
   }
 
-  // ✅ Quiz answer management
+
   const saveQuizAnswer = (answer: QuizAnswer) => {
     setQuizAnswers(prev => {
       const existingIndex = prev.findIndex(a => a.questionId === answer.questionId && a.lessonId === answer.lessonId)
@@ -243,7 +243,7 @@ export function LearningProgressProvider({ children }: { children: React.ReactNo
     getCourseCompletionStats,
     addTimeSpent,
     getTotalTimeSpent,
-    // ✅ Quiz answer management
+
     quizAnswers,
     saveQuizAnswer,
     getQuizAnswer,

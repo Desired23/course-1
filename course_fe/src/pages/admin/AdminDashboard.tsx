@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { motion } from 'motion/react'
 import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
 import { toast } from "sonner"
@@ -14,12 +15,12 @@ import { Input } from "../../components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
-import { 
-  Users, 
-  BookOpen, 
-  DollarSign, 
-  TrendingUp, 
-  Search, 
+import {
+  Users,
+  BookOpen,
+  DollarSign,
+  TrendingUp,
+  Search,
   MoreVertical,
   Eye,
   Edit,
@@ -28,13 +29,35 @@ import {
   Plus,
   BarChart3
 } from "lucide-react"
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "../../components/ui/dropdown-menu"
 import { useTranslation } from "react-i18next"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function AdminDashboard() {
   const { hasRole } = useAuth()
@@ -45,6 +68,7 @@ export function AdminDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isUsersLoading, setIsUsersLoading] = useState(true)
   const [isCoursesLoading, setIsCoursesLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('users')
   const [recentUsers, setRecentUsers] = useState<any[]>([])
   const [recentCourses, setRecentCourses] = useState<any[]>([])
   const [dashboardStats, setDashboardStats] = useState<any>({ totalUsers: 0, totalCourses: 0, monthlyRevenue: 0, courseCompletions: 0 })
@@ -160,15 +184,15 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="p-4 md:p-8">
-        <div className="flex items-center justify-end mb-4">
+    <motion.div className="p-4 md:p-8" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="flex items-center justify-end mb-4" variants={fadeInUp}>
           <Button variant="outline" size="sm" onClick={handleRefreshStats} disabled={isRefreshing}>
             {isRefreshing ? t('admin_dashboard.refreshing') : t('admin_dashboard.refresh_dashboard')}
           </Button>
-        </div>
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card 
+        </motion.div>
+
+        <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={fadeInUp}>
+          <Card
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
             onClick={() => openStatDetail(t('admin_dashboard.total_users'), 'users', dashboardStats.totalUsers || 0)}
           >
@@ -187,7 +211,7 @@ export function AdminDashboard() {
             </div>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
             onClick={() => openStatDetail(t('admin_dashboard.total_courses'), 'courses', dashboardStats.totalCourses || 0)}
           >
@@ -206,7 +230,7 @@ export function AdminDashboard() {
             </div>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
             onClick={() => openStatDetail(t('admin_dashboard.monthly_revenue'), 'revenue', dashboardStats.monthlyRevenue || 0)}
           >
@@ -225,7 +249,7 @@ export function AdminDashboard() {
             </div>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:shadow-lg transition-shadow relative group"
             onClick={() => openStatDetail(t('admin_dashboard.completions'), 'completions', dashboardStats.courseCompletions || 0)}
           >
@@ -243,9 +267,9 @@ export function AdminDashboard() {
               <BarChart3 className="h-8 w-8 text-primary" />
             </div>
           </Card>
-        </div>
+        </motion.div>
 
-        {/* Stat Detail Dialog */}
+
         <StatDetailDialog
           open={selectedStat.open}
           onOpenChange={(open) => setSelectedStat({ ...selectedStat, open })}
@@ -254,18 +278,31 @@ export function AdminDashboard() {
           currentValue={selectedStat.value}
         />
 
-        {/* Pending Tasks */}
-        <div className="mb-8">
-          <PendingTasks userRole="admin" />
-        </div>
 
-        <Tabs defaultValue="users" className="space-y-6">
+        <motion.div className="mb-8" variants={fadeInUp}>
+          <PendingTasks userRole="admin" />
+        </motion.div>
+
+        <motion.div variants={fadeInUp}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex w-full overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-             <TabsList className="inline-flex min-w-full md:min-w-0 justify-start">
-                <TabsTrigger value="users">{t('admin_dashboard.users_tab')}</TabsTrigger>
-                <TabsTrigger value="courses">{t('admin_dashboard.courses_tab')}</TabsTrigger>
-                <TabsTrigger value="analytics">{t('admin_dashboard.analytics_tab')}</TabsTrigger>
-                <TabsTrigger value="settings">{t('admin_dashboard.settings_tab')}</TabsTrigger>
+             <TabsList className="relative inline-flex min-w-full md:min-w-0 justify-start p-1">
+                <TabsTrigger value="users" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                  {activeTab === 'users' && <motion.span layoutId="admin-dashboard-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                  <span className="relative z-10">{t('admin_dashboard.users_tab')}</span>
+                </TabsTrigger>
+                <TabsTrigger value="courses" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                  {activeTab === 'courses' && <motion.span layoutId="admin-dashboard-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                  <span className="relative z-10">{t('admin_dashboard.courses_tab')}</span>
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                  {activeTab === 'analytics' && <motion.span layoutId="admin-dashboard-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                  <span className="relative z-10">{t('admin_dashboard.analytics_tab')}</span>
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                  {activeTab === 'settings' && <motion.span layoutId="admin-dashboard-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                  <span className="relative z-10">{t('admin_dashboard.settings_tab')}</span>
+                </TabsTrigger>
              </TabsList>
           </div>
 
@@ -536,6 +573,7 @@ export function AdminDashboard() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+        </motion.div>
+      </motion.div>
   )
 }

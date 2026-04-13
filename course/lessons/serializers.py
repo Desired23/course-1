@@ -44,17 +44,17 @@ class LessonSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-    
+
     def validate_coursemodule(self, value):
         """Validate coursemodule exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Coursemodule is required.")
-        
+
         try:
             coursemodule = CourseModule.objects.get(id=value.id, is_deleted=False)
         except CourseModule.DoesNotExist:
             raise serializers.ValidationError("Coursemodule does not exist or has been deleted.")
-        
+
         return value
 
     def get_signed_video_url(self, obj):

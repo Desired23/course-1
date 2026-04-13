@@ -18,9 +18,9 @@ export function CategoryBanner({
 }: CategoryBannerProps) {
   return (
     <div className="relative bg-gradient-to-r from-purple-900 to-purple-700 text-white overflow-hidden">
-      {/* Background Image Overlay */}
+
       {imageUrl && (
-        <div 
+        <div
           className="absolute inset-0 opacity-20"
           style={{
             backgroundImage: `url(${imageUrl})`,
@@ -31,16 +31,16 @@ export function CategoryBanner({
       )}
 
       <div className="relative container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <CourseBreadcrumb 
-          items={breadcrumbItems} 
+
+        <CourseBreadcrumb
+          items={breadcrumbItems}
           className="mb-4"
         />
 
-        {/* Title and Description */}
+
         <div className="max-w-3xl">
           <h1 className="text-4xl mb-3">{title}</h1>
-          
+
           {description && (
             <p className="text-lg text-gray-200 mb-4">{description}</p>
           )}

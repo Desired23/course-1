@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -56,9 +57,31 @@ import { getQnAs, getAllQnAAnswers, createQnAAnswer, updateQnA, type QnA, type Q
 import { reportConversationMessage } from '../../services/chat.api'
 import { formatRelativeTime } from '../../utils/formatters'
 
-// Q&A data is now fetched from API
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
 
-// Adapter: map BE QnA → FE question format
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+
+
+
 function qnaToQuestion(q: QnA) {
   const statusMap: Record<string, 'unanswered' | 'answered' | 'resolved'> = {
     Pending: 'unanswered',
@@ -356,7 +379,7 @@ export function InstructorCommunicationPage() {
     if (announcementPage > announcementTotalPages) setAnnouncementPage(announcementTotalPages)
   }, [announcementPage, announcementTotalPages])
 
-  // Get selected conversation messages
+
   const currentConversation = useMemo(() => {
     const conversation = chatState.conversations.find(
       (item) => item.id === chatState.activeConversationId
@@ -392,7 +415,7 @@ export function InstructorCommunicationPage() {
     : 0
   const averageRating = dashboardStats?.average_rating ?? 0
 
-  // Send message
+
   const handleSendMessage = async () => {
     const content = messageInput.trim()
     if (!content || !chatState.activeConversationId || !user) return
@@ -419,7 +442,7 @@ export function InstructorCommunicationPage() {
     }
   }
 
-  // Send announcement
+
   const handleSendAnnouncement = async () => {
     if (!announcementData.title.trim() || !announcementData.content.trim()) {
       toast.error(t('instructor_communication_page.fill_required_fields'))
@@ -606,17 +629,17 @@ export function InstructorCommunicationPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
-      {/* Header */}
-      <div className="mb-6 md:mb-8">
+    <motion.div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl" variants={sectionStagger} initial="hidden" animate="show">
+
+      <motion.div className="mb-6 md:mb-8" variants={fadeInUp}>
         <h1 className="mb-2">{t('instructor_communication_page.title')}</h1>
         <p className="text-muted-foreground">
           {t('instructor_communication_page.description')}
         </p>
-      </div>
+      </motion.div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" variants={fadeInUp}>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -672,28 +695,38 @@ export function InstructorCommunicationPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="qna" className="gap-2">
-            <MessageSquare className="w-4 h-4" />
-            {t('instructor_communication_page.qna_tab')}
-            <Badge variant="destructive" className="ml-2">{unansweredQuestions}</Badge>
+
+      <motion.div variants={fadeInUp}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="relative grid w-full grid-cols-3 p-1">
+          <TabsTrigger value="qna" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'qna' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              {t('instructor_communication_page.qna_tab')}
+              <Badge variant="destructive" className="ml-2">{unansweredQuestions}</Badge>
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="messages" className="gap-2">
-            <Mail className="w-4 h-4" />
-            {t('instructor_communication_page.messages_tab')}
-            <Badge variant="default" className="ml-2">{chatState.totalUnreadCount}</Badge>
+          <TabsTrigger value="messages" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'messages' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              {t('instructor_communication_page.messages_tab')}
+              <Badge variant="default" className="ml-2">{chatState.totalUnreadCount}</Badge>
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="announcements" className="gap-2">
-            <Megaphone className="w-4 h-4" />
-            {t('instructor_communication_page.announcements_tab')}
+          <TabsTrigger value="announcements" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'announcements' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center gap-2">
+              <Megaphone className="w-4 h-4" />
+              {t('instructor_communication_page.announcements_tab')}
+            </span>
           </TabsTrigger>
         </TabsList>
 
-        {/* Q&A Tab */}
+
         <TabsContent value="qna" className="space-y-4">
           <Card>
             <CardHeader>
@@ -715,7 +748,7 @@ export function InstructorCommunicationPage() {
                       className="pl-10"
                     />
                   </div>
-                  
+
                   <Select value={qnaFilter} onValueChange={setQnaFilter}>
                     <SelectTrigger className="w-40">
                       <Filter className="w-4 h-4 mr-2" />
@@ -740,7 +773,7 @@ export function InstructorCommunicationPage() {
                   <Card key={question.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex gap-4">
-                        {/* Vote section */}
+
                         <div className="flex flex-col items-center gap-2">
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                             <ThumbsUp className="w-4 h-4" />
@@ -748,7 +781,7 @@ export function InstructorCommunicationPage() {
                           <span className="text-sm">{question.votes}</span>
                         </div>
 
-                        {/* Question content */}
+
                         <div className="flex-1">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
@@ -756,7 +789,7 @@ export function InstructorCommunicationPage() {
                               <p className="text-sm text-muted-foreground mb-3">
                                 {question.description}
                               </p>
-                              
+
                               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
                                   <Avatar className="w-5 h-5">
@@ -778,7 +811,7 @@ export function InstructorCommunicationPage() {
                               </div>
                             </div>
 
-                            {/* Status badge */}
+
                             <div className="ml-4">
                               {question.status === 'unanswered' && (
                                 <Badge variant="destructive">{t('instructor_communication_page.unanswered')}</Badge>
@@ -795,7 +828,7 @@ export function InstructorCommunicationPage() {
                             </div>
                           </div>
 
-                          {/* Actions */}
+
                           <div className="flex items-center gap-2 mt-3">
                             <Button size="sm" variant="default" onClick={() => void handleOpenQuestion(question)}>
                               <Reply className="w-4 h-4 mr-2" />
@@ -830,12 +863,12 @@ export function InstructorCommunicationPage() {
           </Card>
         </TabsContent>
 
-        {/* Direct Messages Tab */}
+
         <TabsContent value="messages">
           <Card>
             <CardContent className="p-0">
               <div className="grid md:grid-cols-3 h-[600px]">
-                {/* Conversations list */}
+
                 <div className="border-r">
                   <div className="p-4 border-b">
                     <div className="relative">
@@ -897,11 +930,11 @@ export function InstructorCommunicationPage() {
                   </ScrollArea>
                 </div>
 
-                {/* Chat area */}
+
                 <div className="md:col-span-2 flex flex-col">
                   {chatState.activeConversationId ? (
                     <>
-                      {/* Chat header */}
+
                       <div className="p-4 border-b">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -922,7 +955,7 @@ export function InstructorCommunicationPage() {
                         </div>
                       </div>
 
-                      {/* Messages */}
+
                       <ScrollArea className="flex-1 p-4">
                         <div className="space-y-4">
                           {currentMessages.map((msg) => (
@@ -967,7 +1000,7 @@ export function InstructorCommunicationPage() {
                         </div>
                       </ScrollArea>
 
-                      {/* Message input */}
+
                       <div className="p-4 border-t">
                         <div className="flex gap-2">
                           <Button variant="ghost" size="sm">
@@ -999,7 +1032,7 @@ export function InstructorCommunicationPage() {
           </Card>
         </TabsContent>
 
-        {/* Announcements Tab */}
+
         <TabsContent value="announcements" className="space-y-4">
           <Card>
             <CardHeader>
@@ -1104,8 +1137,8 @@ export function InstructorCommunicationPage() {
 
                       <div>
                         <Label htmlFor="targetCourse">{t('instructor_communication_page.send_to')}</Label>
-                        <Select 
-                          value={announcementData.targetCourse} 
+                        <Select
+                          value={announcementData.targetCourse}
                           onValueChange={(value) => setAnnouncementData({ ...announcementData, targetCourse: value })}
                         >
                           <SelectTrigger>
@@ -1195,7 +1228,7 @@ export function InstructorCommunicationPage() {
               </div>
             </CardHeader>
             <CardContent>
-              {/* Monthly limit indicators */}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <Card>
                   <CardContent className="p-4">
@@ -1228,7 +1261,7 @@ export function InstructorCommunicationPage() {
                 </Card>
               </div>
 
-              {/* Announcements list */}
+
               <div className="space-y-4">
                 {paginatedAnnouncements.map((announcement) => (
                   <Card key={announcement.notification_code}>
@@ -1291,7 +1324,8 @@ export function InstructorCommunicationPage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </motion.div>
 
       <Dialog open={!!selectedQuestion} onOpenChange={(open) => {
         if (!open) {
@@ -1363,6 +1397,6 @@ export function InstructorCommunicationPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

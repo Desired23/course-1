@@ -54,7 +54,7 @@ export function StatsSection() {
     <section className="py-20 px-4 bg-gradient-to-br from-purple-600 to-blue-600 text-white">
       <div className="container mx-auto">
         <div className="text-center mb-12">
-          <motion.h2 
+          <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -98,8 +98,8 @@ export function StatsSection() {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="text-center mt-12"
         >
-          <Button 
-            size="lg" 
+          <Button
+            size="lg"
             onClick={() => navigate('/courses')}
             className="bg-blue-600 dark:bg-blue-700 hover:bg-blue-700 dark:hover:bg-blue-800 font-semibold shadow-lg hover:scale-105 transition-all"
           >

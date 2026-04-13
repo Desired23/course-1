@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -7,6 +8,28 @@ import { Input } from '../../components/ui/input'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { CheckCircle2, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function ResetPasswordPage() {
   const { t } = useTranslation()
@@ -18,7 +41,7 @@ export function ResetPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resetSuccess, setResetSuccess] = useState(false)
 
-  const token = params?.token // Get reset token from URL
+  const token = params?.token
 
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
@@ -39,7 +62,7 @@ export function ResetPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validation
+
     const passwordError = validatePassword(password)
     if (passwordError) {
       toast.error(passwordError)
@@ -53,7 +76,7 @@ export function ResetPasswordPage() {
 
     setIsSubmitting(true)
 
-    // Simulate API call
+
     setTimeout(() => {
       setResetSuccess(true)
       setIsSubmitting(false)
@@ -66,10 +89,16 @@ export function ResetPasswordPage() {
 
   if (resetSuccess) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
+      <motion.div
+        className="min-h-screen bg-background flex items-center justify-center p-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
+        <motion.div variants={sectionStagger} initial="hidden" animate="show" className="max-w-md w-full">
+          <Card>
           <CardContent className="pt-6">
-            <div className="text-center space-y-4">
+            <motion.div className="text-center space-y-4" variants={fadeInUp}>
               <div className="flex justify-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="w-10 h-10 text-green-600" />
@@ -79,29 +108,38 @@ export function ResetPasswordPage() {
               <p className="text-muted-foreground">
                 {t('reset_password_page.success_description')}
               </p>
-            </div>
+            </motion.div>
           </CardContent>
-        </Card>
-      </div>
+          </Card>
+        </motion.div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
+    <motion.div
+      className="min-h-screen bg-background flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div variants={sectionStagger} initial="hidden" animate="show" className="max-w-md w-full">
+        <Card>
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+          <motion.div className="flex justify-center mb-4" variants={fadeInUp}>
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
               <Lock className="w-8 h-8 text-primary" />
             </div>
-          </div>
-          <CardTitle>{t('reset_password_page.title')}</CardTitle>
-          <CardDescription>
-            {t('reset_password_page.description')}
-          </CardDescription>
+          </motion.div>
+          <motion.div variants={fadeInUp}>
+            <CardTitle>{t('reset_password_page.title')}</CardTitle>
+            <CardDescription>
+              {t('reset_password_page.description')}
+            </CardDescription>
+          </motion.div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <motion.form onSubmit={handleSubmit} className="space-y-4" variants={fadeInUp}>
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('reset_password_page.new_password')}</label>
               <div className="relative">
@@ -149,7 +187,7 @@ export function ResetPasswordPage() {
               </Alert>
             )}
 
-            <Button 
+            <Button
               type="submit"
               disabled={isSubmitting || !password || !confirmPassword}
               className="w-full"
@@ -163,9 +201,10 @@ export function ResetPasswordPage() {
                 t('reset_password_page.title')
               )}
             </Button>
-          </form>
+          </motion.form>
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </motion.div>
+    </motion.div>
   )
 }

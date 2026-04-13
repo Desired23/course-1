@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
+import { motion } from 'motion/react'
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, BookOpen, DollarSign, Eye, Loader2, MessageCircle, Star, TrendingUp, Users } from "lucide-react"
+import { ArrowLeft, BookOpen, DollarSign, Eye, MessageCircle, Star, TrendingUp, Users } from "lucide-react"
 import { toast } from "sonner"
 
 import { PreviewCourseModal } from "../../components/PreviewCourseModal"
@@ -9,11 +10,34 @@ import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { getReviewsByCourse } from "../../services/review.api"
 import { deleteCourse, formatDuration, formatPrice, getCourseById, parseDecimal, updateCourse, type CourseDetail } from "../../services/course.api"
 import { getInstructorCourseAnalytics, type CourseAnalytics } from "../../services/instructor.api"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function InstructorCourseDetailPage() {
   const { t } = useTranslation()
@@ -28,6 +52,25 @@ export function InstructorCourseDetailPage() {
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isMutating, setIsMutating] = useState(false)
+  const [activeTab, setActiveTab] = useState<'analytics' | 'content' | 'reviews'>('analytics')
+
+  const renderCourseDetailSkeleton = () => (
+    <div className="p-8 space-y-6">
+      <Skeleton className="h-9 w-64" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`course-detail-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border bg-card p-6 space-y-3">
+        <Skeleton className="h-7 w-56" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    </div>
+  )
 
   useEffect(() => {
     if (isNaN(courseId)) {
@@ -213,11 +256,7 @@ export function InstructorCourseDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    return renderCourseDetailSkeleton()
   }
 
   if (error || !course) {
@@ -242,8 +281,8 @@ export function InstructorCourseDetailPage() {
     : 0
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <motion.div className="p-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <Button variant="ghost" onClick={() => navigate("/instructor/courses")} className="mb-4 -ml-2">
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t("instructor_course_detail_page.back_to_courses")}
@@ -279,10 +318,10 @@ export function InstructorCourseDetailPage() {
             {renderManagementActions()}
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="p-6">
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" variants={fadeInUp}>
+        <Card className="app-interactive p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center">
               <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -293,7 +332,7 @@ export function InstructorCourseDetailPage() {
             </div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="app-interactive p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-10 w-10 rounded-lg bg-yellow-500/10 flex items-center justify-center">
               <Star className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
@@ -304,7 +343,7 @@ export function InstructorCourseDetailPage() {
             </div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="app-interactive p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
               <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -315,7 +354,7 @@ export function InstructorCourseDetailPage() {
             </div>
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="app-interactive p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -326,19 +365,47 @@ export function InstructorCourseDetailPage() {
             </div>
           </div>
         </Card>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="analytics" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="analytics">{t("instructor_course_detail_page.analytics_tab")}</TabsTrigger>
-          <TabsTrigger value="content">{t("instructor_course_detail_page.content_tab")}</TabsTrigger>
-          <TabsTrigger value="reviews">{t("instructor_course_detail_page.reviews_tab", { count: totalReviews })}</TabsTrigger>
+      <motion.div variants={fadeInUp}>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'analytics' | 'content' | 'reviews')} className="space-y-6">
+        <TabsList className="relative p-1">
+          <TabsTrigger value="analytics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'analytics' && (
+              <motion.span
+                layoutId="instructor-course-detail-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t("instructor_course_detail_page.analytics_tab")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="content" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'content' && (
+              <motion.span
+                layoutId="instructor-course-detail-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t("instructor_course_detail_page.content_tab")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="reviews" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'reviews' && (
+              <motion.span
+                layoutId="instructor-course-detail-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t("instructor_course_detail_page.reviews_tab", { count: totalReviews })}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analytics" className="space-y-6">
           {analytics ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="p-6">
+              <Card className="app-interactive p-6">
                 <h3 className="font-medium mb-4">{t("instructor_course_detail_page.student_progress")}</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
@@ -359,7 +426,7 @@ export function InstructorCourseDetailPage() {
                 </div>
               </Card>
 
-              <Card className="p-6">
+              <Card className="app-interactive p-6">
                 <h3 className="font-medium mb-4">{t("instructor_course_detail_page.rating_distribution")}</h3>
                 <div className="space-y-2">
                   {[5, 4, 3, 2, 1].map((star) => {
@@ -381,7 +448,7 @@ export function InstructorCourseDetailPage() {
                 </div>
               </Card>
 
-              <Card className="p-6">
+              <Card className="app-interactive p-6">
                 <h3 className="font-medium mb-4">{t("instructor_course_detail_page.enrollment_trend")}</h3>
                 <Table>
                   <TableHeader>
@@ -401,7 +468,7 @@ export function InstructorCourseDetailPage() {
                 </Table>
               </Card>
 
-              <Card className="p-6">
+              <Card className="app-interactive p-6">
                 <h3 className="font-medium mb-4">{t("instructor_course_detail_page.popular_lessons")}</h3>
                 {analytics.popular_lessons.length === 0 ? (
                   <p className="text-muted-foreground text-sm">{t("instructor_course_detail_page.no_lesson_data")}</p>
@@ -428,14 +495,14 @@ export function InstructorCourseDetailPage() {
               </Card>
             </div>
           ) : (
-            <Card className="p-8 text-center text-muted-foreground">
+            <Card className="app-surface-elevated p-8 text-center text-muted-foreground">
               <p>{analyticsError || t("instructor_course_detail_page.analytics_data_not_available")}</p>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="content">
-          <Card className="p-6">
+          <Card className="app-surface-elevated p-6">
             <h3 className="font-medium mb-4">
               {t("instructor_course_detail_page.course_content_summary", {
                 modules: course.total_modules,
@@ -474,7 +541,7 @@ export function InstructorCourseDetailPage() {
 
         <TabsContent value="reviews">
           {reviews.length > 0 ? (
-            <Card className="p-6">
+            <Card className="app-surface-elevated p-6">
               <div className="space-y-4">
                 {reviews.map((review: any) => (
                   <div key={review.id} className="border-b pb-4 last:border-0">
@@ -496,7 +563,7 @@ export function InstructorCourseDetailPage() {
               </div>
             </Card>
           ) : (
-            <Card className="p-8">
+            <Card className="app-surface-elevated p-8">
               <div className="text-center text-muted-foreground">
                 <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>{t("instructor_course_detail_page.no_reviews")}</p>
@@ -504,9 +571,10 @@ export function InstructorCourseDetailPage() {
             </Card>
           )}
         </TabsContent>
-      </Tabs>
+        </Tabs>
+      </motion.div>
 
       <PreviewCourseModal isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} courseId={courseId.toString()} />
-    </div>
+    </motion.div>
   )
 }

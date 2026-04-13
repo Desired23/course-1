@@ -20,7 +20,7 @@ from .serializers import InstructorPayoutSerializer
 def auto_create_instructor_payouts(processed_by, notes='', period=None):
     try:
         with transaction.atomic():
-            # Bước 1: Lấy toàn bộ earnings đủ điều kiện
+
             earnings_qs = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.AVAILABLE,
                 instructor_payout_id__isnull=True
@@ -29,12 +29,12 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
             if not earnings_qs.exists():
                 raise ValidationError("No available earnings for payout.")
 
-            # Bước 2: Gom earnings theo instructor
+
             earnings_map = defaultdict(list)
             for earning in earnings_qs:
                 earnings_map[earning.instructor].append(earning)
 
-            # Bước 3: Chuẩn bị danh sách payouts
+
             payouts_to_create = []
             instructor_earning_ids_map = {}
 
@@ -52,17 +52,17 @@ def auto_create_instructor_payouts(processed_by, notes='', period=None):
                 payouts_to_create.append(payout)
                 instructor_earning_ids_map[instructor] = [e.id for e in earnings]
 
-            # Bước 4: Tạo payouts hàng loạt (1 query duy nhất)
+
             InstructorPayout.objects.bulk_create(payouts_to_create)
             created_payouts = InstructorPayout.objects.filter(
                 status=InstructorPayout.PayoutStatusChoices.PENDING,
                 processed_by=processed_by,
                 period=period or timezone.now().strftime("%Y-%m"),
             ).order_by('-request_date')
-            # Bước 5: Map lại payouts theo instructor
+
             payout_map = {payout.instructor: payout for payout in created_payouts}
 
-            # Bước 6: Gán instructor_payout_id cho các earning
+
             for instructor, earning_ids in instructor_earning_ids_map.items():
                 InstructorEarning.objects.filter(id__in=earning_ids).update(
                     instructor_payout=payout_map[instructor]
@@ -84,15 +84,15 @@ def admin_update_instructor_payout(payout_id, status, transaction_id, notes, fee
 
             if payout.status != InstructorPayout.PayoutStatusChoices.PENDING:
                 raise ValidationError("Only pending payouts can be updated.")
-            # Cập nhật thông tin payout
+
             payout.status = status
             payout.transaction_id = transaction_id
             payout.notes = notes
             payout.fee = fee
-            payout.net_amount = payout.amount - fee  # Tính toán net_amount sau khi trừ phí
+            payout.net_amount = payout.amount - fee
             payout.processed_date = processed_date or timezone.now()
-            payout.period = period or payout.period  # Giữ nguyên nếu không có period mới
-            payout.processed_by = processed_by or payout.processed_by  # Giữ nguyên nếu không có processed_by mới
+            payout.period = period or payout.period
+            payout.processed_by = processed_by or payout.processed_by
 
             payout.save()
 
@@ -118,7 +118,7 @@ def get_payouts_for_instructor(instructor_id, status=None, period=None):
 def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
     try:
         queryset = InstructorPayout.objects.select_related("instructor", "processed_by").all()
-        
+
         if processed_by:
             queryset = queryset.filter(processed_by__admin=processed_by)
         if status:
@@ -166,7 +166,7 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
     from decimal import Decimal
 
     with transaction.atomic():
-        # Verify available balance >= requested amount
+
         available = InstructorEarning.objects.filter(
             instructor=instructor,
             status=InstructorEarning.StatusChoices.AVAILABLE,
@@ -179,7 +179,7 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
                 f"Requested amount ({amount}) exceeds available balance ({available})."
             )
 
-        # Resolve payout method label
+
         payment_method_label = 'bank_transfer'
         bank_details = {}
         if payout_method_id:
@@ -207,7 +207,7 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
             status=InstructorPayout.PayoutStatusChoices.PENDING,
         )
 
-        # Attach earnings FIFO until amount covered
+
         earnings_qs = InstructorEarning.objects.filter(
             instructor=instructor,
             status=InstructorEarning.StatusChoices.AVAILABLE,
@@ -256,7 +256,7 @@ def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=
             payout.notes = notes
         payout.save()
 
-        # Mark linked earnings as paid
+
         InstructorEarning.objects.filter(
             instructor_payout=payout
         ).update(status=InstructorEarning.StatusChoices.PAID)
@@ -282,7 +282,7 @@ def admin_reject_payout(payout_id, admin, notes=None):
             payout.notes = notes
         payout.save()
 
-        # Release earnings back so instructor can re-request
+
         InstructorEarning.objects.filter(
             instructor_payout=payout
         ).update(instructor_payout=None)
@@ -342,73 +342,73 @@ def admin_reject_payout(payout_id, admin, notes=None):
 
 
 
-# def auto_create_instructor_payouts(processed_by, transaction_id=None, notes='', period=None):
-#     try:
-#         with transaction.atomic():
-#             # Lọc toàn bộ instructor có earnings đủ điều kiện mà chưa payout
-#             instructors_with_earnings = InstructorEarning.objects.filter(
-#                 status=InstructorEarning.StatusChoices.AVAILABLE,
-#                 instructor_payout_id__isnull=True
-#             ).values_list('instructor_id', flat=True).distinct()
 
-#             payouts = []
 
-#             for instructor_id in instructors_with_earnings:
-#                 earnings = InstructorEarning.objects.filter(
-#                     instructor_id=instructor_id,
-#                     status=InstructorEarning.StatusChoices.AVAILABLE,
-#                     instructor_payout_id__isnull=True
-#                 )
 
-#                 total_amount = earnings.aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
 
-#                 if total_amount > 0:
-#                     payout = InstructorPayout.objects.create(
-#                         instructor_id=instructor_id,
-#                         amount=total_amount,
-#                         period=period or timezone.now().strftime("%Y-%m"),
-#                         processed_by=processed_by,
-#                         transaction_id=transaction_id,
-#                         notes=notes,
-#                         status=InstructorPayout.PayoutStatusChoices.PENDING,
-#                         request_date=timezone.now(),
-#                     )
 
-#                     earnings.update(instructor_payout_id=payout)
-#                     payouts.append(payout)
 
-#             return InstructorPayoutSerializer(payouts, many=True).data
 
-#     except Exception as e:
-#         raise ValidationError(f"Error creating payouts: {str(e)}")
-# def admin_create_instructor_payout(processed_by, transaction_id=None, notes='', period=None):
-#     try:
 
-#         earnings = InstructorEarning.objects.filter(
-#             status=InstructorEarning.StatusChoices.AVAILABLE,
-#             instructor_payout_id__isnull=True  # tránh duplicate payout
-#         )
 
-#         if not earnings.exists():
-#             raise ValidationError("No available earnings for this instructor.")
 
-#         total_amount = earnings.aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
 
-#         payout = InstructorPayout.objects.create(
-#             instructor_id=earnings.first().instructor_id,  # Lấy instructor từ earnings đầu tiên
-#             amount=total_amount,
-#             period=period or timezone.now().strftime("%Y-%m"),
-#             processed_by=processed_by,
-#             transaction_id=transaction_id,
-#             notes=notes,
-#             status=InstructorPayout.PayoutStatusChoices.PENDING,
-#             request_date=timezone.now(),
-#         )
 
-        
-#         earnings.update(instructor_payout_id=payout)
 
-#         return InstructorPayoutSerializer(payout).data
 
-#     except Exception as e:
-#         raise ValidationError(f"Error creating payout: {str(e)}")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

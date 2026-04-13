@@ -30,6 +30,29 @@ import { toast } from 'sonner'
 import { cleanupActivityLogs, getActivityLogs as getActivityLogsApi } from '../../services/admin.api'
 import type { ActivityLog as ApiActivityLog } from '../../services/admin.api'
 import { useTranslation } from 'react-i18next'
+import { motion } from 'motion/react'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 interface ActivityLog {
   id: string
@@ -305,8 +328,8 @@ export function ActivityLogPage() {
   const successRate = logs.length > 0 ? ((successCount / logs.length) * 100).toFixed(0) : '0'
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <motion.div className="p-6 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl mb-2">{t('activity_log_page.title')}</h1>
           <p className="text-muted-foreground">{t('activity_log_page.subtitle')}</p>
@@ -321,9 +344,9 @@ export function ActivityLogPage() {
             {t('activity_log_page.export_csv')}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={fadeInUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('activity_log_page.stats.total')}</CardTitle>
@@ -367,14 +390,17 @@ export function ActivityLogPage() {
             <p className="text-xs text-muted-foreground">{t('activity_log_page.stats.error_hint')}</p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <TableFilter
-        title={t('activity_log_page.filters.title')}
-        configs={filterConfigs}
-        onFilterChange={handleFilter}
-      />
+      <motion.div variants={fadeInUp}>
+        <TableFilter
+          title={t('activity_log_page.filters.title')}
+          configs={filterConfigs}
+          onFilterChange={handleFilter}
+        />
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{t('activity_log_page.table.title', { count: filteredLogs.length })}</CardTitle>
@@ -438,6 +464,7 @@ export function ActivityLogPage() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
       <AdminConfirmDialog
         open={confirmOpen}
@@ -449,6 +476,6 @@ export function ActivityLogPage() {
         onOpenChange={setConfirmOpen}
         onConfirm={handleCleanupLogs}
       />
-    </div>
+    </motion.div>
   )
 }

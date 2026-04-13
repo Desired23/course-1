@@ -16,7 +16,7 @@ from .views import (
     InstructorCourseConsentView,
     SubscriptionUsageTrackingView,
     PlanCandidateSuggestionView,
-    # Phase 3
+
     SendExpiryNotificationsView,
     ExpireAndSuspendView,
     ProcessScheduledRemovalsView,
@@ -36,7 +36,7 @@ urlpatterns = [
     path('subscription-plans/admin/<int:plan_id>/candidates/', PlanCandidateSuggestionView.as_view(), name='plan-candidate-suggestions'),
     path('subscription-plans/admin/expire/', ExpireSubscriptionsView.as_view(), name='expire-subscriptions'),
 
-    # Phase 3 — admin cron endpoints
+
     path('subscriptions/admin/notify-expiry/', SendExpiryNotificationsView.as_view(), name='sub-notify-expiry'),
     path('subscriptions/admin/expire-suspend/', ExpireAndSuspendView.as_view(), name='sub-expire-suspend'),
     path('subscriptions/admin/process-removals/', ProcessScheduledRemovalsView.as_view(), name='sub-process-removals'),

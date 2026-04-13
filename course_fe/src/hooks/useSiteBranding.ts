@@ -12,6 +12,19 @@ function readSettingKey(setting: any): string {
   return String(setting?.key ?? setting?.setting_key ?? "")
 }
 
+function canReadSystemSettings(): boolean {
+  try {
+    const raw = localStorage.getItem("auth-storage")
+    if (!raw) return false
+
+    const parsed = JSON.parse(raw)
+    const roles = parsed?.state?.user?.roles
+    return Array.isArray(roles) && roles.includes("admin")
+  } catch {
+    return false
+  }
+}
+
 export function useSiteBranding() {
   const [siteName, setSiteName] = useState(DEFAULT_SITE_NAME)
   const [siteLogo, setSiteLogo] = useState(DEFAULT_SITE_LOGO)
@@ -19,6 +32,8 @@ export function useSiteBranding() {
   useEffect(() => {
     let cancelled = false
     const loadBranding = async () => {
+      if (!canReadSystemSettings()) return
+
       try {
         const settings = await getSystemSettings()
         if (cancelled) return
@@ -37,7 +52,7 @@ export function useSiteBranding() {
         if (nextName) setSiteName(nextName)
         if (nextLogo) setSiteLogo(nextLogo)
       } catch {
-        // Public users may not have permission to read system settings.
+
       }
     }
 

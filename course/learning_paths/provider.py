@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 try:
     from google import genai
-except Exception:  # pragma: no cover - handled at runtime with fallback metadata
+except Exception:
     genai = None
 
 
@@ -278,7 +278,7 @@ def detect_course_search_mode(goal_text, messages):
     if latest_search_hit and not latest_roadmap_hit:
         return True
     if latest_search_hit and latest_roadmap_hit:
-        # Mixed request: recommend concrete courses first, then let user ask to build path.
+
         return True
     return bool(search_hit and not roadmap_hit)
 
@@ -853,7 +853,7 @@ class GeminiAdvisorProvider(AdvisorProvider):
                                 yield part_text
                 return
             except Exception as exc:
-                # Do not retry mid-stream; retrying after partial output would duplicate chunks.
+
                 if has_emitted_text:
                     raise GeminiProviderError(f"Gemini stream interrupted after partial output: {exc}") from exc
 

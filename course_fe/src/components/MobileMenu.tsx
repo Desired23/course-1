@@ -4,7 +4,7 @@ import { useAuth } from "../contexts/AuthContext"
 import { useUIStore } from "../stores"
 import { Button } from "./ui/button"
 import { useTranslation } from "react-i18next"
-import { 
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -16,17 +16,17 @@ import { ScrollArea } from "./ui/scroll-area"
 import { Separator } from "./ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 import { Badge } from "./ui/badge"
-import { 
-  Menu, 
-  Home, 
-  BookOpen, 
-  Search, 
-  ShoppingCart, 
-  Heart, 
-  User, 
-  Bell, 
-  Settings, 
-  LogOut, 
+import {
+  Menu,
+  Home,
+  BookOpen,
+  Search,
+  ShoppingCart,
+  Heart,
+  User,
+  Bell,
+  Settings,
+  LogOut,
   LogIn,
   UserPlus,
   GraduationCap,
@@ -67,7 +67,7 @@ export function MobileMenu() {
 
   const handleNavigate = (path: string) => {
     navigate(path)
-    setOpen(false) // Close menu after navigation
+    setOpen(false)
   }
 
   const handleLogout = () => {
@@ -86,7 +86,7 @@ export function MobileMenu() {
       <SheetContent side="left" className="w-80 p-0">
         <ScrollArea className="h-full">
           <div className="flex flex-col h-full">
-            {/* User Section */}
+
             <SheetHeader className="p-6 pb-4">
               {user ? (
                 <>
@@ -118,16 +118,16 @@ export function MobileMenu() {
                     {t('mobile_menu.auth_description')}
                   </SheetDescription>
                   <div className="flex gap-2">
-                    <Button 
-                      variant="default" 
-                      className="flex-1" 
+                    <Button
+                      variant="default"
+                      className="flex-1"
                       onClick={() => handleNavigate('/login')}
                     >
                       <LogIn className="h-4 w-4 mr-2" />
                       {t('auth.login')}
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="flex-1"
                       onClick={() => handleNavigate('/signup')}
                     >
@@ -141,9 +141,9 @@ export function MobileMenu() {
 
             <Separator />
 
-            {/* Main Navigation */}
+
             <div className="flex-1 py-4">
-              {/* General Links */}
+
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
                   {t('mobile_menu.sections.menu')}
@@ -176,7 +176,7 @@ export function MobileMenu() {
                 </nav>
               </div>
 
-              {/* User Links (if logged in) */}
+
               {user && (
                 <>
                   <Separator className="my-4" />
@@ -222,7 +222,7 @@ export function MobileMenu() {
                 </>
               )}
 
-              {/* Instructor Links */}
+
               {user && hasRole('instructor') && (
                 <>
                   <Separator className="my-4" />
@@ -260,7 +260,7 @@ export function MobileMenu() {
                 </>
               )}
 
-              {/* Admin Links */}
+
               {user && hasRole('admin') && (
                 <>
                   <Separator className="my-4" />
@@ -306,7 +306,7 @@ export function MobileMenu() {
                 </>
               )}
 
-              {/* Categories */}
+
               <Separator className="my-4" />
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
@@ -331,7 +331,7 @@ export function MobileMenu() {
                 </nav>
               </div>
 
-              {/* Business Links */}
+
               <Separator className="my-4" />
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
@@ -358,9 +358,9 @@ export function MobileMenu() {
               </div>
             </div>
 
-            {/* Bottom Section */}
+
             <div className="border-t p-4 space-y-2">
-              {/* Theme Toggle */}
+
               <Button
                 variant="ghost"
                 className="w-full justify-start"

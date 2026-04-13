@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react"
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  AreaChart, 
-  Area, 
-  PieChart, 
-  Pie, 
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
   Cell,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer 
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
 } from "recharts"
 import { Card } from "./ui/card"
 import { Button } from "./ui/button"
@@ -37,7 +37,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
 
   const CATEGORY_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899']
 
-  // API-driven state
+
   const [revenueData, setRevenueData] = useState<any[]>([])
   const [categoryData, setCategoryData] = useState<any[]>([])
   const [engagementData, setEngagementData] = useState<any[]>([])
@@ -59,7 +59,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
           getInstructorAnalyticsTimeseries(months),
         ])
 
-        // Map revenue + enrollment timeseries into chart data
+
         const revData = timeseries.revenue_trend.map((r, i) => {
           const enr = timeseries.enrollment_trend[i]
           const monthLabel = new Intl.DateTimeFormat(i18n.language || 'en', { month: 'short' }).format(new Date(r.date + '-01'))
@@ -72,7 +72,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         })
         setRevenueData(revData)
 
-        // Map course_stats as category-like pie data
+
         const catData = dashStats.course_stats.slice(0, 6).map((c, i) => ({
           name: c.title.length > 20 ? c.title.slice(0, 20) + '…' : c.title,
           value: c.total_students,
@@ -80,7 +80,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         }))
         setCategoryData(catData)
 
-        // Map engagement timeseries
+
         const engData = timeseries.engagement_trend.map((e) => {
           const monthLabel = new Intl.DateTimeFormat(i18n.language || 'en', { month: 'short' }).format(new Date(e.date + '-01'))
           return {
@@ -92,7 +92,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         })
         setEngagementData(engData)
 
-        // Stats cards
+
         setStats([
           {
             label: t('analytics_charts.stats.total_revenue'),
@@ -147,12 +147,12 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="name" className="text-xs" />
             <YAxis className="text-xs" />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--card))', 
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px'
-              }} 
+              }}
             />
             <Legend />
             <Bar dataKey={dataKey} fill={color} radius={[8, 8, 0, 0]} />
@@ -170,20 +170,20 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="name" className="text-xs" />
             <YAxis className="text-xs" />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--card))', 
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px'
-              }} 
+              }}
             />
             <Legend />
-            <Area 
-              type="monotone" 
-              dataKey={dataKey} 
-              stroke={color} 
-              fillOpacity={1} 
-              fill={`url(#color${dataKey})`} 
+            <Area
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
+              fillOpacity={1}
+              fill={`url(#color${dataKey})`}
             />
           </AreaChart>
         )
@@ -193,18 +193,18 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="name" className="text-xs" />
             <YAxis className="text-xs" />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--card))', 
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px'
-              }} 
+              }}
             />
             <Legend />
-            <Line 
-              type="monotone" 
-              dataKey={dataKey} 
-              stroke={color} 
+            <Line
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
               strokeWidth={2}
               dot={{ fill: color, r: 4 }}
               activeDot={{ r: 6 }}
@@ -216,12 +216,12 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Stats Grid */}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => {
           const Icon = stat.icon
           const isPositive = stat.trend === 'up'
-          
+
           return (
             <Card key={index} className="p-6">
               <div className="flex items-start justify-between mb-4">
@@ -248,7 +248,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         })}
       </div>
 
-      {/* Revenue Chart */}
+
       <Card className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -287,7 +287,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Students Chart */}
+
         <Card className="p-6">
           <h3 className="font-medium mb-1">{t('analytics_charts.students.title')}</h3>
           <p className="text-sm text-muted-foreground mb-6">
@@ -307,25 +307,25 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="name" className="text-xs" />
               <YAxis className="text-xs" />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--card))', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px'
-                }} 
+                }}
               />
-              <Area 
-                type="monotone" 
-                dataKey="students" 
-                stroke="#3b82f6" 
-                fillOpacity={1} 
-                fill="url(#colorStudents)" 
+              <Area
+                type="monotone"
+                dataKey="students"
+                stroke="#3b82f6"
+                fillOpacity={1}
+                fill="url(#colorStudents)"
               />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
 
-        {/* Category Distribution */}
+
         <Card className="p-6">
           <h3 className="font-medium mb-1">{t('analytics_charts.categories.title')}</h3>
           <p className="text-sm text-muted-foreground mb-6">
@@ -347,19 +347,19 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--card))', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px'
-                }} 
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
         </Card>
       </div>
 
-      {/* Engagement Metrics */}
+
       <Card className="p-6">
         <h3 className="font-medium mb-1">{t('analytics_charts.engagement.title')}</h3>
         <p className="text-sm text-muted-foreground mb-6">
@@ -373,12 +373,12 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="name" className="text-xs" />
             <YAxis className="text-xs" />
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--card))', 
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px'
-              }} 
+              }}
             />
             <Legend />
             <Bar dataKey="completionRate" fill="#10b981" radius={[8, 8, 0, 0]} name={t('analytics_charts.engagement.completion_rate')} />

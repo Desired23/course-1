@@ -4,11 +4,11 @@ from users.models import User as UserModel
 from decimal import Decimal
 from unittest.mock import patch
 
-# avoid vnpay signature logic during unit tests
+
 import payments.vnpay as _vnpmod
 _vnpmod.vnpay.validate_response = lambda self, key: True
 
-# ensure migration for ipn_attempts (tests use sqlite and start from scratch)
+
 from django.contrib.auth.hashers import make_password
 import jwt
 from django.conf import settings
@@ -39,15 +39,15 @@ from payments.momo_services import (
 
 class PaymentStatusServiceTests(TestCase):
     def setUp(self):
-        # ensure ipn_attempts column exists in sqlite database
+
         from django.db import connection
         try:
             with connection.cursor() as cursor:
                 cursor.execute("ALTER TABLE payments ADD COLUMN ipn_attempts integer NOT NULL DEFAULT 0;")
         except Exception:
-            # column probably already exists or sqlite version restrictions
+
             pass
-        # create instructor and level
+
         level = InstructorLevel.objects.create(
             name="Bronze", description="level",
             min_students=0, min_revenue=Decimal('0'),
@@ -62,7 +62,7 @@ class PaymentStatusServiceTests(TestCase):
         )
         self.instructor = Instructor.objects.create(user=instr_user, level=level)
 
-        # student
+
         self.student = UserModel.objects.create(
             username="student1",
             email="s1@example.com",
@@ -71,7 +71,7 @@ class PaymentStatusServiceTests(TestCase):
             user_type="student", status="active",
         )
 
-        # create two courses
+
         self.course1 = Course.objects.create(
             title="Course 1",
             shortdescription="x",
@@ -101,7 +101,7 @@ class PaymentStatusServiceTests(TestCase):
             thumbnail="/static/img2.jpg",
         )
 
-        # create payment
+
         self.payment = Payment.objects.create(
             user=self.student,
             amount=Decimal('300.00'),
@@ -111,7 +111,7 @@ class PaymentStatusServiceTests(TestCase):
             payment_method=Payment.PaymentMethod.VNPAY,
         )
 
-        # details for both courses
+
         Payment_Details.objects.create(
             payment=self.payment,
             course=self.course1,
@@ -127,7 +127,7 @@ class PaymentStatusServiceTests(TestCase):
             final_price=Decimal('150.00'),
         )
 
-        # enrollment for course1
+
         Enrollment.objects.create(user=self.student, course=self.course1, status=Enrollment.Status.Active)
 
     def test_get_payment_status_contains_metadata(self):
@@ -140,7 +140,7 @@ class PaymentStatusServiceTests(TestCase):
         c1 = data['courses'][0]
         self.assertEqual(c1['course_id'], self.course1.id)
         self.assertEqual(c1['course_thumbnail'], self.course1.thumbnail)
-        # slug is not a model field; service returns None
+
         self.assertIsNone(c1['course_slug'])
         self.assertEqual(c1['instructor_name'], self.instructor.user.full_name)
         self.assertEqual(c1['level'], self.course1.level)
@@ -161,14 +161,14 @@ class PaymentStatusServiceTests(TestCase):
 
 class IPNTests(TestCase):
     def setUp(self):
-        # base objects: student + instructor + two courses
+
         svc = PaymentStatusServiceTests()
         svc.setUp()
         self.student = svc.student
         self.course1 = svc.course1
         self.course2 = svc.course2
 
-        # create a fresh payment for each test
+
         from payments.models import Payment
         from payment_details.models import Payment_Details
         from decimal import Decimal
@@ -198,10 +198,10 @@ class IPNTests(TestCase):
         from django.test import RequestFactory
         self.factory = RequestFactory()
 
-        # patch validate_response to always true for tests
+
         self._orig_validate = None
         import payments.vnpay_services as vs
-        # method receives self and key
+
         self._orig_validate = vs.vnpay.validate_response
         vs.vnpay.validate_response = lambda self_obj, key: True
 
@@ -211,10 +211,10 @@ class IPNTests(TestCase):
             vnpay.validate_response = self._orig_validate
 
     def _make_ipn_request(self, params):
-        # ensure success code unless explicit override
+
         if 'vnp_ResponseCode' not in params:
             params['vnp_ResponseCode'] = '00'
-        # VNPay always sends a secure hash; add dummy value
+
         params['vnp_SecureHash'] = 'dummy'
         req = self.factory.get('/api/vnpay/ipn/', data=params)
         from payments.vnpay_services import payment_ipn
@@ -234,7 +234,7 @@ class IPNTests(TestCase):
         data = json.loads(resp.content)
         self.assertEqual(data['RspCode'], '04')
         self.payment.refresh_from_db()
-        # status should not be completed (pending or failed are both acceptable)
+
         self.assertNotEqual(self.payment.payment_status, Payment.PaymentStatus.COMPLETED)
 
     def test_ipn_success_path(self):
@@ -248,7 +248,7 @@ class IPNTests(TestCase):
         self.assertEqual(data['RspCode'], '00')
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.COMPLETED)
-        # enrollment for course1 should exist
+
         from enrollments.models import Enrollment
         self.assertTrue(Enrollment.objects.filter(user=self.student, course=self.course1, is_deleted=False).exists())
 
@@ -281,7 +281,7 @@ class IPNTests(TestCase):
         self.assertTrue(UserSubscription.objects.filter(payment=self.payment, user=self.student, plan=plan, is_deleted=False).exists())
 
     def test_ipn_exception_results_in_99(self):
-        # monkey-patch create_enrollments to throw
+
         import payments.vnpay_services as vs
         orig = vs.create_enrollments_from_payment
         def boom(p):
@@ -341,20 +341,20 @@ class ReconcileCommandTests(TestCase):
         call_command('reconcile_payments', '--fix', stdout=buf)
         from enrollments.models import Enrollment
         self.assertTrue(Enrollment.objects.filter(user=self.student, course=self.course1).exists())
-        # payment status should stay completed
+
         self.payment.refresh_from_db()
         self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.COMPLETED)
 
 
 class FixPaymentServiceTests(TestCase):
     def setUp(self):
-        # reuse earlier setup for objects
+
         svc = PaymentStatusServiceTests()
         svc.setUp()
         self.student = svc.student
         self.course1 = svc.course1
         self.course2 = svc.course2
-        # remove any existing enrollment created by parent
+
         from enrollments.models import Enrollment
         Enrollment.objects.filter(user=self.student, course=self.course1).delete()
         from payments.models import Payment
@@ -380,14 +380,14 @@ class FixPaymentServiceTests(TestCase):
         from payments.services import fix_payment
         result = fix_payment(self.payment.id)
         self.assertEqual(result['enrollments_created'], 1)
-        # second run idempotent
+
         result2 = fix_payment(self.payment.id)
         self.assertEqual(result2['enrollments_created'], 0)
 
     def test_fix_payment_not_completed(self):
         from payments.services import fix_payment
         from rest_framework.exceptions import ValidationError
-        # mark pending
+
         self.payment.payment_status = Payment.PaymentStatus.PENDING
         self.payment.save()
         with self.assertRaises(ValidationError):
@@ -398,7 +398,7 @@ class FixPaymentServiceTests(TestCase):
         from django.core.management import call_command
         from io import StringIO
         from payments.models import Payment
-        # create a stale pending payment
+
         p = Payment.objects.create(
             user=self.student,
             amount=0,
@@ -417,18 +417,18 @@ class FixPaymentServiceTests(TestCase):
 
 class PaymentViewsTests(TestCase):
     def setUp(self):
-        # reuse the objects created above by calling PaymentStatusServiceTests.setUp
+
         svc = PaymentStatusServiceTests()
         svc.setUp()
-        # copy over references
+
         self.student = svc.student
         self.payment = svc.payment
         self.course1 = svc.course1
         self.course2 = svc.course2
-        # create API client and login student
+
         from rest_framework.test import APIClient
         self.client = APIClient()
-        # generate a valid JWT for this student and attach it
+
         payload = {
             'user_id': self.student.id,
             'username': self.student.username,
@@ -446,7 +446,7 @@ class PaymentViewsTests(TestCase):
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        # basic assertions
+
         self.assertEqual(data['payment_id'], self.payment.id)
         self.assertIn('courses', data)
         self.assertEqual(len(data['courses']), 2)
@@ -456,7 +456,7 @@ class PaymentViewsTests(TestCase):
             username="other2", email="o2@example.com", password_hash=make_password("password123"),
             full_name="Other Two", user_type="student", status="active",
         )
-        # generate token for other
+
         payload = {
             'user_id': other.id,
             'username': other.username,
@@ -485,12 +485,12 @@ class PaymentViewsTests(TestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_admin_fix_endpoint_allows_admin(self):
-        # make current client an admin
+
         admin_user = UserModel.objects.create(
             username="adm", email="adm@example.com", password_hash=make_password("pass"),
             full_name="Admin", user_type="admin", status="active",
         )
-        # also create corresponding Admin record so RolePermissionFactory sees it
+
         from admins.models import Admin as AdminModel
         AdminModel.objects.create(user=admin_user, department="IT", role="super_admin")
         payload = {
@@ -516,7 +516,7 @@ class PaymentViewsTests(TestCase):
         self.assertEqual(resp.status_code, 403)
 
     def test_admin_list_payments_returns_all(self):
-        # make current client an admin same as previous test
+
         admin_user = UserModel.objects.create(
             username="adm2", email="adm2@example.com", password_hash=make_password("pass"),
             full_name="Admin Two", user_type="admin", status="active",
@@ -535,7 +535,7 @@ class PaymentViewsTests(TestCase):
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
 
-        # create an additional completed payment with no enrollment to demonstrate
+
         from payments.models import Payment
         from payment_details.models import Payment_Details
         from decimal import Decimal
@@ -567,7 +567,7 @@ class PaymentViewsTests(TestCase):
             self.assertIn('course_title', p)
 
     def test_admin_list_payments_problematic_filter(self):
-        # create admin user again to ensure token is fresh
+
         admin_user = UserModel.objects.create(
             username="adm3", email="adm3@example.com", password_hash=make_password("pass"),
             full_name="Admin Three", user_type="admin", status="active",

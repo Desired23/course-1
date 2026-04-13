@@ -8,6 +8,7 @@ import { FilterComponents } from "../../components/FilterComponents"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { UserPagination } from '../../components/UserPagination'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
@@ -41,9 +42,32 @@ import {
   Users,
   Loader2
 } from "lucide-react"
+import { motion } from 'motion/react'
 import { cn } from "../../components/ui/utils"
 
 const PAGE_SIZE = 12
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 interface User {
   id: string
@@ -139,6 +163,23 @@ export function AdminUsersPage() {
     admins: 0,
   })
 
+  const renderUsersTableSkeleton = () => (
+    <div className="space-y-3 p-4">
+      {Array.from({ length: PAGE_SIZE }).map((_, index) => (
+        <div key={`admin-user-skeleton-${index}`} className="grid grid-cols-9 gap-3 items-center">
+          <Skeleton className="h-6 w-6" />
+          <Skeleton className="h-9 w-full col-span-2" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-10" />
+        </div>
+      ))}
+    </div>
+  )
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
     return () => clearTimeout(t)
@@ -177,7 +218,7 @@ export function AdminUsersPage() {
         admins: adminRes.count || 0,
       })
     } catch {
-      // keep table functional even if summary counts are unavailable
+
     }
   }
 
@@ -334,8 +375,8 @@ export function AdminUsersPage() {
   const endIdx = Math.min(currentPage * PAGE_SIZE, totalCount)
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
+    <motion.div className="p-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -353,10 +394,10 @@ export function AdminUsersPage() {
             {t('admin_users.create_user')}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mb-6 space-y-4">
-        <div className="flex flex-col md:flex-row gap-4">
+      <motion.div className="mb-6 space-y-4" variants={fadeInUp}>
+        <div className="app-surface-elevated flex flex-col md:flex-row gap-4 rounded-lg p-4">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -391,27 +432,28 @@ export function AdminUsersPage() {
             className="w-full md:w-48"
           />
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 border rounded-lg">
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" variants={fadeInUp}>
+        <div className="app-interactive p-4 border rounded-lg">
           <p className="text-sm text-muted-foreground mb-1">{t('admin_users.total_users')}</p>
           <p className="text-2xl font-bold">{counts.total}</p>
         </div>
-        <div className="p-4 border rounded-lg">
+        <div className="app-interactive p-4 border rounded-lg">
           <p className="text-sm text-muted-foreground mb-1">{t('admin_users.active_users')}</p>
           <p className="text-2xl font-bold text-green-600">{counts.active}</p>
         </div>
-        <div className="p-4 border rounded-lg">
+        <div className="app-interactive p-4 border rounded-lg">
           <p className="text-sm text-muted-foreground mb-1">{t('admin_users.instructors_count')}</p>
           <p className="text-2xl font-bold text-purple-600">{counts.instructors}</p>
         </div>
-        <div className="p-4 border rounded-lg">
+        <div className="app-interactive p-4 border rounded-lg">
           <p className="text-sm text-muted-foreground mb-1">{t('admin_users.admins_count')}</p>
           <p className="text-2xl font-bold text-red-600">{counts.admins}</p>
         </div>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <AdminBulkActionBar
         count={selectedUserIds.length}
         label={t('admin_users.bulk.selected_label')}
@@ -453,8 +495,9 @@ export function AdminUsersPage() {
           },
         ]}
       />
+      </motion.div>
 
-      <div className="border rounded-lg overflow-hidden">
+      <motion.div className="border rounded-lg overflow-hidden" variants={fadeInUp}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -478,9 +521,7 @@ export function AdminUsersPage() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={9} className="py-10">
-                  <div className="flex items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  </div>
+                  {renderUsersTableSkeleton()}
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
@@ -593,10 +634,10 @@ export function AdminUsersPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </motion.div>
 
       {totalCount > 0 && (
-        <div className="mt-4">
+        <motion.div className="mt-4" variants={fadeInUp}>
           <div className="text-sm text-muted-foreground mb-3">
             {t('admin_users.pagination_summary', { start: startIdx, end: endIdx, total: totalCount })}
           </div>
@@ -605,7 +646,7 @@ export function AdminUsersPage() {
             totalPages={totalPages}
             onPageChange={setCurrentPage}
           />
-        </div>
+        </motion.div>
       )}
 
       <AdminConfirmDialog
@@ -618,6 +659,6 @@ export function AdminUsersPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }

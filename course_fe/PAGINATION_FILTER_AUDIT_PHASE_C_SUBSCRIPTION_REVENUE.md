@@ -1,6 +1,6 @@
 # Phase C - FE Implementation Audit (Subscription Revenue)
 
-Date: 2026-03-11  
+Date: 2026-03-11
 Scope: `InstructorSubscriptionRevenuePage`
 
 ## 1) Page Under Audit

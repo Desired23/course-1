@@ -11,7 +11,7 @@ class Cart(models.Model):
         Promotion,
         on_delete=models.SET_NULL,
         related_name='cart_promotion',
-        null=True, blank=True  # Cho phép null và không bắt buộc
+        null=True, blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

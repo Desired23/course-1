@@ -10,6 +10,6 @@ class ActivityLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ('id', 'created_at')
 
-    
+
 
     

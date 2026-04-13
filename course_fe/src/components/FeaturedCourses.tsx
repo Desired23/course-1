@@ -16,8 +16,8 @@ export function FeaturedCourses() {
   const [showRightArrow, setShowRightArrow] = useState(true)
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // Fetch featured courses from API
+
+
   useEffect(() => {
     let cancelled = false
     getCourses({ is_featured: true, status: 'published', page_size: 8 })
@@ -42,8 +42,8 @@ export function FeaturedCourses() {
     price: formatPrice(getEffectivePrice(course)),
     originalPrice: hasActiveDiscount(course) ? formatPrice(parseDecimal(course.price)) : undefined,
     duration: formatDuration(course.duration),
-    students: course.total_students >= 1000 
-      ? `${Math.floor(course.total_students / 1000)}K+` 
+    students: course.total_students >= 1000
+      ? `${Math.floor(course.total_students / 1000)}K+`
       : `${course.total_students}`,
     level: getLevelLabel(course.level),
     category: course.category_name || '',
@@ -54,10 +54,10 @@ export function FeaturedCourses() {
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return
-    
+
     const scrollAmount = 400
     const container = scrollContainerRef.current
-    
+
     if (direction === 'left') {
       container.scrollBy({ left: -scrollAmount, behavior: 'smooth' })
     } else {
@@ -67,14 +67,14 @@ export function FeaturedCourses() {
 
   const handleScroll = () => {
     if (!scrollContainerRef.current) return
-    
+
     const container = scrollContainerRef.current
     const { scrollLeft, scrollWidth, clientWidth } = container
-    
+
     setShowLeftArrow(scrollLeft > 10)
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10)
   }
-  
+
   return (
     <section className="py-16 px-4 bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto">
@@ -83,7 +83,7 @@ export function FeaturedCourses() {
             <h2 className="text-3xl font-bold mb-2">{t('featured_courses.title')}</h2>
             <p className="text-gray-600 dark:text-gray-400">{t('featured_courses.subtitle')}</p>
           </div>
-          <Button 
+          <Button
             variant="outline"
             onClick={() => navigate('/courses')}
           >
@@ -100,7 +100,7 @@ export function FeaturedCourses() {
             <p className="text-center text-gray-500 py-12">{t('featured_courses.empty')}</p>
           ) : (
           <>
-          {/* Left Arrow */}
+
           {showLeftArrow && (
             <button
               onClick={() => scroll('left')}
@@ -111,7 +111,7 @@ export function FeaturedCourses() {
             </button>
           )}
 
-          {/* Slider Container */}
+
           <div
             ref={scrollContainerRef}
             onScroll={handleScroll}
@@ -125,7 +125,7 @@ export function FeaturedCourses() {
             ))}
           </div>
 
-          {/* Right Arrow */}
+
           {showRightArrow && (
             <button
               onClick={() => scroll('right')}

@@ -70,7 +70,7 @@ def reset_advisor_runtime_state_for_tests():
 def _resolve_gemini_model():
     env_model = _normalize_gemini_model(getattr(settings, 'GEMINI_MODEL', None))
 
-    # .env/runtime model has highest priority for local/dev operability.
+
     if env_model:
         return env_model
 

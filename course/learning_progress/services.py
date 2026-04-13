@@ -18,11 +18,11 @@ def update_learning_progress(user_id, lesson_id, progress_data):
     try:
         user = User.objects.get(id=user_id)
         lesson = Lesson.objects.select_related('coursemodule__course').get(id=lesson_id)
-        course = lesson.coursemodule.course if lesson.coursemodule else None  # type: ignore
-        
+        course = lesson.coursemodule.course if lesson.coursemodule else None
+
         if not course:
             raise ValidationError({"lesson_id": "Lesson does not belong to any course."})
-        
+
         enrollment = Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
         if not enrollment:
             raise ValidationError({"enrollment": "User is not enrolled in the course."})
@@ -41,27 +41,27 @@ def update_learning_progress(user_id, lesson_id, progress_data):
                 'start_time': timezone.now()
             }
         )
-        
+
         if not created:
             learning_progress.enrollment = enrollment
             learning_progress.course = course
-            # Update existing record
+
             learning_progress.progress_percentage = Decimal(str(progress_data.get('progress_percentage', learning_progress.progress_percentage)))
             learning_progress.time_spent = progress_data.get('time_spent', learning_progress.time_spent)
             learning_progress.is_completed = progress_data.get('is_completed', learning_progress.is_completed)
             learning_progress.last_position = progress_data.get('last_position', learning_progress.last_position)
             if 'notes' in progress_data:
                 learning_progress.notes = progress_data.get('notes')
-            
-            # Set completion date if just completed
+
+
             if learning_progress.is_completed and not learning_progress.completion_date:
                 learning_progress.completion_date = timezone.now()
-            
+
             learning_progress.last_accessed = timezone.now()
             learning_progress.save()
-        
+
         return LearningProgressSerializer(learning_progress).data
-    
+
     except User.DoesNotExist:
         raise ValidationError({"user_id": "User not found."})
     except Lesson.DoesNotExist:
@@ -73,7 +73,7 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
     try:
         user = User.objects.get(id=user_id)
         lesson = Lesson.objects.select_related('coursemodule__course').get(id=lesson_id)
-        course = lesson.coursemodule.course if lesson.coursemodule else None  # type: ignore
+        course = lesson.coursemodule.course if lesson.coursemodule else None
         enrollment =  Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
         if not enrollment:
             raise ValidationError({"enrollment": "User is not enrolled in the course."})
@@ -117,20 +117,20 @@ def get_course_progress(user_id, course_id):
     try:
         user = User.objects.get(id=user_id)
         course = Course.objects.get(id=course_id)
-        
-        # Count total lessons in course (1 query)
+
+
         from coursemodules.models import CourseModule
         from django.db.models import Count as CountFunc
         total_lessons = Lesson.objects.filter(
-            coursemodule__course=course, 
+            coursemodule__course=course,
             coursemodule__is_deleted=False,
             is_deleted=False
         ).count()
-        
+
         if total_lessons == 0:
             raise ValidationError({"course_id": "Course has no lessons."})
-        
-        # Get ALL progress data + aggregates in 1 query
+
+
         stats = LearningProgress.objects.filter(
             user=user,
             course=course,
@@ -140,22 +140,22 @@ def get_course_progress(user_id, course_id):
             avg_progress=Avg('progress_percentage', default=Decimal('0.00')),
             completed_count=CountFunc('id', filter=Q(is_completed=True))
         )
-        
-        # Get lesson-level progress (1 query)
+
+
         progresses = list(LearningProgress.objects.filter(
             user=user,
             course=course,
             is_deleted=False
         ).values(
-            'lesson_id', 
-            'progress_percentage', 
+            'lesson_id',
+            'progress_percentage',
             'is_completed',
             'last_position',
             'last_accessed',
             'notes',
         ).order_by('lesson_id'))
-        
-        # Format lesson data (no extra queries)
+
+
         lesson_data = [
             {
                 'lesson_id': p['lesson_id'],
@@ -167,7 +167,7 @@ def get_course_progress(user_id, course_id):
             }
             for p in progresses
         ]
-        
+
         result = {
             'course_id': course_id,
             'overall_progress': float(stats['avg_progress'] or Decimal('0.00')),
@@ -176,9 +176,9 @@ def get_course_progress(user_id, course_id):
             'total_time_spent': int(stats['total_time'] or 0),
             'lessons': lesson_data
         }
-        
+
         return result
-    
+
     except User.DoesNotExist:
         raise ValidationError({"user_id": "User not found."})
     except Course.DoesNotExist:
@@ -236,22 +236,22 @@ def get_student_stats(user):
     courses_completed = enrollments.filter(status='complete').count()
     courses_in_progress = enrollments.filter(status='active').exclude(progress=0).count()
 
-    # Total time spent (seconds) across all learning progress records
+
     total_time_spent = LearningProgress.objects.filter(
         user=user, is_deleted=False
     ).aggregate(t=Sum('time_spent'))['t'] or 0
 
-    # Certificates
+
     certificates_earned = Certificate.objects.filter(user=user, is_deleted=False, revoked=False).count()
 
-    # Quiz stats
+
     quiz_results = QuizResult.objects.filter(
         enrollment__user=user, is_deleted=False
     )
     total_quizzes = quiz_results.count()
     avg_quiz_score = quiz_results.aggregate(avg=Avg('score'))['avg'] or 0
 
-    # Recent activity — last 10 completed lessons
+
     recent_lp = LearningProgress.objects.filter(
         user=user, is_deleted=False, is_completed=True
     ).select_related('course', 'lesson').order_by('-last_accessed')[:10]
@@ -266,8 +266,8 @@ def get_student_stats(user):
         for lp in recent_lp
     ]
 
-    # Learning streak: count consecutive days with learning activity ending today
-    # Single query to get all distinct activity dates in the last 90 days
+
+
     today = timezone.now().date()
     cutoff = today - timedelta(days=90)
     activity_dates = set(

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
 import {
@@ -17,8 +18,32 @@ import {
   type ApplicationStatus,
 } from '../../services/application.api'
 import { toast } from 'sonner'
+import { motion } from 'motion/react'
 import { Download, ExternalLink, FileImage, FileText, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 function getFileNameFromUrl(url: string): string {
   try {
@@ -144,14 +169,27 @@ export function AdminInstructorApplicationsPage() {
     changes_requested: items.filter((i) => i.status === 'changes_requested').length,
   }), [items])
 
+  const renderApplicationsSkeleton = () => (
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={`application-skeleton-${index}`} className="rounded-lg border bg-card p-4 space-y-2">
+          <Skeleton className="h-5 w-2/5" />
+          <Skeleton className="h-4 w-3/5" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      ))}
+    </div>
+  )
+
   return (
-    <div className="container mx-auto px-4 py-6 space-y-5">
-      <div>
+    <motion.div className="container mx-auto px-4 py-6 space-y-5" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div variants={fadeInUp}>
         <h1 className="text-2xl font-semibold">{t('admin_instructor_applications.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('admin_instructor_applications.subtitle')}</p>
-      </div>
+      </motion.div>
 
-      <Card>
+      <motion.div variants={fadeInUp}>
+      <Card className="app-surface-elevated">
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('admin_instructor_applications.search_placeholder')} />
           <Select value={statusFilter} onValueChange={(v) => { setPage(1); setStatusFilter(v as any) }}>
@@ -171,15 +209,23 @@ export function AdminInstructorApplicationsPage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       {loading ? (
-        <div className="min-h-[180px] flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        renderApplicationsSkeleton()
       ) : items.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">{t('admin_instructor_applications.empty')}</CardContent></Card>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
-            <Card key={item.id}>
+          {items.map((item, index) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={listItemTransition(index)}
+            >
+            <Card className="app-interactive">
               <CardContent className="p-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <p className="font-medium truncate">{item.user_full_name || t('admin_instructor_applications.user_fallback', { id: item.user })}</p>
@@ -192,6 +238,7 @@ export function AdminInstructorApplicationsPage() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           ))}
 
           <div className="flex items-center justify-between pt-2">
@@ -203,6 +250,7 @@ export function AdminInstructorApplicationsPage() {
           </div>
         </div>
       )}
+      </motion.div>
 
       <Dialog open={showDetail} onOpenChange={setShowDetail}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -329,6 +377,6 @@ export function AdminInstructorApplicationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

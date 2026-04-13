@@ -53,7 +53,7 @@ class ForumTopicSerializer(serializers.ModelSerializer):
         return obj.forum.title if obj.forum else None
 
     def validate_title(self, value):
-        # Model already has max_length=255; keep a strict trim + payload check here.
+
         return validate_plain_user_text(
             value,
             field_label="Tiêu đề",

@@ -1,7 +1,7 @@
-/**
- * React Query hooks for Courses
- * Provides a stable interface for data fetching
- */
+
+
+
+
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,44 +19,44 @@ import {
   type Course
 } from '../services/course.api'
 
-/**
- * Get all courses with filters
- */
+
+
+
 export function useCourses(params?: GetCoursesParams) {
   return useQuery({
     queryKey: ['courses', params],
     queryFn: () => getCourses(params),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000 // 10 minutes (formerly cacheTime)
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000
   })
 }
 
-/**
- * Get single course by ID
- */
+
+
+
 export function useCourse(id: string | undefined) {
   return useQuery({
     queryKey: ['course', id],
     queryFn: () => id ? getCourse(id) : null,
-    enabled: !!id, // Only run query if id exists
+    enabled: !!id,
     staleTime: 5 * 60 * 1000
   })
 }
 
-/**
- * Get featured courses
- */
+
+
+
 export function useFeaturedCourses() {
   return useQuery({
     queryKey: ['courses', 'featured'],
     queryFn: getFeaturedCourses,
-    staleTime: 10 * 60 * 1000 // Cache longer for featured courses
+    staleTime: 10 * 60 * 1000
   })
 }
 
-/**
- * Get bestseller courses
- */
+
+
+
 export function useBestsellerCourses() {
   return useQuery({
     queryKey: ['courses', 'bestsellers'],
@@ -65,9 +65,9 @@ export function useBestsellerCourses() {
   })
 }
 
-/**
- * Get instructor's courses
- */
+
+
+
 export function useInstructorCourses(instructorId: string | undefined) {
   return useQuery({
     queryKey: ['courses', 'instructor', instructorId],
@@ -77,21 +77,21 @@ export function useInstructorCourses(instructorId: string | undefined) {
   })
 }
 
-/**
- * Create new course
- */
+
+
+
 export function useCreateCourse() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (data: Partial<Course>) => createCourse(data),
     onSuccess: (newCourse) => {
-      // Invalidate courses list to refetch
+
       queryClient.invalidateQueries({ queryKey: ['courses'] })
-      
-      // Optimistically add to cache
+
+
       queryClient.setQueryData(['course', newCourse.id], newCourse)
-      
+
       toast.success('Course created successfully!')
     },
     onError: (error: any) => {
@@ -100,23 +100,23 @@ export function useCreateCourse() {
   })
 }
 
-/**
- * Update course
- */
+
+
+
 export function useUpdateCourse() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Course> }) => 
+    mutationFn: ({ id, data }: { id: string; data: Partial<Course> }) =>
       updateCourse(id, data),
     onSuccess: (updatedCourse, variables) => {
       if (updatedCourse) {
-        // Update single course cache
+
         queryClient.setQueryData(['course', variables.id], updatedCourse)
-        
-        // Invalidate courses list
+
+
         queryClient.invalidateQueries({ queryKey: ['courses'] })
-        
+
         toast.success('Course updated successfully!')
       }
     },
@@ -126,21 +126,21 @@ export function useUpdateCourse() {
   })
 }
 
-/**
- * Delete course
- */
+
+
+
 export function useDeleteCourse() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (id: string) => deleteCourse(id),
     onSuccess: (_, deletedId) => {
-      // Remove from cache
+
       queryClient.removeQueries({ queryKey: ['course', deletedId] })
-      
-      // Invalidate courses list
+
+
       queryClient.invalidateQueries({ queryKey: ['courses'] })
-      
+
       toast.success('Course deleted successfully!')
     },
     onError: (error: any) => {
@@ -149,23 +149,23 @@ export function useDeleteCourse() {
   })
 }
 
-/**
- * Publish/Unpublish course
- */
+
+
+
 export function usePublishCourse() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, publish }: { id: string; publish: boolean }) => 
+    mutationFn: ({ id, publish }: { id: string; publish: boolean }) =>
       publishCourse(id, publish),
     onSuccess: (updatedCourse, variables) => {
       if (updatedCourse) {
         queryClient.setQueryData(['course', variables.id], updatedCourse)
         queryClient.invalidateQueries({ queryKey: ['courses'] })
-        
+
         toast.success(
-          variables.publish 
-            ? 'Course published successfully!' 
+          variables.publish
+            ? 'Course published successfully!'
             : 'Course unpublished successfully!'
         )
       }

@@ -16,11 +16,11 @@ export interface Review {
   report_count: number
   instructor_response?: string
   response_date?: string
-  // Additional user info for display
+
   user_name?: string
   user_avatar?: string
-  // Helpful tracking
-  helpful_votes?: string[] // Array of user IDs who found it helpful
+
+  helpful_votes?: string[]
 }
 
 interface ReviewsContextType {
@@ -43,7 +43,7 @@ interface ReviewsContextType {
 
 const ReviewsContext = createContext<ReviewsContextType | undefined>(undefined)
 
-// Mock reviews for demo
+
 const MOCK_REVIEWS: Review[] = [
   {
     review_id: 1,
@@ -81,7 +81,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
   const [reviews, setReviews] = useState<Review[]>([])
 
   useEffect(() => {
-    // Load reviews from localStorage
+
     const saved = localStorage.getItem('courseReviews')
     if (saved) {
       try {
@@ -97,7 +97,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Save reviews to localStorage
+
     if (reviews.length > 0) {
       localStorage.setItem('courseReviews', JSON.stringify(reviews))
     }
@@ -147,7 +147,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
       rating,
       comment: comment.trim(),
       review_date: new Date().toISOString(),
-      status: 'approved', // In real app, might be 'pending' for moderation
+      status: 'approved',
       likes: 0,
       report_count: 0,
       user_name: user.name,
@@ -172,8 +172,8 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
       return false
     }
 
-    setReviews(prev => prev.map(r => 
-      r.review_id === reviewId 
+    setReviews(prev => prev.map(r =>
+      r.review_id === reviewId
         ? { ...r, rating, comment: comment.trim(), updated_date: new Date().toISOString() }
         : r
     ))
@@ -211,14 +211,14 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
         const hasVoted = helpfulVotes.includes(user.id)
 
         if (hasVoted) {
-          // Remove vote
+
           return {
             ...r,
             likes: Math.max(0, r.likes - 1),
             helpful_votes: helpfulVotes.filter(id => id !== user.id)
           }
         } else {
-          // Add vote
+
           return {
             ...r,
             likes: r.likes + 1,
@@ -236,8 +236,8 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    setReviews(prev => prev.map(r => 
-      r.review_id === reviewId 
+    setReviews(prev => prev.map(r =>
+      r.review_id === reviewId
         ? { ...r, report_count: r.report_count + 1 }
         : r
     ))
@@ -247,7 +247,7 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
 
   const getCourseRating = (courseId: string) => {
     const courseReviews = getCourseReviews(courseId)
-    
+
     if (courseReviews.length === 0) {
       return {
         average: 0,
@@ -277,10 +277,10 @@ export function ReviewsProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    setReviews(prev => prev.map(r => 
-      r.review_id === reviewId 
-        ? { 
-            ...r, 
+    setReviews(prev => prev.map(r =>
+      r.review_id === reviewId
+        ? {
+            ...r,
             instructor_response: response,
             response_date: new Date().toISOString()
           }

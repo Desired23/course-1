@@ -4,17 +4,25 @@ Protected by a secret key passed as query param.
 
 Usage:  GET /api/seed-demo/?key=<SEED_SECRET_KEY>
 """
+import json
 import threading
 from django.http import JsonResponse
-from django.conf import settings
-import os
 from django.db import connection
+from django.utils import timezone
 
-# Import all models used in bulk delete (use actual app names)
+from config.reseed_engine import (
+    DEFAULT_PROFILE,
+    get_default_strict_mode,
+    get_reseed_status,
+    get_seed_secret,
+    start_reseed_run,
+)
+
+
 from subscription_plans.models import (
     SubscriptionUsage,
     UserSubscription,
-    CourseSubscriptionConsent, 
+    CourseSubscriptionConsent,
     PlanCourse,
     SubscriptionPlan,
 )
@@ -58,9 +66,9 @@ from admins.models import Admin
 from users.models import User
 
 
-SEED_SECRET = os.getenv('SEED_SECRET_KEY', 'demo-seed-2026')
+SEED_SECRET = get_seed_secret()
 
-# Track if seed is currently running
+
 _seed_lock = threading.Lock()
 _seed_running = False
 
@@ -70,10 +78,10 @@ def _run_seed():
     global _seed_running
     print("[SEED] ==== BẮT ĐẦU RESET DỮ LIỆU ====")
     try:
-        # Close any stale DB connections first
+
         connection.close()
 
-        # ── Delete all data (order matters for FK constraints) ──
+
         print("🗑️  Clearing database...")
         SubscriptionUsage.objects.all().delete()
         UserSubscription.objects.all().delete()
@@ -123,7 +131,7 @@ def _run_seed():
         Admin.objects.all().delete()
         User.objects.all().delete()
 
-        # Also clean realtime chat tables
+
         try:
             from realtime.models import ChatMessage, ChatRoom
             ChatMessage.objects.all().delete()
@@ -133,7 +141,7 @@ def _run_seed():
 
         print("✅ Database cleared!")
 
-        # ── Run seed script ──
+
         print("🌱 Running seed_data.py...")
         import importlib, sys
         if 'seed_data' in sys.modules:
@@ -155,18 +163,18 @@ def seed_demo_view(request):
     """GET /api/seed-demo/?key=xxx"""
     global _seed_running
 
-    # Check secret key
+
     key = request.GET.get('key', '')
     if key != SEED_SECRET:
         return JsonResponse({'error': 'Invalid key'}, status=403)
 
-    # Prevent concurrent runs
+
     with _seed_lock:
         if _seed_running:
             return JsonResponse({'message': 'Seed is already running. Please wait...'}, status=429)
         _seed_running = True
 
-    # Run in background thread so request doesn't timeout
+
     thread = threading.Thread(target=_run_seed, daemon=True)
     thread.start()
 
@@ -183,3 +191,85 @@ def seed_status_view(request):
         'running': _seed_running,
         'message': 'Seed is running...' if _seed_running else 'No seed in progress.',
     })
+
+
+def _extract_request_key(request, payload):
+    """Read seed key from JSON body, query string, or header."""
+    if payload.get('key'):
+        return payload.get('key')
+
+    query_key = request.GET.get('key', '')
+    if query_key:
+        return query_key
+
+    return request.headers.get('X-Seed-Key', '')
+
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {'1', 'true', 'yes', 'y', 'on'}
+
+
+def reseed_demo_view(request):
+    """GET/POST /api/reseed-demo/ to run full business reset + reseed job."""
+    if request.method not in ('GET', 'POST'):
+        return JsonResponse({'error': 'Method not allowed. Use GET or POST.'}, status=405)
+
+    if request.method == 'POST':
+        try:
+            payload = json.loads(request.body.decode('utf-8')) if request.body else {}
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON payload.'}, status=400)
+    else:
+        payload = request.GET.dict()
+
+    key = _extract_request_key(request, payload)
+    if key != SEED_SECRET:
+        return JsonResponse({'error': 'Invalid key'}, status=403)
+
+    profile = str(payload.get('profile', DEFAULT_PROFILE)).strip().lower()
+    dry_run = _parse_bool(payload.get('dry_run'), default=False)
+    strict_mode = _parse_bool(payload.get('strict_mode'), default=get_default_strict_mode())
+    preserve_home_settings = _parse_bool(payload.get('preserve_home_settings'), default=True)
+    random_seed = payload.get('random_seed', int(timezone.now().strftime('%Y%m%d')))
+
+    try:
+        random_seed = int(random_seed)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'random_seed must be an integer.'}, status=400)
+
+    try:
+        started, run_state = start_reseed_run(
+            profile=profile,
+            random_seed=random_seed,
+            dry_run=dry_run,
+            strict_mode=strict_mode,
+            preserve_home_settings=preserve_home_settings,
+        )
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    if not started:
+        return JsonResponse(
+            {
+                'message': 'A reseed run is already in progress.',
+                'status': run_state,
+            },
+            status=429,
+        )
+
+    return JsonResponse(
+        {
+            'message': 'Reseed started successfully.',
+            'status': run_state,
+        },
+        status=202,
+    )
+
+
+def reseed_status_view(request):
+    """GET /api/reseed-demo/status/ returns latest reseed run status."""
+    return JsonResponse(get_reseed_status())

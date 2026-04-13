@@ -4,7 +4,7 @@ from typing import Optional
 from rest_framework import serializers
 
 
-# Keep limits explicit and reusable across serializers.
+
 MAX_COMMENT_LENGTH = 2000
 MAX_TOPIC_CONTENT_LENGTH = 10000
 MAX_CODE_ANSWER_LENGTH = 50000

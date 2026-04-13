@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -14,14 +15,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Checkbox } from "../../components/ui/checkbox"
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
-import { 
-  CreditCard, 
-  DollarSign, 
-  RefreshCw, 
-  Eye, 
-  Check, 
-  X, 
-  Clock, 
+import {
+  CreditCard,
+  DollarSign,
+  RefreshCw,
+  Eye,
+  Check,
+  X,
+  Clock,
   AlertCircle,
   MoreVertical,
   Download,
@@ -54,7 +55,7 @@ import { useRouter } from '../../components/Router'
 import { UserPagination } from '../../components/UserPagination'
 
 
-// Payment interfaces
+
 interface Payment {
   id: string
   user_id: string
@@ -76,7 +77,7 @@ interface Payment {
   instructor_earning: number
   platform_fee: number
 }
-// NOTE: legacy type above is no longer used in list view; AdminPayment from api.ts replaces it
+
 
 interface RefundRequest {
   id: string
@@ -149,6 +150,28 @@ interface DiscountRule {
 
 type PaymentConfigEditorType = 'policies' | 'instructor-rates' | 'discounts' | 'refund-settings'
 const ITEMS_PER_PAGE = 10
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 function mapPolicies(value: any[]): PaymentPolicy[] {
   return (value || []).map((item: any) => ({
@@ -288,7 +311,7 @@ export function PaymentManagementPage() {
     const loadData = async () => {
       setLoadingPayments(true)
       try {
-        // payments now come from the real API
+
         const p = await getAdminPayments()
         setPayments(p)
         setFilteredPayments(p)
@@ -366,7 +389,7 @@ export function PaymentManagementPage() {
     }
   }
 
-  // Filter configurations
+
   const paymentFilterConfigs: FilterConfig[] = useMemo(() => [
     {
       key: 'search',
@@ -452,7 +475,7 @@ export function PaymentManagementPage() {
     let filtered = payments
 
     if (filters.search) {
-      filtered = filtered.filter(payment => 
+      filtered = filtered.filter(payment =>
         (payment.user_name || '').toLowerCase().includes(filters.search.toLowerCase()) ||
         (payment.user_email || '').toLowerCase().includes(filters.search.toLowerCase()) ||
         (payment.course_title || '').toLowerCase().includes(filters.search.toLowerCase())
@@ -743,7 +766,7 @@ export function PaymentManagementPage() {
     try {
       await fixPayment(paymentId)
       toast.success(t('payment_management.fix_success'))
-      // reload payments list
+
       const p = await getAdminPayments()
       setPayments(p)
       setFilteredPayments(p)
@@ -764,17 +787,23 @@ export function PaymentManagementPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 overflow-x-hidden">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="p-6 space-y-6 overflow-x-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+
+      <motion.div className="flex justify-between items-center" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl mb-2">{t('payment_management.title')}</h1>
           <p className="text-muted-foreground">{t('payment_management.subtitle')}</p>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" variants={fadeInUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('payment_management.stats.total_revenue')}</CardTitle>
@@ -826,18 +855,34 @@ export function PaymentManagementPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="payments">{t('payment_management.tabs.payments')}</TabsTrigger>
-          <TabsTrigger value="refunds">{t('payment_management.tabs.refunds')}</TabsTrigger>
-          <TabsTrigger value="policies">{t('payment_management.tabs.policies')}</TabsTrigger>
-          <TabsTrigger value="instructor-rates">{t('payment_management.tabs.instructor_rates')}</TabsTrigger>
-          <TabsTrigger value="discounts">{t('payment_management.tabs.discounts')}</TabsTrigger>
+        <TabsList className="relative h-auto flex-wrap p-1">
+          <TabsTrigger value="payments" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'payments' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_management.tabs.payments')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="refunds" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'refunds' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_management.tabs.refunds')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="policies" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'policies' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_management.tabs.policies')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="instructor-rates" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'instructor-rates' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_management.tabs.instructor_rates')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="discounts" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'discounts' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('payment_management.tabs.discounts')}</span>
+          </TabsTrigger>
         </TabsList>
 
-        {/* Payments Tab */}
+
         <TabsContent value="payments" className="space-y-6">
           <TableFilter
             title={t('payment_management.payments.filter_title')}
@@ -980,7 +1025,7 @@ export function PaymentManagementPage() {
           </Card>
         </TabsContent>
 
-        {/* Refunds Tab */}
+
         <TabsContent value="refunds" className="space-y-6">
           <TableFilter
             title={t('payment_management.refunds.filter_title')}
@@ -1080,8 +1125,8 @@ export function PaymentManagementPage() {
                       <TableCell>
                         {refund.status === 'pending' ? (
                           <div className="flex gap-1">
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               onClick={() => openConfirm(
                                 t('payment_management.refunds.actions.approve_title'),
                                 t('payment_management.refunds.actions.approve_description', { name: refund.user_name, course: refund.course_title }),
@@ -1091,8 +1136,8 @@ export function PaymentManagementPage() {
                             >
                               <Check className="h-3 w-3" />
                             </Button>
-                            <Button 
-                              size="sm" 
+                            <Button
+                              size="sm"
                               variant="destructive"
                               onClick={() => openConfirm(
                                 t('payment_management.refunds.actions.reject_title'),
@@ -1192,7 +1237,7 @@ export function PaymentManagementPage() {
           </Card>
         </TabsContent>
 
-        {/* Policies Tab */}
+
         <TabsContent value="policies" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
@@ -1238,7 +1283,7 @@ export function PaymentManagementPage() {
                     <div className="text-right">
                       <p className="text-lg font-medium">
                         {policy.value}
-                        {policy.unit === 'percentage' ? '%' : 
+                        {policy.unit === 'percentage' ? '%' :
                          policy.unit === 'days' ? t('payment_management.policies.days_suffix') : ' VND'}
                       </p>
                       <Badge variant={policy.is_active ? 'default' : 'secondary'}>
@@ -1252,7 +1297,7 @@ export function PaymentManagementPage() {
           </Card>
         </TabsContent>
 
-        {/* Instructor Rates Tab */}
+
         <TabsContent value="instructor-rates" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
@@ -1308,7 +1353,7 @@ export function PaymentManagementPage() {
           </Card>
         </TabsContent>
 
-        {/* Discount Rules Tab */}
+
         <TabsContent value="discounts" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
@@ -1377,6 +1422,8 @@ export function PaymentManagementPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
+      </motion.div>
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -1573,7 +1620,7 @@ export function PaymentManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Payment Detail Modal */}
+
       {selectedPayment && (
         <Dialog open={!!selectedPayment} onOpenChange={() => setSelectedPayment(null)}>
           <DialogContent className="max-w-2xl">
@@ -1632,7 +1679,7 @@ export function PaymentManagementPage() {
         </Dialog>
       )}
 
-      {/* Refund Detail Modal */}
+
       {selectedRefund && (
         <Dialog open={!!selectedRefund} onOpenChange={() => setSelectedRefund(null)}>
           <DialogContent>
@@ -1719,7 +1766,7 @@ export function PaymentManagementPage() {
               )}
               {selectedRefund.status === 'pending' && (
                 <div className="flex gap-2 pt-4 flex-wrap">
-                  <Button 
+                  <Button
                     onClick={() => {
                       void handleRefundAction([selectedRefund.refund_id], 'approve')
                       setSelectedRefund(null)
@@ -1727,7 +1774,7 @@ export function PaymentManagementPage() {
                   >
                     {t('payment_management.refunds.approve')}
                   </Button>
-                  <Button 
+                  <Button
                     variant="destructive"
                     onClick={() => {
                       void handleRefundAction([selectedRefund.refund_id], 'reject')
@@ -1820,6 +1867,6 @@ export function PaymentManagementPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </motion.div>
   )
 }

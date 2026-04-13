@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # make payment nullable
+
         migrations.AlterField(
             model_name='instructorearning',
             name='payment',
@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                 to='payments.payment',
             ),
         ),
-        # add user_subscription FK
+
         migrations.AddField(
             model_name='instructorearning',
             name='user_subscription',
@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 help_text='Earning từ subscription (revenue sharing)',
             ),
         ),
-        # update unique_together
+
         migrations.AlterUniqueTogether(
             name='instructorearning',
             unique_together={

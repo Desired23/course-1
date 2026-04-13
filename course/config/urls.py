@@ -16,17 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from config.seed_view import seed_demo_view, seed_status_view
+from config.seed_view import (
+    reseed_demo_view,
+    reseed_status_view,
+    seed_demo_view,
+    seed_status_view,
+)
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/seed-demo/', seed_demo_view, name='seed-demo'),
     path('api/seed-demo/status/', seed_status_view, name='seed-status'),
+    path('api/reseed-demo/', reseed_demo_view, name='reseed-demo'),
+    path('api/reseed-demo/status/', reseed_status_view, name='reseed-status'),
 
-    path('api/', include('users.urls')),           # /api/users/
-    path('api/', include('payments.urls')),        # /api/payments/
-    # path('api/', include('reviews.urls')), 
+    path('api/', include('users.urls')),
+    path('api/', include('payments.urls')),
+
     path('api/', include('courses.urls')),
     path('api/', include('instructors.urls')),
     path('api/', include('categories.urls')),
@@ -56,8 +63,8 @@ urlpatterns = [
     path('api/', include('instructor_payouts.urls')),
     path('api/', include('instructor_levels.urls')),
     path('api/', include('support_replies.urls')),
-    path('api/', include('utils.upload.urls')),     # /api/cloudinary/upload/
-    path('api/', include('lesson_comments.urls')),  # /api/lesson_comments/
+    path('api/', include('utils.upload.urls')),
+    path('api/', include('lesson_comments.urls')),
     path('api/', include('registration_forms.urls')),
     path('api/', include('applications.urls')),
     path('api/', include('certificates.urls')),

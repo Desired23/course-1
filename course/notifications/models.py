@@ -11,8 +11,8 @@ class Notification(models.Model):
         OTHER = 'other'
     title = models.CharField(max_length=255)
     id = models.AutoField(primary_key=True)
-    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_notifications')  # Ai gửi/tạo thông báo
-    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_notifications')  # Gửi cho ai
+    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_notifications')
+    receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_notifications')
     message = models.TextField()
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

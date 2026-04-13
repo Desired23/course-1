@@ -36,13 +36,13 @@ export function AnswerCard({
   const { t } = useTranslation()
 
   return (
-    <div 
+    <div
       className={cn(
         "p-4 rounded-lg border space-y-3",
         answer.isAccepted && "border-green-500 bg-green-50 dark:bg-green-950/20"
       )}
     >
-      {/* Header */}
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <Avatar className="w-10 h-10">
@@ -69,10 +69,10 @@ export function AnswerCard({
         </div>
       </div>
 
-      {/* Content */}
+
       <p className="text-muted-foreground pl-13">{answer.content}</p>
 
-      {/* Actions */}
+
       <div className="flex items-center gap-3 pl-13">
         <Button
           variant="ghost"

@@ -20,12 +20,12 @@ class InstructorPayoutView(APIView):
     throttle_scope = 'burst'
 
     def patch(self, request):
-        # instructor = request.user.instructor
-        # admin = request.user.admin
-        # payout =auto_create_instructor_payouts(admin)
-        # print(f"Fetching payouts for instructor: {instructor}")
+
+
+
+
         request_data = request.data
-        processed_by = request.user.admin 
+        processed_by = request.user.admin
         payout_id = request_data.get('payout_id', None)
         status_payout = request_data.get('status', None)
         transaction_id = request_data.get('transaction_id', None)
@@ -54,13 +54,13 @@ class InstructorPayoutView(APIView):
         processed_by = request.query_params.get("processed_by")
         instructor_id = request.query_params.get("instructor_id")
         payout_id = request.query_params.get("payout_id")
-        
+
         try:
             if payout_id:
                 payouts = get_payout_detail_by_id(payout_id=payout_id)
 
             elif instructor_id and admin:
-                # Admin đang muốn xem payout của instructor cụ thể
+
                 payouts = get_payouts_for_instructor(
                     instructor_id=instructor_id,
                     status=status_payout,
@@ -89,7 +89,7 @@ class InstructorPayoutView(APIView):
 
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     def delete(self, request, payout_id):
         admin = request.user.admin
         if not admin:

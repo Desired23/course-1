@@ -8,9 +8,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { 
-  Monitor, 
-  Smartphone, 
+import {
+  Monitor,
+  Smartphone,
   Tablet,
   X,
   Eye,
@@ -62,10 +62,10 @@ interface LessonPreviewModalProps {
 type DeviceType = 'desktop' | 'tablet' | 'mobile'
 type ViewMode = 'free' | 'enrolled'
 
-export function LessonPreviewModal({ 
-  open, 
-  onOpenChange, 
-  lesson 
+export function LessonPreviewModal({
+  open,
+  onOpenChange,
+  lesson
 }: LessonPreviewModalProps) {
   const { t } = useTranslation()
   const [device, setDevice] = useState<DeviceType>('desktop')
@@ -75,8 +75,8 @@ export function LessonPreviewModal({
   const [consoleOpen, setConsoleOpen] = useState(false)
   const [consoleOutput, setConsoleOutput] = useState<any>(null)
   const codeRef = useRef('')
-  
-  // Mock Comment Data (Based on LessonComment schema)
+
+
   const [comments, setComments] = useState<any[]>([
     {
       id: 1,
@@ -113,7 +113,7 @@ export function LessonPreviewModal({
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<number | null>(null)
 
-  // Initialize code when lesson changes
+
   useEffect(() => {
     if (lesson) {
       const quizData = (lesson as any).quizData || {}
@@ -173,7 +173,7 @@ export function LessonPreviewModal({
     setConsoleOpen(true)
     setConsoleOutput(null)
 
-    // Simulate network delay
+
     await new Promise(resolve => setTimeout(resolve, 800))
 
     try {
@@ -188,10 +188,10 @@ export function LessonPreviewModal({
               return "Error: " + e.message
             }
           `)
-          
+
           const result = run()
           const passed = String(result) === tc.expectedOutput
-          
+
           return {
             id: tc.id,
             input: tc.input,
@@ -245,7 +245,7 @@ export function LessonPreviewModal({
 
   const handlePostReply = (parentId: number, content: string) => {
      if (!content.trim()) return
-     
+
      const newReply = {
        id: Date.now(),
        user: 'You',
@@ -257,7 +257,7 @@ export function LessonPreviewModal({
        replies: []
      }
 
-     // Recursive update
+
      const addReply = (items: any[]): any[] => {
        return items.map(item => {
          if (item.id === parentId) {
@@ -269,7 +269,7 @@ export function LessonPreviewModal({
          return item
        })
      }
-     
+
      setComments(addReply(comments))
      setReplyingTo(null)
   }
@@ -297,7 +297,7 @@ export function LessonPreviewModal({
             "flex h-[600px] border rounded-lg overflow-hidden bg-background shadow-sm",
             device === 'desktop' ? "flex-row" : "flex-col h-auto min-h-[600px]"
           )}>
-             {/* Video Player Area */}
+
              <div className={cn(
                "bg-black flex items-center justify-center relative",
                device === 'desktop' ? "w-2/3 h-full" : "w-full aspect-video"
@@ -310,7 +310,7 @@ export function LessonPreviewModal({
                />
              </div>
 
-             {/* Sidebar */}
+
              <div className={cn(
                "flex flex-col border-l bg-background",
                device === 'desktop' ? "w-1/3 h-full" : "w-full flex-1 h-[400px]"
@@ -318,27 +318,27 @@ export function LessonPreviewModal({
                 <Tabs defaultValue="overview" className="flex-1 flex flex-col h-full">
                    <div className="border-b px-4 bg-muted/5">
                      <TabsList className="w-full justify-start bg-transparent p-0 h-11">
-                       <TabsTrigger 
-                         value="overview" 
+                       <TabsTrigger
+                         value="overview"
                          className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 h-11"
                        >
                          {t('lesson_preview_modal.tabs.overview')}
                        </TabsTrigger>
-                       <TabsTrigger 
-                         value="comments" 
+                       <TabsTrigger
+                         value="comments"
                          className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 h-11"
                        >
                          {t('lesson_preview_modal.tabs.comments')}
                        </TabsTrigger>
-                       <TabsTrigger 
-                         value="notes" 
+                       <TabsTrigger
+                         value="notes"
                          className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none rounded-none px-4 h-11"
                        >
                          {t('lesson_preview_modal.tabs.notes')}
                        </TabsTrigger>
                      </TabsList>
                    </div>
-                   
+
                    <TabsContent value="overview" className="flex-1 overflow-y-auto p-6 m-0">
                       <h3 className="font-bold text-xl mb-3">{lesson.title}</h3>
                       <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
@@ -360,7 +360,7 @@ export function LessonPreviewModal({
 
                    <TabsContent value="comments" className="flex-1 overflow-hidden m-0 h-full">
                       <div className="flex flex-col h-full bg-background">
-                        {/* Comment Input */}
+
                         <div className="p-4 border-b">
                            <div className="flex gap-3">
                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -374,8 +374,8 @@ export function LessonPreviewModal({
                                  className="w-full bg-muted/30 border rounded-md p-2 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                                />
                                <div className="flex justify-end mt-2">
-                                 <Button 
-                                   size="sm" 
+                                 <Button
+                                   size="sm"
                                    disabled={!newComment.trim()}
                                    onClick={handlePostComment}
                                  >
@@ -386,13 +386,13 @@ export function LessonPreviewModal({
                            </div>
                         </div>
 
-                        {/* Comments List */}
+
                         <div className="flex-1 overflow-y-auto p-4">
                           {comments.length > 0 ? (
                             comments.map((comment) => (
-                              <CommentItem 
-                                key={comment.id} 
-                                comment={comment} 
+                              <CommentItem
+                                key={comment.id}
+                                comment={comment}
                                 replyingTo={replyingTo}
                                 setReplyingTo={setReplyingTo}
                                 onPostReply={handlePostReply}
@@ -419,7 +419,7 @@ export function LessonPreviewModal({
              </div>
           </div>
         )
-      
+
       case 'quiz':
         return (
           <QuizPreview
@@ -440,12 +440,12 @@ export function LessonPreviewModal({
                <Code2 className="h-5 w-5 text-primary" />
                <h3 className="font-bold text-lg">{quizData.title || lesson.title}</h3>
              </div>
-             
+
              <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
                 <p className="whitespace-pre-wrap">{quizData.problemStatement?.description || lesson.description}</p>
              </div>
-             
-             {/* Examples */}
+
+
              {quizData.examples?.length > 0 && (
                <div className="mt-6 space-y-4">
                   <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -460,7 +460,7 @@ export function LessonPreviewModal({
                </div>
              )}
 
-             {/* Constraints */}
+
              {quizData.constraints?.length > 0 && (
                 <div className="mt-6">
                   <h4 className="font-semibold text-sm mb-2">{t('lesson_preview_modal.constraints')}</h4>
@@ -474,7 +474,7 @@ export function LessonPreviewModal({
           </div>
         )
 
-        // Using simple textarea for code editor as requested to avoid Monaco issues
+
         const CodeEditor = () => (
           <div className="flex-1 flex flex-col bg-[#1e1e1e] text-white h-full min-h-[400px] relative">
              <div className="p-2 px-4 bg-[#252526] flex justify-between items-center text-xs text-gray-400 border-b border-[#333]">
@@ -483,14 +483,14 @@ export function LessonPreviewModal({
                 </div>
                 <span>solution.js</span>
              </div>
-             <textarea 
+             <textarea
                className="flex-1 w-full bg-[#1e1e1e] p-4 font-mono text-sm resize-none focus:outline-none text-[#d4d4d4]"
                defaultValue={codeRef.current}
                onChange={(e) => { codeRef.current = e.target.value }}
                spellCheck={false}
              />
-             
-             {/* Console / Output Panel */}
+
+
              {consoleOpen && (
                <div className="absolute bottom-[57px] left-0 right-0 bg-[#1e1e1e] border-t border-[#333] max-h-[50%] overflow-y-auto z-10 shadow-xl">
                  <div className="flex items-center justify-between p-2 bg-[#252526] sticky top-0">
@@ -526,7 +526,7 @@ export function LessonPreviewModal({
                            })}
                          </span>
                        </div>
-                       
+
                        <div className="space-y-3">
                          {consoleOutput.results.map((result: any, i: number) => (
                            <div key={i} className="bg-[#252526] rounded p-3 text-xs">
@@ -542,7 +542,7 @@ export function LessonPreviewModal({
                                  </span>
                                )}
                              </div>
-                             
+
                              {!result.isHidden && (
                                <div className="space-y-1 text-gray-400">
                                  <div className="grid grid-cols-[60px_1fr] gap-2">
@@ -577,7 +577,7 @@ export function LessonPreviewModal({
 
              <div className="p-3 bg-[#252526] border-t border-[#333] flex justify-between items-center shrink-0 z-20">
                 <div className="text-xs text-gray-500 flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setConsoleOpen(!consoleOpen)}
                     className="hover:text-gray-300 flex items-center gap-1"
                   >
@@ -587,9 +587,9 @@ export function LessonPreviewModal({
                   </button>
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="secondary" 
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     className="bg-[#333] text-white hover:bg-[#444] border-0 h-8"
                     onClick={() => runCode(quizData)}
                     disabled={isRunning}
@@ -613,23 +613,23 @@ export function LessonPreviewModal({
           return (
             <div className="flex flex-col h-[600px] border rounded-lg overflow-hidden bg-background shadow-sm">
                <div className="flex border-b">
-                 <button 
+                 <button
                    onClick={() => setActiveTab('problem')}
                    className={cn(
                      "flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2",
-                     activeTab === 'problem' 
-                       ? "border-primary text-primary" 
+                     activeTab === 'problem'
+                       ? "border-primary text-primary"
                        : "border-transparent text-muted-foreground hover:text-foreground"
                    )}
                  >
                    <Code2 className="h-4 w-4" /> {t('lesson_preview_modal.problem_tab')}
                  </button>
-                 <button 
+                 <button
                    onClick={() => setActiveTab('code')}
                    className={cn(
                      "flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2",
-                     activeTab === 'code' 
-                       ? "border-primary text-primary" 
+                     activeTab === 'code'
+                       ? "border-primary text-primary"
                        : "border-transparent text-muted-foreground hover:text-foreground"
                    )}
                  >
@@ -674,23 +674,23 @@ export function LessonPreviewModal({
           <div className="flex items-center gap-2">
             <DialogTitle className="text-sm font-medium">{t('lesson_preview_modal.title')}</DialogTitle>
           </div>
-          
+
           <div className="flex items-center gap-2 bg-background border rounded-md p-1">
-            <button 
+            <button
               onClick={() => setDevice('desktop')}
               className={cn("p-1.5 rounded-sm transition-colors", device === 'desktop' ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
               title={t('lesson_preview_modal.desktop_view')}
             >
               <Monitor className="h-4 w-4" />
             </button>
-            <button 
+            <button
               onClick={() => setDevice('tablet')}
               className={cn("p-1.5 rounded-sm transition-colors", device === 'tablet' ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
               title={t('lesson_preview_modal.tablet_view')}
             >
               <Tablet className="h-4 w-4" />
             </button>
-            <button 
+            <button
               onClick={() => setDevice('mobile')}
               className={cn("p-1.5 rounded-sm transition-colors", device === 'mobile' ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground")}
               title={t('lesson_preview_modal.mobile_view')}
@@ -701,14 +701,14 @@ export function LessonPreviewModal({
 
           <div className="flex items-center gap-2">
              <div className="flex items-center bg-background border rounded-md px-1 h-8">
-               <button 
+               <button
                  onClick={() => setViewMode('enrolled')}
                  className={cn("text-xs px-2 py-1 rounded-sm transition-colors", viewMode === 'enrolled' ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
                >
                  {t('lesson_preview_modal.enrolled')}
                </button>
                <div className="w-[1px] h-4 bg-border mx-1" />
-               <button 
+               <button
                  onClick={() => setViewMode('free')}
                  className={cn("text-xs px-2 py-1 rounded-sm transition-colors", viewMode === 'free' ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground")}
                >
@@ -720,7 +720,7 @@ export function LessonPreviewModal({
              </Button>
           </div>
         </div>
-        
+
         <div className="bg-muted/10 p-6 max-h-[85vh] overflow-y-auto">
            {renderPreview()}
         </div>

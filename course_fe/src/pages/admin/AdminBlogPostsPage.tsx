@@ -14,6 +14,7 @@ import { Checkbox } from "../../components/ui/checkbox"
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Plus, Edit, Trash2, Eye, Calendar, User, Tag } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { toast } from "sonner"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
@@ -36,6 +37,28 @@ interface BlogPost {
   views: number
   publishedAt: string
   createdAt: string
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 
@@ -103,7 +126,7 @@ export function AdminBlogPostsPage() {
     loading: false,
     action: null,
   })
-  
+
   const [formData, setFormData] = useState({
     title: '',
     slug: '',
@@ -311,9 +334,9 @@ export function AdminBlogPostsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <motion.div className="p-6 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+
+      <motion.div className="flex items-center justify-between" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('admin_blog_posts.title')}</h1>
           <p className="text-muted-foreground">{t('admin_blog_posts.subtitle')}</p>
@@ -341,8 +364,8 @@ export function AdminBlogPostsPage() {
                     placeholder={t('admin_blog_posts.form.title_placeholder')}
                     value={formData.title}
                     onChange={(e) => {
-                      setFormData({ 
-                        ...formData, 
+                      setFormData({
+                        ...formData,
                         title: e.target.value,
                         slug: generateSlug(e.target.value)
                       })
@@ -369,7 +392,7 @@ export function AdminBlogPostsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">{t('admin_blog_posts.form.category')}</Label>
-                  <Select 
+                  <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                   >
@@ -433,7 +456,7 @@ export function AdminBlogPostsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="status">{t('admin_blog_posts.form.status')}</Label>
-                  <Select 
+                  <Select
                     value={formData.status}
                     onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
                   >
@@ -458,10 +481,10 @@ export function AdminBlogPostsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={fadeInUp}>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>{t('admin_blog_posts.stats.total_posts')}</CardDescription>
@@ -492,9 +515,10 @@ export function AdminBlogPostsPage() {
             </CardTitle>
           </CardHeader>
         </Card>
-      </div>
+      </motion.div>
 
-      {/* Filters */}
+
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{t('admin_blog_posts.filter_title')}</CardTitle>
@@ -521,7 +545,9 @@ export function AdminBlogPostsPage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <AdminBulkActionBar
         count={selectedPostIds.length}
         label={t('admin_blog_posts.bulk.selected_label')}
@@ -565,8 +591,10 @@ export function AdminBlogPostsPage() {
           },
         ]}
       />
+      </motion.div>
 
-      {/* Blog Posts Table */}
+
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{t('admin_blog_posts.table.title', { count: filteredPosts.length })}</CardTitle>
@@ -710,8 +738,9 @@ export function AdminBlogPostsPage() {
           </Table>
         </CardContent>
       </Card>
+      </motion.div>
 
-      {/* Edit Dialog */}
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -748,7 +777,7 @@ export function AdminBlogPostsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-category">{t('admin_blog_posts.form.category')}</Label>
-                <Select 
+                <Select
                   value={formData.category}
                   onValueChange={(value) => setFormData({ ...formData, category: value })}
                 >
@@ -809,7 +838,7 @@ export function AdminBlogPostsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-status">{t('admin_blog_posts.form.status')}</Label>
-                <Select 
+                <Select
                   value={formData.status}
                   onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
                 >
@@ -848,7 +877,7 @@ export function AdminBlogPostsPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }
 

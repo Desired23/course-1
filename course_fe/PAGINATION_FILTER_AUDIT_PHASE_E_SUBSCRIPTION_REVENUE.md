@@ -1,6 +1,6 @@
 # Phase E - Gap & Risk Report (Subscription Revenue)
 
-Date: 2026-03-11  
+Date: 2026-03-11
 Scope: `InstructorSubscriptionRevenuePage` + `instructor_earnings` BE endpoints
 
 ## 1) Executive Priority

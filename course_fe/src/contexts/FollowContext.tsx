@@ -28,7 +28,7 @@ export function FollowProvider({ children }: { children: React.ReactNode }) {
   const [follows, setFollows] = useState<Follow[]>([])
 
   useEffect(() => {
-    // Load follows from localStorage
+
     const saved = localStorage.getItem('instructorFollows')
     if (saved) {
       try {
@@ -41,7 +41,7 @@ export function FollowProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Save follows to localStorage
+
     if (follows.length > 0) {
       localStorage.setItem('instructorFollows', JSON.stringify(follows))
     }

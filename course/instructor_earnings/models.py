@@ -2,14 +2,14 @@ from django.db import models
 from instructors.models import Instructor
 from courses.models import Course
 from payments.models import Payment
-from instructor_payouts.models import InstructorPayout  # Assuming you have a separate payouts model for instructor payouts
+from instructor_payouts.models import InstructorPayout
 
 class InstructorEarning(models.Model):
     class StatusChoices(models.TextChoices):
-        PENDING = 'pending', 'pending'              
-        AVAILABLE = 'available', 'available'       
-        PAID = 'paid', 'paid'                      
-        CANCELLED = 'cancelled', 'cancelled'     
+        PENDING = 'pending', 'pending'
+        AVAILABLE = 'available', 'available'
+        PAID = 'paid', 'paid'
+        CANCELLED = 'cancelled', 'cancelled'
 
     id = models.AutoField(primary_key=True)
     instructor = models.ForeignKey(Instructor, on_delete=models.CASCADE, related_name='earnings')
@@ -27,8 +27,8 @@ class InstructorEarning(models.Model):
         help_text='Earning từ subscription (revenue sharing)'
     )
 
-    amount = models.DecimalField(max_digits=10, decimal_places=2)  # Tổng tiền khóa học (sau giảm giá)
-    net_amount = models.DecimalField(max_digits=10, decimal_places=2)  # = amount * (100 - commission_rate) / 100
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    net_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
     status = models.CharField(
         max_length=10,

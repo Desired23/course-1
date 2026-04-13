@@ -33,7 +33,7 @@ export function CodeEditor({
   const monacoRef = useRef<any>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Map Judge0 language IDs to Monaco language IDs
+
   const getMonacoLanguage = (lang: string): string => {
     if (!lang) return 'javascript'
     const languageMap: Record<string, string> = {
@@ -57,19 +57,19 @@ export function CodeEditor({
 
   const monacoLanguage = getMonacoLanguage(language)
 
-  // Initialize Editor
+
   useEffect(() => {
     let isMounted = true
 
     const initMonaco = async () => {
       try {
         const monaco = await loader.init()
-        
+
         if (!isMounted) return
-        
+
         monacoRef.current = monaco
 
-        // Define Themes
+
         monaco.editor.defineTheme('udemy-dark', {
           base: 'vs-dark',
           inherit: true,
@@ -144,13 +144,13 @@ export function CodeEditor({
 
           editorRef.current = editorInstance
 
-          // Event Listeners
+
           editorInstance.onDidChangeModelContent(() => {
             const currentValue = editorInstance.getValue()
             onChange(currentValue)
           })
 
-          // Save Command
+
           editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
             if (onSave) onSave()
           })
@@ -171,9 +171,9 @@ export function CodeEditor({
         editorRef.current = null
       }
     }
-  }, []) // Init once
+  }, [])
 
-  // Watch for Prop Changes
+
   useEffect(() => {
     if (editorRef.current && monacoRef.current) {
       const model = editorRef.current.getModel()
@@ -194,7 +194,7 @@ export function CodeEditor({
     }
   }, [darkMode, readOnly, fontSize, showMinimap])
 
-  // Handle external value changes (only if different)
+
   useEffect(() => {
     if (editorRef.current) {
       const currentValue = editorRef.current.getValue()
@@ -212,7 +212,7 @@ export function CodeEditor({
         </div>
       )}
       <div ref={containerRef} style={{ height: '100%', width: '100%' }} />
-      
+
       <div className="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded border opacity-60 hover:opacity-100 transition-opacity z-10 pointer-events-none">
         {onSave && <span>💾 Ctrl+S to save | </span>}
         <span>🔍 Ctrl+F to find | 💬 Ctrl+/ to comment</span>
@@ -221,19 +221,19 @@ export function CodeEditor({
   )
 }
 
-// Export helper
+
 export function useCodeEditor() {
-  // This helper might need adjustment if used externally with the new impl, 
-  // but for now keeping the hook signature same. 
-  // Since we don't expose the Ref to parent in this simplified version, 
-  // this hook is less useful unless we lift state. 
-  // For the current error fix, we focus on the component itself.
+
+
+
+
+
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
-  return { 
-    editorRef, 
-    getEditor: () => editorRef.current, 
-    format: () => {}, 
-    undo: () => {}, 
-    redo: () => {} 
+  return {
+    editorRef,
+    getEditor: () => editorRef.current,
+    format: () => {},
+    undo: () => {},
+    redo: () => {}
   }
 }

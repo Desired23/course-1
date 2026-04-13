@@ -1,9 +1,9 @@
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { 
-  CheckCircle, 
-  XCircle, 
-  Trash2, 
+import {
+  CheckCircle,
+  XCircle,
+  Trash2,
   X,
   Move
 } from 'lucide-react'
@@ -40,12 +40,12 @@ export function BulkActionsBar({
     >
       <div className="bg-card border shadow-2xl rounded-xl p-4 min-w-[500px]">
         <div className="flex items-center justify-between gap-4">
-          {/* Selection Info */}
+
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="text-sm px-3 py-1">
               {t('bulk_actions.selected_lessons', { count: selectedCount })}
             </Badge>
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -55,8 +55,8 @@ export function BulkActionsBar({
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          
-          {/* Actions */}
+
+
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -67,7 +67,7 @@ export function BulkActionsBar({
               <CheckCircle className="h-3.5 w-3.5 text-green-600" />
               <span className="text-xs">{t('bulk_actions.publish')}</span>
             </Button>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -77,7 +77,7 @@ export function BulkActionsBar({
               <XCircle className="h-3.5 w-3.5 text-gray-600" />
               <span className="text-xs">{t('bulk_actions.unpublish')}</span>
             </Button>
-            
+
             {onMoveAll && (
               <Button
                 variant="outline"
@@ -89,9 +89,9 @@ export function BulkActionsBar({
                 <span className="text-xs">{t('bulk_actions.move_to')}</span>
               </Button>
             )}
-            
+
             <div className="w-px h-6 bg-border mx-1" />
-            
+
             <Button
               variant="outline"
               size="sm"

@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Switch } from "../../components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Plus, Edit, Trash2, Folder, Search, Tag, Layers, Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen } from 'lucide-react'
+import { motion } from 'motion/react'
 import { toast } from "sonner"
 import { getAllCategories, createCategory as createCategoryApi, updateCategory as updateCategoryApi, deleteCategory as deleteCategoryApi } from '../../services/category.api'
 import type { Category as ApiCategory } from '../../services/category.api'
@@ -68,6 +69,28 @@ const DEFAULT_CONFIRM_STATE: ConfirmState = {
   destructive: false,
   loading: false,
   action: null,
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function AdminCategoriesPage() {
@@ -353,8 +376,8 @@ export function AdminCategoriesPage() {
   }, [filteredCategories, subcategories])
 
   return (
-    <div className="p-8 space-y-6">
-      <div>
+    <motion.div className="p-8 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div variants={fadeInUp}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="mb-2">{t('admin_categories.title')}</h1>
@@ -498,8 +521,9 @@ export function AdminCategoriesPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardContent className="p-4">
           <div className="flex gap-4 flex-col lg:flex-row">
@@ -532,7 +556,9 @@ export function AdminCategoriesPage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{t('admin_categories.categories_title')}</CardTitle>
@@ -632,7 +658,9 @@ export function AdminCategoriesPage() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{t('admin_categories.subcategories_title')}</CardTitle>
@@ -684,6 +712,7 @@ export function AdminCategoriesPage() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
       <Dialog
         open={isSubcategoryDialogOpen}
@@ -765,6 +794,6 @@ export function AdminCategoriesPage() {
         loading={confirmState.loading}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }

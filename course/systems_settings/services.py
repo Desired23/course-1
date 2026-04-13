@@ -5,7 +5,7 @@ from .serializers import SystemsSettingSerializer
 def _normalize_setting_payload(data, *, is_create=False):
     payload = dict(data or {})
 
-    # FE sends key/value/group; map them to model fields.
+
     if 'key' in payload and 'setting_key' not in payload:
         payload['setting_key'] = payload.get('key')
     if 'value' in payload and 'setting_value' not in payload:
@@ -14,7 +14,7 @@ def _normalize_setting_payload(data, *, is_create=False):
         payload['setting_group'] = payload.get('group')
 
     if is_create:
-        # Backward-compatible defaults for UI pages that only send key/value.
+
         payload.setdefault('setting_group', 'general')
         payload.setdefault('description', payload.get('setting_key') or 'System setting')
 

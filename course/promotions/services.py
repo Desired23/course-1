@@ -65,7 +65,7 @@ def create_promotion(data):
             courses = Course.objects.filter(pk__in=applicable_course_ids)
             if len(courses) != len(applicable_course_ids):
                 raise ValidationError({"error": "Some courses not found."})
-            # Verify instructor owns all applicable courses
+
             if instructor_id:
                 for course in courses:
                     if course.instructor_id != int(instructor_id):
@@ -235,21 +235,21 @@ def validate_promotion_code(code, course_ids):
     except Promotion.DoesNotExist:
         raise ValidationError({"error": "Mã giảm giá không tồn tại."})
 
-    # Validate status
+
     if promotion.status != Promotion.StatusChoices.ACTIVE:
         raise ValidationError({"error": "Mã giảm giá không còn hoạt động."})
 
-    # Validate dates
+
     now = timezone.now()
     if promotion.start_date and promotion.end_date:
         if not (promotion.start_date <= now <= promotion.end_date):
             raise ValidationError({"error": "Mã giảm giá đã hết hạn."})
 
-    # Validate usage limit
+
     if promotion.usage_limit and promotion.used_count >= promotion.usage_limit:
         raise ValidationError({"error": "Mã giảm giá đã hết lượt sử dụng."})
 
-    # Fetch courses
+
     courses = Course.objects.filter(id__in=course_ids)
     if not courses.exists():
         raise ValidationError({"error": "Không tìm thấy khóa học nào."})
@@ -265,7 +265,7 @@ def validate_promotion_code(code, course_ids):
     total_discount = Decimal("0.0")
 
     if is_instructor_promo:
-        # Instructor promo: per-course discount, only for applicable courses
+
         for course in courses:
             price = Decimal(course.price)
             total_original += price
@@ -291,7 +291,7 @@ def validate_promotion_code(code, course_ids):
             })
 
     elif is_admin_promo:
-        # Admin promo: order-wide discount, check category applicability
+
         all_categories_valid = True
         for course in courses:
             price = Decimal(course.price)
@@ -317,13 +317,13 @@ def validate_promotion_code(code, course_ids):
                 "error": "Mã giảm giá không áp dụng cho tất cả khóa học trong giỏ hàng."
             })
 
-        # Check min_purchase
+
         if total_original < promotion.min_purchase:
             raise ValidationError({
                 "error": f"Đơn hàng tối thiểu {promotion.min_purchase} VND để áp dụng mã giảm giá này."
             })
 
-        # Calculate order-level discount
+
         if promotion.discount_type == Promotion.DiscountTypeChoices.PERCENTAGE:
             total_discount = total_original * Decimal(promotion.discount_value) / 100
         elif promotion.discount_type == Promotion.DiscountTypeChoices.FIXED_AMOUNT:

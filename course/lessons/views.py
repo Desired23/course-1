@@ -31,7 +31,7 @@ class LessonListView(APIView):
             filters['ordering'] = request.query_params['ordering']
         lessons = get_lessons(filters if filters else None)
         return paginate_queryset(lessons, request, LessonSerializer)
-    
+
 class LessonDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
@@ -42,7 +42,7 @@ class LessonDetailView(APIView):
             return Response(lesson, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
-    
+
     def patch(self, request, lesson_id):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
         self.check_permissions(request)
@@ -51,7 +51,7 @@ class LessonDetailView(APIView):
             return Response(LessonSerializer(updated_lesson).data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
-    
+
     def delete(self, request, lesson_id):
         self.permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
         self.check_permissions(request)
@@ -60,7 +60,7 @@ class LessonDetailView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
-        
+
 class LessonCreateView(APIView):
     permission_classes = [RolePermissionFactory(["instructor", "admin"])]
     throttle_scope = 'burst'
@@ -71,4 +71,4 @@ class LessonCreateView(APIView):
             return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
-        
+

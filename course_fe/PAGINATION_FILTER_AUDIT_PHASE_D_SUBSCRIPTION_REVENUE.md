@@ -1,6 +1,6 @@
 # Phase D - BE Implementation Audit (Subscription Revenue)
 
-Date: 2026-03-11  
+Date: 2026-03-11
 Scope: `GET /api/instructor-earnings/` and `GET /api/instructor-earnings/summary/` for `InstructorSubscriptionRevenuePage`
 
 ## 1) Findings Before Fix

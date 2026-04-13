@@ -145,7 +145,7 @@ def update_lesson(lesson_id, data, requesting_user=None):
     except Lesson.DoesNotExist:
         raise ValidationError({"error": "Lesson not found."})
 
-    # Ownership check: instructor can only update lessons in own courses.
+
     is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
     if requesting_user and not is_admin:
         instructor = getattr(requesting_user, 'instructor', None)
@@ -201,7 +201,7 @@ def update_lesson(lesson_id, data, requesting_user=None):
                             notification_code='lesson_status_changed_by_admin',
                         )
                     except Exception:
-                        # Notification errors should not break status update.
+
                         pass
         return updated_lesson
     raise ValidationError(serializer.errors)

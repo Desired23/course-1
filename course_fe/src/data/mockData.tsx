@@ -1,7 +1,7 @@
-// Mock data for instructor payouts and earnings
+
 
 export const mockData = {
-  // Instructor payouts
+
   payouts: [
     {
       id: 'PAY-2024-001',
@@ -65,7 +65,7 @@ export const mockData = {
     }
   ],
 
-  // Payout methods
+
   payoutMethods: [
     {
       id: 'PM-001',
@@ -97,7 +97,7 @@ export const mockData = {
     }
   ],
 
-  // Instructor earnings
+
   instructorEarnings: [
     {
       earning_id: 1,

@@ -39,6 +39,19 @@ export interface HomeSchemaLoadResult {
   source: "v2" | "legacy_layout" | "default"
 }
 
+function canReadAdminSystemSettings(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    const raw = window.localStorage.getItem("auth-storage")
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    const roles = parsed?.state?.user?.roles
+    return Array.isArray(roles) && roles.includes("admin")
+  } catch {
+    return false
+  }
+}
+
 function parseJson(value: string | null | undefined): unknown {
   if (!value) return null
   try {
@@ -86,7 +99,7 @@ export async function loadHomeSchemaV2(): Promise<HomeSchemaLoadResult> {
           source: "v2",
         }
       } catch {
-        // fall through to legacy fallback
+
       }
     }
 
@@ -98,6 +111,15 @@ export async function loadHomeSchemaV2(): Promise<HomeSchemaLoadResult> {
         settingId: null,
         source: "legacy_layout",
       }
+    }
+  }
+
+
+  if (!canReadAdminSystemSettings()) {
+    return {
+      schema: getDefaultHomeSchemaV2(),
+      settingId: null,
+      source: "default",
     }
   }
 
@@ -114,7 +136,7 @@ export async function loadHomeSchemaV2(): Promise<HomeSchemaLoadResult> {
         source: "v2",
       }
     } catch {
-      // fall through to legacy fallback
+
     }
   }
 

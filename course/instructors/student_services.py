@@ -9,7 +9,7 @@ from enrollments.models import Enrollment
 from learning_progress.models import LearningProgress
 
 
-def get_instructor_students(instructor, course_id=None):
+def get_instructor_students(instructor, course_id=None, search=None, status=None, sort_by=None):
     qs = Enrollment.objects.filter(
         course__instructor=instructor,
         is_deleted=False,
@@ -61,6 +61,38 @@ def get_instructor_students(instructor, course_id=None):
         total_courses = max(entry['total_courses'], 1)
         entry['average_progress'] = round(entry['average_progress'] / total_courses, 2)
         results.append(entry)
+
+    if search:
+        search_text = str(search).strip().lower()
+        if search_text:
+            results = [
+                student for student in results
+                if search_text in student['full_name'].lower()
+                or search_text in student['email'].lower()
+                or any(search_text in course['title'].lower() for course in student['courses'])
+            ]
+
+    if status:
+        status_value = str(status).strip().lower()
+        if status_value == 'active':
+            results = [student for student in results if any(course['status'] == 'active' for course in student['courses'])]
+        elif status_value == 'completed':
+            results = [student for student in results if student['completion_count'] > 0]
+
+    if sort_by:
+        sort_value = str(sort_by).strip().lower()
+        if sort_value == 'rating':
+            results.sort(key=lambda student: student['average_progress'], reverse=True)
+        elif sort_value == 'completion':
+            results.sort(key=lambda student: student['completion_count'], reverse=True)
+        elif sort_value == 'new_students':
+            results.sort(
+                key=lambda student: student['enrolled_at'].timestamp() if student['enrolled_at'] else 0,
+                reverse=True,
+            )
+        else:
+            results.sort(key=lambda student: student['total_courses'], reverse=True)
+
 
     return results
 

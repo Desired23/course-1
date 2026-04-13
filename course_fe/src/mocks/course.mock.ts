@@ -1,7 +1,7 @@
-/**
- * Mock Course Data
- * Simulates API responses when backend is not available
- */
+
+
+
+
 
 export interface Course {
   id: string
@@ -73,7 +73,7 @@ const MOCK_COURSES: Course[] = [
   }
 ]
 
-// Simulate API delay
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export async function mockGetCourses(params?: {
@@ -83,13 +83,13 @@ export async function mockGetCourses(params?: {
   page?: number
   limit?: number
 }): Promise<{ courses: Course[]; total: number; page: number; limit: number }> {
-  await delay(500) // Simulate network delay
+  await delay(500)
 
   let filteredCourses = [...MOCK_COURSES]
 
-  // Apply filters
+
   if (params?.category) {
-    filteredCourses = filteredCourses.filter(c => 
+    filteredCourses = filteredCourses.filter(c =>
       c.category.toLowerCase() === params.category?.toLowerCase()
     )
   }
@@ -106,7 +106,7 @@ export async function mockGetCourses(params?: {
     )
   }
 
-  // Pagination
+
   const page = params?.page || 1
   const limit = params?.limit || 12
   const start = (page - 1) * limit
@@ -123,14 +123,14 @@ export async function mockGetCourses(params?: {
 
 export async function mockGetCourse(id: string): Promise<Course | null> {
   await delay(300)
-  
+
   const course = MOCK_COURSES.find(c => c.id === id)
   return course || null
 }
 
 export async function mockCreateCourse(data: Partial<Course>): Promise<Course> {
   await delay(800)
-  
+
   const newCourse: Course = {
     id: Date.now().toString(),
     title: data.title || 'Untitled Course',
@@ -160,7 +160,7 @@ export async function mockCreateCourse(data: Partial<Course>): Promise<Course> {
 
 export async function mockUpdateCourse(id: string, data: Partial<Course>): Promise<Course | null> {
   await delay(600)
-  
+
   const index = MOCK_COURSES.findIndex(c => c.id === id)
   if (index === -1) return null
 
@@ -170,7 +170,7 @@ export async function mockUpdateCourse(id: string, data: Partial<Course>): Promi
 
 export async function mockDeleteCourse(id: string): Promise<boolean> {
   await delay(400)
-  
+
   const index = MOCK_COURSES.findIndex(c => c.id === id)
   if (index === -1) return false
 

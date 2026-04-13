@@ -3,11 +3,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { getAllMyEnrollments, type Enrollment } from '../services/enrollment.api'
 import { registerCacheClearer } from '../services/cacheRegistry'
 
-/**
- * Hook that loads enrolled course IDs for the current user.
- * Returns a Set<number> of owned courseIds and a lookup helper.
- * Caches in module-level variable to avoid re-fetching across pages.
- */
+
+
+
+
+
 
 let _cache: { userId: string; courseIds: Set<number>; enrollmentMap: Map<number, Enrollment> } | null = null
 
@@ -28,7 +28,7 @@ export function useOwnedCourses() {
       return
     }
 
-    // Use cache if same user
+
     if (_cache && _cache.userId === user.id) {
       setOwnedIds(_cache.courseIds)
       setEnrollmentMap(_cache.enrollmentMap)
@@ -51,7 +51,7 @@ export function useOwnedCourses() {
       setOwnedIds(ids)
       setEnrollmentMap(map)
     } catch {
-      // Silently fail — user just won't see owned badges
+
     } finally {
       setLoading(false)
     }
@@ -69,7 +69,7 @@ export function useOwnedCourses() {
     return parseFloat(enrollment.progress) || 0
   }, [enrollmentMap])
 
-  /** Force refresh (e.g., after purchase) */
+
   const refresh = useCallback(() => {
     _cache = null
     load()
@@ -84,7 +84,7 @@ export function useOwnedCourses() {
   }), [ownedIds, isOwned, getProgress, loading, refresh])
 }
 
-/** Invalidate the cache externally (e.g., after payment success) */
+
 export function invalidateOwnedCoursesCache() {
   _cache = null
 }

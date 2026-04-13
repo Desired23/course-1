@@ -127,7 +127,7 @@ class ChatRoomListView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
-        # Always scope by authenticated user to avoid IDOR and malformed query crashes.
+
         user_id = request.user.id
         rooms = (
             ChatRoom.objects
@@ -150,7 +150,7 @@ class ChatRoomListView(APIView):
         other_user_id = user2_id if user1_id == request.user.id else user1_id
         if not is_direct_message_allowed(other_user_id):
             return Response({"error": "This user is not accepting direct messages."}, status=status.HTTP_403_FORBIDDEN)
-        # Ensure consistent ordering
+
         small, big = min(user1_id, user2_id), max(user1_id, user2_id)
 
         room, created = ChatRoom.objects.get_or_create(
@@ -193,7 +193,7 @@ class ChatMessageListView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Also push via WebSocket
+
         from channels.layers import get_channel_layer
         from asgiref.sync import async_to_sync
         channel_layer = get_channel_layer()

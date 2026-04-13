@@ -1,20 +1,12 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Menu, X, HelpCircle, MessageCircle, Plus } from 'lucide-react'
+import { Menu, X, HelpCircle } from 'lucide-react'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { useChat } from '../contexts/ChatContext'
 import { useRouter } from './Router'
 
 export function MobileFloatingButton() {
   const [isExpanded, setIsExpanded] = useState(false)
-  const { toggleChat, state: chatState } = useChat()
   const { navigate } = useRouter()
-
-  const handleChatClick = () => {
-    toggleChat()
-    setIsExpanded(false)
-  }
 
   const handleHelpClick = () => {
     navigate('/support')
@@ -31,7 +23,7 @@ export function MobileFloatingButton() {
             exit={{ opacity: 0, y: 20 }}
             className="absolute bottom-16 right-0 flex flex-col gap-3"
           >
-            {/* Help Button */}
+
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -41,25 +33,12 @@ export function MobileFloatingButton() {
               <HelpCircle className="h-5 w-5 text-gray-700 dark:text-gray-300" />
             </motion.button>
 
-            {/* Chat Button */}
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={handleChatClick}
-              className="relative w-12 h-12 bg-white dark:bg-gray-800 rounded-full shadow-lg flex items-center justify-center border border-gray-200 dark:border-gray-700"
-            >
-              <MessageCircle className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-              {chatState.totalUnreadCount > 0 && (
-                <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs">
-                  {chatState.totalUnreadCount}
-                </Badge>
-              )}
-            </motion.button>
+
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main FAB */}
+
       <motion.button
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -90,7 +69,7 @@ export function MobileFloatingButton() {
           )}
         </AnimatePresence>
 
-        {/* Badge - shown when has unread messages and not expanded */}
+
         {!isExpanded && chatState.totalUnreadCount > 0 && (
           <Badge className="absolute -top-1 -right-1 w-6 h-6 p-0 flex items-center justify-center text-xs bg-red-500 border-2 border-white dark:border-gray-900">
             {chatState.totalUnreadCount > 99 ? '99+' : chatState.totalUnreadCount}

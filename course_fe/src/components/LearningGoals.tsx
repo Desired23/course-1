@@ -24,7 +24,7 @@ export function LearningGoals() {
             <p className="text-gray-600 dark:text-gray-400 text-lg">
               {t('learning_goals.subtitle')}
             </p>
-            
+
             <div className="space-y-4">
               {goals.map((goal, index) => (
                 <div key={index} className="flex items-center space-x-3">

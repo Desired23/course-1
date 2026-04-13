@@ -30,15 +30,15 @@ interface CommentItemProps {
   isReply?: boolean
 }
 
-export function CommentItem({ 
-  comment, 
-  replyingTo, 
-  setReplyingTo, 
+export function CommentItem({
+  comment,
+  replyingTo,
+  setReplyingTo,
   onPostReply,
   onEditComment,
   onDeleteComment,
-  currentUser = 'You', // Default to 'You' for demo purposes
-  isReply = false 
+  currentUser = 'You',
+  isReply = false
 }: CommentItemProps) {
   const { t } = useTranslation()
   const [replyContent, setReplyContent] = useState('')
@@ -65,12 +65,12 @@ export function CommentItem({
     setIsEditing(false)
   }
 
-  const isOwner = comment.user === currentUser || comment.user === t('comment_item.you') // Simple check
-  const isAdminOrInstructor = currentUser === t('comment_item.instructor_team') // Mock role check
+  const isOwner = comment.user === currentUser || comment.user === t('comment_item.you')
+  const isAdminOrInstructor = currentUser === t('comment_item.instructor_team')
 
-  // Can delete if owner OR admin/instructor
+
   const canDelete = isOwner || isAdminOrInstructor
-  // Can edit if owner
+
   const canEdit = isOwner
 
   if (comment.status === 'deleted') {
@@ -84,14 +84,14 @@ export function CommentItem({
                    <div className="text-sm text-muted-foreground italic bg-muted/20 p-2 rounded">
                    {t('comment_item.deleted')}
                 </div>
-                
-                {/* Still show nested replies even if parent is deleted */}
+
+
                 {comment.replies && comment.replies.length > 0 && (
                   <div className="mt-4 pl-4 border-l-2 space-y-4">
                      {comment.replies.map((reply: any) => (
-                       <CommentItem 
-                         key={reply.id} 
-                         comment={reply} 
+                       <CommentItem
+                         key={reply.id}
+                         comment={reply}
                          isReply={true}
                          replyingTo={replyingTo}
                          setReplyingTo={setReplyingTo}
@@ -115,8 +115,8 @@ export function CommentItem({
          <div className={`rounded-full flex items-center justify-center flex-shrink-0 font-semibold text-xs select-none ${
            isReply ? "h-6 w-6 text-[10px]" : "h-8 w-8"
          } ${
-           comment.user === t('comment_item.instructor_team') 
-             ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400" 
+           comment.user === t('comment_item.instructor_team')
+             ? "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
          }`}>
             {comment.avatar}
@@ -131,7 +131,7 @@ export function CommentItem({
               </span>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{comment.date}</span>
-                
+
                 {(canEdit || canDelete) && !isEditing && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -146,7 +146,7 @@ export function CommentItem({
                         </DropdownMenuItem>
                       )}
                       {canDelete && (
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onClick={() => onDeleteComment && onDeleteComment(comment.id)}
                         >
@@ -180,13 +180,13 @@ export function CommentItem({
                 <SafeCommentContent content={comment.content} />
               </div>
             )}
-            
+
             {!isEditing && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
                     <ThumbsUp className="h-3 w-3" /> {comment.likes}
                  </button>
-                 <button 
+                 <button
                    onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                    className="flex items-center gap-1 hover:text-foreground transition-colors"
                  >
@@ -195,7 +195,7 @@ export function CommentItem({
               </div>
             )}
 
-            {/* Reply Input */}
+
             {replyingTo === comment.id && !isEditing && (
               <div className="mt-3 flex gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                  <div className="flex-1">
@@ -207,9 +207,9 @@ export function CommentItem({
                      className="w-full bg-muted/30 border rounded-md p-2 text-xs min-h-[60px] focus:outline-none focus:ring-1 focus:ring-primary resize-none mb-2"
                    />
                    <div className="flex justify-end gap-2">
-                     <Button 
-                       size="sm" 
-                       variant="ghost" 
+                     <Button
+                       size="sm"
+                       variant="ghost"
                        className="h-7 text-xs"
                        onClick={() => {
                          setReplyingTo(null)
@@ -218,8 +218,8 @@ export function CommentItem({
                      >
                        {t('common.cancel')}
                      </Button>
-                     <Button 
-                       size="sm" 
+                     <Button
+                       size="sm"
                        className="h-7 text-xs"
                        disabled={!replyContent.trim()}
                        onClick={handleSubmitReply}
@@ -231,13 +231,13 @@ export function CommentItem({
               </div>
             )}
 
-            {/* Nested Replies */}
+
             {comment.replies && comment.replies.length > 0 && (
               <div className="mt-4 pl-4 border-l-2 space-y-4">
                  {comment.replies.map((reply: any) => (
-                   <CommentItem 
-                     key={reply.id} 
-                     comment={reply} 
+                   <CommentItem
+                     key={reply.id}
+                     comment={reply}
                      isReply={true}
                      replyingTo={replyingTo}
                      setReplyingTo={setReplyingTo}

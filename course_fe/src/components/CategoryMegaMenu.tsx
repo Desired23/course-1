@@ -86,7 +86,7 @@ export function CategoryMegaMenu() {
           )
         )
       } catch {
-        // Keep empty state when no subcategories are available.
+
       }
     })()
 

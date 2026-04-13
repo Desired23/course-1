@@ -10,11 +10,11 @@ interface RouterContextType {
 
 export const RouterContext = React.createContext<RouterContextType | null>(null)
 
-/**
- * Extract params from a URL path given a pattern.
- * e.g. pattern="/instructor/:instructorId/profile", path="/instructor/42/profile"
- * returns { instructorId: "42" }
- */
+
+
+
+
+
 function extractParamsFromUrl(
   patterns: string[],
   path: string
@@ -38,7 +38,7 @@ function extractParamsFromUrl(
   return {}
 }
 
-// Known dynamic route patterns for URL-based param extraction
+
 const KNOWN_DYNAMIC_PATTERNS = [
   '/course/:id',
   '/category/:slug',
@@ -65,9 +65,9 @@ export function Router({ children }: { children: React.ReactNode }) {
   const [params, setParams] = useState<Record<string, string>>(
     () => extractParamsFromUrl(KNOWN_DYNAMIC_PATTERNS, initialPath)
   )
-  
+
   const navigate = (route: Route, routeParams?: Record<string, string>, queryParams?: Record<string, string>) => {
-    // Build the full URL with query params if provided
+
     let fullUrl = route
     if (queryParams && Object.keys(queryParams).length > 0) {
       const searchParams = new URLSearchParams()
@@ -84,18 +84,18 @@ export function Router({ children }: { children: React.ReactNode }) {
     if (routeParams) {
       setParams(routeParams)
     } else {
-      // Try to auto-extract params from the URL
+
       setParams(extractParamsFromUrl(KNOWN_DYNAMIC_PATTERNS, route))
     }
-    // Update browser URL
+
     if (typeof window !== 'undefined') {
       window.history.pushState({}, '', fullUrl)
     }
-    // Scroll to top when navigating
+
     window.scrollTo(0, 0)
   }
 
-  // Sync with browser navigation (back/forward buttons)
+
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname
@@ -103,13 +103,13 @@ export function Router({ children }: { children: React.ReactNode }) {
       const fullUrl = search ? `${path}${search}` : path
       setCurrentRoute(fullUrl)
       setParams(extractParamsFromUrl(KNOWN_DYNAMIC_PATTERNS, path))
-      // Scroll to top when using browser back/forward
+
       window.scrollTo(0, 0)
     }
 
     window.addEventListener('popstate', handlePopState)
-    
-    // Set initial route from URL (include query string)
+
+
     const initialSearch = window.location.search
     const initialUrl = initialSearch ? `${window.location.pathname}${initialSearch}` : window.location.pathname
     setCurrentRoute(initialUrl)

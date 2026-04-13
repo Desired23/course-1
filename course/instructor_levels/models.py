@@ -3,9 +3,9 @@ from decimal import Decimal
 
 class InstructorLevel(models.Model):
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=100, unique=True)  # Ví dụ: Bronze, Silver, Gold
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True, null=True)
-    min_students = models.IntegerField(default=0)  # Hoặc doanh thu tối thiểu
+    min_students = models.IntegerField(default=0)
     min_revenue = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('30.00'))
     plan_commission_rate = models.DecimalField(

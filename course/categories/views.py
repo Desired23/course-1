@@ -26,7 +26,7 @@ class CategoryListView(APIView):
             return paginate_queryset(categories, request, CategoriesSerializer)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
-        
+
 class CategoryDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
     throttle_scope = 'burst'
@@ -37,7 +37,7 @@ class CategoryDetailView(APIView):
             return Response(category, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
-    
+
 class CategoryManagementView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
     throttle_scope = 'burst'

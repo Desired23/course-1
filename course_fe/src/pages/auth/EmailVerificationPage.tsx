@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -10,6 +11,28 @@ import { toast } from 'sonner'
 import { confirmEmail, resendConfirmEmail } from '../../services/auth.api'
 
 type VerifyState = 'verifying' | 'verified' | 'already_verified' | 'expired' | 'invalid'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function EmailVerificationPage() {
   const { t } = useTranslation()
@@ -75,10 +98,16 @@ export function EmailVerificationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
+    <motion.div
+      className="min-h-screen bg-background flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div variants={sectionStagger} initial="hidden" animate="show" className="max-w-md w-full">
+        <Card>
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+          <motion.div className="flex justify-center mb-4" variants={fadeInUp}>
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
               {state === 'verified' || state === 'already_verified' ? (
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
@@ -88,20 +117,24 @@ export function EmailVerificationPage() {
                 <Mail className="w-8 h-8 text-primary" />
               )}
             </div>
-          </div>
-          <CardTitle>{t('email_verification_page.title')}</CardTitle>
-          <CardDescription>{message}</CardDescription>
+          </motion.div>
+          <motion.div variants={fadeInUp}>
+            <CardTitle>{t('email_verification_page.title')}</CardTitle>
+            <CardDescription>{message}</CardDescription>
+          </motion.div>
         </CardHeader>
         <CardContent className="space-y-4">
           {(state === 'invalid' || state === 'expired') && (
-            <Alert variant="destructive">
+            <motion.div variants={fadeInUp}>
+              <Alert variant="destructive">
               <XCircle className="h-4 w-4" />
               <AlertDescription>{message}</AlertDescription>
-            </Alert>
+              </Alert>
+            </motion.div>
           )}
 
           {state === 'expired' && (
-            <div className="space-y-3">
+            <motion.div className="space-y-3" variants={fadeInUp}>
               <Input
                 type="email"
                 placeholder={t('email_verification_page.email_placeholder')}
@@ -118,16 +151,19 @@ export function EmailVerificationPage() {
                   t('email_verification_page.resend_button')
                 )}
               </Button>
-            </div>
+            </motion.div>
           )}
 
           {(state === 'verified' || state === 'already_verified') && (
-            <Button className="w-full" onClick={() => navigate('/login')}>
-              {t('email_verification_page.go_to_login')}
-            </Button>
+            <motion.div variants={fadeInUp}>
+              <Button className="w-full" onClick={() => navigate('/login')}>
+                {t('email_verification_page.go_to_login')}
+              </Button>
+            </motion.div>
           )}
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </motion.div>
+    </motion.div>
   )
 }

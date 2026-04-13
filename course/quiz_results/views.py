@@ -98,10 +98,10 @@ class UserQuizHistoryView(APIView):
 
     def get(self, request, user_id):
         try:
-            # Optional: Add permission check to ensure user can only see their own history
-            # if request.user.id != user_id and not request.user.is_staff:
-            #     return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
-            
+
+
+
+
             history = get_user_quiz_history(user_id)
             return Response(history, status=status.HTTP_200_OK)
         except ValidationError as e:

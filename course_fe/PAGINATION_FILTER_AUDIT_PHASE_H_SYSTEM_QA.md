@@ -1,6 +1,6 @@
 # Phase H - System QA (Post-Phase G)
 
-Date: 2026-03-11  
+Date: 2026-03-11
 Scope: Refactored list flows in Public, Instructor, Admin; spot-check User list flows.
 
 ## 1) QA Checklist Results
@@ -50,8 +50,8 @@ Scope: Refactored list flows in Public, Instructor, Admin; spot-check User list 
 
 ## 2) Regression Smoke
 
-1. `npm run build`: PASS  
-2. `python manage.py check`: PASS  
+1. `npm run build`: PASS
+2. `python manage.py check`: PASS
 3. `python manage.py test`: PASS (but **0 tests discovered**)
 
 ## 3) Residual Risks
@@ -62,5 +62,5 @@ Scope: Refactored list flows in Public, Instructor, Admin; spot-check User list 
 
 ## 4) Conclusion
 
-For the refactored Phase G flows, FE/BE pagination and filter contracts are consistent and functioning by code-path verification plus build/check smoke.  
+For the refactored Phase G flows, FE/BE pagination and filter contracts are consistent and functioning by code-path verification plus build/check smoke.
 Primary remaining risk is test coverage, not contract mismatch on audited pages.

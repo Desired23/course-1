@@ -24,7 +24,7 @@ import {
   type ConversationMessage as ApiConversationMessage,
 } from '../services/chat.api'
 
-// ─── Types (keep same external interface for Chat / ChatWidget) ───
+
 
 interface ChatMessage {
   id: string
@@ -120,7 +120,7 @@ const initialState: ChatState = {
   loading: false,
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────
+
 
 function mapApiMsgToLocal(m: ApiMsg, currentUserId: string): ChatMessage {
   return {
@@ -259,7 +259,7 @@ function mapConversationToLocal(c: ApiConversation, currentUserId: string, curre
   }
 }
 
-// ─── Reducer ──────────────────────────────────────────────────────
+
 
 const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
   switch (action.type) {
@@ -336,7 +336,7 @@ const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
     }
     case 'RECEIVE_MESSAGE': {
       const { conversationId, message } = action.payload
-      // Deduplicate
+
       const existing = state.messages[conversationId] || []
       if (existing.some(m => m.id === message.id)) return state
       const isActive = state.activeConversationId === conversationId
@@ -417,7 +417,7 @@ const chatReducer = (state: ChatState, action: ChatAction): ChatState => {
   }
 }
 
-// ─── Context ──────────────────────────────────────────────────────
+
 
 interface ChatContextType {
   state: ChatState
@@ -448,7 +448,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const unknownSenderLabel = t('chat_widget.unknown')
   const wsRoomRef = useRef<string | null>(null)
 
-  // ── Fetch rooms on mount ──────────────────────────────────────
+
   useEffect(() => {
     if (!isAuthenticated || !userId) return
     let cancelled = false
@@ -479,7 +479,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [isAuthenticated, userId, currentUserDisplayName])
 
-  // ── Load messages when active conversation changes ────────────
+
   useEffect(() => {
     if (!state.activeConversationId || !userId) return
     const conversationId = Number(state.activeConversationId)
@@ -524,7 +524,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [state.activeConversationId, userId, unknownSenderLabel])
 
-  // ── WebSocket per active room ─────────────────────────────────
+
   const handleChatWsMessage = useCallback(
     (data: any) => {
       if (data.type === 'chat_message' && data.data) {
@@ -551,12 +551,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const wsEnabled = isAuthenticated && !!state.activeConversationId
 
   useWebSocket({
-    path: wsPath || '/ws/chat/0/', // fallback path won't connect since enabled=false
+    path: wsPath || '/ws/chat/0/',
     onMessage: handleChatWsMessage,
     enabled: wsEnabled,
   })
 
-  // ── Actions ───────────────────────────────────────────────────
+
   const toggleChat = () => dispatch({ type: 'TOGGLE_CHAT' })
   const openChat = () => dispatch({ type: 'OPEN_CHAT' })
   const closeChat = () => dispatch({ type: 'CLOSE_CHAT' })
@@ -627,7 +627,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           console.warn('[Chat] Falling back to legacy read:', conversationErr)
           await markChatRoomRead(Number(conversationId), Number(userId))
         }
-      } catch { /* best effort */ }
+      } catch (err) {
+        console.error('[Chat] Failed to mark conversation as read:', err)
+      }
     }
   }
 
@@ -757,7 +759,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /** Open a chat room with a specific user (creates room if needed) */
+
   const openChatWithUser = async (otherUserId: number, otherUserName?: string) => {
     if (!userId) {
       toast.error(t('chat_context.login_required'))
@@ -776,7 +778,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const room = await getOrCreateChatRoom(Number(userId), otherUserId)
         conv = mapApiRoomToConv(room, userId)
       }
-      // Add to conversations if not already there
+
       if (!state.conversations.find(c => c.id === conv.id)) {
         dispatch({ type: 'CREATE_CONVERSATION', payload: conv })
       }

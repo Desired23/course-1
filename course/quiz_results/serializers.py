@@ -28,7 +28,7 @@ class QuizResultSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-    
+
     def validate_enrollment(self, value):
         """Validate enrollment exists and is not deleted"""
         if value is None:
@@ -36,7 +36,7 @@ class QuizResultSerializer(serializers.ModelSerializer):
         if value.is_deleted:
             raise serializers.ValidationError("Enrollment has been deleted.")
         return value
-    
+
     def validate_lesson(self, value):
         """Validate lesson exists and is not deleted"""
         if value is None:
@@ -81,4 +81,4 @@ class UserQuizHistorySerializer(serializers.Serializer):
     passed = serializers.BooleanField()
     attempt = serializers.IntegerField()
     submitted_at = serializers.DateTimeField()
-    time_spent = serializers.IntegerField() 
+    time_spent = serializers.IntegerField()

@@ -12,7 +12,7 @@ urlpatterns = [
     path('instructors/<int:instructor_id>/update', InstructorDetailView.as_view(), name='instructor-update'),
     path('instructors/<int:instructor_id>/delete', InstructorDetailView.as_view(), name='instructor-delete'),
 
-    # Dashboard analytics
+
     path('instructor/dashboard/stats/', InstructorDashboardStatsView.as_view(), name='instructor-dashboard-stats'),
     path('instructor/students/', InstructorStudentsView.as_view(), name='instructor-students'),
     path('instructor/students/<int:student_id>/', InstructorStudentDetailView.as_view(), name='instructor-student-detail'),

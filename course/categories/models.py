@@ -11,7 +11,7 @@ class Category(models.Model):
     parent_category = models.ForeignKey(
         'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subcategories'
     )
-    
+
     status = models.CharField(
         max_length=8,
         choices=StatusChoices.choices,
@@ -19,7 +19,7 @@ class Category(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         db_table = 'Categories'
 

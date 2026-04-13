@@ -39,7 +39,7 @@ export function PopularSkillsSection() {
           ))}
         </div>
 
-        {/* Courses count preview */}
+
         <div className="mt-12 text-center">
           <div className="inline-flex items-center gap-8 bg-white dark:bg-gray-800 px-8 py-4 rounded-lg shadow-md">
             <div>

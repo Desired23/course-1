@@ -1,6 +1,6 @@
 # Phase F - Platform Standardization (Foundation)
 
-Date: 2026-03-11  
+Date: 2026-03-11
 Scope: Shared FE list contract + shared BE list-param parsing, applied to Instructor Subscription Revenue flow
 
 ## 1) Unified Standards

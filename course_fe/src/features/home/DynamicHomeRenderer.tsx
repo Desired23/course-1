@@ -738,17 +738,19 @@ export function DynamicHomeSections({ sections, previewMode = false }: { section
     <>
       {visibleSections.map((section) => {
         const layout = section.layout
+        const legacyComponent = section.type === "legacy_component" ? String(section.data_source?.component || "") : ""
+        const isFullBleedHero = section.type === "hero" || legacyComponent === "HeroSection"
         const wrapperClass = [
           getBackgroundClass(layout.background),
-          getSpacingClass(layout.spacing_top, true),
-          getSpacingClass(layout.spacing_bottom, false),
+          isFullBleedHero ? "" : getSpacingClass(layout.spacing_top, true),
+          isFullBleedHero ? "" : getSpacingClass(layout.spacing_bottom, false),
         ]
           .filter(Boolean)
           .join(" ")
 
         return (
           <section key={section.id} className={wrapperClass} data-home-section-type={section.type}>
-            <div className={getContainerClass(layout.container)}>{renderSectionByType(section)}</div>
+            {isFullBleedHero ? renderSectionByType(section) : <div className={getContainerClass(layout.container)}>{renderSectionByType(section)}</div>}
           </section>
         )
       })}

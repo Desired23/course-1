@@ -14,26 +14,26 @@ export function BottomNav() {
   const navItems = [
     { icon: Home, label: t('bottom_nav.home'), path: '/' },
     { icon: Search, label: t('bottom_nav.search'), path: '/search' },
-    { 
-      icon: ShoppingCart, 
-      label: t('bottom_nav.cart'), 
+    {
+      icon: ShoppingCart,
+      label: t('bottom_nav.cart'),
       path: '/cart',
       badge: cartItems.length > 0 ? cartItems.length : undefined
     },
-    { 
-      icon: BookOpen, 
-      label: t('bottom_nav.my_learning'), 
+    {
+      icon: BookOpen,
+      label: t('bottom_nav.my_learning'),
       path: '/my-learning',
       requireAuth: true
     },
-    { 
-      icon: User, 
-      label: isAuthenticated ? t('bottom_nav.account') : t('auth.login'), 
+    {
+      icon: User,
+      label: isAuthenticated ? t('bottom_nav.account') : t('auth.login'),
       path: isAuthenticated ? '/profile' : '/login'
     },
   ]
 
-  // Filter items based on auth
+
   const filteredItems = navItems.filter(item => !item.requireAuth || isAuthenticated)
 
   return (
@@ -42,14 +42,14 @@ export function BottomNav() {
         {filteredItems.map((item) => {
           const Icon = item.icon
           const isActive = currentRoute === item.path
-          
+
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors relative ${
-                isActive 
-                  ? 'text-primary' 
+                isActive
+                  ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >

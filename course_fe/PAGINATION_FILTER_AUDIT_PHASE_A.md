@@ -1,6 +1,6 @@
 # Phase A - Pagination & Filter Audit (System-wide)
 
-Date: 2026-03-10  
+Date: 2026-03-10
 Scope: `course_fe/src/pages/**`, `course_fe/src/services/**`
 
 ## 1) Goal

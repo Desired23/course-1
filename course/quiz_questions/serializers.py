@@ -35,10 +35,10 @@ class QuizTestCaseForStudentSerializer(serializers.ModelSerializer):
             'order_number'
         ]
         read_only_fields = ['id']
-    
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Hide expected output for hidden test cases
+
         if instance.is_hidden:
             data.pop('expected_output', None)
         return data
@@ -46,7 +46,7 @@ class QuizTestCaseForStudentSerializer(serializers.ModelSerializer):
 
 class QuizQuestionSerializer(serializers.ModelSerializer):
     test_cases = QuizTestCaseSerializer(many=True, read_only=True)
-    
+
     class Meta:
         model = QuizQuestion
         fields = [
@@ -72,7 +72,7 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'created_at'
         ]
-    
+
     def validate_lesson(self, value):
         """Validate lesson exists and is not deleted"""
         if value is None:
@@ -90,7 +90,7 @@ class QuizOptionSerializer(serializers.Serializer):
 
 
 class QuizQuestionForStudentSerializer(serializers.ModelSerializer):
-     
+
     question_id = serializers.IntegerField(source='id', read_only=True)
     options = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
@@ -123,7 +123,7 @@ class QuizQuestionForStudentSerializer(serializers.ModelSerializer):
         if obj.options:
             if isinstance(obj.options, list):
                 return obj.options
-            # If options is stored as dict, convert to list
+
             if isinstance(obj.options, dict):
                 return [
                     {

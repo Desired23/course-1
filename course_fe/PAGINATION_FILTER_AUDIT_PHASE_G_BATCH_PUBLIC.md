@@ -1,6 +1,6 @@
 # Phase G - Batch Public (Implemented)
 
-Date: 2026-03-11  
+Date: 2026-03-11
 Scope: Public `CoursesPage`
 
 ## 1) Goal

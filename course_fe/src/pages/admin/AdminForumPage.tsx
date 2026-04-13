@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -44,6 +45,28 @@ interface ForumCategory {
   description: string
   topicsCount: number
   order: number
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 
@@ -409,9 +432,9 @@ export function AdminForumPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <motion.div className="p-6 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+
+      <motion.div className="flex items-center justify-between" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('forum.admin.title')}</h1>
           <p className="text-muted-foreground">{t('forum.admin.subtitle')}</p>
@@ -442,7 +465,7 @@ export function AdminForumPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="topic-category">{t('forum.admin.topic_category')} *</Label>
-                <Select 
+                <Select
                   value={topicForm.category}
                   onValueChange={(value) => setTopicForm({ ...topicForm, category: value })}
                 >
@@ -487,10 +510,10 @@ export function AdminForumPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={fadeInUp}>
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -547,20 +570,28 @@ export function AdminForumPage() {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      {/* Main Content */}
+
+      <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="topics">{t('forum.topics_tab')}</TabsTrigger>
-          <TabsTrigger value="categories">{t('forum.forums_tab')}</TabsTrigger>
-          <TabsTrigger value="reported">
-            {t('forum.admin.reported_tab', { count: reportedTopics.length })}
+        <TabsList className="relative p-1">
+          <TabsTrigger value="topics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'topics' && <motion.span layoutId="admin-forum-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('forum.topics_tab')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="categories" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'categories' && <motion.span layoutId="admin-forum-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('forum.forums_tab')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="reported" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'reported' && <motion.span layoutId="admin-forum-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('forum.admin.reported_tab', { count: reportedTopics.length })}</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="topics" className="space-y-4">
-          {/* Filters */}
+
           <Card>
             <CardHeader>
               <CardTitle>{t('forum.filter_topics')}</CardTitle>
@@ -590,7 +621,7 @@ export function AdminForumPage() {
             </CardContent>
           </Card>
 
-          {/* Topics Table */}
+
           <Card>
             <CardHeader>
               <CardTitle>{t('forum.topics_count', { count: filteredTopics.length })}</CardTitle>
@@ -932,7 +963,7 @@ export function AdminForumPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button 
+                            <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => openPreviewDialog(topic)}
@@ -940,8 +971,8 @@ export function AdminForumPage() {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               className="gap-1"
                               onClick={() => openModerationDialog(topic)}
@@ -949,8 +980,8 @@ export function AdminForumPage() {
                               <Shield className="h-3 w-3" />
                               {t('forum.admin.review')}
                             </Button>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => openConfirm(
                                 t('forum.admin.dismiss_report_title'),
@@ -987,8 +1018,9 @@ export function AdminForumPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      </motion.div>
 
-      {/* Quick Topic Preview */}
+
       <QuickTopicPreview
         open={isPreviewOpen}
         onOpenChange={setIsPreviewOpen}
@@ -1000,7 +1032,7 @@ export function AdminForumPage() {
         }}
       />
 
-      {/* Moderation Dialog */}
+
       <Dialog open={isModerationDialogOpen} onOpenChange={setIsModerationDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1014,7 +1046,7 @@ export function AdminForumPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* View Topic Buttons */}
+
             <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
               <CardContent className="pt-4">
                 <div className="flex items-start gap-2 mb-3">
@@ -1052,7 +1084,7 @@ export function AdminForumPage() {
               </CardContent>
             </Card>
 
-            {/* Topic Info */}
+
             <Alert>
               <FileText className="h-4 w-4" />
               <AlertTitle>{t('forum.admin.topic_info_title')}</AlertTitle>
@@ -1072,7 +1104,7 @@ export function AdminForumPage() {
               </AlertDescription>
             </Alert>
 
-            {/* Content Preview */}
+
             {selectedTopicForModeration?.content && (
               <Card>
                 <CardHeader>
@@ -1092,10 +1124,10 @@ export function AdminForumPage() {
               </Card>
             )}
 
-            {/* Moderation Action */}
+
             <div className="space-y-2">
               <Label htmlFor="mod-action">{t('forum.admin.moderation_action_label')} *</Label>
-              <Select 
+              <Select
                 value={moderationAction.action}
                 onValueChange={(value) => setModerationAction({ ...moderationAction, action: value })}
               >
@@ -1125,7 +1157,7 @@ export function AdminForumPage() {
               </Select>
             </div>
 
-            {/* Reason */}
+
             <div className="space-y-2">
               <Label htmlFor="mod-reason">{t('forum.admin.moderation_reason_label')} *</Label>
               <Textarea
@@ -1140,7 +1172,7 @@ export function AdminForumPage() {
               </p>
             </div>
 
-            {/* Warning Alert */}
+
             {(moderationAction.action === 'delete') && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -1153,8 +1185,8 @@ export function AdminForumPage() {
           </div>
 
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setIsModerationDialogOpen(false)
                 setSelectedTopicForModeration(null)
@@ -1163,7 +1195,7 @@ export function AdminForumPage() {
             >
               {t('common.cancel')}
             </Button>
-            <Button 
+            <Button
               onClick={handleModeration}
               variant={moderationAction.action === 'delete' ? 'destructive' : 'default'}
             >
@@ -1182,7 +1214,7 @@ export function AdminForumPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
-    </div>
+    </motion.div>
   )
 }
 

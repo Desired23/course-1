@@ -9,7 +9,7 @@ def create_cart(data):
         course_id = data.get('course')
 
         if user_id and course_id:
-            # Kiểm tra khóa học đã có trong giỏ hàng chưa
+
             already_in_cart = Cart.objects.filter(
                 user_id=user_id,
                 course_id=course_id
@@ -17,7 +17,7 @@ def create_cart(data):
             if already_in_cart:
                 raise ValidationError("Khóa học này đã có trong giỏ hàng.")
 
-            # Kiểm tra user đã sở hữu khóa học chưa
+
             already_enrolled = Enrollment.objects.filter(
                 user_id=user_id,
                 course_id=course_id,
@@ -30,7 +30,7 @@ def create_cart(data):
         serializer = CartSerializer(data=data)
         if serializer.is_valid(raise_exception=True):
             cart = serializer.save()
-            # Re-fetch with select_related to ensure course_detail has all fields
+
             cart = Cart.objects.select_related(
                 'course__instructor__user', 'course__category'
             ).get(pk=cart.pk)

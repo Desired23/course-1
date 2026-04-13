@@ -52,7 +52,7 @@ export function SectionTreeItem({
 
   return (
     <div className="space-y-1">
-      {/* Section Header */}
+
       <button
         onClick={() => {
           onToggle()
@@ -70,14 +70,14 @@ export function SectionTreeItem({
         >
           <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
         </motion.div>
-        
+
         <span className="flex-1 text-left text-sm font-semibold truncate group-hover:text-foreground transition-colors">
           {sectionIndex + 1}. {section.title}
         </span>
-        
+
         <div className="flex items-center gap-1.5">
-          <Badge 
-            variant="secondary" 
+          <Badge
+            variant="secondary"
             className="text-xs px-1.5 py-0 h-5 font-medium"
           >
             {publishedCount}/{totalCount}
@@ -85,7 +85,7 @@ export function SectionTreeItem({
         </div>
       </button>
 
-      {/* Lessons */}
+
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div

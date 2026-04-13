@@ -9,12 +9,12 @@ interface OnlineStatusProps {
   className?: string
 }
 
-export function OnlineStatus({ 
-  isOnline = false, 
-  lastSeen, 
-  size = 'md', 
+export function OnlineStatus({
+  isOnline = false,
+  lastSeen,
+  size = 'md',
   showText = false,
-  className 
+  className
 }: OnlineStatusProps) {
   const sizeClasses = {
     sm: 'w-2 h-2',
@@ -25,13 +25,13 @@ export function OnlineStatus({
   const getLastSeenText = () => {
     if (isOnline) return 'Online'
     if (!lastSeen) return 'Offline'
-    
+
     const now = new Date()
     const diff = now.getTime() - new Date(lastSeen).getTime()
     const minutes = Math.floor(diff / 60000)
     const hours = Math.floor(diff / 3600000)
     const days = Math.floor(diff / 86400000)
-    
+
     if (minutes < 1) return 'Just now'
     if (minutes < 60) return `${minutes}m ago`
     if (hours < 24) return `${hours}h ago`

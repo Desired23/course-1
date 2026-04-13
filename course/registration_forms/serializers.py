@@ -12,7 +12,7 @@ class FormQuestionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
         extra_kwargs = {
-            'form': {'required': False}  # Set in service when creating with form
+            'form': {'required': False}
         }
 
 

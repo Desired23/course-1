@@ -32,7 +32,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
 
   useEffect(() => {
-    // Mock notifications based on user role
+
     const mockNotifications: Notification[] = []
 
     if (userRole === 'user') {
@@ -161,14 +161,14 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
     setNotifications(mockNotifications)
   }, [t, userRole])
 
-  const filteredNotifications = filter === 'all' 
-    ? notifications 
+  const filteredNotifications = filter === 'all'
+    ? notifications
     : notifications.filter(n => !n.isRead)
 
   const unreadCount = notifications.filter(n => !n.isRead).length
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => 
+    setNotifications(prev =>
       prev.map(n => n.id === id ? { ...n, isRead: true } : n)
     )
   }
@@ -236,15 +236,15 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end p-4 md:p-0">
-      {/* Backdrop */}
-      <div 
+
+      <div
         className="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Notification Panel */}
+
       <div className="relative w-full max-w-md md:max-w-lg bg-background border border-border rounded-xl md:rounded-none md:h-screen shadow-2xl animate-in slide-in-from-right duration-300 overflow-hidden">
-        {/* Header */}
+
         <div className="p-4 md:p-6 border-b border-border/50 flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-sm z-10">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
@@ -280,18 +280,18 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
           </div>
         </div>
 
-        {/* Filter Tabs */}
+
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="w-full rounded-none border-b bg-transparent h-12">
-            <TabsTrigger 
-              value="all" 
+            <TabsTrigger
+              value="all"
               className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
               onClick={() => setFilter('all')}
             >
               All ({notifications.length})
             </TabsTrigger>
-            <TabsTrigger 
-              value="unread" 
+            <TabsTrigger
+              value="unread"
               className="flex-1 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
               onClick={() => setFilter('unread')}
             >
@@ -323,8 +323,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                             key={notification.id}
                             className={cn(
                               "p-4 rounded-lg border transition-all duration-200 cursor-pointer hover:shadow-md hover:scale-[1.01]",
-                              !notification.isRead 
-                                ? "bg-primary/5 border-primary/30 shadow-sm" 
+                              !notification.isRead
+                                ? "bg-primary/5 border-primary/30 shadow-sm"
                                 : "bg-card border-border/50 hover:bg-muted/30"
                             )}
                             onClick={() => handleNotificationClick(notification)}
@@ -341,8 +341,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                                       <div className="h-2 w-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
                                     )}
                                   </div>
-                                  <Badge 
-                                    variant="secondary" 
+                                  <Badge
+                                    variant="secondary"
                                     className={cn("text-xs font-medium", getPriorityColor(notification.priority))}
                                   >
                                     {notification.priority}
@@ -408,8 +408,8 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
                               <h4 className="font-semibold text-sm">{notification.title}</h4>
                               <div className="h-2 w-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
                             </div>
-                            <Badge 
-                              variant="secondary" 
+                            <Badge
+                              variant="secondary"
                               className={cn("text-xs font-medium", getPriorityColor(notification.priority))}
                             >
                               {notification.priority}

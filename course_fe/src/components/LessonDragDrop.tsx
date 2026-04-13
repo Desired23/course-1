@@ -70,13 +70,13 @@ const getStatusBadge = (status: string, t: (key: string) => string) => {
   }
 }
 
-export function DraggableLessonCard({ 
-  lesson, 
+export function DraggableLessonCard({
+  lesson,
   index,
   sectionId,
   moveLesson,
   moveLessonBetweenSections,
-  onEdit, 
+  onEdit,
   onPreview,
   onDelete,
   isSelected,
@@ -87,7 +87,7 @@ export function DraggableLessonCard({
 }: DraggableLessonProps) {
   const { t } = useTranslation()
   const ref = useRef<HTMLDivElement>(null)
-  
+
   const [{ handlerId, isOverCurrent }, drop] = useDrop<DragItem, void, { handlerId: any, isOverCurrent: boolean }>({
     accept: LESSON_TYPE,
     collect(monitor) {
@@ -100,48 +100,48 @@ export function DraggableLessonCard({
       if (!ref.current) {
         return
       }
-      
+
       const dragIndex = item.index
       const hoverIndex = index
 
-      // Don't replace items with themselves
+
       if (item.sectionId === sectionId && dragIndex === hoverIndex) {
         return
       }
 
-      // Determine rectangle on screen
+
       const hoverBoundingRect = ref.current.getBoundingClientRect()
 
-      // Get vertical middle
+
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
 
-      // Determine mouse position
+
       const clientOffset = monitor.getClientOffset()
 
       if (!clientOffset) {
         return
       }
 
-      // Get pixels to the top
+
       const hoverClientY = clientOffset.y - hoverBoundingRect.top
 
-      // Only perform the move when the mouse has crossed half of the items height
-      // Dragging downwards
+
+
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
         return
       }
 
-      // Dragging upwards
+
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
         return
       }
 
-      // Handle moving within the same section
+
       if (item.sectionId === sectionId) {
         moveLesson(dragIndex, hoverIndex)
         item.index = hoverIndex
       } else if (moveLessonBetweenSections) {
-        // Handle moving between sections
+
         moveLessonBetweenSections(item.sectionId, sectionId, item.lessonId, hoverIndex)
         item.sectionId = sectionId
         item.index = hoverIndex
@@ -203,12 +203,12 @@ export function DraggableLessonCard({
       <span className="text-sm text-muted-foreground w-8">
         {index + 1}.
       </span>
-      
+
       <div className="flex items-center gap-2 flex-1">
         <span className="transition-transform duration-200">{getTypeIcon(lesson.type)}</span>
         <span className="transition-colors duration-200">{lesson.title}</span>
       </div>
-      
+
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <Clock className="h-3 w-3" />
@@ -217,7 +217,7 @@ export function DraggableLessonCard({
         {renderTranscriptBadge()}
         {getStatusBadge(lesson.status, t)}
       </div>
-      
+
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         {canGenerateTranscript && onGenerateTranscript && (
           <Button
@@ -245,8 +245,8 @@ export function DraggableLessonCard({
         >
           <Edit3 className="h-4 w-4" />
         </Button>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="sm"
           className="h-8 w-8 p-0 hover:bg-primary/10 transition-all duration-200"
           onClick={(e) => {
@@ -256,8 +256,8 @@ export function DraggableLessonCard({
         >
           <Eye className="h-4 w-4" />
         </Button>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="sm"
           className="h-8 w-8 p-0 hover:bg-destructive/10 transition-all duration-200"
           onClick={(e) => {

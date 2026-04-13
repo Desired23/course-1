@@ -2,6 +2,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from .services import (
     create_qna,
     get_qna_by_id,
@@ -19,6 +20,12 @@ from .serializers import QnASerializer
 class QnAListView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [RolePermissionFactory(['admin', 'instructor', 'student'])()]
+
     def get(self, request):
         try:
             reported_only = request.query_params.get('reported') == 'true'

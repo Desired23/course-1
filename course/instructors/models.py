@@ -1,7 +1,7 @@
 from django.db import models
 from decimal import Decimal
 from users.models import User
-from instructor_levels.models import InstructorLevel    
+from instructor_levels.models import InstructorLevel
 
 class Instructor(models.Model):
     id = models.AutoField(primary_key=True)

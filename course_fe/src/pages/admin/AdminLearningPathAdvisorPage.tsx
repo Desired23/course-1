@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import { AlertTriangle, Archive, Bot, ChevronDown, ChevronUp, ExternalLink, Loader2, RotateCcw, Route, Sparkles, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -20,6 +21,28 @@ import {
 } from '../../services/learning-paths.api'
 
 type ProviderFilter = 'all' | 'gemini' | 'rule_based'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function AdminLearningPathAdvisorPage() {
   const { navigate, currentRoute } = useRouter()
@@ -219,9 +242,14 @@ export function AdminLearningPathAdvisorPage() {
   }
 
   return (
-    <>
-      <div className="space-y-6 p-6">
-        <div className="space-y-2">
+    <motion.div
+      className="space-y-6 p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="space-y-2" variants={fadeInUp}>
           <Badge className="bg-blue-500/15 text-blue-700 hover:bg-blue-500/15">
             <Sparkles className="mr-1 h-3.5 w-3.5" />
             Advisor quality
@@ -230,9 +258,10 @@ export function AdminLearningPathAdvisorPage() {
           <p className="text-sm text-muted-foreground">
             Theo doi xem learning path dang duoc tao boi Gemini hay rule-based, va fallback dang xay ra bao nhieu.
           </p>
-        </div>
+        </motion.div>
 
         {updatedCourseId && (
+          <motion.div variants={fadeInUp}>
           <Card className="border-emerald-200 bg-emerald-50/80">
             <CardContent className="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -246,8 +275,10 @@ export function AdminLearningPathAdvisorPage() {
               </Button>
             </CardContent>
           </Card>
+          </motion.div>
         )}
 
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle>Filters</CardTitle>
@@ -305,8 +336,9 @@ export function AdminLearningPathAdvisorPage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <motion.div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5" variants={fadeInUp}>
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Tong lo trinh</CardDescription>
@@ -351,8 +383,9 @@ export function AdminLearningPathAdvisorPage() {
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">So lan advisor can de tra payload hop le.</CardContent>
           </Card>
-        </div>
+        </motion.div>
 
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle>Recent paths</CardTitle>
@@ -504,7 +537,8 @@ export function AdminLearningPathAdvisorPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <Dialog open={selectedPathId != null} onOpenChange={(open) => {
         if (!open) {
@@ -632,7 +666,7 @@ export function AdminLearningPathAdvisorPage() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </motion.div>
   )
 }
 

@@ -28,13 +28,13 @@ export function GoogleLoginButton({
 
   const handleGoogleSuccess = async (userData: any) => {
     try {
-      // Login with the Google credential
+
       const success = await loginWithGoogle(userData.credential)
-      
+
       if (success) {
         console.log('Google login successful:', userData)
         onSuccess?.()
-        // Navigate to home or dashboard
+
         navigate('/')
       } else {
         throw new Error('Google login failed')
@@ -57,7 +57,7 @@ export function GoogleLoginButton({
     autoLoad: !useCustomButton,
   })
 
-  // Render Google's official button
+
   useEffect(() => {
     if (!useCustomButton && isReady && googleButtonRef.current) {
       renderGoogleButton('google-signin-button', {
@@ -111,7 +111,7 @@ export function GoogleLoginButton({
     )
   }
 
-  // Use Google's official button
+
   return (
     <div className="flex justify-center">
       <div

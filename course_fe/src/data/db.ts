@@ -1,12 +1,12 @@
-// ============================================
-// CONSOLIDATED MOCK DATA - Based on Django Backend DB Structure
-// ============================================
-// This file replaces mockData.ts, mockDataExtended.ts, and mergeData.ts
-// All data follows the exact structure from DB.txt.tsx
 
-// ============================================
-// CATEGORIES
-// ============================================
+
+
+
+
+
+
+
+
 export const categories = [
   {
     category_id: 1,
@@ -82,9 +82,9 @@ export const categories = [
   }
 ]
 
-// ============================================
-// USERS
-// ============================================
+
+
+
 export const users = [
   {
     user_id: 1,
@@ -130,9 +130,9 @@ export const users = [
   }
 ]
 
-// ============================================
-// INSTRUCTORS
-// ============================================
+
+
+
 export const instructors = [
   {
     instructor_id: 1,
@@ -176,9 +176,9 @@ export const instructors = [
   }
 ]
 
-// ============================================
-// COURSES
-// ============================================
+
+
+
 export const courses = [
   {
     course_id: 1,
@@ -195,7 +195,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "all_levels",
     language: "Tiếng Việt",
-    duration: 3690, // 61.5 hours in minutes
+    duration: 3690,
     total_lessons: 65,
     total_modules: 12,
     requirements: "No programming experience needed. You will learn everything you need to know",
@@ -225,7 +225,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "Tiếng Việt",
-    duration: 2880, // 48 hours
+    duration: 2880,
     total_lessons: 82,
     total_modules: 15,
     requirements: "JavaScript knowledge is required. ES6+ knowledge is recommended but not a must-have",
@@ -255,7 +255,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 3600, // 60 hours
+    duration: 3600,
     total_lessons: 100,
     total_modules: 10,
     requirements: "No programming experience needed",
@@ -285,7 +285,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "all_levels",
     language: "Tiếng Việt",
-    duration: 2220, // 37 hours
+    duration: 2220,
     total_lessons: 74,
     total_modules: 12,
     requirements: "No prior experience needed",
@@ -300,7 +300,7 @@ export const courses = [
     total_students: 198765,
     certificate: true
   },
-  // Trending Courses
+
   {
     course_id: 5,
     title: "UI/UX Design Bootcamp - Figma to Webflow",
@@ -316,7 +316,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 2400, // 40 hours
+    duration: 2400,
     total_lessons: 68,
     total_modules: 11,
     requirements: "No design experience needed",
@@ -346,7 +346,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "Tiếng Việt",
-    duration: 2640, // 44 hours
+    duration: 2640,
     total_lessons: 76,
     total_modules: 10,
     requirements: "High school mathematics level",
@@ -376,7 +376,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "Tiếng Việt",
-    duration: 2100, // 35 hours
+    duration: 2100,
     total_lessons: 62,
     total_modules: 9,
     requirements: "Basic JavaScript knowledge",
@@ -406,7 +406,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "Tiếng Việt",
-    duration: 3000, // 50 hours
+    duration: 3000,
     total_lessons: 85,
     total_modules: 13,
     requirements: "Some programming experience recommended",
@@ -421,7 +421,7 @@ export const courses = [
     total_students: 156789,
     certificate: true
   },
-  // Additional courses for pagination testing
+
   {
     course_id: 9,
     title: "Complete Graphic Design Masterclass",
@@ -437,7 +437,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "English",
-    duration: 2520, // 42 hours
+    duration: 2520,
     total_lessons: 78,
     total_modules: 11,
     requirements: "No prior design experience needed",
@@ -467,7 +467,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 1800, // 30 hours
+    duration: 1800,
     total_lessons: 65,
     total_modules: 8,
     requirements: "No prior experience needed",
@@ -497,7 +497,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "English",
-    duration: 2700, // 45 hours
+    duration: 2700,
     total_lessons: 89,
     total_modules: 14,
     requirements: "JavaScript and TypeScript basics",
@@ -527,7 +527,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "advanced",
     language: "English",
-    duration: 3300, // 55 hours
+    duration: 3300,
     total_lessons: 95,
     total_modules: 16,
     requirements: "Networking and Linux basics",
@@ -557,7 +557,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 2400, // 40 hours
+    duration: 2400,
     total_lessons: 72,
     total_modules: 12,
     requirements: "No programming experience needed",
@@ -587,7 +587,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "all_levels",
     language: "English",
-    duration: 1500, // 25 hours
+    duration: 1500,
     total_lessons: 58,
     total_modules: 9,
     requirements: "Basic business knowledge helpful but not required",
@@ -617,7 +617,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "English",
-    duration: 2100, // 35 hours
+    duration: 2100,
     total_lessons: 67,
     total_modules: 11,
     requirements: "Basic IT knowledge and cloud concepts",
@@ -647,7 +647,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 1800, // 30 hours
+    duration: 1800,
     total_lessons: 64,
     total_modules: 10,
     requirements: "No prior experience needed",
@@ -677,7 +677,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "all_levels",
     language: "English",
-    duration: 1200, // 20 hours
+    duration: 1200,
     total_lessons: 52,
     total_modules: 8,
     requirements: "Basic website knowledge helpful",
@@ -707,7 +707,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 3300, // 55 hours
+    duration: 3300,
     total_lessons: 92,
     total_modules: 15,
     requirements: "No programming experience needed",
@@ -737,7 +737,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "intermediate",
     language: "English",
-    duration: 2700, // 45 hours
+    duration: 2700,
     total_lessons: 78,
     total_modules: 12,
     requirements: "Basic Excel and finance knowledge",
@@ -767,7 +767,7 @@ export const courses = [
     discount_end_date: new Date("2025-01-31"),
     level: "beginner",
     language: "Tiếng Việt",
-    duration: 2400, // 40 hours
+    duration: 2400,
     total_lessons: 71,
     total_modules: 11,
     requirements: "No prior 3D experience needed",
@@ -784,16 +784,16 @@ export const courses = [
   }
 ]
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
+
+
+
 
 export function getCoursesWithInstructors() {
   return courses.map(course => {
     const instructor = instructors.find(inst => inst.instructor_id === course.instructor_id)
     const instructorUser = users.find(user => user.user_id === instructor?.user_id)
     const category = categories.find(cat => cat.category_id === course.category_id)
-    
+
     return {
       ...course,
       instructor_details: instructor,
@@ -828,10 +828,10 @@ export function getStatistics() {
   }
 }
 
-// Video URL placeholder
+
 export const videoUrl = "https://www.youtube.com/watch?v=VBKNoLcj8jA&t=1s"
 
-// Export all data
+
 export default {
   categories,
   users,

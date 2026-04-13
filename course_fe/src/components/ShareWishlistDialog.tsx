@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { 
-  Share2, 
-  Copy, 
-  Facebook, 
-  Twitter, 
-  Linkedin, 
+import {
+  Share2,
+  Copy,
+  Facebook,
+  Twitter,
+  Linkedin,
   Mail,
   Check
 } from 'lucide-react'
@@ -29,8 +29,8 @@ export function ShareWishlistDialog({
 }: ShareWishlistDialogProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
-  
-  // Generate shareable link
+
+
   const shareableLink = wishlistUrl + Math.random().toString(36).substring(7)
 
   const copyToClipboard = async () => {
@@ -79,7 +79,7 @@ export function ShareWishlistDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Copy Link */}
+
           <div className="space-y-2">
             <label className="text-sm font-medium">{t('share_wishlist.shareable_link')}</label>
             <div className="flex gap-2">
@@ -105,7 +105,7 @@ export function ShareWishlistDialog({
             </p>
           </div>
 
-          {/* Social Share Buttons */}
+
           <div className="space-y-2">
             <label className="text-sm font-medium">{t('share_wishlist.share_via')}</label>
             <div className="grid grid-cols-4 gap-2">
