@@ -1,30 +1,30 @@
-// Judge0 API Integration - Production Ready
-// Documentation: https://ce.judge0.com/
-// RapidAPI: https://rapidapi.com/judge0-official/api/judge0-ce
+
+
+
 
 import { mockRunTestCases } from './judge0-mock'
 
-// ✅ Configuration - Correct format for RapidAPI
+
 const JUDGE0_API_URL = 'https://judge0-ce.p.rapidapi.com'
 const RAPIDAPI_KEY = 'ecec505edbmsh875f227dbb9bbeap1221c1jsn547ff02bf628'
 const RAPIDAPI_HOST = 'judge0-ce.p.rapidapi.com'
 
-// ✅ Polling configuration (avoid 429 rate limit)
-const INITIAL_POLL_INTERVAL = 1500 // Start with 1.5s (safer than 1s)
-const MAX_POLL_INTERVAL = 5000 // Max 5s between polls
-const POLL_BACKOFF_MULTIPLIER = 1.5 // Exponential backoff
-const MAX_POLL_ATTEMPTS = 15 // Max 15 attempts (~30s total)
 
-// ✅ Request queue to prevent multiple simultaneous submissions
+const INITIAL_POLL_INTERVAL = 1500
+const MAX_POLL_INTERVAL = 5000
+const POLL_BACKOFF_MULTIPLIER = 1.5
+const MAX_POLL_ATTEMPTS = 15
+
+
 let requestQueue: Promise<any> = Promise.resolve()
 let lastRequestTime = 0
-const MIN_REQUEST_INTERVAL = 500 // Min 500ms between requests
+const MIN_REQUEST_INTERVAL = 500
 
-// Auto-detect API availability
+
 let apiFailureCount = 0
-const MAX_FAILURES_BEFORE_MOCK = 3 // Switch to mock after 3 failures
+const MAX_FAILURES_BEFORE_MOCK = 3
 
-// 🔍 Debug: Request counter
+
 let requestCounter = { submissions: 0, polls: 0 }
 
 export function getRequestStats() {
@@ -36,7 +36,7 @@ export function resetRequestStats() {
   console.log('📊 Request stats reset')
 }
 
-// Supported Programming Languages
+
 export const SUPPORTED_LANGUAGES = [
   { id: 63, name: 'JavaScript (Node.js 12.14.0)', value: 'javascript', extension: 'js' },
   { id: 71, name: 'Python (3.8.1)', value: 'python', extension: 'py' },
@@ -58,8 +58,8 @@ export interface SubmissionPayload {
   language_id: number
   stdin?: string
   expected_output?: string
-  cpu_time_limit?: number // seconds (default: 2)
-  memory_limit?: number // KB (default: 128000)
+  cpu_time_limit?: number
+  memory_limit?: number
 }
 
 export interface SubmissionResult {
@@ -67,8 +67,8 @@ export interface SubmissionResult {
   stderr: string | null
   compile_output: string | null
   message: string | null
-  time: string | null // execution time in seconds
-  memory: number | null // memory in KB
+  time: string | null
+  memory: number | null
   status: {
     id: number
     description: string
@@ -277,50 +277,50 @@ export function shouldWrapUserCode(userCode: string, language: string): boolean 
   return hasFunction && !usesStdin
 }
 
-// ✅ Helper: Rate limit protection
+
 async function waitForRateLimit() {
   const now = Date.now()
   const timeSinceLastRequest = now - lastRequestTime
-  
+
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
     await new Promise(resolve => setTimeout(resolve, waitTime))
   }
-  
+
   lastRequestTime = Date.now()
 }
 
-// ✅ Helper: Retry with exponential backoff
+
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
   initialDelay: number = 1000
 ): Promise<T> {
   let lastError: Error | null = null
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn()
     } catch (error) {
       lastError = error as Error
-      
-      // Check if it's a rate limit error (429)
+
+
       if (lastError.message.includes('429')) {
         const backoffDelay = initialDelay * Math.pow(2, attempt)
         console.warn(`Rate limited (429). Retrying in ${backoffDelay}ms... (Attempt ${attempt + 1}/${maxRetries})`)
         await new Promise(resolve => setTimeout(resolve, backoffDelay))
         continue
       }
-      
-      // For other errors, don't retry
+
+
       throw lastError
     }
   }
-  
+
   throw lastError || new Error('Max retries exceeded')
 }
 
-// ✅ Helper: Wrap user code with stdin/stdout handler (LeetCode-style)
+
 export function wrapUserCode(userCode: string, language: string, _testInput: string = ''): string {
   const lang = language.toLowerCase()
   let cleanedCode = userCode || ''
@@ -352,9 +352,9 @@ const DEBUG_END = '${DEBUG_STDERR_END}';
 const rawInput = fs.readFileSync(0, 'utf-8');
 const lines = rawInput.length === 0 ? [] : rawInput.replace(/\\r\\n/g, '\\n').split('\\n').filter((line, idx, arr) => !(idx === arr.length - 1 && line === ''));
 
-// ============ USER CODE START ============
+
 ${cleanedCode}
-// ============ USER CODE END ============
+
 
 function parseScalar(token) {
   const value = token.trim();
@@ -435,9 +435,9 @@ lines = [] if raw_input == '' else raw_input.replace('\\r\\n', '\\n').split('\\n
 if lines and lines[-1] == '':
     lines = lines[:-1]
 
-# ============ USER CODE START ============
+
 ${cleanedCode}
-# ============ USER CODE END ============
+
 
 def parse_scalar(token):
     value = token.strip()
@@ -530,20 +530,20 @@ else:
 
   return cleanedCode
 }
-// ✅ Submit code to Judge0 (with queue and rate limiting)
+
 export async function submitCode(payload: SubmissionPayload): Promise<{ token: string }> {
-  // Check if we should use mock mode
+
   if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
     console.warn('⚠️ Using mock mode due to API failures')
     return { token: `mock_${Date.now()}` }
   }
 
-  // Queue the request to prevent simultaneous submissions
+
   return new Promise((resolve, reject) => {
     requestQueue = requestQueue.then(async () => {
       try {
         await waitForRateLimit()
-        
+
         const result = await retryWithBackoff(async () => {
           const response = await fetch(
             `${JUDGE0_API_URL}/submissions?base64_encoded=false&wait=false`,
@@ -571,39 +571,39 @@ export async function submitCode(payload: SubmissionPayload): Promise<{ token: s
           }
 
           const data = await response.json()
-          
+
           if (!data.token) {
             throw new Error('No token received from Judge0')
           }
-          
+
           return { token: data.token }
         }, 3, 2000) // 3 retries, starting with 2s delay
-        
-        // Reset failure count on success
+
+
         if (apiFailureCount > 0) {
           console.log('✅ API recovered, resetting failure count')
           apiFailureCount = 0
         }
-        
+
         requestCounter.submissions++
         resolve(result)
       } catch (error) {
         console.error('Judge0 submission error:', error)
         apiFailureCount++
-        
+
         if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
           console.warn(`⚠️ Switched to mock mode after ${apiFailureCount} failures`)
         }
-        
+
         reject(error)
       }
     })
   })
 }
 
-// ✅ Get submission result (with retry logic)
+
 export async function getSubmissionResult(token: string): Promise<SubmissionResult> {
-  // Mock mode
+
   if (token.startsWith('mock_') || apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
     console.warn('⚠️ Using mock mode for result fetch')
     return {
@@ -620,8 +620,8 @@ export async function getSubmissionResult(token: string): Promise<SubmissionResu
 
   try {
     await waitForRateLimit()
-    
-    // ✅ FIX: Don't retry on every poll - only retry on actual errors
+
+
     const response = await fetch(
       `${JUDGE0_API_URL}/submissions/${token}?base64_encoded=false`,
       {
@@ -648,43 +648,43 @@ export async function getSubmissionResult(token: string): Promise<SubmissionResu
   }
 }
 
-// ✅ Submit and wait for result (with adaptive polling)
+
 export async function submitAndWait(
   payload: SubmissionPayload,
   maxAttempts: number = MAX_POLL_ATTEMPTS
 ): Promise<SubmissionResult> {
   const { token } = await submitCode(payload)
-  
-  // If mock mode
+
+
   if (token.startsWith('mock_')) {
-    // Simulate processing delay
+
     await new Promise(resolve => setTimeout(resolve, 800))
     return getSubmissionResult(token)
   }
-  
+
   let pollInterval = INITIAL_POLL_INTERVAL
-  
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    // Wait before polling (adaptive interval)
+
     await new Promise(resolve => setTimeout(resolve, pollInterval))
-    
+
     try {
       const result = await getSubmissionResult(token)
-      
-      // Status IDs: 1=In Queue, 2=Processing, 3=Accepted, 4+=Various errors/outcomes
+
+
       if (result.status.id > 2) {
-        return result // Finished processing
+        return result
       }
-      
-      // Still processing - increase poll interval (exponential backoff)
+
+
       pollInterval = Math.min(
         pollInterval * POLL_BACKOFF_MULTIPLIER,
         MAX_POLL_INTERVAL
       )
-      
+
       console.log(`⏳ Still processing... (Attempt ${attempt + 1}/${maxAttempts}, next poll in ${Math.round(pollInterval)}ms)`)
     } catch (error) {
-      // If we get rate limited while polling, increase interval more aggressively
+
       if (error instanceof Error && error.message.includes('429')) {
         pollInterval = Math.min(pollInterval * 2, MAX_POLL_INTERVAL)
         console.warn(`Rate limited while polling. Increasing interval to ${Math.round(pollInterval)}ms`)
@@ -693,11 +693,11 @@ export async function submitAndWait(
       }
     }
   }
-  
+
   throw new Error(`Submission timeout - took longer than ${Math.round(maxAttempts * INITIAL_POLL_INTERVAL / 1000)}s to execute`)
 }
 
-// ✅ Run code against multiple test cases (with sequential execution)
+
 async function submitBatch(payloads: SubmissionPayload[]): Promise<{ token: string }[]> {
   if (apiFailureCount >= MAX_FAILURES_BEFORE_MOCK) {
     return payloads.map((_, index) => ({ token: `mock_batch_${Date.now()}_${index}` }))
@@ -954,7 +954,7 @@ export async function runTestCases(
   }
 }
 
-// Calculate score based on test results
+
 export function calculateScore(results: TestResult[]): {
   score: number
   passed: number
@@ -966,21 +966,21 @@ export function calculateScore(results: TestResult[]): {
   const score = results.reduce((sum, r) => sum + (r.passed ? (r.points || 1) : 0), 0)
   const maxScore = results.reduce((sum, r) => sum + (r.points || 1), 0)
   const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0
-  
+
   return { score, passed, total, percentage }
 }
 
-// Get language by ID
+
 export function getLanguageById(id: number) {
   return SUPPORTED_LANGUAGES.find(lang => lang.id === id)
 }
 
-// Get language by value
+
 export function getLanguageByValue(value: string) {
   return SUPPORTED_LANGUAGES.find(lang => lang.value === value)
 }
 
-// Status descriptions for better UX
+
 export const STATUS_DESCRIPTIONS: Record<number, { label: string; color: string }> = {
   1: { label: 'In Queue', color: 'text-blue-600' },
   2: { label: 'Processing', color: 'text-blue-600' },
@@ -998,79 +998,79 @@ export const STATUS_DESCRIPTIONS: Record<number, { label: string; color: string 
   14: { label: 'Exec Format Error', color: 'text-red-600' },
 }
 
-// Get starter code for each language (Clean function template - LeetCode style)
+
 export function getStarterCode(languageValue: string, functionName?: string): string {
   const fname = functionName || 'twoSum'
   const templates: Record<string, string> = {
     javascript: `// Write your solution here
 function ${fname}(nums, target) {
-  // Your code here
-  
+
+
 }`,
     python: `# Write your solution here
 def ${fname}(nums, target):
-    # Your code here
+
     pass`,
     java: `// Write your solution here
 public static int[] ${fname}(int[] nums, int target) {
-    // Your code here
+
     return new int[]{};
 }`,
     cpp: `// Write your solution here
 vector<int> ${fname}(vector<int>& nums, int target) {
-    // Your code here
-    
+
+
 }`,
     c: `// Write your solution here (Not recommended for this problem)
 int* ${fname}(int* nums, int numsSize, int target, int* returnSize) {
-    // Your code here
+
     *returnSize = 0;
     return NULL;
 }`,
     csharp: `// Write your solution here
 public int[] ${fname}(int[] nums, int target) {
-    // Your code here
+
     return new int[]{};
 }`,
     typescript: `// Write your solution here
 function ${fname}(nums: number[], target: number): number[] {
-    // Your code here
+
     return [];
 }`,
     go: `// Write your solution here
 func ${fname}(nums []int, target int) []int {
-    // Your code here
+
     return []int{}
 }`,
     kotlin: `// Write your solution here
 fun ${fname}(nums: IntArray, target: Int): IntArray {
-    // Your code here
+
     return intArrayOf()
 }`,
     php: `<?php
-// Write your solution here
+
 function ${fname}($nums, $target) {
-    // Your code here
+
     return [];
 }
 ?>`,
     ruby: `# Write your solution here
 def ${fname}(nums, target)
-    # Your code here
+
 end`,
     rust: `// Write your solution here
 pub fn ${fname}(nums: Vec<i32>, target: i32) -> Vec<i32> {
-    // Your code here
+
     vec![]
 }`,
     sql: `-- Write your SQL query here
 SELECT * FROM table_name;`,
   }
-  
+
   return templates[languageValue] || '// Write your code here\n'
 }
 
-// Check API health
+
 export async function checkApiHealth(): Promise<boolean> {
   try {
     const response = await fetch(`${JUDGE0_API_URL}/about`, {
@@ -1086,13 +1086,13 @@ export async function checkApiHealth(): Promise<boolean> {
   }
 }
 
-// Reset API failure count (useful for testing)
+
 export function resetApiFailureCount() {
   apiFailureCount = 0
   console.log('✅ API failure count reset')
 }
 
-// Get current API status
+
 export function getApiStatus() {
   return {
     failureCount: apiFailureCount,

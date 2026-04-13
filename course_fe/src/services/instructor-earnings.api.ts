@@ -1,6 +1,6 @@
-/**
- * Instructor Earnings API Service
- */
+
+
+
 
 import { http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowUpDown,
@@ -22,6 +23,14 @@ import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '../../components/ui/toggle-group'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '../../components/ui/breadcrumb'
 import { UserPagination } from '../../components/UserPagination'
 import { useRouter } from '../../components/Router'
 import { useFollow } from '../../contexts/FollowContext'
@@ -49,9 +58,31 @@ import {
   type Review,
 } from '../../services/review.api'
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function InstructorPublicProfilePage() {
   const { t } = useTranslation()
-  const { navigate, params } = useRouter()
+  const { currentRoute, navigate, params } = useRouter()
   const { isFollowing, toggleFollow, getFollowersCount } = useFollow()
   const { user } = useAuth()
   const { openChatWithUser } = useChat()
@@ -158,6 +189,9 @@ export function InstructorPublicProfilePage() {
 
   const rating = parseRating(instructor.rating)
   const socialLinks = instructor.social_links || {}
+  const searchParams = new URLSearchParams(currentRoute.split('?')[1] || '')
+  const fromCourseId = searchParams.get('fromCourseId')
+  const fromCourseTitle = searchParams.get('fromCourseTitle')
 
   const filteredCourses = courses.filter((course) => {
     const matchesQuery = !courseQuery || course.title.toLowerCase().includes(courseQuery.toLowerCase())
@@ -225,9 +259,64 @@ export function InstructorPublicProfilePage() {
   })
 
   return (
-    <div className="min-h-screen bg-background">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
       <div className="border-b bg-gradient-to-r from-primary/10 to-primary/5">
-        <div className="container mx-auto px-4 py-12">
+        <motion.div className="container mx-auto px-4 py-8 sm:py-12" variants={fadeInUp} initial="hidden" animate="show">
+          <Breadcrumb className="mb-4">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink
+                  href="/"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    navigate('/')
+                  }}
+                >
+                  {t('instructor_public_profile.breadcrumb_home')}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+
+              {fromCourseTitle && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    {fromCourseId ? (
+                      <BreadcrumbLink
+                        href={`/course/${fromCourseId}`}
+                        onClick={(event) => {
+                          event.preventDefault()
+                          navigate(`/course/${fromCourseId}`)
+                        }}
+                      >
+                        {fromCourseTitle}
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage>{fromCourseTitle}</BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                </>
+              )}
+
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>
+                  {t('instructor_public_profile.breadcrumb_profile', { name: instructor.user.full_name })}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          {fromCourseTitle && (
+            <p className="mb-5 text-xs text-muted-foreground">
+              {t('instructor_public_profile.breadcrumb_context_note')}
+            </p>
+          )}
+
           <div className="flex flex-col items-start gap-8 md:flex-row">
             <Avatar className="h-32 w-32">
               <AvatarImage src={instructor.user.avatar || undefined} />
@@ -240,7 +329,7 @@ export function InstructorPublicProfilePage() {
                 <p className="text-lg text-muted-foreground">{instructor.specialization || ''}</p>
               </div>
 
-              <div className="flex flex-wrap gap-6">
+              <div className="flex flex-wrap gap-4 sm:gap-6">
                 <div className="flex items-center gap-2">
                   <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
                   <span className="font-medium">{rating}</span>
@@ -263,7 +352,7 @@ export function InstructorPublicProfilePage() {
                 </div>
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <Button onClick={handleFollowClick} variant={following ? 'outline' : 'default'}>
                   {following ? (
                     <>
@@ -278,7 +367,7 @@ export function InstructorPublicProfilePage() {
                   )}
                 </Button>
                 {user?.id !== instructor.user.id && (
-                  <Button variant="outline" onClick={() => void handleMessageInstructor()}>
+                  <Button variant="outline" onClick={() => void handleMessageInstructor()} className="w-full sm:w-auto">
                     <MessageCircle className="mr-2 h-4 w-4" />
                     {t('instructor_public_profile.message')}
                   </Button>
@@ -286,7 +375,7 @@ export function InstructorPublicProfilePage() {
               </div>
 
               {Object.keys(socialLinks).length > 0 && (
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2 sm:gap-3">
                   {socialLinks.website && (
                     <Button variant="ghost" size="icon" asChild>
                       <a href={socialLinks.website} target="_blank" rel="noopener noreferrer">
@@ -326,42 +415,53 @@ export function InstructorPublicProfilePage() {
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
+        <motion.div className="mb-8 grid gap-4 md:grid-cols-3" variants={fadeInUp} initial="hidden" animate="show">
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <p className="mb-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.course_overview')}</p>
               <p className="text-3xl font-bold">{courses.length}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.published_courses')}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <p className="mb-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.average_rating')}</p>
               <p className="text-3xl font-bold">{reviews.length ? calcAverageRating(reviews).toFixed(1) : rating.toFixed(1)}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.public_reviews', { count: reviews.length })}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <p className="mb-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.learners')}</p>
               <p className="text-3xl font-bold">{formatStudentCount(instructor.total_students)}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t('instructor_public_profile.summary.total_students')}</p>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
+        <motion.div variants={sectionStagger} initial="hidden" animate="show">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'about' | 'courses' | 'reviews')} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="about">{t('instructor_public_profile.tabs.about')}</TabsTrigger>
-            <TabsTrigger value="courses">{t('instructor_public_profile.tabs.courses', { count: courses.length })}</TabsTrigger>
-            <TabsTrigger value="reviews">{t('instructor_public_profile.tabs.reviews', { count: reviews.length })}</TabsTrigger>
+          <TabsList className="relative w-full justify-start overflow-x-auto p-1">
+            <TabsTrigger value="about" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'about' && <motion.span layoutId="instructor-public-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('instructor_public_profile.tabs.about')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="courses" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'courses' && <motion.span layoutId="instructor-public-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('instructor_public_profile.tabs.courses', { count: courses.length })}</span>
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'reviews' && <motion.span layoutId="instructor-public-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('instructor_public_profile.tabs.reviews', { count: reviews.length })}</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="about" className="space-y-6">
+            <motion.div variants={fadeInUp}>
             <Card>
               <CardHeader>
                 <CardTitle>{t('instructor_public_profile.about.title')}</CardTitle>
@@ -384,6 +484,7 @@ export function InstructorPublicProfilePage() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="courses" className="space-y-6">
@@ -437,7 +538,7 @@ export function InstructorPublicProfilePage() {
                   <option value="free">{t('instructor_public_profile.courses.price.free')}</option>
                   <option value="paid">{t('instructor_public_profile.courses.price.paid')}</option>
                 </select>
-                <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <label className="flex flex-col items-start gap-2 text-sm text-muted-foreground md:inline-flex md:flex-row md:items-center">
                   <ArrowUpDown className="h-4 w-4" />
                   <select
                     value={courseSort}
@@ -464,13 +565,15 @@ export function InstructorPublicProfilePage() {
               </div>
             ) : (
               <div className={courseViewMode === 'grid' ? 'grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3' : 'space-y-4'}>
-                {courseCardData.map((course) => (
-                  <CourseCard key={course.id} {...course} />
+                {courseCardData.map((course, index) => (
+                  <motion.div key={course.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, delay: index * 0.03, ease: 'easeOut' }} whileHover={{ y: -2 }}>
+                    <CourseCard {...course} />
+                  </motion.div>
                 ))}
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex justify-start sm:justify-end">
               <UserPagination currentPage={coursesPage} totalPages={courseTotalPages} onPageChange={setCoursesPage} />
             </div>
           </TabsContent>
@@ -506,7 +609,7 @@ export function InstructorPublicProfilePage() {
                   <option value="2">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 2 })}</option>
                   <option value="1">{t('instructor_public_profile.reviews.rating_filter.stars', { count: 1 })}</option>
                 </select>
-                <label className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <label className="flex flex-col items-start gap-2 text-sm text-muted-foreground md:inline-flex md:flex-row md:items-center">
                   <ArrowUpDown className="h-4 w-4" />
                   <select
                     value={reviewSort}
@@ -530,8 +633,8 @@ export function InstructorPublicProfilePage() {
             ) : (
               <div className="space-y-6">
                 <Card>
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-6">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
                       <div className="text-center">
                         <p className="text-4xl font-bold">{calcAverageRating(reviews).toFixed(1)}</p>
                         <div className="mt-1 flex items-center gap-1">
@@ -551,9 +654,10 @@ export function InstructorPublicProfilePage() {
                 </Card>
 
                 <div className="space-y-4">
-                  {paginatedReviews.map((review) => (
-                    <Card key={review.review_id}>
-                      <CardContent className="p-5">
+                  {paginatedReviews.map((review, index) => (
+                    <motion.div key={review.review_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, delay: index * 0.03, ease: 'easeOut' }}>
+                    <Card>
+                      <CardContent className="p-4 sm:p-5">
                         <div className="flex items-start gap-3">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={review.user_info?.avatar || undefined} />
@@ -562,7 +666,7 @@ export function InstructorPublicProfilePage() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                               <p className="font-medium">{review.user_info?.full_name || t('instructor_public_profile.reviews.student_fallback')}</p>
                               <span className="text-xs text-muted-foreground">{formatReviewDate(review.review_date)}</span>
                             </div>
@@ -590,17 +694,19 @@ export function InstructorPublicProfilePage() {
                         </div>
                       </CardContent>
                     </Card>
+                    </motion.div>
                   ))}
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex justify-start sm:justify-end">
                   <UserPagination currentPage={reviewsPage} totalPages={reviewTotalPages} onPageChange={setReviewsPage} />
                 </div>
               </div>
             )}
           </TabsContent>
         </Tabs>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

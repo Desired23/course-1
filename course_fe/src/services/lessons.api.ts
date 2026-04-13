@@ -1,18 +1,18 @@
-﻿/**
- * Lessons API Service
- * CRUD operations for course lessons
- *
- * Endpoints:
- *   GET    /api/lessons/                   â€” List all lessons (paginated)
- *   POST   /api/lessons/create             â€” Create lesson
- *   GET    /api/lessons/:id                â€” Get lesson detail
- *   PATCH  /api/lessons/:id/update         â€” Update lesson
- *   DELETE /api/lessons/:id/delete         â€” Delete lesson
- */
+﻿
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 export type LessonContentType = 'video' | 'text' | 'quiz' | 'code' | 'assignment' | 'file' | 'link'
 export type LessonStatus = 'draft' | 'published'
@@ -70,7 +70,7 @@ export interface LessonUpdateData {
   is_free?: boolean
   order?: number
   status?: LessonStatus
-  // Optional moderation metadata (primarily for admin status changes)
+
   status_reason?: string
   send_notification?: boolean
   notify_title?: string
@@ -87,9 +87,9 @@ export interface PaginatedLessons {
   results: Lesson[]
 }
 
-// â”€â”€â”€ API Functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-/** List lessons (paginated) */
+
+
 export async function getLessons(params?: {
   coursemodule_id?: number
   content_type?: LessonContentType
@@ -113,7 +113,7 @@ export async function getLessons(params?: {
   return http.get<PaginatedLessons>(`/lessons/${qs ? `?${qs}` : ''}`)
 }
 
-/** Get all lessons for a module (auto-paginate) */
+
 export async function getAllLessons(coursemoduleId: number): Promise<Lesson[]> {
   const all: Lesson[] = []
   let page = 1
@@ -126,27 +126,27 @@ export async function getAllLessons(coursemoduleId: number): Promise<Lesson[]> {
   return all.sort((a, b) => a.order - b.order)
 }
 
-/** Get single lesson */
+
 export async function getLessonById(lessonId: number): Promise<Lesson> {
   return http.get<Lesson>(`/lessons/${lessonId}`)
 }
 
-/** Create lesson */
+
 export async function createLesson(data: LessonCreateData): Promise<Lesson> {
   return http.post<Lesson>('/lessons/create', data)
 }
 
-/** Update lesson */
+
 export async function updateLesson(lessonId: number, data: LessonUpdateData): Promise<Lesson> {
   return http.patch<Lesson>(`/lessons/${lessonId}/update`, data)
 }
 
-/** Delete lesson */
+
 export async function deleteLesson(lessonId: number): Promise<void> {
   return http.delete(`/lessons/${lessonId}/delete`)
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 export function getContentTypeLabel(type: LessonContentType): string {
   const labels: Record<LessonContentType, string> = {

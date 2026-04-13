@@ -3,9 +3,11 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
+import { Skeleton } from "../../components/ui/skeleton"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Textarea } from "../../components/ui/textarea"
+import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { UserPagination } from "../../components/UserPagination"
 import {
@@ -20,8 +22,31 @@ import {
   type MyPaymentItem,
   type UserRefundItem,
 } from "../../services/payment.api"
-import { Calendar, CreditCard, ExternalLink, Loader2, PackageOpen, Receipt, ShoppingBag } from "lucide-react"
+import { Calendar, CreditCard, ExternalLink, PackageOpen, Receipt, ShoppingBag } from "lucide-react"
 import { toast } from "sonner"
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 interface RefundDialogState {
   paymentId: number
@@ -322,29 +347,81 @@ export function TransactionHistoryPage() {
   const isInitialLoading = paymentsLoading && refundsLoading
   const refundDialogItems = useMemo(() => refundDialogData?.items || [], [refundDialogData])
 
+  const renderPaymentSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={`payment-skeleton-${index}`} className="rounded-lg border bg-card p-5 space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+            <Skeleton className="h-6 w-24" />
+          </div>
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ))}
+    </div>
+  )
+
   if (isInitialLoading) {
-    return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-5 w-80" />
+          </div>
+          {renderPaymentSkeleton()}
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-6 md:mb-8">
+    <motion.div
+      className="p-4 sm:p-6 lg:p-8 overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-5xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="mb-6 md:mb-8" variants={fadeInUp}>
           <h1 className="text-2xl font-bold mb-2 flex items-center gap-2">
             <Receipt className="h-6 w-6" />
             {t("transaction_history_page.title")}
           </h1>
           <p className="text-muted-foreground">{t("transaction_history_page.subtitle")}</p>
-        </div>
+        </motion.div>
 
+        <motion.div variants={fadeInUp}>
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "purchases" | "refunds")}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="purchases">{t("transaction_history_page.tabs.purchases", { count: paymentsCount })}</TabsTrigger>
-            <TabsTrigger value="refunds">{t("transaction_history_page.tabs.refunds", { count: refundsCount })}</TabsTrigger>
+          <TabsList className="relative mb-4 w-full justify-start overflow-x-auto p-1">
+            <TabsTrigger value="purchases" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'purchases' && (
+                <motion.span
+                  layoutId="transaction-history-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t("transaction_history_page.tabs.purchases", { count: paymentsCount })}</span>
+            </TabsTrigger>
+            <TabsTrigger value="refunds" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'refunds' && (
+                <motion.span
+                  layoutId="transaction-history-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t("transaction_history_page.tabs.refunds", { count: refundsCount })}</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="purchases" className="space-y-4">
-            <Card>
+            <motion.div variants={fadeInUp}>
+            <Card className="app-surface-elevated">
               <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                 <input
                   className="h-9 rounded-md border px-3 text-sm"
@@ -375,9 +452,10 @@ export function TransactionHistoryPage() {
                 </select>
               </CardContent>
             </Card>
+            </motion.div>
 
             {paymentsLoading ? (
-              <div className="flex items-center justify-center min-h-[220px]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              renderPaymentSkeleton()
             ) : paymentsError ? (
               <div className="p-8 text-center"><p className="text-destructive mb-4">{paymentsError}</p></div>
             ) : payments.length === 0 ? (
@@ -389,12 +467,18 @@ export function TransactionHistoryPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {payments.map((payment) => {
+                {payments.map((payment, index) => {
                   const eligibleItems = eligibleItemsByPayment(payment)
                   const retryCountdown = formatRetryCountdown(payment.retryable_until, nowMs)
                   const canRetryPayment = !!payment.can_retry_payment && !!retryCountdown
                   return (
-                    <Card key={payment.id} className="overflow-hidden">
+                    <motion.div
+                      key={payment.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={listItemTransition(index)}
+                    >
+                    <Card className="app-interactive overflow-hidden">
                       <CardContent className="p-4 sm:p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -406,7 +490,7 @@ export function TransactionHistoryPage() {
                                 <span className="font-semibold text-sm">{paymentTypeLabel(payment.payment_type)}</span>
                                 {statusBadge(payment.payment_status)}
                               </div>
-                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Calendar className="h-3 w-3" />
                                   {payment.payment_date ? new Date(payment.payment_date).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : t("transaction_history_page.not_available")}
@@ -449,7 +533,7 @@ export function TransactionHistoryPage() {
                                 )}
                               </div>
                             ))}
-                            <div className="border-t pt-3 mt-3 flex items-center justify-between gap-3 text-sm">
+                            <div className="mt-3 flex flex-col gap-3 border-t pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                               <div className="space-y-1">
                                 <div className="flex justify-between gap-4">
                                   <span className="text-muted-foreground">{t("transaction_history_page.total_paid_label")}</span>
@@ -462,7 +546,7 @@ export function TransactionHistoryPage() {
                                   </div>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                                 {canRetryPayment && (
                                   <Button variant="secondary" size="sm" disabled={retryingPaymentId === payment.id} onClick={(e) => { e.stopPropagation(); void handleRetryPayment(payment) }}>
                                     {retryingPaymentId === payment.id ? t("transaction_history_page.retry_creating_link") : t("transaction_history_page.retry_payment")}
@@ -477,9 +561,10 @@ export function TransactionHistoryPage() {
                         </div>
                       )}
                     </Card>
+                    </motion.div>
                   )
                 })}
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">{t("transaction_history_page.purchase_pagination", { current: paymentsPage, totalPages: paymentsTotalPages, totalCount: paymentsCount })}</p>
                   <UserPagination currentPage={paymentsPage} totalPages={paymentsTotalPages} onPageChange={setPaymentsPage} />
                 </div>
@@ -487,7 +572,8 @@ export function TransactionHistoryPage() {
             )}
           </TabsContent>
           <TabsContent value="refunds" className="space-y-4">
-            <Card>
+            <motion.div variants={fadeInUp}>
+            <Card className="app-surface-elevated">
               <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
                 <input
                   className="h-9 rounded-md border px-3 text-sm"
@@ -514,18 +600,25 @@ export function TransactionHistoryPage() {
                 </Button>
               </CardContent>
             </Card>
+            </motion.div>
 
             {refundsLoading ? (
-              <div className="flex items-center justify-center min-h-[220px]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+              renderPaymentSkeleton()
             ) : refundsError ? (
               <div className="p-8 text-center"><p className="text-destructive mb-4">{refundsError}</p></div>
             ) : refunds.length === 0 ? (
               <div className="text-center py-14 text-muted-foreground">{t("transaction_history_page.empty_refunds")}</div>
             ) : (
               <div className="space-y-2">
-                {refunds.map((refund) => (
-                  <Card key={`${refund.payment_id}-${refund.refund_id}`}>
-                    <CardContent className="p-3 flex items-center justify-between gap-3">
+                {refunds.map((refund, index) => (
+                  <motion.div
+                    key={`${refund.payment_id}-${refund.refund_id}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={listItemTransition(index)}
+                  >
+                  <Card className="app-interactive">
+                    <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{refund.course_title || t("transaction_history_page.course_fallback", { id: refund.course_id })}</p>
                         <p className="text-xs text-muted-foreground">{t("transaction_history_page.refund_payment_reference", { paymentId: refund.payment_id, date: new Date(refund.request_date).toLocaleString("vi-VN") })}</p>
@@ -533,7 +626,7 @@ export function TransactionHistoryPage() {
                         {refund.status === "processing" && <p className="text-xs text-blue-600 mt-1">{t("transaction_history_page.refund_processing_notice")}</p>}
                         {refund.last_gateway_error && refund.status === "processing" && <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{refund.last_gateway_error}</p>}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex w-full items-center gap-2 sm:w-auto">
                         {refundStatusBadge(refund.status)}
                         {refund.status === "pending" && (
                           <Button size="sm" variant="outline" disabled={cancellingRefundId === refund.refund_id} onClick={() => void handleCancelRefund(refund)}>
@@ -543,8 +636,9 @@ export function TransactionHistoryPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  </motion.div>
                 ))}
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">{t("transaction_history_page.refund_pagination", { current: refundsPage, totalPages: refundsTotalPages, totalCount: refundsCount })}</p>
                   <UserPagination currentPage={refundsPage} totalPages={refundsTotalPages} onPageChange={setRefundsPage} />
                 </div>
@@ -552,7 +646,8 @@ export function TransactionHistoryPage() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+        </motion.div>
+      </motion.div>
 
       <Dialog
         open={refundDialogOpen}
@@ -592,6 +687,6 @@ export function TransactionHistoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

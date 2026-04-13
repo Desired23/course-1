@@ -60,7 +60,7 @@ function Import-EnvFile {
             $value = $value.Substring(1, $value.Length - 2)
         }
 
-        # Always apply .env values for local run to avoid stale values from previous shells.
+
         Set-Item -Path "Env:$name" -Value $value
     }
 }

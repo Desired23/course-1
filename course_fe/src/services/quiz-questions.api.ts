@@ -1,21 +1,21 @@
-/**
- * Quiz Questions API Service
- * CRUD for quiz questions + test cases
- *
- * Endpoints:
- *   GET    /api/quiz-questions/                       — List questions (?question_id=, ?lesson_id=)
- *   POST   /api/quiz-questions/create/                — Create question
- *   PATCH  /api/quiz-questions/update/:id/            — Update question
- *   DELETE /api/quiz-questions/delete/:id/            — Delete question
- *   GET    /api/test-cases/                           — List test cases (?question_id=)
- *   POST   /api/test-cases/create/                    — Create test case
- *   PATCH  /api/test-cases/update/:id/                — Update test case
- *   DELETE /api/test-cases/delete/:id/                — Delete test case
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────
+
 
 export type QuestionType = 'multiple' | 'truefalse' | 'short' | 'essay' | 'code'
 export type DifficultyLevel = 'easy' | 'medium' | 'hard'
@@ -121,9 +121,9 @@ export interface TestCaseUpdateData {
   order_number?: number
 }
 
-// ─── Quiz Question API ────────────────────────────────────────
 
-/** List questions — filter by lesson_id or question_id */
+
+
 export async function getQuizQuestions(params?: { lesson_id?: number; question_id?: number }): Promise<QuizQuestion[]> {
   const search = new URLSearchParams()
   if (params?.lesson_id) search.set('lesson_id', String(params.lesson_id))
@@ -133,50 +133,50 @@ export async function getQuizQuestions(params?: { lesson_id?: number; question_i
   return Array.isArray(res) ? res : (res.results || [])
 }
 
-/** Get questions for a lesson */
+
 export async function getQuestionsByLesson(lessonId: number): Promise<QuizQuestion[]> {
   return getQuizQuestions({ lesson_id: lessonId })
 }
 
-/** Create question */
+
 export async function createQuizQuestion(data: QuizQuestionCreateData): Promise<QuizQuestion> {
   return http.post<QuizQuestion>('/quiz-questions/create/', data)
 }
 
-/** Update question */
+
 export async function updateQuizQuestion(questionId: number, data: QuizQuestionUpdateData): Promise<QuizQuestion> {
   return http.patch<QuizQuestion>(`/quiz-questions/update/${questionId}/`, data)
 }
 
-/** Delete question */
+
 export async function deleteQuizQuestion(questionId: number): Promise<void> {
   return http.delete(`/quiz-questions/delete/${questionId}/`)
 }
 
-// ─── Test Case API ────────────────────────────────────────────
 
-/** List test cases for a question */
+
+
 export async function getTestCases(questionId: number): Promise<QuizTestCase[]> {
   const res = await http.get<PaginatedQuizTestCases | QuizTestCase[]>(`/test-cases/?question_id=${questionId}`)
   return Array.isArray(res) ? res : (res.results || [])
 }
 
-/** Create test case */
+
 export async function createTestCase(data: TestCaseCreateData): Promise<QuizTestCase> {
   return http.post<QuizTestCase>('/test-cases/create/', data)
 }
 
-/** Update test case */
+
 export async function updateTestCase(testCaseId: number, data: TestCaseUpdateData): Promise<QuizTestCase> {
   return http.patch<QuizTestCase>(`/test-cases/update/${testCaseId}/`, data)
 }
 
-/** Delete test case */
+
 export async function deleteTestCase(testCaseId: number): Promise<void> {
   return http.delete(`/test-cases/delete/${testCaseId}/`)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
+
 
 export function getQuestionTypeLabel(type: QuestionType): string {
   const labels: Record<QuestionType, string> = {

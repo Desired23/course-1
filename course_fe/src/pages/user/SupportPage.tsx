@@ -8,6 +8,7 @@ import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
 import { HelpCircle, MessageCircle, Phone, Mail, Search, Send, Clock, CheckCircle, ArrowRight } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
@@ -20,6 +21,28 @@ import {
   type SupportReply,
 } from '../../services/support.api'
 import { UserPagination } from "../../components/UserPagination"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function SupportPage() {
   const { t } = useTranslation()
@@ -61,7 +84,7 @@ export function SupportPage() {
       setTicketTotalPages(data.total_pages || 1)
       setTicketTotalCount(data.count || 0)
     } catch {
-      // Not logged in or no tickets
+
       setTickets([])
       setTicketTotalPages(1)
       setTicketTotalCount(0)
@@ -207,16 +230,21 @@ export function SupportPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8">
-          <div className="mb-8">
+    <motion.div
+      className="max-w-7xl mx-auto p-4 md:p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+          <motion.div className="mb-8" variants={fadeInUp} initial="hidden" animate="show">
             <h1 className="mb-2">{t('support.title')}</h1>
             <p className="text-muted-foreground">
               {t('support.subtitle')}
             </p>
-          </div>
+          </motion.div>
 
-        {/* Quick Contact Options */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+
+        <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8" variants={fadeInUp} initial="hidden" animate="show">
           <Card className="text-center">
             <CardContent className="p-6">
               <MessageCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
@@ -257,17 +285,45 @@ export function SupportPage() {
               </Button>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
+        <motion.div variants={sectionStagger} initial="hidden" animate="show">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="help">{t('support.help_center_tab')}</TabsTrigger>
-            <TabsTrigger value="tickets">{t('support.my_tickets_tab')}</TabsTrigger>
-            <TabsTrigger value="contact">{t('support.contact_us_tab')}</TabsTrigger>
+          <TabsList className="relative grid w-full grid-cols-3 p-1">
+            <TabsTrigger value="help" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'help' && (
+                <motion.span
+                  layoutId="support-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('support.help_center_tab')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="tickets" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'tickets' && (
+                <motion.span
+                  layoutId="support-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('support.my_tickets_tab')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="contact" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'contact' && (
+                <motion.span
+                  layoutId="support-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('support.contact_us_tab')}</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="help" className="mt-8">
-            <div className="space-y-6">
+            <motion.div className="space-y-6" variants={fadeInUp}>
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -309,10 +365,11 @@ export function SupportPage() {
                   )}
                 </CardContent>
               </Card>
-            </div>
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="tickets" className="mt-8">
+            <motion.div variants={fadeInUp}>
             <Card>
               <CardHeader>
                 <CardTitle>{t('support.tickets_title')}</CardTitle>
@@ -386,7 +443,7 @@ export function SupportPage() {
                             {getPriorityBadge(ticket.priority)}
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
@@ -396,7 +453,7 @@ export function SupportPage() {
                             <span>{t('support.updated')}: {new Date(ticket.updated_at).toLocaleDateString()}</span>
                           )}
                         </div>
-                        
+
                         {ticket.message && (
                           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{ticket.message}</p>
                         )}
@@ -487,9 +544,11 @@ export function SupportPage() {
                 )}
               </CardContent>
             </Card>
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="contact" className="mt-8">
+            <motion.div variants={fadeInUp}>
             <Card>
               <CardHeader>
                 <CardTitle>{t('support.submit_request')}</CardTitle>
@@ -512,8 +571,8 @@ export function SupportPage() {
 
                     <div className="space-y-2">
                       <label>{t('support.category')}</label>
-                      <Select 
-                        value={ticketForm.category} 
+                      <Select
+                        value={ticketForm.category}
                         onValueChange={(value) => setTicketForm(prev => ({ ...prev, category: value }))}
                       >
                         <SelectTrigger>
@@ -532,8 +591,8 @@ export function SupportPage() {
 
                   <div className="space-y-2">
                     <label>{t('support.priority')}</label>
-                    <Select 
-                      value={ticketForm.priority} 
+                    <Select
+                      value={ticketForm.priority}
                       onValueChange={(value) => setTicketForm(prev => ({ ...prev, priority: value }))}
                     >
                       <SelectTrigger>
@@ -566,8 +625,10 @@ export function SupportPage() {
                 </form>
               </CardContent>
             </Card>
+            </motion.div>
           </TabsContent>
         </Tabs>
-    </div>
+        </motion.div>
+    </motion.div>
   )
 }

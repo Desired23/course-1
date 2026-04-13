@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -13,23 +14,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../../components/ui/separator'
 import { Progress } from '../../components/ui/progress'
 import { UserPagination } from '../../components/UserPagination'
-import { 
-  Settings, 
-  Edit, 
-  Save, 
-  Plus, 
-  Trash2, 
-  Eye, 
-  EyeOff, 
-  Star, 
-  Users, 
-  BookOpen, 
-  Award, 
-  Globe, 
-  Twitter, 
-  Facebook, 
-  Linkedin, 
-  Youtube, 
+import {
+  Settings,
+  Edit,
+  Save,
+  Plus,
+  Trash2,
+  Eye,
+  EyeOff,
+  Star,
+  Users,
+  BookOpen,
+  Award,
+  Globe,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Youtube,
   Mail,
   Calendar,
   MapPin,
@@ -45,6 +46,28 @@ import { getAllCourses } from '../../services/course.api'
 import { getAllReviewsByInstructor } from '../../services/review.api'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 
 interface CustomSection {
@@ -65,7 +88,7 @@ interface InstructorStats {
   totalHours: number
 }
 
-// Stats, courses and testimonials are now fetched from API
+
 
 export function InstructorProfilePage() {
   const { user, updateProfile, updateProfileSettings, hasPermission } = useAuth()
@@ -80,7 +103,7 @@ export function InstructorProfilePage() {
     visible: true
   })
 
-  // API-driven state
+
   const [stats, setStats] = useState<InstructorStats>({
     totalStudents: 0, totalCourses: 0, averageRating: 0, totalReviews: 0, coursesCompleted: 0, totalHours: 0
   })
@@ -99,7 +122,7 @@ export function InstructorProfilePage() {
         const profile = await getMyInstructorProfile(user!.id)
         if (cancelled) return
 
-        // Fetch dashboard stats
+
         try {
           const dashStats = await getInstructorDashboardStats(profile.id)
           if (cancelled) return
@@ -111,9 +134,11 @@ export function InstructorProfilePage() {
             coursesCompleted: 0,
             totalHours: 0,
           })
-        } catch { /* stats endpoint may fail */ }
+        } catch (err) {
+          console.error('Failed to load instructor dashboard stats:', err)
+        }
 
-        // Fetch instructor courses
+
         try {
           const courses = await getAllCourses({ instructor_id: profile.id })
           if (cancelled) return
@@ -127,9 +152,11 @@ export function InstructorProfilePage() {
             price: parseFloat(String(c.price || 0)),
             bestseller: false,
           })))
-        } catch { /* no courses */ }
+        } catch (err) {
+          console.error('Failed to load instructor courses:', err)
+        }
 
-        // Fetch reviews as testimonials
+
         try {
           const reviews = await getAllReviewsByInstructor(profile.id)
           if (cancelled) return
@@ -141,7 +168,9 @@ export function InstructorProfilePage() {
         rating: r.rating,
         course: r.course_detail?.title || t('instructor_profile_page.fallbacks.course'),
       })))
-        } catch { /* no reviews */ }
+        } catch (err) {
+          console.error('Failed to load instructor reviews:', err)
+        }
       } catch (err) {
         console.error('Failed to load profile data:', err)
       }
@@ -186,7 +215,7 @@ export function InstructorProfilePage() {
       visible: newSection.visible!,
       order: profileSettings.customSections.length + 1
     }
-    
+
     const updatedSections = [...profileSettings.customSections, section]
     updateProfileSettings({ customSections: updatedSections })
     setIsAddingSectionOpen(false)
@@ -233,9 +262,9 @@ export function InstructorProfilePage() {
   }, [coursePage, courseTotalPages])
 
   return (
-    <div className="p-6">
+    <motion.div className="p-6" variants={sectionStagger} initial="hidden" animate="show">
       <div className="container mx-auto space-y-6">
-        <div className="flex justify-between items-center">
+        <motion.div className="flex justify-between items-center" variants={fadeInUp}>
           <div>
             <h1 className="text-3xl font-bold">{t('instructor_profile_page.title')}</h1>
             <p className="text-muted-foreground">{t('instructor_profile_page.subtitle')}</p>
@@ -252,17 +281,31 @@ export function InstructorProfilePage() {
             </Button>
             </div>
           )}
-        </div>
+        </motion.div>
 
+        <motion.div variants={fadeInUp}>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="preview">{t('instructor_profile_page.tabs.preview')}</TabsTrigger>
-            {canEditProfile && <TabsTrigger value="settings">{t('instructor_profile_page.tabs.settings')}</TabsTrigger>}
-            {canEditProfile && <TabsTrigger value="customize">{t('instructor_profile_page.tabs.customize')}</TabsTrigger>}
+          <TabsList className="relative p-1">
+            <TabsTrigger value="preview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {activeTab === 'preview' && <motion.span layoutId="instructor-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{t('instructor_profile_page.tabs.preview')}</span>
+            </TabsTrigger>
+            {canEditProfile && (
+              <TabsTrigger value="settings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                {activeTab === 'settings' && <motion.span layoutId="instructor-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                <span className="relative z-10">{t('instructor_profile_page.tabs.settings')}</span>
+              </TabsTrigger>
+            )}
+            {canEditProfile && (
+              <TabsTrigger value="customize" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                {activeTab === 'customize' && <motion.span layoutId="instructor-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                <span className="relative z-10">{t('instructor_profile_page.tabs.customize')}</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
         <TabsContent value="preview" className="space-y-6">
-          {/* Header Section */}
+
           <Card>
             <CardContent className="p-8">
               <div className="flex flex-col md:flex-row gap-6">
@@ -274,12 +317,12 @@ export function InstructorProfilePage() {
                     </AvatarFallback>
                   </Avatar>
                 </div>
-                
+
                 <div className="flex-1 space-y-4">
                   <div>
                     <h1 className="text-3xl font-bold">{user.name}</h1>
                     <p className="text-xl text-muted-foreground">{t('instructor_profile_page.preview.professional_title')}</p>
-                    
+
                     <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-1">
                         <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
@@ -296,7 +339,7 @@ export function InstructorProfilePage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {profileSettings.showBio && user.bio && (
                     <div>
                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -304,7 +347,7 @@ export function InstructorProfilePage() {
                       </p>
                     </div>
                   )}
-                  
+
                   {profileSettings.showSocialLinks && (
                     <div className="flex items-center gap-4">
                       {user.website && (
@@ -346,7 +389,7 @@ export function InstructorProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Statistics Section */}
+
           {profileSettings.showStats && (
             <Card>
               <CardHeader>
@@ -378,7 +421,7 @@ export function InstructorProfilePage() {
             </Card>
           )}
 
-          {/* Custom Sections */}
+
           {profileSettings.customSections
             .filter(section => section.visible)
             .sort((a, b) => a.order - b.order)
@@ -432,7 +475,7 @@ export function InstructorProfilePage() {
               </Card>
             ))}
 
-          {/* Courses Section */}
+
           {profileSettings.showCourses && (
             <Card>
               <CardHeader>
@@ -521,7 +564,7 @@ export function InstructorProfilePage() {
                     onCheckedChange={(checked) => handleSettingChange('showBio', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-base">{t('instructor_profile_page.settings.show_teaching_statistics')}</Label>
@@ -532,7 +575,7 @@ export function InstructorProfilePage() {
                     onCheckedChange={(checked) => handleSettingChange('showStats', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-base">{t('instructor_profile_page.settings.show_courses')}</Label>
@@ -543,7 +586,7 @@ export function InstructorProfilePage() {
                     onCheckedChange={(checked) => handleSettingChange('showCourses', checked)}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-base">{t('instructor_profile_page.settings.show_social_links')}</Label>
@@ -595,7 +638,7 @@ export function InstructorProfilePage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        
+
                         <div>
                           <Label>{t('instructor_profile_page.customize.section_title')}</Label>
                           <Input
@@ -604,7 +647,7 @@ export function InstructorProfilePage() {
                             onChange={(e) => setNewSection({...newSection, title: e.target.value})}
                           />
                         </div>
-                        
+
                         <div>
                           <Label>{t('instructor_profile_page.customize.content')}</Label>
                           <Textarea
@@ -614,7 +657,7 @@ export function InstructorProfilePage() {
                             rows={5}
                           />
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Switch
                             id="visible"
@@ -623,7 +666,7 @@ export function InstructorProfilePage() {
                           />
                           <Label htmlFor="visible">{t('instructor_profile_page.customize.visible_on_profile')}</Label>
                         </div>
-                        
+
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" onClick={() => setIsAddingSectionOpen(false)}>
                             {t('instructor_profile_page.actions.cancel')}
@@ -675,7 +718,8 @@ export function InstructorProfilePage() {
           </TabsContent>
         )}
         </Tabs>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

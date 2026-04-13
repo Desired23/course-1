@@ -1,4 +1,4 @@
-// Date & Time Formatters
+
 export function formatDate(dateString: string | Date): string {
   const date = new Date(dateString)
   return date.toLocaleDateString('vi-VN', {
@@ -57,7 +57,7 @@ export function formatRelativeTime(dateString: string | Date): string {
   return `${diffInYears} năm trước`
 }
 
-// Duration Formatters
+
 export function formatDuration(seconds: number): string {
   if (seconds < 60) {
     return `${seconds}s`
@@ -91,7 +91,7 @@ export function formatDurationLong(minutes: number): string {
   return `${hours} giờ ${remainingMinutes} phút`
 }
 
-// Currency Formatters
+
 export function formatCurrency(amount: number, currency: string = 'VND'): string {
   if (currency === 'VND') {
     return `${amount.toLocaleString('vi-VN')}₫`
@@ -99,7 +99,7 @@ export function formatCurrency(amount: number, currency: string = 'VND'): string
   return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-export function formatPrice(price: number, discountPrice?: number | null): { 
+export function formatPrice(price: number, discountPrice?: number | null): {
   displayPrice: string
   originalPrice?: string
   discountAmount?: string
@@ -108,7 +108,7 @@ export function formatPrice(price: number, discountPrice?: number | null): {
   if (discountPrice && discountPrice > 0) {
     const original = price + discountPrice
     const discountPercent = Math.round((discountPrice / original) * 100)
-    
+
     return {
       displayPrice: formatCurrency(price),
       originalPrice: formatCurrency(original),
@@ -122,7 +122,7 @@ export function formatPrice(price: number, discountPrice?: number | null): {
   }
 }
 
-// Number Formatters
+
 export function formatNumber(num: number): string {
   if (num >= 1000000) {
     return `${(num / 1000000).toFixed(1)}M`
@@ -137,17 +137,17 @@ export function formatCompactNumber(num: number): string {
   return num.toLocaleString('vi-VN')
 }
 
-// Rating Formatter
+
 export function formatRating(rating: number): string {
   return rating.toFixed(1)
 }
 
-// Progress Formatter
+
 export function formatProgress(progress: number): string {
   return `${Math.round(progress)}%`
 }
 
-// Status Formatters
+
 export function getStatusText(status: string): string {
   const statusMap: Record<string, string> = {
     'active': 'Đang hoạt động',
@@ -167,7 +167,7 @@ export function getStatusText(status: string): string {
   return statusMap[status.toLowerCase()] || status
 }
 
-// File Size Formatter
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) {
     return `${bytes} B`

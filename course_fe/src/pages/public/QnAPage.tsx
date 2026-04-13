@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
+import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { MessageSquare, ThumbsUp, Search, Send, BookOpen, Clock, User, AlertCircle, Reply, CheckCircle2 } from 'lucide-react'
@@ -64,6 +65,28 @@ function getInitials(name: string): string {
     .join('')
     .toUpperCase()
     .slice(0, 2)
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function QnAPage() {
@@ -316,8 +339,8 @@ export function QnAPage() {
   }
 
   const content = (
-    <>
-      <div className="mb-8 flex items-center justify-between">
+    <motion.div variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" variants={fadeInUp}>
         <div>
           <h1 className="mb-2">{isInstructorView ? t('qna_page.header.instructor_title') : t('qna_page.header.title')}</h1>
           <p className="text-muted-foreground">
@@ -332,14 +355,15 @@ export function QnAPage() {
         </div>
 
         {!isInstructorView && (
-          <Button onClick={() => setShowAskForm(true)} className="gap-2">
+          <Button onClick={() => setShowAskForm(true)} className="w-full gap-2 sm:w-auto">
             <MessageSquare className="h-4 w-4" />
             {t('qna_page.ask_question')}
           </Button>
         )}
-      </div>
+      </motion.div>
 
       {showAskForm && (
+        <motion.div variants={fadeInUp}>
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>{t('qna_page.form.title')}</CardTitle>
@@ -387,21 +411,22 @@ export function QnAPage() {
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Button type="submit" className="gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <Button type="submit" className="w-full gap-2 sm:w-auto">
                   <Send className="h-4 w-4" />
                   {t('qna_page.ask_question')}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowAskForm(false)}>
+                <Button type="button" variant="outline" onClick={() => setShowAskForm(false)} className="w-full sm:w-auto">
                   {t('common.cancel')}
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
+        </motion.div>
       )}
 
-      <div className="mb-6 flex flex-col gap-4 md:flex-row">
+      <motion.div className="mb-6 flex flex-col gap-4 md:flex-row" variants={fadeInUp}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -437,15 +462,17 @@ export function QnAPage() {
             <SelectItem value="unanswered">{t('qna_page.sort.unanswered')}</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp}>
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="relative w-full justify-start overflow-x-auto p-1">
           {faqTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
+            <TabsTrigger key={tab.value} value={tab.value} className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === tab.value && <motion.span layoutId="qna-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+              <span className="relative z-10">{tab.label}</span>
               {tab.value === 'unanswered' && unansweredCount > 0 && (
-                <Badge variant="destructive" className="ml-2 h-5 w-5 rounded-full p-0 text-xs">
+                <Badge variant="destructive" className="relative z-10 ml-2 h-5 w-5 rounded-full p-0 text-xs">
                   {unansweredCount}
                 </Badge>
               )}
@@ -455,13 +482,14 @@ export function QnAPage() {
 
         <TabsContent value={selectedTab} className="mt-8">
           <div className="space-y-6">
-            {filteredQuestions.map((question) => (
-              <Card key={question.id}>
-                <CardContent className="p-6">
+            {filteredQuestions.map((question, index) => (
+              <motion.div key={question.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, delay: index * 0.03, ease: 'easeOut' }}>
+              <Card>
+                <CardContent className="p-4 sm:p-6">
                   <div className="space-y-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1">
-                        <div className="mb-2 flex items-center gap-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <h3 className="cursor-pointer hover:text-primary">{question.question}</h3>
                           {question.resolved && (
                             <Badge className="bg-green-500 hover:bg-green-600">{t('qna_page.badges.resolved')}</Badge>
@@ -470,7 +498,7 @@ export function QnAPage() {
 
                         <p className="mb-3 text-muted-foreground">{question.description}</p>
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4" />
                             <span>{question.askedBy.name}</span>
@@ -486,7 +514,7 @@ export function QnAPage() {
                         </div>
                       </div>
 
-                      <div className="ml-4 flex flex-col items-center gap-1">
+                      <div className="ml-0 flex items-center gap-2 self-start sm:ml-4 sm:flex-col sm:items-center sm:gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleVote(question.id)}>
                           <ThumbsUp className="h-4 w-4" />
                         </Button>
@@ -548,8 +576,8 @@ export function QnAPage() {
                               onChange={(event) => setReplyText(event.target.value)}
                               className="min-h-[100px]"
                             />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => void handleReply(question.id)}>
+                            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                              <Button size="sm" onClick={() => void handleReply(question.id)} className="w-full sm:w-auto">
                                 <Send className="mr-2 h-4 w-4" />
                                 {t('qna_page.post_answer')}
                               </Button>
@@ -560,26 +588,27 @@ export function QnAPage() {
                                   setReplyingTo(null)
                                   setReplyText('')
                                 }}
+                                className="w-full sm:w-auto"
                               >
                                 {t('common.cancel')}
                               </Button>
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm text-muted-foreground">
                               {t('qna_page.summary', {
                                 answers: question.answers.length,
                                 votes: question.votes,
                               })}
                             </div>
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" onClick={() => setReplyingTo(question.id)}>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" size="sm" onClick={() => setReplyingTo(question.id)} className="w-full sm:w-auto">
                                 <Reply className="mr-2 h-4 w-4" />
                                 {t('qna_page.reply')}
                               </Button>
                               {!question.resolved && question.answers.length > 0 && (
-                                <Button variant="default" size="sm" onClick={() => void handleMarkResolved(question.id)}>
+                                <Button variant="default" size="sm" onClick={() => void handleMarkResolved(question.id)} className="w-full sm:w-auto">
                                   <CheckCircle2 className="mr-2 h-4 w-4" />
                                   {t('qna_page.mark_resolved')}
                                 </Button>
@@ -609,29 +638,31 @@ export function QnAPage() {
                   </div>
                 </CardContent>
               </Card>
+              </motion.div>
             ))}
 
             {filteredQuestions.length === 0 && (
-              <div className="py-12 text-center">
+              <motion.div variants={fadeInUp} className="py-12 text-center">
                 <MessageSquare className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
                 <h3 className="mb-2">{t('qna_page.empty.title')}</h3>
                 <p className="mb-4 text-muted-foreground">
                   {searchQuery ? t('qna_page.empty.search_description') : t('qna_page.empty.default_description')}
                 </p>
                 <Button onClick={() => setShowAskForm(true)}>{t('qna_page.ask_question')}</Button>
-              </div>
+              </motion.div>
             )}
           </div>
         </TabsContent>
       </Tabs>
-    </>
+      </motion.div>
+    </motion.div>
   )
 
   if (isInstructorView) {
     return (
       <div className="flex min-h-screen bg-background">
         <DashboardSidebar type="instructor" />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">{content}</div>
         </main>
       </div>

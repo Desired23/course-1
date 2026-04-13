@@ -1,5 +1,5 @@
-// Mock Judge0 Service for Testing
-// Use this when API is unavailable or rate-limited
+
+
 
 import type { SubmissionPayload, SubmissionResult, TestCase, TestResult } from './judge0'
 
@@ -11,33 +11,33 @@ function compareOutputs(expected: string, actual?: string | null): boolean {
   return normalizeText(expected) === normalizeText(actual)
 }
 
-// Simple code evaluator for testing (JavaScript only)
+
 function evaluateJavaScriptCode(code: string, input: string): { output: string; error: string | null } {
   try {
-    // Create a mock argv for process.argv
+
     const inputs = input.split('\n')
     const mockArgv = ['node', 'script.js', ...inputs]
-    
-    // Create a safe execution environment
+
+
     const mockConsoleOutput: string[] = []
     const mockConsole = {
       log: (...args: any[]) => {
         mockConsoleOutput.push(args.map(String).join(' '))
       }
     }
-    
-    // Replace process.argv in the code
+
+
     const wrappedCode = `
       const process = { argv: ${JSON.stringify(mockArgv)} };
       const console = ${JSON.stringify(mockConsole)};
       ${code}
       return ${JSON.stringify(mockConsoleOutput)}.join('\\n');
     `
-    
-    // Execute the code
+
+
     const func = new Function(wrappedCode)
     const output = func()
-    
+
     return {
       output: output || mockConsoleOutput.join('\n'),
       error: null
@@ -50,19 +50,19 @@ function evaluateJavaScriptCode(code: string, input: string): { output: string; 
   }
 }
 
-// Simulate Judge0 submission
+
 export async function mockSubmitCode(payload: SubmissionPayload): Promise<{ token: string }> {
-  await new Promise(resolve => setTimeout(resolve, 300)) // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 300))
   return { token: `mock_${Date.now()}` }
 }
 
-// Simulate Judge0 result
+
 export async function mockGetSubmissionResult(
   token: string,
   payload?: SubmissionPayload
 ): Promise<SubmissionResult> {
-  await new Promise(resolve => setTimeout(resolve, 500)) // Simulate processing
-  
+  await new Promise(resolve => setTimeout(resolve, 500))
+
   if (!payload) {
     return {
       stdout: 'Mock output (no code to execute)',
@@ -75,11 +75,11 @@ export async function mockGetSubmissionResult(
       token,
     }
   }
-  
-  // Try to evaluate JavaScript code
+
+
   if (payload.language_id === 63) {
     const result = evaluateJavaScriptCode(payload.source_code, payload.stdin || '')
-    
+
     return {
       stdout: result.output,
       stderr: result.error,
@@ -94,8 +94,8 @@ export async function mockGetSubmissionResult(
       token,
     }
   }
-  
-  // For other languages, return mock success
+
+
   return {
     stdout: payload.expected_output || 'Mock output',
     stderr: null,
@@ -108,7 +108,7 @@ export async function mockGetSubmissionResult(
   }
 }
 
-// Simulate running test cases
+
 export async function mockRunTestCases(
   sourceCode: string,
   languageId: number,
@@ -116,17 +116,17 @@ export async function mockRunTestCases(
   onProgress?: (current: number, total: number) => void
 ): Promise<TestResult[]> {
   const results: TestResult[] = []
-  
+
   for (let i = 0; i < testCases.length; i++) {
     const testCase = testCases[i]
-    
+
     if (onProgress) {
       onProgress(i + 1, testCases.length)
     }
-    
-    // Simulate processing delay
+
+
     await new Promise(resolve => setTimeout(resolve, 800))
-    
+
     try {
       const payload: SubmissionPayload = {
         source_code: sourceCode,
@@ -134,11 +134,11 @@ export async function mockRunTestCases(
         stdin: testCase.input,
         expected_output: testCase.expectedOutput,
       }
-      
+
       const result = await mockGetSubmissionResult('mock_token', payload)
-      
+
       const passed = compareOutputs(testCase.expectedOutput, result.stdout) && result.status.id === 3
-      
+
       results.push({
         ...testCase,
         actualOutput: result.stdout,
@@ -156,11 +156,11 @@ export async function mockRunTestCases(
       })
     }
   }
-  
+
   return results
 }
 
-// Check if API is available
+
 export async function isJudge0Available(): Promise<boolean> {
   try {
     const response = await fetch('https://judge0-ce.p.rapidapi.com/about', {

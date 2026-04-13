@@ -1,12 +1,12 @@
-// Data Adapters - Transform database/API responses to UI format
+
 
 import { getCourseById, getCourseCurriculum, getQuizQuestionsForLesson } from "../data/db-extended"
 
-// Transform API course detail to legacy curriculum format for CoursePlayer
+
 export function transformCourseDetail(courseId: string = '1') {
   const course = getCourseById(parseInt(courseId))
   const curriculum = getCourseCurriculum(parseInt(courseId))
-  
+
   if (!course || !curriculum) {
     return {
       course: {
@@ -28,7 +28,7 @@ export function transformCourseDetail(courseId: string = '1') {
     }
   }
 
-  // Transform modules to curriculum sections
+
   const curriculumData = curriculum.map((module) => ({
     id: module.module_id,
     title: module.title,
@@ -39,7 +39,7 @@ export function transformCourseDetail(courseId: string = '1') {
       title: lesson.title,
       duration: lesson.duration || 0,
       type: lesson.content_type || 'video',
-      isCompleted: false, // Will be updated from learningProgress
+      isCompleted: false,
       isFree: lesson.is_free || false,
       videoUrl: lesson.video_url || null,
       resources: [],
@@ -47,7 +47,7 @@ export function transformCourseDetail(courseId: string = '1') {
     }))
   }))
 
-  // Get first video lesson as current
+
   let currentLessonId = null
   for (const module of curriculum) {
     for (const lesson of (module.lessons || [])) {
@@ -59,9 +59,9 @@ export function transformCourseDetail(courseId: string = '1') {
     if (currentLessonId) break
   }
 
-  // Calculate progress
+
   const totalLessons = curriculum.reduce((sum, m) => sum + (m.lessons?.length || 0), 0)
-  const completedLessons = curriculum.reduce((sum, m) => 
+  const completedLessons = curriculum.reduce((sum, m) =>
     sum + (m.lessons?.filter(l => l.is_completed).length || 0), 0
   )
   const progressPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
@@ -86,14 +86,14 @@ export function transformCourseDetail(courseId: string = '1') {
   }
 }
 
-// Transform quiz questions to Quiz Player format
+
 export function transformQuizForLesson(lessonId: number) {
   const questions = getQuizQuestionsForLesson(lessonId)
-  
+
   if (!questions || questions.length === 0) {
     return null
   }
-  
+
   return {
     id: lessonId,
     title: `Lesson ${lessonId} Quiz`,
@@ -101,7 +101,7 @@ export function transformQuizForLesson(lessonId: number) {
     passingScore: 70,
     timeLimit: 15,
     questions: questions.map((q: any) => {
-      // Handle CODE questions
+
       if (q.question_type === 'code' && q.code_config) {
         return {
           id: q.question_id,
@@ -123,17 +123,17 @@ export function transformQuizForLesson(lessonId: number) {
           }
         }
       }
-      
-      // Handle regular MCQ questions
-      // Parse correct_answer to index
+
+
+
       let correctAnswer: number | number[]
-      
+
       if (q.question_type === 'multiple_choice') {
-        // For multiple choice, find the index of the correct answer
+
         const correctIndex = q.options.findIndex((opt: string) => opt === q.correct_answer)
         correctAnswer = correctIndex >= 0 ? correctIndex : 0
       } else {
-        // For single choice (if needed in future)
+
         const correctIndex = q.options.findIndex((opt: string) => opt === q.correct_answer)
         correctAnswer = correctIndex >= 0 ? correctIndex : 0
       }
@@ -154,12 +154,12 @@ export function transformQuizForLesson(lessonId: number) {
   }
 }
 
-// Get all lessons (flat list for navigation)
+
 export function getAllLessons(courseId: string = '1') {
   const curriculum = getCourseCurriculum(parseInt(courseId))
-  
+
   if (!curriculum) return []
-  
+
   const lessons: Array<{
     id: number
     moduleId: number
@@ -178,7 +178,7 @@ export function getAllLessons(courseId: string = '1') {
         title: lesson.title,
         type: lesson.content_type || 'video',
         duration: lesson.duration || 0,
-        isCompleted: false, // Will be updated from learningProgress
+        isCompleted: false,
         isFree: lesson.is_free || false
       })
     })
@@ -187,7 +187,7 @@ export function getAllLessons(courseId: string = '1') {
   return lessons
 }
 
-// Get next/previous lesson
+
 export function getNextLesson(currentLessonId: number, courseId: string = '1') {
   const lessons = getAllLessons(courseId)
   const currentIndex = lessons.findIndex(l => l.id === currentLessonId)
@@ -206,12 +206,12 @@ export function getPreviousLesson(currentLessonId: number, courseId: string = '1
   return null
 }
 
-// Get lesson details
+
 export function getLessonDetails(lessonId: number, courseId: string = '1') {
   const curriculum = getCourseCurriculum(parseInt(courseId))
-  
+
   if (!curriculum) return null
-  
+
   for (const module of curriculum) {
     const lesson = (module.lessons || []).find(l => l.lesson_id === lessonId)
     if (lesson) {

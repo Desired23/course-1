@@ -35,25 +35,25 @@ export interface RouteConfig {
 }
 
 export const publicRoutes: RouteConfig[] = [
-  // Home & Landing
+
   { path: '/', element: <SimpleHomePage /> },
-  
-  // Courses
+
+
   { path: '/courses', element: <CoursesPage /> },
   { path: '/course/:id', element: <CourseDetailPage />, dynamic: true },
   { path: '/course', element: <CourseDetailPage /> },
-  
-  // Search
+
+
   { path: '/search', element: <SearchPage /> },
   { path: '/enhanced-search', element: <EnhancedSearchPage /> },
-  
-  // Categories & Topics
+
+
   { path: '/topics', element: <AllTopicsPage /> },
   { path: '/categories', element: <CategoriesPage /> },
   { path: '/category/:slug', element: <CategoryPage />, dynamic: true },
   { path: '/topic/:slug', element: <TopicPage />, dynamic: true },
-  
-  // Auth
+
+
   { path: '/login', element: <LoginPage /> },
   { path: '/signup', element: <SignupPage /> },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
@@ -61,30 +61,30 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/email-verification', element: <EmailVerificationPage /> },
   { path: '/auth/google/callback', element: <GoogleCallbackPage /> },
   { path: '/google-callback', element: <GoogleCallbackPage /> },
-  
-  // Marketing Pages
+
+
   { path: '/udemy-business', element: <UdemyBusinessPage /> },
   { path: '/teach', element: <TeachOnUdemyPage /> },
   { path: '/pricing', element: <SubscriptionPricingPage /> },
-  
-  // Instructor Public Profile
+
+
   { path: '/instructor/:instructorId/profile', element: <InstructorPublicProfilePage />, dynamic: true },
   { path: '/instructor/view/:instructorId', element: <InstructorPublicProfilePage />, dynamic: true },
-  
-  // Blog
+
+
   { path: '/blog', element: <BlogPage /> },
   { path: '/blog/:slug', element: <BlogPostDetailPage />, dynamic: true },
-  
-  // Community
+
+
   { path: '/forum', element: <ForumPage /> },
   { path: '/forum/topic/:id', element: <ForumTopicDetailPage />, dynamic: true },
-  
-  // Q&A & Reviews (public accessible)
+
+
   { path: '/qna/:courseId', element: <QnAPage />, dynamic: true },
   { path: '/qna', element: <QnAPage /> },
   { path: '/reviews/:courseId', element: <CourseReviewsPage />, dynamic: true },
   { path: '/reviews', element: <CourseReviewsPage /> },
-  
-  // Demo Preview
+
+
   { path: '/preview-demo', element: <PreviewDemo /> },
 ]

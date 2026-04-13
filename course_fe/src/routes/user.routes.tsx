@@ -20,7 +20,7 @@ const MyReviewsPage = lazy(() => import('../pages/user/MyReviewsPage').then((mod
 const TransactionHistoryPage = lazy(() => import('../pages/user/TransactionHistoryPage').then((module) => ({ default: module.TransactionHistoryPage })))
 
 export const userRoutes: RouteConfig[] = [
-  // My Learning
+
   {
     path: '/my-learning',
     element: (
@@ -31,8 +31,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Course Player
+
+
   {
     path: '/course-player/:courseId',
     element: (
@@ -50,8 +50,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Cart & Checkout
+
+
   {
     path: '/cart',
     element: (
@@ -82,8 +82,8 @@ export const userRoutes: RouteConfig[] = [
     path: '/payment/result',
     element: <PaymentResultPage />
   },
-  
-  // Wishlist
+
+
   {
     path: '/wishlist',
     element: (
@@ -94,8 +94,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Profile & Settings
+
+
   {
     path: '/profile',
     element: (
@@ -116,8 +116,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Notifications
+
+
   {
     path: '/notifications',
     element: (
@@ -128,8 +128,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Support
+
+
   {
     path: '/support',
     element: (
@@ -140,8 +140,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Payment Methods
+
+
   {
     path: '/user/payment-methods',
     element: (
@@ -152,8 +152,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Subscriptions
+
+
   {
     path: '/user/subscriptions',
     element: (
@@ -164,8 +164,8 @@ export const userRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // My Reviews
+
+
   {
     path: '/user/my-reviews',
     element: (
@@ -177,7 +177,7 @@ export const userRoutes: RouteConfig[] = [
     )
   },
 
-  // Transaction History
+
   {
     path: '/user/transactions',
     element: (

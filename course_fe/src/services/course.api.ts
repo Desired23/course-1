@@ -1,48 +1,48 @@
-/**
- * Course API Service
- * 
- * BE endpoints:
- *   GET  /api/courses/              — public, paginated list (filters via query params)
- *   GET  /api/courses/{courseId}     — public, full detail with modules/lessons/enrollment
- *   POST /api/courses/create         — instructor/admin, create course
- *   PATCH /api/courses/{courseId}/update — instructor/admin, update course
- *   DELETE /api/courses/{courseId}/delete — instructor/admin, soft-delete
- * 
- * Pagination response format:
- *   { count, next, previous, page, total_pages, page_size, results }
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
-// ─── Types ──────────────────────────────────────────────────
 
-/** Course item returned in list endpoint (CourseSerializer) */
+
+
 export interface CourseListItem {
   id: number
   title: string
   shortdescription: string | null
   description: string | null
-  instructor: number | null          // instructor FK id
-  category: number | null            // category FK id
-  subcategory: number | null         // subcategory FK id
+  instructor: number | null
+  category: number | null
+  subcategory: number | null
   thumbnail: string | null
-  price: string                      // decimal as string from DRF
+  price: string
   discount_price: string | null
   discount_start_date: string | null
   discount_end_date: string | null
   level: 'beginner' | 'intermediate' | 'advanced' | 'all_levels'
   language: string
-  duration: number | null            // minutes
+  duration: number | null
   total_lessons: number
   total_modules: number
   requirements: string | null
-  learning_objectives: string[]      // JSON array of learning objective strings
-  target_audience: string[]          // JSON array of target audience strings
+  learning_objectives: string[]
+  target_audience: string[]
   skills_taught: string[]
   prerequisites: string[]
-  tags: string[]                     // JSON array of tag strings
-  promotional_video: string | null   // URL of promotional video
+  tags: string[]
+  promotional_video: string | null
   duration_hours?: number | null
   status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
   is_featured: boolean
@@ -51,11 +51,11 @@ export interface CourseListItem {
   updated_at: string
   published_date: string | null
   content_changed_since_publish: boolean
-  rating: string                     // decimal as string
+  rating: string
   total_reviews: number
   total_students: number
   certificate: boolean
-  // Denormalized names (SerializerMethodField on BE)
+
   instructor_name: string | null
   instructor_avatar: string | null
   category_name: string | null
@@ -63,14 +63,14 @@ export interface CourseListItem {
 }
 
 export interface CourseUpdateData extends Partial<CourseListItem> {
-  // Optional moderation metadata (primarily for admin status changes)
+
   status_reason?: string
   send_notification?: boolean
   notify_title?: string
   notify_message?: string
 }
 
-/** Instructor summary in course detail */
+
 export interface InstructorSummary {
   instructor_id: number
   user_id: number
@@ -83,13 +83,13 @@ export interface InstructorSummary {
   total_courses: number
 }
 
-/** Category summary in course detail */
+
 export interface CategorySummary {
   category_id: number
   name: string
 }
 
-/** Lesson summary inside a module */
+
 export interface LessonSummary {
   lesson_id: number
   title: string
@@ -110,7 +110,7 @@ export interface LessonSummary {
   quiz_count: number
 }
 
-/** Module summary with nested lessons */
+
 export interface ModuleSummary {
   module_id: number
   title: string
@@ -120,7 +120,7 @@ export interface ModuleSummary {
   lessons: LessonSummary[]
 }
 
-/** User's enrollment info */
+
 export interface UserEnrollment {
   enrollment_id: number
   enrollment_date: string
@@ -130,14 +130,14 @@ export interface UserEnrollment {
   completion_date: string | null
 }
 
-/** Access info for the current user */
+
 export interface AccessInfo {
   has_access: boolean
   access_type: 'admin' | 'instructor' | 'purchase' | 'subscription' | null
   in_subscription: boolean
 }
 
-/** Full course detail (CourseDetailSerializer) */
+
 export interface CourseDetail {
   id: number
   title: string
@@ -180,7 +180,20 @@ export interface CourseDetail {
   access_info: AccessInfo | null
 }
 
-// ─── Query params ───────────────────────────────────────────
+export interface CourseStudentRow {
+  student_id: number
+  full_name: string
+  email: string
+  avatar: string | null
+  status: string
+  enrolled_at: string | null
+  last_access_date: string | null
+  average_progress: number
+  study_time_minutes: number
+  rating: number | null
+}
+
+
 
 export interface CourseListParams {
   page?: number
@@ -204,16 +217,16 @@ export interface CourseListParams {
   certificate?: boolean
 }
 
-// ─── API functions ──────────────────────────────────────────
 
-/**
- * Get paginated course list (public, no auth required)
- * GET /api/courses/?page=1&page_size=20
- * 
- * Note: BE currently returns ALL non-deleted courses without filtering.
- * Filtering (category, level, search, price) is done client-side for now.
- * When BE adds filter params, we can pass them directly.
- */
+
+
+
+
+
+
+
+
+
 export async function getCourses(
   params?: CourseListParams
 ): Promise<PaginatedResponse<CourseListItem>> {
@@ -241,10 +254,10 @@ export async function getCourses(
   return http.get<PaginatedResponse<CourseListItem>>('/courses/', query)
 }
 
-/**
- * Get all courses (no pagination limit) — useful for search/filter client-side.
- * Optionally pass params like instructor_id to narrow down.
- */
+
+
+
+
 export async function getAllCourses(
   params?: Omit<CourseListParams, 'page' | 'page_size'>
 ): Promise<CourseListItem[]> {
@@ -259,31 +272,42 @@ export async function getAllCourses(
   return all
 }
 
-/**
- * Get course detail by ID (public, no auth required)
- * GET /api/courses/{courseId}
- * 
- * Returns full detail with nested instructor, category, modules/lessons,
- * user_enrollment (if logged in), and access_info.
- */
+
+
+
+
+
+
+
 export async function getCourseById(courseId: number): Promise<CourseDetail> {
   return http.get<CourseDetail>(`/courses/${courseId}`)
 }
 
-/**
- * Create a new course (instructor/admin only)
- * POST /api/courses/create
- */
+export async function getCourseStudents(
+  courseId: number,
+  page = 1,
+  pageSize = 10,
+): Promise<PaginatedResponse<CourseStudentRow>> {
+  return http.get<PaginatedResponse<CourseStudentRow>>(
+    `/courses/${courseId}/students/`,
+    buildListQuery({ page, page_size: pageSize }),
+  )
+}
+
+
+
+
+
 export async function createCourse(
   data: Partial<CourseListItem>
 ): Promise<CourseListItem> {
   return http.post<CourseListItem>('/courses/create', data)
 }
 
-/**
- * Update an existing course (instructor/admin only)
- * PATCH /api/courses/{courseId}/update
- */
+
+
+
+
 export async function updateCourse(
   courseId: number,
   data: CourseUpdateData
@@ -291,26 +315,26 @@ export async function updateCourse(
   return http.patch<CourseListItem>(`/courses/${courseId}/update`, data)
 }
 
-/**
- * Soft-delete a course (instructor/admin only)
- * DELETE /api/courses/{courseId}/delete
- */
+
+
+
+
 export async function deleteCourse(
   courseId: number
 ): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/courses/${courseId}/delete`)
 }
 
-// ─── Helpers ────────────────────────────────────────────────
 
-/** Parse a decimal string to number, defaulting to 0 */
+
+
 export function parseDecimal(value: string | null | undefined): number {
   if (!value) return 0
   const num = parseFloat(value)
   return isNaN(num) ? 0 : num
 }
 
-/** Get effective price (discount or regular) */
+
 export function getEffectivePrice(course: CourseListItem | CourseDetail): number {
   const now = new Date()
   const discountPrice = parseDecimal(course.discount_price)
@@ -328,7 +352,7 @@ export function getEffectivePrice(course: CourseListItem | CourseDetail): number
   return regularPrice
 }
 
-/** Check if course has active discount */
+
 export function hasActiveDiscount(course: CourseListItem | CourseDetail): boolean {
   const now = new Date()
   return !!(
@@ -341,7 +365,7 @@ export function hasActiveDiscount(course: CourseListItem | CourseDetail): boolea
   )
 }
 
-/** Format price to VND */
+
 export function formatPrice(amount: number): string {
   if (amount === 0) return 'Miễn phí'
   return new Intl.NumberFormat('vi-VN', {
@@ -351,7 +375,7 @@ export function formatPrice(amount: number): string {
   }).format(amount)
 }
 
-/** Get level display label */
+
 export function getLevelLabel(level: string): string {
   const labels: Record<string, string> = {
     beginner: 'Người mới',
@@ -362,7 +386,7 @@ export function getLevelLabel(level: string): string {
   return labels[level] || level
 }
 
-/** Format duration (minutes to readable string) */
+
 export function formatDuration(minutes: number | null): string {
   if (!minutes) return '0 phút'
   if (minutes < 60) return `${minutes} phút`
@@ -371,7 +395,7 @@ export function formatDuration(minutes: number | null): string {
   return m > 0 ? `${h} giờ ${m} phút` : `${h} giờ`
 }
 
-// ─── Public stats ───────────────────────────────────────────
+
 
 export interface PublicStats {
   total_courses: number
@@ -380,11 +404,11 @@ export interface PublicStats {
   avg_rating: number
 }
 
-/**
- * Get aggregate platform stats for the homepage.
- * GET /api/courses/stats/
- */
-// simple cache for public stats (refresh every 30s)
+
+
+
+
+
 let __publicStatsCache: Promise<PublicStats> | null = null
 let __publicStatsCacheTime = 0
 export async function getPublicStats(): Promise<PublicStats> {

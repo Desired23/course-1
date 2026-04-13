@@ -21,6 +21,7 @@ import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import { Input } from '../../components/ui/input'
+import { motion } from 'motion/react'
 
 type PlanVariant = 'default' | 'minimal' | 'skip-sql'
 type Stage = 'goal' | 'skills' | 'ready'
@@ -210,6 +211,28 @@ const implementationRules = [
   'Learning path cần lưu lại để user quay lại vẫn thấy cùng context.',
 ]
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.32,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 function formatMonths(weeks: number) {
   return `~${(weeks / 4).toFixed(1)} tháng`
 }
@@ -353,9 +376,15 @@ export function AiLearningPathPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_24%),#111315] px-4 py-6 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <Card className="border-white/10 bg-white/5 shadow-2xl shadow-black/20">
+    <motion.div
+      className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.12),_transparent_24%),#111315] px-4 py-6 text-slate-100 sm:px-6 lg:px-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="mx-auto max-w-7xl space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div variants={fadeInUp}>
+          <Card className="border-white/10 bg-white/5 shadow-2xl shadow-black/20">
           <CardContent className="grid gap-6 p-6 lg:grid-cols-[1.5fr_1fr] lg:p-8">
             <div className="space-y-4">
               <Badge className="bg-blue-500/20 text-blue-100 hover:bg-blue-500/20">
@@ -397,9 +426,10 @@ export function AiLearningPathPage() {
               </pre>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
 
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.15fr]">
+        <motion.div className="grid gap-6 xl:grid-cols-[0.95fr_1.15fr]" variants={fadeInUp}>
           <Card className="border-white/10 bg-white/5 shadow-2xl shadow-black/20">
             <CardHeader className="border-b border-white/10 pb-4">
               <div className="flex items-center gap-3">
@@ -671,9 +701,9 @@ export function AiLearningPathPage() {
               )}
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <motion.div className="grid gap-4 lg:grid-cols-3" variants={fadeInUp}>
           <Card className="border-white/10 bg-white/5">
             <CardHeader>
               <CardTitle className="text-base text-white">1. Catalog metadata</CardTitle>
@@ -706,8 +736,8 @@ export function AiLearningPathPage() {
               <div>Bước tiếp theo là thay state cục bộ bằng API lưu `learning_paths`, `learning_path_items`, `path_conversations`.</div>
             </CardContent>
           </Card>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

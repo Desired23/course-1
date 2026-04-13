@@ -80,8 +80,8 @@ export interface SubmitApplicationData {
   }>
 }
 
-export async function getActiveRegistrationForm(type: 'instructor_application' | 'user_registration'): Promise<RegistrationForm> {
-  return http.get<RegistrationForm>('/registration-forms/active/', { type })
+export async function getActiveRegistrationForm(type: 'instructor_application' | 'user_registration'): Promise<RegistrationForm | null> {
+  return http.get<RegistrationForm | null>('/registration-forms/active/', { type })
 }
 
 export async function submitApplication(data: SubmitApplicationData): Promise<Application> {

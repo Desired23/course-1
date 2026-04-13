@@ -1,20 +1,45 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Award, BookOpen, Crown, Loader2, Play } from 'lucide-react'
+import { motion } from 'motion/react'
 
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { useRouter } from "../../components/Router"
 import { UserPagination } from '../../components/UserPagination'
 import { getMyEnrollments, type Enrollment, parseProgress } from '../../services/enrollment.api'
 import { formatDuration } from '../../services/course.api'
 import { getMySubscriptionCourses, type PlanCourse, formatPrice as formatSubscriptionPrice } from '../../services/subscription.api'
+import { listItemTransition } from '../../lib/motion'
 
 type SortBy = 'recent_access' | 'newest_enrollment' | 'oldest_enrollment' | 'title_asc' | 'progress_desc'
 type LearningTab = 'in-progress' | 'completed' | 'plan-courses' | 'bookmarks'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.07,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function MyLearningPage() {
   const { t } = useTranslation()
@@ -48,6 +73,8 @@ export function MyLearningPage() {
   const [planPageSize, setPlanPageSize] = useState(6)
   const [planTotalCount, setPlanTotalCount] = useState(0)
   const [planTotalPages, setPlanTotalPages] = useState(1)
+  const [recentCourses, setRecentCourses] = useState<Enrollment[]>([])
+  const [recentCoursesLoading, setRecentCoursesLoading] = useState(true)
 
   const isCourseTab = selectedTab === 'in-progress' || selectedTab === 'completed'
   const isPlanCoursesTab = selectedTab === 'plan-courses'
@@ -65,6 +92,33 @@ export function MyLearningPage() {
     }, 300)
     return () => window.clearTimeout(timer)
   }, [planSearch])
+
+  useEffect(() => {
+    let cancelled = false
+    setRecentCoursesLoading(true)
+
+    getMyEnrollments({
+      page: 1,
+      page_size: 4,
+      status: 'active',
+      sort_by: 'recent_access',
+    })
+      .then((response) => {
+        if (cancelled) return
+        setRecentCourses(response.results || [])
+      })
+      .catch(() => {
+        if (cancelled) return
+        setRecentCourses([])
+      })
+      .finally(() => {
+        if (!cancelled) setRecentCoursesLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!isCourseTab) {
@@ -180,13 +234,23 @@ export function MyLearningPage() {
     navigate(`/course-player/${courseId}`)
   }
 
+  const renderCardSkeleton = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      {Array.from({ length: pageSize }).map((_, index) => (
+        <div key={`skeleton-${index}`} className="overflow-hidden rounded-lg border bg-card p-4 space-y-4">
+          <Skeleton className="h-40 w-full rounded-md" />
+          <Skeleton className="h-5 w-4/5" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-2 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  )
+
   const renderPlanCourses = (items: PlanCourse[]) => {
     if (planCoursesLoading) {
-      return (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      )
+      return renderCardSkeleton()
     }
 
     if (planCoursesError) {
@@ -209,8 +273,14 @@ export function MyLearningPage() {
     return (
       <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {items.map((course) => (
-            <Card key={course.id} className="group hover:shadow-lg transition-shadow">
+          {items.map((course, index) => (
+            <motion.div
+              key={course.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={listItemTransition(index)}
+            >
+            <Card className="app-interactive group hover:shadow-lg">
               <div className="relative">
                 <img
                   src={course.course_thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&h=200&fit=crop'}
@@ -233,7 +303,7 @@ export function MyLearningPage() {
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                   <span>{formatSubscriptionPrice(course.course_price)}</span>
                   <span>{course.course_rating ? `${Number(course.course_rating).toFixed(1)}★` : '-'}</span>
                 </div>
@@ -243,14 +313,86 @@ export function MyLearningPage() {
                 </Button>
               </CardContent>
             </Card>
+            </motion.div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between pt-4">
+        <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{t('my_learning.plan_pagination', { current: planCurrentPage, totalPages: planTotalPages, totalCount: planTotalCount })}</p>
           <UserPagination currentPage={planCurrentPage} totalPages={planTotalPages} onPageChange={setPlanCurrentPage} />
         </div>
       </>
+    )
+  }
+
+  const renderRecentCourses = () => {
+    if (recentCoursesLoading) {
+      return (
+        <motion.div variants={fadeInUp} className="mb-6 md:mb-8">
+          <div className="mb-3">
+            <h2 className="text-lg font-semibold">{t('my_learning.recent_courses_title')}</h2>
+            <p className="text-sm text-muted-foreground">{t('my_learning.recent_courses_subtitle')}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`recent-course-skeleton-${index}`} className="rounded-lg border bg-card p-3 space-y-2">
+                <Skeleton className="h-24 w-full rounded-md" />
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-3 w-3/5" />
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )
+    }
+
+    if (recentCourses.length === 0) {
+      return null
+    }
+
+    return (
+      <motion.div variants={fadeInUp} className="mb-6 md:mb-8 space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">{t('my_learning.recent_courses_title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('my_learning.recent_courses_subtitle')}</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {recentCourses.map((enrollment) => {
+            const progress = parseProgress(enrollment.progress)
+            const lastWatched = enrollment.last_access_date
+              ? new Date(enrollment.last_access_date).toLocaleDateString()
+              : t('my_learning.last_watched_fallback')
+
+            return (
+              <Card key={`recent-${enrollment.enrollment_id}`} className="overflow-hidden">
+                <div className="relative">
+                  <img
+                    src={enrollment.course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&h=200&fit=crop'}
+                    alt={enrollment.course.title}
+                    className="h-24 w-full object-cover"
+                  />
+                </div>
+                <CardContent className="space-y-2 p-3">
+                  <p className="line-clamp-2 text-sm font-medium">{enrollment.course.title}</p>
+                  <p className="text-xs text-muted-foreground">{t('my_learning.last_watched')}: {lastWatched}</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{t('my_learning.progress')}</span>
+                      <span>{Math.round(progress)}%</span>
+                    </div>
+                    <Progress value={progress} className="h-1.5" />
+                  </div>
+                  <Button size="sm" className="w-full gap-2" onClick={() => handleContinueLearning(enrollment.course.course_id)}>
+                    <Play className="h-3.5 w-3.5" />
+                    {t('my_learning.continue_learning')}
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      </motion.div>
     )
   }
 
@@ -268,23 +410,29 @@ export function MyLearningPage() {
     return (
       <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {items.map((enrollment) => {
+          {items.map((enrollment, index) => {
             const course = enrollment.course
             const progress = parseProgress(enrollment.progress)
             return (
-              <Card key={enrollment.enrollment_id} className="group hover:shadow-lg transition-shadow">
+              <motion.div
+                key={enrollment.enrollment_id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(index)}
+              >
+              <Card className="app-interactive group hover:shadow-lg">
                 <div className="relative">
                   <img
                     src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&h=200&fit=crop'}
                     alt={course.title}
                     className="w-full h-40 object-cover rounded-t-lg"
                   />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                    <Button size="sm" className="gap-2" onClick={() => handleContinueLearning(course.course_id)}>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 sm:flex-row">
+                    <Button size="sm" className="w-[80%] gap-2 sm:w-auto" onClick={() => handleContinueLearning(course.course_id)}>
                       <Play className="h-4 w-4" />
                       {t('my_learning.continue_learning')}
                     </Button>
-                    <Button size="sm" variant="secondary" className="gap-2" onClick={() => navigate(`/course/${course.course_id}`)}>
+                    <Button size="sm" variant="secondary" className="w-[80%] gap-2 sm:w-auto" onClick={() => navigate(`/course/${course.course_id}`)}>
                       {t('my_learning.view_details')}
                     </Button>
                   </div>
@@ -314,7 +462,7 @@ export function MyLearningPage() {
                         <Progress value={progress} className="h-2" />
                       </div>
 
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <BookOpen className="h-4 w-4" />
                           <span>{course.total_lessons} {t('my_learning.lessons_completed')}</span>
@@ -341,11 +489,12 @@ export function MyLearningPage() {
                   )}
                 </CardContent>
               </Card>
+              </motion.div>
             )
           })}
         </div>
 
-        <div className="flex items-center justify-between pt-4">
+        <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{t('my_learning.pagination', { current: currentPage, totalPages, totalCount })}</p>
           <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
@@ -355,8 +504,14 @@ export function MyLearningPage() {
 
   if (loading && isCourseTab && !hasLoadedOnce) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6 md:mb-8 space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-5 w-96 max-w-full" />
+          </div>
+          {renderCardSkeleton()}
+        </div>
       </div>
     )
   }
@@ -371,31 +526,65 @@ export function MyLearningPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <motion.div
+      className="p-4 sm:p-6 lg:p-8 overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 md:mb-8">
+        <motion.div className="mb-6 md:mb-8" variants={fadeInUp} initial="hidden" animate="show">
           <h1 className="mb-2">{t('my_learning.title')}</h1>
           <p className="text-muted-foreground">{t('my_learning.subtitle')}</p>
-        </div>
+        </motion.div>
 
+        <motion.div variants={sectionStagger} initial="hidden" animate="show">
         <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as LearningTab)} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
-            <TabsTrigger value="in-progress" className="text-xs sm:text-sm px-2 sm:px-4">
-              {t('my_learning.in_progress')} ({inProgressCount})
+          <TabsList className="relative h-auto w-full justify-start overflow-x-auto p-1">
+            <TabsTrigger value="in-progress" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'in-progress' && (
+                <motion.span
+                  layoutId="my-learning-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('my_learning.in_progress')} ({inProgressCount})</span>
             </TabsTrigger>
-            <TabsTrigger value="completed" className="text-xs sm:text-sm px-2 sm:px-4">
-              {t('my_learning.completed')} ({completedCount})
+            <TabsTrigger value="completed" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'completed' && (
+                <motion.span
+                  layoutId="my-learning-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('my_learning.completed')} ({completedCount})</span>
             </TabsTrigger>
-            <TabsTrigger value="plan-courses" className="text-xs sm:text-sm px-2 sm:px-4">
-              {t('my_learning.plan_courses')}
+            <TabsTrigger value="plan-courses" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'plan-courses' && (
+                <motion.span
+                  layoutId="my-learning-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('my_learning.plan_courses')}</span>
             </TabsTrigger>
-            <TabsTrigger value="bookmarks" className="text-xs sm:text-sm px-2 sm:px-4">
-              {t('my_learning.archived')}
+            <TabsTrigger value="bookmarks" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'bookmarks' && (
+                <motion.span
+                  layoutId="my-learning-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('my_learning.archived')}</span>
             </TabsTrigger>
           </TabsList>
 
           {isCourseTab && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <motion.div variants={fadeInUp} className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <input
                 className="h-9 rounded-md border px-3 text-sm"
                 value={search}
@@ -432,11 +621,11 @@ export function MyLearningPage() {
               >
                 {t('my_learning.clear_filters')}
               </Button>
-            </div>
+            </motion.div>
           )}
 
           {isPlanCoursesTab && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <motion.div variants={fadeInUp} className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
                 className="h-9 rounded-md border px-3 text-sm"
                 value={planSearch}
@@ -458,7 +647,7 @@ export function MyLearningPage() {
               >
                 {t('my_learning.clear_filters')}
               </Button>
-            </div>
+            </motion.div>
           )}
 
           {isCourseTab && loading && hasLoadedOnce && (
@@ -469,26 +658,30 @@ export function MyLearningPage() {
           )}
 
           <TabsContent value="in-progress" className="mt-6 md:mt-8">
-            {renderCourseGrid(enrollments)}
+            <motion.div variants={fadeInUp} className="space-y-6 md:space-y-8">
+              {renderRecentCourses()}
+              {renderCourseGrid(enrollments)}
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="completed" className="mt-6 md:mt-8">
-            {renderCourseGrid(enrollments, true)}
+            <motion.div variants={fadeInUp}>{renderCourseGrid(enrollments, true)}</motion.div>
           </TabsContent>
 
           <TabsContent value="plan-courses" className="mt-6 md:mt-8">
-                {renderPlanCourses(planCourses)}
+            <motion.div variants={fadeInUp}>{renderPlanCourses(planCourses)}</motion.div>
           </TabsContent>
 
           <TabsContent value="bookmarks" className="mt-6 md:mt-8">
-            <div className="text-center py-12 text-muted-foreground">
+            <motion.div variants={fadeInUp} className="text-center py-12 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>{t('my_learning.empty_title')}</p>
-            </div>
+            </motion.div>
           </TabsContent>
         </Tabs>
+        </motion.div>
 
       </div>
-    </div>
+    </motion.div>
   )
 }

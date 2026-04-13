@@ -1,17 +1,17 @@
-/**
- * Lesson Comments API Service
- *
- * BE endpoints (all under /api/):
- *   POST   /comments/create                      — create comment (user from token)
- *   GET    /comments/lesson/<lesson_id>/          — get root comments (parent_comment=null)
- *   GET    /comments/<comment_id>                 — single comment; ?replies=true → paginated replies
- *   PATCH  /comments/<comment_id>/update          — update content/votes
- *   DELETE /comments/<comment_id>/manage/         — delete (instructor/admin)
- */
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+
 
 export interface LessonComment {
   id: number
@@ -34,13 +34,13 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ─── API Functions ────────────────────────────────────────────────────────────
 
-/**
- * Create a new lesson comment.
- * POST body: { lesson, content, parent_comment? }
- * The BE uses `request.user.id` as the user.
- */
+
+
+
+
+
+
 export async function createLessonComment(data: {
   lesson: number
   content: string
@@ -49,10 +49,10 @@ export async function createLessonComment(data: {
   return http.post<LessonComment>('/comments/create', data)
 }
 
-/**
- * Get root comments for a lesson (parent_comment = null), ordered by -created_at.
- * Returns paginated response.
- */
+
+
+
+
 export async function getLessonComments(
   lessonId: number,
   params?: { page?: number; page_size?: number }
@@ -63,7 +63,7 @@ export async function getLessonComments(
   return http.get<PaginatedResponse<LessonComment>>(`/comments/lesson/${lessonId}/`, q)
 }
 
-/** Get all root comments for a lesson (auto-paginate). */
+
 export async function getAllLessonComments(lessonId: number): Promise<LessonComment[]> {
   const all: LessonComment[] = []
   let page = 1
@@ -76,15 +76,15 @@ export async function getAllLessonComments(lessonId: number): Promise<LessonComm
   return all
 }
 
-/**
- * Get a single comment by ID.
- * If replies=true, returns paginated replies instead.
- */
+
+
+
+
 export async function getLessonCommentById(commentId: number): Promise<LessonComment> {
   return http.get<LessonComment>(`/comments/${commentId}`)
 }
 
-/** Get paginated replies for a comment. */
+
 export async function getLessonCommentReplies(
   commentId: number,
   params?: { page?: number; page_size?: number }
@@ -95,7 +95,7 @@ export async function getLessonCommentReplies(
   return http.get<PaginatedResponse<LessonComment>>(`/comments/${commentId}`, q)
 }
 
-/** Get all replies for a comment. */
+
 export async function getAllReplies(commentId: number): Promise<LessonComment[]> {
   const all: LessonComment[] = []
   let page = 1
@@ -108,7 +108,7 @@ export async function getAllReplies(commentId: number): Promise<LessonComment[]>
   return all
 }
 
-/** Update comment content and/or votes. */
+
 export async function updateLessonComment(
   commentId: number,
   data: Partial<{ content: string; votes: number }>
@@ -116,12 +116,12 @@ export async function updateLessonComment(
   return http.patch<LessonComment>(`/comments/${commentId}/update`, data)
 }
 
-/** Delete a comment (instructor/admin only). */
+
 export async function deleteLessonComment(commentId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/comments/${commentId}/manage/`)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 export function formatCommentDate(dateStr: string): string {
   const d = new Date(dateStr)

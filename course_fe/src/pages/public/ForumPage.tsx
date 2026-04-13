@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { Badge } from '../../components/ui/badge'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
@@ -11,13 +12,14 @@ import { Label } from '../../components/ui/label'
 import { Input } from '../../components/ui/input'
 import { Separator } from '../../components/ui/separator'
 import { TableFilter, FilterConfig } from '../../components/FilterComponents'
-import { 
-  MessageSquare, 
-  Plus, 
-  Eye, 
-  MessageCircle, 
-  Users, 
-  Clock, 
+import { motion } from 'motion/react'
+import {
+  MessageSquare,
+  Plus,
+  Eye,
+  MessageCircle,
+  Users,
+  Clock,
   Pin,
   Lock,
   Trash2,
@@ -47,8 +49,31 @@ import {
   moderateForumTopic,
   formatForumDate,
 } from '../../services/forum.api'
+import { listItemTransition } from '../../lib/motion'
 
-// Forum interfaces matching original UI expectations
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+
 interface Forum {
   forum_id: string
   course_id?: string
@@ -130,6 +155,7 @@ export function ForumPage() {
   const { user, hasRole, hasPermission } = useAuth()
   const { t } = useTranslation()
   const [selectedForum, setSelectedForum] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<'topics' | 'forums' | 'moderation'>('topics')
   const [showCreateTopic, setShowCreateTopic] = useState(false)
   const [showCreateForum, setShowCreateForum] = useState(false)
   const [forums, setForums] = useState<Forum[]>([])
@@ -166,7 +192,7 @@ export function ForumPage() {
   }
 
   useEffect(() => {
-    // Filter topics by selected forum
+
     let filtered = topics
     if (selectedForum) {
       filtered = topics.filter(topic => topic.forum_id === selectedForum)
@@ -214,35 +240,35 @@ export function ForumPage() {
 
   const handleFilterChange = (newFilters: any) => {
     setFilters(newFilters)
-    
+
     let filtered = topics
-    
-    // Filter by forum
+
+
     if (newFilters.forum) {
       filtered = filtered.filter(topic => topic.forum_id === newFilters.forum)
       setSelectedForum(newFilters.forum)
     } else {
       setSelectedForum('')
     }
-    
-    // Filter by search
+
+
     if (newFilters.search) {
-      filtered = filtered.filter(topic => 
+      filtered = filtered.filter(topic =>
         topic.title.toLowerCase().includes(newFilters.search.toLowerCase()) ||
         topic.content.toLowerCase().includes(newFilters.search.toLowerCase())
       )
     }
-    
-    // Filter by status
+
+
     if (newFilters.status) {
       filtered = filtered.filter(topic => topic.status === newFilters.status)
     }
-    
-    // Filter by pinned
+
+
     if (newFilters.pinned) {
       filtered = filtered.filter(topic => topic.is_pinned)
     }
-    
+
     setFilteredTopics(filtered)
   }
 
@@ -289,6 +315,19 @@ export function ForumPage() {
   }
 
   const reportedTopics = filteredTopics.filter(topic => topic.report_count > 0)
+
+  const renderForumSkeleton = () => (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={`forum-skeleton-${index}`} className="rounded-lg border bg-card p-5 space-y-3">
+          <Skeleton className="h-6 w-2/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  )
 
   const applyTopicUpdate = (topicId: string, updater: (topic: ForumTopic) => ForumTopic | null) => {
     setTopics(prev => prev.map(topic => topic.topic_id === topicId ? updater(topic) : topic).filter(Boolean) as ForumTopic[])
@@ -354,28 +393,34 @@ export function ForumPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">{t('forum.loading')}</p>
+      <div className="container mx-auto space-y-6 px-4 py-6 sm:p-6">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-5 w-72" />
         </div>
+        {renderForumSkeleton()}
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="container mx-auto space-y-6 px-4 py-6 sm:p-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+
+      <motion.div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" variants={fadeInUp} initial="hidden" animate="show">
         <div>
-          <h1 className="text-3xl mb-2">{t('forum.title')}</h1>
+          <h1 className="mb-2 text-2xl sm:text-3xl">{t('forum.title')}</h1>
           <p className="text-muted-foreground">{t('forum.community_subtitle')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           {canCreateForum && (
             <Dialog open={showCreateForum} onOpenChange={setShowCreateForum}>
               <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   {t('forum.create_forum')}
                 </Button>
@@ -387,18 +432,17 @@ export function ForumPage() {
                     {t('forum.create_forum_desc')}
                   </DialogDescription>
                 </DialogHeader>
-                <CreateForumForm 
+                <CreateForumForm
                   onSubmit={handleCreateForum}
                   courses={[]}
                 />
               </DialogContent>
             </Dialog>
           )}
-          
           {user && (
             <Dialog open={showCreateTopic} onOpenChange={setShowCreateTopic}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   {t('forum.create_topic')}
                 </Button>
@@ -410,7 +454,7 @@ export function ForumPage() {
                     {t('forum.create_topic_desc')}
                   </DialogDescription>
                 </DialogHeader>
-                <CreateTopicForm 
+                <CreateTopicForm
                   forums={forums}
                   onSubmit={handleCreateTopic}
                   defaultForum={selectedForum}
@@ -419,31 +463,41 @@ export function ForumPage() {
             </Dialog>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="topics" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="topics">{t('forum.topics_tab')}</TabsTrigger>
-          <TabsTrigger value="forums">{t('forum.forums_tab')}</TabsTrigger>
-          {canModerateForum && <TabsTrigger value="moderation">{t('forum.moderation_tab')}</TabsTrigger>}
+      <motion.div variants={sectionStagger} initial="hidden" animate="show">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'topics' | 'forums' | 'moderation')} className="space-y-6">
+        <TabsList className="relative w-full max-w-full justify-start overflow-x-auto p-1">
+          <TabsTrigger value="topics" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'topics' && <motion.span layoutId="forum-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('forum.topics_tab')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="forums" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'forums' && <motion.span layoutId="forum-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('forum.forums_tab')}</span>
+          </TabsTrigger>
+          {canModerateForum && <TabsTrigger value="moderation" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'moderation' && <motion.span layoutId="forum-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('forum.moderation_tab')}</span></TabsTrigger>}
         </TabsList>
 
         <TabsContent value="topics" className="space-y-6">
-          {/* Filters */}
+
+          <motion.div variants={fadeInUp}>
           <TableFilter
             title={t('forum.filter_topics')}
             configs={filterConfigs}
             onFilterChange={handleFilterChange}
-            className="mb-6"
+            className="app-surface-elevated mb-6"
           />
+          </motion.div>
 
-          {/* Topics Table */}
-          <Card>
+
+          <motion.div variants={fadeInUp}>
+          <Card className="app-surface-elevated">
             <CardHeader>
               <CardTitle>{t('forum.topics_count', { count: filteredTopics.length })}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('forum.topic_col')}</TableHead>
@@ -459,8 +513,8 @@ export function ForumPage() {
                   {filteredTopics.map((topic) => {
                     const forum = forums.find(f => f.forum_id === topic.forum_id)
                     return (
-                      <TableRow 
-                        key={topic.topic_id} 
+                      <TableRow
+                        key={topic.topic_id}
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => navigate(`/forum/topic/${topic.topic_id}`)}
                       >
@@ -482,8 +536,8 @@ export function ForumPage() {
                                     {topic.likes}
                                   </Badge>
                                 )}
-                                <Badge 
-                                  variant={topic.status === 'active' ? 'default' : 
+                                <Badge
+                                  variant={topic.status === 'active' ? 'default' :
                                            topic.status === 'locked' ? 'secondary' : 'destructive'}
                                   className="text-xs"
                                 >
@@ -572,12 +626,19 @@ export function ForumPage() {
               </Table>
             </CardContent>
           </Card>
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="forums" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {forums.map((forum) => (
-              <Card key={forum.forum_id} className="hover:shadow-lg transition-shadow">
+            {forums.map((forum, index) => (
+              <motion.div
+                key={forum.forum_id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(index)}
+              >
+              <Card className="app-interactive hover:shadow-lg">
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -595,7 +656,7 @@ export function ForumPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-4">{forum.description}</p>
-                  
+
                   <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                     <div className="flex items-center gap-4">
                       <span className="flex items-center gap-1">
@@ -615,24 +676,25 @@ export function ForumPage() {
                     </p>
                   )}
 
-                  <Button 
-                    className="w-full" 
+                  <Button
+                    className="w-full"
                     onClick={() => {
                       setSelectedForum(forum.forum_id)
-                      const tabsTrigger = document.querySelector('[value="topics"]') as HTMLElement
-                      tabsTrigger?.click()
+                      setActiveTab('topics')
                     }}
                   >
                     {t('forum.view_topics')}
                   </Button>
                 </CardContent>
               </Card>
+              </motion.div>
             ))}
           </div>
         </TabsContent>
 
         {canModerateForum && (
           <TabsContent value="moderation" className="space-y-6">
+            <motion.div variants={fadeInUp}>
             <Card>
               <CardHeader>
                 <CardTitle>{t('forum.moderation_title')}</CardTitle>
@@ -647,7 +709,13 @@ export function ForumPage() {
                     {reportedTopics.map((topic) => {
                       const forum = forums.find(item => item.forum_id === topic.forum_id)
                       return (
-                        <div key={topic.topic_id} className="rounded-lg border p-4">
+                        <motion.div
+                          key={topic.topic_id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={listItemTransition(reportedTopics.findIndex((x) => x.topic_id === topic.topic_id))}
+                          className="rounded-lg border p-4"
+                        >
                           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div className="space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
@@ -712,26 +780,28 @@ export function ForumPage() {
                               </Button>
                             </div>
                           </div>
-                        </div>
+                        </motion.div>
                       )
                     })}
                   </div>
                 )}
               </CardContent>
             </Card>
+            </motion.div>
           </TabsContent>
         )}
       </Tabs>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
-// Create Topic Form Component
-function CreateTopicForm({ 
-  forums, 
-  onSubmit, 
-  defaultForum 
-}: { 
+
+function CreateTopicForm({
+  forums,
+  onSubmit,
+  defaultForum
+}: {
   forums: Forum[]
   onSubmit: (forumId: string, title: string, content: string) => void
   defaultForum?: string
@@ -796,11 +866,11 @@ function CreateTopicForm({
   )
 }
 
-// Create Forum Form Component
-function CreateForumForm({ 
-  onSubmit, 
-  courses 
-}: { 
+
+function CreateForumForm({
+  onSubmit,
+  courses
+}: {
   onSubmit: (title: string, description: string, courseId?: string) => void
   courses: Course[]
 }) {

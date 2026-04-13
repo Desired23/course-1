@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "../../components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
 } from "../../components/ui/dialog"
 import { Alert, AlertDescription } from "../../components/ui/alert"
 import { useAuth } from "../../contexts/AuthContext"
@@ -24,14 +24,37 @@ import { uploadFiles } from "../../services/upload.api"
 import { getMyUserSettings, updateMyUserSettings } from "../../services/user-settings.api"
 import type { ApiError } from "../../services/http"
 import { toast } from "sonner"
-import { 
-  Eye, EyeOff, Mail, Lock, Globe, Bell, Shield, 
+import {
+  Eye, EyeOff, Mail, Lock, Globe, Bell, Shield,
   User as UserIcon, Trash2, AlertTriangle,
   Check, X, Loader2, Camera
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { motion, type Variants } from "motion/react"
 
-// Validation functions
+const sectionStagger: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.34,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
+  },
+}
+
+
 const validateEmail = (email: string): string | null => {
   if (!email) return "account_settings.validation.email_required"
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -79,12 +102,12 @@ interface ConfirmDialogProps {
   requirePassword?: boolean
 }
 
-function ConfirmDialog({ 
-  open, 
-  onOpenChange, 
-  title, 
-  description, 
-  confirmText, 
+function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmText,
   onConfirm,
   variant = 'default',
   requirePassword = false
@@ -98,14 +121,14 @@ function ConfirmDialog({
       toast.error(t('account_settings.password_required'))
       return
     }
-    
+
     setLoading(true)
     try {
       await onConfirm(requirePassword ? password : undefined)
       setPassword('')
       onOpenChange(false)
     } catch {
-      // keep dialog open so user can retry after seeing toast from handler
+
     } finally {
       setLoading(false)
     }
@@ -120,7 +143,7 @@ function ConfirmDialog({
           </DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        
+
         {requirePassword && (
           <div className="py-4">
             <Label htmlFor="confirm-password">{t('account_settings.confirm_password_prompt')}</Label>
@@ -134,10 +157,10 @@ function ConfirmDialog({
             />
           </div>
         )}
-        
+
         <DialogFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setPassword('')
               onOpenChange(false)
@@ -187,8 +210,8 @@ export function AccountSettingsPage() {
     { value: 'GBP', label: t('account_settings.currencies.gbp') },
     { value: 'JPY', label: t('account_settings.currencies.jpy') },
   ]
-  
-  // Profile Data
+
+
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     username: user?.username || user?.email?.split('@')[0] || '',
@@ -200,10 +223,10 @@ export function AccountSettingsPage() {
     linkedin: user?.linkedin || '',
     facebook: user?.facebook || '',
   })
-  
+
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({})
-  
-  // Password Data
+
+
   const [showPassword, setShowPassword] = useState(false)
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -211,15 +234,15 @@ export function AccountSettingsPage() {
     confirmPassword: ''
   })
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
-  
-  // Account Settings
+
+
   const [accountSettings, setAccountSettings] = useState({
     language: 'en',
     timezone: 'UTC+7',
     currency: 'VND'
   })
-  
-  // Notification Settings
+
+
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
     courseUpdates: true,
@@ -230,8 +253,8 @@ export function AccountSettingsPage() {
     courseRecommendations: false,
     newFeatures: true
   })
-  
-  // Privacy Settings
+
+
   const [privacy, setPrivacy] = useState({
     profilePublic: true,
     showProgress: true,
@@ -240,58 +263,58 @@ export function AccountSettingsPage() {
     allowMessages: true,
     showOnlineStatus: true
   })
-  
-  // Dialogs
+
+
   const [confirmDialogs, setConfirmDialogs] = useState({
     email: false,
     password: false,
     deactivate: false,
     delete: false
   })
-  
+
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
-  // Validate Profile
+
   const validateProfile = (): boolean => {
     const errors: Record<string, string> = {}
-    
+
     const emailError = validateEmail(profileData.email)
     if (emailError) errors.email = t(emailError)
-    
+
     const usernameError = validateUsername(profileData.username)
     if (usernameError) errors.username = t(usernameError)
-    
+
     if (!profileData.name || profileData.name.length < 2) {
       errors.name = t('account_settings.validation.name_min')
     }
-    
+
     if (profileData.bio && profileData.bio.length > 500) {
       errors.bio = t('account_settings.validation.bio_max')
     }
-    
+
     setProfileErrors(errors)
     return Object.keys(errors).length === 0
   }
 
-  // Validate Password
+
   const validatePasswordChange = (): boolean => {
     const errors: Record<string, string> = {}
-    
+
     if (!passwordData.currentPassword) {
       errors.currentPassword = t('account_settings.validation.current_password_required')
     }
-    
+
     const newPasswordError = validatePassword(passwordData.newPassword)
     if (newPasswordError) errors.newPassword = t(newPasswordError)
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       errors.confirmPassword = t('account_settings.validation.password_mismatch')
     }
-    
+
     if (passwordData.newPassword === passwordData.currentPassword) {
       errors.newPassword = t('account_settings.validation.password_same_as_current')
     }
-    
+
     setPasswordErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -331,16 +354,16 @@ export function AccountSettingsPage() {
     return () => { cancelled = true }
   }, [])
 
-  // Handle Profile Update
+
   const handleProfileUpdate = async () => {
     if (!validateProfile()) {
       toast.error(t('account_settings.fix_validation_errors'))
       return
     }
-    
+
     setIsSaving(true)
     try {
-      await updateProfile({ 
+      await updateProfile({
         name: profileData.name,
         username: profileData.username,
         email: profileData.email,
@@ -360,19 +383,19 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Email Change
+
   const handleEmailChange = () => {
     const emailError = validateEmail(profileData.email)
     if (emailError) {
       toast.error(t(emailError))
       return
     }
-    
+
     if (profileData.email === user?.email) {
       toast.error(t('account_settings.email_already_current'))
       return
     }
-    
+
     setConfirmDialogs({ ...confirmDialogs, email: true })
   }
 
@@ -386,13 +409,13 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Password Change
+
   const handlePasswordChange = () => {
     if (!validatePasswordChange()) {
       toast.error(t('account_settings.fix_validation_errors'))
       return
     }
-    
+
     setConfirmDialogs({ ...confirmDialogs, password: true })
   }
 
@@ -427,7 +450,7 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Notification Settings
+
   const handleNotificationSave = async () => {
     setIsSavingSettings(true)
     try {
@@ -440,7 +463,7 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Privacy Settings
+
   const handlePrivacySave = async () => {
     setIsSavingSettings(true)
     try {
@@ -453,7 +476,7 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Account Deactivation
+
   const handleDeactivate = async (password?: string) => {
     if (!password) {
       toast.error(t('account_settings.password_required'))
@@ -470,7 +493,7 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Account Deletion
+
   const handleDelete = async (password?: string) => {
     if (!password) {
       toast.error(t('account_settings.password_required'))
@@ -487,7 +510,7 @@ export function AccountSettingsPage() {
     }
   }
 
-  // Handle Avatar Upload
+
   const handleAvatarUpload = () => {
     avatarInputRef.current?.click()
   }
@@ -521,16 +544,22 @@ export function AccountSettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">{t('account_settings.title')}</h1>
+    <motion.div
+      className="mx-auto max-w-4xl px-4 py-6 sm:p-8"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div className="mb-8" variants={fadeInUp} initial="hidden" animate="show">
+        <h1 className="text-2xl font-bold sm:text-3xl">{t('account_settings.title')}</h1>
         <p className="text-muted-foreground mt-2">
           {t('account_settings.manage_settings')}
         </p>
-      </div>
+      </motion.div>
 
-      <div className="space-y-6">
-        {/* Profile Information */}
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -542,8 +571,8 @@ export function AccountSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Avatar */}
-            <div className="flex items-center gap-6">
+
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
               <Avatar className="h-24 w-24">
                 <AvatarImage src={user?.avatar} />
                 <AvatarFallback className="text-2xl">
@@ -551,12 +580,12 @@ export function AccountSettingsPage() {
                 </AvatarFallback>
               </Avatar>
               <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleAvatarUpload} disabled={isUploadingAvatar}>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button size="sm" onClick={handleAvatarUpload} disabled={isUploadingAvatar} className="w-full sm:w-auto">
                     {isUploadingAvatar ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
                     {t('account_settings.upload_photo')}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleRemoveAvatar} disabled={isUploadingAvatar}>
+                  <Button size="sm" variant="outline" onClick={handleRemoveAvatar} disabled={isUploadingAvatar} className="w-full sm:w-auto">
                     <Trash2 className="h-4 w-4 mr-2" />
                     {t('account_settings.remove_photo')}
                   </Button>
@@ -576,7 +605,7 @@ export function AccountSettingsPage() {
 
             <Separator />
 
-            {/* Name & Username */}
+
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="name">
@@ -595,7 +624,7 @@ export function AccountSettingsPage() {
                   <p className="text-sm text-destructive mt-1">{profileErrors.name}</p>
                 )}
               </div>
-              
+
               <div>
                 <Label htmlFor="username">
                   {t('account_settings.username')} <span className="text-destructive">*</span>
@@ -616,7 +645,7 @@ export function AccountSettingsPage() {
               </div>
             </div>
 
-            {/* Bio */}
+
             <div>
               <Label htmlFor="bio">{t('account_settings.bio')}</Label>
               <Textarea
@@ -630,7 +659,7 @@ export function AccountSettingsPage() {
                 rows={4}
                 className={profileErrors.bio ? 'border-destructive' : ''}
               />
-              <div className="flex justify-between mt-1">
+              <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 {profileErrors.bio && (
                   <p className="text-sm text-destructive">{profileErrors.bio}</p>
                 )}
@@ -640,7 +669,7 @@ export function AccountSettingsPage() {
               </div>
             </div>
 
-            {/* Contact Info */}
+
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phone">{t('account_settings.phone')}</Label>
@@ -655,7 +684,7 @@ export function AccountSettingsPage() {
                   placeholder={t('account_settings.placeholders.phone')}
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="website">{t('account_settings.website')}</Label>
                 <Input
@@ -671,7 +700,7 @@ export function AccountSettingsPage() {
               </div>
             </div>
 
-            {/* Social Links */}
+
             <div>
               <Label className="mb-3 block">{t('account_settings.social_links')}</Label>
               <div className="grid md:grid-cols-2 gap-4">
@@ -717,8 +746,10 @@ export function AccountSettingsPage() {
             </Button>
           </CardContent>
         </Card>
+        </motion.div>
 
-        {/* Account Security */}
+
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -730,13 +761,13 @@ export function AccountSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Email Section */}
+
             <div>
               <Label htmlFor="email" className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
                 {t('account_settings.email_address')} <span className="text-destructive">*</span>
               </Label>
-              <div className="flex gap-2 mt-2">
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <div className="flex-1">
                   <Input
                     id="email"
@@ -749,9 +780,10 @@ export function AccountSettingsPage() {
                     <p className="text-sm text-destructive mt-1">{profileErrors.email}</p>
                   )}
                 </div>
-                <Button 
+                <Button
                   onClick={handleEmailChange}
                   disabled={profileData.email === user?.email}
+                  className="w-full sm:w-auto"
                 >
                   {t('account_settings.update_email')}
                 </Button>
@@ -768,13 +800,13 @@ export function AccountSettingsPage() {
 
             <Separator />
 
-            {/* Password Section */}
+
             <div className="space-y-4">
               <Label className="flex items-center gap-2">
                 <Lock className="h-4 w-4" />
                 {t('account_settings.change_password')}
               </Label>
-              
+
               <div className="space-y-3">
                 <div>
                   <Label htmlFor="currentPassword">{t('account_settings.current_password')}</Label>
@@ -789,7 +821,7 @@ export function AccountSettingsPage() {
                     <p className="text-sm text-destructive mt-1">{passwordErrors.currentPassword}</p>
                   )}
                 </div>
-                
+
                 <div>
                   <Label htmlFor="newPassword">{t('account_settings.new_password')}</Label>
                   <div className="relative mt-1">
@@ -811,8 +843,8 @@ export function AccountSettingsPage() {
                   {passwordErrors.newPassword && (
                     <p className="text-sm text-destructive mt-1">{passwordErrors.newPassword}</p>
                   )}
-                  
-                  {/* Password Strength Indicator */}
+
+
                   {passwordData.newPassword && (
                     <div className="mt-2 space-y-1">
                       <div className="flex items-center gap-2 text-xs">
@@ -850,7 +882,7 @@ export function AccountSettingsPage() {
                     </div>
                   )}
                 </div>
-                
+
                 <div>
                   <Label htmlFor="confirmPassword">{t('account_settings.confirm_password')}</Label>
                   <Input
@@ -864,7 +896,7 @@ export function AccountSettingsPage() {
                     <p className="text-sm text-destructive mt-1">{passwordErrors.confirmPassword}</p>
                   )}
                 </div>
-                
+
                 <Button onClick={handlePasswordChange}>
                   <Lock className="h-4 w-4 mr-2" />
                   {t('account_settings.change_password')}
@@ -873,8 +905,10 @@ export function AccountSettingsPage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
-        {/* Account Settings */}
+
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -889,8 +923,8 @@ export function AccountSettingsPage() {
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="language">{t('account_settings.language_label')}</Label>
-                <Select 
-                  value={accountSettings.language} 
+                <Select
+                  value={accountSettings.language}
                   onValueChange={(value) => setAccountSettings({ ...accountSettings, language: value })}
                 >
                   <SelectTrigger id="language" className="mt-1">
@@ -903,11 +937,11 @@ export function AccountSettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="timezone">{t('account_settings.timezone')}</Label>
-                <Select 
-                  value={accountSettings.timezone} 
+                <Select
+                  value={accountSettings.timezone}
                   onValueChange={(value) => setAccountSettings({ ...accountSettings, timezone: value })}
                 >
                   <SelectTrigger id="timezone" className="mt-1">
@@ -924,11 +958,11 @@ export function AccountSettingsPage() {
 
             <div>
               <Label htmlFor="currency">{t('account_settings.currency')}</Label>
-              <Select 
-                value={accountSettings.currency} 
+              <Select
+                value={accountSettings.currency}
                 onValueChange={(value) => setAccountSettings({ ...accountSettings, currency: value })}
               >
-                <SelectTrigger id="currency" className="mt-1 max-w-xs">
+                <SelectTrigger id="currency" className="mt-1 w-full sm:max-w-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -945,8 +979,10 @@ export function AccountSettingsPage() {
             </Button>
           </CardContent>
         </Card>
+        </motion.div>
 
-        {/* Notification Preferences */}
+
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -958,21 +994,21 @@ export function AccountSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <Label>{t('account_settings.email_notifications')}</Label>
                 <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.email_notifications_desc')}</p>
               </div>
               <Switch
                 checked={notifications.emailNotifications}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, emailNotifications: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.course_updates')}</Label>
@@ -980,14 +1016,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.courseUpdates}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, courseUpdates: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.instructor_messages')}</Label>
@@ -995,14 +1031,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.instructorMessages}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, instructorMessages: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.weekly_digest')}</Label>
@@ -1010,14 +1046,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.weeklyDigest}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, weeklyDigest: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.promotions_offers')}</Label>
@@ -1025,14 +1061,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.promotions}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, promotions: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.course_recommendations')}</Label>
@@ -1040,14 +1076,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.courseRecommendations}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, courseRecommendations: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.new_features')}</Label>
@@ -1055,14 +1091,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.newFeatures}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, newFeatures: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.announcements')}</Label>
@@ -1070,12 +1106,12 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={notifications.announcements}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setNotifications({ ...notifications, announcements: checked })
                 }
               />
             </div>
-            
+
             <div className="pt-4">
               <Button onClick={handleNotificationSave} disabled={isSavingSettings}>
                 {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1085,8 +1121,10 @@ export function AccountSettingsPage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
-        {/* Privacy Settings */}
+
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1105,14 +1143,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={privacy.profilePublic}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setPrivacy({ ...privacy, profilePublic: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.show_progress')}</Label>
@@ -1120,14 +1158,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={privacy.showProgress}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setPrivacy({ ...privacy, showProgress: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.show_certificates')}</Label>
@@ -1135,14 +1173,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={privacy.showCertificates}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setPrivacy({ ...privacy, showCertificates: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.show_courses')}</Label>
@@ -1150,14 +1188,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={privacy.showCourses}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setPrivacy({ ...privacy, showCourses: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.allow_messages')}</Label>
@@ -1165,14 +1203,14 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={privacy.allowMessages}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setPrivacy({ ...privacy, allowMessages: checked })
                 }
               />
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>{t('account_settings.show_online_status')}</Label>
@@ -1180,12 +1218,12 @@ export function AccountSettingsPage() {
               </div>
               <Switch
                 checked={privacy.showOnlineStatus}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setPrivacy({ ...privacy, showOnlineStatus: checked })
                 }
               />
             </div>
-            
+
             <div className="pt-4">
               <Button onClick={handlePrivacySave} disabled={isSavingSettings}>
                 {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1195,8 +1233,10 @@ export function AccountSettingsPage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
-        {/* Danger Zone */}
+
+        <motion.div variants={fadeInUp}>
         <Card className="border-destructive">
           <CardHeader>
             <CardTitle className="text-destructive flex items-center gap-2">
@@ -1208,40 +1248,43 @@ export function AccountSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start justify-between p-4 border rounded-lg">
+            <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h4 className="font-medium mb-1">{t('account_settings.deactivate_account')}</h4>
                 <p className="text-sm text-muted-foreground">
                   {t('account_settings.deactivate_account_desc')}
                 </p>
               </div>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setConfirmDialogs({ ...confirmDialogs, deactivate: true })}
+                className="w-full sm:w-auto"
               >
                 {t('account_settings.deactivate')}
               </Button>
             </div>
 
-            <div className="flex items-start justify-between p-4 border border-destructive rounded-lg">
+            <div className="flex flex-col gap-3 rounded-lg border border-destructive p-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h4 className="font-medium mb-1 text-destructive">{t('account_settings.delete_account')}</h4>
                 <p className="text-sm text-muted-foreground">
                   {t('account_settings.delete_account_desc')}
                 </p>
               </div>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => setConfirmDialogs({ ...confirmDialogs, delete: true })}
+                className="w-full sm:w-auto"
               >
                 {t('account_settings.delete_account')}
               </Button>
             </div>
           </CardContent>
         </Card>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      {/* Confirm Dialogs */}
+
       <ConfirmDialog
         open={confirmDialogs.email}
         onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, email: open })}
@@ -1281,6 +1324,6 @@ export function AccountSettingsPage() {
         variant="destructive"
         requirePassword={true}
       />
-    </div>
+    </motion.div>
   )
 }

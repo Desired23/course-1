@@ -1,0 +1,6 @@
+[
+  {
+    "route": "/admin/statistics",
+    "text": "Failed to load statistics TypeError: categories.map is not a function\n    at load (http://localhost:4173/src/pages/admin/StatisticsPage.tsx:119:48)"
+  }
+]

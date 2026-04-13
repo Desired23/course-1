@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { motion } from 'motion/react'
 import { useTranslation } from "react-i18next"
 import { Loader2, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
@@ -43,6 +44,28 @@ function normalizeOptions(options: any): Array<{ value: string; label: string }>
   }
 
   return []
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function InstructorOnboardingPage() {
@@ -311,7 +334,14 @@ export function InstructorOnboardingPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-6">
+    <motion.div
+      className="container mx-auto max-w-3xl px-4 py-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-4" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{form.title}</CardTitle>
@@ -368,11 +398,13 @@ export function InstructorOnboardingPage() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
-      <p className="mt-4 text-xs text-muted-foreground flex items-center gap-2">
+      <motion.p className="mt-4 text-xs text-muted-foreground flex items-center gap-2" variants={fadeInUp}>
         <UploadCloud className="h-3.5 w-3.5" />
         {t("instructor_onboarding_page.file_upload_note")}
-      </p>
-    </div>
+      </motion.p>
+      </motion.div>
+    </motion.div>
   )
 }

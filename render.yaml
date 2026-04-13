@@ -5,7 +5,7 @@ databases:
     user: course_user
 
 services:
-  # ── Backend (Django API) ──
+
   - type: web
     name: course-api
     runtime: python
@@ -53,7 +53,7 @@ services:
       - key: EMAIL_HOST_PASSWORD
         sync: false
 
-  # ── Frontend (React/Vite Static Site) ──
+
   - type: web
     name: course-fe
     runtime: static

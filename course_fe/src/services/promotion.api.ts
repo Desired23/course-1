@@ -1,13 +1,13 @@
-/**
- * Promotion API Service — Coupon / Discount Validation
- *
- * BE endpoints (all under /api/):
- *   POST /promotions/validate/  — validate a promotion code against cart courses
- */
+
+
+
+
+
+
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+
 
 export interface PromotionInfo {
   id: number
@@ -37,7 +37,7 @@ export interface ValidatePromotionResponse {
   total_amount: string
 }
 
-// ─── API ──────────────────────────────────────────────────────────────────────
+
 
 export async function validatePromotionCode(
   code: string,

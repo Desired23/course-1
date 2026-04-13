@@ -1,7 +1,7 @@
 import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
-// ── Types ──────────────────────────────────────────────────────────
+
 
 export interface InstructorUser {
   id: number
@@ -25,17 +25,17 @@ export interface Instructor {
   qualification: string | null
   experience: number | null
   social_links: Record<string, string> | null
-  rating: string            // Decimal from BE comes as string
+  rating: string
   total_students: number
   total_courses: number
   payment_info: unknown | null
 }
 
-// ── API Functions ──────────────────────────────────────────────────
 
-/**
- * Get paginated list of instructors (public).
- */
+
+
+
+
 export async function getInstructors(
   page = 1,
   pageSize = 20
@@ -43,9 +43,9 @@ export async function getInstructors(
   return http.get<PaginatedResponse<Instructor>>('/instructors/', buildListQuery({ page, page_size: pageSize }))
 }
 
-/**
- * Get ALL instructors (auto-paginate).
- */
+
+
+
 export async function getAllInstructors(): Promise<Instructor[]> {
   const all: Instructor[] = []
   let page = 1
@@ -58,16 +58,16 @@ export async function getAllInstructors(): Promise<Instructor[]> {
   return all
 }
 
-/**
- * Get a single instructor by ID (public).
- */
+
+
+
 export async function getInstructorById(instructorId: number): Promise<Instructor> {
   return http.get<Instructor>(`/instructors/${instructorId}/`)
 }
 
-// ── Dashboard / Analytics ──────────────────────────────────────────
 
-/** Dashboard stats (returned by GET /api/instructor/dashboard/stats/) */
+
+
 export interface InstructorDashboardStats {
   total_courses: number
   published_courses: number
@@ -112,6 +112,16 @@ export interface InstructorStudent {
   }>
 }
 
+export interface InstructorStudentsPage {
+  count: number
+  next: string | null
+  previous: string | null
+  page: number
+  total_pages: number
+  page_size: number
+  results: InstructorStudent[]
+}
+
 export interface InstructorStudentDetail extends InstructorStudent {
   phone: string | null
   address: string | null
@@ -133,7 +143,7 @@ export interface InstructorStudentDetail extends InstructorStudent {
   }>
 }
 
-/** Course analytics (returned by GET /api/instructor/courses/<id>/analytics/) */
+
 export interface CourseAnalytics {
   course_id: number
   title: string
@@ -153,12 +163,12 @@ export interface CourseAnalytics {
   rating_distribution: Record<string, number>
 }
 
-/**
- * Get instructor dashboard stats.
- * For the authenticated instructor, no ID needed.
- * Admin can pass instructor_id.
- * GET /api/instructor/dashboard/stats/
- */
+
+
+
+
+
+
 export async function getInstructorDashboardStats(
   instructorId?: number
 ): Promise<InstructorDashboardStats> {
@@ -167,11 +177,22 @@ export async function getInstructorDashboardStats(
   return http.get<InstructorDashboardStats>('/instructor/dashboard/stats/', query)
 }
 
-export async function getInstructorStudents(instructorId?: number, courseId?: number): Promise<InstructorStudent[]> {
-  const query: Record<string, number> = {}
+export async function getInstructorStudents(
+  page = 1,
+  pageSize = 10,
+  instructorId?: number,
+  courseId?: number,
+  search?: string,
+  status?: string,
+  sortBy?: string,
+): Promise<InstructorStudentsPage> {
+  const query: Record<string, string | number> = { page, page_size: pageSize }
   if (instructorId) query.instructor_id = instructorId
   if (courseId) query.course_id = courseId
-  return http.get<InstructorStudent[]>('/instructor/students/', query)
+  if (search) query.search = search
+  if (status) query.status = status
+  if (sortBy) query.sort_by = sortBy
+  return http.get<InstructorStudentsPage>('/instructor/students/', query)
 }
 
 export async function getInstructorStudentDetail(studentId: number, instructorId?: number): Promise<InstructorStudentDetail> {
@@ -202,7 +223,7 @@ export async function exportInstructorStudents(instructorId?: number, courseId?:
       const error = await response.json()
       message = error.message || error.error || message
     } catch {
-      // ignore non-JSON error bodies
+
     }
     throw new Error(message)
   }
@@ -218,17 +239,17 @@ export async function exportInstructorStudents(instructorId?: number, courseId?:
   window.URL.revokeObjectURL(url)
 }
 
-/**
- * Get detailed analytics for a course.
- * GET /api/instructor/courses/<courseId>/analytics/
- */
+
+
+
+
 export async function getInstructorCourseAnalytics(
   courseId: number
 ): Promise<CourseAnalytics> {
   return http.get<CourseAnalytics>(`/instructor/courses/${courseId}/analytics/`)
 }
 
-// ─── Analytics Time-series ─────────────────────────────────────
+
 
 export interface AnalyticsTimeseries {
   revenue_trend: Array<{ date: string; revenue: number }>
@@ -238,26 +259,26 @@ export interface AnalyticsTimeseries {
   rating_distribution: Record<string, number>
 }
 
-/**
- * GET /api/instructor/analytics/timeseries/?months=12
- * Returns time-series analytics for all instructor courses.
- */
+
+
+
+
 export async function getInstructorAnalyticsTimeseries(
   months = 12
 ): Promise<AnalyticsTimeseries> {
   return http.get<AnalyticsTimeseries>(`/instructor/analytics/timeseries/?months=${months}`)
 }
 
-// ── Instructor Profile Resolution ──────────────────────────────────
 
-/** Cache for the current user's instructor profile. */
+
+
 let _myInstructorCache: Instructor | null = null
 
-/**
- * Resolve the current user's Instructor model profile by user ID.
- * Fetches the instructor list and finds the one matching the given userId.
- * Result is cached for the session.
- */
+
+
+
+
+
 export async function getMyInstructorProfile(userId: number | string): Promise<Instructor> {
   if (_myInstructorCache && _myInstructorCache.user.id === Number(userId)) {
     return _myInstructorCache
@@ -269,21 +290,21 @@ export async function getMyInstructorProfile(userId: number | string): Promise<I
   return match
 }
 
-/** Clear the cached instructor profile (e.g. on logout). */
+
 export function clearInstructorCache() {
   _myInstructorCache = null
 }
 
-// ── Helpers ────────────────────────────────────────────────────────
 
-/** Parse decimal rating string to number. */
+
+
 export function parseRating(val: string | number | null | undefined): number {
   if (val == null) return 0
   const n = typeof val === 'string' ? parseFloat(val) : val
   return isNaN(n) ? 0 : Math.round(n * 10) / 10
 }
 
-/** Get instructor initials for avatar fallback. */
+
 export function getInitials(fullName: string): string {
   return fullName
     .split(' ')
@@ -293,7 +314,7 @@ export function getInitials(fullName: string): string {
     .slice(0, 2)
 }
 
-/** Format student count (e.g. 125430 → "125.430"). */
+
 export function formatStudentCount(count: number): string {
   return count.toLocaleString('vi-VN')
 }

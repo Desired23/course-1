@@ -20,6 +20,7 @@ import { getInstructorPayoutMethods, type InstructorPayoutMethod } from "../../s
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
@@ -28,11 +29,35 @@ import { Label } from "../../components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert"
 import { UserPagination } from "../../components/UserPagination"
+import { motion } from 'motion/react'
 import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Info, Crown, Loader2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { listItemTransition } from '../../lib/motion'
 
 const EARNINGS_PER_PAGE = 10
 const PAYOUTS_PER_PAGE = 10
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 const isSubscriptionEarning = (e: InstructorEarning) => e.user_subscription != null
 
@@ -59,6 +84,7 @@ export function InstructorPayoutsPage() {
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [payoutsLoading, setPayoutsLoading] = useState(false)
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'earnings' | 'history' | 'methods'>('earnings')
   const [selectedMethod, setSelectedMethod] = useState('')
   const [payoutAmount, setPayoutAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -242,17 +268,54 @@ export function InstructorPayoutsPage() {
   const payoutsStart = payoutsTotalCount === 0 ? 0 : (historyPage - 1) * PAYOUTS_PER_PAGE + 1
   const payoutsEnd = Math.min(historyPage * PAYOUTS_PER_PAGE, payoutsTotalCount)
 
-  if (loading) {
-    return (
-      <div className="p-6 flex justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  const renderPayoutsSkeleton = () => (
+    <div className="p-6 space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-5 w-72" />
       </div>
-    )
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`payout-metric-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border bg-card p-6 space-y-3">
+        <Skeleton className="h-6 w-44" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    </div>
+  )
+
+  const renderTableLoadingSkeleton = () => (
+    <div className="space-y-2 py-2">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={`payout-table-skeleton-${index}`} className="grid grid-cols-6 gap-3">
+          <Skeleton className="h-9 col-span-1" />
+          <Skeleton className="h-9 col-span-2" />
+          <Skeleton className="h-9 col-span-1" />
+          <Skeleton className="h-9 col-span-1" />
+          <Skeleton className="h-9 col-span-1" />
+        </div>
+      ))}
+    </div>
+  )
+
+  if (loading) {
+    return renderPayoutsSkeleton()
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div
+      className="p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex items-center justify-between" variants={fadeInUp}>
         <div>
           <h1 className="text-3xl font-bold">{t('instructor_payouts.title')}</h1>
           <p className="text-muted-foreground">{t('instructor_payouts.subtitle')}</p>
@@ -313,36 +376,68 @@ export function InstructorPayoutsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency(salesEarnings, 'USD')}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency(subscriptionEarnings, 'USD')}</Badge></div></CardContent></Card>
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency(pendingPayouts, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalPaid, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
-        <Card><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.successful_requests')}</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.completed_transactions')}</p></CardContent></Card>
-      </div>
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={fadeInUp}>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency(salesEarnings, 'USD')}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency(subscriptionEarnings, 'USD')}</Badge></div></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency(pendingPayouts, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalPaid, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.successful_requests')}</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.completed_transactions')}</p></CardContent></Card>
+      </motion.div>
 
       {availableBalance < 50 && (
+        <motion.div variants={fadeInUp}>
         <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>{t('instructor_payouts.low_balance_title')}</AlertTitle>
           <AlertDescription>{t('instructor_payouts.low_balance_desc')}</AlertDescription>
         </Alert>
+        </motion.div>
       )}
 
       {lockedBalance > 0 && (
+        <motion.div variants={fadeInUp}>
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>{t('instructor_payouts.locked_earnings_title')}</AlertTitle>
           <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency(lockedBalance, 'USD') })}</AlertDescription>
         </Alert>
+        </motion.div>
       )}
 
-      <Tabs defaultValue="earnings" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="earnings">{t('instructor_payouts.tab_earnings')}</TabsTrigger>
-          <TabsTrigger value="history">{t('instructor_payouts.tab_history')}</TabsTrigger>
-          <TabsTrigger value="methods">{t('instructor_payouts.tab_methods')}</TabsTrigger>
+      <motion.div variants={fadeInUp}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'earnings' | 'history' | 'methods')} className="space-y-4">
+        <TabsList className="relative p-1">
+          <TabsTrigger value="earnings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'earnings' && (
+              <motion.span
+                layoutId="instructor-payouts-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_payouts.tab_earnings')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'history' && (
+              <motion.span
+                layoutId="instructor-payouts-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_payouts.tab_history')}</span>
+          </TabsTrigger>
+          <TabsTrigger value="methods" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'methods' && (
+              <motion.span
+                layoutId="instructor-payouts-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t('instructor_payouts.tab_methods')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="earnings" className="space-y-4">
@@ -364,7 +459,7 @@ export function InstructorPayoutsPage() {
                 </Select>
               </div>
               {earningsLoading ? (
-                <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+                renderTableLoadingSkeleton()
               ) : earnings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">{t('instructor_payouts.no_earnings')}</div>
               ) : (
@@ -435,7 +530,7 @@ export function InstructorPayoutsPage() {
                 </Select>
               </div>
               {payoutsLoading ? (
-                <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+                renderTableLoadingSkeleton()
               ) : payouts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">{t('instructor_payouts.no_payouts')}</div>
               ) : (
@@ -483,7 +578,13 @@ export function InstructorPayoutsPage() {
             <CardContent>
               <div className="space-y-4">
                 {payoutMethods.map((method) => (
-                  <Card key={String(method.id)}>
+                  <motion.div
+                    key={String(method.id)}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={listItemTransition(payoutMethods.findIndex((m) => m.id === method.id))}
+                  >
+                  <Card className="app-interactive">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -503,6 +604,7 @@ export function InstructorPayoutsPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  </motion.div>
                 ))}
                 {payoutMethods.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">{t('instructor_payouts.no_methods')}</div>
@@ -512,6 +614,8 @@ export function InstructorPayoutsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

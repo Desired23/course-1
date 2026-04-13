@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Search, Filter, Grid3x3, List, Star, X, Loader2 } from 'lucide-react'
+import { Search, Filter, Grid3x3, List, Star, X } from 'lucide-react'
+import { motion } from 'motion/react'
 import { CourseCard } from '../../components/CourseCard'
 import { CourseFilterSidebar, CategoryOption } from '../../components/CourseFilterSidebar'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../../components/ui/sheet'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
@@ -14,12 +16,35 @@ import { getQueryParams } from '../../utils/navigation'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { useOwnedCourses } from '../../hooks/useOwnedCourses'
+import { listItemTransition } from '../../lib/motion'
 
-// Price range constants
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+
 const PRICE_MIN = 0
 const PRICE_MAX = 5000000
 
-// Custom Tag Component
+
 function Tag({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) {
   return (
     <Badge variant="secondary" className="gap-1">
@@ -33,39 +58,39 @@ function Tag({ children, onClose }: { children: React.ReactNode; onClose?: () =>
   )
 }
 
-// Custom Pagination
-function Pagination({ 
-  current, 
-  total, 
-  pageSize, 
+
+function Pagination({
+  current,
+  total,
+  pageSize,
   onChange,
   t,
-}: { 
+}: {
   current: number
   total: number
   pageSize: number
-  onChange: (page: number) => void 
+  onChange: (page: number) => void
   t: (key: string, options?: any) => string
 }) {
   const totalPages = Math.ceil(total / pageSize)
   const pages = []
-  
-  // Calculate page range to show
+
+
   let startPage = Math.max(1, current - 2)
   let endPage = Math.min(totalPages, current + 2)
-  
-  // Adjust if at start or end
+
+
   if (current <= 3) {
     endPage = Math.min(5, totalPages)
   }
   if (current >= totalPages - 2) {
     startPage = Math.max(1, totalPages - 4)
   }
-  
+
   for (let i = startPage; i <= endPage; i++) {
     pages.push(i)
   }
-  
+
   return (
     <div className="flex items-center gap-2">
       <Button
@@ -76,7 +101,7 @@ function Pagination({
       >
         {t('common.previous')}
       </Button>
-      
+
       {startPage > 1 && (
         <>
           <Button
@@ -89,7 +114,7 @@ function Pagination({
           {startPage > 2 && <span className="px-2">...</span>}
         </>
       )}
-      
+
       {pages.map(page => (
         <Button
           key={page}
@@ -100,7 +125,7 @@ function Pagination({
           {page}
         </Button>
       ))}
-      
+
       {endPage < totalPages && (
         <>
           {endPage < totalPages - 1 && <span className="px-2">...</span>}
@@ -113,7 +138,7 @@ function Pagination({
           </Button>
         </>
       )}
-      
+
       <Button
         variant="outline"
         size="sm"
@@ -130,11 +155,11 @@ export function CoursesPage() {
   const { t } = useTranslation()
   const { currentRoute } = useRouter()
   const { isOwned, getProgress } = useOwnedCourses()
-  // View state
+
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [gridCols, setGridCols] = useState(3)
-  
-  // Filter state
+
+
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [selectedSubcategories, setSelectedSubcategories] = useState<number[]>([])
@@ -144,25 +169,25 @@ export function CoursesPage() {
   const [selectedDurations, setSelectedDurations] = useState<string[]>([])
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
-  
-  // Sort and pagination
+
+
   const [sortBy, setSortBy] = useState('popularity')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(12)
-  
-  // Mobile drawer state
+
+
   const [drawerOpen, setDrawerOpen] = useState(false)
-  
-  // Ref for scroll target
+
+
   const resultsRef = useRef<HTMLDivElement>(null)
 
-  // Data state (loaded from API)
+
   const [coursesPage, setCoursesPage] = useState<PaginatedResponse<CourseListItem> | null>(null)
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([])
   const [loading, setLoading] = useState(true)
   const [categoriesLoaded, setCategoriesLoaded] = useState(false)
 
-  // Load categories once (with retry on failure)
+
   useEffect(() => {
     let cancelled = false
     let retryCount = 0
@@ -190,7 +215,7 @@ export function CoursesPage() {
     return () => { cancelled = true }
   }, [])
 
-  // Map FE sortBy to BE ordering param
+
   const sortToOrdering = (sort: string): string | undefined => {
     switch (sort) {
       case 'popularity': return '-total_students'
@@ -202,7 +227,7 @@ export function CoursesPage() {
     }
   }
 
-  // Map FE level label to BE level value
+
   const levelLabelToValue = (label: string): string => {
     const map: Record<string, string> = {
       [t('common.all_levels')]: 'all_levels',
@@ -213,8 +238,8 @@ export function CoursesPage() {
     return map[label] || label.toLowerCase()
   }
 
-  // Stable key of params actually sent to the API.
-  // All list filters in this page are sent to API to keep FE/BE totals aligned.
+
+
   const apiParamsKey = useMemo(() => {
     const p: Record<string, unknown> = {
       page: currentPage,
@@ -248,12 +273,12 @@ export function CoursesPage() {
     currentPage, itemsPerPage, selectedCategory, selectedSubcategories,
     selectedLevels, selectedLanguages, selectedDurations, selectedFeatures,
     searchTerm, sortBy,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     selectedRatings.length > 0 ? Math.min(...selectedRatings) : null,
     priceRange,
   ])
 
-  // Fetch courses from API — only when apiParamsKey changes (with retry)
+
   useEffect(() => {
     let cancelled = false
     let retryCount = 0
@@ -269,7 +294,7 @@ export function CoursesPage() {
         if (!cancelled && retryCount < maxRetries) {
           retryCount++
           setTimeout(fetchCourses, retryCount * 1500)
-          return  // don't set loading=false yet
+          return
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -282,7 +307,7 @@ export function CoursesPage() {
   const serverCourses = coursesPage?.results ?? []
   const totalCount = coursesPage?.count ?? 0
 
-  // Convert categories to CourseFilterSidebar format
+
   const categoryOptions: CategoryOption[] = categoryTree.map(cat => ({
     id: cat.id,
     name: cat.name,
@@ -292,7 +317,7 @@ export function CoursesPage() {
     }))
   }))
 
-  // Check URL params — re-read whenever currentRoute changes (e.g. navigate from mega-menu)
+
   useEffect(() => {
     const params = getQueryParams()
     if (params.category) {
@@ -305,7 +330,7 @@ export function CoursesPage() {
     if (params.subcategory) {
       const subId = Number(params.subcategory)
       if (!isNaN(subId)) {
-        // Find parent category from tree
+
         for (const cat of categoryTree) {
           if (cat.children?.some(s => s.id === subId)) {
             setSelectedCategory(cat.id)
@@ -321,14 +346,14 @@ export function CoursesPage() {
     setCurrentPage(1)
   }, [currentRoute, categoryTree])
 
-  // Scroll to results when page changes
+
   useEffect(() => {
     if (resultsRef.current && currentPage > 1) {
       resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [currentPage])
 
-  // Map duration values to labels for CourseFilterSidebar
+
   const durationOptions = [t('courses_page.duration_short'), t('courses_page.duration_medium'), t('courses_page.duration_long')]
   const levelOptions = [t('common.all_levels'), t('common.beginner'), t('common.intermediate'), t('common.advanced')]
   const languageOptions = [
@@ -338,7 +363,7 @@ export function CoursesPage() {
   ]
   const featureOptions = [t('courses_page.certificate_feature')]
 
-  // Prepare filter state for CourseFilterSidebar
+
   const filterState = {
     category: selectedCategory,
     subcategories: selectedSubcategories,
@@ -350,12 +375,12 @@ export function CoursesPage() {
     priceRange: priceRange
   }
 
-  // Handle filter changes from CourseFilterSidebar
+
   const handleFilterChange = (filterType: string, value: any) => {
     switch(filterType) {
       case 'category':
         setSelectedCategory(value)
-        setSelectedSubcategories([])   // always clear — old subcat IDs don't belong to new category
+        setSelectedSubcategories([])
         setCurrentPage(1)
         break
       case 'subcategories':
@@ -389,11 +414,11 @@ export function CoursesPage() {
     }
   }
 
-  // Server-side pagination info
+
   const totalPages = coursesPage?.total_pages ?? 1
   const startIndex = (currentPage - 1) * itemsPerPage
 
-  // Convert to CourseCard props
+
   const courseCardData = serverCourses.map(course => {
     const effectivePrice = getEffectivePrice(course)
     const regularPrice = parseDecimal(course.price)
@@ -410,8 +435,8 @@ export function CoursesPage() {
       price: formatPrice(effectivePrice),
       originalPrice: hasDiscount ? formatPrice(regularPrice) : undefined,
       duration: formatDuration(course.duration),
-      students: course.total_students >= 1000 
-        ? `${Math.floor(course.total_students / 1000)}K+` 
+      students: course.total_students >= 1000
+        ? `${Math.floor(course.total_students / 1000)}K+`
         : `${course.total_students}`,
       level: getLevelLabel(course.level),
       category: course.category_name || '',
@@ -437,7 +462,7 @@ export function CoursesPage() {
     setCurrentPage(1)
   }
 
-  const activeFiltersCount = 
+  const activeFiltersCount =
     (selectedCategory ? 1 : 0) +
     selectedSubcategories.length +
     selectedLevels.length +
@@ -447,21 +472,47 @@ export function CoursesPage() {
     selectedLanguages.length +
     selectedFeatures.length
 
+  const renderCourseSkeleton = () => {
+    const skeletonItems = viewMode === 'grid' ? itemsPerPage : 6
+    return (
+      <div className={
+        viewMode === 'grid'
+          ? `grid grid-cols-1 ${gridCols === 2 ? 'md:grid-cols-2' : gridCols === 3 ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-4'} gap-6`
+          : 'space-y-4'
+      }>
+        {Array.from({ length: skeletonItems }).map((_, index) => (
+          <div key={`course-skeleton-${index}`} className="overflow-hidden rounded-lg border bg-card p-4 space-y-4">
+            <Skeleton className="h-40 w-full rounded-md" />
+            <Skeleton className="h-5 w-4/5" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b py-8">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+
+      <motion.div className="bg-card border-b py-8" variants={fadeInUp} initial="hidden" animate="show">
         <div className="container mx-auto px-4">
           <h1 className="text-3xl mb-2">{t('courses_page.title')}</h1>
           <p className="text-muted-foreground">
             {loading ? t('courses_page.subtitle', { count: '...' }) : t('courses_page.subtitle', { count: totalCount })}
           </p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Desktop Filter Sidebar */}
+      <motion.div className="container mx-auto px-4 py-8" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="flex flex-col lg:flex-row gap-8" variants={fadeInUp}>
+
           <aside className="hidden lg:block">
             <CourseFilterSidebar
               filters={filterState}
@@ -480,17 +531,17 @@ export function CoursesPage() {
                 placeholder: { min: '0', max: '5000000' }
               }}
               showCategories={true}
-              className="sticky top-24"
+              className="lg:sticky lg:top-24"
             />
           </aside>
 
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            {/* Search and Controls Bar */}
-            <div className="bg-card p-4 rounded-lg shadow-sm mb-6">
+
+          <motion.div className="flex-1 min-w-0" variants={fadeInUp}>
+
+            <motion.div className="app-surface-elevated p-4 rounded-lg shadow-sm mb-6" variants={fadeInUp}>
               <div className="space-y-4">
-                {/* Search Bar */}
-                <div className="flex gap-2">
+
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
                     <input
@@ -504,16 +555,16 @@ export function CoursesPage() {
                       className="w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
-                  
-                  {/* Mobile Filter Button */}
+
+
                   <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
                     <SheetTrigger asChild>
-                      <Button variant="outline" className="lg:hidden">
+                      <Button variant="outline" className="w-full lg:hidden sm:w-auto">
                         <Filter size={20} className="mr-2" />
                         {t('courses_page.filter_title')} {activeFiltersCount > 0 && `(${activeFiltersCount})`}
                       </Button>
                     </SheetTrigger>
-                    <SheetContent side="left" className="w-80 overflow-y-auto">
+                    <SheetContent side="left" className="w-[88vw] max-w-sm overflow-y-auto">
                       <SheetHeader>
                         <SheetTitle className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -548,14 +599,14 @@ export function CoursesPage() {
                   </Sheet>
                 </div>
 
-                {/* Controls Row */}
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Sort */}
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+
                   <Select value={sortBy} onValueChange={(value) => {
                     setSortBy(value)
                     setCurrentPage(1)
                   }}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder={t('courses_page.sort_by')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -567,24 +618,26 @@ export function CoursesPage() {
                     </SelectContent>
                   </Select>
 
-                  {/* View Mode */}
-                  <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'grid' | 'list')}>
-                    <TabsList>
-                      <TabsTrigger value="grid">
-                        <Grid3x3 className="h-4 w-4 mr-2" />
-                        {t('courses_page.grid')}
+
+                  <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'grid' | 'list')} className="w-full sm:w-auto">
+                    <TabsList className="relative w-full justify-start overflow-x-auto p-1 sm:w-auto">
+                      <TabsTrigger value="grid" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                        {viewMode === 'grid' && <motion.span layoutId="courses-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                        <Grid3x3 className="relative z-10 h-4 w-4 mr-2" />
+                        <span className="relative z-10">{t('courses_page.grid')}</span>
                       </TabsTrigger>
-                      <TabsTrigger value="list">
-                        <List className="h-4 w-4 mr-2" />
-                        {t('courses_page.list')}
+                      <TabsTrigger value="list" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                        {viewMode === 'list' && <motion.span layoutId="courses-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                        <List className="relative z-10 h-4 w-4 mr-2" />
+                        <span className="relative z-10">{t('courses_page.list')}</span>
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
 
-                  {/* Grid Columns (only in grid mode) */}
+
                   {viewMode === 'grid' && (
                     <Select value={gridCols.toString()} onValueChange={(v) => setGridCols(Number(v))}>
-                      <SelectTrigger className="w-[130px]">
+                      <SelectTrigger className="w-full sm:w-[130px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -596,7 +649,7 @@ export function CoursesPage() {
                   )}
                 </div>
 
-                {/* Active Filters Tags */}
+
                 {activeFiltersCount > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {selectedCategory && (
@@ -607,7 +660,7 @@ export function CoursesPage() {
                         {categoryTree.find(c => c.id === selectedCategory)?.name}
                       </Tag>
                     )}
-                    
+
                     {selectedSubcategories.map(subId => {
                       const subcategory = categoryTree
                         .flatMap(c => c.children || [])
@@ -618,37 +671,37 @@ export function CoursesPage() {
                         </Tag>
                       ) : null
                     })}
-                    
+
                     {selectedLevels.map(level => (
                       <Tag key={level} onClose={() => setSelectedLevels(prev => prev.filter(l => l !== level))}>
                         {level}
                       </Tag>
                     ))}
-                    
+
                     {(priceRange[0] > PRICE_MIN || priceRange[1] < PRICE_MAX) && (
                       <Tag onClose={() => setPriceRange([PRICE_MIN, PRICE_MAX])}>
                         ₫{priceRange[0].toLocaleString()} - ₫{priceRange[1].toLocaleString()}
                       </Tag>
                     )}
-                    
+
                     {selectedRatings.map(rating => (
                       <Tag key={rating} onClose={() => setSelectedRatings(prev => prev.filter(r => r !== rating))}>
                         <Star size={12} className="inline fill-yellow-400 text-yellow-400 mr-1" /> {rating}+
                       </Tag>
                     ))}
-                    
+
                     {selectedDurations.map(dur => (
                       <Tag key={dur} onClose={() => setSelectedDurations(prev => prev.filter(d => d !== dur))}>
                         {dur}
                       </Tag>
                     ))}
-                    
+
                     {selectedLanguages.map(lang => (
                       <Tag key={lang} onClose={() => setSelectedLanguages(prev => prev.filter(l => l !== lang))}>
                         {lang}
                       </Tag>
                     ))}
-                    
+
                     {selectedFeatures.map(feature => (
                       <Tag key={feature} onClose={() => setSelectedFeatures(prev => prev.filter(f => f !== feature))}>
                         {feature}
@@ -657,10 +710,10 @@ export function CoursesPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
 
-            {/* Results Info */}
-            <div className="mb-4 flex items-center justify-between" ref={resultsRef}>
+
+            <motion.div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" ref={resultsRef} variants={fadeInUp}>
               <p className="text-sm text-muted-foreground">
                 {t('courses_page.showing_results', {
                   from: totalCount > 0 ? startIndex + 1 : 0,
@@ -668,25 +721,30 @@ export function CoursesPage() {
                   total: totalCount
                 })}
               </p>
-            </div>
+            </motion.div>
 
-            {/* Courses Grid/List */}
+
             {loading ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
+              <motion.div variants={fadeInUp}>{renderCourseSkeleton()}</motion.div>
             ) : serverCourses.length > 0 ? (
-              <div className={
-                viewMode === 'grid' 
-                  ? `grid grid-cols-1 ${gridCols === 2 ? 'md:grid-cols-2' : gridCols === 3 ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-4'} gap-6` 
+              <motion.div variants={fadeInUp} className={
+                viewMode === 'grid'
+                  ? `grid grid-cols-1 ${gridCols === 2 ? 'md:grid-cols-2' : gridCols === 3 ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2 lg:grid-cols-4'} gap-6`
                   : 'space-y-4'
               }>
-                {courseCardData.map((course) => (
-                  <CourseCard key={course.id} {...course} />
+                {courseCardData.map((course, index) => (
+                  <motion.div
+                    key={course.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={listItemTransition(index)}
+                  >
+                    <CourseCard {...course} />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             ) : (
-              <div className="text-center py-16 bg-card rounded-lg">
+              <motion.div variants={fadeInUp} className="text-center py-16 bg-card rounded-lg">
                 <div className="text-muted-foreground mb-4">
                   <Search size={48} className="mx-auto" />
                 </div>
@@ -697,22 +755,22 @@ export function CoursesPage() {
                 <Button onClick={clearFilters}>
                   {t('courses_page.clear_all_filters')}
                 </Button>
-              </div>
+              </motion.div>
             )}
 
-            {/* Pagination */}
+
             {totalPages > 1 && (
-              <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
+              <motion.div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between" variants={fadeInUp}>
+                <div className="flex items-center gap-2 self-start sm:self-auto">
                   <span className="text-sm text-muted-foreground">{t('courses_page.show')}:</span>
-                  <Select 
-                    value={itemsPerPage.toString()} 
+                  <Select
+                    value={itemsPerPage.toString()}
                     onValueChange={(v) => {
                       setItemsPerPage(Number(v))
                       setCurrentPage(1)
                     }}
                   >
-                    <SelectTrigger className="w-[80px]">
+                    <SelectTrigger className="w-20">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -730,12 +788,12 @@ export function CoursesPage() {
                   onChange={(page) => setCurrentPage(page)}
                   t={t}
                 />
-              </div>
+              </motion.div>
             )}
-          </div>
-        </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }
 

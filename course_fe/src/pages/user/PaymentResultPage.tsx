@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { useRouter } from "../../components/Router"
 import { formatCurrency, getPaymentStatus, Payment } from "../../services/payment.api"
+import { motion } from "motion/react"
 
 type PaymentPageStatus = "success" | "failed" | "error" | "loading"
 
@@ -21,6 +22,28 @@ const vnpayErrorKeyMap: Record<string, string> = {
   "75": "payment_result_page.failure_codes.75",
   "79": "payment_result_page.failure_codes.79",
   "99": "payment_result_page.failure_codes.99",
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function PaymentResultPage() {
@@ -110,46 +133,64 @@ export function PaymentResultPage() {
   }[status]
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4">
+    <motion.div
+      className="min-h-screen bg-background flex items-center justify-center py-12 px-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div variants={sectionStagger} initial="hidden" animate="show" className="w-full max-w-lg">
       <Card className={`max-w-lg w-full border-2 ${config.borderColor}`}>
-        <CardContent className={`pt-10 pb-8 px-8 ${config.bgColor} rounded-lg`}>
+        <CardContent className={`rounded-lg px-4 pb-8 pt-8 sm:px-8 sm:pt-10 ${config.bgColor}`}>
           <div className="flex flex-col items-center text-center space-y-6">
-            {config.icon}
+            <motion.div
+              key={`icon-${status}`}
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              {config.icon}
+            </motion.div>
 
-            <div className="space-y-2">
+            <motion.div className="space-y-2" variants={fadeInUp} initial="hidden" animate="show">
               <h1 className="text-2xl font-bold">{config.title}</h1>
               <p className="text-muted-foreground">{config.description}</p>
-            </div>
+            </motion.div>
 
             {status === "success" && (
-              <div className="w-full space-y-3 bg-background/80 rounded-lg p-4">
+              <motion.div
+                className="w-full space-y-3 bg-background/80 rounded-lg p-4"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.24, ease: "easeOut" }}
+              >
                 {paymentId && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex items-start justify-between gap-2 text-sm">
                     <span className="text-muted-foreground">{t("payment_result_page.order_id_label")}</span>
-                    <span className="font-medium">#{paymentId}</span>
+                    <span className="font-medium break-all text-right">#{paymentId}</span>
                   </div>
                 )}
                 {paymentData && (
                   <>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex items-start justify-between gap-2 text-sm">
                       <span className="text-muted-foreground">{t("payment_result_page.total_paid_label")}</span>
-                      <span className="font-medium text-green-600">
+                      <span className="font-medium text-green-600 text-right">
                         {formatCurrency(parseFloat(paymentData.total_amount))}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm">
+                    <div className="flex items-start justify-between gap-2 text-sm">
                       <span className="text-muted-foreground">{t("payment_result_page.method_label")}</span>
-                      <span className="font-medium uppercase">{paymentData.payment_method}</span>
+                      <span className="font-medium uppercase text-right break-words">{paymentData.payment_method}</span>
                     </div>
                   </>
                 )}
                 {transactionId && (
-                  <div className="flex justify-between text-sm">
+                  <div className="flex items-start justify-between gap-2 text-sm">
                     <span className="text-muted-foreground">{t("payment_result_page.transaction_id_label")}</span>
-                    <span className="font-mono text-xs">{transactionId}</span>
+                    <span className="font-mono text-xs break-all text-right">{transactionId}</span>
                   </div>
                 )}
-              </div>
+              </motion.div>
             )}
 
             {status === "success" && !paymentData && (
@@ -160,21 +201,27 @@ export function PaymentResultPage() {
             )}
 
             {paymentData && paymentData.courses.length > 0 && (
-              <div className="w-full mt-4 space-y-4">
-                {paymentData.courses.map((course) => (
-                  <Card key={course.course_id} className="border">
-                    <CardContent className="flex items-center space-x-4">
+              <motion.div className="w-full mt-4 space-y-4" variants={fadeInUp} initial="hidden" animate="show">
+                {paymentData.courses.map((course, index) => (
+                  <motion.div
+                    key={course.course_id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
+                  >
+                  <Card className="border">
+                    <CardContent className="flex items-start gap-3 sm:gap-4">
                       {course.course_thumbnail && (
                         <img
                           src={course.course_thumbnail}
                           alt={course.course_title}
-                          className="w-16 h-16 object-cover"
+                          className="h-14 w-14 shrink-0 object-cover sm:h-16 sm:w-16"
                         />
                       )}
-                      <div className="flex-1">
-                        <div className="font-semibold">{course.course_title}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold break-words">{course.course_title}</div>
                         {course.instructor_name && (
-                          <div className="text-sm text-muted-foreground">{course.instructor_name}</div>
+                          <div className="text-sm text-muted-foreground break-words">{course.instructor_name}</div>
                         )}
                         <div className="text-sm">
                           {formatCurrency(parseFloat(course.price))} {"->"}{" "}
@@ -190,20 +237,21 @@ export function PaymentResultPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
 
             {status === "failed" && paymentId && (
               <div className="w-full bg-background/80 rounded-lg p-4">
-                <div className="flex justify-between text-sm">
+                <div className="flex items-start justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">{t("payment_result_page.order_id_label")}</span>
-                  <span className="font-medium">#{paymentId}</span>
+                  <span className="font-medium break-all text-right">#{paymentId}</span>
                 </div>
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3 w-full pt-2">
+            <motion.div className="flex flex-col sm:flex-row gap-3 w-full pt-2" variants={fadeInUp} initial="hidden" animate="show">
               {status === "success" ? (
                 <>
                   <Button className="flex-1" onClick={() => navigate("/my-learning")}>
@@ -225,10 +273,11 @@ export function PaymentResultPage() {
                   </Button>
                 </>
               )}
-            </div>
+            </motion.div>
           </div>
         </CardContent>
       </Card>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

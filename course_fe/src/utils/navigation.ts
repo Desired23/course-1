@@ -1,8 +1,8 @@
 import i18n from './i18n'
 
-/**
- * Navigation utility functions for breadcrumb and category navigation
- */
+
+
+
 
 export interface BreadcrumbItem {
   label: string
@@ -16,39 +16,39 @@ export interface CategoryItem {
   color?: string
 }
 
-/**
- * Parse URL search parameters
- */
+
+
+
 export function getQueryParams(url?: string): Record<string, string> {
   if (typeof window === 'undefined') return {}
-  
+
   const urlObj = url ? new URL(url, window.location.origin) : new URL(window.location.href)
   const params: Record<string, string> = {}
-  
+
   urlObj.searchParams.forEach((value, key) => {
     params[key] = value
   })
-  
+
   return params
 }
 
-/**
- * Build URL with query parameters
- */
+
+
+
 export function buildUrl(path: string, params?: Record<string, string>): string {
   if (!params || Object.keys(params).length === 0) return path
-  
+
   const searchParams = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
     searchParams.set(key, value)
   })
-  
+
   return `${path}?${searchParams.toString()}`
 }
 
-/**
- * Generate breadcrumb items for course pages
- */
+
+
+
 export function generateCourseBreadcrumb(
   category?: string,
   subcategory?: string
@@ -56,27 +56,27 @@ export function generateCourseBreadcrumb(
   const items: BreadcrumbItem[] = [
     { label: i18n.t('navigation.home'), href: '/' }
   ]
-  
+
   if (category) {
     items.push({
       label: formatCategoryName(category),
       href: buildUrl('/courses', { category })
     })
   }
-  
+
   if (subcategory && category) {
     items.push({
       label: formatCategoryName(subcategory),
       href: buildUrl('/courses', { category, subcategory })
     })
   }
-  
+
   return items
 }
 
-/**
- * Format category slug to display name
- */
+
+
+
 export function formatCategoryName(slug: string): string {
   return slug
     .split('-')
@@ -84,9 +84,9 @@ export function formatCategoryName(slug: string): string {
     .join(' ')
 }
 
-/**
- * Common category definitions
- */
+
+
+
 export const COMMON_CATEGORIES: CategoryItem[] = [
   { id: '1', name: 'Development', slug: 'development' },
   { id: '2', name: 'Business', slug: 'business' },
@@ -100,9 +100,9 @@ export const COMMON_CATEGORIES: CategoryItem[] = [
   { id: '10', name: 'Teaching & Academics', slug: 'teaching-academics' },
 ]
 
-/**
- * Development subcategories
- */
+
+
+
 export const DEVELOPMENT_SUBCATEGORIES: CategoryItem[] = [
   { id: 'dev-1', name: 'Web Development', slug: 'web-development' },
   { id: 'dev-2', name: 'Mobile Development', slug: 'mobile-development' },
@@ -114,14 +114,14 @@ export const DEVELOPMENT_SUBCATEGORIES: CategoryItem[] = [
   { id: 'dev-8', name: 'DevOps', slug: 'devops' },
 ]
 
-/**
- * Get subcategories for a given category
- */
+
+
+
 export function getSubcategories(categorySlug: string): CategoryItem[] {
   switch (categorySlug) {
     case 'development':
       return DEVELOPMENT_SUBCATEGORIES
-    // Add more subcategories for other categories as needed
+
     default:
       return []
   }

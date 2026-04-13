@@ -24,12 +24,35 @@ import { toast } from "sonner"
 import { useAuth } from "../../contexts/AuthContext"
 import { getSubscriptionPlans, type SubscriptionPlanListItem } from "../../services/subscription.api"
 import { createPaymentRecord } from "../../services/payment.api"
+import { motion } from "motion/react"
 
 const iconMap: Record<string, React.ComponentType<any>> = { Zap, Crown, Shield }
 const colorMap: Record<string, { color: string; bg: string }> = {
   blue: { color: "text-blue-500", bg: "bg-blue-100 dark:bg-blue-900/30" },
   yellow: { color: "text-yellow-500", bg: "bg-yellow-100 dark:bg-yellow-900/30" },
   purple: { color: "text-purple-500", bg: "bg-purple-100 dark:bg-purple-900/30" },
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.32,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function SubscriptionCheckoutPage() {
@@ -189,26 +212,33 @@ export function SubscriptionCheckoutPage() {
   const PlanIcon = selectedPlan.icon
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 lg:py-12">
+    <motion.div
+      className="min-h-screen bg-slate-50 dark:bg-slate-950 py-8 lg:py-12"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
       <div className="container mx-auto px-4">
         <div className="max-w-6xl mx-auto">
+          <motion.div variants={fadeInUp} initial="hidden" animate="show">
           <Button
             variant="ghost"
             onClick={() => navigate("/pricing")}
-            className="mb-6 pl-0 hover:pl-2 transition-all hover:bg-transparent"
+            className="mb-6 w-full justify-start pl-0 transition-all hover:bg-transparent hover:pl-2 sm:w-auto"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             {t("subscription_checkout_page.back_to_pricing")}
           </Button>
+          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
-            <div className="lg:col-span-7 space-y-8">
-              <div>
+          <motion.div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12" variants={sectionStagger} initial="hidden" animate="show">
+            <motion.div className="lg:col-span-7 space-y-8" variants={fadeInUp}>
+              <motion.div variants={fadeInUp}>
                 <h1 className="text-3xl font-bold mb-2">{t("subscription_checkout_page.title")}</h1>
                 <p className="text-muted-foreground">{t("subscription_checkout_page.subtitle")}</p>
-              </div>
+              </motion.div>
 
-              <div className="space-y-4">
+              <motion.div className="space-y-4" variants={fadeInUp}>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">
                     1
@@ -218,7 +248,7 @@ export function SubscriptionCheckoutPage() {
 
                 <Card>
                   <CardContent className="p-4 sm:p-6">
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
                       <div className="h-12 w-12 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-lg text-slate-600 dark:text-slate-400">
                         {user ? user.name.charAt(0).toUpperCase() : "U"}
                       </div>
@@ -228,15 +258,15 @@ export function SubscriptionCheckoutPage() {
                           {user ? user.email : t("subscription_checkout_page.not_logged_in")}
                         </p>
                       </div>
-                      <Badge variant="outline" className="ml-auto shrink-0">
+                      <Badge variant="outline" className="shrink-0 sm:ml-auto">
                         {t("subscription_checkout_page.logged_in_badge")}
                       </Badge>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
+              </motion.div>
 
-              <div className="space-y-4">
+              <motion.div className="space-y-4" variants={fadeInUp}>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-sm">
                     2
@@ -248,28 +278,32 @@ export function SubscriptionCheckoutPage() {
                   <CardContent className="p-4 sm:p-6 space-y-6">
                     <RadioGroup value={selectedPayment} onValueChange={setSelectedPayment}>
                       <div className="space-y-3">
-                        {paymentMethods.map((method) => {
+                        {paymentMethods.map((method, index) => {
                           const IconComponent = method.icon
                           const isSelected = selectedPayment === method.id
                           return (
-                            <div
+                            <motion.div
                               key={method.id}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.22, delay: index * 0.04, ease: 'easeOut' }}
+                              whileHover={{ y: -1 }}
                               onClick={() => setSelectedPayment(method.id)}
-                              className={`relative flex items-start space-x-4 border rounded-xl p-4 cursor-pointer transition-all duration-200 ${
+                              className={`relative flex items-start gap-3 rounded-xl border p-3 transition-all duration-200 cursor-pointer sm:gap-4 sm:p-4 ${
                                 isSelected
                                   ? "border-blue-600 bg-blue-50/50 dark:bg-blue-900/10 ring-1 ring-blue-600"
                                   : "hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900"
                               }`}
                             >
                               <RadioGroupItem value={method.id} id={method.id} className="mt-1" />
-                              <div className="flex-1">
+                              <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                   <IconComponent className={`w-5 h-5 ${isSelected ? "text-blue-600" : "text-slate-500"}`} />
-                                  <Label htmlFor={method.id} className="cursor-pointer font-semibold text-base">
+                                  <Label htmlFor={method.id} className="cursor-pointer font-semibold text-sm sm:text-base">
                                     {method.name}
                                   </Label>
                                 </div>
-                                <p className="text-sm text-muted-foreground">{method.description}</p>
+                                <p className="text-xs text-muted-foreground sm:text-sm">{method.description}</p>
                               </div>
                               {method.id === "card" && (
                                 <div className="hidden sm:flex gap-1.5">
@@ -277,7 +311,7 @@ export function SubscriptionCheckoutPage() {
                                   <div className="w-8 h-5 bg-slate-200 rounded"></div>
                                 </div>
                               )}
-                            </div>
+                            </motion.div>
                           )
                         })}
                       </div>
@@ -285,7 +319,7 @@ export function SubscriptionCheckoutPage() {
 
                     {selectedPayment === "card" && (
                       <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex gap-3">
+                        <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-3">
                           <AlertCircle className="w-5 h-5 shrink-0" />
                           <p>{t("subscription_checkout_page.card_redirect_notice")}</p>
                         </div>
@@ -297,30 +331,30 @@ export function SubscriptionCheckoutPage() {
                     )}
 
                     {selectedPayment !== "card" && (
-                      <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex gap-3 animate-in fade-in">
+                      <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-3 animate-in fade-in">
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         <p>{t("subscription_checkout_page.partner_redirect_notice")}</p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
-            <div className="lg:col-span-5">
-              <div className="sticky top-24 space-y-6">
+            <motion.div className="lg:col-span-5" variants={fadeInUp}>
+              <motion.div className="space-y-6 lg:sticky lg:top-24" variants={fadeInUp}>
                 <Card className="shadow-xl shadow-slate-200/50 dark:shadow-none border-blue-100 dark:border-slate-800 overflow-hidden">
-                  <div className="bg-slate-900 text-white p-6">
+                  <div className="bg-slate-900 p-4 text-white sm:p-6">
                     <h3 className="font-bold text-lg mb-1">{t("subscription_checkout_page.summary_title")}</h3>
                     <p className="text-slate-400 text-sm">{t("subscription_checkout_page.summary_description")}</p>
                   </div>
 
-                  <CardContent className="p-6 space-y-6">
-                    <div className="flex gap-4">
+                  <CardContent className="space-y-6 p-4 sm:p-6">
+                    <div className="flex items-start gap-4">
                       <div className={`h-14 w-14 rounded-xl ${selectedPlan.bg} flex items-center justify-center border shrink-0`}>
                         <PlanIcon className={`w-7 h-7 ${selectedPlan.color}`} />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className="font-bold text-lg">{selectedPlan.name}</h3>
                         <Badge variant="secondary" className="font-normal text-xs mt-1">
                           {interval === "year"
@@ -378,7 +412,7 @@ export function SubscriptionCheckoutPage() {
                     </div>
                   </CardContent>
 
-                  <CardFooter className="flex-col gap-4 p-6 bg-slate-50 dark:bg-slate-900/50 border-t">
+                  <CardFooter className="flex-col gap-4 border-t bg-slate-50 p-4 dark:bg-slate-900/50 sm:p-6">
                     <Button
                       className="w-full h-14 text-lg font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all"
                       onClick={handleCheckout}
@@ -415,11 +449,11 @@ export function SubscriptionCheckoutPage() {
                   <Shield className="w-4 h-4 text-green-600" />
                   <span className="font-medium">{t("subscription_checkout_page.refund_guarantee")}</span>
                 </div>
-              </div>
-            </div>
-          </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

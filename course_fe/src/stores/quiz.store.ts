@@ -1,22 +1,22 @@
-/**
- * Quiz Store - Quiz Answer State Management
- * Handles: Code quiz answers, MCQ answers, submission state, persistence
- */
+
+
+
+
 
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 
-// ✅ Quiz Answer Types
+
 export interface QuizAnswer {
   questionId: number
   lessonId: number
   type: 'code' | 'multiple_choice' | 'true_false'
-  // For code quiz
+
   code?: string
-  language?: number // Judge0 language ID
-  // For MCQ/True-False
+  language?: number
+
   selectedAnswers?: number[]
-  // Metadata
+
   isSubmitted: boolean
   isCorrect?: boolean
   score?: number
@@ -24,16 +24,16 @@ export interface QuizAnswer {
 }
 
 interface QuizState {
-  // State
+
   quizAnswers: QuizAnswer[]
-  
-  // Actions
+
+
   saveQuizAnswer: (answer: QuizAnswer) => void
   getQuizAnswer: (questionId: number, lessonId: number) => QuizAnswer | undefined
   clearQuizAnswers: (lessonId: number) => void
   clearAllQuizAnswers: () => void
-  
-  // Stats
+
+
   getLessonQuizStats: (lessonId: number) => {
     total: number
     submitted: number
@@ -46,10 +46,10 @@ export const useQuizStore = create<QuizState>()(
   devtools(
     persist(
       (set, get) => ({
-        // Initial state
+
         quizAnswers: [],
 
-        // Save or update quiz answer
+
         saveQuizAnswer: (answer: QuizAnswer) => {
           set((state) => {
             const existing = state.quizAnswers.find(
@@ -57,7 +57,7 @@ export const useQuizStore = create<QuizState>()(
             )
 
             if (existing) {
-              // Update existing answer
+
               return {
                 quizAnswers: state.quizAnswers.map((a) =>
                   a.questionId === answer.questionId && a.lessonId === answer.lessonId
@@ -66,7 +66,7 @@ export const useQuizStore = create<QuizState>()(
                 ),
               }
             } else {
-              // Add new answer
+
               return {
                 quizAnswers: [...state.quizAnswers, { ...answer, lastUpdated: new Date().toISOString() }],
               }
@@ -74,7 +74,7 @@ export const useQuizStore = create<QuizState>()(
           }, false, 'saveQuizAnswer')
         },
 
-        // Get quiz answer
+
         getQuizAnswer: (questionId: number, lessonId: number) => {
           const { quizAnswers } = get()
           return quizAnswers.find(
@@ -82,7 +82,7 @@ export const useQuizStore = create<QuizState>()(
           )
         },
 
-        // Clear all answers for a specific lesson
+
         clearQuizAnswers: (lessonId: number) => {
           set(
             (state) => ({
@@ -93,20 +93,20 @@ export const useQuizStore = create<QuizState>()(
           )
         },
 
-        // Clear all quiz answers
+
         clearAllQuizAnswers: () => {
           set({ quizAnswers: [] }, false, 'clearAllQuizAnswers')
         },
 
-        // Get quiz statistics for a lesson
+
         getLessonQuizStats: (lessonId: number) => {
           const { quizAnswers } = get()
           const lessonAnswers = quizAnswers.filter((a) => a.lessonId === lessonId)
-          
+
           const submitted = lessonAnswers.filter((a) => a.isSubmitted).length
           const correct = lessonAnswers.filter((a) => a.isCorrect).length
           const totalScore = lessonAnswers.reduce((sum, a) => sum + (a.score || 0), 0)
-          
+
           return {
             total: lessonAnswers.length,
             submitted,
@@ -116,8 +116,8 @@ export const useQuizStore = create<QuizState>()(
         },
       }),
       {
-        name: 'udemy-quiz-storage', // LocalStorage key
-        // Only persist quiz answers, not functions
+        name: 'udemy-quiz-storage',
+
         partialize: (state) => ({ quizAnswers: state.quizAnswers }),
       }
     ),

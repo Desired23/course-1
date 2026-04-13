@@ -1,8 +1,8 @@
-/**
- * Player Store - Video Player UI State
- * Handles: Player controls, playback state, quality, subtitles
- * Note: Actual video progress saved in LearningProgressContext
- */
+
+
+
+
+
 
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
@@ -11,28 +11,28 @@ export type PlaybackRate = 0.5 | 0.75 | 1 | 1.25 | 1.5 | 1.75 | 2
 export type VideoQuality = 'auto' | '360p' | '480p' | '720p' | '1080p'
 
 interface PlayerState {
-  // Playback
+
   playing: boolean
   playbackRate: PlaybackRate
   volume: number
   muted: boolean
-  
-  // Quality & Subtitles
+
+
   quality: VideoQuality
   subtitlesEnabled: boolean
   subtitleLanguage: string
-  
-  // UI
+
+
   controlsVisible: boolean
   fullscreen: boolean
   theaterMode: boolean
-  pipMode: boolean // Picture-in-Picture
-  
-  // Sidebar (course player sidebar)
+  pipMode: boolean
+
+
   sidebarOpen: boolean
   sidebarTab: 'content' | 'notes' | 'qa' | 'reviews'
-  
-  // Actions
+
+
   setPlaying: (playing: boolean) => void
   setPlaybackRate: (rate: PlaybackRate) => void
   setVolume: (volume: number) => void
@@ -46,8 +46,8 @@ interface PlayerState {
   setControlsVisible: (visible: boolean) => void
   setSidebarOpen: (open: boolean) => void
   setSidebarTab: (tab: PlayerState['sidebarTab']) => void
-  
-  // Reset to defaults
+
+
   reset: () => void
 }
 
@@ -72,63 +72,63 @@ export const usePlayerStore = create<PlayerState>()(
     persist(
       (set, get) => ({
         ...DEFAULT_STATE,
-        
+
         setPlaying: (playing) => set({ playing }),
-        
+
         setPlaybackRate: (rate) => set({ playbackRate: rate }),
-        
+
         setVolume: (volume) => {
           const clampedVolume = Math.max(0, Math.min(1, volume))
           set({ volume: clampedVolume, muted: clampedVolume === 0 })
         },
-        
-        toggleMute: () => set((state) => ({ 
-          muted: !state.muted 
+
+        toggleMute: () => set((state) => ({
+          muted: !state.muted
         })),
-        
+
         setQuality: (quality) => set({ quality }),
-        
-        toggleSubtitles: () => set((state) => ({ 
-          subtitlesEnabled: !state.subtitlesEnabled 
+
+        toggleSubtitles: () => set((state) => ({
+          subtitlesEnabled: !state.subtitlesEnabled
         })),
-        
-        setSubtitleLanguage: (language) => set({ 
+
+        setSubtitleLanguage: (language) => set({
           subtitleLanguage: language,
-          subtitlesEnabled: true 
+          subtitlesEnabled: true
         }),
-        
+
         toggleFullscreen: () => {
           const newFullscreen = !get().fullscreen
           set({ fullscreen: newFullscreen })
-          
-          // Handle actual fullscreen API
+
+
           if (newFullscreen) {
             document.documentElement.requestFullscreen?.()
           } else {
             document.exitFullscreen?.()
           }
         },
-        
-        toggleTheaterMode: () => set((state) => ({ 
-          theaterMode: !state.theaterMode 
+
+        toggleTheaterMode: () => set((state) => ({
+          theaterMode: !state.theaterMode
         })),
-        
-        togglePiP: () => set((state) => ({ 
-          pipMode: !state.pipMode 
+
+        togglePiP: () => set((state) => ({
+          pipMode: !state.pipMode
         })),
-        
+
         setControlsVisible: (visible) => set({ controlsVisible: visible }),
-        
+
         setSidebarOpen: (open) => set({ sidebarOpen: open }),
-        
+
         setSidebarTab: (tab) => set({ sidebarTab: tab }),
-        
+
         reset: () => set(DEFAULT_STATE)
       }),
       {
         name: 'player-store',
         partialize: (state) => ({
-          // Persist user preferences
+
           playbackRate: state.playbackRate,
           volume: state.volume,
           muted: state.muted,
@@ -138,7 +138,7 @@ export const usePlayerStore = create<PlayerState>()(
           theaterMode: state.theaterMode,
           sidebarOpen: state.sidebarOpen,
           sidebarTab: state.sidebarTab
-          // Don't persist: playing, fullscreen, pipMode, controlsVisible
+
         })
       }
     ),
@@ -146,7 +146,7 @@ export const usePlayerStore = create<PlayerState>()(
   )
 )
 
-// Selectors
+
 export const selectPlaybackRate = (state: PlayerState) => state.playbackRate
 export const selectVolume = (state: PlayerState) => state.volume
 export const selectQuality = (state: PlayerState) => state.quality

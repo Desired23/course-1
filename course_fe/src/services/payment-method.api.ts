@@ -1,21 +1,21 @@
-/**
- * Payment Method API Service
- *
- * BE endpoints (all under /api/):
- *   User Payment Methods (for checkout):
- *     GET/POST  /payment-methods/user/                        — list / create
- *     PATCH/DEL /payment-methods/user/<method_id>/            — update / delete
- *     POST      /payment-methods/user/<method_id>/default/    — set default
- *
- *   Instructor Payout Methods (for receiving payouts):
- *     GET/POST  /payment-methods/instructor/                        — list / create
- *     PATCH/DEL /payment-methods/instructor/<method_id>/            — update / delete
- *     POST      /payment-methods/instructor/<method_id>/default/    — set default
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+
 
 export interface UserPaymentMethod {
   id: number
@@ -54,7 +54,7 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ─── User Payment Methods ─────────────────────────────────────────────────────
+
 
 export async function getUserPaymentMethods(params?: {
   page?: number
@@ -109,7 +109,7 @@ export async function setDefaultUserPaymentMethod(methodId: number): Promise<Use
   return http.post<UserPaymentMethod>(`/payment-methods/user/${methodId}/default/`, {})
 }
 
-// ─── Instructor Payout Methods ────────────────────────────────────────────────
+
 
 export async function getInstructorPayoutMethods(): Promise<InstructorPayoutMethod[]> {
   return http.get<InstructorPayoutMethod[]>('/payment-methods/instructor/')
@@ -144,7 +144,7 @@ export async function setDefaultInstructorPayoutMethod(methodId: number): Promis
   return http.post<InstructorPayoutMethod>(`/payment-methods/instructor/${methodId}/default/`, {})
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 export function getMethodTypeLabel(type: string): string {
   switch (type) {

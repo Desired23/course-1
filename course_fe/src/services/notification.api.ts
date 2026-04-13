@@ -1,6 +1,6 @@
 import { http } from './http'
 
-// ── Types ──────────────────────────────────────────────────────────
+
 
 export type NotificationType = 'system' | 'course' | 'payment' | 'promotion' | 'other'
 
@@ -11,7 +11,7 @@ export interface Notification {
   receiver: number
   message: string
   is_read: boolean
-  created_at: string   // ISO datetime
+  created_at: string
   type: NotificationType
   related_id: number | null
   notification_code: string | null
@@ -40,11 +40,11 @@ interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ── API Functions ──────────────────────────────────────────────────
 
-/**
- * Get notifications for a user (paginated).
- */
+
+
+
+
 export async function getNotificationsByUser(
   userId: number,
   page = 1,
@@ -67,9 +67,9 @@ export async function getNotificationsByUser(
   return http.get<PaginatedResponse<Notification>>(`/notifications/?${searchParams.toString()}`)
 }
 
-/**
- * Get ALL notifications for a user (auto-paginate).
- */
+
+
+
 export async function getAllNotificationsByUser(userId: number): Promise<Notification[]> {
   const all: Notification[] = []
   let page = 1
@@ -82,25 +82,25 @@ export async function getAllNotificationsByUser(userId: number): Promise<Notific
   return all
 }
 
-/**
- * Get a single notification by ID.
- */
+
+
+
 export async function getNotificationById(notificationId: number): Promise<Notification> {
   return http.get<Notification>(`/notifications/${notificationId}/`)
 }
 
-/**
- * Mark a single notification as read.
- */
+
+
+
 export async function markNotificationAsRead(notificationId: number): Promise<Notification> {
   return http.put<Notification>(
     `/notifications/mark_as_read/?notification_id=${notificationId}`
   )
 }
 
-/**
- * Mark ALL notifications as read for a user.
- */
+
+
+
 export async function markAllNotificationsAsRead(
   userId: number
 ): Promise<{ message: string }> {
@@ -158,9 +158,9 @@ export async function updateInstructorAnnouncement(
   )
 }
 
-// ── Helpers ────────────────────────────────────────────────────────
 
-/** Icon mapping for notification types (returns lucide icon name). */
+
+
 export function getNotificationIcon(type: NotificationType): string {
   const map: Record<NotificationType, string> = {
     system: 'Bell',
@@ -172,7 +172,7 @@ export function getNotificationIcon(type: NotificationType): string {
   return map[type] || 'Bell'
 }
 
-/** Color class for notification type. */
+
 export function getNotificationColor(type: NotificationType): string {
   const map: Record<NotificationType, string> = {
     system: 'text-blue-500',
@@ -184,7 +184,7 @@ export function getNotificationColor(type: NotificationType): string {
   return map[type] || 'text-gray-500'
 }
 
-/** Format relative time (e.g. "2 hours ago"). */
+
 export function formatRelativeTime(isoDate: string): string {
   const now = Date.now()
   const then = new Date(isoDate).getTime()

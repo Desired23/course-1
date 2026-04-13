@@ -1,0 +1,620 @@
+{
+  "generatedAt": "2026-04-12T16:03:25.123Z",
+  "baseUrl": "http://localhost:4173",
+  "checks": [
+    {
+      "viewport": "desktop",
+      "role": "admin",
+      "route": "/admin",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": null,
+        "bodyTextLength": 1631,
+        "documentHeight": 1895
+      },
+      "elapsedMs": 2162,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-admin\\admin.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "admin",
+      "route": "/admin/statistics",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/statistics",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Platform Statistics",
+        "bodyTextLength": 638,
+        "documentHeight": 965
+      },
+      "elapsedMs": 1673,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-admin\\admin_statistics.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "admin",
+      "route": "/admin/settings",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/settings",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Platform Settings",
+        "bodyTextLength": 483,
+        "documentHeight": 965
+      },
+      "elapsedMs": 1569,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-admin\\admin_settings.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "admin",
+      "route": "/admin/website-management",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/website-management",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Website Management",
+        "bodyTextLength": 488,
+        "documentHeight": 965
+      },
+      "elapsedMs": 1565,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-admin\\admin_website_management.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "admin",
+      "route": "/admin/subscriptions",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/subscriptions",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Subscription Management",
+        "bodyTextLength": 994,
+        "documentHeight": 965
+      },
+      "elapsedMs": 1724,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-admin\\admin_subscriptions.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": null,
+        "bodyTextLength": 1007,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1634,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/analytics",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/analytics",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Analytics",
+        "bodyTextLength": 744,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1632,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_analytics.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/courses/create",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/courses/create",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Create a New Course",
+        "bodyTextLength": 771,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1562,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_courses_create.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/discounts",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/discounts",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "My Discount Codes",
+        "bodyTextLength": 470,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1563,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_discounts.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/lessons",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/lessons",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Curriculum",
+        "bodyTextLength": 711,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1509,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_lessons.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/quizzes",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/quizzes",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Quizzes & Assessments",
+        "bodyTextLength": 1602,
+        "documentHeight": 1583
+      },
+      "elapsedMs": 1739,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_quizzes.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/course-landing",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/course-landing",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Landing Page",
+        "bodyTextLength": 954,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1527,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_course_landing.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/payouts",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/payouts",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Earnings & Payouts",
+        "bodyTextLength": 900,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1578,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_payouts.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/resources",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/resources",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Resources",
+        "bodyTextLength": 1333,
+        "documentHeight": 981
+      },
+      "elapsedMs": 1577,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_resources.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/subscription-revenue",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/subscription-revenue",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Subscription Revenue",
+        "bodyTextLength": 1230,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1683,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_subscription_revenue.png"
+    },
+    {
+      "viewport": "desktop",
+      "role": "instructor",
+      "route": "/instructor/onboarding",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/onboarding",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": null,
+        "bodyTextLength": 646,
+        "documentHeight": 900
+      },
+      "elapsedMs": 1468,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\desktop-instructor\\instructor_onboarding.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "admin",
+      "route": "/admin",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": null,
+        "bodyTextLength": 1617,
+        "documentHeight": 2439
+      },
+      "elapsedMs": 2219,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-admin\\admin.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "admin",
+      "route": "/admin/statistics",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/statistics",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Platform Statistics",
+        "bodyTextLength": 601,
+        "documentHeight": 1412
+      },
+      "elapsedMs": 1759,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-admin\\admin_statistics.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "admin",
+      "route": "/admin/settings",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/settings",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Platform Settings",
+        "bodyTextLength": 470,
+        "documentHeight": 729
+      },
+      "elapsedMs": 1610,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-admin\\admin_settings.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "admin",
+      "route": "/admin/website-management",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/website-management",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Website Management",
+        "bodyTextLength": 475,
+        "documentHeight": 903
+      },
+      "elapsedMs": 1598,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-admin\\admin_website_management.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "admin",
+      "route": "/admin/subscriptions",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/admin/subscriptions",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Subscription Management",
+        "bodyTextLength": 981,
+        "documentHeight": 2155
+      },
+      "elapsedMs": 1859,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-admin\\admin_subscriptions.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": null,
+        "bodyTextLength": 894,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1633,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/analytics",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/analytics",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Analytics",
+        "bodyTextLength": 718,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1662,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_analytics.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/courses/create",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/courses/create",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Create a New Course",
+        "bodyTextLength": 678,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1538,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_courses_create.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/discounts",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/discounts",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "My Discount Codes",
+        "bodyTextLength": 444,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1600,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_discounts.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/lessons",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/lessons",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Curriculum",
+        "bodyTextLength": 680,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1672,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_lessons.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/quizzes",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/quizzes",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Quizzes & Assessments",
+        "bodyTextLength": 1566,
+        "documentHeight": 2179
+      },
+      "elapsedMs": 1887,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_quizzes.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/course-landing",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/course-landing",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Landing Page",
+        "bodyTextLength": 928,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1652,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_course_landing.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/payouts",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/payouts",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Earnings & Payouts",
+        "bodyTextLength": 874,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1587,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_payouts.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/resources",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/resources",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Course Resources",
+        "bodyTextLength": 1297,
+        "documentHeight": 1097
+      },
+      "elapsedMs": 1628,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_resources.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/subscription-revenue",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/subscription-revenue",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": "Subscription Revenue",
+        "bodyTextLength": 1204,
+        "documentHeight": 664
+      },
+      "elapsedMs": 1761,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_subscription_revenue.png"
+    },
+    {
+      "viewport": "mobile",
+      "role": "instructor",
+      "route": "/instructor/onboarding",
+      "status": "pass",
+      "reason": "",
+      "currentUrl": "http://localhost:4173/instructor/onboarding",
+      "httpStatus": 200,
+      "pageError": null,
+      "consoleErrorCount": 0,
+      "metrics": {
+        "title": "Course Online Platform",
+        "h1": null,
+        "bodyTextLength": 633,
+        "documentHeight": 1141
+      },
+      "elapsedMs": 1577,
+      "screenshot": "C:\\Users\\huyda\\Desktop\\W\\course-1\\course_fe\\qa-artifacts\\route-smoke\\mobile-instructor\\instructor_onboarding.png"
+    }
+  ],
+  "summary": {
+    "total": 32,
+    "pass": 32,
+    "warn": 0,
+    "fail": 0
+  }
+}

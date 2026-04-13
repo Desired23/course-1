@@ -1,33 +1,33 @@
-/**
- * Blog Posts API Service
- *
- * BE endpoints (all under /api/):
- *   GET    /client/blog-posts/                              Ã¢â‚¬â€ list published posts (paginated)
- *   GET    /client/blog-posts/?blog_post_id=X              Ã¢â‚¬â€ single published post
- *   PATCH  /client/blog-posts/increase-views/<id>/         Ã¢â‚¬â€ increment views
- *   GET    /admin/blog-posts/                               Ã¢â‚¬â€ list all posts (admin/instructor)
- *   GET    /admin/blog-posts/?blog_post_id=X               Ã¢â‚¬â€ single post
- *   POST   /admin/blog-posts/create/                        Ã¢â‚¬â€ create
- *   PATCH  /admin/blog-posts/update/<id>/                   Ã¢â‚¬â€ update
- *   DELETE /admin/blog-posts/delete/<id>/                   Ã¢â‚¬â€ delete
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+
 
 export interface BlogPost {
   id: number
   title: string
   content: string
-  author: number | null         // user FK id
+  author: number | null
   author_name: string | null
   author_avatar: string | null
   created_at: string
   updated_at: string
   status: 'draft' | 'published' | 'archived'
   tags: string[] | null
-  category: number | null       // category FK id
+  category: number | null
   category_name: string | null
   slug: string
   featured_image: string | null
@@ -77,9 +77,9 @@ export interface BlogPostCreateData {
   is_featured?: boolean
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Client (public) endpoints Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-/** Get paginated list of published blog posts. */
+
+
 export async function getPublishedBlogPosts(
   params?: { page?: number; page_size?: number }
 ): Promise<PaginatedResponse<BlogPost>> {
@@ -89,7 +89,7 @@ export async function getPublishedBlogPosts(
   return http.get<PaginatedResponse<BlogPost>>('/client/blog-posts/', query)
 }
 
-/** Get all published blog posts (auto-paginate). */
+
 export async function getAllPublishedBlogPosts(): Promise<BlogPost[]> {
   const all: BlogPost[] = []
   let page = 1
@@ -102,19 +102,19 @@ export async function getAllPublishedBlogPosts(): Promise<BlogPost[]> {
   return all
 }
 
-/** Get a single published blog post by ID. */
+
 export async function getPublishedBlogPost(blogPostId: number): Promise<BlogPost> {
   return http.get<BlogPost>('/client/blog-posts/', { blog_post_id: blogPostId })
 }
 
-/** Increment view count of a blog post. */
+
 export async function increaseViews(blogPostId: number): Promise<BlogPost> {
   return http.patch<BlogPost>(`/client/blog-posts/increase-views/${blogPostId}/`, {})
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Admin/Instructor endpoints Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-/** Get paginated list of all blog posts (admin/instructor). */
+
+
 export async function getAdminBlogPosts(
   params?: { page?: number; page_size?: number; blog_post_id?: number }
 ): Promise<PaginatedResponse<BlogPost>> {
@@ -125,17 +125,17 @@ export async function getAdminBlogPosts(
   return http.get<PaginatedResponse<BlogPost>>('/admin/blog-posts/', query)
 }
 
-/** Get a single blog post by ID (admin). */
+
 export async function getAdminBlogPost(blogPostId: number): Promise<BlogPost> {
   return http.get<BlogPost>('/admin/blog-posts/', { blog_post_id: blogPostId })
 }
 
-/** Create a new blog post. */
+
 export async function createBlogPost(data: BlogPostCreateData): Promise<BlogPost> {
   return http.post<BlogPost>('/admin/blog-posts/create/', data)
 }
 
-/** Update a blog post (partial). */
+
 export async function updateBlogPost(
   blogPostId: number,
   data: Partial<BlogPostCreateData>
@@ -143,14 +143,14 @@ export async function updateBlogPost(
   return http.patch<BlogPost>(`/admin/blog-posts/update/${blogPostId}/`, data)
 }
 
-/** Delete a blog post. */
+
 export async function deleteBlogPost(blogPostId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/admin/blog-posts/delete/${blogPostId}/`)
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-/** Format blog date to Vietnamese locale string. */
+
+
 export function formatBlogDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('vi-VN', {
     year: 'numeric',
@@ -159,7 +159,7 @@ export function formatBlogDate(dateStr: string): string {
   })
 }
 
-/** Get status badge variant. */
+
 export function getBlogStatusBadge(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'published': return 'default'
@@ -169,7 +169,7 @@ export function getBlogStatusBadge(status: string): 'default' | 'secondary' | 'd
   }
 }
 
-/** Get status label in Vietnamese. */
+
 export function getBlogStatusLabel(status: string): string {
   switch (status) {
     case 'published': return 'Đã xuất bản'
@@ -179,9 +179,9 @@ export function getBlogStatusLabel(status: string): string {
   }
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Blog Comments Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-/** Get comments for a blog post. */
+
+
 export async function getBlogComments(
   params: { post_id: number; page?: number; page_size?: number }
 ): Promise<PaginatedResponse<BlogComment>> {
@@ -191,7 +191,7 @@ export async function getBlogComments(
   return http.get<PaginatedResponse<BlogComment>>('/blog_comments/', q)
 }
 
-/** Get all comments for a blog post. */
+
 export async function getAllBlogComments(postId: number): Promise<BlogComment[]> {
   const all: BlogComment[] = []
   let page = 1
@@ -204,7 +204,7 @@ export async function getAllBlogComments(postId: number): Promise<BlogComment[]>
   return all
 }
 
-/** Create a blog comment. */
+
 export async function createBlogComment(data: {
   blog_post: number
   content: string
@@ -214,7 +214,7 @@ export async function createBlogComment(data: {
   return http.post<BlogComment>('/blog_comments/create/', data)
 }
 
-/** Update a blog comment. */
+
 export async function updateBlogComment(
   commentId: number,
   data: Partial<{ content: string; status: string }>
@@ -222,7 +222,7 @@ export async function updateBlogComment(
   return http.patch<BlogComment>(`/blog_comments/${commentId}/update/`, data)
 }
 
-/** Delete a blog comment. */
+
 export async function deleteBlogComment(commentId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/blog_comments/${commentId}/delete/`)
 }

@@ -1,7 +1,7 @@
-/**
- * Realtime Notification Simulator
- * Simulates realtime notifications for Q&A and Reviews
- */
+
+
+
+
 import i18n from './i18n'
 
 export interface RealtimeNotification {
@@ -14,8 +14,8 @@ export interface RealtimeNotification {
 class RealtimeNotificationService {
   private listeners: Array<(notification: RealtimeNotification) => void> = []
   private simulationInterval: NodeJS.Timeout | null = null
-  
-  // Mock notification templates
+
+
   private getMockNotifications(): RealtimeNotification[] {
     return [
       {
@@ -51,10 +51,10 @@ class RealtimeNotificationService {
     ]
   }
 
-  /**
-   * Start simulating realtime notifications
-   * @param intervalMs - Interval in milliseconds between notifications
-   */
+
+
+
+
   startSimulation(intervalMs: number = 30000) {
     if (this.simulationInterval) {
       console.warn('Simulation already running')
@@ -62,20 +62,20 @@ class RealtimeNotificationService {
     }
 
     console.log('🔔 Starting realtime notification simulation...')
-    
+
     this.simulationInterval = setInterval(() => {
       const notifications = this.getMockNotifications()
       const randomNotification = notifications[
         Math.floor(Math.random() * notifications.length)
       ]
-      
+
       this.emit(randomNotification)
     }, intervalMs)
   }
 
-  /**
-   * Stop the simulation
-   */
+
+
+
   stopSimulation() {
     if (this.simulationInterval) {
       clearInterval(this.simulationInterval)
@@ -84,38 +84,38 @@ class RealtimeNotificationService {
     }
   }
 
-  /**
-   * Subscribe to realtime notifications
-   */
+
+
+
   subscribe(callback: (notification: RealtimeNotification) => void) {
     this.listeners.push(callback)
-    
-    // Return unsubscribe function
+
+
     return () => {
       this.listeners = this.listeners.filter(cb => cb !== callback)
     }
   }
 
-  /**
-   * Emit a notification to all listeners
-   */
+
+
+
   private emit(notification: RealtimeNotification) {
     console.log('📨 Emitting notification:', notification.title)
     this.listeners.forEach(callback => callback(notification))
   }
 
-  /**
-   * Manually trigger a notification
-   */
+
+
+
   notify(notification: RealtimeNotification) {
     this.emit(notification)
   }
 }
 
-// Export singleton instance
+
 export const realtimeNotificationService = new RealtimeNotificationService()
 
-// Helper to format notification based on type
+
 export const getNotificationIcon = (type: string) => {
   const icons: Record<string, string> = {
     qna_response: '💬',
@@ -129,7 +129,7 @@ export const getNotificationIcon = (type: string) => {
   return icons[type] || '🔔'
 }
 
-// Helper to get notification color
+
 export const getNotificationColor = (type: string) => {
   const colors: Record<string, string> = {
     qna_response: 'blue',

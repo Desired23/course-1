@@ -2,14 +2,17 @@ import { useState, useEffect } from "react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from "../../components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Switch } from "../../components/ui/switch"
 import { Label } from "../../components/ui/label"
 import { Bell, BookOpen, CreditCard, Gift, Info, Check, Loader2, Settings } from "lucide-react"
+import { motion } from 'motion/react'
 import { useTranslation } from "react-i18next"
 import { useAuth } from "../../contexts/AuthContext"
 import { UserPagination } from "../../components/UserPagination"
 import { getMyUserSettings, updateMyUserSettings } from "../../services/user-settings.api"
+import { listItemTransition } from '../../lib/motion'
 import {
   type Notification as NotifType,
   type NotificationType,
@@ -36,6 +39,28 @@ const notificationSettingsDefaults = {
   achievements: true,
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 type NotificationSettingKey = keyof typeof notificationSettingsDefaults
 
 export function NotificationsPage() {
@@ -53,6 +78,23 @@ export function NotificationsPage() {
   const [notificationSettings, setNotificationSettings] = useState(notificationSettingsDefaults)
   const [savingSettings, setSavingSettings] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
+
+  const renderNotificationSkeleton = () => (
+    <div className="space-y-3">
+      {Array.from({ length: pageSize }).map((_, index) => (
+        <div key={`notification-skeleton-${index}`} className="rounded-lg border bg-card p-4">
+          <div className="flex items-start gap-4">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-2/5" />
+              <Skeleton className="h-4 w-4/5" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
   const settingsLabels: Record<NotificationSettingKey, { label: string; description: string }> = {
     course_updates: {
@@ -156,8 +198,14 @@ export function NotificationsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-52" />
+            <Skeleton className="h-5 w-72" />
+          </div>
+          {renderNotificationSkeleton()}
+        </div>
       </div>
     )
   }
@@ -172,9 +220,14 @@ export function NotificationsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+    <motion.div
+      className="p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-7xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="flex items-center justify-between mb-8" variants={fadeInUp}>
           <div>
             <h1 className="mb-2">{t("notifications_page.title")}</h1>
             <p className="text-muted-foreground">{t("notifications_page.subtitle")}</p>
@@ -183,18 +236,37 @@ export function NotificationsPage() {
             <Check className="h-4 w-4" />
             {t("notifications_page.mark_all_read")}
           </Button>
-        </div>
+        </motion.div>
 
+        <motion.div variants={fadeInUp}>
         <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as "all" | "unread")}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="all">
-              {t("notifications_page.all")}
-              {unreadCount > 0 && <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">{unreadCount}</Badge>}
+          <TabsList className="relative mb-4 p-1">
+            <TabsTrigger value="all" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'all' && (
+                <motion.span
+                  layoutId="notifications-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10 inline-flex items-center">
+                {t("notifications_page.all")}
+                {unreadCount > 0 && <Badge className="ml-2 h-5 w-5 p-0 flex items-center justify-center text-xs">{unreadCount}</Badge>}
+              </span>
             </TabsTrigger>
-            <TabsTrigger value="unread">{t("notifications_page.unread")}</TabsTrigger>
+            <TabsTrigger value="unread" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'unread' && (
+                <motion.span
+                  layoutId="notifications-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t("notifications_page.unread")}</span>
+            </TabsTrigger>
           </TabsList>
 
-          <Card className="mb-6">
+          <Card className="app-surface-elevated mb-6">
             <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               <input
                 className="h-9 rounded-md border px-3 text-sm"
@@ -231,11 +303,17 @@ export function NotificationsPage() {
             ) : (
               <>
                 <div className="space-y-3">
-                  {notifications.map((notification) => {
+                  {notifications.map((notification, index) => {
                     const Icon = typeIconMap[notification.type] || Bell
                     const colorClass = getNotificationColor(notification.type)
                     return (
-                      <Card key={notification.id} className={`transition-all hover:shadow-md ${!notification.is_read ? "border-primary/30 bg-primary/5" : ""}`}>
+                      <motion.div
+                        key={notification.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={listItemTransition(index)}
+                      >
+                      <Card className={`app-interactive hover:shadow-md ${!notification.is_read ? "border-primary/30 bg-primary/5" : ""}`}>
                         <CardContent className="p-4">
                           <div className="flex items-start gap-4">
                             <div className={`w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0 ${colorClass}`}>
@@ -258,6 +336,7 @@ export function NotificationsPage() {
                           </div>
                         </CardContent>
                       </Card>
+                      </motion.div>
                     )
                   })}
                 </div>
@@ -270,8 +349,10 @@ export function NotificationsPage() {
             )}
           </TabsContent>
         </Tabs>
+        </motion.div>
 
-        <Card className="mt-8">
+        <motion.div variants={fadeInUp}>
+        <Card className="app-surface-elevated mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
@@ -301,7 +382,8 @@ export function NotificationsPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -17,6 +17,29 @@ import {
   getSubscriptionStatusLabel,
 } from "../../services/subscription.api"
 import { useTranslation } from "react-i18next"
+import { motion } from "motion/react"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.32,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 type StatusFilter = 'all' | 'active' | 'cancelled' | 'expired'
 type SortBy = 'newest' | 'oldest' | 'end_date_desc' | 'end_date_asc'
@@ -140,14 +163,20 @@ export function UserSubscriptionsPage() {
   const planFeatures = planDetail?.features || []
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
-      <div>
+    <motion.div
+      className="mx-auto max-w-4xl space-y-8 px-4 py-6 sm:p-8"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div variants={fadeInUp} initial="hidden" animate="show">
         <h1 className="text-2xl font-bold">{t('subscriptions_page.title')}</h1>
         <p className="text-muted-foreground mt-2">{t('subscriptions_page.subtitle')}</p>
-      </div>
+      </motion.div>
 
       {activeSubscription ? (
-        <div className="space-y-6">
+        <motion.div className="space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+          <motion.div variants={fadeInUp}>
           <Card className="border-2 border-blue-100 dark:border-blue-900 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-6 border-b">
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -166,7 +195,7 @@ export function UserSubscriptionsPage() {
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-left md:text-right">
                   <p className="text-2xl font-bold">{formatCurrency(planPrice)}</p>
                   <p className="text-sm text-muted-foreground">{t('subscriptions_page.per_cycle')}</p>
                 </div>
@@ -175,12 +204,12 @@ export function UserSubscriptionsPage() {
 
             <CardContent className="p-6 space-y-6">
               <div className="space-y-2">
-                <div className="flex justify-between text-sm font-medium">
+                <div className="flex flex-wrap justify-between gap-2 text-sm font-medium">
                   <span className="text-muted-foreground">{t('subscriptions_page.remaining_period')}</span>
                   <span className={getDaysRemaining() < 7 ? "text-red-500" : "text-green-600"}>{t('subscriptions_page.days_remaining', { count: getDaysRemaining() })}</span>
                 </div>
                 <Progress value={getProgressPercentage()} className="h-2.5" />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <div className="mt-1 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
                   <span>{t('subscriptions_page.start_label', { date: formatDate(activeSubscription.start_date) })}</span>
                   <span>{t('subscriptions_page.end_label', { date: activeSubscription.end_date ? formatDate(activeSubscription.end_date) : t('subscriptions_page.lifetime') })}</span>
                 </div>
@@ -190,7 +219,7 @@ export function UserSubscriptionsPage() {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{t('subscriptions_page.details')}</h3>
 
-                  <div className="flex items-center justify-between py-2 border-b border-dashed">
+                  <div className="flex flex-col gap-2 border-b border-dashed py-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>{t('subscriptions_page.start_date')}</span>
@@ -198,7 +227,7 @@ export function UserSubscriptionsPage() {
                     <span className="text-sm font-medium">{formatDate(activeSubscription.start_date)}</span>
                   </div>
 
-                  <div className="flex items-center justify-between py-2 border-b border-dashed">
+                  <div className="flex flex-col gap-2 border-b border-dashed py-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span>{t('subscriptions_page.end_date')}</span>
@@ -206,7 +235,7 @@ export function UserSubscriptionsPage() {
                     <span className="text-sm font-medium">{activeSubscription.end_date ? formatDate(activeSubscription.end_date) : t('subscriptions_page.lifetime')}</span>
                   </div>
 
-                  <div className="flex items-center justify-between py-2 border-b border-dashed">
+                  <div className="flex flex-col gap-2 border-b border-dashed py-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2 text-sm">
                       <CheckCircle className="h-4 w-4 text-muted-foreground" />
                       <span>{t('subscriptions_page.auto_renew')}</span>
@@ -217,7 +246,7 @@ export function UserSubscriptionsPage() {
                   </div>
 
                   {activeSubscription.cancelled_at && (
-                    <div className="flex items-center justify-between py-2 border-b border-dashed">
+                    <div className="flex flex-col gap-2 border-b border-dashed py-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-2 text-sm">
                         <X className="h-4 w-4 text-muted-foreground" />
                         <span>{t('subscriptions_page.cancelled_at')}</span>
@@ -251,7 +280,9 @@ export function UserSubscriptionsPage() {
               </div>
             </CardContent>
           </Card>
+          </motion.div>
 
+          <motion.div variants={fadeInUp}>
           <Card>
             <CardHeader>
               <CardTitle>{t('subscriptions_page.history_title')}</CardTitle>
@@ -311,7 +342,14 @@ export function UserSubscriptionsPage() {
                 <>
                   <div className="space-y-2">
                     {subscriptions.map((sub) => (
-                      <div key={sub.id} className="border rounded-md p-3 flex items-center justify-between">
+                      <motion.div
+                        key={sub.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22, ease: 'easeOut' }}
+                        whileHover={{ y: -1 }}
+                        className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
                         <div>
                           <p className="font-medium">{sub.plan_name}</p>
                           <p className="text-xs text-muted-foreground">
@@ -319,15 +357,15 @@ export function UserSubscriptionsPage() {
                             {' '}| {t('subscriptions_page.end_label', { date: sub.end_date ? formatDate(sub.end_date) : t('subscriptions_page.lifetime') })}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline">{getSubscriptionStatusLabel(sub.status)}</Badge>
                           {sub.auto_renew && <Badge>{t('subscriptions_page.auto_renew')}</Badge>}
                         </div>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2">
+                  <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-muted-foreground">
                       {t('subscriptions_page.pagination_summary', { current: currentPage, totalPages, totalCount })}
                     </p>
@@ -337,15 +375,16 @@ export function UserSubscriptionsPage() {
               )}
             </CardContent>
           </Card>
+          </motion.div>
 
-          <div className="flex gap-3">
+          <motion.div variants={fadeInUp} className="flex flex-col gap-3 sm:flex-row">
             {activeSubscription.status === 'active' && activeSubscription.auto_renew && (
-              <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setShowCancelDialog(true)}>
+              <Button variant="ghost" className="w-full text-destructive hover:text-destructive sm:w-auto" onClick={() => setShowCancelDialog(true)}>
                 {t('subscriptions_page.cancel_auto_renew')}
               </Button>
             )}
-            <Button variant="outline" onClick={() => navigate('/user/payment-methods')}>{t('subscriptions_page.manage_payment_methods')}</Button>
-          </div>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate('/user/payment-methods')}>{t('subscriptions_page.manage_payment_methods')}</Button>
+          </motion.div>
 
           <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
             <DialogContent>
@@ -366,8 +405,9 @@ export function UserSubscriptionsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        </motion.div>
       ) : (
+        <motion.div variants={fadeInUp} initial="hidden" animate="show">
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <div className="h-20 w-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-6">
@@ -381,7 +421,8 @@ export function UserSubscriptionsPage() {
             </Button>
           </CardContent>
         </Card>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   )
 }

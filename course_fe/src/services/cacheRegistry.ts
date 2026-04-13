@@ -14,7 +14,7 @@ export function clearRegisteredCaches(): void {
     try {
       clear()
     } catch {
-      // ignore cache clear errors
+
     }
   }
 }

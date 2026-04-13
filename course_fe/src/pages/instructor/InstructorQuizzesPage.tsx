@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Plus, Edit, Trash2, Eye, FileQuestion, GripVertical } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { DndProvider } from 'react-dnd'
@@ -41,13 +42,39 @@ interface Quiz {
 
 const ITEMS_PER_PAGE = 8
 
-// Quiz data is now fetched from API — quiz lessons + their questions
+const sectionStagger: any = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
 
-// Adapter: map BE lesson + questions → FE Quiz
+const fadeInUp: any = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: 'easeOut',
+    },
+  },
+}
+
+
+
+
 function lessonToQuiz(lesson: any, questions: QuizQuestion[]): Quiz {
   let meta: any = {}
   if (lesson.content) {
-    try { meta = JSON.parse(lesson.content) } catch { /* not JSON */ }
+    try {
+      meta = JSON.parse(lesson.content)
+    } catch {
+      meta = {}
+    }
   }
   return {
     id: String(lesson.id),
@@ -66,14 +93,16 @@ function lessonToQuiz(lesson: any, questions: QuizQuestion[]): Quiz {
   }
 }
 
-// Adapter: map BE QuizQuestion → FE QuizQuestion 
+
 function apiQuestionToFE(q: any): QuizQuestion {
   let correctAnswer: string | string[] = q.correct_answer || ''
   try {
     const parsed = JSON.parse(q.correct_answer)
     if (Array.isArray(parsed)) correctAnswer = parsed
-  } catch { /* string answer */ }
-  
+  } catch {
+    // keep server-provided raw answer when it is not JSON
+  }
+
   return {
     id: String(q.id),
     question: q.question_text || '',
@@ -97,19 +126,19 @@ export function InstructorQuizzesPage() {
   const [instructorId, setInstructorId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
-  
-  // Quiz Dialog State
+
+
   const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false)
   const [quizTitle, setQuizTitle] = useState('')
   const [quizDescription, setQuizDescription] = useState('')
   const [passingScore, setPassingScore] = useState(70)
   const [timeLimit, setTimeLimit] = useState<number | undefined>(30)
 
-  // Question Wizard State
+
   const [isWizardOpen, setIsWizardOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null)
 
-  // Cache the first coursemodule id for creating new quizzes
+
   const [defaultModuleId, setDefaultModuleId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -119,7 +148,7 @@ export function InstructorQuizzesPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
-  // Debounce search to avoid refetching every keystroke
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery.trim())
@@ -131,7 +160,7 @@ export function InstructorQuizzesPage() {
     setCurrentPage(1)
   }, [debouncedSearch, statusFilter, sortBy])
 
-  // Resolve instructor profile + default module for creating quizzes
+
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
@@ -157,7 +186,7 @@ export function InstructorQuizzesPage() {
     return () => { cancelled = true }
   }, [user?.id])
 
-  // Fetch paginated quizzes using server-side filters
+
   useEffect(() => {
     if (!instructorId) return
     let cancelled = false
@@ -290,11 +319,11 @@ export function InstructorQuizzesPage() {
       const lessonId = Number(selectedQuiz.id)
       const isExisting = selectedQuiz.questions.some(q => q.id === question.id)
 
-      // Map FE question → BE data
+
       const apiData = {
         lesson: lessonId,
         question_text: question.question,
-        question_type: question.type === 'multiple' ? 'multiple' as const : 'multiple' as const, // BE uses 'multiple' for both
+        question_type: question.type === 'multiple' ? 'multiple' as const : 'multiple' as const,
         options: question.options.map(o => ({ text: o })),
         correct_answer: Array.isArray(question.correctAnswer) ? JSON.stringify(question.correctAnswer) : question.correctAnswer,
         points: question.points,
@@ -358,24 +387,24 @@ export function InstructorQuizzesPage() {
 
   const moveQuestion = useCallback((dragIndex: number, hoverIndex: number) => {
     if (!selectedQuiz) return
-    
+
     const dragQuestion = selectedQuiz.questions[dragIndex]
     const newQuestions = [...selectedQuiz.questions]
     newQuestions.splice(dragIndex, 1)
     newQuestions.splice(hoverIndex, 0, dragQuestion)
-    
-    // Update order
+
+
     const reorderedQuestions = newQuestions.map((q, index) => ({
       ...q,
       order: index + 1
     }))
-    
+
     const updatedQuiz = {
       ...selectedQuiz,
       questions: reorderedQuestions
     }
-    
-    // Update in quizzes state
+
+
     setQuizzes(prev => prev.map(q => q.id === updatedQuiz.id ? updatedQuiz : q))
     setSelectedQuiz(updatedQuiz)
   }, [selectedQuiz])
@@ -399,8 +428,14 @@ export function InstructorQuizzesPage() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="p-8">
-        <div className="mb-8">
+      <motion.div
+        className="p-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
+        <motion.div className="space-y-8" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="mb-8" variants={fadeInUp}>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="mb-2">{t('instructor_quizzes_page.title')}</h1>
@@ -470,11 +505,12 @@ export function InstructorQuizzesPage() {
               </DialogContent>
             </Dialog>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Quizzes List */}
+
+        <motion.div variants={fadeInUp}>
         {selectedQuiz ? (
-          // Quiz Detail View
+
           <Card>
             <CardHeader>
                 <div className="flex items-center justify-between">
@@ -497,7 +533,7 @@ export function InstructorQuizzesPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {/* Quiz Settings */}
+
                 <div className="grid grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
                   <div>
                     <p className="text-sm text-muted-foreground">{t('instructor_quizzes_page.metrics.passing_score')}</p>
@@ -517,7 +553,7 @@ export function InstructorQuizzesPage() {
                   </div>
                 </div>
 
-                {/* Questions */}
+
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold">{t('instructor_quizzes_page.questions.title')}</h3>
@@ -555,7 +591,7 @@ export function InstructorQuizzesPage() {
             </CardContent>
           </Card>
         ) : (
-          // Quizzes List
+
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="md:col-span-2">
@@ -605,7 +641,7 @@ export function InstructorQuizzesPage() {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">{quiz.description}</p>
-                      
+
                       <div className="grid grid-cols-5 gap-4 text-sm">
                         <div>
                           <p className="text-muted-foreground">{t('instructor_quizzes_page.metrics.questions')}</p>
@@ -684,8 +720,9 @@ export function InstructorQuizzesPage() {
             )}
           </div>
         )}
+        </motion.div>
 
-        {/* Question Wizard Dialog */}
+
         <QuestionWizard
           isOpen={isWizardOpen}
           onClose={() => setIsWizardOpen(false)}
@@ -693,7 +730,8 @@ export function InstructorQuizzesPage() {
           initialQuestion={editingQuestion}
           questionOrder={selectedQuiz ? selectedQuiz.questions.length + 1 : 1}
         />
-      </div>
+        </motion.div>
+      </motion.div>
     </DndProvider>
   )
 }

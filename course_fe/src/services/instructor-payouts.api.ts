@@ -1,26 +1,26 @@
-/**
- * Instructor Payouts API Service
- * Payout request & management
- *
- * Endpoints:
- *   GET    /api/instructor-payouts/                    Ã¢â‚¬â€ List payouts (?status=, ?period=, ?instructor_id=, ?payout_id=)
- *   POST   /api/instructor/payouts/request/            Ã¢â‚¬â€ Request payout
- *   PATCH  /api/instructor-payouts/                    Ã¢â‚¬â€ Admin update payout
- *   DELETE /api/instructor-payouts/delete/:id/         Ã¢â‚¬â€ Delete payout
- *   PUT    /api/admin/payouts/:id/approve/             Ã¢â‚¬â€ Admin approve
- *   PUT    /api/admin/payouts/:id/reject/              Ã¢â‚¬â€ Admin reject
- */
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Types Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+
 
 export type PayoutStatus = 'pending' | 'processed' | 'cancelled' | 'failed'
 
 export interface InstructorPayout {
   id: number
   instructor: number
-  amount: string // decimal
+  amount: string
   fee: string
   net_amount: string | null
   payment_method: string
@@ -39,7 +39,7 @@ export interface PayoutRequestData {
   amount: number
   payout_method_id: number
   notes?: string
-  period: string // e.g. "2025-07"
+  period: string
 }
 
 export interface PaginatedPayoutResponse<T> {
@@ -52,9 +52,9 @@ export interface PaginatedPayoutResponse<T> {
   results: T[]
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ API Functions Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-/** List payouts */
+
+
 export async function getInstructorPayouts(params?: {
   status?: PayoutStatus
   period?: string
@@ -92,7 +92,7 @@ export async function getInstructorPayouts(params?: {
   return all
 }
 
-/** List payouts with server pagination */
+
 export async function getInstructorPayoutsPage(params?: {
   status?: PayoutStatus
   period?: string
@@ -126,22 +126,22 @@ export async function getInstructorPayoutsPage(params?: {
   return res as PaginatedPayoutResponse<InstructorPayout>
 }
 
-/** Get my payouts (for current instructor) */
+
 export async function getMyPayouts(instructorId: number): Promise<InstructorPayout[]> {
   return getInstructorPayouts({ instructor_id: instructorId })
 }
 
-/** Request a new payout */
+
 export async function requestPayout(data: PayoutRequestData): Promise<InstructorPayout> {
   return http.post<InstructorPayout>('/instructor/payouts/request/', data)
 }
 
-/** Delete payout */
+
 export async function deletePayout(payoutId: number): Promise<void> {
   return http.delete(`/instructor-payouts/delete/${payoutId}/`)
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+
 
 export function parseDecimal(value: string | null | undefined): number {
   if (!value) return 0

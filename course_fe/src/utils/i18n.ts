@@ -11,7 +11,7 @@ i18n
     debug: false,
     fallbackLng: 'vi',
     interpolation: {
-      escapeValue: false, // not needed for react as it escapes by default
+      escapeValue: false,
     },
     resources: {
       en: {

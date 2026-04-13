@@ -1,4 +1,5 @@
 ﻿import { useEffect, useState } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -43,6 +44,28 @@ interface Resource {
 }
 
 const ITEMS_PER_PAGE = 10
+
+const sectionStagger: any = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp: any = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: 'easeOut',
+    },
+  },
+}
 
 function attachmentToResource(att: LessonAttachment): Resource {
   const typeMap: Record<string, Resource['type']> = {
@@ -301,9 +324,14 @@ export function InstructorResourcesPage() {
   const publicResources = totalCount
 
   return (
-    <div className="p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
+    <motion.div
+      className="p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-7xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="mb-8" variants={fadeInUp}>
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl mb-2">{t('instructor_resources.title')}</h1>
@@ -445,8 +473,9 @@ export function InstructorResourcesPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </motion.div>
 
+        <motion.div variants={fadeInUp}>
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -501,9 +530,10 @@ export function InstructorResourcesPage() {
             </Table>
           </CardContent>
         </Card>
+        </motion.div>
 
         {totalCount > 0 && (
-          <div className="mt-4">
+          <motion.div className="mt-4" variants={fadeInUp}>
             <div className="text-sm text-muted-foreground mb-3">
               {t('instructor_resources.pagination_summary', {
                 from: Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalCount),
@@ -512,7 +542,7 @@ export function InstructorResourcesPage() {
               })}
             </div>
             <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-          </div>
+          </motion.div>
         )}
 
         {editingResource && (
@@ -568,7 +598,7 @@ export function InstructorResourcesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

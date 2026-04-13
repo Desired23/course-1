@@ -11,7 +11,7 @@ import { Textarea } from "../../components/ui/textarea"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../components/ui/sheet"
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence, useReducedMotion, type Variants } from 'motion/react'
 import {
   X,
   List,
@@ -44,9 +44,38 @@ import {
 import { getUserById, type UserProfile } from "../../services/auth.api"
 import { useAuth } from "../../contexts/AuthContext"
 import { getLessonTranscript, type LessonTranscriptDTO } from "../../services/transcript.api"
+import {
+  formatFileSize,
+  getAttachmentsByLesson,
+  resolveAttachmentUrl,
+  type LessonAttachment,
+} from "../../services/lesson-attachments.api"
 import { useTranslation } from "react-i18next"
+import { MOTION_DURATIONS, MOTION_EASING } from '../../lib/motion'
 
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const sectionStagger: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
+  },
+}
+
+
 
 interface CurriculumSection {
   id: number
@@ -87,7 +116,7 @@ interface LessonLearningData {
   bookmarks: number[]
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 
 function buildCurriculum(
   modules: ModuleSummary[],
@@ -203,12 +232,33 @@ function isDirectVideoUrl(url?: string | null): boolean {
   return !/(youtube\.com|youtu\.be)/i.test(url)
 }
 
+function parseTimestampToSeconds(timestamp: string): number | null {
+  const parts = timestamp
+    .split(':')
+    .map((part) => Number(part.trim()))
+
+  if (parts.some((part) => Number.isNaN(part) || part < 0)) {
+    return null
+  }
+
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1]
+  }
+
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  }
+
+  return null
+}
+
 export function CoursePlayerPage() {
   const { t } = useTranslation()
   const { navigate, params } = useRouter()
+  const shouldReduceMotion = useReducedMotion()
   const courseId = Number(params.courseId)
 
-  // â”€â”€ Core State â”€â”€
+
   const [course, setCourse] = useState<CourseDetail | null>(null)
   const [courseProgress, setCourseProgress] = useState<CourseProgress | null>(null)
   const [loading, setLoading] = useState(true)
@@ -218,14 +268,16 @@ export function CoursePlayerPage() {
   const [progress, setProgress] = useState([0])
   const [currentPlaybackTimeSec, setCurrentPlaybackTimeSec] = useState(0)
   const [currentTranscript, setCurrentTranscript] = useState<LessonTranscriptDTO | null>(null)
+  const [seekRequest, setSeekRequest] = useState<{ seconds: number; nonce: number } | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({})
+  const [activeContentTab, setActiveContentTab] = useState<'overview' | 'notes' | 'comments' | 'resources'>('overview')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isCurriculumCollapsed, setIsCurriculumCollapsed] = useState(() => {
     try { const s = localStorage.getItem('curriculumSidebarCollapsed'); return s ? JSON.parse(s) : false }
     catch { return false }
   })
 
-  // Notes (localStorage per course)
+
   const notesKey = `courseNotes_${courseId}`
   const [newNote, setNewNote] = useState('')
   const [notes, setNotes] = useState<CourseNoteItem[]>(() => {
@@ -233,8 +285,10 @@ export function CoursePlayerPage() {
     catch { return [] }
   })
   const [bookmarksByLesson, setBookmarksByLesson] = useState<Record<number, number[]>>({})
+  const [lessonResources, setLessonResources] = useState<LessonAttachment[]>([])
+  const [resourcesLoading, setResourcesLoading] = useState(false)
 
-  // Comments (real API via lesson-comments service)
+
   const { user } = useAuth()
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<number | null>(null)
@@ -246,7 +300,7 @@ export function CoursePlayerPage() {
   const [commentsLoading, setCommentsLoading] = useState(false)
   const commentUserCache = useRef(new Map<number, UserProfile>())
 
-  // Quiz progress (localStorage)
+
   const [quizProgress, setQuizProgress] = useState<Record<number, any>>(() => {
     try { const s = localStorage.getItem('quizProgress'); return s ? JSON.parse(s) : {} }
     catch { return {} }
@@ -255,7 +309,7 @@ export function CoursePlayerPage() {
   const completionInFlightRef = useRef(new Set<number>())
   const lastProgressSyncRef = useRef(new Map<number, number>())
 
-  // â”€â”€ Build curriculum from API data â”€â”€
+
   const lessonProgressMap = useMemo(() => {
     const map = new Map<number, LessonProgress>()
     if (courseProgress?.lessons) {
@@ -328,7 +382,7 @@ export function CoursePlayerPage() {
   const completedLessons = courseProgress?.completed_lessons ?? 0
   const totalLessons = courseProgress?.total_lessons ?? course?.total_lessons ?? 0
 
-  // â”€â”€ Fetch course & progress â”€â”€
+
   useEffect(() => {
     if (!courseId || isNaN(courseId)) {
       setError(t('course_player.invalid_course_id'))
@@ -364,7 +418,7 @@ export function CoursePlayerPage() {
     return () => { cancelled = true }
   }, [courseId, t])
 
-  // Set initial lesson once curriculum is built
+
   useEffect(() => {
     if (curriculum.length > 0 && currentLessonId === null) {
       setExpandedSections({ [curriculum[0].id]: true })
@@ -375,7 +429,7 @@ export function CoursePlayerPage() {
     }
   }, [curriculum, currentLessonId, orderedLessons, furthestUnlockedIndex, completedLessonIds])
 
-  // Save states to localStorage
+
   useEffect(() => {
     try { localStorage.setItem('curriculumSidebarCollapsed', JSON.stringify(isCurriculumCollapsed)) } catch {}
   }, [isCurriculumCollapsed])
@@ -386,7 +440,7 @@ export function CoursePlayerPage() {
     try { localStorage.setItem('quizProgress', JSON.stringify(quizProgress)) } catch {}
   }, [quizProgress])
 
-  // â”€â”€ Load comments from API when lesson changes â”€â”€
+
   const resolveCommentUser = async (userId: number): Promise<{ name: string; initials: string }> => {
     if (commentUserCache.current.has(userId)) {
       const u = commentUserCache.current.get(userId)!
@@ -463,11 +517,44 @@ export function CoursePlayerPage() {
   }, [currentLessonId])
 
   useEffect(() => {
+    let cancelled = false
+
+    async function loadResources() {
+      if (!currentLessonId) {
+        setLessonResources([])
+        setResourcesLoading(false)
+        return
+      }
+
+      setResourcesLoading(true)
+      try {
+        const resources = await getAttachmentsByLesson(currentLessonId)
+        if (!cancelled) {
+          setLessonResources(resources)
+        }
+      } catch {
+        if (!cancelled) {
+          setLessonResources([])
+        }
+      } finally {
+        if (!cancelled) {
+          setResourcesLoading(false)
+        }
+      }
+    }
+
+    void loadResources()
+    return () => {
+      cancelled = true
+    }
+  }, [currentLessonId])
+
+  useEffect(() => {
     setNotes(serverLearningData.notes)
     setBookmarksByLesson(serverLearningData.bookmarksByLesson)
   }, [serverLearningData])
 
-  // â”€â”€ Handlers â”€â”€
+
   const persistLearningDataForLesson = async (
     lessonId: number,
     lessonNotes: CourseNoteItem[],
@@ -525,6 +612,15 @@ export function CoursePlayerPage() {
     } catch {
       toast.error(t('course_player.delete_note_failed'))
     }
+  }
+
+  const handleSeekToTimestamp = (timestamp: string) => {
+    const seconds = parseTimestampToSeconds(timestamp)
+    if (seconds === null) {
+      toast.error(t('course_player.invalid_note_timestamp'))
+      return
+    }
+    setSeekRequest({ seconds, nonce: Date.now() })
   }
 
   const handleBookmarksChange = async (nextBookmarks: number[]) => {
@@ -586,8 +682,27 @@ export function CoursePlayerPage() {
     }
   }
 
-  const handleDownloadResource = (resourceName: string) => {
-    toast.success(t('course_player.downloading_resource', { resourceName }))
+  const handleDownloadResource = (resource: LessonAttachment) => {
+    const resolvedUrl = resolveAttachmentUrl(resource.file_path)
+    if (!resolvedUrl) {
+      toast.error(t('course_player.resource_download_unavailable'))
+      return
+    }
+
+    const anchor = document.createElement('a')
+    anchor.href = resolvedUrl
+    anchor.target = '_blank'
+    anchor.rel = 'noopener noreferrer'
+    anchor.download = resource.title || `attachment-${resource.id}`
+    document.body.appendChild(anchor)
+    anchor.click()
+    document.body.removeChild(anchor)
+
+    toast.success(
+      t('course_player.downloading_resource', {
+        resourceName: resource.title || t('course_player.resource_file_fallback'),
+      })
+    )
   }
 
   const getSavedProgressForLesson = (lessonId: number): number => {
@@ -615,7 +730,7 @@ export function CoursePlayerPage() {
     setCurrentLessonId(lessonId)
     setProgress([getSavedProgressForLesson(lessonId)])
     setCurrentPlaybackTimeSec(0)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: shouldReduceMotion ? 'auto' : 'smooth' })
     setIsSidebarOpen(false)
   }
 
@@ -691,7 +806,7 @@ export function CoursePlayerPage() {
     }
   }
 
-  // â”€â”€ Loading / Error â”€â”€
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -730,7 +845,7 @@ export function CoursePlayerPage() {
     )
   }
 
-  // â”€â”€ Curriculum Sidebar Component â”€â”€
+
   const CurriculumSidebar = () => (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b bg-card/50">
@@ -803,9 +918,15 @@ export function CoursePlayerPage() {
   )
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Course Player Header */}
-      <header className="border-b bg-background sticky top-0 z-50">
+    <motion.div
+      className="min-h-screen bg-background flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+      variants={sectionStagger}
+    >
+
+      <motion.header className="border-b bg-background sticky top-0 z-50" variants={fadeInUp}>
         <div className="flex items-center justify-between h-14 px-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate('/my-learning')}>
@@ -836,39 +957,49 @@ export function CoursePlayerPage() {
             <span className="text-sm text-muted-foreground hidden sm:inline">{t('course_player.progress_complete', { percent: Math.round(overallProgress) })}</span>
           </div>
         </div>
-      </header>
+      </motion.header>
 
-      {/* Main Content Area with Sidebar */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: Video Player + Content Tabs */}
+
+      <motion.div className="flex-1 flex overflow-hidden" variants={fadeInUp}>
+
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Video Player or Quiz */}
-          {currentLesson.type === 'quiz' ? (
-            <div className="bg-muted/50 p-6 overflow-y-auto flex-shrink-0">
-              <QuizPlayer
-                quiz={{ id: currentLessonId!, title: currentLesson.title, questions: [] }}
-                lessonId={currentLessonId!}
-                enrollmentId={course.user_enrollment?.enrollment_id}
-                savedProgress={quizProgress[currentLessonId!]?.answers}
-                onProgressChange={(answers) => {
-                  setQuizProgress(prev => ({
-                    ...prev,
-                    [currentLessonId!]: { ...prev[currentLessonId!], answers, lastSaved: new Date().toISOString() }
-                  }))
-                }}
-                onComplete={(score, passed) => {
-                  setQuizProgress(prev => ({
-                    ...prev,
-                    [currentLessonId!]: { ...prev[currentLessonId!], score, passed, completedAt: new Date().toISOString(), lessonId: currentLessonId }
-                  }))
-                  if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete() }
-                }}
-                onNext={() => goToNextLesson()}
-              />
-            </div>
-          ) : (
-            <div className="flex-shrink-0">
-              {isDirectVideoUrl(currentLesson.videoUrl) ? (
+
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={`${currentLesson.type}-${currentLesson.id}`}
+              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+              transition={{
+                duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.fast,
+                ease: MOTION_EASING.standard,
+              }}
+              className="flex-shrink-0"
+            >
+              {currentLesson.type === 'quiz' ? (
+                <div className="bg-muted/50 p-6 overflow-y-auto">
+                  <QuizPlayer
+                    quiz={{ id: currentLessonId!, title: currentLesson.title, passingScore: 70, questions: [] }}
+                    lessonId={currentLessonId!}
+                    enrollmentId={course.user_enrollment?.enrollment_id}
+                    savedProgress={quizProgress[currentLessonId!]?.answers}
+                    onProgressChange={(answers) => {
+                      setQuizProgress(prev => ({
+                        ...prev,
+                        [currentLessonId!]: { ...prev[currentLessonId!], answers, lastSaved: new Date().toISOString() }
+                      }))
+                    }}
+                    onComplete={(score, passed) => {
+                      setQuizProgress(prev => ({
+                        ...prev,
+                        [currentLessonId!]: { ...prev[currentLessonId!], score, passed, completedAt: new Date().toISOString(), lessonId: currentLessonId }
+                      }))
+                      if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete() }
+                    }}
+                    onNext={() => goToNextLesson()}
+                  />
+                </div>
+              ) : isDirectVideoUrl(currentLesson.videoUrl) ? (
                 <TranscriptVideoPlayer
                   key={currentLessonId}
                   url={currentLesson.videoUrl || ''}
@@ -881,6 +1012,7 @@ export function CoursePlayerPage() {
                   savedProgress={getSavedProgressForLesson(currentLessonId!)}
                   completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
                   restrictForwardSeeking={true}
+                  externalSeekRequest={seekRequest}
                 />
               ) : (
                 <VideoPlayer
@@ -895,24 +1027,25 @@ export function CoursePlayerPage() {
                   savedProgress={getSavedProgressForLesson(currentLessonId!)}
                   completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
                   restrictForwardSeeking={true}
+                  externalSeekRequest={seekRequest}
                 />
               )}
-            </div>
-          )}
+            </motion.div>
+          </AnimatePresence>
 
-          {/* Course Info Bar */}
+
           <div className="border-b bg-card p-4 flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-medium">{course.title}</h2>
                 <p className="text-sm text-muted-foreground">{t('course_player.by_instructor', { name: course.instructor?.full_name || t('course_detail.by_instructor') })}</p>
               </div>
-              <Button variant="outline" onClick={() => navigate(`/course/${courseId}`)}>
+              <Button variant="outline" onClick={() => navigate(`/course/${courseId}`)} className="w-full sm:w-auto">
                 {t('course_player.course_overview')}
               </Button>
             </div>
-            <div className="flex items-center justify-between gap-4 pt-4 border-t">
-              <Button variant="outline" onClick={goToPreviousLesson} disabled={!findPrevLesson(curriculum, currentLessonId!)} className="flex-1">
+            <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <Button variant="outline" onClick={goToPreviousLesson} disabled={!findPrevLesson(curriculum, currentLessonId!)} className="w-full sm:flex-1">
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 {t('course_player.previous_lesson')}
               </Button>
@@ -924,7 +1057,7 @@ export function CoursePlayerPage() {
                 variant="default"
                 onClick={goToNextLesson}
                 disabled={!findNextLesson(curriculum, currentLessonId!) || !currentLessonCompleted}
-                className="flex-1"
+                className="w-full sm:flex-1"
                 title={!currentLessonCompleted
                   ? t('course_player.complete_current_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT })
                   : undefined}
@@ -935,18 +1068,30 @@ export function CoursePlayerPage() {
             </div>
           </div>
 
-          {/* Content Tabs */}
+
           <div className="flex-1 overflow-y-auto">
-            <Tabs defaultValue="overview" className="h-full flex flex-col">
+            <Tabs value={activeContentTab} onValueChange={(value) => setActiveContentTab(value as 'overview' | 'notes' | 'comments' | 'resources')} className="h-full flex flex-col">
               <div className="border-b flex-shrink-0">
-                <TabsList className="w-full justify-start h-12 rounded-none bg-transparent">
-                  <TabsTrigger value="overview" className="rounded-none">{t('course_player.tab_overview')}</TabsTrigger>
-                  <TabsTrigger value="notes" className="rounded-none">{t('course_player.tab_notes')}</TabsTrigger>
-                  <TabsTrigger value="comments" className="rounded-none">{t('course_player.tab_comments')}</TabsTrigger>
-                  <TabsTrigger value="resources" className="rounded-none">{t('course_player.tab_resources')}</TabsTrigger>
+                <TabsList className="relative h-12 w-full justify-start overflow-x-auto rounded-none bg-transparent p-1">
+                  <TabsTrigger value="overview" className="relative shrink-0 rounded-none px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                    {activeContentTab === 'overview' && <motion.span layoutId="course-player-tabs-glider" transition={{ duration: shouldReduceMotion ? 0.01 : 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-none bg-background shadow-sm" />}
+                    <span className="relative z-10">{t('course_player.tab_overview')}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="notes" className="relative shrink-0 rounded-none px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                    {activeContentTab === 'notes' && <motion.span layoutId="course-player-tabs-glider" transition={{ duration: shouldReduceMotion ? 0.01 : 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-none bg-background shadow-sm" />}
+                    <span className="relative z-10">{t('course_player.tab_notes')}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="comments" className="relative shrink-0 rounded-none px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                    {activeContentTab === 'comments' && <motion.span layoutId="course-player-tabs-glider" transition={{ duration: shouldReduceMotion ? 0.01 : 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-none bg-background shadow-sm" />}
+                    <span className="relative z-10">{t('course_player.tab_comments')}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="resources" className="relative shrink-0 rounded-none px-3 py-2 text-xs sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                    {activeContentTab === 'resources' && <motion.span layoutId="course-player-tabs-glider" transition={{ duration: shouldReduceMotion ? 0.01 : 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-none bg-background shadow-sm" />}
+                    <span className="relative z-10">{t('course_player.tab_resources')}</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                 <TabsContent value="overview" className="mt-0">
                   <div className="space-y-6">
                     <div>
@@ -997,7 +1142,13 @@ export function CoursePlayerPage() {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Clock className="w-3 h-3" />
-                                <span>{note.timestamp}</span>
+                                <button
+                                  type="button"
+                                  className="font-medium text-primary hover:underline"
+                                  onClick={() => handleSeekToTimestamp(note.timestamp)}
+                                >
+                                  {note.timestamp}
+                                </button>
                                 <span>•</span>
                                 <span>{note.created}</span>
                               </div>
@@ -1070,18 +1221,31 @@ export function CoursePlayerPage() {
                 <TabsContent value="resources" className="mt-0">
                   <div className="space-y-4">
                     <h3 className="font-medium">{t('course_player.lesson_resources')}</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50 cursor-pointer transition-colors">
-                        <FileText className="w-5 h-5 text-muted-foreground" />
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{t('course_player.course_slides')}</p>
-                          <p className="text-xs text-muted-foreground">{t('course_player.resource_pdf_soon')}</p>
-                        </div>
-                        <Button size="sm" variant="ghost" onClick={() => handleDownloadResource(t('course_player.course_slides'))}>
-                          <Download className="w-4 h-4" />
-                        </Button>
+                    {resourcesLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{t('course_player.loading_resources')}</span>
                       </div>
-                    </div>
+                    ) : lessonResources.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{t('course_player.no_resources')}</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {lessonResources.map((resource) => (
+                          <div key={resource.id} className="flex items-center gap-3 p-3 border rounded hover:bg-muted/50 transition-colors">
+                            <FileText className="w-5 h-5 text-muted-foreground" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{resource.title || t('course_player.resource_file_fallback')}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(resource.file_type || t('course_player.resource_unknown_type'))} • {formatFileSize(resource.file_size)}
+                              </p>
+                            </div>
+                            <Button size="sm" variant="ghost" onClick={() => handleDownloadResource(resource)}>
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </div>
@@ -1089,11 +1253,14 @@ export function CoursePlayerPage() {
           </div>
         </div>
 
-        {/* Right: Desktop Sidebar - Course Content (Collapsible) */}
+
         <motion.div
           initial={false}
           animate={{ width: isCurriculumCollapsed ? '3rem' : '24rem' }}
-          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          transition={{
+            duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.base,
+            ease: MOTION_EASING.standard,
+          }}
           className="hidden lg:block relative border-l bg-card flex-shrink-0"
         >
           <Button
@@ -1112,7 +1279,7 @@ export function CoursePlayerPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.fast }}
                 onClick={() => setIsCurriculumCollapsed(false)}
                 className="flex flex-col items-center justify-start h-full pt-6 cursor-pointer hover:bg-muted/30 transition-colors"
               >
@@ -1128,7 +1295,7 @@ export function CoursePlayerPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.fast }}
                 className="h-full"
               >
                 <CurriculumSidebar />
@@ -1136,8 +1303,8 @@ export function CoursePlayerPage() {
             )}
           </AnimatePresence>
         </motion.div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

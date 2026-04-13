@@ -9,12 +9,12 @@ import { Avatar } from '../../components/ui/avatar'
 import { Badge } from '../../components/ui/badge'
 import { Separator } from '../../components/ui/separator'
 import { Card, CardHeader, CardContent } from '../../components/ui/card'
-import { 
-  Heart, 
-  MessageCircle, 
-  Share2, 
-  Bookmark, 
-  ThumbsUp, 
+import {
+  Heart,
+  MessageCircle,
+  Share2,
+  Bookmark,
+  ThumbsUp,
   ThumbsDown,
   Reply,
   MoreVertical,
@@ -107,7 +107,7 @@ interface Reply {
   adminNote?: string
 }
 
-// Mock data
+
 const mockBlogPost: BlogPost = {
   id: '1',
   title: 'blog_post_page.sample.title',
@@ -217,6 +217,28 @@ const mockComments: Comment[] = [
   }
 ]
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function BlogPostPage() {
   const { navigate } = useRouter()
   const { user, isAuthenticated } = useAuth()
@@ -267,7 +289,7 @@ export function BlogPostPage() {
   const handleShare = (platform: string) => {
     const url = window.location.href
     const title = post.title
-    
+
     switch (platform) {
       case 'copy':
         navigator.clipboard.writeText(url)
@@ -291,7 +313,7 @@ export function BlogPostPage() {
       toast.error(t('blog_post_page.toasts.login_to_comment'))
       return
     }
-    
+
     if (!newComment.trim()) {
       toast.error(t('blog_post_page.toasts.enter_comment'))
       return
@@ -345,12 +367,12 @@ export function BlogPostPage() {
       isEdited: false
     }
 
-    setComments(comments.map(comment => 
-      comment.id === commentId 
+    setComments(comments.map(comment =>
+      comment.id === commentId
         ? { ...comment, replies: [...comment.replies, reply] }
         : comment
     ))
-    
+
     setReplyContent('')
     setReplyingTo(null)
     toast.success(t('blog_post_page.toasts.reply_added'))
@@ -364,14 +386,14 @@ export function BlogPostPage() {
 
     const newLiked = new Set(likedComments)
     const newDisliked = new Set(dislikedComments)
-    
+
     if (likedComments.has(commentId)) {
       newLiked.delete(commentId)
     } else {
       newLiked.add(commentId)
       newDisliked.delete(commentId)
     }
-    
+
     setLikedComments(newLiked)
     setDislikedComments(newDisliked)
   }
@@ -384,14 +406,14 @@ export function BlogPostPage() {
 
     const newDisliked = new Set(dislikedComments)
     const newLiked = new Set(likedComments)
-    
+
     if (dislikedComments.has(commentId)) {
       newDisliked.delete(commentId)
     } else {
       newDisliked.add(commentId)
       newLiked.delete(commentId)
     }
-    
+
     setDislikedComments(newDisliked)
     setLikedComments(newLiked)
   }
@@ -421,47 +443,57 @@ export function BlogPostPage() {
     const diff = now.getTime() - date.getTime()
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(hours / 24)
-    
+
     if (days > 0) return t('blog_post_page.relative.days_ago', { count: days })
     if (hours > 0) return t('blog_post_page.relative.hours_ago', { count: hours })
     return t('blog_post_page.relative.just_now')
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <Button 
-            variant="ghost" 
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div
+        className="max-w-4xl mx-auto px-4 py-8"
+        variants={sectionStagger}
+        initial="hidden"
+        animate="show"
+      >
+
+        <motion.div className="mb-6" variants={fadeInUp}>
+          <Button
+            variant="ghost"
             onClick={handleBack}
             className="mb-4"
           >
             <ArrowLeft size={16} className="mr-2" />
             {t('blog_post_page.back_to_blog')}
           </Button>
-          
+
           {post.featured && (
             <Badge className="mb-2 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
               {t('blog_post_page.featured')}
             </Badge>
           )}
-        </div>
+        </motion.div>
 
-        {/* Article */}
-        <article className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-          {/* Cover Image */}
+
+        <motion.article className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden" variants={fadeInUp}>
+
           {post.coverImage && (
             <div className="aspect-video bg-gray-100 dark:bg-gray-700">
-              <img 
-                src={post.coverImage} 
+              <img
+                src={post.coverImage}
                 alt={post.title}
                 className="w-full h-full object-cover"
               />
             </div>
           )}
 
-          {/* Article Header */}
+
           <div className="p-6">
             <div className="flex items-center gap-4 mb-4">
               <Avatar className="w-12 h-12">
@@ -485,7 +517,7 @@ export function BlogPostPage() {
             </div>
 
             <h1 className="mb-4">{post.title}</h1>
-            
+
             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-6">
               <div className="flex items-center gap-1">
                 <Clock size={16} />
@@ -501,7 +533,7 @@ export function BlogPostPage() {
               </div>
             </div>
 
-            {/* Tags */}
+
             <div className="flex flex-wrap gap-2 mb-6">
               {post.tags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600">
@@ -511,7 +543,7 @@ export function BlogPostPage() {
               ))}
             </div>
 
-            {/* Action Buttons */}
+
             <div className="flex items-center justify-between border-t border-b border-gray-200 dark:border-gray-700 py-4 mb-6">
               <div className="flex items-center gap-4">
                 <Button
@@ -523,7 +555,7 @@ export function BlogPostPage() {
                   <Heart size={16} className={`mr-2 ${isLiked ? 'fill-current' : ''}`} />
                   {post.stats.likes + (isLiked ? 1 : 0)}
                 </Button>
-                
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -558,7 +590,7 @@ export function BlogPostPage() {
                   >
                     <Share2 size={16} />
                   </Button>
-                  
+
                   <AnimatePresence>
                     {showShareMenu && (
                       <motion.div
@@ -600,21 +632,21 @@ export function BlogPostPage() {
               </div>
             </div>
 
-            {/* Article Content */}
+
             <div className="prose dark:prose-invert max-w-none">
               <div dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, '<br />') }} />
             </div>
           </div>
-        </article>
+        </motion.article>
 
-        {/* Comments Section */}
-        <div className="mt-8">
+
+        <motion.div className="mt-8" variants={fadeInUp}>
           <Card>
             <CardHeader>
               <h3>{t('blog_post_page.comments_title', { count: comments.length })}</h3>
             </CardHeader>
             <CardContent>
-              {/* Add Comment */}
+
               {isAuthenticated ? (
                 <div className="mb-6">
                   <div className="flex gap-3">
@@ -649,7 +681,7 @@ export function BlogPostPage() {
                 </div>
               )}
 
-              {/* Comments List */}
+
               <div className="space-y-6">
                 {comments.map((comment) => (
                   <motion.div
@@ -664,7 +696,7 @@ export function BlogPostPage() {
                         <span className="text-sm font-medium">{t('blog_post_page.pinned_comment')}</span>
                       </div>
                     )}
-                    
+
                     <div className="flex gap-3">
                       <Avatar className="w-10 h-10">
                         <img src={comment.author.avatar} alt={comment.author.name} />
@@ -682,14 +714,14 @@ export function BlogPostPage() {
                           </span>
                           {comment.isEdited && (
                           <span className="text-xs text-gray-400">(đã chỉnh sửa)</span>
-                          
+
                           )}
                         </div>
-                        
+
                         <p className="text-gray-700 dark:text-gray-300 mb-3">
                           {comment.content}
                         </p>
-                        
+
                         <div className="flex items-center gap-4 text-sm">
                           <button
                             onClick={() => handleLikeComment(comment.id)}
@@ -700,7 +732,7 @@ export function BlogPostPage() {
                             <ThumbsUp size={14} className={likedComments.has(comment.id) ? 'fill-current' : ''} />
                             {comment.likes + (likedComments.has(comment.id) ? 1 : 0)}
                           </button>
-                          
+
                           <button
                             onClick={() => handleDislikeComment(comment.id)}
                             className={`flex items-center gap-1 hover:text-red-600 ${
@@ -710,7 +742,7 @@ export function BlogPostPage() {
                             <ThumbsDown size={14} className={dislikedComments.has(comment.id) ? 'fill-current' : ''} />
                             {comment.dislikes + (dislikedComments.has(comment.id) ? 1 : 0)}
                           </button>
-                          
+
                           <button
                             onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                             className="flex items-center gap-1 text-gray-500 hover:text-blue-600"
@@ -718,7 +750,7 @@ export function BlogPostPage() {
                             <Reply size={14} />
                             {t('blog_post_page.reply')}
                           </button>
-                          
+
                           {comment.replies.length > 0 && (
                             <button
                               onClick={() => toggleCommentExpansion(comment.id)}
@@ -733,8 +765,8 @@ export function BlogPostPage() {
                             </button>
                           )}
                         </div>
-                        
-                        {/* Reply Form */}
+
+
                         {replyingTo === comment.id && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
@@ -754,15 +786,15 @@ export function BlogPostPage() {
                                   rows={2}
                                 />
                                 <div className="flex gap-2">
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     onClick={() => handleAddReply(comment.id)}
                                     disabled={!replyContent.trim()}
                                   >
                                     {t('blog_post_page.send')}
                                   </Button>
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="ghost"
                                     onClick={() => setReplyingTo(null)}
                                   >
@@ -773,8 +805,8 @@ export function BlogPostPage() {
                             </div>
                           </motion.div>
                         )}
-                        
-                        {/* Replies */}
+
+
                         <AnimatePresence>
                           {expandedComments.has(comment.id) && comment.replies.length > 0 && (
                             <motion.div
@@ -826,8 +858,8 @@ export function BlogPostPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

@@ -17,6 +17,7 @@ import {
   type UserPaymentMethod,
 } from "../../services/payment-method.api"
 import { UserPagination } from "../../components/UserPagination"
+import { motion } from "motion/react"
 
 type MethodType = UserPaymentMethod["method_type"]
 
@@ -28,6 +29,28 @@ const initialFormState = {
   bank_branch: "",
   account_number: "",
   account_name: "",
+}
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.07,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 }
 
 export function UserPaymentMethodsPage() {
@@ -166,8 +189,13 @@ export function UserPaymentMethodsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8">
-      <div className="mb-8 flex justify-between items-start">
+    <motion.div
+      className="max-w-4xl mx-auto p-4 md:p-8"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <motion.div className="mb-8 flex justify-between items-start" variants={fadeInUp} initial="hidden" animate="show">
         <div>
           <h1>{t("user_payment_methods_page.title")}</h1>
           <p className="text-muted-foreground mt-2">{t("user_payment_methods_page.subtitle")}</p>
@@ -234,7 +262,7 @@ export function UserPaymentMethodsPage() {
                       onChange={(e) => setForm({ ...form, bank_branch: e.target.value })}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="accountNumber">{t("user_payment_methods_page.account_number_label")}</Label>
                       <Input
@@ -284,8 +312,9 @@ export function UserPaymentMethodsPage() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </motion.div>
 
+      <motion.div variants={fadeInUp} initial="hidden" animate="show">
       <Card className="mb-4">
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <Input
@@ -335,15 +364,19 @@ export function UserPaymentMethodsPage() {
           </Button>
         </CardContent>
       </Card>
+      </motion.div>
 
-      <div className="space-y-4">
+      <motion.div className="space-y-4" variants={sectionStagger} initial="hidden" animate="show">
         {loading ? (
+          <motion.div variants={fadeInUp}>
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="text-muted-foreground">{t("user_payment_methods_page.loading")}</p>
             </CardContent>
           </Card>
+          </motion.div>
         ) : methods.length === 0 ? (
+          <motion.div variants={fadeInUp}>
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
@@ -354,9 +387,18 @@ export function UserPaymentMethodsPage() {
               </Button>
             </CardContent>
           </Card>
+          </motion.div>
         ) : (
-          methods.map((method) => (
-            <Card key={method.id} className="relative">
+          methods.map((method, index) => (
+            <motion.div
+              key={method.id}
+              variants={fadeInUp}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.22, delay: index * 0.03, ease: "easeOut" }}
+              whileHover={{ y: -2 }}
+            >
+            <Card className="relative">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
@@ -393,12 +435,13 @@ export function UserPaymentMethodsPage() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           ))
         )}
-      </div>
+      </motion.div>
 
       {methods.length > 0 && (
-        <div className="mt-4 flex items-center justify-between">
+        <motion.div className="mt-4 flex items-center justify-between" variants={fadeInUp} initial="hidden" animate="show">
           <p className="text-sm text-muted-foreground">
             {t("user_payment_methods_page.pagination", {
               current: currentPage,
@@ -407,9 +450,10 @@ export function UserPaymentMethodsPage() {
             })}
           </p>
           <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-        </div>
+        </motion.div>
       )}
 
+      <motion.div variants={fadeInUp} initial="hidden" animate="show">
       <Card className="mt-8 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-900">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -421,6 +465,7 @@ export function UserPaymentMethodsPage() {
           <p className="text-sm text-muted-foreground">{t("user_payment_methods_page.security_description")}</p>
         </CardContent>
       </Card>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

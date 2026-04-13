@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { motion } from 'motion/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
@@ -7,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Input } from '../../components/ui/input'
 import { UserPagination } from '../../components/UserPagination'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts'
-import { 
+import {
   HelpCircle,
   Download,
   Info,
@@ -17,6 +18,28 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount } from '../../services/instructor-earnings.api'
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from '../../services/instructor.api'
 import { useTranslation } from 'react-i18next'
+
+const sectionStagger: any = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp: any = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: 'easeOut',
+    },
+  },
+}
 
 export function InstructorSubscriptionRevenuePage() {
   const { t } = useTranslation()
@@ -60,12 +83,12 @@ export function InstructorSubscriptionRevenuePage() {
         setTotalMinutes(Math.round(subscriptionTotal * 100))
         setQualifyingStudents(dashStats.total_students)
 
-        // Map timeseries to performance chart data
+
         const perfData = timeseries.revenue_trend.map((r) => {
           const dateLabel = new Date(r.date + '-01').toLocaleDateString('en', { day: '2-digit', month: '2-digit' })
           return {
             date: dateLabel,
-            minutes: Math.round(r.revenue * 10), // Approximation
+            minutes: Math.round(r.revenue * 10),
             earnings: r.revenue,
           }
         })
@@ -123,8 +146,14 @@ export function InstructorSubscriptionRevenuePage() {
   }, [currentPage, searchQuery, sortBy])
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <motion.div
+      className="container mx-auto p-6 space-y-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="space-y-8" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4" variants={fadeInUp}>
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold">{t('instructor_subscription_revenue.title')}</h1>
@@ -151,10 +180,10 @@ export function InstructorSubscriptionRevenuePage() {
             <Download className="w-4 h-4 mr-2" /> {t('instructor_subscription_revenue.export_report')}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Model Explanation Alert */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 shadow-sm">
+
+      <motion.div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 shadow-sm" variants={fadeInUp}>
         <div className="flex gap-4">
           <div className="bg-white dark:bg-blue-950 p-3 rounded-full h-fit shadow-sm">
              <Crown className="w-6 h-6 text-yellow-500 fill-yellow-500" />
@@ -169,7 +198,7 @@ export function InstructorSubscriptionRevenuePage() {
                  <strong>{t('instructor_subscription_revenue.pool_model_intro_highlight')}</strong>
                  {t('instructor_subscription_revenue.pool_model_intro_after')}
                </p>
-               
+
                <div className="bg-white/60 dark:bg-black/20 p-3 rounded border border-blue-100 dark:border-blue-800/50 flex flex-wrap gap-4 items-center font-mono text-xs md:text-sm">
                   <span className="font-bold">{t('instructor_subscription_revenue.formula_revenue')}</span>
                   <div className="flex flex-col items-center">
@@ -179,7 +208,7 @@ export function InstructorSubscriptionRevenuePage() {
                   <span>?</span>
                   <span className="font-bold text-green-600 dark:text-green-400">{t('instructor_subscription_revenue.formula_total_pool')}</span>
                </div>
-               
+
                <p className="text-xs mt-2 italic flex items-center gap-1">
                  <Info className="w-3 h-3" />
                  {t('instructor_subscription_revenue.engagement_includes')}
@@ -187,10 +216,10 @@ export function InstructorSubscriptionRevenuePage() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-6" variants={fadeInUp}>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.total_earnings')}</CardTitle>
@@ -253,10 +282,10 @@ export function InstructorSubscriptionRevenuePage() {
             <p className="text-xs text-muted-foreground mt-1">{t('instructor_subscription_revenue.paid_subscribers_only')}</p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <motion.div className="grid grid-cols-1 lg:grid-cols-2 gap-6" variants={fadeInUp}>
         <Card className="col-span-1">
           <CardHeader>
             <CardTitle>{t('instructor_subscription_revenue.earnings_vs_engagement')}</CardTitle>
@@ -276,9 +305,9 @@ export function InstructorSubscriptionRevenuePage() {
                   <XAxis dataKey="date" />
                   <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
                   <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                  <Tooltip 
+                  <Tooltip
                      formatter={(value: any, name: any) => [
-                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value, 
+                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value,
                         name
                      ]}
                   />
@@ -303,9 +332,9 @@ export function InstructorSubscriptionRevenuePage() {
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" />
                   <YAxis dataKey="title" type="category" width={150} style={{ fontSize: '12px' }} />
-                  <Tooltip 
+                  <Tooltip
                      formatter={(value: any, name: any) => [
-                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value, 
+                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value,
                         name
                      ]}
                   />
@@ -315,9 +344,10 @@ export function InstructorSubscriptionRevenuePage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      {/* Breakdown Table */}
+
+      <motion.div variants={fadeInUp}>
       <Card>
         <CardHeader>
           <CardTitle>{t('instructor_subscription_revenue.engagement_details')}</CardTitle>
@@ -397,6 +427,8 @@ export function InstructorSubscriptionRevenuePage() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

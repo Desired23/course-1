@@ -11,11 +11,35 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Card } from '../../components/ui/card'
 import { Separator } from '../../components/ui/separator'
 import { Checkbox } from '../../components/ui/checkbox'
+import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { formatCategoryName, BreadcrumbItem } from '../../utils/navigation'
 import { useTranslation } from 'react-i18next'
+import { listItemTransition } from '../../lib/motion'
 
-// Mock course data
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+
 const topicCourses: Record<string, any[]> = {
   'react': [
     {
@@ -167,8 +191,8 @@ const topicCourses: Record<string, any[]> = {
 const levels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced']
 const ratings = [4.5, 4.0, 3.5, 3.0]
 
-// Topic metadata
-const topicMetadata: Record<string, { 
+
+const topicMetadata: Record<string, {
   titleKey: string
   descriptionKey: string
   parentCategory: string
@@ -209,11 +233,11 @@ const topicMetadata: Record<string, {
 export default function TopicPage() {
   const { t } = useTranslation()
   const { currentRoute, navigate } = useRouter()
-  
-  // Extract topic from URL
+
+
   const pathParts = currentRoute.split('/').filter(Boolean)
   const topicSlug = pathParts[1] || ''
-  
+
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLevels, setSelectedLevels] = useState<string[]>([])
   const [selectedRating, setSelectedRating] = useState<number | null>(null)
@@ -226,8 +250,8 @@ export default function TopicPage() {
     t('topic_page.levels.intermediate'),
     t('topic_page.levels.advanced'),
   ]
-  
-  // Get topic info and courses
+
+
   const topicInfo = (() => {
     const metadata = topicMetadata[topicSlug]
 
@@ -253,36 +277,36 @@ export default function TopicPage() {
     title: t(course.titleKey),
     level: t(course.levelKey),
   }))
-  
-  // Generate breadcrumb
+
+
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: t('topic_page.breadcrumb.home'), href: '/' },
     { label: t('topic_page.breadcrumb.topics'), href: '/topics' },
     { label: topicInfo.title, href: `/topic/${topicSlug}` }
   ]
-  
-  // Filter courses
+
+
   const filteredCourses = courses.filter(course => {
-    // Search filter
+
     if (searchQuery && !course.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
         !course.instructor.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
     }
-    
-    // Level filter
+
+
     if (selectedLevels.length > 0 && !selectedLevels.includes(course.level)) {
       return false
     }
-    
-    // Rating filter
+
+
     if (selectedRating && course.rating < selectedRating) {
       return false
     }
-    
+
     return true
   })
-  
-  // Sort courses
+
+
   const sortedCourses = [...filteredCourses].sort((a, b) => {
     switch (sortBy) {
       case 'most-popular':
@@ -299,30 +323,30 @@ export default function TopicPage() {
         return 0
     }
   })
-  
+
   const clearFilters = () => {
     setSearchQuery('')
     setSelectedLevels([])
     setSelectedRating(null)
   }
-  
+
   const hasActiveFilters = searchQuery || selectedLevels.length > 0 || selectedRating !== null
-  
-  // Calculate stats
+
+
   const totalStudents = courses.reduce((sum, c) => {
     const students = c.students.replace(/[K+M+]/g, '')
     const multiplier = c.students.includes('M') ? 1000000 : c.students.includes('K') ? 1000 : 1
     return sum + (parseFloat(students) * multiplier)
   }, 0)
-  
-  const avgRating = courses.length > 0 
+
+  const avgRating = courses.length > 0
     ? (courses.reduce((sum, c) => sum + c.rating, 0) / courses.length).toFixed(1)
     : '0'
-  
-  // Filters sidebar component
+
+
   const FiltersSidebar = () => (
     <div className="space-y-6">
-      {/* Ratings */}
+
       <div>
         <h3 className="font-semibold mb-3">{t('topic_page.filters.ratings')}</h3>
         <div className="space-y-2">
@@ -342,10 +366,10 @@ export default function TopicPage() {
           ))}
         </div>
       </div>
-      
+
       <Separator />
-      
-      {/* Level */}
+
+
       <div>
         <h3 className="font-semibold mb-3">{t('topic_page.filters.level')}</h3>
         <div className="space-y-2">
@@ -366,7 +390,7 @@ export default function TopicPage() {
           ))}
         </div>
       </div>
-      
+
       {hasActiveFilters && (
         <>
           <Separator />
@@ -381,19 +405,26 @@ export default function TopicPage() {
       )}
     </div>
   )
-  
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Topic Banner */}
-      <CategoryBanner
-        title={topicInfo.title}
-        description={topicInfo.description}
-        breadcrumbItems={breadcrumbItems}
-        totalCourses={courses.length}
-      />
-      
-      {/* Topic Stats */}
-      <div className="border-b bg-card">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+
+      <motion.div variants={fadeInUp} initial="hidden" animate="show">
+        <CategoryBanner
+          title={topicInfo.title}
+          description={topicInfo.description}
+          breadcrumbItems={breadcrumbItems}
+          totalCourses={courses.length}
+        />
+      </motion.div>
+
+
+      <motion.div className="border-b bg-card" variants={fadeInUp} initial="hidden" animate="show">
         <div className="container mx-auto px-4 py-4 md:py-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <div className="flex items-center gap-2 md:gap-3">
@@ -405,22 +436,22 @@ export default function TopicPage() {
                 <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.courses')}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 md:gap-3">
               <div className="p-2 md:p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
                 <Users className="w-4 h-4 md:w-6 md:h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-lg md:text-2xl font-semibold">
-                  {totalStudents >= 1000000 
-                    ? `${(totalStudents / 1000000).toFixed(1)}M+` 
+                  {totalStudents >= 1000000
+                    ? `${(totalStudents / 1000000).toFixed(1)}M+`
                     : `${(totalStudents / 1000).toFixed(0)}K+`
                   }
                 </p>
                 <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.students')}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 md:gap-3">
               <div className="p-2 md:p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
                 <Star className="w-4 h-4 md:w-6 md:h-6 text-yellow-600 dark:text-yellow-400" />
@@ -430,7 +461,7 @@ export default function TopicPage() {
                 <p className="text-xs md:text-sm text-muted-foreground">{t('topic_page.stats.avg_rating')}</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2 md:gap-3">
               <div className="p-2 md:p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
                 <TrendingUp className="w-4 h-4 md:w-6 md:h-6 text-green-600 dark:text-green-400" />
@@ -442,11 +473,11 @@ export default function TopicPage() {
             </div>
           </div>
         </div>
-      </div>
-      
-      {/* Related Topics */}
+      </motion.div>
+
+
       {topicInfo.relatedTopics.length > 0 && (
-        <div className="border-b bg-card">
+        <motion.div className="border-b bg-card" variants={fadeInUp} initial="hidden" animate="show">
           <div className="container mx-auto px-4 py-4">
             <h2 className="text-lg font-semibold mb-3">{t('topic_page.related_topics')}</h2>
             <div className="flex flex-wrap gap-2">
@@ -463,12 +494,12 @@ export default function TopicPage() {
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
-      
+
       <div className="container mx-auto px-4 py-6 md:py-8">
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-          {/* Filters Sidebar - Desktop */}
+        <motion.div className="flex flex-col lg:flex-row gap-6 lg:gap-8" variants={sectionStagger} initial="hidden" animate="show">
+
           <aside className="hidden lg:block w-64 flex-shrink-0">
             <Card className="p-4 lg:p-6 sticky top-24">
               <div className="flex items-center justify-between mb-4 lg:mb-6">
@@ -487,12 +518,12 @@ export default function TopicPage() {
               <FiltersSidebar />
             </Card>
           </aside>
-          
-          {/* Main Content */}
-          <div className="flex-1 min-w-0">
-            {/* Search and Controls Bar */}
-            <div className="mb-4 md:mb-6 space-y-3 md:space-y-4">
-              {/* Search */}
+
+
+          <motion.div className="flex-1 min-w-0" variants={fadeInUp}>
+
+            <motion.div className="app-surface-elevated mb-4 md:mb-6 space-y-3 md:space-y-4 rounded-lg p-4 md:p-5" variants={fadeInUp}>
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
                 <Input
@@ -511,15 +542,15 @@ export default function TopicPage() {
                   </button>
                 )}
               </div>
-              
-              {/* Controls Bar */}
+
+
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <p className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
                     {t('topic_page.course_count', { count: sortedCourses.length })}
                   </p>
-                  
-                  {/* Mobile Filter Button */}
+
+
                   <Sheet open={showFilters} onOpenChange={setShowFilters}>
                     <SheetTrigger asChild>
                       <Button variant="outline" size="sm" className="lg:hidden text-xs">
@@ -543,21 +574,23 @@ export default function TopicPage() {
                     </SheetContent>
                   </Sheet>
                 </div>
-                
+
                 <div className="flex items-center gap-2 sm:gap-4">
-                  {/* View Mode Toggle */}
+
                   <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'grid' | 'list')}>
-                    <TabsList className="hidden sm:flex">
-                      <TabsTrigger value="grid">
-                        <Grid className="w-4 h-4" />
+                    <TabsList className="relative hidden sm:flex p-1">
+                      <TabsTrigger value="grid" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                        {viewMode === 'grid' && <motion.span layoutId="topic-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                        <Grid className="relative z-10 w-4 h-4" />
                       </TabsTrigger>
-                      <TabsTrigger value="list">
-                        <List className="w-4 h-4" />
+                      <TabsTrigger value="list" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                        {viewMode === 'list' && <motion.span layoutId="topic-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+                        <List className="relative z-10 w-4 h-4" />
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
-                  
-                  {/* Sort By */}
+
+
                   <Select value={sortBy} onValueChange={setSortBy}>
                     <SelectTrigger className="w-full sm:w-[180px] text-xs sm:text-sm">
                       <SelectValue placeholder={t('topic_page.sort.placeholder')} />
@@ -572,8 +605,8 @@ export default function TopicPage() {
                   </Select>
                 </div>
               </div>
-              
-              {/* Active Filters */}
+
+
               {hasActiveFilters && (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm text-muted-foreground">{t('topic_page.active_filters')}</span>
@@ -597,24 +630,31 @@ export default function TopicPage() {
                   )}
                 </div>
               )}
-            </div>
-            
-            {/* Courses Grid/List */}
+            </motion.div>
+
+
             {sortedCourses.length > 0 ? (
-              <div className={
+              <motion.div variants={fadeInUp} className={
                 viewMode === 'grid'
                   ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
                   : 'space-y-4'
               }>
-                {sortedCourses.map((course) => (
-                  <CourseCard
+                {sortedCourses.map((course, index) => (
+                  <motion.div
                     key={course.id}
-                    {...course}
-                    variant={viewMode === 'list' ? 'horizontal' : 'vertical'}
-                  />
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={listItemTransition(index)}
+                  >
+                    <CourseCard
+                      {...course}
+                      variant={viewMode === 'list' ? 'horizontal' : 'vertical'}
+                    />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             ) : (
+              <motion.div variants={fadeInUp}>
               <Card className="p-12 text-center">
                 <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">{t('topic_page.empty_title')}</h3>
@@ -625,10 +665,11 @@ export default function TopicPage() {
                   <Button onClick={clearFilters}>{t('topic_page.clear_all_filters')}</Button>
                 )}
               </Card>
+              </motion.div>
             )}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

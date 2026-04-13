@@ -1,9 +1,11 @@
 import { ArrowRight, Award, CheckCircle, Star, TrendingUp, Users } from "lucide-react"
+import { motion } from "motion/react"
 import { useTranslation } from "react-i18next"
 import { CourseCard } from "../../components/CourseCard"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
+import { listItemTransition } from "../../lib/motion"
 
 const features = [
   {
@@ -97,12 +99,34 @@ const popularCourses = [
   },
 ]
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function UdemyBusinessPage() {
   const { t } = useTranslation()
 
   return (
-    <div className="min-h-screen bg-background">
-      <section className="relative py-20 bg-gradient-to-br from-blue-600 to-purple-700 text-white overflow-hidden">
+    <motion.div className="min-h-screen bg-background" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.section className="relative py-20 bg-gradient-to-br from-blue-600 to-purple-700 text-white overflow-hidden" variants={fadeInUp}>
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -141,22 +165,28 @@ export function UdemyBusinessPage() {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="py-16 bg-muted/50">
+      <motion.section className="py-16 bg-muted/50" variants={fadeInUp}>
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
-              <div key={index} className="text-center">
+              <motion.div
+                key={index}
+                className="text-center"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(index)}
+              >
                 <div className="text-3xl lg:text-4xl font-bold text-primary mb-2">{stat.number}</div>
                 <div className="text-muted-foreground">{t(stat.labelKey)}</div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="py-20">
+      <motion.section className="py-20" variants={fadeInUp}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('udemy_business_page.why_title')}</h2>
@@ -167,15 +197,22 @@ export function UdemyBusinessPage() {
             {features.map((feature, index) => {
               const IconComponent = feature.icon
               return (
-                <Card key={index} className="text-center p-6">
-                  <CardContent className="pt-6">
-                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <IconComponent className="w-8 h-8 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-3">{t(feature.titleKey)}</h3>
-                    <p className="text-muted-foreground">{t(feature.descriptionKey)}</p>
-                  </CardContent>
-                </Card>
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={listItemTransition(index)}
+                >
+                  <Card className="text-center p-6">
+                    <CardContent className="pt-6">
+                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <IconComponent className="w-8 h-8 text-primary" />
+                      </div>
+                      <h3 className="text-xl font-semibold mb-3">{t(feature.titleKey)}</h3>
+                      <p className="text-muted-foreground">{t(feature.descriptionKey)}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               )
             })}
           </div>
@@ -185,13 +222,19 @@ export function UdemyBusinessPage() {
               <h3 className="text-2xl lg:text-3xl font-bold mb-6">{t('udemy_business_page.growth_title')}</h3>
               <div className="space-y-4">
                 {growthItems.map((item, index) => (
-                  <div key={index} className="flex items-start gap-3">
+                  <motion.div
+                    key={index}
+                    className="flex items-start gap-3"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={listItemTransition(index)}
+                  >
                     <CheckCircle className="w-6 h-6 text-green-600 mt-0.5" />
                     <div>
                       <h4 className="font-semibold mb-1">{t(item.titleKey)}</h4>
                       <p className="text-muted-foreground">{t(item.descriptionKey)}</p>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -204,9 +247,9 @@ export function UdemyBusinessPage() {
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="py-20 bg-muted/50">
+      <motion.section className="py-20 bg-muted/50" variants={fadeInUp}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('udemy_business_page.popular_title')}</h2>
@@ -215,30 +258,36 @@ export function UdemyBusinessPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {popularCourses.map((course, index) => (
-              <CourseCard
+              <motion.div
                 key={index}
-                courseId={`course-${index + 100}`}
-                title={t(course.titleKey)}
-                instructor={course.instructor}
-                image={course.image}
-                rating={course.rating}
-                reviews={15000}
-                price={29.99}
-                originalPrice={199.99}
-                duration="12.5 hours"
-                students={course.students}
-                level="All Levels"
-                currency="USD"
-                variant="vertical"
-                showWishlist={true}
-                showAddToCart={true}
-              />
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(index)}
+              >
+                <CourseCard
+                  courseId={`course-${index + 100}`}
+                  title={t(course.titleKey)}
+                  instructor={course.instructor}
+                  image={course.image}
+                  rating={course.rating}
+                  reviews={15000}
+                  price={29.99}
+                  originalPrice={199.99}
+                  duration="12.5 hours"
+                  students={course.students}
+                  level="All Levels"
+                  currency="USD"
+                  variant="vertical"
+                  showWishlist={true}
+                  showAddToCart={true}
+                />
+              </motion.div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="py-20">
+      <motion.section className="py-20" variants={fadeInUp}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('udemy_business_page.testimonials_title')}</h2>
@@ -247,28 +296,35 @@ export function UdemyBusinessPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <Card key={index} className="p-6">
-                <CardContent className="pt-0">
-                  <div className="flex mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground mb-4 italic">{t(testimonial.contentKey)}</p>
-                  <div>
-                    <div className="font-semibold">{testimonial.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {t(testimonial.roleKey)}, {testimonial.company}
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(index)}
+              >
+                <Card className="p-6">
+                  <CardContent className="pt-0">
+                    <div className="flex mb-4">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      ))}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    <p className="text-muted-foreground mb-4 italic">{t(testimonial.contentKey)}</p>
+                    <div>
+                      <div className="font-semibold">{testimonial.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {t(testimonial.roleKey)}, {testimonial.company}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="py-20 bg-gray-900 text-white">
+      <motion.section className="py-20 bg-gray-900 text-white" variants={fadeInUp}>
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('udemy_business_page.cta_title')}</h2>
           <p className="text-xl mb-8 opacity-90">{t('udemy_business_page.cta_subtitle')}</p>
@@ -291,7 +347,7 @@ export function UdemyBusinessPage() {
             </Button>
           </div>
         </div>
-      </section>
-    </div>
+      </motion.section>
+    </motion.div>
   )
 }

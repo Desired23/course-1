@@ -1,11 +1,36 @@
 import { useState, useEffect } from "react"
-import { Code, Briefcase, Palette, Megaphone, Database, Music, ChevronRight, BookOpen, Target, TrendingUp, Loader2 } from "lucide-react"
+import { Code, Briefcase, Palette, Megaphone, Database, Music, ChevronRight, BookOpen, Target, TrendingUp } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from "../../components/ui/skeleton"
+import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { getActiveCategories, buildCategoryTree, type CategoryTreeNode } from "../../services/category.api"
 import { useTranslation } from "react-i18next"
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.32,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function CategoriesPage() {
   const { navigate } = useRouter()
@@ -32,8 +57,8 @@ export function CategoriesPage() {
     load()
     return () => { cancelled = true }
   }, [])
-  
-  // Icon mapping
+
+
   const iconMap: Record<string, any> = {
     Code,
     Briefcase,
@@ -43,7 +68,7 @@ export function CategoriesPage() {
     Music
   }
 
-  // Pick an icon based on category name (simple heuristic)
+
   const pickIcon = (name: string) => {
     const lower = name.toLowerCase()
     if (lower.includes('develop') || lower.includes('programming') || lower.includes('lập trình')) return Code
@@ -55,7 +80,7 @@ export function CategoriesPage() {
     return BookOpen
   }
 
-  // Pick a color class based on index
+
   const colorClasses = [
     'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400',
     'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400',
@@ -64,47 +89,60 @@ export function CategoriesPage() {
     'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400',
     'bg-teal-100 text-teal-600 dark:bg-teal-900 dark:text-teal-400',
   ]
-  
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-br from-blue-600 to-purple-700 text-white py-16 px-4">
-        <div className="container mx-auto text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+    <motion.div
+      className="min-h-screen bg-gray-50 dark:bg-gray-900"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+
+      <div className="bg-gradient-to-br from-blue-600 to-purple-700 px-4 py-12 text-white sm:py-16">
+        <motion.div className="container mx-auto text-center" variants={fadeInUp} initial="hidden" animate="show">
+          <motion.h1 className="mb-4 text-3xl font-bold md:text-5xl" variants={fadeInUp}>
             {t('categories_page.hero.title')}
-          </h1>
-          <p className="text-xl text-blue-100 max-w-3xl mx-auto mb-8">
+          </motion.h1>
+          <motion.p className="mx-auto mb-8 max-w-3xl text-base text-blue-100 sm:text-xl" variants={fadeInUp}>
             {t('categories_page.hero.description')}
-          </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+          </motion.p>
+          <motion.div className="flex flex-wrap justify-center gap-3 sm:gap-4" variants={fadeInUp}>
+            <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-2 text-xs backdrop-blur-sm sm:px-4 sm:text-sm">
               <BookOpen className="w-5 h-5" />
               <span className="font-semibold">{t('categories_page.hero.stats.courses')}</span>
             </div>
-            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+            <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-2 text-xs backdrop-blur-sm sm:px-4 sm:text-sm">
               <Target className="w-5 h-5" />
               <span className="font-semibold">{t('categories_page.hero.stats.categories')}</span>
             </div>
-            <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+            <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-2 text-xs backdrop-blur-sm sm:px-4 sm:text-sm">
               <TrendingUp className="w-5 h-5" />
               <span className="font-semibold">{t('categories_page.hero.stats.students')}</span>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
 
-      {/* Main Categories Grid */}
-      <div className="container mx-auto px-4 py-12">
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold mb-4">{t('categories_page.popular.title')}</h2>
+
+      <motion.div className="container mx-auto px-4 py-8 sm:py-12" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="mb-12" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
+          <h2 className="mb-4 text-2xl font-bold sm:text-3xl">{t('categories_page.popular.title')}</h2>
           <p className="text-gray-600 dark:text-gray-400">
             {t('categories_page.popular.description')}
           </p>
-        </div>
+        </motion.div>
 
         {loading && (
-          <div className="flex justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={`category-skeleton-${index}`} className="rounded-lg border bg-card p-4 space-y-4 sm:p-6">
+                <Skeleton className="h-14 w-14 rounded-lg" />
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+                <Skeleton className="h-5 w-24" />
+              </div>
+            ))}
           </div>
         )}
 
@@ -121,44 +159,49 @@ export function CategoriesPage() {
             const Icon = pickIcon(category.name)
             const colorClass = colorClasses[idx % colorClasses.length]
             const subcategoryCount = category.children?.length || 0
-            
+
             return (
-              <Card 
-                key={category.id} 
-                className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden"
+              <motion.div
+                key={category.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(idx)}
+              >
+              <Card
+                className="app-interactive cursor-pointer hover:shadow-lg group overflow-hidden"
                 onClick={() => navigate('/courses', undefined, { category: String(category.id) })}
               >
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-start gap-4">
                     <div className={`w-14 h-14 ${colorClass} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform`}>
                       <Icon className="w-7 h-7" />
                     </div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
+
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <h3 className="line-clamp-2 text-lg font-bold transition-colors group-hover:text-primary sm:text-xl">
                           {category.name}
                         </h3>
-                        <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                        <ChevronRight className="h-5 w-5 flex-shrink-0 text-gray-400 transition-all group-hover:translate-x-1 group-hover:text-primary" />
                       </div>
-                      
+
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
                         {category.description || t('categories_page.category_fallback_description', { name: category.name.toLowerCase() })}
                       </p>
-                      
-                      <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                         {subcategoryCount > 0 && (
                           <span>{t('categories_page.subcategories_count', { count: subcategoryCount })}</span>
                         )}
                       </div>
-                      
-                      {/* Subcategories Preview */}
+
+
                       {category.children && category.children.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
                           {category.children.slice(0, 3).map((sub) => (
-                            <Badge 
-                              key={sub.id} 
-                              variant="secondary" 
+                            <Badge
+                              key={sub.id}
+                              variant="secondary"
                               className="text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -179,16 +222,17 @@ export function CategoriesPage() {
                   </div>
                 </CardContent>
               </Card>
+              </motion.div>
             )
           })}
         </div>
         )}
 
-        {/* Category Benefits */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-8 mb-12">
-          <h2 className="text-3xl font-bold mb-6 text-center">{t('categories_page.benefits.title')}</h2>
+
+        <motion.div className="app-surface-elevated mb-12 rounded-lg p-6 sm:p-8" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
+          <h2 className="mb-6 text-center text-2xl font-bold sm:text-3xl">{t('categories_page.benefits.title')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
+            <motion.div className="text-center" variants={fadeInUp}>
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <BookOpen className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
@@ -196,9 +240,9 @@ export function CategoriesPage() {
               <p className="text-gray-600 dark:text-gray-400">
                 {t('categories_page.benefits.diverse_topics.description')}
               </p>
-            </div>
-            
-            <div className="text-center">
+            </motion.div>
+
+            <motion.div className="text-center" variants={fadeInUp}>
               <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Target className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
@@ -206,9 +250,9 @@ export function CategoriesPage() {
               <p className="text-gray-600 dark:text-gray-400">
                 {t('categories_page.benefits.skill_levels.description')}
               </p>
-            </div>
-            
-            <div className="text-center">
+            </motion.div>
+
+            <motion.div className="text-center" variants={fadeInUp}>
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
                 <TrendingUp className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
@@ -216,27 +260,27 @@ export function CategoriesPage() {
               <p className="text-gray-600 dark:text-gray-400">
                 {t('categories_page.benefits.industry_skills.description')}
               </p>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* CTA Section */}
-        <div className="text-center bg-gradient-to-br from-blue-600 to-purple-700 text-white rounded-lg p-12">
-          <h2 className="text-3xl font-bold mb-4">{t('categories_page.cta.title')}</h2>
-          <p className="text-xl text-blue-100 mb-6 max-w-2xl mx-auto">
+
+        <motion.div className="rounded-lg bg-gradient-to-br from-blue-600 to-purple-700 p-8 text-center text-white sm:p-12" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
+          <h2 className="mb-4 text-2xl font-bold sm:text-3xl">{t('categories_page.cta.title')}</h2>
+          <p className="mx-auto mb-6 max-w-2xl text-base text-blue-100 sm:text-xl">
             {t('categories_page.cta.description')}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="hover:bg-gray-100 dark:hover:bg-gray-200"
               style={{ backgroundColor: '#ffffff', color: '#2563eb' }}
               onClick={() => navigate('/courses')}
             >
               {t('categories_page.cta.browse_courses')}
             </Button>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               variant="outline"
               className="hover:bg-white/10"
               style={{ backgroundColor: 'transparent', color: '#ffffff', borderColor: '#ffffff' }}
@@ -245,8 +289,8 @@ export function CategoriesPage() {
               {t('categories_page.cta.signup_free')}
             </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

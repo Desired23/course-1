@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Camera, Mail, Calendar, BookOpen, Users, Edit2, Loader2 } from "lucide-react"
+import { Camera, Mail, Calendar, BookOpen, Users, Edit2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -7,13 +7,38 @@ import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Separator } from "../../components/ui/separator"
+import { motion } from 'motion/react'
 import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
 import { getStudentStats, type StudentStats, getAllMyEnrollments, type Enrollment } from "../../services/enrollment.api"
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function ProfilePage() {
   const { t } = useTranslation()
@@ -32,9 +57,35 @@ export function ProfilePage() {
   })
 
   const [isSaving, setIsSaving] = useState(false)
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'edit' | 'courses' | 'settings'>('overview')
   const [stats, setStats] = useState<StudentStats | null>(null)
   const [myEnrollments, setMyEnrollments] = useState<Enrollment[]>([])
   const [loadingData, setLoadingData] = useState(true)
+
+  const renderProfileSkeleton = () => (
+    <div className="space-y-6">
+      <div className="rounded-lg border bg-card p-6">
+        <div className="flex flex-col md:flex-row gap-6">
+          <Skeleton className="h-32 w-32 rounded-full" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-8 w-52" />
+            <Skeleton className="h-5 w-72" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-4/5" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={`profile-stat-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-3">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-4 w-28" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   useEffect(() => {
     if (!user?.id) return
@@ -99,17 +150,25 @@ export function ProfilePage() {
 
   if (loadingData) {
     return (
-      <div className="p-8 overflow-y-auto min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="p-8 overflow-y-auto">
+        <div className="max-w-5xl mx-auto">
+          {renderProfileSkeleton()}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-8 overflow-y-auto">
-      <div className="max-w-5xl mx-auto">
-        {/* Profile Header */}
-        <Card className="mb-8">
+    <motion.div
+      className="p-8 overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-5xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+
+        <motion.div variants={fadeInUp}>
+        <Card className="app-surface-elevated mb-8">
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row gap-6">
               <div className="relative">
@@ -128,7 +187,7 @@ export function ProfilePage() {
                   <Camera className="w-4 h-4" />
                 </Button>
               </div>
-              
+
               <div className="flex-1">
                 <div className="flex items-start justify-between mb-4">
                   <div>
@@ -144,7 +203,7 @@ export function ProfilePage() {
                       {user.bio || t('profile.no_bio')}
                     </p>
                   </div>
-                  
+
                   <Button
                     variant={isEditing ? "default" : "outline"}
                     onClick={() => setIsEditing(!isEditing)}
@@ -153,7 +212,7 @@ export function ProfilePage() {
                     {isEditing ? t('profile.cancel') : t('profile.edit_profile')}
                   </Button>
                 </div>
-                
+
                 {user.roles?.includes('instructor') && (
                   <div className="flex gap-6 text-sm">
                     <div className="flex items-center gap-1">
@@ -174,18 +233,57 @@ export function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
-            <TabsTrigger value="overview">{t('profile.overview')}</TabsTrigger>
-            <TabsTrigger value="edit">{t('profile.edit_tab')}</TabsTrigger>
-            <TabsTrigger value="courses">{t('profile.my_courses_tab')}</TabsTrigger>
-            <TabsTrigger value="settings">{t('profile.settings_tab')}</TabsTrigger>
+        <motion.div variants={fadeInUp}>
+        <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as 'overview' | 'edit' | 'courses' | 'settings')} className="space-y-6">
+          <TabsList className="relative grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1">
+            <TabsTrigger value="overview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'overview' && (
+                <motion.span
+                  layoutId="profile-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('profile.overview')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="edit" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'edit' && (
+                <motion.span
+                  layoutId="profile-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('profile.edit_tab')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="courses" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'courses' && (
+                <motion.span
+                  layoutId="profile-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('profile.my_courses_tab')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'settings' && (
+                <motion.span
+                  layoutId="profile-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('profile.settings_tab')}</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card>
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={listItemTransition(0)}>
+              <Card className="app-interactive">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{t('profile.learning_progress')}</CardTitle>
                 </CardHeader>
@@ -194,8 +292,10 @@ export function ProfilePage() {
                   <p className="text-sm text-muted-foreground">{t('profile.courses_completed')}</p>
                 </CardContent>
               </Card>
-              
-              <Card>
+              </motion.div>
+
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={listItemTransition(1)}>
+              <Card className="app-interactive">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{t('common.certificate')}</CardTitle>
                 </CardHeader>
@@ -204,8 +304,10 @@ export function ProfilePage() {
                   <p className="text-sm text-muted-foreground">{t('profile.certificates_earned')}</p>
                 </CardContent>
               </Card>
-              
-              <Card>
+              </motion.div>
+
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={listItemTransition(2)}>
+              <Card className="app-interactive">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{t('profile.study_time')}</CardTitle>
                 </CardHeader>
@@ -214,6 +316,7 @@ export function ProfilePage() {
                   <p className="text-sm text-muted-foreground">{t('profile.total_learning_time')}</p>
                 </CardContent>
               </Card>
+              </motion.div>
             </div>
 
             <Card>
@@ -272,7 +375,7 @@ export function ProfilePage() {
                     />
                   </div>
                 </div>
-                
+
                 <div>
                   <Label htmlFor="bio">{t('profile.bio')}</Label>
                   <Textarea
@@ -349,8 +452,14 @@ export function ProfilePage() {
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {myEnrollments.slice(0, 8).map((enrollment) => (
-                      <div key={enrollment.enrollment_id} className="flex items-center justify-between border rounded-md p-3">
+                    {myEnrollments.slice(0, 8).map((enrollment, index) => (
+                      <motion.div
+                        key={enrollment.enrollment_id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={listItemTransition(index)}
+                        className="flex items-center justify-between border rounded-md p-3"
+                      >
                         <div>
                           <p className="font-medium">{enrollment.course.title}</p>
                           <p className="text-xs text-muted-foreground">
@@ -358,7 +467,7 @@ export function ProfilePage() {
                           </p>
                         </div>
                         <Badge variant="outline">{enrollment.status}</Badge>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
@@ -381,9 +490,9 @@ export function ProfilePage() {
                     {t('profile.configure')}
                   </Button>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-medium">{t('profile.privacy_settings')}</h4>
@@ -393,9 +502,9 @@ export function ProfilePage() {
                     {t('profile.manage')}
                   </Button>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-medium">{t('profile.delete_account')}</h4>
@@ -409,7 +518,8 @@ export function ProfilePage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

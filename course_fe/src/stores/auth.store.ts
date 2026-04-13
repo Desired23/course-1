@@ -5,9 +5,9 @@ import { setTokens, getAccessToken, getRefreshToken, API_BASE_URL, getApiTranspo
 import { clearSessionData } from '../services/sessionCleanup'
 import type { UserType } from '../services/auth.api'
 
-// ─── Types ────────────────────────────────────────────────────
 
-/** FE role naming: BE 'student' → FE 'user' */
+
+
 export type UserRole = 'unknown' | 'user' | 'instructor' | 'admin'
 
 export interface Permission {
@@ -18,8 +18,8 @@ export interface Permission {
 }
 
 export interface User {
-  id: string            // string for FE compat (BE returns number)
-  name: string          // mapped from BE full_name or username
+  id: string
+  name: string
   username: string
   email: string
   avatar?: string
@@ -54,10 +54,10 @@ export interface User {
   }
 }
 
-// ─── Constants ────────────────────────────────────────────────
+
 
 export const PERMISSIONS: Permission[] = [
-  // Basic User permissions
+
   { id: 'user.profile.view', name: 'View Profile', category: 'User', description: 'permissions_page.permission_descriptions.user_profile_view' },
   { id: 'user.profile.edit', name: 'Edit Profile', category: 'User', description: 'permissions_page.permission_descriptions.user_profile_edit' },
   { id: 'user.courses.enroll', name: 'Enroll Courses', category: 'User', description: 'permissions_page.permission_descriptions.user_courses_enroll' },
@@ -68,7 +68,7 @@ export const PERMISSIONS: Permission[] = [
   { id: 'user.qna.ask', name: 'Ask Questions', category: 'User', description: 'permissions_page.permission_descriptions.user_qna_ask' },
   { id: 'user.qna.answer', name: 'Answer Questions', category: 'User', description: 'permissions_page.permission_descriptions.user_qna_answer' },
   { id: 'user.social.follow', name: 'Follow Users', category: 'User', description: 'permissions_page.permission_descriptions.user_social_follow' },
-  // Instructor permissions
+
   { id: 'instructor.courses.create', name: 'Create Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_create' },
   { id: 'instructor.courses.edit', name: 'Edit Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_edit' },
   { id: 'instructor.courses.delete', name: 'Delete Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_delete' },
@@ -80,7 +80,7 @@ export const PERMISSIONS: Permission[] = [
   { id: 'instructor.qna.moderate', name: 'Moderate Q&A', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_qna_moderate' },
   { id: 'instructor.comments.moderate', name: 'Moderate Comments', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_comments_moderate' },
   { id: 'instructor.analytics.view', name: 'View Analytics', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_analytics_view' },
-  // Admin permissions
+
   { id: 'admin.users.manage', name: 'Manage Users', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_users_manage' },
   { id: 'admin.users.ban', name: 'Ban Users', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_users_ban' },
   { id: 'admin.courses.manage', name: 'Manage All Courses', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_courses_manage' },
@@ -120,14 +120,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: PERMISSIONS.map(p => p.id),
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
 
-/** Map BE user_type array to FE roles array */
+
+
 function mapUserTypes(userTypes: UserType[]): UserRole[] {
   return userTypes.map(t => (t === 'student' ? 'user' : t)) as UserRole[]
 }
 
-/** Derive permissions from roles */
+
 function derivePermissions(roles: UserRole[]): string[] {
   const perms = new Set<string>()
   roles.forEach(role => {
@@ -136,14 +136,14 @@ function derivePermissions(roles: UserRole[]): string[] {
   return Array.from(perms)
 }
 
-// ─── Store Interface ──────────────────────────────────────────
+
 
 interface AuthState {
   user: User | null
   isLoading: boolean
   error: string | null
 
-  // Actions
+
   login: (username: string, password: string, rememberMe?: boolean) => Promise<boolean>
   loginWithGoogle: (credential: string, rememberMe?: boolean) => Promise<boolean>
   signup: (username: string, email: string, fullName: string, password: string) => Promise<boolean>
@@ -153,7 +153,7 @@ interface AuthState {
   updateProfileSettings: (settings: Partial<User['profileSettings']>) => void
   clearError: () => void
 
-  // Helpers
+
   hasRole: (role: UserRole) => boolean
   hasPermission: (permission: string) => boolean
   hasAnyRole: (roles: UserRole[]) => boolean
@@ -176,7 +176,7 @@ function getAuthErrorMessage(err: any, fallback: string): string {
   return err?.errors?.error || err?.message || fallback
 }
 
-// ─── Store Implementation ─────────────────────────────────────
+
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -192,16 +192,16 @@ export const useAuthStore = create<AuthState>()(
           const res = await apiLogin({ username, password, remember_me: rememberMe })
           console.log('auth.store: login response', res)
 
-          // Store tokens
+
           setTokens(res.access_token, res.refresh_token)
 
-          // Map BE user to FE User
+
           const roles = mapUserTypes(res.user.user_type)
           const permissions = derivePermissions(roles)
 
           const user: User = {
             id: String(res.user.id),
-            name: res.user.username,     // will be updated by fetchProfile
+            name: res.user.username,
             username: res.user.username,
             email: res.user.email,
             roles,
@@ -220,7 +220,7 @@ export const useAuthStore = create<AuthState>()(
 
           set({ user, isLoading: false })
 
-          // Fetch full profile in background (has avatar, full_name, etc.)
+
           get().fetchProfile()
 
           return true
@@ -281,8 +281,8 @@ export const useAuthStore = create<AuthState>()(
           })
 
           set({ isLoading: false })
-          // After register, user needs to verify email before login (status = inactive)
-          // So we don't auto-login here
+
+
           return true
         } catch (err: any) {
           const msg = err?.errors?.error || err?.errors?.email?.[0] || err?.errors?.username?.[0] || err?.message || 'Registration failed'
@@ -292,7 +292,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        // call server to revoke current refresh token (best effort)
+
         const refresh = getRefreshToken()
         if (refresh) {
           fetch(`${API_BASE_URL}/users/logout`, {
@@ -330,26 +330,26 @@ export const useAuthStore = create<AuthState>()(
           })
         } catch (err) {
           console.error('auth.store: fetchProfile failed', err)
-          // Profile fetch failed — keep basic user data from login
+
         }
       },
 
       updateProfile: async (data) => {
         const userId = get().user?.id
         if (!userId) return
-        // Map FE field names → BE field names for API call
+
         const apiData: Record<string, unknown> = {}
         const feData = data as Record<string, unknown>
         for (const [key, value] of Object.entries(feData)) {
           if (key === 'name') apiData['full_name'] = value
           else if (['username', 'email', 'phone', 'avatar', 'address', 'full_name'].includes(key))
             apiData[key] = value
-          // Skip FE-only fields (bio, website, social links, etc.) for API
+
         }
         if (Object.keys(apiData).length > 0) {
           await apiUpdateProfile(Number(userId), apiData as any)
         }
-        // Merge FE input data into local state (keeps FE-only fields)
+
         set((state) => ({
           user: state.user ? { ...state.user, ...data } : null,
         }))
@@ -406,16 +406,16 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        // Only persist user, not tokens (they're in their own localStorage keys)
+
         user: state.user,
       }),
       onRehydrateStorage: () => (state) => {
         if (state && state.user) {
-          // Restore Date objects from strings
+
           if (typeof state.user.createdAt === 'string') state.user.createdAt = new Date(state.user.createdAt)
           if (typeof state.user.lastSeen === 'string') state.user.lastSeen = new Date(state.user.lastSeen as any)
 
-          // If we have a stored user but no access token, clear user
+
           if (!getAccessToken()) {
             state.user = null
           }

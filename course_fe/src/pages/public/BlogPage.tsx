@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Badge } from '../../components/ui/badge'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from '../../components/ui/label'
 import { Separator } from '../../components/ui/separator'
 import { Search, Plus, Eye, MessageCircle, Heart, Share2, Clock, Filter, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
@@ -24,8 +26,31 @@ import {
   getAllBlogComments,
   createBlogComment,
 } from '../../services/blog-posts.api'
+import { listItemTransition } from '../../lib/motion'
 
-// ── Map API data to the shape the original UI expects ────────────────────────
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+
 
 interface BlogPost {
   id: string
@@ -123,7 +148,7 @@ export function BlogPage() {
     tags: ''
   })
 
-  // ── API state ────────────────────────────────────────────────────────────
+
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
@@ -168,12 +193,12 @@ export function BlogPage() {
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          post.content.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory
-    const matchesTab = activeTab === 'all' || 
+    const matchesTab = activeTab === 'all' ||
                       (activeTab === 'published' && post.status === 'approved') ||
                       (activeTab === 'pending' && post.status === 'pending') ||
                       (activeTab === 'drafts' && post.status === 'draft') ||
                       (activeTab === 'my-posts' && post.author.name === user?.name)
-    
+
     return matchesSearch && matchesCategory && matchesTab
   })
 
@@ -183,7 +208,7 @@ export function BlogPage() {
         title: newPost.title,
         content: newPost.content,
         summary: newPost.excerpt,
-        category: undefined, // will need to map category name -> id
+        category: undefined,
         tags: newPost.tags.split(',').map(t => t.trim()).filter(Boolean),
         slug: newPost.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
       })
@@ -227,13 +252,13 @@ export function BlogPage() {
   }
 
   const renderPostCard = (post: BlogPost) => (
-    <Card key={post.id} className="hover:shadow-lg transition-shadow">
+    <Card key={post.id} className="app-interactive hover:shadow-lg">
       <CardHeader>
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               {getStatusIcon(post.status)}
-              <Badge variant={post.status === 'approved' ? 'default' : 
+              <Badge variant={post.status === 'approved' ? 'default' :
                              post.status === 'pending' ? 'secondary' : 'destructive'}>
                 {post.status === 'approved' ? t('blog.status_approved') :
                  post.status === 'pending' ? t('blog.status_pending') :
@@ -261,7 +286,7 @@ export function BlogPage() {
           </div>
           <Badge variant="outline">{post.category}</Badge>
         </div>
-        
+
         <div className="flex flex-wrap gap-1 mb-4">
           {post.tags.map((tag, index) => (
             <Badge key={index} variant="secondary" className="text-xs">
@@ -269,7 +294,7 @@ export function BlogPage() {
             </Badge>
           ))}
         </div>
-        
+
         <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1">
@@ -288,11 +313,11 @@ export function BlogPage() {
           <p>{post.createdAt.toLocaleDateString()}</p>
         </div>
 
-        {/* Action buttons */}
+
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
               setSelectedPost(post)
               loadCommentsForPost(post.id)
@@ -302,8 +327,8 @@ export function BlogPage() {
             <Eye className="h-4 w-4 mr-2" />
             {t('blog.quick_view')}
           </Button>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             onClick={() => navigate(`/blog/${post.id}`)}
             className="flex-1"
           >
@@ -311,7 +336,7 @@ export function BlogPage() {
             {t('blog.view_detail')}
           </Button>
         </div>
-        
+
         {canApprovePosts && post.status === 'pending' && (
           <div className="flex gap-2 mt-2">
             <Button size="sm" onClick={(e) => { e.stopPropagation(); handleApprovePost(post.id) }}>
@@ -328,18 +353,33 @@ export function BlogPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">{t('blog.loading')}</p>
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={`blog-skeleton-${index}`} className="rounded-lg border bg-card p-4 space-y-3">
+              <Skeleton className="h-5 w-4/5" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <motion.div
+      className="container mx-auto p-6 space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="flex justify-between items-center" variants={fadeInUp} initial="hidden" animate="show">
         <div>
           <h1 className="text-3xl font-bold">{t('blog.title')}</h1>
           <p className="text-muted-foreground">{t('blog.articles_subtitle')}</p>
@@ -378,7 +418,7 @@ export function BlogPage() {
                     placeholder={t('blog.excerpt_placeholder')}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="category">{t('blog.category_field')}</Label>
                     <Select value={newPost.category} onValueChange={(value) => setNewPost({...newPost, category: value})}>
@@ -414,11 +454,11 @@ export function BlogPage() {
                     rows={10}
                   />
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto">
                     {t('blog.cancel')}
                   </Button>
-                  <Button onClick={handleCreatePost}>
+                  <Button onClick={handleCreatePost} className="w-full sm:w-auto">
                     {t('blog.submit_for_review')}
                   </Button>
                 </div>
@@ -426,11 +466,11 @@ export function BlogPage() {
             </DialogContent>
           </Dialog>
         )}
-      </div>
+      </motion.div>
 
-      {/* Search and Filters */}
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1 max-w-md">
+
+      <motion.div className="app-surface-elevated flex flex-col gap-3 rounded-lg p-4 sm:flex-row sm:items-center sm:gap-4" variants={fadeInUp} initial="hidden" animate="show">
+        <div className="relative w-full flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t('blog.search_posts')}
@@ -440,7 +480,7 @@ export function BlogPage() {
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -452,40 +492,57 @@ export function BlogPage() {
             <SelectItem value="Content Creation">{t('blog.categories.content_creation')}</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </motion.div>
 
+      <motion.div variants={sectionStagger} initial="hidden" animate="show">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="published">{t('blog.published_tab')}</TabsTrigger>
-          {canApprovePosts && <TabsTrigger value="pending">{t('blog.pending_tab')}</TabsTrigger>}
-          {canCreatePosts && <TabsTrigger value="my-posts">{t('blog.my_posts_tab')}</TabsTrigger>}
-          {canCreatePosts && <TabsTrigger value="drafts">{t('blog.drafts_tab')}</TabsTrigger>}
-          {hasRole('admin') && <TabsTrigger value="all">{t('blog.all_tab')}</TabsTrigger>}
+        <TabsList className="relative w-full justify-start overflow-x-auto p-1">
+          <TabsTrigger value="published" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'published' && <motion.span layoutId="blog-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('blog.published_tab')}</span>
+          </TabsTrigger>
+          {canApprovePosts && <TabsTrigger value="pending" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'pending' && <motion.span layoutId="blog-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('blog.pending_tab')}</span></TabsTrigger>}
+          {canCreatePosts && <TabsTrigger value="my-posts" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'my-posts' && <motion.span layoutId="blog-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('blog.my_posts_tab')}</span></TabsTrigger>}
+          {canCreatePosts && <TabsTrigger value="drafts" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'drafts' && <motion.span layoutId="blog-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('blog.drafts_tab')}</span></TabsTrigger>}
+          {hasRole('admin') && <TabsTrigger value="all" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'all' && <motion.span layoutId="blog-page-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('blog.all_tab')}</span></TabsTrigger>}
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredPosts.map(renderPostCard)}
-          </div>
-          
+          <motion.div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3" variants={fadeInUp}>
+            {filteredPosts.map((post, index) => (
+              <motion.div
+                key={post.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={listItemTransition(index)}
+                whileHover={{ y: -2 }}
+              >
+                {renderPostCard(post)}
+              </motion.div>
+            ))}
+          </motion.div>
+
           {filteredPosts.length === 0 && (
+            <motion.div variants={fadeInUp}>
             <Card>
               <CardContent className="p-12 text-center">
                 <p className="text-muted-foreground">{t('blog.no_posts_found')}</p>
               </CardContent>
             </Card>
+            </motion.div>
           )}
         </TabsContent>
       </Tabs>
+      </motion.div>
 
-      {/* Post Detail Dialog */}
+
       {selectedPost && (
         <Dialog open={!!selectedPost} onOpenChange={() => setSelectedPost(null)}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center gap-2 mb-2">
                 {getStatusIcon(selectedPost.status)}
-                <Badge variant={selectedPost.status === 'approved' ? 'default' : 
+                <Badge variant={selectedPost.status === 'approved' ? 'default' :
                                selectedPost.status === 'pending' ? 'secondary' : 'destructive'}>
                   {selectedPost.status === 'approved' ? t('blog.status_approved') :
                    selectedPost.status === 'pending' ? t('blog.status_pending') :
@@ -525,7 +582,7 @@ export function BlogPage() {
                 </div>
               </div>
             </DialogHeader>
-            
+
             <div className="space-y-4">
               <div className="flex flex-wrap gap-1">
                 {selectedPost.tags.map((tag, index) => (
@@ -534,16 +591,16 @@ export function BlogPage() {
                   </Badge>
                 ))}
               </div>
-              
+
               <Separator />
-              
+
               <div className="prose max-w-none">
                 <p>{selectedPost.content}</p>
               </div>
-              
+
               <Separator />
-              
-              {/* Comments Section */}
+
+
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">{t('blog.comments_count', { count: selectedPost.comments })}</h3>
                 <div className="space-y-4">
@@ -571,8 +628,8 @@ export function BlogPage() {
                           </div>
                         </div>
                       </div>
-                      
-                      {/* Replies */}
+
+
                       {comment.replies.map((reply) => (
                         <div key={reply.id} className="ml-11 flex items-start gap-3">
                           <Avatar className="h-6 w-6">
@@ -595,8 +652,8 @@ export function BlogPage() {
                     </div>
                   ))}
                 </div>
-                
-                {/* Add Comment */}
+
+
                 {user && (
                   <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
                     <Avatar className="h-8 w-8">
@@ -611,7 +668,7 @@ export function BlogPage() {
                 )}
               </div>
             </div>
-            
+
             <div className="flex justify-between items-center pt-4 border-t">
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm">
@@ -623,7 +680,7 @@ export function BlogPage() {
                   {t('blog.share')}
                 </Button>
               </div>
-              
+
               {canApprovePosts && selectedPost.status === 'pending' && (
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => handleApprovePost(selectedPost.id)}>
@@ -638,6 +695,6 @@ export function BlogPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </motion.div>
   )
 }

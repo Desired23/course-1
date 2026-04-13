@@ -3,12 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Progress } from '../../components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { UserPagination } from '../../components/UserPagination'
 import { Users, GraduationCap, TrendingUp, Search, Loader2, Star, BookOpen, Download, Eye } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import {
   getInstructorDashboardStats,
@@ -21,6 +23,29 @@ import {
 } from '../../services/instructor.api'
 import { formatPrice } from '../../services/course.api'
 import { useTranslation } from 'react-i18next'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function InstructorStudentsPage() {
   const { navigate } = useRouter()
@@ -28,27 +53,64 @@ export function InstructorStudentsPage() {
   const [stats, setStats] = useState<InstructorDashboardStats | null>(null)
   const [students, setStudents] = useState<InstructorStudent[]>([])
   const [loading, setLoading] = useState(true)
+  const [studentsLoading, setStudentsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('students')
   const [currentPage, setCurrentPage] = useState(1)
+  const [studentPage, setStudentPage] = useState(1)
+  const [studentCount, setStudentCount] = useState(0)
+  const [studentTotalPages, setStudentTotalPages] = useState(1)
   const [exporting, setExporting] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<InstructorStudentDetail | null>(null)
   const [studentDetailLoading, setStudentDetailLoading] = useState(false)
+
+  const renderStudentsPageSkeleton = () => (
+    <div className="container mx-auto px-4 py-6 md:py-8 space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-5 w-80" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`instructor-students-skeleton-${index}`} className="rounded-lg border bg-card p-4 space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-8 w-20" />
+          </div>
+        ))}
+      </div>
+      <div className="rounded-lg border bg-card p-4 space-y-3">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    </div>
+  )
+
+  const renderStudentTableSkeleton = () => (
+    <div className="space-y-2 py-2">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={`student-row-skeleton-${index}`} className="grid grid-cols-7 gap-3 items-center">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-16 justify-self-end" />
+        </div>
+      ))}
+    </div>
+  )
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
         setLoading(true)
-        const [data, studentData] = await Promise.all([
-          getInstructorDashboardStats(),
-          getInstructorStudents(),
-        ])
+        const data = await getInstructorDashboardStats()
         if (!cancelled) {
           setStats(data)
-          setStudents(studentData)
         }
       } catch (err: any) {
         if (!cancelled) setError(err.message || t('instructor_students_page.errors.load_data'))
@@ -59,6 +121,37 @@ export function InstructorStudentsPage() {
     load()
     return () => { cancelled = true }
   }, [t])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadStudents() {
+      try {
+        setStudentsLoading(true)
+        const studentData = await getInstructorStudents(
+          studentPage,
+          10,
+          undefined,
+          undefined,
+          searchQuery,
+          statusFilter,
+          sortBy,
+        )
+        if (!cancelled) {
+          setStudents(studentData.results)
+          setStudentCount(studentData.count || 0)
+          setStudentTotalPages(studentData.total_pages || 1)
+        }
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || t('instructor_students_page.errors.load_data'))
+      } finally {
+        if (!cancelled) setStudentsLoading(false)
+      }
+    }
+
+    loadStudents()
+    return () => { cancelled = true }
+  }, [searchQuery, statusFilter, sortBy, studentPage, t])
 
   const courseStats = useMemo(() => {
     if (!stats) return []
@@ -83,6 +176,7 @@ export function InstructorStudentsPage() {
 
   useEffect(() => {
     setCurrentPage(1)
+    setStudentPage(1)
   }, [searchQuery, statusFilter, sortBy])
 
   const ITEMS_PER_PAGE = 10
@@ -105,30 +199,7 @@ export function InstructorStudentsPage() {
     }, 0)
   }, [courseStats])
 
-  const filteredStudents = useMemo(() => {
-    return [...students]
-      .filter(student => {
-        const matchesSearch =
-          student.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          student.courses.some(course => course.title.toLowerCase().includes(searchQuery.toLowerCase()))
-
-        const matchesStatus =
-          statusFilter === 'all' ||
-          (statusFilter === 'active' && student.courses.some(course => course.status === 'active')) ||
-          (statusFilter === 'completed' && student.completion_count > 0)
-
-        return matchesSearch && matchesStatus
-      })
-      .sort((a, b) => {
-        if (sortBy === 'rating') return b.average_progress - a.average_progress
-        if (sortBy === 'completion') return b.completion_count - a.completion_count
-        if (sortBy === 'new_students') {
-          return new Date(b.enrolled_at || 0).getTime() - new Date(a.enrolled_at || 0).getTime()
-        }
-        return b.total_courses - a.total_courses
-      })
-  }, [students, searchQuery, statusFilter, sortBy])
+  const filteredStudents = students
 
   async function handleExportStudents() {
     try {
@@ -163,11 +234,7 @@ export function InstructorStudentsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
+    return renderStudentsPageSkeleton()
   }
 
   if (error || !stats) {
@@ -180,14 +247,14 @@ export function InstructorStudentsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 md:py-8 space-y-6">
-      <div>
+    <motion.div className="container mx-auto px-4 py-6 md:py-8 space-y-6" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div variants={fadeInUp}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="mb-2">{t('instructor_students_page.title')}</h1>
             <p className="text-muted-foreground">{t('instructor_students_page.subtitle')}</p>
           </div>
-          <Button onClick={handleExportStudents} disabled={exporting || students.length === 0}>
+          <Button onClick={handleExportStudents} disabled={exporting || studentCount === 0}>
             {exporting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -198,7 +265,7 @@ export function InstructorStudentsPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="app-interactive">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -210,7 +277,7 @@ export function InstructorStudentsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="app-interactive">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -222,7 +289,7 @@ export function InstructorStudentsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="app-interactive">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -234,7 +301,7 @@ export function InstructorStudentsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="app-interactive">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -246,9 +313,10 @@ export function InstructorStudentsPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </motion.div>
 
-      <Card>
+      <motion.div variants={fadeInUp}>
+      <Card className="app-surface-elevated">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="relative md:col-span-2">
@@ -286,8 +354,10 @@ export function InstructorStudentsPage() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
-      <Card>
+      <motion.div variants={fadeInUp}>
+      <Card className="app-surface-elevated">
         <CardHeader>
           <CardTitle>{t('instructor_students_page.course_table.title', { count: courseStats.length })}</CardTitle>
           <CardDescription>{t('instructor_students_page.course_table.description')}</CardDescription>
@@ -306,8 +376,8 @@ export function InstructorStudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedCourseStats.map((course) => (
-                <TableRow key={course.course_id}>
+              {paginatedCourseStats.map((course, index) => (
+                <TableRow key={course.course_id} className={index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'}>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -387,8 +457,10 @@ export function InstructorStudentsPage() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
-      <Card>
+      <motion.div variants={fadeInUp}>
+      <Card className="app-surface-elevated">
         <CardHeader>
           <CardTitle>{t('instructor_students_page.student_table.title', { count: filteredStudents.length })}</CardTitle>
           <CardDescription>{t('instructor_students_page.student_table.description')}</CardDescription>
@@ -407,8 +479,8 @@ export function InstructorStudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.map((student) => (
-                <TableRow key={student.student_id}>
+              {filteredStudents.map((student, index) => (
+                <TableRow key={student.student_id} className={index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'}>
                   <TableCell>
                     <div>
                       <p className="font-medium">{student.full_name}</p>
@@ -450,14 +522,34 @@ export function InstructorStudentsPage() {
             </TableBody>
           </Table>
 
-          {filteredStudents.length === 0 && (
+          {!studentsLoading && filteredStudents.length === 0 && (
             <div className="text-center py-10">
               <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">{t('instructor_students_page.empty.no_students_match')}</p>
             </div>
           )}
+
+          {studentsLoading && renderStudentTableSkeleton()}
+
+          {studentCount > 0 && (
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-muted-foreground">
+                {t('instructor_students_page.pagination.showing_students', {
+                  from: (studentPage - 1) * 10 + 1,
+                  to: Math.min(studentPage * 10, studentCount),
+                  total: studentCount,
+                })}
+              </div>
+              <UserPagination
+                currentPage={studentPage}
+                totalPages={studentTotalPages}
+                onPageChange={setStudentPage}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
+      </motion.div>
 
       <Dialog
         open={!!selectedStudent}
@@ -586,6 +678,6 @@ export function InstructorStudentsPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   )
 }

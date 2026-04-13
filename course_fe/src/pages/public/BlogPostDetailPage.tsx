@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Separator } from '../../components/ui/separator'
 import {
@@ -37,6 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
+import { motion } from 'motion/react'
 import {
   type BlogPost as ApiBlogPost,
   getPublishedBlogPost,
@@ -44,6 +46,29 @@ import {
   increaseViews,
 } from '../../services/blog-posts.api'
 import { useTranslation } from 'react-i18next'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 interface BlogPostDetail {
   id: string
@@ -186,10 +211,18 @@ export function BlogPostDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto flex min-h-[400px] items-center justify-center p-6">
-        <div className="space-y-2 text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
-          <p className="text-muted-foreground">{t('blog_post_detail_page.loading')}</p>
+      <div className="container mx-auto max-w-4xl space-y-6 px-4 py-6 sm:p-6">
+        <Skeleton className="h-5 w-56" />
+        <Skeleton className="h-9 w-4/5" />
+        <div className="grid gap-8 lg:grid-cols-4">
+          <div className="lg:col-span-3 space-y-4">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-56 w-full" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-44 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
         </div>
       </div>
     )
@@ -197,7 +230,7 @@ export function BlogPostDetailPage() {
 
   if (!post) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto px-4 py-6 sm:p-6">
         <div className="py-12 text-center">
           <h2 className="mb-4 text-2xl">{t('blog_post_detail_page.not_found')}</h2>
           <Button onClick={() => navigate('/blog')}>
@@ -210,8 +243,19 @@ export function BlogPostDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-4xl p-6">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div
+        className="container mx-auto max-w-4xl px-4 py-6 sm:p-6"
+        variants={sectionStagger}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.div variants={fadeInUp}>
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -231,14 +275,22 @@ export function BlogPostDetailPage() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+        </motion.div>
 
-        <Button variant="ghost" onClick={() => navigate('/blog')} className="mb-6">
+        <motion.div variants={fadeInUp}>
+        <Button variant="ghost" onClick={() => navigate('/blog')} className="mb-6 w-full justify-start sm:w-auto">
           <ArrowLeft className="mr-2 h-4 w-4" />
           {t('blog_post_detail_page.back_to_blog')}
         </Button>
+        </motion.div>
 
-        <div className="grid gap-8 lg:grid-cols-4">
-          <div className="lg:col-span-3">
+        <motion.div className="grid gap-8 lg:grid-cols-4" variants={fadeInUp}>
+          <motion.div
+            className="lg:col-span-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={listItemTransition(0)}
+          >
             <article>
               <header className="mb-8">
                 <div className="mb-4 flex items-center gap-2">
@@ -252,9 +304,9 @@ export function BlogPostDetailPage() {
                   </Badge>
                 </div>
 
-                <h1 className="mb-6 text-4xl">{post.title}</h1>
+                <h1 className="mb-6 text-2xl sm:text-3xl lg:text-4xl">{post.title}</h1>
 
-                <div className="mb-6 flex items-center justify-between gap-4">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={post.author.avatar} />
@@ -263,7 +315,7 @@ export function BlogPostDetailPage() {
                     <div>
                       <p className="font-medium">{post.author.name}</p>
                       <p className="text-sm text-muted-foreground">{post.author.role}</p>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {post.publishedAt?.toLocaleDateString('vi-VN')}
@@ -365,11 +417,16 @@ export function BlogPostDetailPage() {
                 showModeration={hasPermission('admin.comments.moderate')}
               />
             </div>
-          </div>
+          </motion.div>
 
-          <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              <Card>
+          <motion.div
+            className="lg:col-span-1"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={listItemTransition(1)}
+          >
+            <div className="space-y-6 lg:sticky lg:top-8">
+              <Card className="app-surface-elevated">
                 <CardHeader>
                   <CardTitle className="text-lg">
                     {t('blog_post_detail_page.about_author')}
@@ -410,7 +467,7 @@ export function BlogPostDetailPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="app-surface-elevated">
                 <CardHeader>
                   <CardTitle className="text-lg">{t('blog_post_detail_page.stats.title')}</CardTitle>
                 </CardHeader>
@@ -443,7 +500,7 @@ export function BlogPostDetailPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="app-surface-elevated">
                 <CardHeader>
                   <CardTitle className="text-lg">
                     {t('blog_post_detail_page.related_posts.title')}
@@ -456,9 +513,9 @@ export function BlogPostDetailPage() {
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
   )
 }

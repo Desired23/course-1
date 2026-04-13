@@ -1,46 +1,46 @@
-/**
- * Admin API Service — Dashboard Stats & Analytics
- *
- * BE endpoints:
- *   GET /api/admin/dashboard/stats/           — overall platform stats
- *   GET /api/admin/analytics/revenue/?months=6 — monthly revenue trend
- *   GET /api/admin/analytics/users/?months=6   — monthly user registration trend
- *   GET /api/admin/analytics/courses/          — top courses by enrollment
- *
- *   Admin CRUD:
- *   GET    /api/admins/                        — list admins (paginated)
- *   POST   /api/admins/create                  — create admin
- *   GET    /api/admins/<id>                    — admin detail
- *   PATCH  /api/admins/<id>/update             — update admin
- *   DELETE /api/admins/<id>/delete             — delete admin
- *
- *   Applications (review):
- *   GET    /api/applications/admin/            — list all applications
- *   PATCH  /api/applications/<id>/review/      — approve/reject application
- *
- *   Activity Logs:
- *   GET    /api/activity-logs/                 — list activity logs
- *   DELETE /api/activity-logs/cleanup/         — cleanup old logs
- *
- *   Subscription Plans (admin):
- *   GET/POST /api/subscription-plans/admin/                   — list/create plans
- *   PATCH/DEL /api/subscription-plans/admin/<id>/             — update/delete plan
- *   GET/POST  /api/subscription-plans/admin/<id>/courses/     — manage plan courses
- *   GET       /api/subscription-plans/admin/<id>/subscribers/ — list subscribers
- *
- *   System Settings:
- *   GET    /api/systems_settings/              — list settings
- *   POST   /api/systems_settings/create/       — create setting
- *   PATCH  /api/systems_settings/<id>/update/  — update setting
- *   DELETE /api/systems_settings/<id>/delete/  — delete setting
- *
- *   Users (admin):
- *   GET    /api/users/                         — list all users
- *   POST   /api/users/create                   — create user
- *   GET    /api/users/<id>                     — user detail
- *   PATCH  /api/users/<id>/update              — admin update user
- *   DELETE /api/users/<id>/delete              — delete user
- */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
@@ -70,9 +70,9 @@ async function fetchAllPages<T>(endpoint: string): Promise<T[]> {
   return all
 }
 
-// ─── Dashboard Stats ──────────────────────────────────────────────────────────
 
-// ─── Payments (admin) ─────────────────────────────────────────────────────────
+
+
 
 export interface AdminPaymentCourse {
   course_id: number
@@ -91,10 +91,10 @@ export interface AdminPayment {
   courses: AdminPaymentCourse[]
 }
 
-/**
- * List payments for the admin dashboard.
- * @param problematic only include payments with missing enrollment when true
- */
+
+
+
+
 export async function getAdminPayments(problematic = false): Promise<AdminPayment[]> {
   const all: AdminPayment[] = []
   let page = 1
@@ -171,7 +171,7 @@ export async function getAdminCourseAnalytics(): Promise<TopCourse[]> {
   return http.get<TopCourse[]>('/admin/analytics/courses/')
 }
 
-// ─── Admin CRUD ───────────────────────────────────────────────────────────────
+
 
 export interface AdminUser {
   id: number
@@ -206,7 +206,7 @@ export async function deleteAdmin(adminId: number): Promise<{ message: string }>
   return http.delete<{ message: string }>(`/admins/${adminId}/delete`)
 }
 
-// ─── Applications (admin review) ─────────────────────────────────────────────
+
 
 export interface Application {
   id: number
@@ -232,7 +232,7 @@ export async function reviewApplication(
   return http.patch<Application>(`/applications/${applicationId}/review/`, data)
 }
 
-// ─── Activity Logs ────────────────────────────────────────────────────────────
+
 
 export interface ActivityLog {
   id: number
@@ -253,7 +253,7 @@ export async function cleanupActivityLogs(): Promise<{ message: string }> {
   return http.delete<{ message: string }>('/activity-logs/cleanup/')
 }
 
-// ─── Subscription Plans (admin) ───────────────────────────────────────────────
+
 
 export async function getAdminSubscriptionPlans(): Promise<any[]> {
   return fetchAllPages<any>('/subscription-plans/admin/')
@@ -290,7 +290,7 @@ export async function managePlanCourses(planId: number, data?: Record<string, an
   return fetchAllPages<any>(`/subscription-plans/admin/${planId}/courses/`)
 }
 
-// ─── System Settings ──────────────────────────────────────────────────────────
+
 
 export interface SystemSetting {
   id: number
@@ -317,7 +317,7 @@ export async function deleteSystemSetting(settingId: number): Promise<{ message:
   return http.delete<{ message: string }>(`/systems_settings/${settingId}/delete/`)
 }
 
-// ─── Users (admin management) ─────────────────────────────────────────────────
+
 
 export interface UserItem {
   id: number
@@ -374,7 +374,7 @@ export async function deleteUser(userId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/users/${userId}/delete`)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 
 export function formatAdminCurrency(amount: number): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)

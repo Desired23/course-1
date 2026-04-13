@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion } from 'motion/react'
 import { Search, TrendingUp, Code, Database, Palette, Megaphone, Users, Camera, Music, Heart, BookOpen, ChevronRight } from 'lucide-react'
 import { Input } from '../../components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -21,7 +22,7 @@ interface Topic {
 }
 
 const allTopics: Topic[] = [
-  // Development
+
   {
     id: '1',
     name: 'React',
@@ -110,8 +111,8 @@ const allTopics: Topic[] = [
     trending: false,
     descriptionKey: 'php'
   },
-  
-  // Data Science & AI
+
+
   {
     id: '9',
     name: 'Machine Learning',
@@ -156,8 +157,8 @@ const allTopics: Topic[] = [
     trending: false,
     descriptionKey: 'sql'
   },
-  
-  // Design
+
+
   {
     id: '13',
     name: 'UI/UX Design',
@@ -202,8 +203,8 @@ const allTopics: Topic[] = [
     trending: false,
     descriptionKey: 'photoshop'
   },
-  
-  // Marketing
+
+
   {
     id: '17',
     name: 'Digital Marketing',
@@ -258,35 +259,62 @@ const categories = [
   { id: 'marketing', icon: Megaphone }
 ]
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export default function AllTopicsPage() {
   const { navigate } = useRouter()
   const { t } = useTranslation()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  
-  // Filter topics
+
+
   const filteredTopics = allTopics.filter(topic => {
     const matchesSearch = topic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          topic.description.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = selectedCategory === 'all' || topic.category === selectedCategory
     return matchesSearch && matchesCategory
   })
-  
-  // Separate trending topics
+
+
   const trendingTopics = filteredTopics.filter(t => t.trending)
   const otherTopics = filteredTopics.filter(t => !t.trending)
-  
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-900 to-purple-700 text-white">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+
+      <motion.div className="bg-gradient-to-r from-purple-900 to-purple-700 text-white" variants={fadeInUp} initial="hidden" animate="show">
         <div className="container mx-auto px-4 py-8 md:py-12">
           <h1 className="text-2xl md:text-4xl mb-3 md:mb-4">{t('all_topics_page.title')}</h1>
           <p className="text-sm md:text-lg text-gray-200 mb-4 md:mb-6 max-w-2xl">
             {t('all_topics_page.hero_description')}
           </p>
-          
-          {/* Search */}
+
+
           <div className="max-w-2xl">
             <div className="relative">
               <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
@@ -300,48 +328,64 @@ export default function AllTopicsPage() {
             </div>
           </div>
         </div>
-      </div>
-      
+      </motion.div>
+
       <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Category Tabs */}
+        <motion.div variants={sectionStagger} initial="hidden" animate="show">
+
+        <motion.div variants={fadeInUp}>
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="mb-6 md:mb-8">
-          <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto gap-2 bg-transparent p-0">
+          <TabsList className="h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto bg-transparent p-1">
             {categories.map(category => {
               const Icon = category.icon
               return (
                 <TabsTrigger
                   key={category.id}
                   value={category.id}
-                  className="gap-1 md:gap-2 text-xs md:text-sm data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                  className={`relative shrink-0 whitespace-nowrap gap-1 text-xs md:gap-2 md:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none ${selectedCategory === category.id ? 'text-white' : ''}`}
                 >
-                  <Icon className="w-3 h-3 md:w-4 md:h-4" />
-                  <span className="whitespace-nowrap">{t(`all_topics_page.categories.${category.id}`)}</span>
+                  {selectedCategory === category.id && (
+                    <motion.span
+                      layoutId="all-topics-tabs-glider"
+                      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute inset-0 rounded-md bg-purple-600 shadow-sm"
+                    />
+                  )}
+                  <Icon className="relative z-10 w-3 h-3 md:w-4 md:h-4" />
+                  <span className="relative z-10 whitespace-nowrap">{t(`all_topics_page.categories.${category.id}`)}</span>
                 </TabsTrigger>
               )
             })}
           </TabsList>
         </Tabs>
-        
-        {/* Results Count */}
-        <div className="mb-4 md:mb-6">
+        </motion.div>
+
+
+        <motion.div className="mb-4 md:mb-6" variants={fadeInUp}>
           <p className="text-sm md:text-base text-muted-foreground">
             {t('all_topics_page.showing_topics', { count: filteredTopics.length })}
           </p>
-        </div>
-        
-        {/* Trending Topics */}
+        </motion.div>
+
+
         {trendingTopics.length > 0 && (
-          <div className="mb-8 md:mb-12">
+          <motion.div className="mb-8 md:mb-12" variants={fadeInUp}>
             <div className="flex items-center gap-2 mb-4 md:mb-6">
               <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
               <h2 className="text-xl md:text-2xl font-semibold">{t('all_topics_page.trending_title')}</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {trendingTopics.map(topic => {
+              {trendingTopics.map((topic, index) => {
                 const Icon = topic.icon
                 return (
-                  <Card
+                  <motion.div
                     key={topic.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, delay: index * 0.03, ease: 'easeOut' }}
+                    whileHover={{ y: -2 }}
+                  >
+                  <Card
                     className="group cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-purple-400"
                     onClick={() => navigate(`/topic/${topic.slug}`)}
                   >
@@ -360,7 +404,7 @@ export default function AllTopicsPage() {
                       <CardDescription>{t(`all_topics_page.descriptions.${topic.descriptionKey}`)}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                         <span>{t('all_topics_page.course_count', { count: topic.courseCount })}</span>
                         <span>{t('all_topics_page.student_count', { count: topic.studentCount })}</span>
                       </div>
@@ -370,24 +414,31 @@ export default function AllTopicsPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  </motion.div>
                 )
               })}
             </div>
-          </div>
+          </motion.div>
         )}
-        
-        {/* All Topics */}
+
+
         {otherTopics.length > 0 && (
-          <div>
+          <motion.div variants={fadeInUp}>
             <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6">
               {trendingTopics.length > 0 ? t('all_topics_page.more_topics') : t('all_topics_page.all_topics')}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {otherTopics.map(topic => {
+              {otherTopics.map((topic, index) => {
                 const Icon = topic.icon
                 return (
-                  <Card
+                  <motion.div
                     key={topic.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.22, delay: index * 0.02, ease: 'easeOut' }}
+                    whileHover={{ y: -2 }}
+                  >
+                  <Card
                     className="group cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-105 hover:border-purple-400"
                     onClick={() => navigate(`/topic/${topic.slug}`)}
                   >
@@ -401,7 +452,7 @@ export default function AllTopicsPage() {
                       <CardDescription>{t(`all_topics_page.descriptions.${topic.descriptionKey}`)}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                         <span>{t('all_topics_page.course_count', { count: topic.courseCount })}</span>
                         <span>{t('all_topics_page.student_count', { count: topic.studentCount })}</span>
                       </div>
@@ -411,15 +462,17 @@ export default function AllTopicsPage() {
                       </div>
                     </CardContent>
                   </Card>
+                  </motion.div>
                 )
               })}
             </div>
-          </div>
+          </motion.div>
         )}
-        
-        {/* No Results */}
+
+
         {filteredTopics.length === 0 && (
-          <Card className="p-12 text-center">
+          <motion.div variants={fadeInUp}>
+          <Card className="p-8 text-center sm:p-12">
             <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-semibold mb-2">{t('all_topics_page.empty.title')}</h3>
             <p className="text-muted-foreground mb-4">
@@ -432,8 +485,10 @@ export default function AllTopicsPage() {
               {t('all_topics_page.empty.clear_filters')}
             </Button>
           </Card>
+          </motion.div>
         )}
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

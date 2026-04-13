@@ -24,19 +24,19 @@ import { generateLessonTranscript } from "../../services/transcript.api"
 import { useAuthStore } from "../../stores/auth.store"
 import { useTranslation } from 'react-i18next'
 
-// Course structure is now fetched from API in the component's useEffect
+
 
 export function InstructorLessonsPageNew() {
   const { params, navigate } = useRouter()
   const { t } = useTranslation()
   const courseId = params?.courseId
   const isAdmin = useAuthStore(state => state.hasRole('admin'))
-  
-  // State management
+
+
   const [sections, setSections] = useLocalStorage(`courseSections_${courseId}`, [] as any[])
   const [courseTitle, setCourseTitle] = useState('')
   const [selectedLesson, setSelectedLesson] = useState<any>(null)
-  // const [editingLesson, setEditingLesson] = useState<any>(null) // No longer needed
+
   const [editingSection, setEditingSection] = useState<any>(null)
   const [editingSectionForm, setEditingSectionForm] = useState({ title: '', description: '' })
   const [showAddSection, setShowAddSection] = useState(false)
@@ -48,11 +48,11 @@ export function InstructorLessonsPageNew() {
     description: '',
     duration: ''
   })
-  // Snapshot of last-saved positions to avoid sending unchanged updates on Save Changes
+
   const lessonPositionRef = useRef<Map<number, { coursemodule: number; order: number }>>(new Map())
   const sectionOrderRef = useRef<Map<number, number>>(new Map())
-  
-  // Layout state
+
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useLocalStorage('lessonSidebarCollapsed', false)
   const [showStatsPanel, setShowStatsPanel] = useLocalStorage('showStatsPanel', true)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
@@ -170,23 +170,23 @@ export function InstructorLessonsPageNew() {
     }
   }, [buildCurriculumChanges, sections, syncSavedPositionSnapshot, t])
 
-  // Fetch course modules and lessons from API
+
   useEffect(() => {
     if (!courseId) return
     let cancelled = false
 
     async function fetchCourseData() {
       try {
-        // Fetch course title
+
         const course = await getCourseById(Number(courseId))
         if (cancelled) return
         setCourseTitle(course.title)
 
-        // Fetch modules
+
         const modules = await getAllCourseModules(Number(courseId))
         if (cancelled) return
 
-        // Fetch lessons for each module
+
         const sectionsData = await Promise.all(
           modules.map(async (mod) => {
             const lessons = await getAllLessons(mod.id)
@@ -219,18 +219,18 @@ export function InstructorLessonsPageNew() {
         hasLoadedInitialDataRef.current = true
       } catch (err) {
         console.error(t('instructor_lessons_page_new.errors.load_course_structure_console'), err)
-        // Keep local storage data as fallback
+
       }
     }
     fetchCourseData()
     return () => { cancelled = true }
   }, [courseId, syncSavedPositionSnapshot, t])
 
-  // Bulk selection state
+
   const [showBulkSelection, setShowBulkSelection] = useState(false)
   const [selectedLessonIds, setSelectedLessonIds] = useState<Set<number>>(new Set())
 
-  // Bulk selection handlers
+
   const handleCheckLesson = useCallback((lessonId: number, checked: boolean) => {
     setSelectedLessonIds(prev => {
       const newSet = new Set(prev)
@@ -252,7 +252,7 @@ export function InstructorLessonsPageNew() {
       await Promise.all(
         Array.from(selectedLessonIds).map(id => updateLessonApi(id, { status: 'published' }))
       )
-      setSections(prevSections => 
+      setSections(prevSections =>
         prevSections.map(section => ({
           ...section,
           lessons: section.lessons.map(lesson =>
@@ -275,7 +275,7 @@ export function InstructorLessonsPageNew() {
       await Promise.all(
         Array.from(selectedLessonIds).map(id => updateLessonApi(id, { status: 'draft' }))
       )
-      setSections(prevSections => 
+      setSections(prevSections =>
         prevSections.map(section => ({
           ...section,
           lessons: section.lessons.map(lesson =>
@@ -302,7 +302,7 @@ export function InstructorLessonsPageNew() {
       await Promise.all(
         Array.from(selectedLessonIds).map(id => deleteLessonApi(id))
       )
-      setSections(prevSections => 
+      setSections(prevSections =>
         prevSections.map(section => ({
           ...section,
             lessons: section.lessons.filter(lesson => !selectedLessonIds.has(lesson.id))
@@ -316,7 +316,7 @@ export function InstructorLessonsPageNew() {
     }
   }, [selectedLessonIds, setSections, handleClearSelection, t])
 
-  // Drag & Drop handlers
+
   const moveSection = useCallback((dragIndex: number, hoverIndex: number) => {
     setSections(prevSections => {
       const newSections = [...prevSections]
@@ -331,19 +331,19 @@ export function InstructorLessonsPageNew() {
     setSections(prevSections => {
       const newSections = [...prevSections]
       const sectionIndex = newSections.findIndex(s => s.id === sectionId)
-      
+
       if (sectionIndex === -1) return prevSections
-      
+
       const section = { ...newSections[sectionIndex] }
       const lessons = [...section.lessons]
-      
+
       const dragLesson = lessons[dragIndex]
       lessons.splice(dragIndex, 1)
       lessons.splice(hoverIndex, 0, dragLesson)
-      
+
       section.lessons = lessons
       newSections[sectionIndex] = section
-      
+
       return newSections
     })
   }, [setSections])
@@ -351,34 +351,34 @@ export function InstructorLessonsPageNew() {
   const moveLessonBetweenSections = useCallback((fromSectionId: number, toSectionId: number, lessonId: number, toIndex: number) => {
     setSections(prevSections => {
       const newSections = [...prevSections]
-      
+
       const fromSectionIndex = newSections.findIndex(s => s.id === fromSectionId)
       const toSectionIndex = newSections.findIndex(s => s.id === toSectionId)
-      
+
       if (fromSectionIndex === -1 || toSectionIndex === -1) return prevSections
-      
+
       const fromSection = { ...newSections[fromSectionIndex] }
       const toSection = { ...newSections[toSectionIndex] }
-      
+
       const lessonIndex = fromSection.lessons.findIndex(l => l.id === lessonId)
       if (lessonIndex === -1) return prevSections
-      
+
       const [lesson] = fromSection.lessons.splice(lessonIndex, 1)
       toSection.lessons.splice(toIndex, 0, lesson)
-      
+
       newSections[fromSectionIndex] = fromSection
       newSections[toSectionIndex] = toSection
-      
+
       toast.success(t('instructor_lessons_page_new.toasts.moved_lesson', {
         lesson: lesson.title,
         section: toSection.title,
       }))
-      
+
       return newSections
     })
   }, [setSections, t])
 
-  // CRUD handlers
+
   const handleAddSection = async () => {
     if (!newSection.title.trim()) {
       toast.error(t('instructor_lessons_page_new.toasts.enter_section_title'))
@@ -456,9 +456,9 @@ export function InstructorLessonsPageNew() {
         }
       }
 
-      setSections(prevSections => 
-        prevSections.map(s => 
-          s.id === sectionId 
+      setSections(prevSections =>
+        prevSections.map(s =>
+          s.id === sectionId
             ? { ...s, lessons: [...s.lessons, lesson] }
             : s
         )
@@ -543,7 +543,7 @@ export function InstructorLessonsPageNew() {
     try {
       await deleteLessonApi(lessonId)
       lessonPositionRef.current.delete(lessonId)
-      setSections(prevSections => 
+      setSections(prevSections =>
         prevSections.map(section => ({
           ...section,
           lessons: section.lessons.filter(lesson => lesson.id !== lessonId)
@@ -600,7 +600,7 @@ export function InstructorLessonsPageNew() {
   }, [editingSection, editingSectionForm, setSections, t])
 
   const handleEditLesson = (lesson: any) => {
-    // Navigate to full-page editor
+
     navigate(`/instructor/lessons/${lesson.id}/edit`, undefined, {
       courseId: courseId || '',
     })
@@ -704,15 +704,15 @@ export function InstructorLessonsPageNew() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div 
+      <div
         className="px-4 py-8 transition-all duration-300 ease-in-out"
-        style={{ 
+        style={{
           paddingRight: isSidebarCollapsed ? 'calc(3rem + 2rem)' : 'calc(22rem + 2rem)',
           paddingLeft: '2rem',
           maxWidth: '100vw'
         }}
       >
-        {/* Header */}
+
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -730,7 +730,7 @@ export function InstructorLessonsPageNew() {
               <h1 className="mb-1">{t('instructor_lessons_page_new.title')}</h1>
               <p className="text-muted-foreground">{courseTitle}</p>
             </div>
-            
+
             <div className="flex gap-2">
               <DarkModeToggle />
               <div className="text-xs text-muted-foreground self-center px-2">
@@ -738,20 +738,20 @@ export function InstructorLessonsPageNew() {
                   ? t('instructor_lessons_page_new.auto_save.saving')
                   : t('instructor_lessons_page_new.auto_save.enabled')}
               </div>
-              
-              <Button 
+
+              <Button
                 variant={showBulkSelection ? "default" : "outline"}
                 size="sm"
                 onClick={() => {
                   const newBulkMode = !showBulkSelection
                   setShowBulkSelection(newBulkMode)
-                  
-                  // Auto-open sidebar when entering bulk mode
+
+
                   if (newBulkMode && isSidebarCollapsed) {
                     setIsSidebarCollapsed(false)
                   }
-                  
-                  // Clear selection when exiting bulk mode
+
+
                   if (!newBulkMode) {
                     handleClearSelection()
                   }
@@ -765,18 +765,18 @@ export function InstructorLessonsPageNew() {
             </div>
           </div>
 
-          {/* Course Statistics - Horizontal */}
+
           <CourseStatsHorizontal sections={sections} />
         </div>
 
-        {/* Main Content - Removed Quick Stats Panel */}
+
         <div className="mb-4">
-          {/* Lesson Editor Main */}
+
         </div>
 
-        {/* 2 Column Layout: Main Editor + Sidebar */}
-        <div className="flex gap-4 h-[calc(100vh-520px)]">{/* Adjusted height */}
-          {/* Main Content - Left */}
+
+        <div className="flex gap-4 h-[calc(100vh-520px)]">
+
           <div className="flex-1">
             <LessonEditorMain
               sections={sections}
@@ -810,7 +810,7 @@ export function InstructorLessonsPageNew() {
         </div>
       </div>
 
-      {/* Sidebar - Fixed Right (Collapsible) */}
+
       <CourseOutlineSidebar
         sections={sections}
         selectedLesson={selectedLesson}
@@ -827,7 +827,7 @@ export function InstructorLessonsPageNew() {
         }}
       />
 
-      {/* Bulk Actions Bar */}
+
       <AnimatePresence>
         {showBulkSelection && selectedLessonIds.size > 0 && (
           <BulkActionsBar
@@ -840,14 +840,7 @@ export function InstructorLessonsPageNew() {
         )}
       </AnimatePresence>
 
-      {/* Lesson Editor Dialog - REMOVED, using full page editor now
-      <LessonEditorDialog
-        lesson={editingLesson}
-        open={editingLesson !== null}
-        onOpenChange={(open) => !open && setEditingLesson(null)}
-        onSave={handleSaveLesson}
-      />
-      */}
+
       {previewLesson && (
         <LessonPreviewModal
           open={!!previewLesson}

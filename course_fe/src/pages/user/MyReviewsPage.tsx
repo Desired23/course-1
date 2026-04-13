@@ -6,9 +6,11 @@ import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from "../../components/ui/skeleton"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "../../components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
-import { Star, Edit2, Trash2, Search, MessageSquare, ThumbsUp, Calendar, Loader2 } from "lucide-react"
+import { Star, Edit2, Trash2, Search, MessageSquare, ThumbsUp, Calendar } from "lucide-react"
+import { motion } from 'motion/react'
 import { toast } from "sonner"
 import { useRouter } from "../../components/Router"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
@@ -23,6 +25,29 @@ import {
   calcAverageRating,
   isEdited,
 } from "../../services/review.api"
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 type RatingFilter = "all" | "5" | "4" | "3" | "2" | "1"
 type SortBy = "newest" | "oldest" | "rating_desc" | "rating_asc"
@@ -44,6 +69,24 @@ export function MyReviewsPage() {
   const [editingReview, setEditingReview] = useState<Review | null>(null)
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null)
   const [formData, setFormData] = useState({ rating: 5, comment: "" })
+
+  const renderReviewsSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: pageSize }).map((_, index) => (
+        <div key={`review-skeleton-${index}`} className="rounded-lg border bg-card p-6 space-y-3">
+          <div className="flex items-start gap-4">
+            <Skeleton className="h-20 w-32 rounded" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-5 w-3/5" />
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
   useEffect(() => {
     if (!user?.id) return
@@ -120,8 +163,14 @@ export function MyReviewsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="p-8">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-52" />
+            <Skeleton className="h-5 w-72" />
+          </div>
+          {renderReviewsSkeleton()}
+        </div>
       </div>
     )
   }
@@ -136,15 +185,20 @@ export function MyReviewsPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
+    <motion.div
+      className="p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-5xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="mb-8" variants={fadeInUp}>
           <h1 className="text-3xl mb-2">{t("my_reviews_page.title")}</h1>
           <p className="text-muted-foreground">{t("my_reviews_page.subtitle")}</p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card>
+        <motion.div className="grid grid-cols-3 gap-4 mb-6" variants={fadeInUp}>
+          <Card className="app-interactive">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
@@ -157,7 +211,7 @@ export function MyReviewsPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="app-interactive">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
@@ -170,7 +224,7 @@ export function MyReviewsPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="app-interactive">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
@@ -183,9 +237,10 @@ export function MyReviewsPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
-        <Card className="mb-6">
+        <motion.div variants={fadeInUp}>
+        <Card className="app-surface-elevated mb-6">
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="relative lg:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -212,8 +267,9 @@ export function MyReviewsPage() {
             </select>
           </CardContent>
         </Card>
+        </motion.div>
 
-        <div className="space-y-4">
+        <motion.div className="space-y-4" variants={fadeInUp}>
           {reviews.length === 0 ? (
             <Card>
               <CardContent className="p-12 text-center">
@@ -225,8 +281,14 @@ export function MyReviewsPage() {
             </Card>
           ) : (
             <>
-              {reviews.map((review) => (
-                <Card key={review.review_id}>
+              {reviews.map((review, index) => (
+                <motion.div
+                  key={review.review_id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={listItemTransition(index)}
+                >
+                <Card className="app-interactive">
                   <CardContent className="p-6">
                     <div className="flex gap-4">
                       <div className="flex-shrink-0">
@@ -282,6 +344,7 @@ export function MyReviewsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               ))}
 
               <div className="mt-4 flex items-center justify-between">
@@ -290,7 +353,7 @@ export function MyReviewsPage() {
               </div>
             </>
           )}
-        </div>
+        </motion.div>
 
         <AlertDialog open={!!deletingReviewId} onOpenChange={() => setDeletingReviewId(null)}>
           <AlertDialogContent>
@@ -339,7 +402,7 @@ export function MyReviewsPage() {
             </DialogContent>
           </Dialog>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

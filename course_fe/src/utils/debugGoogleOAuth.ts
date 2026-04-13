@@ -1,26 +1,26 @@
-/**
- * Google OAuth Configuration Debugger
- * Show current configuration in console
- */
+
+
+
+
 
 import { GOOGLE_OAUTH_CONFIG } from '../config/googleOAuth'
 
 export function debugGoogleOAuthConfig() {
   console.log('%c🔍 GOOGLE OAUTH CONFIGURATION', 'background: #4285f4; color: white; padding: 8px 12px; font-size: 14px; font-weight: bold;')
   console.log('')
-  
+
   console.log('%c✅ Client ID:', 'color: #34a853; font-weight: bold;')
   console.log(GOOGLE_OAUTH_CONFIG.clientId)
   console.log('')
-  
+
   console.log('%c✅ Redirect URI:', 'color: #34a853; font-weight: bold;')
   console.log(GOOGLE_OAUTH_CONFIG.redirectUri)
   console.log('')
-  
+
   console.log('%c✅ Current Origin:', 'color: #34a853; font-weight: bold;')
   console.log(window.location.origin)
   console.log('')
-  
+
   console.log('%c📋 GOOGLE CONSOLE CHECKLIST:', 'background: #fbbc04; color: black; padding: 4px 8px; font-weight: bold;')
   console.log('')
   console.log('Go to: https://console.cloud.google.com/apis/credentials')
@@ -47,7 +47,7 @@ export function showGoogleErrorHelp(error: string) {
   console.error('')
   console.error('Error:', error)
   console.error('')
-  
+
   if (error.includes('origin') || error.includes('not allowed')) {
     console.error('%c🔧 SOLUTION:', 'color: #ea4335; font-weight: bold;')
     console.error('')
@@ -67,9 +67,9 @@ export function showGoogleErrorHelp(error: string) {
   }
 }
 
-// Auto-debug on page load
+
 if (typeof window !== 'undefined') {
-  // Only in development
+
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     debugGoogleOAuthConfig()
   }

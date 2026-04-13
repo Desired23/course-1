@@ -1,19 +1,19 @@
-/**
- * Lesson Attachments API Service
- * CRUD for lesson resource files
- *
- * Endpoints:
- *   GET    /api/attachments/                        — List all attachments
- *   GET    /api/attachments/lesson/:lessonId/        — Attachments by lesson
- *   GET    /api/attachments/detail/:id/              — Attachment detail
- *   POST   /api/attachments/create/                  — Create attachment
- *   PATCH  /api/attachments/update/:id/              — Update attachment
- *   DELETE /api/attachments/delete/:id/              — Delete attachment
- */
 
-import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────
+
+
+
+
+
+
+
+
+
+
+
+import { API_BASE_URL, http } from './http'
+
+
 
 export interface LessonAttachment {
   id: number
@@ -64,9 +64,9 @@ export interface AttachmentUpdateData {
   file_size?: number
 }
 
-// ─── API Functions ────────────────────────────────────────────
 
-/** List all attachments */
+
+
 export async function getAttachmentsPage(params?: AttachmentListParams): Promise<PaginatedAttachments> {
   const query: Record<string, string | number> = {}
   if (params?.instructor_id) query.instructor_id = params.instructor_id
@@ -79,7 +79,7 @@ export async function getAttachmentsPage(params?: AttachmentListParams): Promise
   return http.get<PaginatedAttachments>('/attachments/', query)
 }
 
-/** List all attachments (auto-paginate) */
+
 export async function getAttachments(params?: Omit<AttachmentListParams, 'page' | 'page_size'>): Promise<LessonAttachment[]> {
   const all: LessonAttachment[] = []
   let page = 1
@@ -92,7 +92,7 @@ export async function getAttachments(params?: Omit<AttachmentListParams, 'page' 
   return all
 }
 
-/** Get attachments for a specific lesson (auto-paginate) */
+
 export async function getAttachmentsByLesson(lessonId: number): Promise<LessonAttachment[]> {
   const all: LessonAttachment[] = []
   let page = 1
@@ -111,27 +111,27 @@ export async function getAttachmentsByLesson(lessonId: number): Promise<LessonAt
   return all
 }
 
-/** Get single attachment */
+
 export async function getAttachmentById(attachmentId: number): Promise<LessonAttachment> {
   return http.get<LessonAttachment>(`/attachments/detail/${attachmentId}/`)
 }
 
-/** Create attachment */
+
 export async function createAttachment(data: AttachmentCreateData): Promise<LessonAttachment> {
   return http.post<LessonAttachment>('/attachments/create/', data)
 }
 
-/** Update attachment */
+
 export async function updateAttachment(attachmentId: number, data: AttachmentUpdateData): Promise<LessonAttachment> {
   return http.patch<LessonAttachment>(`/attachments/update/${attachmentId}/`, data)
 }
 
-/** Delete attachment */
+
 export async function deleteAttachment(attachmentId: number): Promise<void> {
   return http.delete(`/attachments/delete/${attachmentId}/`)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
+
 
 export function formatFileSize(bytes: number | null): string {
   if (!bytes) return '—'
@@ -149,4 +149,14 @@ export function getFileTypeIcon(fileType: string | null): string {
   if (fileType.includes('doc') || fileType.includes('word')) return 'FileText'
   if (fileType.includes('sheet') || fileType.includes('excel') || fileType.includes('csv')) return 'Table'
   return 'File'
+}
+
+export function resolveAttachmentUrl(filePath: string | null | undefined): string | null {
+  if (!filePath) return null
+  if (/^https?:\/\//i.test(filePath)) return filePath
+  if (filePath.startsWith('//')) return `https:${filePath}`
+
+  const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, '')
+  const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`
+  return `${apiOrigin}${normalizedPath}`
 }

@@ -30,6 +30,28 @@ import { toast } from 'sonner'
 
 type SearchTab = 'all' | 'courses' | 'instructors' | 'articles' | 'qna'
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function EnhancedSearchPage() {
   const { navigate, params } = useRouter()
   const { t } = useTranslation()
@@ -458,8 +480,13 @@ export function EnhancedSearchPage() {
   )
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b bg-card">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="border-b bg-card" variants={fadeInUp} initial="hidden" animate="show">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="max-w-2xl mx-auto">
             <div className="relative">
@@ -483,10 +510,10 @@ export function EnhancedSearchPage() {
             <div className="flex items-center justify-center mt-4"><Button onClick={() => handleSearch(searchQuery)} className="w-32">{t('enhanced_search_page.actions.search')}</Button></div>
           </div>
         </div>
-      </div>
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      </motion.div>
+      <motion.div className="max-w-7xl mx-auto px-4 py-8" variants={sectionStagger} initial="hidden" animate="show">
         {!searchQuery ? (
-          <div className="space-y-8">
+          <motion.div className="space-y-8" variants={fadeInUp}>
             <div className="text-center">
               <h1 className="mb-4">{t('enhanced_search_page.empty_state.title')}</h1>
               <p className="text-muted-foreground mb-8">{t('enhanced_search_page.empty_state.description')}</p>
@@ -498,21 +525,21 @@ export function EnhancedSearchPage() {
               <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><HelpCircle className="w-5 h-5 text-orange-500" />{t('enhanced_search_page.sections.trending_qna')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.qna.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
             </div>
             {recentSearches.length > 0 && <Card><CardHeader><CardTitle>{t('enhanced_search_page.sections.recent_searches')}</CardTitle></CardHeader><CardContent><div className="flex flex-wrap gap-2">{recentSearches.map((term) => <Badge key={term} variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => handleSearch(term)}>{term}</Badge>)}</div></CardContent></Card>}
-          </div>
+          </motion.div>
         ) : (
-          <div className="space-y-6">
+          <motion.div className="space-y-6" variants={fadeInUp}>
             <div className="flex items-center justify-between">
               <h2>{totalResults > 0 ? t('enhanced_search_page.results.found', { count: totalResults, query: searchQuery }) : t('enhanced_search_page.results.not_found', { query: searchQuery })}</h2>
               {totalResults > 0 && <Button variant="outline" onClick={() => toast.info(t('enhanced_search_page.toasts.advanced_filters_coming_soon'))}><Filter className="w-4 h-4 mr-2" />{t('enhanced_search_page.actions.filters')}</Button>}
             </div>
             {totalResults > 0 && (
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SearchTab)} className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="all">{t('enhanced_search_page.tabs.all', { count: totalResults })}</TabsTrigger>
-                  <TabsTrigger value="courses">{t('enhanced_search_page.tabs.courses', { count: filteredResults.courses.length })}</TabsTrigger>
-                  <TabsTrigger value="instructors">{t('enhanced_search_page.tabs.instructors', { count: filteredResults.instructors.length })}</TabsTrigger>
-                  <TabsTrigger value="articles">{t('enhanced_search_page.tabs.articles', { count: filteredResults.articles.length })}</TabsTrigger>
-                  <TabsTrigger value="qna">{t('enhanced_search_page.tabs.qna', { count: filteredResults.qna.length })}</TabsTrigger>
+                <TabsList className="relative grid w-full grid-cols-5 p-1">
+                  <TabsTrigger value="all" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'all' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.all', { count: totalResults })}</span></TabsTrigger>
+                  <TabsTrigger value="courses" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'courses' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.courses', { count: filteredResults.courses.length })}</span></TabsTrigger>
+                  <TabsTrigger value="instructors" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'instructors' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.instructors', { count: filteredResults.instructors.length })}</span></TabsTrigger>
+                  <TabsTrigger value="articles" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'articles' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.articles', { count: filteredResults.articles.length })}</span></TabsTrigger>
+                  <TabsTrigger value="qna" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'qna' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.qna', { count: filteredResults.qna.length })}</span></TabsTrigger>
                 </TabsList>
                 <TabsContent value="all" className="space-y-8">
                   {filteredResults.courses.length > 0 && <div><h3 className="text-lg font-semibold mb-4">{t('enhanced_search_page.headings.courses')}</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredResults.courses.slice(0, 3).map(renderCourseCard)}</div>{filteredResults.courses.length > 3 && <div className="text-center mt-4"><Button variant="outline" onClick={() => setActiveTab('courses')}>{t('enhanced_search_page.actions.view_all_courses', { count: filteredResults.courses.length })}<ChevronRight className="w-4 h-4 ml-1" /></Button></div>}</div>}
@@ -526,9 +553,9 @@ export function EnhancedSearchPage() {
                 <TabsContent value="qna"><div className="space-y-4">{filteredResults.qna.map(renderQnACard)}</div></TabsContent>
               </Tabs>
             )}
-          </div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

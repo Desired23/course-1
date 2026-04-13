@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useRouter } from "../../components/Router"
 import { useAuth } from "../../contexts/AuthContext"
 import { getSubscriptionPlans, type SubscriptionPlanListItem } from "../../services/subscription.api"
+import { motion } from 'motion/react'
 
 type HighlightColor = 'blue' | 'yellow' | undefined
 
@@ -42,15 +43,66 @@ interface ComparisonSection {
   rows: ComparisonRow[]
 }
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.34,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
 export function SubscriptionPricingPage() {
   const { t } = useTranslation()
-  const { navigate } = useRouter()
+  const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
   const [isAnnual, setIsAnnual] = useState(true)
   const [apiPlans, setApiPlans] = useState<SubscriptionPlanListItem[]>([])
 
   useEffect(() => {
-    getSubscriptionPlans().then(setApiPlans).catch(() => {})
+    let cancelled = false
+
+    async function loadPlans() {
+      try {
+        const plans = await getSubscriptionPlans()
+        if (!cancelled) {
+          setApiPlans(Array.isArray(plans) ? plans : [])
+        }
+      } catch {
+        if (!cancelled) {
+          setApiPlans([])
+        }
+      }
+    }
+
+    loadPlans()
+    return () => {
+      cancelled = true
+    }
+  }, [currentRoute])
+
+  useEffect(() => {
+
+    const frameId = window.requestAnimationFrame(() => {
+      window.scrollTo(0, 0)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
   }, [])
 
   const iconMap: Record<string, ComponentType<any>> = { Zap, Crown, Shield }
@@ -323,7 +375,12 @@ export function SubscriptionPricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <motion.div
+      className="min-h-screen bg-background flex flex-col"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       <div className="relative overflow-hidden bg-slate-950 pb-56 pt-16 text-white lg:pt-24">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute left-1/4 top-0 h-96 w-96 animate-pulse rounded-full bg-blue-600 blur-3xl mix-blend-screen" />
@@ -334,6 +391,7 @@ export function SubscriptionPricingPage() {
         </div>
 
         <div className="relative container mx-auto px-4 text-center z-10">
+          <motion.div variants={fadeInUp} initial="hidden" animate="show">
           <Badge
             variant="secondary"
             className="mb-6 border-blue-500/30 bg-blue-500/10 px-4 py-1.5 text-sm font-medium text-blue-200 backdrop-blur-sm transition-all hover:bg-blue-500/20"
@@ -341,23 +399,41 @@ export function SubscriptionPricingPage() {
             <Star className="mr-2 h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
             {t('subscription_pricing_page.hero.badge')}
           </Badge>
+          </motion.div>
 
-          <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight md:text-6xl">
+          <motion.h1
+            className="mb-6 text-3xl font-bold leading-tight tracking-tight sm:text-4xl md:text-6xl"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="show"
+          >
             {t('subscription_pricing_page.hero.title_line_1')}
             <br />
             <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
               {t('subscription_pricing_page.hero.title_line_2')}
             </span>
-          </h1>
+          </motion.h1>
 
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-slate-300 md:text-xl">
+          <motion.p
+            className="mx-auto mb-10 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg md:text-xl"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="show"
+            transition={{ delay: 0.06, duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          >
             {t('subscription_pricing_page.hero.description')}
-          </p>
+          </motion.p>
 
-          <div className="inline-flex items-center justify-center rounded-full border border-slate-700/50 bg-slate-800/50 p-1.5 shadow-xl backdrop-blur-md">
+          <motion.div
+            className="inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-slate-700/50 bg-slate-800/50 p-1.5 shadow-xl backdrop-blur-md"
+            variants={fadeInUp}
+            initial="hidden"
+            animate="show"
+            transition={{ delay: 0.1, duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
+          >
             <button
               onClick={() => setIsAnnual(false)}
-              className={`rounded-full px-6 py-2 text-sm font-medium transition-all duration-300 ${
+              className={`rounded-full px-4 py-2 text-xs font-medium transition-all duration-300 sm:px-6 sm:text-sm ${
                 !isAnnual ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -365,7 +441,7 @@ export function SubscriptionPricingPage() {
             </button>
             <button
               onClick={() => setIsAnnual(true)}
-              className={`flex items-center gap-2 rounded-full px-6 py-2 text-sm font-medium transition-all duration-300 ${
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-medium transition-all duration-300 sm:px-6 sm:text-sm ${
                 isAnnual ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -377,18 +453,23 @@ export function SubscriptionPricingPage() {
                 -20%
               </Badge>
             </button>
-          </div>
+          </motion.div>
         </div>
       </div>
 
       <div className="container mx-auto relative z-20 mb-12 -mt-32 flex-1 px-4 pb-24">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-8 md:grid-cols-3">
+        <motion.div
+          className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-8 md:grid-cols-3"
+          variants={sectionStagger}
+          initial="hidden"
+          animate="show"
+        >
           {plans.map((plan) => (
+            <motion.div key={plan.id} variants={fadeInUp} whileHover={{ y: -4 }} transition={{ duration: 0.25 }}>
             <Card
-              key={plan.id}
               className={`relative flex h-full flex-col transition-all duration-300 ${
                 plan.popular
-                  ? 'z-10 -mt-8 scale-105 border-blue-500 bg-white shadow-2xl shadow-blue-500/10 ring-4 ring-blue-500/10 dark:bg-slate-900'
+                  ? 'z-10 border-blue-500 bg-white shadow-2xl shadow-blue-500/10 ring-4 ring-blue-500/10 md:-mt-8 md:scale-105 dark:bg-slate-900'
                   : 'bg-white/95 backdrop-blur-sm hover:-translate-y-2 hover:shadow-xl dark:bg-slate-900/95'
               }`}
             >
@@ -400,7 +481,7 @@ export function SubscriptionPricingPage() {
               )}
 
               <CardHeader className={`pb-4 ${plan.popular ? 'pt-8' : ''}`}>
-                <CardTitle className="flex items-center gap-3 text-2xl">
+                <CardTitle className="flex items-center gap-3 text-xl sm:text-2xl">
                   <div
                     className={`rounded-lg p-2 ${
                       plan.highlightColor === 'blue'
@@ -420,9 +501,15 @@ export function SubscriptionPricingPage() {
               <CardContent className="flex flex-1 flex-col pb-4">
                 <div className="mb-6 border-b border-dashed pb-6">
                   <div className="flex items-baseline">
-                    <span className="text-4xl font-bold tracking-tight">
+                    <motion.span
+                      key={`${plan.id}-${plan.price}-${isAnnual ? 'annual' : 'monthly'}`}
+                      className="text-4xl font-bold tracking-tight"
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                    >
                       {plan.price === 0 ? t('subscription_pricing_page.free') : new Intl.NumberFormat('vi-VN').format(plan.price)}
-                    </span>
+                    </motion.span>
                     {plan.price !== 0 && <span className="ml-1 text-xl font-bold text-muted-foreground">VND</span>}
                     <span className="ml-2 text-sm font-medium text-muted-foreground">{plan.period}</span>
                   </div>
@@ -480,18 +567,19 @@ export function SubscriptionPricingPage() {
                 </Button>
               </CardFooter>
             </Card>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 pb-24">
-        <div className="mb-12 text-center">
+        <motion.div className="mb-12 text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
           <h2 className="mb-4 text-3xl font-bold">{t('subscription_pricing_page.comparison.title')}</h2>
           <p className="text-muted-foreground">{t('subscription_pricing_page.comparison.description')}</p>
-        </div>
+        </motion.div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800">
-          <table className="w-full border-collapse bg-white text-left dark:bg-slate-900">
+        <motion.div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.1 }}>
+          <table className="min-w-[760px] w-full border-collapse bg-white text-left dark:bg-slate-900">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
                 <th className="w-1/3 p-4 text-lg font-semibold md:p-6">
@@ -538,7 +626,7 @@ export function SubscriptionPricingPage() {
               ])}
             </tbody>
           </table>
-        </div>
+        </motion.div>
       </div>
 
       <div className="border-y bg-slate-50 py-20 dark:border-slate-800 dark:bg-slate-900/50">
@@ -565,12 +653,12 @@ export function SubscriptionPricingPage() {
       </div>
 
       <div className="container mx-auto max-w-3xl px-4 py-24">
-        <div className="mb-16 text-center">
+        <motion.div className="mb-16 text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
           <h2 className="mb-4 text-3xl font-bold md:text-4xl">{t('subscription_pricing_page.faq_title')}</h2>
           <p className="mx-auto max-w-xl text-lg text-muted-foreground">
             {t('subscription_pricing_page.faq_description')}
           </p>
-        </div>
+        </motion.div>
 
         <Accordion type="single" collapsible className="w-full space-y-4">
           {faqs.map((faq, index) => (
@@ -585,22 +673,22 @@ export function SubscriptionPricingPage() {
           ))}
         </Accordion>
 
-        <div className="mt-16 text-center">
+        <motion.div className="mt-16 text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
           <div className="inline-flex flex-col items-center justify-center rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md dark:bg-slate-700">
               <HelpCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
             </div>
             <h3 className="mb-2 text-lg font-semibold">{t('subscription_pricing_page.support.title')}</h3>
             <p className="mb-6 max-w-sm text-muted-foreground">{t('subscription_pricing_page.support.description')}</p>
-            <div className="flex gap-4">
-              <Button variant="outline" className="bg-white dark:bg-slate-800">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:gap-4">
+              <Button variant="outline" className="w-full bg-white dark:bg-slate-800 sm:w-auto">
                 {t('subscription_pricing_page.support.email')}
               </Button>
-              <Button>{t('subscription_pricing_page.support.chat')}</Button>
+              <Button className="w-full sm:w-auto">{t('subscription_pricing_page.support.chat')}</Button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }

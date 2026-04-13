@@ -1,28 +1,28 @@
-/**
- * HTTP Service - Centralized API client
- * 
- * Features:
- * - Auto-attach Bearer token from auth store
- * - Auto-refresh expired access tokens using refresh token
- * - Request queue during token refresh (prevents race conditions)
- * - Typed error handling
- */
+
+
+
+
+
+
+
+
+
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
 export function getApiTransportHeaders(): Record<string, string> {
   if (API_BASE_URL.includes('.ngrok-free.dev')) {
-    // ngrok free domains serve an interstitial page unless this header is present.
+
     return { 'ngrok-skip-browser-warning': 'true' }
   }
   return {}
 }
 
-// simple in-memory cache for GET responses
-const getCache: Map<string, { expiry: number; data: any }> = new Map()
-const CACHE_TTL = 30 * 1000 // 30 seconds
 
-// ─── Types ────────────────────────────────────────────────────
+const getCache: Map<string, { expiry: number; data: any }> = new Map()
+const CACHE_TTL = 30 * 1000
+
+
 
 export interface ApiError {
   message: string
@@ -30,7 +30,7 @@ export interface ApiError {
   errors?: Record<string, string[]>
 }
 
-// ─── Token helpers (interact with localStorage directly) ──────
+
 
 const TOKEN_KEYS = {
   access: 'access_token',
@@ -62,21 +62,21 @@ export function clearHttpRuntimeState(): void {
   http.clearInFlightGets()
 }
 
-// ─── Session expired callback ─────────────────────────────────
+
 
 type SessionExpiredHandler = () => void
 let _onSessionExpired: SessionExpiredHandler | null = null
 
-/**
- * Register a callback that fires when both access & refresh tokens
- * are expired (i.e. session is truly dead). Called once per expiry event.
- */
+
+
+
+
 export function onSessionExpired(handler: SessionExpiredHandler): () => void {
   _onSessionExpired = handler
   return () => { _onSessionExpired = null }
 }
 
-// ─── Token refresh logic ──────────────────────────────────────
+
 
 let isRefreshing = false
 let refreshQueue: Array<{
@@ -131,7 +131,7 @@ export async function refreshAccessToken(): Promise<string> {
   }
 }
 
-// ─── HTTP Service class ───────────────────────────────────────
+
 
 class HttpService {
   private baseURL: string
@@ -166,7 +166,7 @@ class HttpService {
     const isGetRequest = method === 'GET'
 
     try {
-      // try cache for GET
+
     if (isGetRequest) {
       const entry = getCache.get(url)
       if (entry && entry.expiry > Date.now()) {
@@ -175,7 +175,7 @@ class HttpService {
     }
     const response = await fetch(url, config)
 
-      // Handle 401 → try refresh
+
       if (response.status === 401 && retry) {
         const newToken = await this.handleTokenRefresh()
         if (newToken) {
@@ -194,7 +194,7 @@ class HttpService {
         }
       }
 
-      // Handle other errors
+
       if (!response.ok) {
         const error = await response.json().catch(() => ({
           message: response.statusText,
@@ -207,17 +207,17 @@ class HttpService {
         } as ApiError
       }
 
-      // Handle 204 No Content
+
       if (response.status === 204) {
         return undefined as T
       }
 
       const result = await response.json()
-      // any successful write invalidates stale GET cache entries
+
       if (!isGetRequest) {
         getCache.clear()
       }
-      // cache GET result
+
       if (isGetRequest && response.ok) {
         getCache.set(url, { expiry: Date.now() + CACHE_TTL, data: result })
       }
@@ -253,9 +253,9 @@ class HttpService {
     }
   }
 
-  // ─── Public methods ──────────────────────────────────────
 
-  // simple deduplication map for in-flight GET requests
+
+
   private inFlightGets: Map<string, Promise<any>> = new Map()
 
   clearInFlightGets(): void {
@@ -336,7 +336,7 @@ class HttpService {
   }
 }
 
-// ─── Singleton export ─────────────────────────────────────────
+
 
 export const http = new HttpService(API_BASE_URL)
 export { HttpService }

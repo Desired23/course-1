@@ -17,12 +17,12 @@ export function clearSessionData(): void {
   try {
     localStorage.clear()
   } catch {
-    // ignore
+
   }
 
   try {
     sessionStorage.clear()
   } catch {
-    // ignore
+
   }
 }

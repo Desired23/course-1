@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { ArrowLeft, CreditCard, Landmark, Loader2, Lock, ShieldCheck, Smartphone } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Separator } from "../../components/ui/separator"
@@ -11,15 +12,64 @@ import { useTranslation } from "react-i18next"
 import { createPaymentRecord, createVnpayPayment, type CreatePaymentResponse } from "../../services/payment.api"
 import { formatCartPrice } from "../../services/cart.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
+import { listItemTransition } from "../../lib/motion"
 import { toast } from "sonner"
 
 type GatewayMethod = "momo" | "vnpay"
 
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.32,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
+
+function calculateCheckoutTotals(
+  items: Array<{ currentPrice: number; originalPrice: number; couponDiscount?: number }>,
+  orderCoupon: { discount: number; discountType: 'percentage' | 'fixed' } | null
+) {
+  const originalPrice = items.reduce((total, item) => total + item.currentPrice, 0)
+  const discountedSubtotal = items.reduce((total, item) => {
+    const effectivePrice = item.couponDiscount ? item.currentPrice - item.couponDiscount : item.currentPrice
+    return total + effectivePrice
+  }, 0)
+
+  const orderDiscount = orderCoupon
+    ? orderCoupon.discountType === 'percentage'
+      ? (discountedSubtotal * orderCoupon.discount) / 100
+      : orderCoupon.discount
+    : 0
+
+  const totalPrice = Math.max(0, discountedSubtotal - orderDiscount)
+  const savings = items.reduce((total, item) => total + item.originalPrice, 0) - totalPrice
+
+  return {
+    originalPrice,
+    totalPrice,
+    savings,
+  }
+}
+
 export function CheckoutPage() {
   const { t } = useTranslation()
-  const { navigate } = useRouter()
+  const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
-  const { cartItems, getTotalPrice, getOriginalPrice, getSavings, orderCoupon, appliedPromotion, clearCart } = useCart()
+  const { cartItems, orderCoupon, appliedPromotion, clearCart } = useCart()
   const gatewayOptions: Array<{
     id: GatewayMethod
     title: string
@@ -48,7 +98,32 @@ export function CheckoutPage() {
   const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null)
   const [confirmedGatewayUrl, setConfirmedGatewayUrl] = useState<string | null>(null)
 
-  const displayTotal = confirmedAmount ?? getTotalPrice()
+  const selectedCartItemIds = useMemo(() => {
+    const queryPart = currentRoute.includes('?') ? currentRoute.split('?')[1] : ''
+    if (!queryPart) return null
+
+    const selected = new URLSearchParams(queryPart).get('selected')
+    if (!selected) return null
+
+    const ids = selected
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+
+    return ids.length > 0 ? new Set(ids) : null
+  }, [currentRoute])
+
+  const checkoutItems = useMemo(() => {
+    if (!selectedCartItemIds) return cartItems
+    return cartItems.filter((item) => selectedCartItemIds.has(item.id))
+  }, [cartItems, selectedCartItemIds])
+
+  const checkoutTotals = useMemo(
+    () => calculateCheckoutTotals(checkoutItems, orderCoupon),
+    [checkoutItems, orderCoupon]
+  )
+
+  const displayTotal = confirmedAmount ?? checkoutTotals.totalPrice
   const paymentMethodLabel = t(`checkout.gateway_options.${paymentMethod}.title`)
 
   const handleCheckout = async () => {
@@ -56,14 +131,14 @@ export function CheckoutPage() {
       toast.error(t("checkout.login_required"))
       return
     }
-    if (cartItems.length === 0) {
+    if (checkoutItems.length === 0) {
       toast.error(t("checkout.empty_cart"))
       return
     }
 
     setIsProcessing(true)
     try {
-      const paymentDetails = cartItems.map((item) => ({
+      const paymentDetails = checkoutItems.map((item) => ({
         course_id: Number(item.courseId || item.id),
         promotion_id: item.promotionId || null,
       }))
@@ -80,7 +155,7 @@ export function CheckoutPage() {
       })
 
       const beTotal = Math.round(parseFloat(String(result.payment.total_amount)))
-      const feTotal = Math.round(getTotalPrice())
+      const feTotal = Math.round(checkoutTotals.totalPrice)
 
       if (Math.abs(beTotal - feTotal) > 1) {
         setConfirmedAmount(beTotal)
@@ -141,7 +216,7 @@ export function CheckoutPage() {
     const vnpayRes = await createVnpayPayment({
       amount,
       order_id: paymentId,
-      order_desc: t("checkout.order_description", { count: cartItems.length }),
+      order_desc: t("checkout.order_description", { count: checkoutItems.length }),
     })
 
     if (vnpayRes.payment_url) {
@@ -169,27 +244,53 @@ export function CheckoutPage() {
     )
   }
 
+  if (selectedCartItemIds && checkoutItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-4">
+          <div className="max-w-2xl mx-auto text-center space-y-4">
+            <h1 className="text-2xl">{t("checkout.empty_cart")}</h1>
+            <p className="text-muted-foreground">{t("checkout.selected_items_missing", "Các khóa học đã chọn không còn trong giỏ hàng.")}</p>
+            <Button onClick={() => navigate("/cart")}>{t("checkout.back_to_cart")}</Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen bg-background py-8">
+    <motion.div
+      className="min-h-screen bg-background py-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-4 mb-8">
+          <motion.div className="flex items-center gap-4 mb-8" variants={fadeInUp} initial="hidden" animate="show">
             <Button variant="ghost" onClick={() => navigate("/cart")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               {t("checkout.back_to_cart")}
             </Button>
             <h1 className="text-2xl font-bold">{t("checkout.title")}</h1>
-          </div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            <div className="lg:col-span-3 space-y-6">
-              <Card>
+          <motion.div className="grid grid-cols-1 lg:grid-cols-5 gap-8" variants={sectionStagger} initial="hidden" animate="show">
+            <motion.div className="lg:col-span-3 space-y-6" variants={fadeInUp}>
+              <motion.div variants={fadeInUp}>
+              <Card className="app-surface-elevated">
                 <CardHeader>
-                  <CardTitle className="text-lg">{t("checkout.order_title", { count: cartItems.length })}</CardTitle>
+                  <CardTitle className="text-lg">{t("checkout.order_title", { count: checkoutItems.length })}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex gap-4">
+                  {checkoutItems.map((item, index) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={listItemTransition(index)}
+                      className="app-interactive flex gap-4 rounded-md p-1"
+                    >
                       <ImageWithFallback
                         src={item.image}
                         alt={item.title}
@@ -217,12 +318,14 @@ export function CheckoutPage() {
                           </>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </CardContent>
               </Card>
+              </motion.div>
 
-              <Card>
+              <motion.div variants={fadeInUp}>
+              <Card className="app-surface-elevated">
                 <CardHeader>
                   <CardTitle className="text-lg">{t("checkout.payment_method")}</CardTitle>
                 </CardHeader>
@@ -231,15 +334,16 @@ export function CheckoutPage() {
                     const Icon = option.icon
                     const isSelected = paymentMethod === option.id
                     return (
-                      <button
+                      <motion.button
                         key={option.id}
                         type="button"
                         onClick={() => setPaymentMethod(option.id)}
-                        className={`w-full flex items-center gap-4 rounded-lg border-2 p-4 text-left transition-colors ${
+                        whileTap={{ scale: 0.99 }}
+                        className={`app-interactive w-full flex items-start gap-3 rounded-lg border-2 p-3 text-left sm:items-center sm:gap-4 sm:p-4 ${
                           isSelected ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
                         }`}
                       >
-                        <div className={`w-16 h-10 bg-white rounded border flex items-center justify-center flex-shrink-0 ${option.accent}`}>
+                        <div className={`h-9 w-14 flex-shrink-0 rounded border bg-white flex items-center justify-center sm:h-10 sm:w-16 ${option.accent}`}>
                           {option.id === "vnpay" ? (
                             <div className="flex items-center gap-1">
                               <Landmark className="w-4 h-4" />
@@ -249,12 +353,24 @@ export function CheckoutPage() {
                             <Icon className="w-6 h-6" />
                           )}
                         </div>
-                        <div className="flex-1">
-                          <p className="font-medium">{option.title}</p>
-                          <p className="text-sm text-muted-foreground">{option.description}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base">{option.title}</p>
+                          <p className="text-xs text-muted-foreground sm:text-sm">{option.description}</p>
                         </div>
-                        {isSelected && <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />}
-                      </button>
+                        <AnimatePresence mode="wait" initial={false}>
+                          {isSelected && (
+                            <motion.div
+                              key={`${option.id}-selected`}
+                              initial={{ opacity: 0, scale: 0.85 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.85 }}
+                              transition={{ duration: 0.18 }}
+                            >
+                              <ShieldCheck className="w-5 h-5 text-green-600 flex-shrink-0" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.button>
                     )
                   })}
                   <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
@@ -263,10 +379,12 @@ export function CheckoutPage() {
                   </p>
                 </CardContent>
               </Card>
-            </div>
+              </motion.div>
+            </motion.div>
 
-            <div className="lg:col-span-2 space-y-6">
-              <Card className="sticky top-24">
+            <motion.div className="lg:col-span-2 space-y-6" variants={fadeInUp}>
+              <motion.div variants={fadeInUp}>
+              <Card className="app-surface-elevated sticky top-24">
                 <CardHeader>
                   <CardTitle className="text-lg">{t("checkout.order_summary")}</CardTitle>
                 </CardHeader>
@@ -274,12 +392,12 @@ export function CheckoutPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>{t("checkout.original_price_label")}</span>
-                      <span className="text-muted-foreground line-through">{formatCartPrice(getOriginalPrice())}</span>
+                      <span className="text-muted-foreground line-through">{formatCartPrice(checkoutTotals.originalPrice)}</span>
                     </div>
-                    {getSavings() > 0 && (
+                    {checkoutTotals.savings > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>{t("checkout.discount_label")}</span>
-                        <span>-{formatCartPrice(getSavings())}</span>
+                        <span>-{formatCartPrice(checkoutTotals.savings)}</span>
                       </div>
                     )}
                     {appliedPromotion && (
@@ -300,19 +418,38 @@ export function CheckoutPage() {
 
                   <div className="flex justify-between text-xl font-bold">
                     <span>{t("checkout.total_label")}</span>
-                    <span className="text-primary">{formatCartPrice(displayTotal)}</span>
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={displayTotal}
+                        className="text-primary"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {formatCartPrice(displayTotal)}
+                      </motion.span>
+                    </AnimatePresence>
                   </div>
 
-                  {confirmedAmount !== null && confirmedAmount !== Math.round(getTotalPrice()) && (
-                    <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm">
+                  <AnimatePresence initial={false}>
+                  {confirmedAmount !== null && confirmedAmount !== Math.round(checkoutTotals.totalPrice) && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.22 }}
+                      className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm"
+                    >
                       <p className="text-yellow-800 dark:text-yellow-200 font-medium">
                         {t("checkout.price_updated_title")}
                       </p>
                       <p className="text-yellow-600 dark:text-yellow-400 text-xs mt-1">
                         {t("checkout.price_updated_description")}
                       </p>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
 
                   <Button
                     className="w-full mt-4"
@@ -337,10 +474,11 @@ export function CheckoutPage() {
                   </p>
                 </CardContent>
               </Card>
-            </div>
-          </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }

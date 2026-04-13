@@ -23,24 +23,49 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { SubscriptionLockOverlay } from '../../components/subscription/SubscriptionLockOverlay'
+import { Skeleton } from '../../components/ui/skeleton'
 import { useTranslation } from 'react-i18next'
-import { 
-  Star, Users, Clock, Globe, Languages, Play, FileText, 
+import { motion } from 'motion/react'
+import { listItemTransition } from '../../lib/motion'
+import {
+  Star, Users, Clock, Globe, Languages, Play, FileText,
   Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen, Flag
 } from 'lucide-react'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function CourseDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [wishlistItemId, setWishlistItemId] = useState<number | null>(null)
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const { t } = useTranslation()
-  
-  // Course data from API
+
+
   const [courseData, setCourseData] = useState<CourseDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Reviews
+
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [newRating, setNewRating] = useState(5)
@@ -48,28 +73,28 @@ export function CourseDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false)
   const [discountExpired, setDiscountExpired] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
-  
+
   const handleDiscountExpire = useCallback(() => {
     setDiscountExpired(true)
   }, [])
-  
-  const sidebarCardRef = useRef<HTMLDivElement>(null)       // container in hero grid (for scroll position)
-  const sidebarCardInnerRef = useRef<HTMLDivElement>(null)  // the actual card (follows fixed/docked)
+
+  const sidebarCardRef = useRef<HTMLDivElement>(null)
+  const sidebarCardInnerRef = useRef<HTMLDivElement>(null)
   const [cardPosition, setCardPosition] = useState<'natural' | 'fixed' | 'docked'>('natural')
-  
+
   const { addToCart, addToCartFromApi, isInCartByCourseId } = useCart()
   const { user, isAuthenticated } = useAuth()
   const { openChatWithUser } = useChat()
   const { navigate, currentRoute } = useRouter()
   const { isOwned: isEnrolled, refresh: refreshOwned } = useOwnedCourses()
 
-  // Scroll listener: manage sidebar card position (natural â†’ fixed â†’ docked)
+
   useEffect(() => {
     const handleScroll = () => {
       const container = sidebarCardRef.current
       if (!container) return
       const rect = container.getBoundingClientRect()
-      const topThreshold = 136 // 8.5rem = nav height offset
+      const topThreshold = 136
       const pageBottom = document.documentElement.scrollHeight
       const viewportHeight = window.innerHeight
       const distanceFromBottom = pageBottom - window.scrollY - viewportHeight
@@ -92,16 +117,16 @@ export function CourseDetailPage() {
     }
   }, [])
 
-  // Derived from API access_info
+
   const accessInfo = courseData?.access_info
   const canAccessCourse = accessInfo?.has_access || false
-  const accessType = accessInfo?.access_type || null  // "purchase" | "subscription" | "admin" | "instructor" | null
+  const accessType = accessInfo?.access_type || null
   const isCourseInSubscription = accessInfo?.in_subscription || false
 
-  // Determine if user is enrolled in this course
+
   const courseId = courseData?.id || 0
   const enrolled = isEnrolled(courseId)
-  // Free course = effective price is 0
+
   const isFree = courseData ? getEffectivePrice(courseData) === 0 : false
 
   const handleMessageInstructor = async () => {
@@ -116,10 +141,17 @@ export function CourseDetailPage() {
 
   const handleOpenInstructorProfile = () => {
     if (!courseData?.instructor?.instructor_id) return
-    navigate(`/instructor/${courseData.instructor.instructor_id}/profile`)
+    navigate(
+      `/instructor/${courseData.instructor.instructor_id}/profile`,
+      undefined,
+      {
+        fromCourseId: String(courseData.id),
+        fromCourseTitle: courseData.title,
+      }
+    )
   }
 
-  // Handle enrollment for free or subscription courses
+
   const handleEnroll = async (source: 'purchase' | 'subscription' = 'purchase') => {
     if (!courseData || enrolling) return
     if (!isAuthenticated) {
@@ -140,7 +172,7 @@ export function CourseDetailPage() {
     }
   }
 
-  // Load course from API
+
   useEffect(() => {
     let cancelled = false
     async function load() {
@@ -165,7 +197,7 @@ export function CourseDetailPage() {
     return () => { cancelled = true }
   }, [currentRoute])
 
-  // Load wishlist status for current user
+
   useEffect(() => {
     if (!isAuthenticated || !user || !courseData) return
     let cancelled = false
@@ -181,20 +213,24 @@ export function CourseDetailPage() {
           setIsWishlisted(false)
           setWishlistItemId(null)
         }
-      } catch { /* silently ignore */ }
+      } catch (err) {
+        console.error('[CourseDetail] Failed to load wishlist:', err)
+      }
     }
     loadWishlist()
     return () => { cancelled = true }
   }, [isAuthenticated, user, courseData])
 
-  // Load reviews
+
   const loadReviews = useCallback(async (courseId: number) => {
     setReviewsLoading(true)
     try {
-      // pass numeric page and pageSize - avoid passing an object which serializes to "[object Object]"
+
       const res = await getReviewsByCourse(courseId, 1, 50)
       setReviews(res.results)
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[CourseDetail] Failed to load reviews:', err)
+    }
     setReviewsLoading(false)
   }, [])
 
@@ -202,10 +238,10 @@ export function CourseDetailPage() {
     if (courseData) loadReviews(courseData.id)
   }, [courseData, loadReviews])
 
-  // Derived values
+
   const rawEffectivePrice = courseData ? getEffectivePrice(courseData) : 0
   const regularPrice = courseData ? parseDecimal(courseData.price) : 0
-  // When discount expires, revert to regular price
+
   const effectivePrice = discountExpired ? regularPrice : rawEffectivePrice
   const courseRating = courseData ? parseDecimal(courseData.rating) : 0
   const hasDiscount = !discountExpired && effectivePrice < regularPrice
@@ -215,8 +251,8 @@ export function CourseDetailPage() {
 
   const handleAddToCart = async () => {
     if (!courseData) return
-    
-    // If logged in, use API to persist cart on server
+
+
     if (isAuthenticated && user?.id) {
       if (isInCartByCourseId(courseData.id)) {
         toast.info(t('course_detail.already_in_cart'))
@@ -224,7 +260,7 @@ export function CourseDetailPage() {
       }
       await addToCartFromApi(parseInt(user.id), courseData.id, {})
     } else {
-      // Fallback: local-only for guests
+
       addToCart({
         id: String(courseData.id),
         courseId: courseData.id,
@@ -306,16 +342,34 @@ export function CourseDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      
-      {/* Loading State */}
+    <motion.div
+      className="min-h-screen bg-gray-50 dark:bg-gray-950"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+
+
       {loading && (
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <div className="container mx-auto px-4 py-8 space-y-6">
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-10 w-3/4" />
+            <Skeleton className="h-6 w-2/3" />
+          </div>
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              <Skeleton className="h-64 w-full rounded-xl" />
+              <Skeleton className="h-56 w-full rounded-xl" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-96 w-full rounded-xl" />
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Error State */}
+
       {error && !loading && (
         <div className="flex flex-col items-center justify-center py-32">
           <p className="text-red-500 text-lg mb-4">{error}</p>
@@ -323,10 +377,15 @@ export function CourseDetailPage() {
         </div>
       )}
 
-      {/* Course Content */}
-      {courseData && !loading && !error && (<>
 
-      {/* Sticky Navigation Bar */}
+      {courseData && !loading && !error && (
+      <motion.div
+        variants={sectionStagger}
+        initial="hidden"
+        animate="show"
+      >
+
+
       <CourseStickyNav
         courseTitle={courseData.title}
         price={canAccessCourse || isFree ? 0 : effectivePrice}
@@ -349,14 +408,14 @@ export function CourseDetailPage() {
         sidebarCardRef={sidebarCardInnerRef}
       />
 
-      {/* Hero Section */}
-      <div className="relative bg-gray-900 dark:bg-gray-950 text-white py-8 overflow-hidden">
-        <div 
+
+      <motion.div className="relative bg-gray-900 dark:bg-gray-950 text-white py-8 overflow-hidden" variants={fadeInUp}>
+        <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url(${courseData.thumbnail || ''})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-gray-900/95 via-gray-900/90 to-gray-900/80" />
-        
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-4">
@@ -365,18 +424,18 @@ export function CourseDetailPage() {
                 ...(courseData.category ? [{ label: courseData.category.name, href: `/courses?category=${courseData.category.category_id}` }] : []),
                 ...(courseData.subcategory ? [{ label: courseData.subcategory.name, href: `/courses?category=${courseData.subcategory.category_id}` }] : []),
               ]} />
-              
-              {/* Subscription Badge */}
+
+
               {isCourseInSubscription && !canAccessCourse && (
                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 animate-pulse">
                    <Crown className="w-3 h-3 fill-yellow-400 text-yellow-400" />
                    {t('course_detail.included_in_pro_plan')}
                  </div>
               )}
-              
-              <h1 className="text-4xl font-bold">{courseData.title}</h1>
-              <p className="text-xl text-gray-300">{courseData.shortdescription || ''}</p>
-              
+
+              <h1 className="text-2xl font-bold sm:text-3xl lg:text-4xl">{courseData.title}</h1>
+              <p className="text-base text-gray-300 sm:text-lg lg:text-xl">{courseData.shortdescription || ''}</p>
+
               <div className="flex flex-wrap items-center gap-4 text-sm mt-4">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -397,12 +456,12 @@ export function CourseDetailPage() {
                 </div>
               </div>
             </div>
-            
-            {/* Desktop Sidebar Card */}
+
+
             <div className="hidden lg:block relative min-h-[500px]" ref={sidebarCardRef}>
-               <div
+              <div
                   ref={sidebarCardInnerRef}
-                  className={`w-[360px] bg-white dark:bg-slate-900 shadow-2xl rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 z-40 ${
+                className={`w-[360px] app-surface-elevated shadow-2xl rounded-lg overflow-hidden z-40 ${
                     cardPosition === 'fixed'
                       ? 'fixed top-[8.5rem]'
                       : cardPosition === 'docked'
@@ -410,12 +469,12 @@ export function CourseDetailPage() {
                         : ''
                   }`}
                >
-                  {/* Video Preview Area */}
+
                   <div className="relative h-48 bg-black group cursor-pointer overflow-hidden">
                     <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
-                    
-                    {/* Render Lock Overlay if it's a paid course and user is NOT subscribed */}
-                    {/* Just for demo: We lock it if it's NOT a free preview logic, but here we just show play button */}
+
+
+
                     <div className="absolute inset-0 flex items-center justify-center">
                        <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                           <Play className="w-8 h-8 text-white fill-white" />
@@ -428,7 +487,7 @@ export function CourseDetailPage() {
 
                   <CardContent className="p-6 space-y-6">
                      {canGoToPlayerDirectly ? (
-                        /* VIEW: Already enrolled â€” go to player */
+
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
                               <span className="text-2xl font-bold text-green-600">
@@ -447,7 +506,7 @@ export function CourseDetailPage() {
                            </Button>
                         </div>
                      ) : needsSubscriptionEnrollment ? (
-                        /* VIEW: Has subscription access but not enrolled yet */
+
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
                               <span className="text-2xl font-bold text-blue-600">{t('course_detail.included_in_subscription')}</span>
@@ -456,8 +515,8 @@ export function CourseDetailPage() {
                            <p className="text-sm text-muted-foreground">
                               {t('course_detail.subscription_enroll_desc')}
                            </p>
-                           <Button 
-                              className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700" 
+                           <Button
+                              className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700"
                               onClick={() => handleEnroll('subscription')}
                               disabled={enrolling}
                            >
@@ -466,7 +525,7 @@ export function CourseDetailPage() {
                            </Button>
                         </div>
                      ) : !canAccessCourse && isFree ? (
-                        /* VIEW: Free course â€” enroll for free */
+
                         <div className="space-y-4">
                            <div className="flex items-center justify-between">
                               <span className="text-2xl font-bold text-green-600">{t('common.free')}</span>
@@ -475,8 +534,8 @@ export function CourseDetailPage() {
                            <p className="text-sm text-muted-foreground">
                               {t('course_detail.free_course_desc')}
                            </p>
-                           <Button 
-                              className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
+                           <Button
+                              className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700"
                               onClick={() => handleEnroll('purchase')}
                               disabled={enrolling}
                            >
@@ -485,13 +544,13 @@ export function CourseDetailPage() {
                            </Button>
                         </div>
                      ) : (
-                        /* VIEW: Non-subscribers / paid course */
+
                         <div className="space-y-4">
-                           {/* Flash Sale Banner (above price) */}
+
                            {hasDiscount && discountEndDate && (
                               <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="banner" />
                            )}
-                           
+
                            <div className="flex items-end gap-3">
                               <span className="text-3xl font-bold text-red-600 dark:text-red-400">
                                  {formatPrice(effectivePrice)}
@@ -507,19 +566,19 @@ export function CourseDetailPage() {
                               </span>
                               )}
                            </div>
-                           
-                           {/* Subscription Upsell */}
+
+
                            {isCourseInSubscription && (
                               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-3">
                                  <div className="flex justify-between items-center mb-2">
                                     <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1">
-                                       <Zap className="w-4 h-4 fill-blue-500 text-blue-500" /> 
+                                       <Zap className="w-4 h-4 fill-blue-500 text-blue-500" />
                                        {t('course_detail.with_pro_plan')}
                                     </span>
                                     <span className="font-bold text-blue-600">{t('course_detail.included')}</span>
                                  </div>
-                                 <Button 
-                                    variant="secondary" 
+                                 <Button
+                                    variant="secondary"
                                     className="w-full bg-blue-700 hover:bg-blue-800 text-white dark:bg-blue-800 dark:hover:bg-blue-700 dark:text-white border-none h-8 text-xs font-semibold"
                                     onClick={() => navigate('/pricing')}
                                  >
@@ -556,29 +615,29 @@ export function CourseDetailPage() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+
+      <motion.div className="container mx-auto px-4 py-8" variants={fadeInUp}>
         <div className="lg:grid lg:grid-cols-3 lg:gap-8">
-          
-          {/* Mobile Pricing Card (Only visible on small screens) */}
+
+
           <div className="lg:hidden mb-8">
-            <Card className="overflow-hidden">
+            <Card className="app-surface-elevated overflow-hidden">
                <div className="relative aspect-video bg-black group cursor-pointer overflow-hidden">
                   <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className="w-full h-full object-cover" />
-                  {/* Play Button Overlay */}
+
                    <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
                         <Play className="w-8 h-8 text-white fill-white" />
                       </div>
                    </div>
                </div>
-               <CardContent className="p-6 space-y-6">
+               <CardContent className="space-y-6 p-4 sm:p-6">
                   {canGoToPlayerDirectly ? (
-                      /* Mobile: Already enrolled */
+
                       <div className="space-y-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-2xl font-bold text-green-600">
                               {accessType === 'purchase' ? t('course_detail.purchased') : accessType === 'subscription' ? t('course_detail.subscription_plan') : t('course_detail.owned')}
                             </span>
@@ -592,14 +651,14 @@ export function CourseDetailPage() {
                           </Button>
                       </div>
                   ) : needsSubscriptionEnrollment ? (
-                      /* Mobile: Has subscription but not enrolled */
+
                       <div className="space-y-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-2xl font-bold text-blue-600">{t('course_detail.included_in_subscription')}</span>
                             <Badge variant="outline" className="border-blue-500 text-blue-600 bg-blue-50">{t('course_detail.subscription_plan')}</Badge>
                           </div>
-                          <Button 
-                            className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700" 
+                          <Button
+                            className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700"
                             onClick={() => handleEnroll('subscription')}
                             disabled={enrolling}
                           >
@@ -608,14 +667,14 @@ export function CourseDetailPage() {
                           </Button>
                       </div>
                   ) : !canAccessCourse && isFree ? (
-                      /* Mobile: Free course */
+
                       <div className="space-y-4">
-                          <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <span className="text-2xl font-bold text-green-600">{t('common.free')}</span>
                             <Badge variant="outline" className="border-green-500 text-green-600 bg-green-50">{t('common.free')}</Badge>
                           </div>
-                          <Button 
-                            className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700" 
+                          <Button
+                            className="w-full h-12 text-lg font-bold bg-green-600 hover:bg-green-700"
                             onClick={() => handleEnroll('purchase')}
                             disabled={enrolling}
                           >
@@ -624,14 +683,14 @@ export function CourseDetailPage() {
                           </Button>
                       </div>
                   ) : (
-                      /* Mobile: Paid course */
+
                       <div className="space-y-4">
-                        {/* Flash Sale Banner (mobile) */}
+
                         {hasDiscount && discountEndDate && (
                             <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="banner" />
                         )}
-                        
-                        <div className="flex items-end gap-3">
+
+                        <div className="flex flex-wrap items-end gap-2 sm:gap-3">
                             <span className="text-3xl font-bold text-red-600 dark:text-red-400">
                                 {formatPrice(effectivePrice)}
                             </span>
@@ -646,28 +705,28 @@ export function CourseDetailPage() {
                             </span>
                             )}
                         </div>
-                        
+
                         {isCourseInSubscription && (
                             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-3">
-                                <div className="flex justify-between items-center mb-2">
+                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                 <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1">
-                                    <Zap className="w-4 h-4 fill-blue-500 text-blue-500" /> 
+                                    <Zap className="w-4 h-4 fill-blue-500 text-blue-500" />
                                     {t('course_detail.with_pro_plan')}
                                 </span>
                                 <span className="font-bold text-blue-600">{t('course_detail.included')}</span>
                                 </div>
-                                <Button 
-                                variant="secondary" 
+                                <Button
+                                variant="secondary"
                                 className="w-full bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-800 dark:hover:bg-blue-700 dark:text-white border-none h-8 text-xs font-semibold"
                                 onClick={() => navigate('/pricing')}
                                 >
                                 {t('course_detail.save_with_subscription')}
                                 </Button>
-                            </div>
+                              </div>
                         )}
 
                         <div className="space-y-3 pt-2">
-                            <Button className="w-full h-12 text-lg font-bold" onClick={handleAddToCart}>
+                              <Button className="w-full h-12 text-lg font-bold" onClick={handleAddToCart}>
                                 {t('course_detail.add_to_cart')}
                             </Button>
                             <Button variant="outline" className="w-full h-12 font-semibold" onClick={handleBuyNow}>
@@ -684,8 +743,8 @@ export function CourseDetailPage() {
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-            
-            {/* Learning Goals */}
+
+
             {courseData.requirements && (
             <Card>
               <CardHeader><CardTitle>{t('course_detail.what_you_learn')}</CardTitle></CardHeader>
@@ -695,7 +754,7 @@ export function CourseDetailPage() {
             </Card>
             )}
 
-            {/* Course Content (from modules) */}
+
             <Card>
                <CardHeader>
                  <CardTitle>{t('course_detail.course_content')}</CardTitle>
@@ -714,7 +773,7 @@ export function CourseDetailPage() {
                   {(courseData.modules || []).map((mod) => (
                     <AccordionItem key={mod.module_id} value={String(mod.module_id)}>
                       <AccordionTrigger className="hover:no-underline">
-                        <div className="flex justify-between items-center w-full pr-4">
+                        <div className="flex w-full flex-col gap-1 pr-4 sm:flex-row sm:items-center sm:justify-between">
                           <span className="font-medium">{mod.title}</span>
                           <span className="text-sm text-muted-foreground">
                             {t('course_detail.module_summary', {
@@ -730,16 +789,16 @@ export function CourseDetailPage() {
                           {(mod.lessons || []).map((lesson) => (
                             <div
                               key={lesson.lesson_id}
-                              className={`flex items-center justify-between py-2 px-3 rounded ${
-                                !lesson.is_free && !canAccessCourse 
-                                  ? 'opacity-70 hover:bg-transparent cursor-not-allowed' 
+                              className={`flex flex-col gap-2 py-2 px-3 rounded sm:flex-row sm:items-center sm:justify-between ${
+                                !lesson.is_free && !canAccessCourse
+                                  ? 'opacity-70 hover:bg-transparent cursor-not-allowed'
                                   : 'hover:bg-secondary/50 cursor-pointer'
                               }`}
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex min-w-0 items-center gap-3">
                                 {lesson.content_type === 'video' && <Play className="w-4 h-4" />}
                                 {lesson.content_type !== 'video' && <FileText className="w-4 h-4" />}
-                                <span className="text-sm">{lesson.title}</span>
+                                <span className="text-sm break-words">{lesson.title}</span>
                                 {lesson.is_free ? (
                                   <Badge variant="outline" className="text-xs">{t('course_detail.preview_badge')}</Badge>
                                 ) : !canAccessCourse ? (
@@ -757,12 +816,12 @@ export function CourseDetailPage() {
                </CardContent>
             </Card>
 
-            {/* Locked Video Player Simulation (New) */}
+
             <Card className="overflow-hidden relative">
                <CardHeader><CardTitle>{t('course_detail.sample_lecture')}</CardTitle></CardHeader>
                <div className="relative aspect-video bg-slate-900 w-full">
                   {!canAccessCourse && (
-                     <SubscriptionLockOverlay 
+                     <SubscriptionLockOverlay
                         title={t('course_detail.locked_content_title')}
                         description={t('course_detail.locked_content_desc')}
                         backgroundImage={courseData.thumbnail || ''}
@@ -779,12 +838,12 @@ export function CourseDetailPage() {
                </div>
             </Card>
 
-            {/* Instructor */}
+
             {courseData.instructor && (
             <Card>
                <CardHeader><CardTitle>{t('course_detail.instructor_title')}</CardTitle></CardHeader>
                <CardContent>
-                  <div className="flex gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row">
                      <button
                        type="button"
                        onClick={handleOpenInstructorProfile}
@@ -820,11 +879,11 @@ export function CourseDetailPage() {
             </Card>
             )}
 
-            {/* Reviews Section */}
+
             <div className="space-y-4" id="reviews">
                <h3 className="text-xl font-bold">{t('course_detail.student_feedback')}</h3>
 
-               {/* Submit review form (only for enrolled, authenticated users) */}
+
                {isAuthenticated && canAccessCourse && (
                  <Card className="mb-4">
                    <CardContent className="p-4 space-y-3">
@@ -851,15 +910,21 @@ export function CourseDetailPage() {
                  </Card>
                )}
 
-               {/* Review list */}
+
                {reviewsLoading ? (
                  <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
                ) : reviews.length === 0 ? (
                  <p className="text-muted-foreground text-sm py-4">{t('course_detail.no_reviews')}</p>
                ) : (
                  <div className="space-y-4">
-                   {reviews.map((r) => (
-                     <Card key={r.review_id}>
+                   {reviews.map((r, index) => (
+                     <motion.div
+                       key={r.review_id}
+                       initial={{ opacity: 0, y: 10 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={listItemTransition(index)}
+                     >
+                     <Card>
                        <CardContent className="p-4">
                          <div className="flex items-start gap-3">
                            <Avatar className="w-10 h-10">
@@ -872,7 +937,7 @@ export function CourseDetailPage() {
                              </AvatarFallback>
                            </Avatar>
                            <div className="flex-1">
-                             <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                <span className="font-medium text-sm">{r.user_info?.full_name || t('course_detail.user_fallback')}</span>
                                <div className="flex">
                                  {[1, 2, 3, 4, 5].map((s) => (
@@ -907,6 +972,7 @@ export function CourseDetailPage() {
                          </div>
                        </CardContent>
                      </Card>
+                     </motion.div>
                    ))}
                  </div>
                )}
@@ -914,9 +980,9 @@ export function CourseDetailPage() {
 
           </div>
         </div>
-      </div>
-      </>)}
-    </div>
+      </motion.div>
+      </motion.div>)}
+    </motion.div>
   )
 }
 

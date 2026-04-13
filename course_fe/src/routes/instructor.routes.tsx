@@ -23,7 +23,7 @@ const InstructorCommunicationPage = lazy(() => import('../pages/instructor/Instr
 const InstructorLessonEditorPage = lazy(() => import('../pages/instructor/InstructorLessonEditorPage').then((module) => ({ default: module.InstructorLessonEditorPage })))
 
 export const instructorRoutes: RouteConfig[] = [
-  // Dashboard
+
   {
     path: '/instructor',
     element: (
@@ -34,8 +34,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Courses
+
+
   {
     path: '/instructor/courses',
     element: (
@@ -67,8 +67,8 @@ export const instructorRoutes: RouteConfig[] = [
     ),
     dynamic: true
   },
-  
-  // Lessons
+
+
   {
     path: '/instructor/lessons/:courseId',
     element: (
@@ -107,8 +107,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Quizzes
+
+
   {
     path: '/instructor/quizzes',
     element: (
@@ -119,8 +119,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Analytics
+
+
   {
     path: '/instructor/analytics',
     element: (
@@ -131,8 +131,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Discounts
+
+
   {
     path: '/instructor/discounts',
     element: (
@@ -143,8 +143,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Earnings & Payouts
+
+
   {
     path: '/instructor/earnings',
     element: (
@@ -175,8 +175,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Profile
+
+
   {
     path: '/instructor/profile',
     element: (
@@ -187,8 +187,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Resources
+
+
   {
     path: '/instructor/resources',
     element: (
@@ -199,8 +199,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Students
+
+
   {
     path: '/instructor/students',
     element: (
@@ -211,8 +211,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Course Landing
+
+
   {
     path: '/instructor/course-landing',
     element: (
@@ -234,8 +234,8 @@ export const instructorRoutes: RouteConfig[] = [
     ),
     dynamic: true
   },
-  
-  // Communication
+
+
   {
     path: '/instructor/communication',
     element: (
@@ -246,8 +246,8 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-  
-  // Onboarding (No auth required)
+
+
   {
     path: '/instructor/onboarding',
     element: <InstructorOnboardingPage />

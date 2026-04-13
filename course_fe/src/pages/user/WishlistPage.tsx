@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Badge } from "../../components/ui/badge"
+import { Skeleton } from '../../components/ui/skeleton'
 import { Heart, Star, Clock, Users, ShoppingCart, Trash2, Loader2 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { useAuth } from "../../contexts/AuthContext"
 import { toast } from "sonner"
@@ -17,6 +19,29 @@ import {
 import { addToCart as addToCartApi } from '../../services/cart.api'
 import { formatPrice, formatDuration, getLevelLabel } from '../../services/course.api'
 import { UserPagination } from '../../components/UserPagination'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 export function WishlistPage() {
   const { t } = useTranslation()
@@ -32,6 +57,20 @@ export function WishlistPage() {
   const [pageSize, setPageSize] = useState(6)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+
+  const renderWishlistSkeleton = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {Array.from({ length: pageSize }).map((_, index) => (
+        <div key={`wishlist-skeleton-${index}`} className="overflow-hidden rounded-lg border bg-card p-4 space-y-4">
+          <Skeleton className="h-40 w-full rounded-md" />
+          <Skeleton className="h-5 w-4/5" />
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  )
 
   useEffect(() => {
     if (!user?.id) {
@@ -108,7 +147,7 @@ export function WishlistPage() {
         await addToCartApi({ user: parseInt(user.id, 10), course: item.course })
         await removeWishlistApi(item.id)
       } catch {
-        // ignore duplicates or failed items
+
       }
     }
     setWishlistItems([])
@@ -117,8 +156,14 @@ export function WishlistPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="p-8 overflow-y-auto">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8 space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-5 w-72" />
+          </div>
+          {renderWishlistSkeleton()}
+        </div>
       </div>
     )
   }
@@ -141,9 +186,14 @@ export function WishlistPage() {
   }
 
   return (
-    <div className="p-8 overflow-y-auto">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+    <motion.div
+      className="p-8 overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="max-w-7xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+        <motion.div className="flex items-center justify-between mb-8" variants={fadeInUp}>
           <div>
             <h1 className="mb-2">{t('wishlist.title')}</h1>
             <p className="text-muted-foreground">{t('wishlist.count_summary', { count: totalCount })}</p>
@@ -155,9 +205,10 @@ export function WishlistPage() {
               {t('wishlist.move_all_to_cart')}
             </Button>
           )}
-        </div>
+        </motion.div>
 
-        <Card className="mb-6">
+        <motion.div variants={fadeInUp}>
+        <Card className="app-surface-elevated mb-6">
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <input
               className="h-9 rounded-md border px-3 text-sm"
@@ -196,24 +247,33 @@ export function WishlistPage() {
             </Button>
           </CardContent>
         </Card>
+        </motion.div>
 
         {wishlistItems.length === 0 ? (
+            <motion.div variants={fadeInUp}>
             <Card>
               <CardContent className="p-12 text-center text-muted-foreground">
               {t('wishlist.no_results')}
               </CardContent>
             </Card>
+            </motion.div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {wishlistItems.map((item) => {
+            <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {wishlistItems.map((item, index) => {
                 const course = item.course_detail
                 const effectivePrice = getWishlistEffectivePrice(course)
                 const originalPrice = parseDecimal(course.original_price)
                 const hasDiscount = effectivePrice < originalPrice && effectivePrice > 0
 
                 return (
-                  <Card key={item.id} className="group hover:shadow-lg transition-shadow">
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={listItemTransition(index)}
+                  >
+                  <Card className="app-interactive group hover:shadow-lg">
                     <div className="relative">
                       <img
                         src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=300&h=200&fit=crop'}
@@ -280,19 +340,20 @@ export function WishlistPage() {
                       </Button>
                     </CardContent>
                   </Card>
+                  </motion.div>
                 )
               })}
-            </div>
+            </motion.div>
 
-            <div className="mt-6 flex items-center justify-between">
+            <motion.div className="mt-6 flex items-center justify-between" variants={fadeInUp}>
               <p className="text-sm text-muted-foreground">
                 {t('wishlist.pagination_summary', { current: currentPage, totalPages, totalCount })}
               </p>
               <UserPagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
+            </motion.div>
           </>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

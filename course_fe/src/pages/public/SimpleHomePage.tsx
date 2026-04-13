@@ -1,9 +1,32 @@
 import { useEffect, useState } from "react"
+import { motion } from "motion/react"
 import { DynamicHomeSections } from "../../features/home/DynamicHomeRenderer"
 import { loadHomeSchemaV2 } from "../../features/home/service"
 import { getDefaultHomeSchemaV2, normalizeHomeSchemaV2, type HomeSchemaV2, type HomeSection } from "../../features/home/schema"
 
 const HOMEPAGE_SCHEMA_CACHE_KEY = "homepage_schema_v2_cached"
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 function getCachedHomeSchema(): HomeSchemaV2 | null {
   if (typeof window === "undefined") return null
@@ -21,7 +44,7 @@ function cacheHomeSchema(schema: HomeSchemaV2): void {
   try {
     window.localStorage.setItem(HOMEPAGE_SCHEMA_CACHE_KEY, JSON.stringify(schema))
   } catch {
-    // Ignore storage failures.
+
   }
 }
 
@@ -139,13 +162,20 @@ function HomeLoadingSkeleton({ schema }: { schema: HomeSchemaV2 | null }) {
   const sections = schema?.sections?.length ? schema.sections.filter((section) => section.enabled) : getDefaultHomeSchemaV2().sections
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-10 md:py-14">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <motion.div className="mx-auto max-w-6xl space-y-12 px-4 py-10 md:py-14" variants={sectionStagger} initial="hidden" animate="show">
         {sections.map((section) => (
-          <SectionSkeleton key={section.id} section={section} />
+          <motion.div key={section.id} variants={fadeInUp}>
+            <SectionSkeleton section={section} />
+          </motion.div>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -175,5 +205,16 @@ export function SimpleHomePage() {
     return <HomeLoadingSkeleton schema={schema} />
   }
 
-  return <DynamicHomeSections sections={schema.sections} />
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+      variants={sectionStagger}
+    >
+      <motion.div variants={fadeInUp}>
+        <DynamicHomeSections sections={schema.sections} />
+      </motion.div>
+    </motion.div>
+  )
 }

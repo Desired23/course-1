@@ -14,6 +14,30 @@ import { DashboardSidebar } from "../../components/DashboardSidebar"
 import { useAuth } from "../../contexts/AuthContext"
 import { useNotifications } from "../../contexts/NotificationContext"
 import { toast } from "sonner"
+import { motion } from 'motion/react'
+import { listItemTransition } from '../../lib/motion'
+
+const sectionStagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+}
 
 type ReviewRecord = {
   id: number
@@ -228,8 +252,8 @@ export function CourseReviewsPage() {
   ]
 
   const content = (
-    <>
-      <div className="mb-8">
+    <motion.div variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className="mb-8" variants={fadeInUp}>
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="mb-2">
@@ -361,9 +385,9 @@ export function CourseReviewsPage() {
             </Card>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <motion.div className="flex flex-col md:flex-row gap-4 mb-6" variants={fadeInUp}>
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -414,11 +438,17 @@ export function CourseReviewsPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </motion.div>
 
-      <div className="space-y-6">
-        {filteredReviews.map((review) => (
-          <Card key={review.id}>
+      <motion.div className="space-y-6" variants={fadeInUp}>
+        {filteredReviews.map((review, index) => (
+          <motion.div
+            key={review.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={listItemTransition(index)}
+          >
+          <Card>
             <CardContent className="p-6">
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
@@ -540,6 +570,7 @@ export function CourseReviewsPage() {
               </div>
             </CardContent>
           </Card>
+          </motion.div>
         ))}
 
         {filteredReviews.length === 0 && (
@@ -556,25 +587,35 @@ export function CourseReviewsPage() {
             )}
           </div>
         )}
-      </div>
-    </>
+      </motion.div>
+    </motion.div>
   )
 
   if (isInstructorView) {
     return (
-      <div className="flex min-h-screen bg-background">
+      <motion.div
+        className="flex min-h-screen bg-background"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
         <DashboardSidebar type="instructor" />
 
         <main className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto">{content}</div>
         </main>
-      </div>
+      </motion.div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <motion.div
+      className="min-h-screen bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
       <div className="container mx-auto px-4 py-8">{content}</div>
-    </div>
+    </motion.div>
   )
 }

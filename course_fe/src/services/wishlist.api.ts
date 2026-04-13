@@ -1,26 +1,26 @@
-/**
- * Wishlist API Service
- *
- * BE endpoints:
- *   GET    /api/wishlists/?user_id=X      — list user's wishlist items (paginated)
- *   POST   /api/wishlists/create/          — add course to wishlist
- *   DELETE /api/wishlists/:wishlistId/delete/ — remove from wishlist
- */
+
+
+
+
+
+
+
+
 
 import { http } from './http'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+
 
 export interface WishlistCourseDetail {
   id: number
   title: string
   thumbnail: string | null
   instructor_name: string | null
-  original_price: string | null  // decimal string
-  discount_price: string | null  // decimal string
+  original_price: string | null
+  discount_price: string | null
   discount_start_date: string | null
   discount_end_date: string | null
-  rating: string // decimal string
+  rating: string
   enrollment_count: number
   duration: number | null
   level: string
@@ -31,7 +31,7 @@ export interface WishlistCourseDetail {
 export interface WishlistItem {
   id: number
   user: number
-  course: number  // FK id
+  course: number
   course_detail: WishlistCourseDetail
   created_at: string
 }
@@ -46,9 +46,9 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ─── API functions ────────────────────────────────────────────────────────────
 
-/** Get current user's wishlist items (paginated). Requires user_id query param. */
+
+
 export async function getWishlistByUser(
   userId: number,
   params?: {
@@ -71,7 +71,7 @@ export async function getWishlistByUser(
   )
 }
 
-/** Get ALL wishlist items for a user (no pagination limit). */
+
 export async function getAllWishlistByUser(userId: number): Promise<WishlistItem[]> {
   const all: WishlistItem[] = []
   let page = 1
@@ -84,7 +84,7 @@ export async function getAllWishlistByUser(userId: number): Promise<WishlistItem
   return all
 }
 
-/** Add a course to wishlist. */
+
 export async function addToWishlist(data: {
   user: number
   course: number
@@ -92,7 +92,7 @@ export async function addToWishlist(data: {
   return http.post<WishlistItem>('/wishlists/create/', data)
 }
 
-/** Remove a wishlist item. */
+
 export async function removeFromWishlist(
   wishlistId: number
 ): Promise<{ message: string }> {
@@ -101,16 +101,16 @@ export async function removeFromWishlist(
   )
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Parse a decimal string to number. */
+
+
 export function parseDecimal(value: string | number | null | undefined): number {
   if (value == null) return 0
   const n = typeof value === 'number' ? value : parseFloat(value)
   return isNaN(n) ? 0 : n
 }
 
-/** Get effective price considering discount dates. */
+
 export function getWishlistEffectivePrice(course: WishlistCourseDetail): number {
   const now = new Date()
   const discountPrice = parseDecimal(course.discount_price)
