@@ -20,7 +20,9 @@ class ApplicationSerializer(serializers.ModelSerializer):
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_full_name = serializers.SerializerMethodField()
     form_title = serializers.CharField(source='form.title', read_only=True)
+    reviewed_by = serializers.SerializerMethodField()
     reviewed_by_name = serializers.SerializerMethodField()
+    reviewed_by_admin_id = serializers.IntegerField(source='reviewed_by_id', read_only=True)
 
     class Meta:
         model = Application
@@ -28,7 +30,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             'id', 'user', 'form', 'status',
             'submitted_at', 'reviewed_at', 'reviewed_by',
             'admin_notes', 'rejection_reason', 'updated_at',
-            'user_email', 'user_full_name', 'form_title',
+            'user_email', 'user_full_name', 'form_title', 'reviewed_by_admin_id',
             'reviewed_by_name', 'responses',
         ]
         read_only_fields = [
@@ -39,9 +41,14 @@ class ApplicationSerializer(serializers.ModelSerializer):
     def get_user_full_name(self, obj):
         return obj.user.full_name or str(obj.user)
 
+    def get_reviewed_by(self, obj):
+        if obj.reviewed_by and obj.reviewed_by.user_id:
+            return obj.reviewed_by.user_id
+        return None
+
     def get_reviewed_by_name(self, obj):
         if obj.reviewed_by:
-            return obj.reviewed_by.full_name or str(obj.reviewed_by)
+            return obj.reviewed_by.user.full_name or str(obj.reviewed_by.user)
         return None
 
 

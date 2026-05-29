@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState, type DragEvent } from "react"
 import { motion } from 'motion/react'
 import { toast } from "sonner"
-import { Copy, Eye, EyeOff, Plus, Trash2 } from "lucide-react"
+import { Copy, Eye, EyeOff, Plus, Save, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -30,6 +30,7 @@ import {
 } from "../../features/home/schema"
 import { getCourses, type CourseListItem } from "../../services/course.api"
 import { getAllCategories, type Category } from "../../services/category.api"
+import { getAllReviews, type Review } from "../../services/review.api"
 import i18n from "../../utils/i18n"
 
 const SECTION_TYPES: HomeSectionType[] = [
@@ -146,6 +147,9 @@ export function AdminHomeLayoutPage() {
   const [pinnedCourseOptions, setPinnedCourseOptions] = useState<CourseListItem[]>([])
   const [courseSearch, setCourseSearch] = useState("")
   const [courseSearchLoading, setCourseSearchLoading] = useState(false)
+  const [reviewOptions, setReviewOptions] = useState<Review[]>([])
+  const [reviewSearch, setReviewSearch] = useState("")
+  const [reviewSearchLoading, setReviewSearchLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor')
   const [confirmState, setConfirmState] = useState<ConfirmState>({
     open: false,
@@ -237,6 +241,27 @@ export function AdminHomeLayoutPage() {
     return () => window.clearTimeout(timeout)
   }, [selectedSection?.id, selectedSection?.type, courseSearch])
 
+  useEffect(() => {
+    const loadReviewOptions = async () => {
+      if (selectedSection?.type !== "testimonial") return
+      setReviewSearchLoading(true)
+      try {
+        const reviews = await getAllReviews()
+        setReviewOptions(
+          reviews.filter(
+            (review) => review.status === "approved" && Boolean(review.comment?.trim()),
+          ),
+        )
+      } catch {
+        setReviewOptions([])
+      } finally {
+        setReviewSearchLoading(false)
+      }
+    }
+
+    void loadReviewOptions()
+  }, [selectedSection?.id, selectedSection?.type])
+
   const setSections = (nextSections: HomeSection[]) => {
     const normalized = normalizeOrder(nextSections)
     setSchema((prev) => normalizeHomeSchemaV2({ ...prev, sections: normalized }))
@@ -320,6 +345,39 @@ export function AdminHomeLayoutPage() {
 
     setDraggedIndex(null)
     setSections(next)
+  }
+
+  const saveCurrentSchema = async () => {
+    try {
+      setIsSaving(true)
+      const normalized = normalizeHomeSchemaV2({ ...schema, sections })
+      const result = await saveHomeSchemaV2(normalized, settingId, 0)
+      setSettingId(result.settingId)
+
+      const reloaded = await loadHomeSchemaV2()
+      setLoadedSource(reloaded.source)
+      setSchema(reloaded.schema)
+      setSelectedSectionId((prev) => prev || reloaded.schema.sections[0]?.id || null)
+
+      const expected = JSON.stringify(normalized.sections)
+      const actual = JSON.stringify(reloaded.schema.sections)
+      if (reloaded.source !== "v2" || expected !== actual) {
+        toast.error(t("admin_home_layout.toasts.save_schema_mismatch"))
+        return
+      }
+
+      try {
+        window.localStorage.removeItem("homepage_schema_v2_cached")
+      } catch {
+
+      }
+
+      toast.success(t("admin_home_layout.toasts.save_schema_success"))
+    } catch {
+      toast.error(t("admin_home_layout.toasts.save_schema_failed"))
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const restoreOriginalUiFromDefault = async () => {
@@ -822,20 +880,271 @@ export function AdminHomeLayoutPage() {
 
     if (section.type === "testimonial") {
       const items = Array.isArray(section.content.items) ? section.content.items : []
+      const selectedReviewIds = Array.isArray(section.data_source.selected_review_ids)
+        ? section.data_source.selected_review_ids
+            .map((item) => Number(item))
+            .filter((item) => Number.isFinite(item))
+        : []
+      const reviewMode = typeof section.data_source.mode === "string" ? section.data_source.mode : "hybrid"
+      const reviewLimit = typeof section.data_source.limit === "number" ? section.data_source.limit : 6
+      const searchTerm = reviewSearch.trim().toLowerCase()
+      const visibleReviewOptions = reviewOptions
+        .filter((review) => {
+          if (!searchTerm) return true
+          const fields = [
+            review.user_info?.full_name,
+            review.course_detail?.title,
+            review.comment,
+          ]
+          return fields.some((value) => (value || "").toLowerCase().includes(searchTerm))
+        })
+        .slice(0, 40)
+
+      const updateStaticItem = (index: number, patch: Record<string, unknown>) => {
+        const current = items[index] && typeof items[index] === "object"
+          ? (items[index] as Record<string, unknown>)
+          : {}
+        const next = items.slice()
+        next[index] = { ...current, ...patch }
+        updateSectionContent(section.id, "items", next)
+      }
+
+      const toggleSelectedReview = (reviewId: number, checked: boolean) => {
+        const nextIds = checked
+          ? Array.from(new Set([...selectedReviewIds, reviewId]))
+          : selectedReviewIds.filter((item) => item !== reviewId)
+        updateSectionDataSource(section.id, "selected_review_ids", nextIds)
+      }
+
+      const moveSelectedReview = (reviewId: number, direction: "up" | "down") => {
+        const currentIndex = selectedReviewIds.findIndex((item) => item === reviewId)
+        if (currentIndex < 0) return
+        const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+        if (targetIndex < 0 || targetIndex >= selectedReviewIds.length) return
+        const next = selectedReviewIds.slice()
+        const [picked] = next.splice(currentIndex, 1)
+        if (typeof picked !== "number") return
+        next.splice(targetIndex, 0, picked)
+        updateSectionDataSource(section.id, "selected_review_ids", next)
+      }
+
       return (
         <div className="space-y-3 rounded-md border p-3">
-          <p className="text-sm font-medium">testimonial Settings</p>
+          <p className="text-sm font-medium">{t("admin_home_layout.labels.testimonial_settings")}</p>
           {renderLocalizedField(section.id, section.content.heading, "heading")}
           {renderLocalizedField(section.id, section.content.subheading, "subheading")}
-          <div className="flex items-center justify-between">
-            <Label>items</Label>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => updateSectionContent(section.id, "items", [...items, { name: "", role: "", rating: 5, content: { vi: "", en: "" } }])}
-            >
-              Add testimonial
-            </Button>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <Label>{t("admin_home_layout.fields.review_mode")}</Label>
+              <select
+                className="mt-1 h-10 w-full rounded-md border bg-background px-3"
+                value={reviewMode}
+                onChange={(event) => updateSectionDataSource(section.id, "mode", event.target.value)}
+              >
+                <option value="hybrid">{t("admin_home_layout.options.hybrid")}</option>
+                <option value="selected_reviews">{t("admin_home_layout.options.selected_reviews")}</option>
+                <option value="static">{t("admin_home_layout.options.static")}</option>
+              </select>
+            </div>
+            <div>
+              <Label>{t("admin_home_layout.fields.testimonial_limit")}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                value={reviewLimit}
+                onChange={(event) => updateSectionDataSource(section.id, "limit", Number(event.target.value) || 6)}
+              />
+            </div>
+          </div>
+
+          {reviewMode !== "static" ? (
+            <div className="space-y-3 rounded-md border p-3">
+              <div>
+                <p className="text-sm font-medium">{t("admin_home_layout.labels.testimonial_real_reviews")}</p>
+                <p className="text-xs text-muted-foreground">{t("admin_home_layout.labels.testimonial_real_reviews_description")}</p>
+              </div>
+
+              <div>
+                <Label>{t("admin_home_layout.fields.selected_review_ids")}</Label>
+                <div className="mt-1 rounded-md border p-2 text-sm">
+                  {selectedReviewIds.length === 0 ? (
+                    <p className="text-muted-foreground">{t("admin_home_layout.fields.no_selected_reviews")}</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {selectedReviewIds.map((id) => {
+                        const review = reviewOptions.find((item) => item.review_id === id)
+                        return (
+                          <div key={id} className="flex items-start justify-between gap-2 rounded border px-2 py-1">
+                            <div className="min-w-0">
+                              <p className="line-clamp-1 font-medium">
+                                {review?.user_info?.full_name || `Review #${id}`}
+                              </p>
+                              <p className="line-clamp-1 text-xs text-muted-foreground">
+                                {review?.course_detail?.title || t("admin_home_layout.fields.review_not_available")}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => moveSelectedReview(id, "up")}>
+                                ↑
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => moveSelectedReview(id, "down")}>
+                                ↓
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => toggleSelectedReview(id, false)}>
+                                {t("admin_home_layout.fields.remove")}
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("admin_home_layout.fields.review_search")}</Label>
+                <Input
+                  value={reviewSearch}
+                  onChange={(event) => setReviewSearch(event.target.value)}
+                  placeholder={t("admin_home_layout.fields.review_search_placeholder")}
+                />
+                <div className="max-h-72 space-y-2 overflow-auto rounded-md border p-2 text-sm">
+                  {reviewSearchLoading ? (
+                    <p className="text-muted-foreground">{t("admin_home_layout.fields.loading_reviews")}</p>
+                  ) : visibleReviewOptions.length === 0 ? (
+                    <p className="text-muted-foreground">{t("admin_home_layout.fields.no_reviews")}</p>
+                  ) : (
+                    visibleReviewOptions.map((review) => (
+                      <label key={review.review_id} className="flex items-start gap-2 rounded-md border p-2">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={selectedReviewIds.includes(review.review_id)}
+                          onChange={(event) => toggleSelectedReview(review.review_id, event.target.checked)}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium">{review.user_info?.full_name || `Review #${review.review_id}`}</span>
+                            <Badge variant="outline">{review.rating}/5</Badge>
+                          </div>
+                          <p className="line-clamp-1 text-xs text-muted-foreground">{review.course_detail?.title}</p>
+                          <p className="line-clamp-2">{review.comment}</p>
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">{t("admin_home_layout.labels.static_testimonials")}</p>
+                <p className="text-xs text-muted-foreground">{t("admin_home_layout.labels.static_testimonials_description")}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  updateSectionContent(section.id, "items", [
+                    ...items,
+                    { name: "", role: "", course: "", avatar: "", rating: 5, content: { vi: "", en: "" } },
+                  ])
+                }
+              >
+                {t("admin_home_layout.actions.add_testimonial")}
+              </Button>
+            </div>
+
+            {items.length === 0 ? (
+              <div className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+                {t("admin_home_layout.labels.default_static_testimonials_hint")}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {items.map((item, index) => {
+                  const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {}
+                  return (
+                    <div key={index} className="space-y-3 rounded-md border p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2"
+                          onClick={() => updateSectionContent(section.id, "items", items.filter((_, i) => i !== index))}
+                        >
+                          {t("common.delete")}
+                        </Button>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <div>
+                          <Label>{t("admin_home_layout.fields.name")}</Label>
+                          <Input
+                            value={typeof row.name === "string" ? row.name : ""}
+                            onChange={(event) => updateStaticItem(index, { name: event.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t("admin_home_layout.fields.role")}</Label>
+                          <Input
+                            value={typeof row.role === "string" ? row.role : ""}
+                            onChange={(event) => updateStaticItem(index, { role: event.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t("admin_home_layout.fields.course")}</Label>
+                          <Input
+                            value={typeof row.course === "string" ? row.course : ""}
+                            onChange={(event) => updateStaticItem(index, { course: event.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t("admin_home_layout.fields.avatar_url")}</Label>
+                          <Input
+                            value={typeof row.avatar === "string" ? row.avatar : ""}
+                            onChange={(event) => updateStaticItem(index, { avatar: event.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t("admin_home_layout.fields.rating")}</Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={5}
+                            value={typeof row.rating === "number" ? row.rating : 5}
+                            onChange={(event) => updateStaticItem(index, { rating: Number(event.target.value) || 5 })}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <div>
+                          <Label>{t("admin_home_layout.fields.content")} (vi)</Label>
+                          <Textarea
+                            rows={3}
+                            value={getLocalizedValue(row.content, "vi")}
+                            onChange={(event) => updateStaticItem(index, { content: setLocalizedValue(row.content, "vi", event.target.value) })}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t("admin_home_layout.fields.content")} (en)</Label>
+                          <Textarea
+                            rows={3}
+                            value={getLocalizedValue(row.content, "en")}
+                            onChange={(event) => updateStaticItem(index, { content: setLocalizedValue(row.content, "en", event.target.value) })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       )
@@ -921,6 +1230,10 @@ export function AdminHomeLayoutPage() {
         </div>
 
         <div className="flex gap-2">
+          <Button onClick={saveCurrentSchema} disabled={isSaving}>
+            <Save className="mr-2 h-4 w-4" />
+            {isSaving ? t("common.loading") : t("admin_home_layout.actions.save_layout")}
+          </Button>
           <Button
             variant="outline"
             onClick={() =>

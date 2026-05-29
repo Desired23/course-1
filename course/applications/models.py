@@ -1,4 +1,5 @@
 from django.db import models
+from admins.models import Admin
 from users.models import User
 from registration_forms.models import RegistrationForm, FormQuestion
 
@@ -26,7 +27,7 @@ class Application(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        Admin, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='reviewed_applications'
     )
     admin_notes = models.TextField(blank=True, null=True)

@@ -18,12 +18,7 @@ from subscription_plans.models import PlanCourse, UserSubscription
 
 
 def check_course_access(user, course):
-    """
-    Check if user has access to a course.
-    Returns the enrollment if access is granted, raises PermissionDenied otherwise.
 
-    For subscription users, creates a lazy enrollment on first access.
-    """
 
     if hasattr(user, 'admin') and user.admin:
         return None
@@ -37,7 +32,7 @@ def check_course_access(user, course):
     enrollment = Enrollment.objects.filter(
         user=user,
         course=course,
-        status='active',
+        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
         is_deleted=False,
     ).first()
 
@@ -119,7 +114,7 @@ def get_course_access_info(user, course):
         user=user,
         course=course,
         source=Enrollment.Source.PURCHASE,
-        status='active',
+        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
         is_deleted=False,
     ).exists()
 

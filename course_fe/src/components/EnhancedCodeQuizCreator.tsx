@@ -107,6 +107,7 @@ export interface EnhancedCodeQuizData {
   allowedLanguages: number[]
   starterCode?: Record<number, string>
   functionSignature?: Record<number, string>
+  functionName?: string
 
 
   testCases: TestCase[]

@@ -829,7 +829,7 @@ export function getStatistics() {
 }
 
 
-export const videoUrl = "https://www.youtube.com/watch?v=VBKNoLcj8jA&t=1s"
+export const videoUrl = "https://res.cloudinary.com/dqzopvk2t/video/upload/v1780068574/course_lessons/course_sample_lesson.mp4"
 
 
 export default {

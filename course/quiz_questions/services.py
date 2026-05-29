@@ -124,6 +124,9 @@ def get_lesson_quiz(lesson_id):
         except Lesson.DoesNotExist:
             raise ValidationError({"error": "Lesson not found."})
 
+        if lesson.content_type == 'code' and lesson.content:
+            return _get_code_lesson_quiz(lesson)
+
         questions = QuizQuestion.objects.filter(
             lesson=lesson,
             is_deleted=False
@@ -152,6 +155,69 @@ def get_lesson_quiz(lesson_id):
         raise
     except Exception as e:
         raise ValidationError({"error": str(e)})
+
+
+def _get_code_lesson_quiz(lesson):
+    import json
+    try:
+        code_data = json.loads(lesson.content)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        raise ValidationError({"error": "Invalid code quiz data."})
+
+    problem = code_data.get('problemStatement') or {}
+    learning = code_data.get('learningObjectives') or {}
+    starter_code = code_data.get('starterCode') or {}
+    allowed_langs = code_data.get('allowedLanguages') or []
+    hints_raw = code_data.get('hints') or []
+    hints = [h.get('content', '') for h in hints_raw if isinstance(h, dict) and h.get('content')]
+
+    test_cases = [
+        {
+            'id': i,
+            'input_data': tc.get('input', ''),
+            'expected_output': tc.get('expectedOutput', ''),
+            'is_hidden': tc.get('isHidden', False),
+            'points': tc.get('points'),
+            'order_number': i,
+        }
+        for i, tc in enumerate(code_data.get('testCases') or [])
+    ]
+
+    points = code_data.get('points') or 100
+
+    return {
+        'quiz_id': None,
+        'lesson_id': lesson.id,
+        'title': code_data.get('title') or lesson.title,
+        'description': problem.get('description') or lesson.description or '',
+        'time_limit': code_data.get('timeLimit'),
+        'passing_score': 70,
+        'total_points': points,
+        'total_questions': 1,
+        'questions': [
+            {
+                'question_id': lesson.id,
+                'question_text': code_data.get('title') or lesson.title,
+                'question_type': 'code',
+                'options': [],
+                'correct_answer': None,
+                'difficulty': learning.get('difficulty', 'medium'),
+                'description': problem.get('description') or '',
+                'order': 1,
+                'points': points,
+                'memory_limit': code_data.get('memoryLimit'),
+                'allowed_languages': allowed_langs,
+                'starter_code': json.dumps(starter_code) if starter_code else None,
+                'function_name': code_data.get('functionName'),
+                'require_completion': False,
+                'time_limit': code_data.get('timeLimit'),
+                'test_cases': test_cases,
+                'image_url': None,
+                'code_snippet': None,
+                'hints': hints,
+            }
+        ],
+    }
 
 
 

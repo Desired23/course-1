@@ -135,6 +135,8 @@ class LessonSummarySerializer(serializers.Serializer):
     transcript_last_generated_at = serializers.SerializerMethodField()
 
     def get_has_quiz(self, obj):
+        if obj.content_type == 'code' and obj.content:
+            return True
         return obj.quiz_question_lesson.filter(is_deleted=False).exists()
 
     def get_quiz_count(self, obj):

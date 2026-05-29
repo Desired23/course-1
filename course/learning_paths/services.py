@@ -1,16 +1,25 @@
 import logging
 import re
+from collections import Counter
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Prefetch
 from rest_framework.exceptions import ValidationError
 
 from courses.models import Course
+from coursemodules.models import CourseModule
+from lessons.models import Lesson
 from systems_settings.models import SystemsSetting
 
 from .errors import AdvisorUpstreamError
 from .models import LearningPath, LearningPathItem, PathConversation
-from .provider import GeminiAdvisorProvider, RuleBasedAdvisorProvider, extract_json_object
+from .provider import (
+    GeminiAdvisorProvider,
+    RuleBasedAdvisorProvider,
+    detect_course_search_mode,
+    extract_json_object,
+)
 from .runtime import GeminiCircuitBreaker, get_advisor_runtime_config
 
 logger = logging.getLogger(__name__)
@@ -127,17 +136,37 @@ def is_gemini_required():
 
 
 def build_catalog_snapshot():
+    lesson_queryset = Lesson.objects.filter(is_deleted=False).only('id', 'coursemodule_id', 'content_type')
+    module_queryset = CourseModule.objects.filter(is_deleted=False).prefetch_related(
+        Prefetch('lessons', queryset=lesson_queryset)
+    )
+
     courses = (
         Course.objects
         .filter(is_deleted=False, is_public=True, status=Course.Status.PUBLISHED)
         .select_related('category', 'subcategory')
+        .prefetch_related(Prefetch('modules', queryset=module_queryset))
         .order_by('title')
     )
     snapshot = []
     for course in courses:
+        module_count = 0
+        lesson_count_by_type = Counter()
+        total_lessons = 0
+
+        for module in course.modules.all():
+            module_count += 1
+            for lesson in module.lessons.all():
+                total_lessons += 1
+                lesson_count_by_type[str(lesson.content_type or '').lower()] += 1
+
+        total_quizzes = lesson_count_by_type.get('quiz', 0)
+        coding_count = lesson_count_by_type.get('code', 0)
+
         snapshot.append({
             'course_id': course.id,
             'title': course.title,
+            'shortdescription': course.shortdescription or '',
             'description': course.description or '',
             'level': course.level,
             'course_price': str(course.price),
@@ -148,9 +177,16 @@ def build_catalog_snapshot():
             'skills_taught': course.skills_taught or [],
             'prerequisites': course.prerequisites or [],
             'target_audience': course.target_audience or [],
+            'learning_objectives': course.learning_objectives or [],
             'tags': course.tags or [],
             'category_name': course.category.name if course.category else '',
             'subcategory_name': course.subcategory.name if course.subcategory else '',
+            'total_modules': module_count,
+            'total_lessons': total_lessons,
+            'lesson_count_by_type': dict(lesson_count_by_type),
+            'total_quizzes': total_quizzes,
+            'exercise_count': coding_count,
+            'has_coding_exercises': coding_count > 0,
         })
     return snapshot
 
@@ -329,6 +365,7 @@ class AdvisorOrchestrator:
         self.provider_name = self.provider.__class__.__name__
         self.require_gemini = is_gemini_required()
         self.max_attempts = get_advisor_runtime_config().gemini_max_attempts
+        self.search_only_guard_enabled = detect_course_search_mode(self.goal_text, self.messages)
 
         if self.require_gemini and not isinstance(self.provider, GeminiAdvisorProvider):
             raise ValidationError('Gemini is required but not configured. Please set a valid GEMINI_API_KEY.')
@@ -356,8 +393,45 @@ class AdvisorOrchestrator:
             response['advisor_meta']['fallback_provider'] = existing_meta.get('fallback_provider') or 'rule_based'
         return response
 
+    def _apply_search_only_guard(self, response):
+        if not self.search_only_guard_enabled:
+            return response
+        if response.get('type') != 'path':
+            return response
+
+        rule_provider = RuleBasedAdvisorProvider()
+        forced = rule_provider.chat(
+            goal_text=self.goal_text,
+            weekly_hours=self.weekly_hours,
+            messages=self.messages,
+            known_skills=self.known_skills,
+            catalog_snapshot=self.catalog_snapshot,
+        )
+
+        if forced.get('type') != 'question':
+            ranked = rule_provider._rank_courses(self.goal_text, set(), self.catalog_snapshot)
+            suggestions = rule_provider._select_course_suggestions(ranked, set())
+            forced = {
+                'type': 'question',
+                'message': rule_provider._format_course_suggestions_message(suggestions),
+                'advisor_meta': {
+                    'conversation_state': {
+                        'mode': 'course_search',
+                        'missing_slots': [],
+                    },
+                },
+            }
+
+        forced_meta = forced.get('advisor_meta') or {}
+        forced['advisor_meta'] = {
+            **forced_meta,
+            'forced_course_search': True,
+            'forced_reason': 'search_only_guard',
+        }
+        return forced
+
     def _validate_rule_based_response(self):
-        response = self._call_provider_chat()
+        response = self._apply_search_only_guard(self._call_provider_chat())
         response['advisor_meta'] = {
             **(response.get('advisor_meta') or {}),
             'provider_used': 'rule_based',
@@ -377,7 +451,7 @@ class AdvisorOrchestrator:
         _ensure_gemini_circuit_available(self.require_gemini)
         last_error = None
         for attempt in range(1, self.max_attempts + 1):
-            response = self._call_provider_chat()
+            response = self._apply_search_only_guard(self._call_provider_chat())
             fallback_triggered = bool((response.get('advisor_meta') or {}).get('fallback_triggered'))
             self._enrich_meta(response, attempt=attempt, fallback_triggered=fallback_triggered)
             if fallback_triggered:
@@ -404,14 +478,14 @@ class AdvisorOrchestrator:
         if self.require_gemini:
             raise AdvisorUpstreamError(f'Gemini validation failed: {last_error}')
 
-        return run_rule_based_fallback(
+        return self._apply_search_only_guard(run_rule_based_fallback(
             goal_text=self.goal_text,
             weekly_hours=self.weekly_hours,
             messages=self.messages,
             known_skills=self.known_skills,
             catalog_snapshot=self.catalog_snapshot,
             reason=f'gemini_validation_failed: {last_error}',
-        )
+        ))
 
     def stream(self):
         logger.info('Learning path advisor stream request started with provider=%s', self.provider_name)
@@ -428,14 +502,14 @@ class AdvisorOrchestrator:
         except AdvisorUpstreamError as exc:
             if self.require_gemini:
                 raise
-            fallback_result = run_rule_based_fallback(
+            fallback_result = self._apply_search_only_guard(run_rule_based_fallback(
                 goal_text=self.goal_text,
                 weekly_hours=self.weekly_hours,
                 messages=self.messages,
                 known_skills=self.known_skills,
                 catalog_snapshot=self.catalog_snapshot,
                 reason=f'gemini_circuit_open: {exc}',
-            )
+            ))
             fallback_preview = (fallback_result.get('message') or fallback_result.get('summary') or '').strip()
             if fallback_preview:
                 yield {'event': 'delta', 'delta': fallback_preview, 'attempt': 1}
@@ -463,7 +537,7 @@ class AdvisorOrchestrator:
                             preview_text = next_preview
                             yield {'event': 'delta', 'delta': delta, 'attempt': attempt}
 
-                parsed_response = extract_json_object(raw_response)
+                parsed_response = self._apply_search_only_guard(extract_json_object(raw_response))
                 fallback_triggered = bool((parsed_response.get('advisor_meta') or {}).get('fallback_triggered'))
                 self._enrich_meta(parsed_response, attempt=attempt, fallback_triggered=fallback_triggered)
                 if fallback_triggered and self.require_gemini:
@@ -510,14 +584,14 @@ class AdvisorOrchestrator:
         if self.require_gemini:
             raise AdvisorUpstreamError(f'Gemini stream failed: {last_error}')
 
-        fallback_result = run_rule_based_fallback(
+        fallback_result = self._apply_search_only_guard(run_rule_based_fallback(
             goal_text=self.goal_text,
             weekly_hours=self.weekly_hours,
             messages=self.messages,
             known_skills=self.known_skills,
             catalog_snapshot=self.catalog_snapshot,
             reason=f'gemini_stream_failed: {last_error}',
-        )
+        ))
         fallback_preview = (fallback_result.get('message') or fallback_result.get('summary') or '').strip()
         if fallback_preview:
             yield {'event': 'delta', 'delta': fallback_preview, 'attempt': self.max_attempts}
@@ -564,83 +638,6 @@ def get_learning_path_for_user(path_id, user):
     except LearningPath.DoesNotExist as exc:
         raise ValidationError('Learning path not found.') from exc
 
-
-def get_learning_path_for_admin(path_id):
-    try:
-        return (
-            LearningPath.objects
-            .filter(id=path_id)
-            .select_related('user', 'conversation')
-            .prefetch_related('items__course')
-            .get()
-        )
-    except LearningPath.DoesNotExist as exc:
-        raise ValidationError('Learning path not found.') from exc
-
-
-def get_learning_path_advisor_stats(limit=10, provider=None, fallback_only=False):
-    paths = (
-        LearningPath.objects
-        .select_related('user', 'conversation')
-        .prefetch_related('items__course')
-        .order_by('-updated_at', '-created_at')
-    )
-
-    total_paths = 0
-    gemini_paths = 0
-    rule_based_paths = 0
-    fallback_paths = 0
-    attempt_sum = 0
-    recent_paths = []
-
-    for path in paths:
-        advisor_meta = {}
-        if hasattr(path, 'conversation') and path.conversation:
-            advisor_meta = path.conversation.advisor_meta or {}
-
-        provider_used = advisor_meta.get('provider_used') or 'unknown'
-        fallback_triggered = bool(advisor_meta.get('fallback_triggered'))
-        attempt_count = int(advisor_meta.get('attempt_count') or 1)
-
-        if provider and provider_used != provider:
-            continue
-        if fallback_only and not fallback_triggered:
-            continue
-
-        total_paths += 1
-        attempt_sum += attempt_count
-
-        if provider_used == 'gemini':
-            gemini_paths += 1
-        elif provider_used == 'rule_based':
-            rule_based_paths += 1
-
-        if fallback_triggered:
-            fallback_paths += 1
-
-        if len(recent_paths) < limit:
-            recent_paths.append({
-                'id': path.id,
-                'user_id': path.user_id,
-                'user_name': getattr(path.user, 'full_name', '') or getattr(path.user, 'username', ''),
-                'goal_text': path.goal_text,
-                'summary': path.summary,
-                'estimated_weeks': path.estimated_weeks,
-                'is_archived': path.is_archived,
-                'course_count': path.items.count(),
-                'updated_at': path.updated_at,
-                'advisor_meta': advisor_meta,
-            })
-
-    return {
-        'total_paths': total_paths,
-        'gemini_paths': gemini_paths,
-        'rule_based_paths': rule_based_paths,
-        'fallback_paths': fallback_paths,
-        'fallback_rate': round((fallback_paths / total_paths) * 100, 2) if total_paths else 0,
-        'average_attempt_count': round(attempt_sum / total_paths, 2) if total_paths else 0,
-        'recent_paths': recent_paths,
-    }
 
 
 @transaction.atomic

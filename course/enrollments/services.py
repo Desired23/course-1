@@ -2,13 +2,60 @@ import logging
 from rest_framework.exceptions import ValidationError
 from .serializers import EnrollmentSerializer, EnrollmentCreateSerializer
 from .models import Enrollment
-from datetime import datetime
+from django.utils import timezone
 from courses.models import Course
 from django.db import IntegrityError
 from django.db.models import F
 from activity_logs.services import log_activity
 
 logger = logging.getLogger(__name__)
+
+OWNED_ENROLLMENT_STATUSES = {
+    Enrollment.Status.Active,
+    Enrollment.Status.Complete,
+    Enrollment.Status.SUSPENDED,
+}
+
+
+def _id_or_value(value):
+    return getattr(value, 'id', value)
+
+
+def _reactivate_existing_enrollment(existing, data):
+    fields = []
+
+    if existing.is_deleted:
+        existing.is_deleted = False
+        existing.deleted_at = None
+        existing.deleted_by = None
+        fields.extend(["is_deleted", "deleted_at", "deleted_by"])
+
+    if existing.status not in OWNED_ENROLLMENT_STATUSES:
+        existing.status = Enrollment.Status.Active
+        fields.append("status")
+
+    if not existing.enrollment_date:
+        existing.enrollment_date = data.get("enrollment_date") or timezone.now()
+        fields.append("enrollment_date")
+
+    for field in ("payment", "source", "subscription", "expiry_date"):
+        value = data.get(field)
+        if value is None and field != "expiry_date":
+            continue
+        if field in ("payment", "subscription"):
+            attr = f"{field}_id"
+            current = getattr(existing, attr)
+        else:
+            attr = field
+            current = getattr(existing, attr)
+        if current != value:
+            setattr(existing, attr, value)
+            fields.append(field)
+
+    if fields:
+        fields.append("updated_at")
+        existing.save(update_fields=list(dict.fromkeys(fields)))
+    return existing
 
 def create_enrollment(data):
     try:
@@ -17,41 +64,33 @@ def create_enrollment(data):
         course_val = data.get('course_id') if 'course_id' in data else data.get('course')
 
         dataCopy = {
-            'user': user_val,
-            'course': course_val,
-            'payment': data.get('payment'),
-            'enrollment_date': datetime.now(),
+            'user': _id_or_value(user_val),
+            'course': _id_or_value(course_val),
+            'payment': _id_or_value(data.get('payment')),
+            'enrollment_date': data.get('enrollment_date') or timezone.now(),
             'status': Enrollment.Status.Active,
             'expiry_date': data.get('expiry_date', None),
             'source': data.get('source', Enrollment.Source.PURCHASE),
-            'subscription': data.get('subscription'),
+            'subscription': _id_or_value(data.get('subscription')),
             'progress': 0,
             'certificate_issue_date': None,
         }
 
-        if hasattr(dataCopy.get('user'), 'id'):
-            dataCopy['user'] = getattr(dataCopy['user'], 'id')
-        if hasattr(dataCopy.get('course'), 'id'):
-            dataCopy['course'] = getattr(dataCopy['course'], 'id')
-        if hasattr(dataCopy.get('payment'), 'id'):
-            dataCopy['payment'] = getattr(dataCopy['payment'], 'id')
-        if hasattr(dataCopy.get('subscription'), 'id'):
-            dataCopy['subscription'] = getattr(dataCopy['subscription'], 'id')
-
-
-        try:
-            if dataCopy.get('user') and dataCopy.get('course'):
-                existing = Enrollment.objects.filter(user_id=dataCopy.get('user'), course_id=dataCopy.get('course'), is_deleted=False).first()
+        if dataCopy.get('user') and dataCopy.get('course'):
+            existing = Enrollment.objects.filter(
+                user_id=dataCopy.get('user'),
+                course_id=dataCopy.get('course'),
+            ).first()
             if existing:
+                if not existing.is_deleted and existing.status in OWNED_ENROLLMENT_STATUSES:
+                    return EnrollmentCreateSerializer(existing).data
+                existing = _reactivate_existing_enrollment(existing, dataCopy)
                 return EnrollmentCreateSerializer(existing).data
-        except Exception:
-
-            existing = None
 
         serializer = EnrollmentCreateSerializer(data=dataCopy)
         if serializer.is_valid(raise_exception=True):
             try:
-                enrollment = serializer.save()
+                enrollment = serializer.save(enrollment_date=dataCopy['enrollment_date'])
             except IntegrityError:
                 raise ValidationError({"error": "User has already enrolled in this course."})
 
@@ -110,7 +149,7 @@ def count_enrollments_by_course(course_id):
 def has_access(user_id, course_id):
     try:
         enrollment = Enrollment.objects.get(user=user_id, course=course_id)
-        if enrollment.status == Enrollment.Status.Active:
+        if enrollment.status in [Enrollment.Status.Active, Enrollment.Status.Complete]:
             return True
         return False
     except Enrollment.DoesNotExist:
@@ -137,6 +176,6 @@ def user_has_course_access(user_id, course_id):
     return Enrollment.objects.filter(
         user_id=user_id,
         course_id=course_id,
-        status=Enrollment.Status.Active,
+        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
         is_deleted=False,
     ).exists()

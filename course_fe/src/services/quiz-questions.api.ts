@@ -46,9 +46,47 @@ export interface QuizQuestion {
   memory_limit: number | null
   allowed_languages: number[] | null
   starter_code: string | null
+  function_name: string | null
   test_cases: QuizTestCase[]
   created_at: string
   updated_at: string
+}
+
+export interface LessonQuizQuestion {
+  question_id: number
+  question_text: string
+  question_type: QuestionType
+  difficulty: DifficultyLevel
+  points: number
+  order: number | null
+  image_url: string | null
+  code_snippet: string | null
+  options: Array<string | { text?: string; option_text?: string; is_correct?: boolean }>
+  description: string | null
+  time_limit: number | null
+  memory_limit: number | null
+  allowed_languages: number[] | null
+  starter_code: string | null
+  function_name: string | null
+  require_completion: boolean
+  test_cases: Array<{
+    id: number
+    input_data: string
+    expected_output?: string
+    is_hidden: boolean
+    points: number
+    order_number: number
+  }>
+}
+
+export interface LessonQuiz {
+  quiz_id: number
+  lesson_id: number
+  title: string
+  description: string
+  time_limit: number | null
+  passing_score: number
+  questions: LessonQuizQuestion[]
 }
 
 export interface PaginatedQuizQuestions {
@@ -86,6 +124,7 @@ export interface QuizQuestionCreateData {
   memory_limit?: number
   allowed_languages?: number[]
   starter_code?: string
+  function_name?: string
 }
 
 export interface QuizQuestionUpdateData {
@@ -102,6 +141,7 @@ export interface QuizQuestionUpdateData {
   memory_limit?: number
   allowed_languages?: number[]
   starter_code?: string
+  function_name?: string
 }
 
 export interface TestCaseCreateData {
@@ -136,6 +176,11 @@ export async function getQuizQuestions(params?: { lesson_id?: number; question_i
 
 export async function getQuestionsByLesson(lessonId: number): Promise<QuizQuestion[]> {
   return getQuizQuestions({ lesson_id: lessonId })
+}
+
+
+export async function getLessonQuiz(lessonId: number): Promise<LessonQuiz> {
+  return http.get<LessonQuiz>(`/quizzes/lesson/${lessonId}/`)
 }
 
 

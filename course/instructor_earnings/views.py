@@ -3,16 +3,19 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils.dateparse import parse_date
 
 from utils.list_params import get_int_param, get_search_param, get_sort_param
 from utils.pagination import paginate_queryset
 from utils.permissions import RolePermissionFactory
+from utils.export_helpers import export_to_csv, export_to_excel
 from .serializers import InstructorEarningSerializer, SubscriptionRevenueBreakdownSerializer
 from .services import (
     calculate_subscription_earnings_for_month,
     generate_instructor_earnings_from_payment,
     get_instructor_earnings,
     get_instructor_earnings_by_instructor_id,
+    get_instructor_earnings_by_month,
     get_instructor_earnings_summary,
     get_subscription_revenue_breakdown_by_course,
     update_instructor_earning_status,
@@ -232,3 +235,91 @@ class InstructorSubscriptionRevenueBreakdownView(APIView):
             )
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InstructorEarningsMonthlyView(APIView):
+    permission_classes = [RolePermissionFactory(["admin", "instructor"])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            months = max(1, min(int(request.query_params.get('months', 12)), 36))
+            user = request.user
+            admin = getattr(user, 'admin', None)
+            user_instructor = getattr(user, 'instructor', None)
+            if admin:
+                instructor_id = get_int_param(request, 'instructor_id')
+                if not instructor_id:
+                    return Response({'error': 'instructor_id is required for admin.'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                if not user_instructor:
+                    return Response({'error': 'Instructor profile not found.'}, status=status.HTTP_403_FORBIDDEN)
+                instructor_id = user_instructor.id
+            return Response(get_instructor_earnings_by_month(instructor_id, months))
+        except ValueError:
+            return Response({'error': 'Invalid parameters.'}, status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as e:
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InstructorEarningsExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        fmt = request.query_params.get('format', 'csv')
+        if fmt not in {'csv', 'excel'}:
+            return Response({'error': 'format must be csv or excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        admin = getattr(user, 'admin', None)
+        user_instructor = getattr(user, 'instructor', None)
+        try:
+            if admin:
+                instructor_id = get_int_param(request, 'instructor_id')
+                if not instructor_id:
+                    return Response({'error': 'instructor_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                if not user_instructor:
+                    return Response({'error': 'Instructor profile not found.'}, status=status.HTTP_403_FORBIDDEN)
+                instructor_id = user_instructor.id
+        except ValueError:
+            return Response({'error': 'instructor_id must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            qs = get_instructor_earnings_by_instructor_id(instructor_id)
+        except ValidationError as e:
+            return Response({'error': e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        date_from = parse_date(request.query_params.get('date_from') or '')
+        date_to = parse_date(request.query_params.get('date_to') or '')
+        if request.query_params.get('date_from') and date_from is None:
+            return Response({'error': 'date_from must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.query_params.get('date_to') and date_to is None:
+            return Response({'error': 'date_to must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if date_from:
+            qs = qs.filter(earning_date__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(earning_date__date__lte=date_to)
+
+        qs = qs.order_by('-earning_date').select_related('course', 'instructor__user')
+        headers = ['ID', 'Date', 'Course', 'Source', 'Gross (VND)', 'Net (VND)', 'Commission Rate', 'Status']
+        rows = []
+        for earning in qs:
+            commission = '0.00'
+            if earning.amount:
+                commission = f"{((earning.amount - earning.net_amount) / earning.amount * 100):.2f}"
+            rows.append([
+                earning.id,
+                earning.earning_date.strftime('%Y-%m-%d') if earning.earning_date else '',
+                earning.course.title if earning.course else '',
+                'subscription' if earning.user_subscription_id else 'retail',
+                float(earning.amount or 0),
+                float(earning.net_amount or 0),
+                commission,
+                earning.status,
+            ])
+
+        if fmt == 'excel':
+            return export_to_excel(headers, rows, 'instructor_earnings', 'Instructor Earnings')
+        return export_to_csv(headers, rows, 'instructor_earnings')

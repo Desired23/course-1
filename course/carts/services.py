@@ -83,3 +83,33 @@ def delete_cart(cart_id):
         return {"message": "Cart deleted successfully."}
     except Cart.DoesNotExist:
         raise ValidationError({"error": "Cart not found."})
+
+
+def bulk_delete_cart(user_id, cart_ids):
+    if not isinstance(cart_ids, list) or not cart_ids:
+        raise ValidationError({"error": "cart_ids phải là danh sách không rỗng."})
+
+    normalized_ids = []
+    for raw_id in cart_ids:
+        try:
+            normalized_ids.append(int(raw_id))
+        except (TypeError, ValueError):
+            raise ValidationError({"error": f"cart_id không hợp lệ: {raw_id}"})
+
+    id_set = set(normalized_ids)
+    existing_rows = Cart.objects.filter(id__in=id_set).values('id', 'user_id')
+    existing_ids = {row['id'] for row in existing_rows}
+    owned_ids = {row['id'] for row in existing_rows if row['user_id'] == int(user_id)}
+
+    unauthorized_ids = sorted(existing_ids - owned_ids)
+    missing_ids = sorted(id_set - existing_ids)
+
+    deleted_count, _ = Cart.objects.filter(user_id=user_id, id__in=owned_ids).delete()
+
+    return {
+        "message": "Bulk cart delete completed.",
+        "deleted_count": deleted_count,
+        "deleted_ids": sorted(owned_ids),
+        "missing_ids": missing_ids,
+        "unauthorized_ids": unauthorized_ids,
+    }

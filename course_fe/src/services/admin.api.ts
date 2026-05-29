@@ -42,7 +42,7 @@
 
 
 
-import { http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 
 interface PaginatedListResponse<T> {
   next: string | null
@@ -169,6 +169,172 @@ export async function getAdminUserAnalytics(months = 6): Promise<UserTrend[]> {
 
 export async function getAdminCourseAnalytics(): Promise<TopCourse[]> {
   return http.get<TopCourse[]>('/admin/analytics/courses/')
+}
+
+export interface RevenueBreakdown {
+  retail_revenue: number
+  subscription_revenue: number
+  total_gross: number
+  total_refunded: number
+  net_revenue: number
+  retail_count: number
+  subscription_count: number
+}
+
+export interface RevenueMonthlyEntry {
+  date: string
+  retail: number
+  subscription: number
+  gross: number
+  refunded: number
+  net: number
+}
+
+export interface CommissionAnalytics {
+  total_instructor_earnings: number
+  total_platform_revenue: number
+  total_gross: number
+  platform_share_pct: number
+  instructor_share_pct: number
+  per_instructor: Array<{
+    instructor_id: number
+    instructor_name: string | null
+    total_earnings: number
+    gross: number
+    retail_earnings: number
+    sub_earnings: number
+    pending: number
+    available: number
+    paid: number
+  }>
+}
+
+export interface RefundBreakdown {
+  count: number
+  amount: number
+}
+
+export interface RefundAnalytics {
+  total_requests: number
+  total_refunded_amount: number
+  breakdown: Record<string, RefundBreakdown>
+}
+
+export interface CourseRevenueRow {
+  course_id: number
+  title: string
+  instructor_name: string | null
+  revenue: number
+  transactions: number
+}
+
+export interface ImportResult {
+  success?: number
+  created?: number
+  updated?: number
+  skipped?: number
+  errors: Array<{ row: number; email: string; reason: string }>
+}
+
+function rangeParams(dateFrom?: string, dateTo?: string): Record<string, string> {
+  const params: Record<string, string> = {}
+  if (dateFrom) params.date_from = dateFrom
+  if (dateTo) params.date_to = dateTo
+  return params
+}
+
+export async function getAdminRevenueBreakdown(dateFrom?: string, dateTo?: string): Promise<RevenueBreakdown> {
+  return http.get<RevenueBreakdown>('/admin/analytics/revenue-breakdown/', rangeParams(dateFrom, dateTo))
+}
+
+export async function getAdminRevenueMonthlyBreakdown(months = 12): Promise<RevenueMonthlyEntry[]> {
+  return http.get<RevenueMonthlyEntry[]>('/admin/analytics/revenue-monthly-breakdown/', { months })
+}
+
+export async function getAdminCommissionAnalytics(dateFrom?: string, dateTo?: string): Promise<CommissionAnalytics> {
+  return http.get<CommissionAnalytics>('/admin/analytics/commission/', rangeParams(dateFrom, dateTo))
+}
+
+export async function getAdminRefundAnalytics(dateFrom?: string, dateTo?: string): Promise<RefundAnalytics> {
+  return http.get<RefundAnalytics>('/admin/analytics/refunds/', rangeParams(dateFrom, dateTo))
+}
+
+export async function getAdminTopCoursesByRevenue(limit = 10, dateFrom?: string, dateTo?: string): Promise<CourseRevenueRow[]> {
+  return http.get<CourseRevenueRow[]>('/admin/analytics/top-courses-revenue/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+async function downloadBlob(endpoint: string, filename: string): Promise<void> {
+  const token = getAccessToken()
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    headers: {
+      ...getApiTransportHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  if (!response.ok) {
+    let message = 'Download failed'
+    try {
+      const error = await response.json()
+      message = error.error || error.message || message
+    } catch {
+
+    }
+    throw new Error(message)
+  }
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+export async function exportAdminRevenue(format: 'csv' | 'excel' = 'csv', dateFrom?: string, dateTo?: string): Promise<void> {
+  const params = new URLSearchParams({ format })
+  if (dateFrom) params.set('date_from', dateFrom)
+  if (dateTo) params.set('date_to', dateTo)
+  await downloadBlob(
+    `/admin/analytics/revenue/export/?${params.toString()}`,
+    `revenue_report.${format === 'excel' ? 'xlsx' : 'csv'}`
+  )
+}
+
+export async function importSubscriptionPlan(file: File, planId: number): Promise<ImportResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('plan_id', String(planId))
+  return http.upload<ImportResult>('/admin/import/subscription-plan/', formData)
+}
+
+export async function downloadSubscriptionTemplate(): Promise<void> {
+  await downloadBlob('/admin/import/subscription-plan/template/', 'subscription_import_template.xlsx')
+}
+
+export async function importUsersBulk(file: File): Promise<ImportResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.upload<ImportResult>('/admin/import/users/', formData)
+}
+
+export async function downloadUsersTemplate(): Promise<void> {
+  await downloadBlob('/admin/import/users/template/', 'users_import_template.xlsx')
+}
+
+export async function importCourseGrants(file: File, courseIds: number[]): Promise<ImportResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('course_ids', courseIds.join(','))
+  return http.upload<ImportResult>('/admin/import/course-grants/', formData)
+}
+
+export async function downloadCourseGrantsTemplate(): Promise<void> {
+  await downloadBlob('/admin/import/course-grants/template/', 'course_grants_template.xlsx')
 }
 
 
@@ -330,6 +496,8 @@ export interface UserItem {
   user_type: string
   created_at: string
   last_login: string | null
+  enrollment_count: number
+  courses_count: number | null
 }
 
 export interface AdminUserListParams {

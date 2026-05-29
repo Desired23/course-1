@@ -43,6 +43,7 @@ interface QuizQuestion {
   explanation?: string
   order: number
   codeStarter?: string
+  functionName?: string
   timeLimit?: number
   memoryLimit?: number
   allowedLanguages?: number[]
@@ -162,6 +163,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
             explanation: q.explanation || '',
             order: q.order_number ?? idx + 1,
             codeStarter: q.starter_code || '',
+            functionName: q.function_name || '',
             timeLimit: q.time_limit || undefined,
             memoryLimit: q.memory_limit || undefined,
             allowedLanguages: q.allowed_languages || [],
@@ -300,6 +302,7 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
         memory_limit: editingQuestion.type === 'code' ? editingQuestion.memoryLimit : undefined,
         allowed_languages: editingQuestion.type === 'code' ? (editingQuestion.allowedLanguages || [63]) : undefined,
         starter_code: editingQuestion.type === 'code' ? (editingQuestion.codeStarter || '') : undefined,
+        function_name: editingQuestion.type === 'code' ? (editingQuestion.functionName || '') : undefined,
       }
 
       let savedQuestion: ApiQuizQuestion
@@ -604,45 +607,121 @@ export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
                 </div>
 
                 <div className="space-y-2">
+                  <Label>{t('lesson_editor.function_name')}</Label>
+                  <Input
+                    placeholder={t('lesson_editor.function_name_placeholder')}
+                    value={editingQuestion.functionName || ''}
+                    onChange={(e) => handleQuestionUpdate({ functionName: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">{t('lesson_editor.function_name_help')}</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label>{t('lesson_editor.test_cases')}</Label>
-                  {editingQuestion.testCases.map((tc, idx) => (
-                    <Card key={tc.id || idx} className="p-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">{t('lesson_editor.case_number', { index: idx + 1 })}</p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => {
-                              const next = editingQuestion.testCases.filter((_, i) => i !== idx)
-                              handleQuestionUpdate({ testCases: next })
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                  {editingQuestion.testCases.map((tc, idx) => {
+                    const fnName = (editingQuestion.functionName || '').trim()
+                    const isFunctionMode = fnName.length > 0
+                    const args = isFunctionMode ? tc.input_data.split('\n') : null
+
+                    const updateArgs = (argIdx: number, value: string) => {
+                      const currentArgs = tc.input_data.split('\n')
+                      currentArgs[argIdx] = value
+                      const next = [...editingQuestion.testCases]
+                      next[idx] = { ...next[idx], input_data: currentArgs.join('\n'), order_number: idx + 1 }
+                      handleQuestionUpdate({ testCases: next })
+                    }
+
+                    const addArg = () => {
+                      const next = [...editingQuestion.testCases]
+                      next[idx] = { ...next[idx], input_data: tc.input_data ? tc.input_data + '\n' : '', order_number: idx + 1 }
+                      handleQuestionUpdate({ testCases: next })
+                    }
+
+                    const removeArg = (argIdx: number) => {
+                      const currentArgs = tc.input_data.split('\n').filter((_, i) => i !== argIdx)
+                      const next = [...editingQuestion.testCases]
+                      next[idx] = { ...next[idx], input_data: currentArgs.join('\n'), order_number: idx + 1 }
+                      handleQuestionUpdate({ testCases: next })
+                    }
+
+                    return (
+                      <Card key={tc.id || idx} className="p-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{t('lesson_editor.case_number', { index: idx + 1 })}</p>
+                              {isFunctionMode && tc.input_data && tc.expected_output && (
+                                <code className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                                  {fnName}({tc.input_data.split('\n').join(', ')}) → {tc.expected_output}
+                                </code>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => {
+                                const next = editingQuestion.testCases.filter((_, i) => i !== idx)
+                                handleQuestionUpdate({ testCases: next })
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          {isFunctionMode ? (
+                            <div className="space-y-1.5">
+                              {(args || ['']).map((arg, argIdx) => (
+                                <div key={argIdx} className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground w-10 shrink-0">{t('lesson_editor.arg_label', { n: argIdx + 1 })}</span>
+                                  <Input
+                                    className="flex-1"
+                                    placeholder={`arg${argIdx + 1}`}
+                                    value={arg}
+                                    onChange={(e) => updateArgs(argIdx, e.target.value)}
+                                  />
+                                  {(args || []).length > 1 && (
+                                    <Button variant="ghost" size="sm" className="px-2" onClick={() => removeArg(argIdx)}>
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                              <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={addArg}>
+                                <Plus className="h-3 w-3 mr-1" />
+                                {t('lesson_editor.add_argument')}
+                              </Button>
+                            </div>
+                          ) : (
+                            <Input
+                              placeholder={t('lesson_editor.input_placeholder')}
+                              value={tc.input_data}
+                              onChange={(e) => {
+                                const next = [...editingQuestion.testCases]
+                                next[idx] = { ...next[idx], input_data: e.target.value, order_number: idx + 1 }
+                                handleQuestionUpdate({ testCases: next })
+                              }}
+                            />
+                          )}
+
+                          <div className="space-y-1">
+                            {isFunctionMode && (
+                              <Label className="text-xs">{t('lesson_editor.expected_return')}</Label>
+                            )}
+                            <Input
+                              placeholder={isFunctionMode ? t('lesson_editor.expected_return_placeholder') : t('lesson_editor.expected_output_placeholder')}
+                              value={tc.expected_output}
+                              onChange={(e) => {
+                                const next = [...editingQuestion.testCases]
+                                next[idx] = { ...next[idx], expected_output: e.target.value, order_number: idx + 1 }
+                                handleQuestionUpdate({ testCases: next })
+                              }}
+                            />
+                          </div>
                         </div>
-                        <Input
-                          placeholder={t('lesson_editor.input_placeholder')}
-                          value={tc.input_data}
-                          onChange={(e) => {
-                            const next = [...editingQuestion.testCases]
-                            next[idx] = { ...next[idx], input_data: e.target.value, order_number: idx + 1 }
-                            handleQuestionUpdate({ testCases: next })
-                          }}
-                        />
-                        <Input
-                          placeholder={t('lesson_editor.expected_output_placeholder')}
-                          value={tc.expected_output}
-                          onChange={(e) => {
-                            const next = [...editingQuestion.testCases]
-                            next[idx] = { ...next[idx], expected_output: e.target.value, order_number: idx + 1 }
-                            handleQuestionUpdate({ testCases: next })
-                          }}
-                        />
-                      </div>
-                    </Card>
-                  ))}
+                      </Card>
+                    )
+                  })}
                   <Button
                     variant="outline"
                     size="sm"

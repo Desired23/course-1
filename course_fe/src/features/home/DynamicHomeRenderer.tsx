@@ -17,6 +17,7 @@ import {
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { useAuth } from "../../contexts/AuthContext"
 import { useOwnedCourses } from "../../hooks/useOwnedCourses"
 import { useRouter } from "../../components/Router"
@@ -35,6 +36,7 @@ import {
   type CourseListItem,
   type CourseListParams,
 } from "../../services/course.api"
+import { getHomepageReviews, type Review } from "../../services/review.api"
 import { HeroSection } from "../../components/HeroSection"
 import { TrustedCompanies } from "../../components/TrustedCompanies"
 import { Categories } from "../../components/Categories"
@@ -492,13 +494,125 @@ function FeatureGridSection({ section }: { section: HomeSection }) {
   )
 }
 
+interface HomeTestimonialItem {
+  key: string
+  name: string
+  role: string
+  avatar: string
+  course: string
+  content: string
+  rating: number
+}
+
+function valueRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function valueString(value: unknown): string {
+  return typeof value === "string" ? value : ""
+}
+
+function valueNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  return parts.slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("")
+}
+
+function mapStaticTestimonial(item: unknown, index: number, locale: string): HomeTestimonialItem {
+  const record = valueRecord(item)
+  const name = valueString(record.name)
+  return {
+    key: `static-${valueString(record.id) || index}`,
+    name,
+    role: valueString(record.role),
+    avatar: valueString(record.avatar),
+    course: valueString(record.course),
+    content: resolveLocalizedText(record.content, locale) || valueString(record.content),
+    rating: Math.max(1, Math.min(5, Math.round(valueNumber(record.rating, 5)))),
+  }
+}
+
+function mapReviewTestimonial(review: Review, locale: string): HomeTestimonialItem {
+  const name = review.user_info?.full_name || (locale.startsWith("en") ? "Learner" : "Hoc vien")
+  return {
+    key: `review-${review.review_id}`,
+    name,
+    role: locale.startsWith("en") ? "Verified learner" : "Hoc vien da hoc",
+    avatar: review.user_info?.avatar || "",
+    course: review.course_detail?.title || "",
+    content: review.comment || "",
+    rating: Math.max(1, Math.min(5, Math.round(review.rating))),
+  }
+}
+
 function TestimonialSection({ section }: { section: HomeSection }) {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const locale = i18n.language
   const content = section.content
+  const dataSource = section.data_source
   const heading = resolveLocalizedText(content.heading, locale)
   const subheading = resolveLocalizedText(content.subheading, locale)
-  const items = Array.isArray(content.items) ? content.items : []
+  const configuredStaticItems = Array.isArray(content.items) ? content.items : []
+  const translatedStaticItems = t("testimonials.items", { returnObjects: true }) as unknown
+  const staticSourceItems = configuredStaticItems.length > 0
+    ? configuredStaticItems
+    : Array.isArray(translatedStaticItems)
+      ? translatedStaticItems
+      : []
+  const staticItems = staticSourceItems
+    .map((item, index) => mapStaticTestimonial(item, index, locale))
+    .filter((item) => item.content && item.name)
+  const mode = typeof dataSource.mode === "string" ? dataSource.mode : "hybrid"
+  const limit = typeof dataSource.limit === "number" ? Math.max(1, Math.min(12, dataSource.limit)) : 6
+  const selectedReviewIds = Array.isArray(dataSource.selected_review_ids)
+    ? dataSource.selected_review_ids.map((id) => Number(id)).filter(Number.isFinite)
+    : []
+  const [reviewItems, setReviewItems] = useState<HomeTestimonialItem[]>([])
+  const [loadingReviews, setLoadingReviews] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadReviewTestimonials() {
+      if (mode === "static" || selectedReviewIds.length === 0) {
+        setReviewItems([])
+        setLoadingReviews(false)
+        return
+      }
+
+      setLoadingReviews(true)
+      try {
+        const reviews = await getHomepageReviews({ ids: selectedReviewIds, limit })
+        if (!cancelled) {
+          setReviewItems(reviews.map((review) => mapReviewTestimonial(review, locale)).filter((item) => item.content))
+        }
+      } catch {
+        if (!cancelled) setReviewItems([])
+      } finally {
+        if (!cancelled) setLoadingReviews(false)
+      }
+    }
+
+    void loadReviewTestimonials()
+
+    return () => {
+      cancelled = true
+    }
+  }, [mode, limit, locale, selectedReviewIds.join(",")])
+
+  const items = mode === "selected_reviews"
+    ? reviewItems
+    : mode === "hybrid" && reviewItems.length > 0
+      ? reviewItems
+      : staticItems.slice(0, limit)
+
+  if (!loadingReviews && items.length === 0) return null
 
   return (
     <div>
@@ -508,30 +622,29 @@ function TestimonialSection({ section }: { section: HomeSection }) {
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((item, index) => {
-          const record = typeof item === "object" && item ? (item as Record<string, unknown>) : {}
-          const name = typeof record.name === "string" ? record.name : ""
-          const role = typeof record.role === "string" ? record.role : ""
-          const contentText = resolveLocalizedText(record.content, locale)
-          const rating = typeof record.rating === "number" ? Math.max(1, Math.min(5, Math.round(record.rating))) : 5
-
-          return (
-            <Card key={index} className="h-full">
-              <CardContent className="space-y-4 p-6">
-                <div className="flex text-yellow-500">
-                  {Array.from({ length: rating }).map((_, starIndex) => (
-                    <Star key={starIndex} className="h-4 w-4 fill-current" />
-                  ))}
+        {(loadingReviews && items.length === 0 ? staticItems.slice(0, Math.min(limit, 3)) : items).map((item) => (
+          <Card key={item.key} className="h-full">
+            <CardContent className="flex h-full flex-col space-y-4 p-6">
+              <div className="flex text-yellow-500">
+                {Array.from({ length: item.rating }).map((_, starIndex) => (
+                  <Star key={starIndex} className="h-4 w-4 fill-current" />
+                ))}
+              </div>
+              <p className="flex-1 italic text-muted-foreground">"{item.content}"</p>
+              <div className="flex items-center gap-3 border-t pt-4">
+                <Avatar className="h-11 w-11">
+                  <AvatarImage src={item.avatar} alt={item.name} />
+                  <AvatarFallback>{initials(item.name)}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="font-semibold">{item.name}</p>
+                  {item.role ? <p className="text-sm text-muted-foreground">{item.role}</p> : null}
+                  {item.course ? <p className="line-clamp-1 text-xs text-primary">{item.course}</p> : null}
                 </div>
-                <p className="italic text-muted-foreground">"{contentText}"</p>
-                <div>
-                  <p className="font-semibold">{name}</p>
-                  {role ? <p className="text-sm text-muted-foreground">{role}</p> : null}
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   )

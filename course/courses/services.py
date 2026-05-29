@@ -10,11 +10,11 @@ from reviews.models import Review
 
 
 INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS = {
-    Course.Status.DRAFT: {Course.Status.PENDING},
-    Course.Status.PENDING: {Course.Status.DRAFT},
-    Course.Status.REJECTED: {Course.Status.DRAFT},
+    Course.Status.DRAFT: {Course.Status.PUBLISHED},
+    Course.Status.PENDING: {Course.Status.DRAFT, Course.Status.PUBLISHED},
+    Course.Status.REJECTED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
     Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
-    Course.Status.PUBLISHED: {Course.Status.ARCHIVED},
+    Course.Status.PUBLISHED: {Course.Status.ARCHIVED, Course.Status.DRAFT},
 }
 
 COURSE_CONTENT_FIELDS = {
@@ -86,8 +86,10 @@ def get_course_by_id(course_id, user=None):
         raise ValidationError("Course not found")
     except ValidationError:
         raise
-    except Exception:
-        raise ValidationError("Lỗi khi lấy thông tin khóa học.")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise ValidationError(f"Lỗi khi lấy thông tin khóa học: {e}")
 
 
 def get_course_students(course_id):
@@ -215,6 +217,8 @@ def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
             }
             if ordering in allowed:
                 courses = courses.order_by(ordering)
+        else:
+            courses = courses.order_by('-created_at', '-id')
         return courses
     except Exception:
         raise ValidationError("Lỗi khi lấy danh sách khóa học.")
@@ -282,14 +286,6 @@ def update_course(course_id, data, requesting_user=None):
                 if normalized_status not in allowed_next_statuses:
                     raise ValidationError(
                         f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
-                    )
-                if (
-                    old_status == Course.Status.ARCHIVED
-                    and normalized_status == Course.Status.PUBLISHED
-                    and course.content_changed_since_publish
-                ):
-                    raise ValidationError(
-                        "This archived course has changed since it was last published. Move it to draft and submit it for review again."
                     )
             payload['status'] = normalized_status
 

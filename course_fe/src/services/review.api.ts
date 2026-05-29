@@ -133,6 +133,16 @@ export async function getAllReviewsByInstructor(instructorId: number): Promise<R
   return all
 }
 
+export async function getHomepageReviews(params?: {
+  ids?: number[]
+  limit?: number
+}): Promise<Review[]> {
+  return http.get<Review[]>('/reviews/homepage/', {
+    ids: params?.ids?.length ? params.ids.join(',') : undefined,
+    limit: params?.limit,
+  })
+}
+
 export async function getReviewById(reviewId: number): Promise<Review> {
   return http.get<Review>(`/reviews/${reviewId}/`)
 }

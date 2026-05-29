@@ -321,7 +321,7 @@ async function retryWithBackoff<T>(
 }
 
 
-export function wrapUserCode(userCode: string, language: string, _testInput: string = ''): string {
+export function wrapUserCode(userCode: string, language: string, _testInput: string = '', overrideFunctionName?: string): string {
   const lang = language.toLowerCase()
   let cleanedCode = userCode || ''
 
@@ -343,7 +343,10 @@ export function wrapUserCode(userCode: string, language: string, _testInput: str
     cleanedCode.match(/function\s+([A-Za-z_]\w*)\s*\(/) ||
     cleanedCode.match(/def\s+([A-Za-z_]\w*)\s*\(/) ||
     cleanedCode.match(new RegExp('([A-Za-z_]\\w*)\\s*=\\s*\\([^)]*\\)\\s*=>'))
-  const functionName = functionMatch ? functionMatch[1] : 'solution'
+  const detectedName = functionMatch ? functionMatch[1] : 'solution'
+  const functionName = (overrideFunctionName && cleanedCode.includes(overrideFunctionName))
+    ? overrideFunctionName
+    : detectedName
 
   if (lang === 'javascript' || lang === 'typescript') {
     return `const fs = require('fs');
@@ -392,7 +395,13 @@ function formatResult(value) {
   return String(value);
 }
 
-const inputs = lines.map(parseInput);
+const inputs = lines.flatMap(line => {
+  const value = (line || '').trim();
+  let isJsonArray = false;
+  try { if (Array.isArray(JSON.parse(value))) isJsonArray = true; } catch {}
+  const parsed = parseInput(line);
+  return (Array.isArray(parsed) && !isJsonArray) ? parsed : [parsed];
+});
 const debugLogs = [];
 const originalLog = console.log;
 const originalError = console.error;
@@ -495,7 +504,20 @@ def format_result(value):
         return json.dumps(value)
     return str(value)
 
-inputs = [parse_input(line) for line in lines]
+def expand_input(line):
+    value = (line or '').strip()
+    is_json_array = False
+    try:
+        parsed_json = json.loads(value)
+        if isinstance(parsed_json, list):
+            is_json_array = True
+    except:
+        pass
+    parsed = parse_input(line)
+    if isinstance(parsed, list) and not is_json_array:
+        return parsed
+    return [parsed]
+inputs = [item for line in lines for item in expand_input(line)]
 debug_logs = []
 original_print = builtins.print
 

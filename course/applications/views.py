@@ -82,7 +82,7 @@ class ApplicationReviewView(APIView):
 
     def post(self, request, application_id):
         try:
-            result = review_application(application_id, request.user, request.data)
+            result = review_application(application_id, request.user.admin, request.data)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

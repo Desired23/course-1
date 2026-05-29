@@ -155,3 +155,5 @@ class CourseStudentsView(APIView):
             return paginator.get_paginated_response(page)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+

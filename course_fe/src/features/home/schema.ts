@@ -175,6 +175,13 @@ function normalizeCourseMode(value: unknown): "auto" | "manual" | "hybrid" {
     : "hybrid"
 }
 
+function normalizeTestimonialMode(value: unknown): "static" | "selected_reviews" | "hybrid" {
+  const mode = asString(value, "hybrid")
+  return ["static", "selected_reviews", "hybrid"].includes(mode)
+    ? (mode as "static" | "selected_reviews" | "hybrid")
+    : "hybrid"
+}
+
 function createDefaultsByType(type: HomeSectionType): {
   content: Record<string, unknown>
   data_source: Record<string, unknown>
@@ -279,7 +286,11 @@ function createDefaultsByType(type: HomeSectionType): {
           subheading: { vi: "Phan hoi thuc te", en: "Real feedback" },
           items: [],
         },
-        data_source: {},
+        data_source: {
+          mode: "hybrid",
+          selected_review_ids: [],
+          limit: 6,
+        },
       }
     case "stats":
       return {
@@ -423,6 +434,14 @@ function normalizeSectionDataSource(type: HomeSectionType, value: unknown): Reco
     }
   }
 
+  if (type === "testimonial") {
+    return {
+      mode: normalizeTestimonialMode(merged.mode),
+      selected_review_ids: asNumberArray(merged.selected_review_ids),
+      limit: Math.max(1, Math.min(12, asNumber(merged.limit, 6))),
+    }
+  }
+
   return merged
 }
 
@@ -475,6 +494,10 @@ export function validateHomeSection(section: HomeSection): string[] {
     }
     case "testimonial": {
       const items = Array.isArray(content.items) ? content.items : []
+      const mode = asString(dataSource.mode, "hybrid")
+      if (!["static", "selected_reviews", "hybrid"].includes(mode)) {
+        errors.push("testimonial.data_source.mode is invalid")
+      }
       for (const [index, row] of items.entries()) {
         const record = asRecord(row)
         const rating = asNumber(record.rating, 5)

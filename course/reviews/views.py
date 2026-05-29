@@ -1,10 +1,12 @@
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, When
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 
 from .serializers import ReviewSerializer
+from .models import Review
 from .services import (
     create_review,
     delete_review,
@@ -19,6 +21,19 @@ from .services import (
 )
 from utils.pagination import paginate_queryset
 from utils.permissions import RolePermissionFactory
+
+
+def _parse_int_list(raw_value):
+    ids = []
+    for value in (raw_value or '').split(','):
+        value = value.strip()
+        if not value:
+            continue
+        try:
+            ids.append(int(value))
+        except ValueError:
+            continue
+    return ids
 
 
 class ReviewListView(APIView):
@@ -102,6 +117,43 @@ class ReviewDetailView(APIView):
             return Response(review, status=status.HTTP_200_OK)
         except ValidationError as exc:
             return Response({"error": exc.detail}, status=status.HTTP_404_NOT_FOUND)
+
+
+class HomepageReviewListView(APIView):
+    permission_classes = [AllowAny]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        review_ids = _parse_int_list(
+            request.query_params.get('ids') or request.query_params.get('review_ids')
+        )
+        try:
+            limit = int(request.query_params.get('limit', 6))
+        except (TypeError, ValueError):
+            limit = 6
+        limit = max(1, min(limit, 12))
+
+        reviews = (
+            Review.objects
+            .filter(
+                is_deleted=False,
+                status=Review.StatusChoices.APPROVED,
+                comment__isnull=False,
+            )
+            .exclude(comment='')
+            .select_related('user', 'course')
+        )
+
+        if review_ids:
+            preserved_order = Case(
+                *[When(id=review_id, then=position) for position, review_id in enumerate(review_ids)],
+                output_field=IntegerField(),
+            )
+            reviews = reviews.filter(id__in=review_ids).order_by(preserved_order)
+        else:
+            reviews = reviews.order_by('-likes', '-created_at')
+
+        return Response(ReviewSerializer(reviews[:limit], many=True).data, status=status.HTTP_200_OK)
 
 
 class ReviewReportView(APIView):

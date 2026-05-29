@@ -8,6 +8,7 @@ from .serializers import (
 )
 from registration_forms.models import RegistrationForm, FormQuestion
 from instructors.models import Instructor
+from utils.admin_actors import resolve_admin_actor
 
 
 def submit_application(user, data):
@@ -115,7 +116,7 @@ def get_application_detail(application_id, user=None):
         if user:
             filters['user'] = user
         application = Application.objects.select_related(
-            'user', 'form', 'reviewed_by'
+            'user', 'form', 'reviewed_by__user'
         ).prefetch_related(
             'responses__question'
         ).get(**filters)
@@ -140,10 +141,11 @@ def get_all_applications(filters=None):
     return qs
 
 
-def review_application(application_id, admin_user, data):
+def review_application(application_id, admin_actor, data):
     action = data.get('action')
     if action not in ('approve', 'reject', 'request_changes'):
         raise ValidationError({"error": "Action must be 'approve', 'reject', or 'request_changes'."})
+    admin = resolve_admin_actor(admin_actor)
 
     try:
         application = Application.objects.select_related(
@@ -162,7 +164,7 @@ def review_application(application_id, admin_user, data):
     if action == 'approve':
         application.status = 'approved'
         application.reviewed_at = now
-        application.reviewed_by = admin_user
+        application.reviewed_by = admin
         application.admin_notes = data.get('admin_notes', '')
         application.save()
 
@@ -172,7 +174,7 @@ def review_application(application_id, admin_user, data):
     elif action == 'reject':
         application.status = 'rejected'
         application.reviewed_at = now
-        application.reviewed_by = admin_user
+        application.reviewed_by = admin
         application.admin_notes = data.get('admin_notes', '')
         application.rejection_reason = data.get('rejection_reason', '')
         application.save()
@@ -180,7 +182,7 @@ def review_application(application_id, admin_user, data):
     elif action == 'request_changes':
         application.status = 'changes_requested'
         application.reviewed_at = now
-        application.reviewed_by = admin_user
+        application.reviewed_by = admin
         application.admin_notes = data.get('admin_notes', '')
         application.save()
 

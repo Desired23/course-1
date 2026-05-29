@@ -1,5 +1,5 @@
 from django.db import models
-from users.models import User
+from admins.models import Admin
 
 
 class RegistrationForm(models.Model):
@@ -14,7 +14,7 @@ class RegistrationForm(models.Model):
     is_active = models.BooleanField(default=True)
     version = models.IntegerField(default=1)
     created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        Admin, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_registration_forms'
     )
     created_at = models.DateTimeField(auto_now_add=True)

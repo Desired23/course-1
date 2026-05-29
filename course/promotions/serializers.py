@@ -21,6 +21,7 @@ class PromotionSerializer(serializers.ModelSerializer):
             'applicable_categories',
             'admin',
             'instructor',
+            'show_on_homepage',
             'status',
             'created_at',
             'updated_at'

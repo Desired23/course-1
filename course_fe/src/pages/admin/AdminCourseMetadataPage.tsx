@@ -1,23 +1,40 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
-import { AlertTriangle, CheckCircle2, Loader2, Search, Sparkles, WandSparkles } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  Search,
+  Sparkles,
+  WandSparkles,
+  ListChecks,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useRouter } from '../../components/Router'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
+import { Checkbox } from '../../components/ui/checkbox'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
-import { getAllCourses, type CourseListItem, updateCourse } from '../../services/course.api'
+import {
+  getAllCourses,
+  type CourseListItem,
+  updateCourse,
+  bulkUpdateAIMetadata,
+  type AIMetadataFields,
+} from '../../services/course.api'
 
 type DraftFields = {
   level: string
   target_audience: string
   skills_taught: string
   prerequisites: string
+  learning_objectives: string
 }
 
 function toMultiline(values?: string[] | null) {
@@ -49,6 +66,7 @@ function buildDraft(course: CourseListItem): DraftFields {
     target_audience: toMultiline(course.target_audience),
     skills_taught: toMultiline(course.skills_taught),
     prerequisites: toMultiline(course.prerequisites),
+    learning_objectives: toMultiline(course.learning_objectives),
   }
 }
 
@@ -74,6 +92,121 @@ const fadeInUp = {
   },
 }
 
+// ── Bulk Edit Dialog ─────────────────────────────────────────────────────────
+
+type BulkField = keyof Omit<AIMetadataFields, 'level'>
+
+interface BulkEditState {
+  field: BulkField | ''
+  value: string
+  mode: 'replace' | 'append'
+}
+
+const BULK_FIELD_LABELS: Record<BulkField, string> = {
+  skills_taught: 'Skills taught',
+  prerequisites: 'Prerequisites',
+  target_audience: 'Target audience',
+  learning_objectives: 'Learning objectives',
+  tags: 'Tags',
+}
+
+function BulkEditPanel({
+  selectedIds,
+  onApply,
+  onCancel,
+  applying,
+}: {
+  selectedIds: number[]
+  onApply: (field: BulkField, values: string[], mode: 'replace' | 'append') => void
+  onCancel: () => void
+  applying: boolean
+}) {
+  const [state, setState] = useState<BulkEditState>({ field: '', value: '', mode: 'replace' })
+
+  const handleApply = () => {
+    if (!state.field) return
+    const values = parseMultiline(state.value)
+    if (!values.length) return
+    onApply(state.field as BulkField, values, state.mode)
+  }
+
+  return (
+    <Card className="border-blue-200 bg-blue-50/70">
+      <CardContent className="space-y-4 p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium text-blue-900">
+            <ListChecks className="h-4 w-4" />
+            Bulk update cho {selectedIds.length} khóa học đã chọn
+          </div>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto]">
+          <div className="space-y-2">
+            <Label>Trường cần cập nhật</Label>
+            <Select
+              value={state.field}
+              onValueChange={(value) => setState((prev) => ({ ...prev, field: value as BulkField }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn trường..." />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.entries(BULK_FIELD_LABELS) as [BulkField, string][]).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Chế độ</Label>
+            <Select
+              value={state.mode}
+              onValueChange={(value) => setState((prev) => ({ ...prev, mode: value as 'replace' | 'append' }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="replace">Thay thế hoàn toàn</SelectItem>
+                <SelectItem value="append">Thêm vào cuối</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-end">
+            <Button
+              onClick={handleApply}
+              disabled={applying || !state.field || !state.value.trim()}
+              className="w-full md:w-auto"
+            >
+              {applying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}
+              Áp dụng
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Giá trị (mỗi dòng một mục)</Label>
+          <Textarea
+            value={state.value}
+            onChange={(e) => setState((prev) => ({ ...prev, value: e.target.value }))}
+            rows={4}
+            placeholder="Nhập mỗi giá trị trên một dòng..."
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Main Page ────────────────────────────────────────────────────────────────
+
 export function AdminCourseMetadataPage() {
   const { navigate, currentRoute } = useRouter()
 
@@ -87,6 +220,11 @@ export function AdminCourseMetadataPage() {
   const [returnToRoute, setReturnToRoute] = useState<string | null>(null)
   const [returnPathId, setReturnPathId] = useState<number | null>(null)
   const hasScrolledToFocusedCourseRef = useRef(false)
+
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [showBulkPanel, setShowBulkPanel] = useState(false)
+  const [applyingBulk, setApplyingBulk] = useState(false)
 
   useEffect(() => {
     const queryString = currentRoute.includes('?') ? currentRoute.split('?')[1] : ''
@@ -123,7 +261,7 @@ export function AdminCourseMetadataPage() {
       } catch (error) {
         if (!cancelled) {
           console.error('Failed to load metadata courses', error)
-          toast.error('Khong the tai catalog metadata.')
+          toast.error('Không thể tải catalog metadata.')
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -203,6 +341,7 @@ export function AdminCourseMetadataPage() {
         target_audience: parseMultiline(draft.target_audience),
         skills_taught: parseMultiline(draft.skills_taught),
         prerequisites: parseMultiline(draft.prerequisites),
+        learning_objectives: parseMultiline(draft.learning_objectives),
       })
 
       setCourses((prev) => prev.map((course) => (course.id === courseId ? updated : course)))
@@ -210,15 +349,98 @@ export function AdminCourseMetadataPage() {
         ...prev,
         [courseId]: buildDraft(updated),
       }))
-      toast.success('Da cap nhat metadata khoa hoc.')
+      toast.success('Đã cập nhật metadata khóa học.')
       if (options?.returnToAdvisor && returnToRoute) {
         navigateBackToAdvisorReview(courseId)
       }
     } catch (error) {
       console.error('Failed to save course metadata', error)
-      toast.error('Khong the cap nhat metadata khoa hoc.')
+      toast.error('Không thể cập nhật metadata khóa học.')
     } finally {
       setSavingIds((prev) => prev.filter((id) => id !== courseId))
+    }
+  }
+
+  // ── Bulk selection helpers ─────────────────────────────────────────────────
+  const toggleSelect = (courseId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(courseId) ? prev.filter((id) => id !== courseId) : [...prev, courseId]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    const visibleIds = filteredCourses.map((c) => c.id)
+    const allSelected = visibleIds.every((id) => selectedIds.includes(id))
+    setSelectedIds(allSelected ? [] : visibleIds)
+  }
+
+  const handleBulkApply = async (field: BulkField, values: string[], mode: 'replace' | 'append') => {
+    try {
+      setApplyingBulk(true)
+
+      let finalValues = values
+      if (mode === 'append') {
+        // For append mode, we need to get existing values and merge
+        // We'll do this per-course using the local draft state
+        const updates = selectedIds.map(async (courseId) => {
+          const course = courses.find((c) => c.id === courseId)
+          if (!course) return
+          const existing: string[] = (course[field as keyof CourseListItem] as string[] | undefined) || []
+          const merged = Array.from(new Set([...existing, ...values]))
+          return updateCourse(courseId, { [field]: merged })
+        })
+        const results = await Promise.allSettled(updates)
+        const updated = results
+          .map((r, i) => ({ result: r, courseId: selectedIds[i] }))
+          .filter((r) => r.result.status === 'fulfilled' && r.result.value)
+          .map((r) => (r.result as PromiseFulfilledResult<CourseListItem>).value)
+
+        setCourses((prev) =>
+          prev.map((c) => {
+            const upd = updated.find((u) => u.id === c.id)
+            return upd ?? c
+          })
+        )
+        setDrafts((prev) => {
+          const next = { ...prev }
+          updated.forEach((u) => {
+            next[u.id] = buildDraft(u)
+          })
+          return next
+        })
+
+        const failCount = results.filter((r) => r.status === 'rejected').length
+        toast.success(`Đã cập nhật ${updated.length} khóa học.${failCount > 0 ? ` ${failCount} lỗi.` : ''}`)
+      } else {
+        // Replace mode — use bulk API
+        const fields: AIMetadataFields = { [field]: finalValues }
+        const result = await bulkUpdateAIMetadata(selectedIds, fields)
+
+        // Refresh courses that were updated
+        if (result.updated_ids.length > 0) {
+          const refreshed = await getAllCourses()
+          setCourses(refreshed)
+          setDrafts(
+            refreshed.reduce<Record<number, DraftFields>>((acc, course) => {
+              acc[course.id] = buildDraft(course)
+              return acc
+            }, {})
+          )
+        }
+
+        const errCount = result.errors.length + result.not_found_ids.length
+        toast.success(
+          `Đã cập nhật ${result.updated_count} khóa học.${errCount > 0 ? ` ${errCount} lỗi.` : ''}`
+        )
+      }
+
+      setSelectedIds([])
+      setShowBulkPanel(false)
+    } catch (error) {
+      console.error('Bulk update failed', error)
+      toast.error('Không thể bulk update metadata.')
+    } finally {
+      setApplyingBulk(false)
     }
   }
 
@@ -238,8 +460,8 @@ export function AdminCourseMetadataPage() {
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Course Catalog Metadata</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Man hinh nay dung de ra soat khoa hoc nao du metadata cho AI tu van lo trinh, khoa hoc nao con thieu level,
-            target audience, skills_taught hoac prerequisites.
+            Màn hình này dùng để rà soát khóa học nào đủ metadata cho AI tư vấn lộ trình, khóa học nào còn thiếu level,
+            target audience, skills_taught hoặc prerequisites.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -248,11 +470,11 @@ export function AdminCourseMetadataPage() {
               variant="outline"
               onClick={navigateBackToAdvisorReview}
             >
-              Quay lai AI Paths
+              Quay lại AI Paths
             </Button>
           )}
           <Button variant="outline" onClick={() => navigate('/admin/courses')}>
-            Mo trang quan ly khoa hoc
+            Mở trang quản lý khóa học
           </Button>
         </div>
       </motion.div>
@@ -262,9 +484,9 @@ export function AdminCourseMetadataPage() {
         <Card className="border-blue-200 bg-blue-50/70">
           <CardContent className="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-1">
-              <div className="text-sm font-medium text-blue-900">Dang review metadata tu AI Paths</div>
+              <div className="text-sm font-medium text-blue-900">Đang review metadata từ AI Paths</div>
               <p className="text-sm text-blue-900/80">
-                Sua metadata khoa hoc xong ban co the quay lai dashboard de tiep tuc review learning path va fallback.
+                Sửa metadata khóa học xong bạn có thể quay lại dashboard để tiếp tục review learning path và fallback.
               </p>
             </div>
             <Button
@@ -272,7 +494,7 @@ export function AdminCourseMetadataPage() {
               className="border-blue-300 bg-white text-blue-900 hover:bg-blue-100"
               onClick={navigateBackToAdvisorReview}
             >
-              Quay lai dung path dang review
+              Quay lại đúng path đang review
             </Button>
           </CardContent>
         </Card>
@@ -282,7 +504,7 @@ export function AdminCourseMetadataPage() {
       <motion.div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" variants={fadeInUp}>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Tong khoa hoc</CardDescription>
+            <CardDescription>Tổng khóa học</CardDescription>
             <CardTitle>{metrics.total}</CardTitle>
           </CardHeader>
         </Card>
@@ -294,7 +516,7 @@ export function AdminCourseMetadataPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Con thieu metadata</CardDescription>
+            <CardDescription>Còn thiếu metadata</CardDescription>
             <CardTitle className="text-amber-600">{metrics.missing}</CardTitle>
           </CardHeader>
         </Card>
@@ -310,7 +532,7 @@ export function AdminCourseMetadataPage() {
       <Card>
         <CardContent className="grid gap-4 p-5 lg:grid-cols-[1.4fr_220px_220px]">
           <div className="space-y-2">
-            <Label htmlFor="catalog-search">Tim khoa hoc</Label>
+            <Label htmlFor="catalog-search">Tìm khóa học</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -318,7 +540,7 @@ export function AdminCourseMetadataPage() {
                 className="pl-10"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Ten khoa hoc, instructor, category..."
+                placeholder="Tên khóa học, instructor, category..."
               />
             </div>
           </div>
@@ -329,9 +551,9 @@ export function AdminCourseMetadataPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="missing">Chi khoa thieu metadata</SelectItem>
-                <SelectItem value="ready">Chi khoa advisor-ready</SelectItem>
-                <SelectItem value="all">Tat ca khoa hoc</SelectItem>
+                <SelectItem value="missing">Chỉ khóa thiếu metadata</SelectItem>
+                <SelectItem value="ready">Chỉ khóa advisor-ready</SelectItem>
+                <SelectItem value="all">Tất cả khóa học</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -345,6 +567,53 @@ export function AdminCourseMetadataPage() {
       </Card>
       </motion.div>
 
+      {/* Bulk action toolbar */}
+      {!loading && filteredCourses.length > 0 && (
+        <motion.div variants={fadeInUp} className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="select-all"
+              checked={filteredCourses.length > 0 && filteredCourses.every((c) => selectedIds.includes(c.id))}
+              onCheckedChange={toggleSelectAll}
+            />
+            <Label htmlFor="select-all" className="cursor-pointer text-sm">
+              Chọn tất cả ({filteredCourses.length})
+            </Label>
+          </div>
+          {selectedIds.length > 0 && (
+            <>
+              <Badge variant="secondary">{selectedIds.length} đã chọn</Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowBulkPanel((v) => !v)}
+              >
+                <ListChecks className="mr-1.5 h-4 w-4" />
+                Bulk update metadata
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setSelectedIds([]); setShowBulkPanel(false) }}
+              >
+                Bỏ chọn
+              </Button>
+            </>
+          )}
+        </motion.div>
+      )}
+
+      {showBulkPanel && selectedIds.length > 0 && (
+        <motion.div variants={fadeInUp}>
+          <BulkEditPanel
+            selectedIds={selectedIds}
+            onApply={handleBulkApply}
+            onCancel={() => setShowBulkPanel(false)}
+            applying={applyingBulk}
+          />
+        </motion.div>
+      )}
+
       <motion.div variants={fadeInUp}>
       {loading ? (
         <div className="flex min-h-[240px] items-center justify-center">
@@ -355,8 +624,8 @@ export function AdminCourseMetadataPage() {
           <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-600" />
             <div>
-              <p className="font-medium">Khong co khoa hoc nao khop bo loc.</p>
-              <p className="text-sm text-muted-foreground">Thu doi filter hoac tim kiem theo ten khoa hoc.</p>
+              <p className="font-medium">Không có khóa học nào khớp bộ lọc.</p>
+              <p className="text-sm text-muted-foreground">Thử đổi filter hoặc tìm kiếm theo tên khóa học.</p>
             </div>
           </CardContent>
         </Card>
@@ -367,46 +636,60 @@ export function AdminCourseMetadataPage() {
             const missingFields = getMissingFields(course)
             const isSaving = savingIds.includes(course.id)
             const isFocused = focusedCourseId === course.id
+            const isSelected = selectedIds.includes(course.id)
 
             return (
               <Card
                 key={course.id}
                 id={`catalog-course-${course.id}`}
-                className={isFocused ? 'overflow-hidden border-blue-500 shadow-md shadow-blue-500/10' : 'overflow-hidden'}
+                className={
+                  isFocused
+                    ? 'overflow-hidden border-blue-500 shadow-md shadow-blue-500/10'
+                    : isSelected
+                    ? 'overflow-hidden border-primary/50 shadow-sm'
+                    : 'overflow-hidden'
+                }
               >
                 <CardHeader className="border-b bg-muted/20">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-xl">{course.title}</CardTitle>
-                        {missingFields.length === 0 ? (
-                          <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Advisor-ready
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1 text-amber-700">
-                            <AlertTriangle className="h-3 w-3" />
-                            Dang thieu metadata
-                          </Badge>
-                        )}
-                        <Badge variant="outline">{course.status}</Badge>
-                        <Badge variant="outline">{course.is_public ? 'public' : 'private'}</Badge>
-                      </div>
-                      <CardDescription>
-                        {course.instructor_name || 'Unknown instructor'} • {course.category_name || 'Uncategorized'} •{' '}
-                        {course.duration_hours ? `${course.duration_hours}h` : 'No duration'}
-                      </CardDescription>
-                      <div className="flex flex-wrap gap-2">
-                        {missingFields.length === 0 ? (
-                          <span className="text-sm text-emerald-700">Du dieu kien dua vao AI advisor.</span>
-                        ) : (
-                          missingFields.map((field) => (
-                            <Badge key={field} variant="outline" className="border-amber-300 text-amber-700">
-                              Missing: {field}
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(course.id)}
+                        className="mt-1"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <CardTitle className="text-xl">{course.title}</CardTitle>
+                          {missingFields.length === 0 ? (
+                            <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Advisor-ready
                             </Badge>
-                          ))
-                        )}
+                          ) : (
+                            <Badge variant="secondary" className="gap-1 text-amber-700">
+                              <AlertTriangle className="h-3 w-3" />
+                              Đang thiếu metadata
+                            </Badge>
+                          )}
+                          <Badge variant="outline">{course.status}</Badge>
+                          <Badge variant="outline">{course.is_public ? 'public' : 'private'}</Badge>
+                        </div>
+                        <CardDescription>
+                          {course.instructor_name || 'Unknown instructor'} • {course.category_name || 'Uncategorized'} •{' '}
+                          {course.duration_hours ? `${course.duration_hours}h` : 'No duration'}
+                        </CardDescription>
+                        <div className="flex flex-wrap gap-2">
+                          {missingFields.length === 0 ? (
+                            <span className="text-sm text-emerald-700">Đủ điều kiện đưa vào AI advisor.</span>
+                          ) : (
+                            missingFields.map((field) => (
+                              <Badge key={field} variant="outline" className="border-amber-300 text-amber-700">
+                                Missing: {field}
+                              </Badge>
+                            ))
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -420,7 +703,7 @@ export function AdminCourseMetadataPage() {
                           size="sm"
                           onClick={navigateBackToAdvisorReview}
                         >
-                          Quay lai AI Paths
+                          Quay lại AI Paths
                         </Button>
                       )}
                       {returnToRoute && isFocused && (
@@ -430,12 +713,12 @@ export function AdminCourseMetadataPage() {
                           disabled={isSaving}
                         >
                           {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}
-                          Luu va quay lai AI Paths
+                          Lưu và quay lại AI Paths
                         </Button>
                       )}
                       <Button size="sm" onClick={() => void saveCourseMetadata(course.id)} disabled={isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <WandSparkles className="mr-2 h-4 w-4" />}
-                        Luu metadata
+                        Lưu metadata
                       </Button>
                     </div>
                   </div>
@@ -463,7 +746,7 @@ export function AdminCourseMetadataPage() {
                       value={draft.target_audience}
                       onChange={(event) => updateDraft(course.id, 'target_audience', event.target.value)}
                       rows={4}
-                      placeholder="Moi dong la 1 doi tuong hoc"
+                      placeholder="Mỗi dòng là 1 đối tượng học"
                     />
                   </div>
 
@@ -473,7 +756,7 @@ export function AdminCourseMetadataPage() {
                       value={draft.skills_taught}
                       onChange={(event) => updateDraft(course.id, 'skills_taught', event.target.value)}
                       rows={5}
-                      placeholder="Moi dong la 1 skill se day trong khoa hoc"
+                      placeholder="Mỗi dòng là 1 skill sẽ dạy trong khóa học"
                     />
                   </div>
 
@@ -483,7 +766,17 @@ export function AdminCourseMetadataPage() {
                       value={draft.prerequisites}
                       onChange={(event) => updateDraft(course.id, 'prerequisites', event.target.value)}
                       rows={5}
-                      placeholder="Moi dong la 1 kien thuc dau vao"
+                      placeholder="Mỗi dòng là 1 kiến thức đầu vào"
+                    />
+                  </div>
+
+                  <div className="space-y-2 lg:col-span-2">
+                    <Label>Learning objectives</Label>
+                    <Textarea
+                      value={draft.learning_objectives}
+                      onChange={(event) => updateDraft(course.id, 'learning_objectives', event.target.value)}
+                      rows={4}
+                      placeholder="Mỗi dòng là 1 mục tiêu học tập sau khi hoàn thành khóa học"
                     />
                   </div>
                 </CardContent>

@@ -11,7 +11,6 @@ import {
   Clock,
   Users,
   Bell,
-  Eye,
   Download
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -19,6 +18,8 @@ import { useTranslation } from 'react-i18next'
 interface Lesson {
   id: number
   title: string
+  type?: string
+  content_type?: string
   status: string
   is_free?: boolean
   duration: string
@@ -42,6 +43,11 @@ interface SettingsTabProps {
 export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
   const { t } = useTranslation()
   const settings = lesson.settings || {}
+  const contentType = lesson.content_type || lesson.type || 'video'
+
+  const isVideo = contentType === 'video'
+  const showDownload = ['video', 'file', 'text'].includes(contentType)
+  const showSeoKeywords = ['video', 'text', 'link'].includes(contentType)
 
   const handleSettingUpdate = (key: string, value: any) => {
     onUpdate({
@@ -98,7 +104,6 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
       <Separator />
 
-
       <Card className="p-4">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -141,7 +146,6 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
 
       <Separator />
 
-
       <Card className="p-4">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
@@ -150,21 +154,23 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm flex items-center gap-2">
-                  <Download className="h-3.5 w-3.5" />
-                  {t('settings_tab.allow_downloads')}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {t('settings_tab.allow_downloads_hint')}
-                </p>
+            {showDownload && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm flex items-center gap-2">
+                    <Download className="h-3.5 w-3.5" />
+                    {t('settings_tab.allow_downloads')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings_tab.allow_downloads_hint')}
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.allowDownload !== false}
+                  onCheckedChange={(checked) => handleSettingUpdate('allowDownload', checked)}
+                />
               </div>
-              <Switch
-                checked={settings.allowDownload !== false}
-                onCheckedChange={(checked) => handleSettingUpdate('allowDownload', checked)}
-              />
-            </div>
+            )}
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -179,37 +185,40 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm">{t('settings_tab.show_transcript')}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t('settings_tab.show_transcript_hint')}
-                </p>
-              </div>
-              <Switch
-                checked={settings.showTranscript || false}
-                onCheckedChange={(checked) => handleSettingUpdate('showTranscript', checked)}
-              />
-            </div>
+            {isVideo && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm">{t('settings_tab.show_transcript')}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('settings_tab.show_transcript_hint')}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.showTranscript || false}
+                    onCheckedChange={(checked) => handleSettingUpdate('showTranscript', checked)}
+                  />
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-sm">{t('settings_tab.autoplay_next')}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t('settings_tab.autoplay_next_hint')}
-                </p>
-              </div>
-              <Switch
-                checked={settings.autoplay || false}
-                onCheckedChange={(checked) => handleSettingUpdate('autoplay', checked)}
-              />
-            </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm">{t('settings_tab.autoplay_next')}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('settings_tab.autoplay_next_hint')}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.autoplay || false}
+                    onCheckedChange={(checked) => handleSettingUpdate('autoplay', checked)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </Card>
 
       <Separator />
-
 
       <Card className="p-4">
         <div className="space-y-4">
@@ -219,16 +228,18 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
           </div>
 
           <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="seo-keywords">{t('settings_tab.seo_keywords')}</Label>
-              <Input
-                id="seo-keywords"
-                placeholder={t('settings_tab.seo_keywords_placeholder')}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('settings_tab.seo_keywords_hint')}
-              </p>
-            </div>
+            {showSeoKeywords && (
+              <div className="space-y-2">
+                <Label htmlFor="seo-keywords">{t('settings_tab.seo_keywords')}</Label>
+                <Input
+                  id="seo-keywords"
+                  placeholder={t('settings_tab.seo_keywords_placeholder')}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t('settings_tab.seo_keywords_hint')}
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="instructor-notes">{t('settings_tab.instructor_notes')}</Label>

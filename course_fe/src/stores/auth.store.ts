@@ -65,8 +65,6 @@ export const PERMISSIONS: Permission[] = [
   { id: 'user.comments.create', name: 'Create Comments', category: 'User', description: 'permissions_page.permission_descriptions.user_comments_create' },
   { id: 'user.comments.vote', name: 'Vote Comments', category: 'User', description: 'permissions_page.permission_descriptions.user_comments_vote' },
   { id: 'user.blog.read', name: 'Read Blog Posts', category: 'User', description: 'permissions_page.permission_descriptions.user_blog_read' },
-  { id: 'user.qna.ask', name: 'Ask Questions', category: 'User', description: 'permissions_page.permission_descriptions.user_qna_ask' },
-  { id: 'user.qna.answer', name: 'Answer Questions', category: 'User', description: 'permissions_page.permission_descriptions.user_qna_answer' },
   { id: 'user.social.follow', name: 'Follow Users', category: 'User', description: 'permissions_page.permission_descriptions.user_social_follow' },
 
   { id: 'instructor.courses.create', name: 'Create Courses', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_courses_create' },
@@ -77,7 +75,6 @@ export const PERMISSIONS: Permission[] = [
   { id: 'instructor.students.manage', name: 'Manage Students', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_students_manage' },
   { id: 'instructor.blog.create', name: 'Create Blog Posts', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_blog_create' },
   { id: 'instructor.blog.edit', name: 'Edit Blog Posts', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_blog_edit' },
-  { id: 'instructor.qna.moderate', name: 'Moderate Q&A', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_qna_moderate' },
   { id: 'instructor.comments.moderate', name: 'Moderate Comments', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_comments_moderate' },
   { id: 'instructor.analytics.view', name: 'View Analytics', category: 'Instructor', description: 'permissions_page.permission_descriptions.instructor_analytics_view' },
 
@@ -89,7 +86,6 @@ export const PERMISSIONS: Permission[] = [
   { id: 'admin.blog.approve', name: 'Approve Blog Posts', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_blog_approve' },
   { id: 'admin.blog.manage', name: 'Manage All Blogs', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_blog_manage' },
   { id: 'admin.comments.moderate', name: 'Moderate All Comments', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_comments_moderate' },
-  { id: 'admin.qna.moderate', name: 'Moderate All Q&A', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_qna_moderate' },
   { id: 'admin.platform.settings', name: 'Platform Settings', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_platform_settings' },
   { id: 'admin.website.manage', name: 'Manage Website', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_website_manage' },
   { id: 'admin.statistics.view', name: 'View Statistics', category: 'Admin', description: 'permissions_page.permission_descriptions.admin_statistics_view' },
@@ -106,15 +102,15 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   user: [
     'user.profile.view', 'user.profile.edit', 'user.courses.enroll',
     'user.reviews.create', 'user.comments.create', 'user.comments.vote',
-    'user.blog.read', 'user.qna.ask', 'user.qna.answer', 'user.social.follow',
+    'user.blog.read', 'user.social.follow',
   ],
   instructor: [
     'user.profile.view', 'user.profile.edit', 'user.courses.enroll',
     'user.reviews.create', 'user.comments.create', 'user.comments.vote',
-    'user.blog.read', 'user.qna.ask', 'user.qna.answer', 'user.social.follow',
+    'user.blog.read', 'user.social.follow',
     'instructor.courses.create', 'instructor.courses.edit', 'instructor.courses.delete',
     'instructor.lessons.manage', 'instructor.earnings.view', 'instructor.students.manage',
-    'instructor.blog.create', 'instructor.blog.edit', 'instructor.qna.moderate',
+    'instructor.blog.create', 'instructor.blog.edit',
     'instructor.comments.moderate', 'instructor.analytics.view',
   ],
   admin: PERMISSIONS.map(p => p.id),

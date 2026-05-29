@@ -10,10 +10,13 @@ from .services import (
     update_promotion,
     get_promotions_by_instructor,
     validate_promotion_code,
+    get_homepage_promotions,
+    get_promotions_for_course,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
 from .serializers import PromotionSerializer
+from rest_framework.permissions import AllowAny
 
 class PromotionManagementView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
@@ -74,6 +77,30 @@ class PromotionManagementView(APIView):
             return Response(promotion, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PromotionHomepageView(APIView):
+    """Public endpoint: list active promotions marked for homepage display."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        try:
+            promotions = get_homepage_promotions()
+            return Response(promotions, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PromotionCourseView(APIView):
+    """Public endpoint: list active promotions applicable to a specific course."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, course_id):
+        try:
+            promotions = get_promotions_for_course(course_id)
+            return Response(promotions, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

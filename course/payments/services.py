@@ -48,6 +48,68 @@ PAYMENT_ADMIN_CONFIGS = {
 }
 
 
+BLOCKING_ENROLLMENT_STATUSES = [
+    Enrollment.Status.Active,
+    Enrollment.Status.Complete,
+    Enrollment.Status.SUSPENDED,
+]
+
+
+def _find_course_purchase_blocker(user_id, course):
+    enrollment = Enrollment.objects.filter(
+        user_id=user_id,
+        course=course,
+        is_deleted=False,
+        status__in=BLOCKING_ENROLLMENT_STATUSES,
+    ).first()
+    if enrollment:
+        return f"Bạn đã sở hữu khóa học '{course.title}'. Không thể mua lại."
+
+    completed_detail = (
+        Payment_Details.objects
+        .filter(
+            payment__user_id=user_id,
+            payment__payment_status=Payment.PaymentStatus.COMPLETED,
+            payment__is_deleted=False,
+            course=course,
+            is_deleted=False,
+        )
+        .exclude(refund_status=Payment_Details.RefundStatus.SUCCESS)
+        .select_related("payment")
+        .order_by("-payment__payment_date", "-payment_id")
+        .first()
+    )
+    if completed_detail:
+        return (
+            f"Khóa học '{course.title}' đã có payment thành công "
+            f"#{completed_detail.payment_id}. Không thể tạo thanh toán trùng."
+        )
+
+    retryable_detail = (
+        Payment_Details.objects
+        .filter(
+            payment__user_id=user_id,
+            payment__payment_status__in=[
+                Payment.PaymentStatus.PENDING,
+                Payment.PaymentStatus.FAILED,
+            ],
+            payment__is_deleted=False,
+            course=course,
+            is_deleted=False,
+        )
+        .select_related("payment")
+        .order_by("-payment__created_at", "-payment_id")
+        .first()
+    )
+    if retryable_detail and can_retry_payment(retryable_detail.payment):
+        return (
+            f"Khóa học '{course.title}' đang có payment chưa hoàn tất "
+            f"#{retryable_detail.payment_id}. Vui lòng tiếp tục hoặc đợi giao dịch hết hạn."
+        )
+
+    return None
+
+
 def create_payment(payment_data):
 
     payment_time = timezone.now()
@@ -113,20 +175,12 @@ def create_payment(payment_data):
 
                     try:
                         course = Course.objects.get(id=course_id)
+                        blocker = _find_course_purchase_blocker(user_id, course)
+                        if blocker:
+                            raise ValidationError(blocker)
                     except Course.DoesNotExist:
                         raise ValidationError(f"Course ID {course_id} không tồn tại.")
 
-
-                    already_enrolled = Enrollment.objects.filter(
-                        user_id=user_id,
-                        course_id=course_id,
-                        is_deleted=False,
-                        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete]
-                    ).exists()
-                    if already_enrolled:
-                        raise ValidationError(
-                            f"Bạn đã sở hữu khóa học '{course.title}'. Không thể mua lại."
-                        )
 
                     courses_detail.append(course)
 
@@ -295,14 +349,23 @@ def create_payment(payment_data):
                 "payment_details": payment_details_data
             }
 
+    except ValidationError:
+        raise
     except Exception as e:
         raise ValidationError(f"Lỗi khi tạo thanh toán: {str(e)}")
 
 
-def get_payment_status(payment_id, user):
-    """Get payment status by payment ID for the authenticated user."""
+def get_payment_status(payment_id, user, admin_override=False):
+    """Get payment status by payment ID.
+
+    If ``admin_override`` is True the ownership check is skipped so admins
+    can look up any payment.
+    """
     try:
-        payment = Payment.objects.get(id=payment_id, user=user, is_deleted=False)
+        if admin_override:
+            payment = Payment.objects.get(id=payment_id, is_deleted=False)
+        else:
+            payment = Payment.objects.get(id=payment_id, user=user, is_deleted=False)
     except Payment.DoesNotExist:
         raise ValidationError("Payment không tồn tại hoặc không thuộc về bạn.")
 
@@ -332,7 +395,16 @@ def get_payment_status(payment_id, user):
             duration = getattr(course_obj, "duration", None)
             total_lessons = getattr(course_obj, "total_lessons", None)
 
+        already_refunded = bool(detail.refund_request_time) or detail.refund_status in [
+            Payment_Details.RefundStatus.PROCESSING,
+            Payment_Details.RefundStatus.APPROVED,
+            Payment_Details.RefundStatus.SUCCESS,
+            Payment_Details.RefundStatus.REJECTED,
+            Payment_Details.RefundStatus.FAILED,
+            Payment_Details.RefundStatus.CANCELLED,
+        ]
         courses.append({
+            "payment_detail_id": detail.id,
             "course_id": detail.course_id,
             "course_title": course_obj.title if course_obj else None,
             "course_thumbnail": thumbnail,
@@ -346,6 +418,8 @@ def get_payment_status(payment_id, user):
             "final_price": str(detail.final_price),
             "enrollment_status": enrollment.status if enrollment else None,
             "enrollment_id": enrollment.id if enrollment else None,
+            "refund_status": detail.refund_status,
+            "refund_eligible": not already_refunded,
         })
 
     completed_at = None
@@ -354,7 +428,7 @@ def get_payment_status(payment_id, user):
     retryable_until = get_payment_retry_deadline(payment)
 
     return {
-        "payment_id": payment.id,
+        "id": payment.id,
         "payment_status": payment.payment_status,
         "transaction_id": payment.transaction_id,
         "amount": payment.amount,
@@ -470,13 +544,13 @@ def fix_payment(payment_id):
                 is_deleted=False
             ).first()
             if not existing:
-                Enrollment.objects.create(
-                    user=payment.user,
-                    course=detail.course,
-                    payment=payment,
-                    source=Enrollment.Source.PURCHASE,
-                    status=Enrollment.Status.Active,
-                )
+                from enrollments.services import create_enrollment
+                create_enrollment({
+                    "user_id": payment.user.id,
+                    "course_id": detail.course.id,
+                    "payment": payment.id,
+                    "source": Enrollment.Source.PURCHASE,
+                })
                 created_enrollments += 1
             elif existing.payment_id is None:
                 existing.payment = payment

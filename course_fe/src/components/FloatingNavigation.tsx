@@ -69,7 +69,7 @@ const navigationItems: NavigationItem[] = [
   { id: 'business', labelKey: 'floating_navigation.items.business', path: '/udemy-business', icon: <Building2 size={20} />, category: 'main' },
   { id: 'teach', labelKey: 'floating_navigation.items.teach', path: '/teach', icon: <GraduationCap size={20} />, category: 'main' },
   { id: 'blog', labelKey: 'floating_navigation.items.blog', path: '/blog', icon: <FileText size={20} />, category: 'main' },
-  { id: 'forum', labelKey: 'floating_navigation.items.forum', path: '/forum', icon: <MessageSquare size={20} />, category: 'main' },
+  { id: 'qa', labelKey: 'floating_navigation.items.qa', path: '/qa', icon: <MessageSquare size={20} />, category: 'main' },
   { id: 'login', labelKey: 'floating_navigation.items.login', path: '/login', icon: <LogIn size={20} />, category: 'main' },
   { id: 'signup', labelKey: 'floating_navigation.items.signup', path: '/signup', icon: <UserPlus size={20} />, category: 'main' },
 
@@ -86,7 +86,6 @@ const navigationItems: NavigationItem[] = [
   { id: 'certificates', labelKey: 'floating_navigation.items.certificates', path: '/certificates', icon: <Award size={20} />, category: 'student' },
   { id: 'quiz', labelKey: 'floating_navigation.items.quiz', path: '/quiz', icon: <TestTube size={20} />, category: 'student' },
   { id: 'reviews', labelKey: 'floating_navigation.items.reviews', path: '/reviews', icon: <Star size={20} />, category: 'student' },
-  { id: 'qna', labelKey: 'floating_navigation.items.qna', path: '/qna', icon: <MessageSquare size={20} />, category: 'student' },
   { id: 'support', labelKey: 'floating_navigation.items.support', path: '/support', icon: <HelpCircle size={20} />, category: 'student' },
   { id: 'settings', labelKey: 'floating_navigation.items.settings', path: '/settings', icon: <Settings size={20} />, category: 'student' },
   { id: 'activity-log', labelKey: 'floating_navigation.items.activity_log', path: '/activity-log', icon: <Activity size={20} />, category: 'student' },
@@ -125,7 +124,7 @@ const navigationItems: NavigationItem[] = [
   { id: 'admin-categories', labelKey: 'floating_navigation.items.admin_categories', path: '/admin/categories', icon: <Tags size={20} />, category: 'admin' },
   { id: 'admin-reviews', labelKey: 'floating_navigation.items.admin_reviews', path: '/admin/reviews', icon: <Star size={20} />, category: 'admin' },
   { id: 'admin-blog', labelKey: 'floating_navigation.items.admin_blog', path: '/admin/blog', icon: <FileText size={20} />, category: 'admin' },
-  { id: 'admin-forum', labelKey: 'floating_navigation.items.admin_forum', path: '/admin/forum', icon: <MessageSquare size={20} />, category: 'admin' },
+  { id: 'admin-qa', labelKey: 'floating_navigation.items.admin_qa', path: '/admin/qa', icon: <MessageSquare size={20} />, category: 'admin' },
 
   { id: 'admin-subscriptions', labelKey: 'floating_navigation.items.admin_subscriptions', path: '/admin/subscriptions', icon: <Calendar size={20} />, category: 'admin' },
   { id: 'admin-payments', labelKey: 'floating_navigation.items.admin_payments', path: '/admin/payments', icon: <CreditCard size={20} />, category: 'admin' },

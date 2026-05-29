@@ -16,15 +16,9 @@ import { ScrollArea } from "../../components/ui/scroll-area"
 import { Progress } from "../../components/ui/progress"
 import { UserPagination } from "../../components/UserPagination"
 import {
-  MessageSquare,
   Send,
   Search,
-  Filter,
   Clock,
-  CheckCircle2,
-  AlertCircle,
-  ThumbsUp,
-  Reply,
   Bell,
   Mail,
   Megaphone,
@@ -34,7 +28,6 @@ import {
   Paperclip,
   Trash2,
   Edit,
-  BookOpen,
   Users,
   TrendingUp,
   Star,
@@ -53,7 +46,6 @@ import {
   updateInstructorAnnouncement,
   type InstructorAnnouncement,
 } from '../../services/notification.api'
-import { getQnAs, getAllQnAAnswers, createQnAAnswer, updateQnA, type QnA, type QnAAnswer } from '../../services/qna.api'
 import { reportConversationMessage } from '../../services/chat.api'
 import { formatRelativeTime } from '../../utils/formatters'
 
@@ -82,34 +74,6 @@ const fadeInUp = {
 
 
 
-function qnaToQuestion(q: QnA) {
-  const statusMap: Record<string, 'unanswered' | 'answered' | 'resolved'> = {
-    Pending: 'unanswered',
-    Answered: 'answered',
-    Closed: 'resolved',
-  }
-  const name = q.user_name || 'Student'
-  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  return {
-    id: q.id,
-    question: q.question,
-    description: q.description || '',
-    student: {
-      name,
-      avatar: q.user_avatar || '',
-      initials,
-    },
-    course: q.course_title || 'Unknown Course',
-    lesson: q.lesson_title || '',
-    timestamp: formatRelativeTime(q.created_at),
-    votes: q.votes,
-    answers: q.answers_count,
-    status: statusMap[q.status] || 'unanswered' as const,
-    hasInstructorReply: q.status === 'Answered' || q.status === 'Closed',
-    flagged: false,
-  }
-}
-
 function getInitials(name: string) {
   return name
     .split(' ')
@@ -118,8 +82,6 @@ function getInitials(name: string) {
     .slice(0, 2)
     .toUpperCase()
 }
-
-type QuestionItem = ReturnType<typeof qnaToQuestion>
 
 type AnnouncementView = InstructorAnnouncement & {
   id: string
@@ -146,16 +108,9 @@ export function InstructorCommunicationPage() {
     setActiveConversation,
     sendMessage,
   } = useChat()
-  const [activeTab, setActiveTab] = useState('qna')
-  const [qnaFilter, setQnaFilter] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedQnaSearch, setDebouncedQnaSearch] = useState('')
-  const [qnaPage, setQnaPage] = useState(1)
-  const [qnaTotalPages, setQnaTotalPages] = useState(1)
-  const [qnaLoading, setQnaLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('messages')
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [dashboardStats, setDashboardStats] = useState<InstructorDashboardStats | null>(null)
-  const [qnaSummary, setQnaSummary] = useState({ total: 0, unanswered: 0 })
   const [conversationQuery, setConversationQuery] = useState('')
   const [conversationPage, setConversationPage] = useState(1)
   const [announcementTypeFilter, setAnnouncementTypeFilter] = useState('all')
@@ -183,70 +138,14 @@ export function InstructorCommunicationPage() {
     title: '',
     content: '',
   })
-  const [questions, setQuestions] = useState<ReturnType<typeof qnaToQuestion>[]>([])
-  const [selectedQuestion, setSelectedQuestion] = useState<QuestionItem | null>(null)
-  const [questionAnswers, setQuestionAnswers] = useState<QnAAnswer[]>([])
-  const [questionAnswersLoading, setQuestionAnswersLoading] = useState(false)
-  const [questionReplyText, setQuestionReplyText] = useState('')
-  const [questionReplySubmitting, setQuestionReplySubmitting] = useState(false)
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQnaSearch(searchQuery.trim()), 300)
-    return () => clearTimeout(t)
-  }, [searchQuery])
-
-  useEffect(() => {
-    let cancelled = false
-    async function fetchQnA() {
-      try {
-        setQnaLoading(true)
-        const statusMap: Record<string, 'Pending' | 'Answered' | 'Closed' | undefined> = {
-          unanswered: 'Pending',
-          answered: 'Answered',
-          all: undefined,
-          flagged: undefined,
-        }
-        const res = await getQnAs({
-          page: qnaPage,
-          page_size: 8,
-          status: statusMap[qnaFilter],
-          search: debouncedQnaSearch || undefined,
-        })
-        if (cancelled) return
-        setQuestions((res.results || []).map(qnaToQuestion))
-        setQnaTotalPages(res.total_pages || 1)
-      } catch (err) {
-        console.error('Failed to load Q&A:', err)
-      } finally {
-        if (!cancelled) setQnaLoading(false)
-      }
-    }
-    fetchQnA()
-    return () => { cancelled = true }
-  }, [qnaPage, qnaFilter, debouncedQnaSearch])
-
-  useEffect(() => {
-    setQnaPage(1)
-  }, [qnaFilter, debouncedQnaSearch])
-
-  const paginatedQuestions = questions
-
   useEffect(() => {
     let cancelled = false
     async function fetchCommunicationSummary() {
       try {
         setSummaryLoading(true)
-        const [dashboard, qnaAll, qnaPending] = await Promise.all([
-          getInstructorDashboardStats(),
-          getQnAs({ page: 1, page_size: 1 }),
-          getQnAs({ page: 1, page_size: 1, status: 'Pending' }),
-        ])
+        const dashboard = await getInstructorDashboardStats()
         if (cancelled) return
         setDashboardStats(dashboard)
-        setQnaSummary({
-          total: qnaAll.count || 0,
-          unanswered: qnaPending.count || 0,
-        })
       } catch (err) {
         console.error('Failed to load communication summary:', err)
       } finally {
@@ -408,11 +307,6 @@ export function InstructorCommunicationPage() {
       timestamp: formatRelativeTime(message.timestamp),
     }))
   }, [chatState.activeConversationId, chatState.messages, user?.id])
-  const unansweredQuestions = dashboardStats?.pending_questions ?? qnaSummary.unanswered
-  const totalQuestions = qnaSummary.total
-  const responseRate = totalQuestions > 0
-    ? Math.round(((totalQuestions - unansweredQuestions) / totalQuestions) * 100)
-    : 0
   const averageRating = dashboardStats?.average_rating ?? 0
 
 
@@ -565,69 +459,6 @@ export function InstructorCommunicationPage() {
     }
   }
 
-  const handleOpenQuestion = async (question: QuestionItem) => {
-    setSelectedQuestion(question)
-    setQuestionReplyText('')
-    setQuestionAnswers([])
-    try {
-      setQuestionAnswersLoading(true)
-      const answers = await getAllQnAAnswers(question.id)
-      setQuestionAnswers(answers)
-    } catch (err) {
-      console.error('Failed to load Q&A answers:', err)
-      toast.error(t('instructor_communication_page.load_answers_failed'))
-    } finally {
-      setQuestionAnswersLoading(false)
-    }
-  }
-
-  const handleSubmitQuestionReply = async () => {
-    if (!selectedQuestion || !user?.id) return
-    const answer = questionReplyText.trim()
-    if (!answer) {
-      toast.error(t('instructor_communication_page.reply_required'))
-      return
-    }
-
-    try {
-      setQuestionReplySubmitting(true)
-      const created = await createQnAAnswer({
-        qna: selectedQuestion.id,
-        answer,
-        user: Number(user.id),
-      })
-      await updateQnA(selectedQuestion.id, { status: 'Answered' })
-      setQuestionAnswers((prev) => [...prev, created])
-      setQuestions((prev) => prev.map((item) =>
-        item.id === selectedQuestion.id
-          ? {
-              ...item,
-              answers: item.answers + 1,
-              status: 'answered',
-              hasInstructorReply: true,
-            }
-          : item
-      ))
-      setSelectedQuestion((prev) => prev ? {
-        ...prev,
-        answers: prev.answers + 1,
-        status: 'answered',
-        hasInstructorReply: true,
-      } : prev)
-      setQnaSummary((prev) => ({
-        total: prev.total,
-        unanswered: Math.max(0, prev.unanswered - (selectedQuestion.status === 'unanswered' ? 1 : 0)),
-      }))
-      setQuestionReplyText('')
-      toast.success(t('instructor_communication_page.reply_sent'))
-    } catch (err) {
-      console.error('Failed to submit Q&A answer:', err)
-      toast.error(t('instructor_communication_page.reply_failed'))
-    } finally {
-      setQuestionReplySubmitting(false)
-    }
-  }
-
   return (
     <motion.div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl" variants={sectionStagger} initial="hidden" animate="show">
 
@@ -638,22 +469,7 @@ export function InstructorCommunicationPage() {
         </p>
       </motion.div>
 
-
-      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6" variants={fadeInUp}>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.unanswered_questions')}</p>
-                <p className="text-2xl mt-1">{summaryLoading ? '...' : unansweredQuestions}</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" variants={fadeInUp}>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -663,20 +479,6 @@ export function InstructorCommunicationPage() {
               </div>
               <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
                 <Mail className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.response_rate')}</p>
-                <p className="text-2xl mt-1">{summaryLoading ? '...' : `${responseRate}%`}</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </CardContent>
@@ -700,15 +502,7 @@ export function InstructorCommunicationPage() {
 
       <motion.div variants={fadeInUp}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="relative grid w-full grid-cols-3 p-1">
-          <TabsTrigger value="qna" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'qna' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10 inline-flex items-center gap-2">
-              <MessageSquare className="w-4 h-4" />
-              {t('instructor_communication_page.qna_tab')}
-              <Badge variant="destructive" className="ml-2">{unansweredQuestions}</Badge>
-            </span>
-          </TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-2 p-1">
           <TabsTrigger value="messages" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'messages' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10 inline-flex items-center gap-2">
@@ -725,144 +519,6 @@ export function InstructorCommunicationPage() {
             </span>
           </TabsTrigger>
         </TabsList>
-
-
-        <TabsContent value="qna" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <CardTitle>{t('instructor_communication_page.qna_title')}</CardTitle>
-                  <CardDescription>
-                    {t('instructor_communication_page.qna_description')}
-                  </CardDescription>
-                </div>
-
-                <div className="flex gap-2">
-                  <div className="relative flex-1 md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder={t('instructor_communication_page.search_questions_placeholder')}
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-
-                  <Select value={qnaFilter} onValueChange={setQnaFilter}>
-                    <SelectTrigger className="w-40">
-                      <Filter className="w-4 h-4 mr-2" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t('instructor_communication_page.all')}</SelectItem>
-                      <SelectItem value="unanswered">{t('instructor_communication_page.unanswered')}</SelectItem>
-                      <SelectItem value="answered">{t('instructor_communication_page.answered')}</SelectItem>
-                      <SelectItem value="flagged">{t('instructor_communication_page.flagged')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {qnaLoading && (
-                  <div className="text-center py-8 text-muted-foreground">{t('instructor_communication_page.loading_qna')}</div>
-                )}
-                {!qnaLoading && paginatedQuestions.map((question) => (
-                  <Card key={question.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex gap-4">
-
-                        <div className="flex flex-col items-center gap-2">
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <ThumbsUp className="w-4 h-4" />
-                          </Button>
-                          <span className="text-sm">{question.votes}</span>
-                        </div>
-
-
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <h3 className="text-base mb-1">{question.question}</h3>
-                              <p className="text-sm text-muted-foreground mb-3">
-                                {question.description}
-                              </p>
-
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <Avatar className="w-5 h-5">
-                                    <AvatarImage src={question.student.avatar} />
-                                    <AvatarFallback>{question.student.initials}</AvatarFallback>
-                                  </Avatar>
-                                  <span>{question.student.name}</span>
-                                </div>
-                                <span>•</span>
-                                <div className="flex items-center gap-1">
-                                  <BookOpen className="w-3 h-3" />
-                                  <span>{question.lesson}</span>
-                                </div>
-                                <span>•</span>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span>{question.timestamp}</span>
-                                </div>
-                              </div>
-                            </div>
-
-
-                            <div className="ml-4">
-                              {question.status === 'unanswered' && (
-                                <Badge variant="destructive">{t('instructor_communication_page.unanswered')}</Badge>
-                              )}
-                              {question.status === 'answered' && (
-                                <Badge variant="secondary">{t('instructor_communication_page.answered')}</Badge>
-                              )}
-                              {question.status === 'resolved' && (
-                                <Badge variant="default" className="bg-green-600">
-                                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                                  {t('instructor_communication_page.resolved')}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-
-
-                          <div className="flex items-center gap-2 mt-3">
-                            <Button size="sm" variant="default" onClick={() => void handleOpenQuestion(question)}>
-                              <Reply className="w-4 h-4 mr-2" />
-                              {t('instructor_communication_page.reply_with_count', { count: question.answers })}
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => toast.info(t('instructor_communication_page.flag_workflow_unavailable'))}>
-                              <Flag className="w-4 h-4 mr-2" />
-                              {t('instructor_communication_page.flag')}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {!qnaLoading && paginatedQuestions.length === 0 && (
-                  <div className="text-center py-12">
-                    <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">{t('instructor_communication_page.no_questions')}</p>
-                  </div>
-                )}
-                {!qnaLoading && paginatedQuestions.length > 0 && (
-                  <UserPagination
-                    currentPage={qnaPage}
-                    totalPages={qnaTotalPages}
-                    onPageChange={setQnaPage}
-                  />
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
 
         <TabsContent value="messages">
           <Card>
@@ -1327,76 +983,6 @@ export function InstructorCommunicationPage() {
         </Tabs>
       </motion.div>
 
-      <Dialog open={!!selectedQuestion} onOpenChange={(open) => {
-        if (!open) {
-          setSelectedQuestion(null)
-          setQuestionAnswers([])
-          setQuestionReplyText('')
-        }
-      }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('instructor_communication_page.answer_student_question')}</DialogTitle>
-            <DialogDescription>
-              {selectedQuestion?.course} {selectedQuestion?.lesson ? `• ${selectedQuestion.lesson}` : ''}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedQuestion && (
-            <div className="space-y-4">
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-sm font-medium">{selectedQuestion.question}</p>
-                {selectedQuestion.description && (
-                  <p className="mt-2 text-sm text-muted-foreground">{selectedQuestion.description}</p>
-                )}
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {selectedQuestion.student.name} • {selectedQuestion.timestamp}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-sm font-medium">{t('instructor_communication_page.existing_answers')}</p>
-                {questionAnswersLoading && (
-                  <p className="text-sm text-muted-foreground">{t('instructor_communication_page.loading_answers')}</p>
-                )}
-                {!questionAnswersLoading && questionAnswers.length === 0 && (
-                  <p className="text-sm text-muted-foreground">{t('instructor_communication_page.no_answers')}</p>
-                )}
-                {!questionAnswersLoading && questionAnswers.map((answer) => (
-                  <div key={answer.id} className="rounded-lg border bg-background p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium">{answer.user_name || t('instructor_communication_page.instructor_fallback')}</p>
-                      <p className="text-xs text-muted-foreground">{formatRelativeTime(answer.created_at)}</p>
-                    </div>
-                    <p className="mt-2 text-sm whitespace-pre-wrap">{answer.answer}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2 border-t pt-4">
-                <Label htmlFor="qna-reply">{t('instructor_communication_page.reply')}</Label>
-                <Textarea
-                  id="qna-reply"
-                  rows={5}
-                  value={questionReplyText}
-                  onChange={(e) => setQuestionReplyText(e.target.value)}
-                  placeholder={t('instructor_communication_page.reply_placeholder')}
-                />
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setSelectedQuestion(null)}>
-                  {t('instructor_communication_page.close')}
-                </Button>
-                <Button onClick={() => void handleSubmitQuestionReply()} disabled={questionReplySubmitting}>
-                  <Send className="w-4 h-4 mr-2" />
-                  {questionReplySubmitting ? t('instructor_communication_page.sending') : t('instructor_communication_page.send_reply')}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </motion.div>
   )
 }

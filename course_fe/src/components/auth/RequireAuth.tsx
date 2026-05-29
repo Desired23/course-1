@@ -20,7 +20,7 @@ export function RequireAuth({
   showToast = true
 }: RequireAuthProps) {
   const { user, isAuthenticated, canAccess } = useAuth()
-  const { navigate } = useRouter()
+  const { currentRoute, navigate } = useRouter()
   const { t } = useTranslation()
 
   useEffect(() => {
@@ -29,7 +29,11 @@ export function RequireAuth({
       if (showToast) {
         toast.error(t('system_notifications.login_required_description'))
       }
-      navigate(redirectTo)
+      if (redirectTo === '/login') {
+        navigate('/login', undefined, { redirect: currentRoute })
+      } else {
+        navigate(redirectTo)
+      }
       return
     }
 
@@ -47,7 +51,7 @@ export function RequireAuth({
         navigate('/my-learning')
       }
     }
-  }, [isAuthenticated, user, roles, permissions, navigate, redirectTo, showToast, canAccess])
+  }, [isAuthenticated, user, roles, permissions, currentRoute, navigate, redirectTo, showToast, canAccess])
 
 
   if (!isAuthenticated) {

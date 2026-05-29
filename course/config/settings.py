@@ -73,6 +73,8 @@ RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+if '.ngrok-free.dev' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('.ngrok-free.dev')
 
 
 extra_hosts = os.getenv('ALLOWED_HOSTS', '')
@@ -81,9 +83,9 @@ if extra_hosts:
 def get_env(key, default=None, required=False):
     value = os.getenv(key, default)
     if not value:
-        print(f"⚠️ Warning: {key} not set. Please set it in your environment variables.")
+        print(f"Warning: {key} not set. Please set it in your environment variables.")
         if required:
-            raise EnvironmentError(f"❌ {key} is required but not set.")
+            raise EnvironmentError(f"Error: {key} is required but not set.")
     return value
 
 
@@ -145,6 +147,14 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 PAYMENT_RESULT_URL = os.getenv("PAYMENT_RESULT_URL", f"{FRONTEND_URL}/payment/result").rstrip("/")
 VNPAY_FE_RETURN_URL = os.getenv("VNPAY_FE_RETURN_URL", PAYMENT_RESULT_URL).rstrip("/")
 MOMO_FE_RETURN_URL = os.getenv("MOMO_FE_RETURN_URL", PAYMENT_RESULT_URL).rstrip("/")
+PAYMENT_RETURN_URL_ALLOWLIST = [
+    item.strip()
+    for item in os.getenv("PAYMENT_RETURN_URL_ALLOWLIST", "").split(",")
+    if item.strip()
+]
+for _candidate in (FRONTEND_URL, PAYMENT_RESULT_URL, VNPAY_FE_RETURN_URL, MOMO_FE_RETURN_URL):
+    if _candidate and _candidate not in PAYMENT_RETURN_URL_ALLOWLIST:
+        PAYMENT_RETURN_URL_ALLOWLIST.append(_candidate)
 NGROK_URL = os.getenv("NGROK_URL", "").rstrip("/")
 BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip()
 if NGROK_URL:
@@ -205,6 +215,7 @@ LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD = max(1, int(os.getenv("LEARNING_PATH_GEM
 LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS = max(5, int(os.getenv("LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS", "60")))
 LEARNING_PATH_FORCE_GEMINI = os.getenv("LEARNING_PATH_FORCE_GEMINI", "False") == "True"
 INSTALLED_APPS = [
+    'django_extensions',
     'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -239,11 +250,9 @@ INSTALLED_APPS = [
     'carts',
     'wishlists',
     'quiz_results',
-    'qnas',
-    'qna_answers',
-    'forums',
-    'forum_topics',
-    'forum_comments',
+    'questions',
+    'answers',
+    'qa_votes',
     'systems_settings',
     'supports',
     'payments',
@@ -447,11 +456,29 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.ngrok-free\.dev$',
+]
 
 
-FRONTEND_CORS = FRONTEND_URL
-if FRONTEND_CORS and FRONTEND_CORS not in CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS.append(FRONTEND_CORS)
+def get_url_origin(url):
+    parsed = urlparse(url or '')
+    if parsed.scheme and parsed.netloc:
+        return f'{parsed.scheme}://{parsed.netloc}'
+    return ''
+
+
+for candidate_url in (
+    FRONTEND_URL,
+    PAYMENT_RESULT_URL,
+    VNPAY_FE_RETURN_URL,
+    MOMO_FE_RETURN_URL,
+    NGROK_URL,
+    BACKEND_PUBLIC_URL,
+):
+    origin = get_url_origin(candidate_url)
+    if origin and origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin)
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'ngrok-skip-browser-warning',
 ]
@@ -463,11 +490,21 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
+    'https://*.ngrok-free.dev',
 ]
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
-if FRONTEND_CORS:
-    CSRF_TRUSTED_ORIGINS.append(FRONTEND_CORS)
+for candidate_url in (
+    FRONTEND_URL,
+    PAYMENT_RESULT_URL,
+    VNPAY_FE_RETURN_URL,
+    MOMO_FE_RETURN_URL,
+    NGROK_URL,
+    BACKEND_PUBLIC_URL,
+):
+    origin = get_url_origin(candidate_url)
+    if origin and origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(origin)
 
 TRANSCRIPT_LOCAL_WHISPER_MODEL = os.getenv("TRANSCRIPT_LOCAL_WHISPER_MODEL", "small")
 TRANSCRIPT_LOCAL_WHISPER_DEVICE = os.getenv("TRANSCRIPT_LOCAL_WHISPER_DEVICE", "cpu")

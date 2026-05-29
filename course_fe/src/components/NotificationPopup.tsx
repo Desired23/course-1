@@ -99,16 +99,6 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
           timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
           isRead: true,
           priority: 'high',
-        },
-        {
-          id: '7',
-          type: 'instructor',
-          title: t('notification_popup.mock.instructor.qna_title'),
-          message: t('notification_popup.mock.instructor.qna_message'),
-          timestamp: new Date(Date.now() - 1000 * 60 * 120),
-          isRead: false,
-          priority: 'high',
-          actionUrl: '/qna/course-1'
         }
       )
     }
@@ -133,7 +123,7 @@ export function NotificationPopup({ isOpen, onClose, userRole = 'user' }: Notifi
           timestamp: new Date(Date.now() - 1000 * 60 * 60),
           isRead: false,
           priority: 'high',
-          actionUrl: '/admin/forum'
+          actionUrl: '/admin/qa'
         },
         {
           id: '10',

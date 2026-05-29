@@ -27,21 +27,21 @@ def get_blog_comment_by_id(comment_id):
 
 def get_blog_comments_by_post_id(post_id):
     try:
-        return BlogComment.objects.filter(blog_post=post_id, status='active')
+        return BlogComment.objects.filter(blog_post=post_id, status='active').order_by('-created_at', '-id')
     except Exception as e:
         raise ValidationError(f"Error retrieving Blog Comments: {str(e)}")
 
 
 def get_blog_comments_by_user_id(user_id):
     try:
-        return BlogComment.objects.filter(user=user_id)
+        return BlogComment.objects.filter(user=user_id).order_by('-created_at', '-id')
     except Exception as e:
         raise ValidationError(f"Error retrieving Blog Comments: {str(e)}")
 
 
 def get_all_blog_comments():
     try:
-        return BlogComment.objects.all()
+        return BlogComment.objects.all().order_by('-created_at', '-id')
     except Exception as e:
         raise ValidationError(f"Error retrieving all Blog Comments: {str(e)}")
 

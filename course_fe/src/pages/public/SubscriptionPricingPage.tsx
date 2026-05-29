@@ -304,12 +304,6 @@ export function SubscriptionPricingPage() {
       category: t('subscription_pricing_page.comparison.support.category'),
       rows: [
         {
-          name: t('subscription_pricing_page.comparison.support.rows.qna.name'),
-          basic: t('subscription_pricing_page.comparison.support.rows.qna.basic'),
-          pro: t('subscription_pricing_page.comparison.support.rows.qna.pro'),
-          premium: t('subscription_pricing_page.comparison.support.rows.qna.premium'),
-        },
-        {
           name: t('subscription_pricing_page.comparison.support.rows.mentor.name'),
           basic: false,
           pro: false,

@@ -1,5 +1,6 @@
 from django.db import models
 from decimal import Decimal
+from admins.models import Admin
 from payments.models import Payment
 from courses.models import Course
 from promotions.models import Promotion
@@ -35,7 +36,7 @@ class Payment_Details(models.Model):
     processing_lock_token = models.CharField(max_length=64, null=True, blank=True)
     refund_timeline = models.JSONField(default=list, blank=True)
     processed_by = models.ForeignKey(
-        'users.User',
+        Admin,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

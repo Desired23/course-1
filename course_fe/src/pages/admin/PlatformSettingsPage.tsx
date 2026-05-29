@@ -55,7 +55,6 @@ interface PlatformSettings {
     allowUserRegistration: boolean
     requireEmailVerification: boolean
     enableCourseReviews: boolean
-    enableQA: boolean
     enableBlog: boolean
     enableCertificates: boolean
     enableDiscussions: boolean
@@ -126,7 +125,7 @@ export function PlatformSettingsPage() {
     general: { siteName: 'EduPlatform', siteDescription: 'Learn new skills with expert-led courses', siteUrl: 'https://eduplatform.com', supportEmail: 'support@eduplatform.com', logoUrl: '/logo.png', faviconUrl: '/favicon.ico', defaultLanguage: 'en', timezone: 'UTC' },
     financial: { commissionPercentage: 30, payoutMinimum: 50, refundPeriod: 30, taxRate: 10, currency: 'USD', paymentMethods: { stripe: true, paypal: true, bankTransfer: false } },
     policies: { termsOfService: '', privacyPolicy: '', refundPolicy: '', communityGuidelines: '', copyrightPolicy: '' },
-    features: { allowUserRegistration: true, requireEmailVerification: true, enableCourseReviews: true, enableQA: true, enableBlog: true, enableCertificates: true, enableDiscussions: true, enableLiveStreaming: false },
+    features: { allowUserRegistration: true, requireEmailVerification: true, enableCourseReviews: true, enableBlog: true, enableCertificates: true, enableDiscussions: true, enableLiveStreaming: false },
     notifications: { emailNotifications: true, pushNotifications: true, smsNotifications: false, marketingEmails: true },
     security: { passwordMinLength: 8, requireStrongPassword: true, enableTwoFactor: false, sessionTimeout: 3600, maxLoginAttempts: 5, ipWhitelist: [] }
   }
@@ -744,17 +743,6 @@ export function PlatformSettingsPage() {
                   <Switch
                     checked={settings.features.enableCourseReviews}
                     onCheckedChange={(checked) => updateSettings('features', 'enableCourseReviews', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>{t('platform_settings.features.qa_section')}</Label>
-                    <p className="text-sm text-muted-foreground">{t('platform_settings.features.qa_section_hint')}</p>
-                  </div>
-                  <Switch
-                    checked={settings.features.enableQA}
-                    onCheckedChange={(checked) => updateSettings('features', 'enableQA', checked)}
                   />
                 </div>
 

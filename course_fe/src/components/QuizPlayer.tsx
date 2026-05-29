@@ -35,6 +35,7 @@ export interface QuizQuestion {
   image?: string
   code?: string
   codeLanguage?: string
+  requireCompletion?: boolean
 
   codeQuestion?: CodeQuestion
 }
@@ -157,14 +158,17 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
       const userAnswer = answers[question.id]
       const correctAnswer = question.correctAnswer
 
-      if (question.type === 'single') {
+      if (question.type === 'code') {
+        if (typeof userAnswer === 'number' && userAnswer >= quiz.passingScore) {
+          correctCount++
+        }
+      } else if (question.type === 'single') {
         if (userAnswer === correctAnswer) {
           correctCount++
         }
       } else {
-
-        const userAnswerArray = (userAnswer as number[] || []).sort()
-        const correctAnswerArray = (correctAnswer as number[]).sort()
+        const userAnswerArray = (Array.isArray(userAnswer) ? userAnswer : []).sort()
+        const correctAnswerArray = (Array.isArray(correctAnswer) ? correctAnswer : []).sort()
         if (JSON.stringify(userAnswerArray) === JSON.stringify(correctAnswerArray)) {
           correctCount++
         }
@@ -180,25 +184,30 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
     console.log('Quiz questions:', quiz.questions.map(q => ({ id: q.id, type: q.type })))
 
 
-    const unansweredQuestions = quiz.questions.filter(q => {
+    const unansweredIndices: number[] = []
+    quiz.questions.forEach((q, index) => {
       const answer = answers[q.id]
-      console.log(`Question ${q.id} (${q.type}):`, answer)
-
+      let unanswered = false
 
       if (q.type === 'single') {
-        return typeof answer !== 'number'
+        unanswered = typeof answer !== 'number'
+      } else if (q.type === 'multiple') {
+        unanswered = !Array.isArray(answer) || answer.length === 0
+      } else if (q.type === 'code') {
+        const threshold = q.requireCompletion ? 100 : quiz.passingScore
+        unanswered = typeof answer !== 'number' || answer < threshold
+      } else {
+        unanswered = true
       }
 
-      if (q.type === 'multiple') {
-        return !Array.isArray(answer) || answer.length === 0
-      }
-      return true
+      if (unanswered) unansweredIndices.push(index + 1)
     })
 
-    console.log('Unanswered questions:', unansweredQuestions)
-
-    if (unansweredQuestions.length > 0) {
-      toast.error(t('quiz_player.answer_all', { remaining: unansweredQuestions.length }))
+    if (unansweredIndices.length > 0) {
+      toast.error(t('quiz_player.answer_all', {
+        remaining: unansweredIndices.length,
+        questions: unansweredIndices.join(', ')
+      }))
       return
     }
 
@@ -252,11 +261,13 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
     const userAnswer = answers[questionId]
     const correctAnswer = question.correctAnswer
 
-    if (question.type === 'single') {
+    if (question.type === 'code') {
+      return typeof userAnswer === 'number' && userAnswer >= quiz.passingScore
+    } else if (question.type === 'single') {
       return userAnswer === correctAnswer
     } else {
-      const userAnswerArray = (userAnswer as number[] || []).sort()
-      const correctAnswerArray = (correctAnswer as number[]).sort()
+      const userAnswerArray = (Array.isArray(userAnswer) ? userAnswer : []).sort()
+      const correctAnswerArray = (Array.isArray(correctAnswer) ? correctAnswer : []).sort()
       return JSON.stringify(userAnswerArray) === JSON.stringify(correctAnswerArray)
     }
   }
@@ -429,7 +440,7 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
               lessonId={lessonId}
               enrollmentId={enrollmentId}
               onComplete={(passed, score) => {
-                handleAnswerChange(currentQuestion.id, passed ? 1 : 0)
+                handleAnswerChange(currentQuestion.id, score)
                 if (passed) {
                   toast.success(t('quiz_player.code_solution_accepted'))
 
@@ -520,6 +531,9 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
                       return (
                         <div
                           key={index}
+                          onClick={() => {
+                            if (!isSubmitted) handleSingleChoice(currentQuestion.id, index)
+                          }}
                           className={`flex items-center space-x-3 p-4 border rounded-lg transition-colors ${
                             isSubmitted
                               ? isCorrect
@@ -527,16 +541,16 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
                                 : isSelected && !isCorrect
                                 ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
                                 : ''
-                              : 'hover:bg-muted/50'
+                              : 'cursor-pointer hover:bg-muted/50'
                           }`}
                         >
                           <RadioGroupItem
                             value={index.toString()}
                             id={`q-${currentQuestion.id}-option-${index}`}
+                            onClick={(event) => event.stopPropagation()}
                           />
                           <Label
-                            htmlFor={`q-${currentQuestion.id}-option-${index}`}
-                            className="flex-1 cursor-pointer"
+                            className="flex-1 cursor-pointer py-1"
                           >
                             {option}
                           </Label>
@@ -560,6 +574,9 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
                     return (
                       <div
                         key={index}
+                        onClick={() => {
+                          if (!isSubmitted) handleMultipleChoice(currentQuestion.id, index, !isSelected)
+                        }}
                         className={`flex items-center space-x-3 p-4 border rounded-lg transition-colors ${
                           isSubmitted
                             ? isCorrect
@@ -567,7 +584,7 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
                               : isSelected && !isCorrect
                               ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
                               : ''
-                            : 'hover:bg-muted/50'
+                            : 'cursor-pointer hover:bg-muted/50'
                         }`}
                       >
                         <Checkbox
@@ -577,10 +594,10 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
                             handleMultipleChoice(currentQuestion.id, index, checked as boolean)
                           }
                           disabled={isSubmitted}
+                          onClick={(event) => event.stopPropagation()}
                         />
                         <Label
-                          htmlFor={`q-${currentQuestion.id}-option-${index}`}
-                          className="flex-1 cursor-pointer"
+                          className="flex-1 cursor-pointer py-1"
                         >
                           {option}
                         </Label>

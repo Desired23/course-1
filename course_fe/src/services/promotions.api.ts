@@ -193,6 +193,24 @@ export async function deletePromotion(promotionId: number): Promise<void> {
 
 
 
+export interface HomepagePromotion {
+  id: number
+  code: string
+  description: string | null
+  discount_type: DiscountType
+  discount_value: string
+  max_discount: string | null
+  end_date: string
+}
+
+export async function getHomepagePromotions(): Promise<HomepagePromotion[]> {
+  return http.get<HomepagePromotion[]>('/promotions/homepage/')
+}
+
+export async function getCoursePromotions(courseId: number): Promise<HomepagePromotion[]> {
+  return http.get<HomepagePromotion[]>(`/promotions/course/${courseId}/`)
+}
+
 export function parseDecimal(value: string | null | undefined): number {
   if (!value) return 0
   return parseFloat(value) || 0

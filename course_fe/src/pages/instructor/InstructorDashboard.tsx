@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
+import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
 import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
@@ -21,8 +22,9 @@ import {
   Eye,
   Edit,
   Loader2,
+  Crown,
 } from 'lucide-react'
-import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
+import { getInstructorDashboardStats, getMyInstructorProfile, type Instructor, type InstructorDashboardStats } from '../../services/instructor.api'
 import { getCourses, type CourseListItem, formatPrice, parseDecimal } from '../../services/course.api'
 import { listItemTransition } from '../../lib/motion'
 
@@ -63,6 +65,7 @@ export function InstructorDashboard() {
   const [sortBy, setSortBy] = useState('students')
   const [currentPage, setCurrentPage] = useState(1)
   const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [instructorProfile, setInstructorProfile] = useState<Instructor | null>(null)
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -116,6 +119,7 @@ export function InstructorDashboard() {
         if (!cancelled) {
           setStats(data)
           setInstructorId(profile?.id ?? null)
+          setInstructorProfile(profile)
         }
       } catch (err: any) {
         if (!cancelled) setError(err.message || t('instructor_dashboard.load_dashboard_failed'))
@@ -249,6 +253,17 @@ export function InstructorDashboard() {
 
   return (
     <motion.div className="p-4 md:p-8" variants={sectionStagger} initial="hidden" animate="show">
+      {instructorProfile?.level && (
+        <motion.div className="mb-4 flex items-center gap-2" variants={fadeInUp}>
+          <Badge variant="secondary">
+            <Crown className="mr-1 h-3 w-3" />
+            {instructorProfile.level.name}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {instructorProfile.level.commission_rate}% retail · {instructorProfile.level.plan_commission_rate}% subscription
+          </span>
+        </motion.div>
+      )}
       <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={fadeInUp}>
         <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -302,9 +317,9 @@ export function InstructorDashboard() {
           <CardContent>
             <div className="text-2xl">{stats.average_rating.toFixed(1)}</div>
             <p className="text-xs text-muted-foreground">
-              {t('instructor_dashboard.reviews_and_pending_qa', {
-                reviews: stats.total_reviews,
-                pending: stats.pending_questions,
+              {t('instructor_dashboard.total_reviews_count', {
+                count: stats.total_reviews,
+                defaultValue: '{{count}} reviews',
               })}
             </p>
           </CardContent>
@@ -502,10 +517,6 @@ export function InstructorDashboard() {
                     <span className="font-medium">{stats.total_reviews}</span>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">{t('instructor_dashboard.pending_qa_label')}</span>
-                    <span className="font-medium">{stats.pending_questions}</span>
-                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -18,15 +18,22 @@ class FormQuestionSerializer(serializers.ModelSerializer):
 
 class RegistrationFormSerializer(serializers.ModelSerializer):
     questions = FormQuestionSerializer(many=True, read_only=True)
+    created_by = serializers.SerializerMethodField()
+    created_by_admin_id = serializers.IntegerField(source='created_by_id', read_only=True)
 
     class Meta:
         model = RegistrationForm
         fields = [
             'id', 'type', 'title', 'description',
-            'is_active', 'version', 'created_by',
+            'is_active', 'version', 'created_by', 'created_by_admin_id',
             'created_at', 'updated_at', 'questions',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_created_by(self, obj):
+        if obj.created_by and obj.created_by.user_id:
+            return obj.created_by.user_id
+        return None
 
 
 class RegistrationFormListSerializer(serializers.ModelSerializer):

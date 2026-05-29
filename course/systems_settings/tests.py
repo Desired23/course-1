@@ -12,7 +12,7 @@ from .models import SystemsSetting
 class SystemsSettingsApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        admin_user = User.objects.create(
+        self.admin_user = User.objects.create(
             username="settings_admin",
             email="settings_admin@example.com",
             password_hash=make_password("Password123"),
@@ -20,12 +20,12 @@ class SystemsSettingsApiTests(TestCase):
             user_type="admin",
             status="active",
         )
-        Admin.objects.create(user=admin_user, department="IT", role="super_admin")
+        self.admin = Admin.objects.create(user=self.admin_user, department="IT", role="super_admin")
 
         payload = {
-            'user_id': admin_user.id,
-            'username': admin_user.username,
-            'email': admin_user.email,
+            'user_id': self.admin_user.id,
+            'username': self.admin_user.username,
+            'email': self.admin_user.email,
             'user_type': ['admin'],
             'token_type': 'access',
             'exp': 9999999999,
@@ -38,6 +38,7 @@ class SystemsSettingsApiTests(TestCase):
         response = self.client.post('/api/systems_settings/create/', {
             'key': 'homepage_layout',
             'value': '{"hero":"v2"}',
+            'admin': 999,
         }, format='json')
 
         self.assertEqual(response.status_code, 201, response.content)
@@ -45,6 +46,8 @@ class SystemsSettingsApiTests(TestCase):
         self.assertEqual(data['key'], 'homepage_layout')
         self.assertEqual(data['value'], '{"hero":"v2"}')
         self.assertEqual(data['setting_group'], 'general')
+        setting = SystemsSetting.objects.get(setting_key='homepage_layout')
+        self.assertEqual(setting.admin_id, self.admin.id)
 
     def test_patch_accepts_value_alias(self):
         setting = SystemsSetting.objects.create(
@@ -64,3 +67,5 @@ class SystemsSettingsApiTests(TestCase):
         data = response.json()
         self.assertEqual(data['setting_key'], 'payment_gateways')
         self.assertEqual(data['setting_value'], '{"paypal":true}')
+        setting.refresh_from_db()
+        self.assertEqual(setting.admin_id, self.admin.id)

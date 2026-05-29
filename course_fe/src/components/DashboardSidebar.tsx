@@ -26,7 +26,6 @@ import {
   Package,
   Settings,
   Shield,
-  Sparkles,
   Star,
   Tag,
   TrendingUp,
@@ -110,8 +109,6 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       label: t("dashboard_sidebar.groups.learning"),
       items: [
         { label: t("dashboard_sidebar.items.courses"), icon: <GraduationCap className="h-5 w-5" />, href: "/admin/courses" },
-        { label: "Catalog AI", icon: <Sparkles className="h-5 w-5" />, href: "/admin/catalog-metadata" },
-        { label: "AI Paths", icon: <Sparkles className="h-5 w-5" />, href: "/admin/ai-learning-paths" },
         { label: t("dashboard_sidebar.items.categories"), icon: <Folder className="h-5 w-5" />, href: "/admin/categories" },
         { label: t("dashboard_sidebar.items.reviews"), icon: <Star className="h-5 w-5" />, href: "/admin/reviews" },
         { label: t("dashboard_sidebar.items.reports"), icon: <Flag className="h-5 w-5" />, href: "/admin/reports" },
@@ -122,7 +119,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       label: t("dashboard_sidebar.groups.content"),
       items: [
         { label: t("dashboard_sidebar.items.blog_posts"), icon: <FileText className="h-5 w-5" />, href: "/admin/blog" },
-        { label: t("dashboard_sidebar.items.forum"), icon: <MessageSquare className="h-5 w-5" />, href: "/admin/forum" },
+        { label: t("dashboard_sidebar.items.qa"), icon: <MessageSquare className="h-5 w-5" />, href: "/admin/qa" },
       ],
     },
     {
@@ -150,6 +147,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       items: [
         { label: t("dashboard_sidebar.items.settings"), icon: <Settings className="h-5 w-5" />, href: "/admin/settings" },
         { label: t("dashboard_sidebar.items.data_backup"), icon: <Database className="h-5 w-5" />, href: "/admin/data-backup" },
+        { label: t("dashboard_sidebar.items.import_data"), icon: <Upload className="h-5 w-5" />, href: "/admin/import" },
       ],
     },
   ]

@@ -1,0 +1,1383 @@
+// Full DBML export excluding Django system tables
+// Generated from Django models and migrations
+// Tables excluded: auth_*, django_*
+
+Table ChatRooms {
+  id integer [pk, not null]
+  user1_id integer [not null]
+  user2_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatMessages {
+  id integer [pk, not null]
+  room_id integer [not null]
+  sender_id integer [not null]
+  content varchar [not null]
+  is_read boolean [not null]
+  created_at datetime [not null]
+}
+
+Table ChatConversations {
+  id integer [pk, not null]
+  type varchar [not null]
+  title varchar
+  avatar varchar
+  description varchar
+  created_by_id integer
+  owner_id integer
+  is_public boolean [not null]
+  is_archived boolean [not null]
+  last_message_id integer
+  last_message_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatConversationParticipants {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  user_id integer [not null]
+  role varchar [not null]
+  joined_at datetime [not null]
+  joined_by_id integer
+  left_at datetime
+  removed_at datetime
+  removed_by_id integer
+  is_active boolean [not null]
+  nickname varchar
+  mute_until datetime
+  is_pinned boolean [not null]
+  last_read_message_id integer
+  last_read_at datetime
+  notification_level varchar [not null]
+  can_send_message boolean [not null]
+  can_add_members boolean [not null]
+  can_change_group_info boolean [not null]
+}
+
+Table ChatConversationMessages {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  sender_id integer [not null]
+  type varchar [not null]
+  text_content varchar
+  reply_to_message_id integer
+  forwarded_from_message_id integer
+  forwarded_from_conversation_id integer
+  metadata varchar [not null]
+  status varchar [not null]
+  report_count integer [not null]
+  last_report_reason varchar
+  last_reported_at datetime
+  revoked_at datetime
+  revoked_by_id integer
+  edited_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatMessageAttachments {
+  id integer [pk, not null]
+  message_id integer [not null]
+  kind varchar [not null]
+  storage_provider varchar [not null]
+  file_url varchar [not null]
+  thumbnail_url varchar
+  file_name varchar [not null]
+  mime_type varchar [not null]
+  file_size integer [not null]
+  width integer
+  height integer
+  duration_seconds integer
+  checksum varchar
+  created_at datetime [not null]
+}
+
+Table ChatMessageReactions {
+  id integer [pk, not null]
+  message_id integer [not null]
+  user_id integer [not null]
+  reaction varchar [not null]
+  created_at datetime [not null]
+}
+
+Table ChatPinnedMessages {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  message_id integer [not null]
+  pinned_by_id integer [not null]
+  pinned_at datetime [not null]
+  note varchar
+  is_active boolean [not null]
+}
+
+Table ChatUserPrivacySettings {
+  id integer [pk, not null]
+  user_id integer [not null]
+  allow_direct_messages boolean [not null]
+  show_online_status boolean [not null]
+  allow_group_invites boolean [not null]
+  read_receipts_enabled boolean [not null]
+  last_seen_visibility varchar [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatUserBlocks {
+  id integer [pk, not null]
+  blocker_id integer [not null]
+  blocked_id integer [not null]
+  reason varchar
+  created_at datetime [not null]
+}
+
+Table ChatMessageDeliveryStates {
+  id integer [pk, not null]
+  message_id integer [not null]
+  user_id integer [not null]
+  delivered_at datetime
+  read_at datetime
+}
+
+Table ChatSystemEvents {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  actor_id integer
+  event_type varchar [not null]
+  payload varchar [not null]
+  created_at datetime [not null]
+}
+
+Table activity_logs {
+  id integer [pk, not null]
+  user_id integer
+  action varchar [not null]
+  description varchar
+  entity_type varchar
+  entity_id integer
+  ip_address varchar
+  created_at datetime [not null]
+  trace_id uuid
+  user_agent varchar
+}
+
+Table Users {
+  id integer [pk, not null]
+  username varchar [not null]
+  email varchar [not null]
+  password_hash varchar [not null]
+  full_name varchar [not null]
+  phone varchar
+  avatar varchar
+  address varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  last_login datetime
+  status varchar [not null]
+  user_type varchar [not null]
+}
+
+Table RefreshTokens {
+  id integer [pk, not null]
+  user_id integer [not null]
+  jti varchar [not null]
+  created_at datetime [not null]
+  expires_at datetime [not null]
+  revoked_at datetime
+  replaced_by_id integer
+}
+
+Table UserSettings {
+  id integer [pk, not null]
+  user_id integer [not null]
+  account_preferences varchar [not null]
+  notification_preferences varchar [not null]
+  privacy_preferences varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table Courses {
+  id integer [pk, not null]
+  title varchar [not null]
+  shortdescription varchar
+  description varchar
+  instructor_id integer
+  category_id integer
+  subcategory_id integer
+  thumbnail varchar
+  price decimal [not null]
+  discount_price decimal
+  discount_start_date datetime
+  discount_end_date datetime
+  level varchar [not null]
+  language varchar [not null]
+  duration integer
+  total_lessons integer [not null]
+  total_modules integer [not null]
+  requirements varchar
+  learning_objectives varchar [not null]
+  target_audience varchar [not null]
+  skills_taught varchar [not null]
+  prerequisites varchar [not null]
+  tags varchar [not null]
+  promotional_video varchar
+  status varchar [not null]
+  is_featured boolean [not null]
+  is_public boolean [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  published_date datetime
+  content_changed_since_publish boolean [not null]
+  rating decimal [not null]
+  total_reviews integer [not null]
+  total_students integer [not null]
+  certificate boolean [not null]
+}
+
+Table Instructors {
+  id integer [pk, not null]
+  user_id integer
+  bio varchar
+  specialization varchar
+  qualification varchar
+  experience integer
+  social_links varchar
+  rating decimal [not null]
+  total_students integer [not null]
+  total_courses integer [not null]
+  payment_info varchar
+  level_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table Categories {
+  id integer [pk, not null]
+  name varchar [not null]
+  description varchar
+  icon varchar
+  parent_category_id integer
+  status varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table Admin {
+  id integer [pk, not null]
+  user_id integer
+  department varchar [not null]
+  role varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table lessons_lesson {
+  id integer [pk, not null]
+  coursemodule_id integer [not null]
+  title varchar [not null]
+  description varchar
+  content_type varchar [not null]
+  content varchar
+  video_url varchar
+  video_public_id varchar
+  file_path varchar
+  duration integer
+  is_free boolean [not null]
+  order integer [not null]
+  status varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table CourseModules {
+  id integer [pk, not null]
+  course_id integer
+  title varchar [not null]
+  description varchar
+  order_number integer [not null]
+  duration integer
+  status varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table Enrollments {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer
+  payment_id integer
+  source varchar [not null]
+  subscription_id integer
+  enrollment_date datetime
+  expiry_date datetime
+  completion_date datetime
+  progress decimal [not null]
+  status varchar [not null]
+  certificate varchar
+  certificate_issue_date datetime
+  last_access_date datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table reviews_review {
+  id integer [pk, not null]
+  course_id integer [not null]
+  user_id integer [not null]
+  rating integer [not null]
+  comment varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  status varchar [not null]
+  likes integer [not null]
+  report_count integer [not null]
+  last_report_reason varchar
+  last_reported_at datetime
+  instructor_response varchar
+  response_at datetime
+}
+
+Table LearningProgress {
+  id integer [pk, not null]
+  user_id integer [not null]
+  enrollment_id integer [not null]
+  course_id integer [not null]
+  lesson_id integer [not null]
+  progress_percentage decimal [not null]
+  last_accessed datetime [not null]
+  status varchar [not null]
+  start_time datetime
+  completion_date datetime
+  time_spent integer
+  last_position integer
+  is_completed boolean [not null]
+  notes varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table blog_posts {
+  id integer [pk, not null]
+  title varchar [not null]
+  content varchar [not null]
+  author_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  status varchar [not null]
+  tags varchar
+  category_id integer
+  slug varchar [not null]
+  featured_image varchar
+  sumary varchar
+  published_at datetime
+  views integer [not null]
+  likes integer [not null]
+  allow_comments boolean [not null]
+  is_featured boolean [not null]
+}
+
+Table LessonAttachments {
+  id integer [pk, not null]
+  lesson_id integer
+  title varchar
+  file_path varchar [not null]
+  file_type varchar
+  file_size integer
+  download_count integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table QuizQuestions {
+  id integer [pk, not null]
+  lesson_id integer [not null]
+  difficulty varchar [not null]
+  question_text varchar [not null]
+  question_type varchar [not null]
+  options varchar
+  correct_answer varchar [not null]
+  points integer [not null]
+  explanation varchar
+  order_number integer
+  description varchar
+  time_limit integer
+  memory_limit integer
+  allowed_languages varchar
+  starter_code varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table QuizTestCases {
+  id integer [pk, not null]
+  question_id integer [not null]
+  input_data varchar [not null]
+  expected_output varchar [not null]
+  is_hidden boolean [not null]
+  points integer [not null]
+  order_number integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  is_deleted boolean [not null]
+}
+
+Table notifications_notification {
+  title varchar [not null]
+  id integer [pk, not null]
+  sender_id integer
+  receiver_id integer [not null]
+  message varchar [not null]
+  is_read boolean [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  type varchar [not null]
+  notification_code varchar
+  related_id integer
+}
+
+Table Promotions_applicable_courses {
+  id integer [pk, not null]
+  promotion_id integer [not null]
+  course_id integer [not null]
+}
+
+Table Promotions_applicable_categories {
+  id integer [pk, not null]
+  promotion_id integer [not null]
+  category_id integer [not null]
+}
+
+Table Promotions {
+  id integer [pk, not null]
+  code varchar [not null]
+  description varchar
+  discount_type varchar [not null]
+  discount_value decimal [not null]
+  start_date datetime [not null]
+  end_date datetime [not null]
+  usage_limit integer
+  used_count integer [not null]
+  min_purchase decimal [not null]
+  max_discount decimal
+  admin_id integer
+  instructor_id integer
+  status varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table Cart {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer
+  promotion_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table Wishlist {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table QuizResult {
+  id integer [pk, not null]
+  enrollment_id integer [not null]
+  lesson_id integer [not null]
+  start_time datetime
+  submit_time datetime
+  time_taken integer
+  total_questions integer
+  corret_answers integer
+  total_points integer
+  score decimal
+  answers varchar
+  passed boolean [not null]
+  attempt integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table QnA {
+  id integer [pk, not null]
+  course_id integer [not null]
+  lesson_id integer [not null]
+  question varchar [not null]
+  user_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  status varchar [not null]
+  views integer [not null]
+  description varchar
+  tags varchar
+  votes integer [not null]
+  report_count integer [not null]
+  last_report_reason varchar
+  last_reported_at datetime
+}
+
+Table QnAAnswers {
+  id integer [pk, not null]
+  qna_id integer [not null]
+  answer varchar [not null]
+  user_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  is_accepted boolean [not null]
+  likes integer [not null]
+}
+
+Table Forums {
+  id integer [pk, not null]
+  course_id integer
+  title varchar [not null]
+  description varchar
+  user_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  status varchar [not null]
+}
+
+Table ForumTopics {
+  id integer [pk, not null]
+  forum_id integer [not null]
+  title varchar [not null]
+  content varchar [not null]
+  user_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  views integer [not null]
+  likes integer [not null]
+  report_count integer [not null]
+  last_report_reason varchar
+  last_reported_at datetime
+  status varchar [not null]
+  is_pinned boolean [not null]
+}
+
+Table ForumComments {
+  id integer [pk, not null]
+  topic_id integer [not null]
+  content varchar [not null]
+  user_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  parent_id integer
+  likes integer [not null]
+  status varchar [not null]
+  is_best_answer boolean [not null]
+}
+
+Table SystemsSettings {
+  id integer [pk, not null]
+  setting_group varchar [not null]
+  setting_key varchar [not null]
+  setting_value varchar [not null]
+  description varchar [not null]
+  admin_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table Support {
+  id integer [pk, not null]
+  user_id integer
+  name varchar
+  email varchar [not null]
+  subject varchar [not null]
+  message varchar [not null]
+  status varchar [not null]
+  priority varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  admin_id integer
+}
+
+Table payments {
+  id integer [pk, not null]
+  user_id integer [not null]
+  payment_type varchar [not null]
+  subscription_plan_id integer
+  amount decimal [not null]
+  discount_amount decimal [not null]
+  total_amount decimal [not null]
+  transaction_id varchar
+  payment_date datetime [not null]
+  payment_status varchar [not null]
+  payment_method varchar [not null]
+  promotion_id integer
+  refund_amount decimal [not null]
+  payment_gateway varchar [not null]
+  gateway_response varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  ipn_attempts integer [not null]
+}
+
+Table payment_details {
+  id integer [pk, not null]
+  payment_id integer [not null]
+  course_id integer [not null]
+  price decimal [not null]
+  discount decimal [not null]
+  final_price decimal [not null]
+  promotion_id integer
+  refund_transaction_id varchar
+  refund_status varchar [not null]
+  refund_request_time datetime
+  refund_response_code varchar
+  refund_amount decimal
+  refund_reason varchar
+  refund_date datetime
+  internal_note varchar
+  gateway_attempt_count integer [not null]
+  last_gateway_attempt_at datetime
+  next_retry_at datetime
+  last_gateway_error varchar
+  processing_lock_token varchar
+  refund_timeline varchar [not null]
+  processed_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table InstructorEarnings {
+  id integer [pk, not null]
+  instructor_id integer [not null]
+  course_id integer [not null]
+  payment_id integer
+  user_subscription_id integer
+  amount decimal [not null]
+  net_amount decimal [not null]
+  status varchar [not null]
+  earning_date datetime [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  instructor_payout_id integer
+}
+
+Table InstructorPayouts {
+  id integer [pk, not null]
+  instructor_id integer [not null]
+  amount decimal [not null]
+  fee decimal [not null]
+  net_amount decimal
+  payment_method varchar [not null]
+  transaction_id varchar
+  status varchar [not null]
+  request_date datetime [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  processed_date datetime
+  notes varchar
+  period varchar [not null]
+  processed_by_id integer
+}
+
+Table InstructorLevels {
+  id integer [pk, not null]
+  name varchar [not null]
+  description varchar
+  min_students integer [not null]
+  min_revenue decimal [not null]
+  commission_rate decimal [not null]
+  plan_commission_rate decimal [not null]
+  min_plan_minutes integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table support_replies_supportreply {
+  id integer [pk, not null]
+  support_id integer [not null]
+  user_id integer [not null]
+  admin_id integer
+  message varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table lesson_comments_lessoncomment {
+  id integer [pk, not null]
+  user_id integer [not null]
+  lesson_id integer [not null]
+  parent_comment_id integer
+  content varchar [not null]
+  votes integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table registration_forms {
+  id integer [pk, not null]
+  type varchar [not null]
+  title varchar [not null]
+  description varchar
+  is_active boolean [not null]
+  version integer [not null]
+  created_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  is_deleted boolean [not null]
+}
+
+Table form_questions {
+  id integer [pk, not null]
+  form_id integer [not null]
+  order integer [not null]
+  label varchar [not null]
+  type varchar [not null]
+  placeholder varchar
+  help_text varchar
+  required boolean [not null]
+  options varchar
+  validation_regex varchar
+  file_config varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table applications {
+  id integer [pk, not null]
+  user_id integer [not null]
+  form_id integer [not null]
+  status varchar [not null]
+  submitted_at datetime [not null]
+  reviewed_at datetime
+  reviewed_by_id integer
+  admin_notes varchar
+  rejection_reason varchar
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table application_responses {
+  id integer [pk, not null]
+  application_id integer [not null]
+  question_id integer [not null]
+  value varchar [not null]
+}
+
+Table certificates {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer [not null]
+  enrollment_id integer [not null]
+  verification_code varchar [not null]
+  certificate_url varchar
+  issued_at datetime [not null]
+  revoked boolean [not null]
+  revoked_at datetime
+  revoked_by_id integer
+  student_name varchar [not null]
+  course_title varchar [not null]
+  instructor_name varchar
+  completion_date datetime [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table LearningPaths {
+  id integer [pk, not null]
+  user_id integer [not null]
+  goal_text varchar [not null]
+  summary varchar [not null]
+  estimated_weeks integer [not null]
+  is_archived boolean [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table LearningPathItems {
+  id integer [pk, not null]
+  path_id integer [not null]
+  course_id integer [not null]
+  order integer [not null]
+  reason varchar [not null]
+  is_skippable boolean [not null]
+  skippable_reason varchar [not null]
+}
+
+Table PathConversations {
+  id integer [pk, not null]
+  path_id integer [not null]
+  messages varchar [not null]
+  advisor_meta varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table subscription_plans {
+  id integer [pk, not null]
+  name varchar [not null]
+  description varchar
+  price decimal [not null]
+  discount_price decimal
+  duration_type varchar [not null]
+  duration_days integer [not null]
+  status varchar [not null]
+  is_featured boolean [not null]
+  max_subscribers integer
+  instructor_share_percent decimal [not null]
+  yearly_discount_percent decimal [not null]
+  thumbnail varchar
+  features varchar [not null]
+  not_included varchar [not null]
+  badge_text varchar
+  icon varchar
+  highlight_color varchar
+  created_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  is_deleted boolean [not null]
+}
+
+Table plan_courses {
+  id integer [pk, not null]
+  plan_id integer [not null]
+  course_id integer [not null]
+  status varchar [not null]
+  added_at datetime [not null]
+  added_by_id integer
+  added_reason varchar
+  removed_at datetime
+  removed_by_id integer
+  scheduled_removal_at datetime
+  is_deleted boolean [not null]
+}
+
+Table user_subscriptions {
+  id integer [pk, not null]
+  user_id integer [not null]
+  plan_id integer [not null]
+  payment_id integer
+  status varchar [not null]
+  start_date datetime [not null]
+  end_date datetime
+  auto_renew boolean [not null]
+  cancelled_at datetime
+  notified_7d boolean [not null]
+  notified_3d boolean [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table course_subscription_consents {
+  id integer [pk, not null]
+  instructor_id integer [not null]
+  course_id integer [not null]
+  consent_status varchar [not null]
+  note varchar
+  consented_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table subscription_usages {
+  id integer [pk, not null]
+  user_subscription_id integer [not null]
+  user_id integer [not null]
+  course_id integer [not null]
+  enrollment_id integer
+  usage_type varchar [not null]
+  usage_date date [not null]
+  access_count integer [not null]
+  consumed_minutes integer [not null]
+  last_accessed_at datetime [not null]
+}
+
+Table UserPaymentMethods {
+  id integer [pk, not null]
+  user_id integer [not null]
+  method_type varchar [not null]
+  is_default boolean [not null]
+  nickname varchar
+  gateway_token varchar
+  masked_account varchar
+  bank_name varchar
+  bank_branch varchar
+  account_number varchar
+  account_name varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+  deleted_at datetime
+}
+
+Table InstructorPayoutMethods {
+  id integer [pk, not null]
+  instructor_id integer [not null]
+  method_type varchar [not null]
+  is_default boolean [not null]
+  nickname varchar
+  bank_name varchar
+  bank_branch varchar
+  account_number varchar
+  account_name varchar
+  wallet_phone varchar
+  masked_account varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+  deleted_at datetime
+}
+
+Table BlogComments {
+  id integer [pk, not null]
+  blog_post_id integer [not null]
+  content varchar [not null]
+  user_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  parent_id integer
+  likes integer [not null]
+  status varchar [not null]
+}
+
+Table SearchEvents {
+  id integer [pk, not null]
+  user_id integer
+  raw_query varchar [not null]
+  normalized_query varchar [not null]
+  source varchar [not null]
+  created_at datetime [not null]
+}
+
+Table transcripts_transcriptjob {
+  id integer [pk, not null]
+  lesson_id integer [not null]
+  status varchar [not null]
+  trigger_source varchar [not null]
+  provider varchar [not null]
+  source_video_url_snapshot varchar [not null]
+  language_code varchar [not null]
+  error_message varchar [not null]
+  attempts integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  started_at datetime
+  finished_at datetime
+}
+
+Table transcripts_lessontranscript {
+  id integer [pk, not null]
+  lesson_id integer [not null]
+  language_code varchar [not null]
+  status varchar [not null]
+  origin varchar [not null]
+  provider varchar [not null]
+  version integer [not null]
+  source_video_url_snapshot varchar [not null]
+  detected_language_code varchar [not null]
+  published_at datetime
+  published_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table transcripts_transcriptsegment {
+  id integer [pk, not null]
+  transcript_id integer [not null]
+  segment_index integer [not null]
+  start_ms integer [not null]
+  end_ms integer [not null]
+  text varchar [not null]
+  confidence float
+  speaker_label varchar
+}
+
+Table transcripts_transcriptword {
+  id integer [pk, not null]
+  segment_id integer [not null]
+  word_index integer [not null]
+  start_ms integer [not null]
+  end_ms integer [not null]
+  text varchar [not null]
+  confidence float
+}
+
+Table transcripts_transcriptchunk {
+  id integer [pk, not null]
+  transcript_id integer [not null]
+  chunk_index integer [not null]
+  start_ms integer [not null]
+  end_ms integer [not null]
+  text varchar [not null]
+  token_count integer [not null]
+  source_segment_start integer [not null]
+  source_segment_end integer [not null]
+}
+
+Table knowledge_knowledgedocument {
+  id integer [pk, not null]
+  course_id integer [not null]
+  lesson_id integer
+  source_type varchar [not null]
+  source_object_id integer [not null]
+  source_group_key varchar [not null]
+  language_code varchar [not null]
+  visibility varchar [not null]
+  status varchar [not null]
+  version integer [not null]
+  checksum varchar [not null]
+  title varchar [not null]
+  source_url varchar [not null]
+  metadata_json varchar [not null]
+  error_message varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table knowledge_knowledgechunk {
+  id integer [pk, not null]
+  document_id integer [not null]
+  chunk_index integer [not null]
+  text varchar [not null]
+  token_count integer [not null]
+  embedding_vector varchar
+  start_ms integer
+  end_ms integer
+  citation_label varchar [not null]
+  metadata_json varchar [not null]
+  created_at datetime [not null]
+}
+
+Table knowledge_knowledgeingestjob {
+  id integer [pk, not null]
+  course_id integer
+  lesson_id integer
+  document_id integer
+  scope varchar [not null]
+  trigger_source varchar [not null]
+  status varchar [not null]
+  source_type varchar [not null]
+  source_object_id integer [not null]
+  source_group_key varchar [not null]
+  visibility varchar [not null]
+  language_code varchar [not null]
+  error_message varchar [not null]
+  attempts integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  started_at datetime
+  finished_at datetime
+}
+
+Table knowledge_assistantconversation {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer [not null]
+  lesson_id integer
+  title varchar [not null]
+  status varchar [not null]
+  last_message_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table knowledge_assistantmessage {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  role varchar [not null]
+  content varchar [not null]
+  citations_json varchar [not null]
+  retrieval_context_json varchar [not null]
+  token_usage varchar [not null]
+  created_at datetime [not null]
+}
+
+Ref: Admin.deleted_by_id > Users.id
+Ref: Admin.user_id > Users.id
+Ref: BlogComments.blog_post_id > blog_posts.id
+Ref: BlogComments.deleted_by_id > Users.id
+Ref: BlogComments.parent_id > BlogComments.id
+Ref: BlogComments.user_id > Users.id
+Ref: Cart.course_id > Courses.id
+Ref: Cart.deleted_by_id > Users.id
+Ref: Cart.promotion_id > Promotions.id
+Ref: Cart.user_id > Users.id
+Ref: Categories.parent_category_id > Categories.id
+Ref: ChatConversationMessages.conversation_id > ChatConversations.id
+Ref: ChatConversationMessages.forwarded_from_conversation_id > ChatConversations.id
+Ref: ChatConversationMessages.forwarded_from_message_id > ChatConversationMessages.id
+Ref: ChatConversationMessages.reply_to_message_id > ChatConversationMessages.id
+Ref: ChatConversationMessages.revoked_by_id > Users.id
+Ref: ChatConversationMessages.sender_id > Users.id
+Ref: ChatConversationParticipants.conversation_id > ChatConversations.id
+Ref: ChatConversationParticipants.joined_by_id > Users.id
+Ref: ChatConversationParticipants.last_read_message_id > ChatConversationMessages.id
+Ref: ChatConversationParticipants.removed_by_id > Users.id
+Ref: ChatConversationParticipants.user_id > Users.id
+Ref: ChatConversations.created_by_id > Users.id
+Ref: ChatConversations.last_message_id > ChatConversationMessages.id
+Ref: ChatConversations.owner_id > Users.id
+Ref: ChatMessageAttachments.message_id > ChatConversationMessages.id
+Ref: ChatMessageDeliveryStates.message_id > ChatConversationMessages.id
+Ref: ChatMessageDeliveryStates.user_id > Users.id
+Ref: ChatMessageReactions.message_id > ChatConversationMessages.id
+Ref: ChatMessageReactions.user_id > Users.id
+Ref: ChatMessages.room_id > ChatRooms.id
+Ref: ChatMessages.sender_id > Users.id
+Ref: ChatPinnedMessages.conversation_id > ChatConversations.id
+Ref: ChatPinnedMessages.message_id > ChatConversationMessages.id
+Ref: ChatPinnedMessages.pinned_by_id > Users.id
+Ref: ChatRooms.user1_id > Users.id
+Ref: ChatRooms.user2_id > Users.id
+Ref: ChatSystemEvents.actor_id > Users.id
+Ref: ChatSystemEvents.conversation_id > ChatConversations.id
+Ref: ChatUserBlocks.blocked_id > Users.id
+Ref: ChatUserBlocks.blocker_id > Users.id
+Ref: ChatUserPrivacySettings.user_id > Users.id
+Ref: CourseModules.course_id > Courses.id
+Ref: CourseModules.deleted_by_id > Users.id
+Ref: Courses.category_id > Categories.id
+Ref: Courses.deleted_by_id > Users.id
+Ref: Courses.instructor_id > Instructors.id
+Ref: Courses.subcategory_id > Categories.id
+Ref: Enrollments.course_id > Courses.id
+Ref: Enrollments.deleted_by_id > Users.id
+Ref: Enrollments.payment_id > payments.id
+Ref: Enrollments.subscription_id > user_subscriptions.id
+Ref: Enrollments.user_id > Users.id
+Ref: ForumComments.deleted_by_id > Users.id
+Ref: ForumComments.parent_id > ForumComments.id
+Ref: ForumComments.topic_id > ForumTopics.id
+Ref: ForumComments.user_id > Users.id
+Ref: ForumTopics.deleted_by_id > Users.id
+Ref: ForumTopics.forum_id > Forums.id
+Ref: ForumTopics.user_id > Users.id
+Ref: Forums.course_id > Courses.id
+Ref: Forums.deleted_by_id > Users.id
+Ref: Forums.user_id > Users.id
+Ref: InstructorEarnings.course_id > Courses.id
+Ref: InstructorEarnings.deleted_by_id > Users.id
+Ref: InstructorEarnings.instructor_id > Instructors.id
+Ref: InstructorEarnings.instructor_payout_id > InstructorPayouts.id
+Ref: InstructorEarnings.payment_id > payments.id
+Ref: InstructorEarnings.user_subscription_id > user_subscriptions.id
+Ref: InstructorLevels.deleted_by_id > Users.id
+Ref: InstructorPayoutMethods.instructor_id > Instructors.id
+Ref: InstructorPayouts.deleted_by_id > Users.id
+Ref: InstructorPayouts.instructor_id > Instructors.id
+Ref: InstructorPayouts.processed_by_id > Admin.id
+Ref: Instructors.deleted_by_id > Users.id
+Ref: Instructors.level_id > InstructorLevels.id
+Ref: Instructors.user_id > Users.id
+Ref: LearningPathItems.course_id > Courses.id
+Ref: LearningPathItems.path_id > LearningPaths.id
+Ref: LearningPaths.user_id > Users.id
+Ref: LearningProgress.course_id > Courses.id
+Ref: LearningProgress.deleted_by_id > Users.id
+Ref: LearningProgress.enrollment_id > Enrollments.id
+Ref: LearningProgress.lesson_id > lessons_lesson.id
+Ref: LearningProgress.user_id > Users.id
+Ref: LessonAttachments.deleted_by_id > Users.id
+Ref: LessonAttachments.lesson_id > lessons_lesson.id
+Ref: PathConversations.path_id > LearningPaths.id
+Ref: Promotions.admin_id > Admin.id
+Ref: Promotions.deleted_by_id > Users.id
+Ref: Promotions.instructor_id > Instructors.id
+Ref: Promotions_applicable_categories.category_id > Categories.id
+Ref: Promotions_applicable_categories.promotion_id > Promotions.id
+Ref: Promotions_applicable_courses.course_id > Courses.id
+Ref: Promotions_applicable_courses.promotion_id > Promotions.id
+Ref: QnA.course_id > Courses.id
+Ref: QnA.deleted_by_id > Users.id
+Ref: QnA.lesson_id > lessons_lesson.id
+Ref: QnA.user_id > Users.id
+Ref: QnAAnswers.deleted_by_id > Users.id
+Ref: QnAAnswers.qna_id > QnA.id
+Ref: QnAAnswers.user_id > Users.id
+Ref: QuizQuestions.deleted_by_id > Users.id
+Ref: QuizQuestions.lesson_id > lessons_lesson.id
+Ref: QuizResult.deleted_by_id > Users.id
+Ref: QuizResult.enrollment_id > Enrollments.id
+Ref: QuizResult.lesson_id > lessons_lesson.id
+Ref: QuizTestCases.question_id > QuizQuestions.id
+Ref: RefreshTokens.replaced_by_id > RefreshTokens.id
+Ref: RefreshTokens.user_id > Users.id
+Ref: SearchEvents.user_id > Users.id
+Ref: Support.admin_id > Admin.id
+Ref: Support.deleted_by_id > Users.id
+Ref: Support.user_id > Users.id
+Ref: SystemsSettings.admin_id > Admin.id
+Ref: SystemsSettings.deleted_by_id > Users.id
+Ref: UserPaymentMethods.user_id > Users.id
+Ref: UserSettings.user_id > Users.id
+Ref: Users.deleted_by_id > Users.id
+Ref: Wishlist.course_id > Courses.id
+Ref: Wishlist.deleted_by_id > Users.id
+Ref: Wishlist.user_id > Users.id
+Ref: activity_logs.user_id > Users.id
+Ref: application_responses.application_id > applications.id
+Ref: application_responses.question_id > form_questions.id
+Ref: applications.form_id > registration_forms.id
+Ref: applications.reviewed_by_id > Admin.id
+Ref: applications.user_id > Users.id
+Ref: blog_posts.author_id > Users.id
+Ref: blog_posts.category_id > Categories.id
+Ref: blog_posts.deleted_by_id > Users.id
+Ref: certificates.course_id > Courses.id
+Ref: certificates.enrollment_id > Enrollments.id
+Ref: certificates.revoked_by_id > Users.id
+Ref: certificates.user_id > Users.id
+Ref: course_subscription_consents.course_id > Courses.id
+Ref: course_subscription_consents.instructor_id > Instructors.id
+Ref: form_questions.form_id > registration_forms.id
+Ref: knowledge_assistantconversation.course_id > Courses.id
+Ref: knowledge_assistantconversation.lesson_id > lessons_lesson.id
+Ref: knowledge_assistantconversation.user_id > Users.id
+Ref: knowledge_assistantmessage.conversation_id > knowledge_assistantconversation.id
+Ref: knowledge_knowledgechunk.document_id > knowledge_knowledgedocument.id
+Ref: knowledge_knowledgedocument.course_id > Courses.id
+Ref: knowledge_knowledgedocument.lesson_id > lessons_lesson.id
+Ref: knowledge_knowledgeingestjob.course_id > Courses.id
+Ref: knowledge_knowledgeingestjob.document_id > knowledge_knowledgedocument.id
+Ref: knowledge_knowledgeingestjob.lesson_id > lessons_lesson.id
+Ref: lesson_comments_lessoncomment.lesson_id > lessons_lesson.id
+Ref: lesson_comments_lessoncomment.parent_comment_id > lesson_comments_lessoncomment.id
+Ref: lesson_comments_lessoncomment.user_id > Users.id
+Ref: lessons_lesson.coursemodule_id > CourseModules.id
+Ref: lessons_lesson.deleted_by_id > Users.id
+Ref: notifications_notification.deleted_by_id > Users.id
+Ref: notifications_notification.receiver_id > Users.id
+Ref: notifications_notification.sender_id > Users.id
+Ref: payment_details.course_id > Courses.id
+Ref: payment_details.deleted_by_id > Users.id
+Ref: payment_details.payment_id > payments.id
+Ref: payment_details.processed_by_id > Admin.id
+Ref: payment_details.promotion_id > Promotions.id
+Ref: payments.deleted_by_id > Users.id
+Ref: payments.promotion_id > Promotions.id
+Ref: payments.subscription_plan_id > subscription_plans.id
+Ref: payments.user_id > Users.id
+Ref: plan_courses.added_by_id > Admin.id
+Ref: plan_courses.course_id > Courses.id
+Ref: plan_courses.plan_id > subscription_plans.id
+Ref: plan_courses.removed_by_id > Admin.id
+Ref: registration_forms.created_by_id > Admin.id
+Ref: reviews_review.course_id > Courses.id
+Ref: reviews_review.deleted_by_id > Users.id
+Ref: reviews_review.user_id > Users.id
+Ref: subscription_plans.created_by_id > Admin.id
+Ref: subscription_usages.course_id > Courses.id
+Ref: subscription_usages.enrollment_id > Enrollments.id
+Ref: subscription_usages.user_id > Users.id
+Ref: subscription_usages.user_subscription_id > user_subscriptions.id
+Ref: support_replies_supportreply.admin_id > Admin.id
+Ref: support_replies_supportreply.deleted_by_id > Users.id
+Ref: support_replies_supportreply.support_id > Support.id
+Ref: support_replies_supportreply.user_id > Users.id
+Ref: transcripts_lessontranscript.lesson_id > lessons_lesson.id
+Ref: transcripts_lessontranscript.published_by_id > Users.id
+Ref: transcripts_transcriptchunk.transcript_id > transcripts_lessontranscript.id
+Ref: transcripts_transcriptjob.lesson_id > lessons_lesson.id
+Ref: transcripts_transcriptsegment.transcript_id > transcripts_lessontranscript.id
+Ref: transcripts_transcriptword.segment_id > transcripts_transcriptsegment.id
+Ref: user_subscriptions.payment_id > payments.id
+Ref: user_subscriptions.plan_id > subscription_plans.id
+Ref: user_subscriptions.user_id > Users.id

@@ -212,6 +212,39 @@ def update_promotion(promotion_id, data):
         raise ValidationError({"error": f"Error updating promotion: {str(e)}"})
 
 
+def get_homepage_promotions():
+    now = timezone.now()
+    return list(
+        Promotion.objects
+        .filter(
+            show_on_homepage=True,
+            status=Promotion.StatusChoices.ACTIVE,
+            start_date__lte=now,
+            end_date__gte=now,
+            is_deleted=False,
+        )
+        .order_by('-created_at')
+        .values('id', 'code', 'description', 'discount_type', 'discount_value', 'max_discount', 'end_date')
+    )
+
+
+def get_promotions_for_course(course_id):
+    now = timezone.now()
+    promos = (
+        Promotion.objects
+        .filter(
+            status=Promotion.StatusChoices.ACTIVE,
+            start_date__lte=now,
+            end_date__gte=now,
+            is_deleted=False,
+            applicable_courses__id=course_id,
+        )
+        .distinct()
+        .values('id', 'code', 'description', 'discount_type', 'discount_value', 'max_discount', 'end_date')
+    )
+    return list(promos)
+
+
 def validate_promotion_code(code, course_ids):
     """
     Public endpoint: validate a promotion code against a list of course IDs.

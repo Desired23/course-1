@@ -51,42 +51,6 @@ export interface LearningPathSummary {
   items: LearningPathItem[]
 }
 
-export interface LearningPathAdvisorStats {
-  total_paths: number
-  gemini_paths: number
-  rule_based_paths: number
-  fallback_paths: number
-  fallback_rate: number
-  average_attempt_count: number
-  recent_paths: Array<{
-    id: number
-    user_id: number
-    user_name: string
-    goal_text: string
-    summary: string
-    estimated_weeks: number
-    is_archived?: boolean
-    course_count: number
-    updated_at: string
-    advisor_meta?: AdvisorMeta
-  }>
-}
-
-export interface LearningPathAdvisorStatsQuery {
-  provider?: 'gemini' | 'rule_based'
-  fallback_only?: boolean
-  limit?: number
-}
-
-export interface LearningPathAdminActionResponse {
-  ok: boolean
-  action: 'delete' | 'archive' | 'restore'
-  path_id?: number
-  deleted_count?: number
-  deleted_ids?: number[]
-  affected_count?: number
-  affected_ids?: number[]
-}
 
 export interface LearningPathDetail {
   id: number
@@ -284,29 +248,6 @@ export async function deleteLearningPath(pathId: number): Promise<void> {
   return http.delete<void>(`/learning-paths/${pathId}`)
 }
 
-export async function getAdminLearningPathDetail(pathId: number): Promise<LearningPathDetail> {
-  return http.get<LearningPathDetail>(`/learning-paths/admin/${pathId}`)
-}
-
-export async function adminActionLearningPath(pathId: number, action: 'delete' | 'archive' | 'restore'): Promise<LearningPathAdminActionResponse> {
-  return http.post<LearningPathAdminActionResponse>(`/learning-paths/admin/${pathId}/action`, { action })
-}
-
-export async function adminBulkActionLearningPaths(action: 'delete' | 'archive' | 'restore', pathIds: number[]): Promise<LearningPathAdminActionResponse> {
-  return http.post<LearningPathAdminActionResponse>('/learning-paths/admin/bulk-action', {
-    action,
-    path_ids: pathIds,
-  })
-}
-
 export async function recalculateLearningPath(pathId: number, payload: AdvisorChatRequest): Promise<LearningPathDetail | AdvisorChatResponse> {
   return http.post<LearningPathDetail | AdvisorChatResponse>(`/learning-paths/${pathId}/recalculate`, payload)
-}
-
-export async function getLearningPathAdvisorStats(query?: LearningPathAdvisorStatsQuery): Promise<LearningPathAdvisorStats> {
-  return http.get<LearningPathAdvisorStats>('/learning-paths/advisor/stats', {
-    provider: query?.provider,
-    fallback_only: query?.fallback_only ? 'true' : undefined,
-    limit: query?.limit,
-  })
 }

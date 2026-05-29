@@ -11,11 +11,8 @@ from wishlists.models import Wishlist
 from categories.models import Category
 from quiz_questions.models import QuizQuestion
 from quiz_results.models import QuizResult
-from qnas.models import QnA
-from qna_answers.models import QnAAnswer
-from forums.models import Forum
-from forum_topics.models import ForumTopic
-from forum_comments.models import ForumComment
+from questions.models import Question
+from answers.models import Answer
 from systems_settings.models import SystemsSetting
 from supports.models import Support
 
@@ -53,11 +50,8 @@ admin.site.register(Wishlist)
 admin.site.register(Category)
 admin.site.register(QuizQuestion)
 admin.site.register(QuizResult)
-admin.site.register(QnA)
-admin.site.register(QnAAnswer)
-admin.site.register(Forum)
-admin.site.register(ForumTopic)
-admin.site.register(ForumComment)
+admin.site.register(Question)
+admin.site.register(Answer)
 admin.site.register(SystemsSetting)
 admin.site.register(Support)
 admin.site.register(InstructorEarning)

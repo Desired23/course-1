@@ -142,7 +142,7 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
             className="gap-2 flex-1"
             onClick={() => {
               onOpenChange(false)
-              navigate(`/forum/topic/${topic.id}`)
+              navigate(`/qa/${topic.id}`)
             }}
           >
             <Eye className="h-4 w-4" />
@@ -151,7 +151,7 @@ export function QuickTopicPreview({ open, onOpenChange, topic, onModerate }: Top
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => window.open(`/forum/topic/${topic.id}`, "_blank")}
+            onClick={() => window.open(`/qa/${topic.id}`, "_blank")}
           >
             <ExternalLink className="h-4 w-4" />
             {t("quick_topic_preview.open_new_tab")}

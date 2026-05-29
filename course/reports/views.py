@@ -2,8 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from forum_topics.serializers import ForumTopicSerializer
-from qnas.serializers import QnASerializer
+from questions.serializers import QuestionSerializer
 from realtime.serializers import MessageSerializer
 from reviews.serializers import ReviewSerializer
 from utils.pagination import StandardPagination
@@ -48,10 +47,8 @@ class AdminReportResolveView(APIView):
             detail = getattr(exc, 'detail', str(exc))
             return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
 
-        if reported_type == 'forum_post':
-            payload = ForumTopicSerializer(result).data if hasattr(result, 'pk') else result
-        elif reported_type == 'qa_question':
-            payload = QnASerializer(result).data if hasattr(result, 'pk') else result
+        if reported_type == 'question':
+            payload = QuestionSerializer(result).data if hasattr(result, 'pk') else result
         elif reported_type == 'message':
             payload = MessageSerializer(result).data if hasattr(result, 'pk') else result
         else:

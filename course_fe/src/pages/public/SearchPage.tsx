@@ -4,7 +4,7 @@ import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { Card, CardContent } from "../../components/ui/card"
-import { Search, Star, Clock, Users, Grid, List, Loader2, User, FileText, MessageCircle, BookOpen } from 'lucide-react'
+import { Search, Star, Clock, Users, Grid, List, Loader2, User, FileText, BookOpen } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { CourseCard } from "../../components/CourseCard"
 import { useTranslation } from 'react-i18next'
@@ -12,7 +12,6 @@ import { getAllCourses, type CourseListItem, parseDecimal, getEffectivePrice, fo
 import { getActiveCategories, type Category } from '../../services/category.api'
 import { getInstructors, type Instructor } from '../../services/instructor.api'
 import { getPublishedBlogPosts, type BlogPost } from '../../services/blog-posts.api'
-import { getQnAs, type QnA, getQnAStatusLabel } from '../../services/qna.api'
 import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 import { motion } from 'motion/react'
 
@@ -49,11 +48,10 @@ export function SearchPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [articles, setArticles] = useState<BlogPost[]>([])
-  const [qnaItems, setQnaItems] = useState<QnA[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMeta, setLoadingMeta] = useState(true)
 
-  type SearchScope = 'all' | 'courses' | 'instructors' | 'articles' | 'qna'
+  type SearchScope = 'all' | 'courses' | 'instructors' | 'articles'
   const [searchScope, setSearchScope] = useState<SearchScope>('all')
 
   useEffect(() => {
@@ -83,20 +81,17 @@ export function SearchPage() {
     async function loadMetaResults() {
       try {
         setLoadingMeta(true)
-        const [instructorsRes, postsRes, qnaRes] = await Promise.all([
+        const [instructorsRes, postsRes] = await Promise.all([
           getInstructors(1, 50),
           getPublishedBlogPosts({ page: 1, page_size: 50 }),
-          getQnAs({ page: 1, page_size: 50 }),
         ])
         if (cancelled) return
         setInstructors(instructorsRes.results)
         setArticles(postsRes.results)
-        setQnaItems(qnaRes.results)
       } catch {
         if (cancelled) return
         setInstructors([])
         setArticles([])
-        setQnaItems([])
       } finally {
         if (!cancelled) setLoadingMeta(false)
       }
@@ -140,6 +135,23 @@ export function SearchPage() {
     return matchesQuery && matchesCategory && matchesLevel && matchesRating
   })
 
+  const visibleCourses = [...courses].sort((a, b) => {
+    switch (sortBy) {
+      case 'popular':
+        return b.total_students - a.total_students
+      case 'rating':
+        return parseDecimal(b.rating) - parseDecimal(a.rating)
+      case 'newest':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      case 'price-low':
+        return getEffectivePrice(a) - getEffectivePrice(b)
+      case 'price-high':
+        return getEffectivePrice(b) - getEffectivePrice(a)
+      default:
+        return 0
+    }
+  })
+
   const normalizedQuery = filters.query.trim().toLowerCase()
 
   const instructorResults = instructors.filter((item) => {
@@ -160,21 +172,11 @@ export function SearchPage() {
     )
   })
 
-  const qnaResults = qnaItems.filter((item) => {
-    if (!normalizedQuery) return true
-    return (
-      item.question.toLowerCase().includes(normalizedQuery) ||
-      (item.description || '').toLowerCase().includes(normalizedQuery) ||
-      (item.course_title || '').toLowerCase().includes(normalizedQuery)
-    )
-  })
-
   const totalByScope: Record<SearchScope, number> = {
-    all: courses.length + instructorResults.length + articleResults.length + qnaResults.length,
+    all: courses.length + instructorResults.length + articleResults.length,
     courses: courses.length,
     instructors: instructorResults.length,
     articles: articleResults.length,
-    qna: qnaResults.length,
   }
 
   const handleFilterChange = (key: string, value: any) => {
@@ -276,9 +278,6 @@ export function SearchPage() {
               <Button size="sm" variant={searchScope === 'articles' ? 'default' : 'outline'} onClick={() => setSearchScope('articles')}>
                 {t('search_page.scope_articles', 'Bài viết')} ({totalByScope.articles})
               </Button>
-              <Button size="sm" variant={searchScope === 'qna' ? 'default' : 'outline'} onClick={() => setSearchScope('qna')}>
-                {t('search_page.scope_qna', 'Q&A')} ({totalByScope.qna})
-              </Button>
             </motion.div>
 
 
@@ -365,7 +364,7 @@ export function SearchPage() {
                     <section className="space-y-4">
                       <div className="flex items-center gap-2"><BookOpen className="h-4 w-4" /><h3 className="font-semibold">{t('search_page.scope_courses', 'Khóa học')}</h3></div>
                       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                        {courses.slice(0, 3).map((course) => {
+                        {visibleCourses.slice(0, 3).map((course) => {
                           const ep = getEffectivePrice(course)
                           const rp = parseDecimal(course.price)
                           return (
@@ -423,26 +422,12 @@ export function SearchPage() {
                       </div>
                     </section>
 
-                    <section className="space-y-4">
-                      <div className="flex items-center gap-2"><MessageCircle className="h-4 w-4" /><h3 className="font-semibold">{t('search_page.scope_qna', 'Q&A')}</h3></div>
-                      <div className="space-y-3">
-                        {qnaResults.slice(0, 3).map((item) => (
-                          <Card key={item.id} className="p-4">
-                            <CardContent className="p-0">
-                              <div className="font-medium">{item.question}</div>
-                              <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description || item.course_title}</div>
-                              <div className="mt-2 text-xs text-muted-foreground">{getQnAStatusLabel(item.status)} · {item.answers_count} {t('search_page.answers', 'trả lời')}</div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </section>
                   </div>
                 )}
 
                 {searchScope === 'courses' && (
                   <div className={viewMode === "grid" ? "grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3" : "space-y-4"}>
-                    {courses.map((course) => {
+                    {visibleCourses.map((course) => {
                       const ep = getEffectivePrice(course)
                       const rp = parseDecimal(course.price)
                       return (
@@ -505,19 +490,6 @@ export function SearchPage() {
                   </div>
                 )}
 
-                {searchScope === 'qna' && (
-                  <div className="space-y-3">
-                    {qnaResults.map((item) => (
-                      <Card key={item.id} className="p-4">
-                        <CardContent className="p-0">
-                          <div className="font-medium">{item.question}</div>
-                          <div className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.description || item.course_title}</div>
-                          <div className="mt-2 text-xs text-muted-foreground">{getQnAStatusLabel(item.status)} · {item.answers_count} {t('search_page.answers', 'trả lời')}</div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
               </>
             )}
 

@@ -4,6 +4,7 @@ Admin system-wide dashboard analytics services.
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from decimal import Decimal
+from datetime import datetime, timezone as dt_timezone
 
 
 def get_admin_dashboard_stats():
@@ -161,4 +162,191 @@ def get_admin_course_analytics():
             'rating': round(float(c.avg_rating or 0), 2),
         }
         for c in top_courses
+    ]
+
+
+def _month_bounds(now, months_back):
+    month_index = now.month - 1 - months_back
+    year = now.year + (month_index // 12)
+    month = (month_index % 12) + 1
+    start = datetime(year, month, 1, tzinfo=dt_timezone.utc)
+    if month == 12:
+        end = datetime(year + 1, 1, 1, tzinfo=dt_timezone.utc)
+    else:
+        end = datetime(year, month + 1, 1, tzinfo=dt_timezone.utc)
+    return start, end
+
+
+def get_admin_revenue_breakdown(date_from=None, date_to=None):
+    from payments.models import Payment
+    from payment_details.models import Payment_Details
+
+    qs = Payment.objects.filter(
+        payment_status=Payment.PaymentStatus.COMPLETED,
+        is_deleted=False,
+    )
+    if date_from:
+        qs = qs.filter(payment_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(payment_date__lte=date_to)
+
+    retail_qs = qs.filter(payment_type=Payment.PaymentType.COURSE_PURCHASE)
+    sub_qs = qs.filter(payment_type=Payment.PaymentType.SUBSCRIPTION)
+
+    retail_revenue = retail_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    subscription_revenue = sub_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    refunded = Payment_Details.objects.filter(
+        payment__in=qs,
+        refund_status=Payment_Details.RefundStatus.SUCCESS,
+        is_deleted=False,
+    ).aggregate(t=Sum('refund_amount'))['t'] or Decimal('0')
+    gross = retail_revenue + subscription_revenue
+
+    return {
+        'retail_revenue': float(retail_revenue),
+        'subscription_revenue': float(subscription_revenue),
+        'total_gross': float(gross),
+        'total_refunded': float(refunded),
+        'net_revenue': float(gross - refunded),
+        'retail_count': retail_qs.count(),
+        'subscription_count': sub_qs.count(),
+    }
+
+
+def get_admin_revenue_monthly_breakdown(months=12):
+    from payments.models import Payment
+    from payment_details.models import Payment_Details
+
+    now = timezone.now()
+    result = []
+    for i in range(months - 1, -1, -1):
+        month_start, month_end = _month_bounds(now, i)
+        qs = Payment.objects.filter(
+            payment_status=Payment.PaymentStatus.COMPLETED,
+            is_deleted=False,
+            payment_date__gte=month_start,
+            payment_date__lt=month_end,
+        )
+        retail = qs.filter(payment_type=Payment.PaymentType.COURSE_PURCHASE).aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+        subscription = qs.filter(payment_type=Payment.PaymentType.SUBSCRIPTION).aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+        refunded = Payment_Details.objects.filter(
+            payment__in=qs,
+            refund_status=Payment_Details.RefundStatus.SUCCESS,
+            is_deleted=False,
+        ).aggregate(t=Sum('refund_amount'))['t'] or Decimal('0')
+        gross = retail + subscription
+        result.append({
+            'date': month_start.strftime('%Y-%m'),
+            'retail': float(retail),
+            'subscription': float(subscription),
+            'gross': float(gross),
+            'refunded': float(refunded),
+            'net': float(gross - refunded),
+        })
+    return result
+
+
+def get_admin_commission_analytics(date_from=None, date_to=None):
+    from instructor_earnings.models import InstructorEarning
+
+    qs = InstructorEarning.objects.filter(is_deleted=False)
+    if date_from:
+        qs = qs.filter(earning_date__gte=date_from)
+    if date_to:
+        qs = qs.filter(earning_date__lte=date_to)
+
+    agg = qs.aggregate(total_amount=Sum('amount'), total_net=Sum('net_amount'))
+    total_amount = agg['total_amount'] or Decimal('0')
+    total_net = agg['total_net'] or Decimal('0')
+    platform_revenue = total_amount - total_net
+
+    per_instructor = (
+        qs.values('instructor__id', 'instructor__user__full_name')
+        .annotate(
+            earnings=Sum('net_amount'),
+            gross=Sum('amount'),
+            retail_earnings=Sum('net_amount', filter=Q(payment__isnull=False)),
+            sub_earnings=Sum('net_amount', filter=Q(user_subscription__isnull=False)),
+            pending=Sum('net_amount', filter=Q(status=InstructorEarning.StatusChoices.PENDING)),
+            available=Sum('net_amount', filter=Q(status=InstructorEarning.StatusChoices.AVAILABLE)),
+            paid=Sum('net_amount', filter=Q(status=InstructorEarning.StatusChoices.PAID)),
+        )
+        .order_by('-earnings')[:20]
+    )
+
+    return {
+        'total_instructor_earnings': float(total_net),
+        'total_platform_revenue': float(platform_revenue),
+        'total_gross': float(total_amount),
+        'platform_share_pct': round(float(platform_revenue / total_amount * 100), 2) if total_amount else 0,
+        'instructor_share_pct': round(float(total_net / total_amount * 100), 2) if total_amount else 0,
+        'per_instructor': [
+            {
+                'instructor_id': r['instructor__id'],
+                'instructor_name': r['instructor__user__full_name'],
+                'total_earnings': float(r['earnings'] or 0),
+                'gross': float(r['gross'] or 0),
+                'retail_earnings': float(r['retail_earnings'] or 0),
+                'sub_earnings': float(r['sub_earnings'] or 0),
+                'pending': float(r['pending'] or 0),
+                'available': float(r['available'] or 0),
+                'paid': float(r['paid'] or 0),
+            }
+            for r in per_instructor
+        ],
+    }
+
+
+def get_admin_refund_analytics(date_from=None, date_to=None):
+    from payment_details.models import Payment_Details
+
+    qs = Payment_Details.objects.filter(is_deleted=False).exclude(refund_request_time__isnull=True)
+    if date_from:
+        qs = qs.filter(refund_request_time__gte=date_from)
+    if date_to:
+        qs = qs.filter(refund_request_time__lte=date_to)
+
+    statuses = [choice[0] for choice in Payment_Details.RefundStatus.choices]
+    breakdown = {}
+    for s in statuses:
+        agg = qs.filter(refund_status=s).aggregate(count=Count('id'), amount=Sum('refund_amount'))
+        breakdown[s] = {
+            'count': agg['count'] or 0,
+            'amount': float(agg['amount'] or 0),
+        }
+
+    return {
+        'total_requests': qs.count(),
+        'total_refunded_amount': breakdown.get(Payment_Details.RefundStatus.SUCCESS, {}).get('amount', 0),
+        'breakdown': breakdown,
+    }
+
+
+def get_admin_top_courses_by_revenue(limit=10, date_from=None, date_to=None):
+    from payment_details.models import Payment_Details
+
+    pd_qs = Payment_Details.objects.filter(
+        is_deleted=False,
+        payment__payment_status='completed',
+        payment__is_deleted=False,
+    )
+    if date_from:
+        pd_qs = pd_qs.filter(payment__payment_date__gte=date_from)
+    if date_to:
+        pd_qs = pd_qs.filter(payment__payment_date__lte=date_to)
+
+    top = (
+        pd_qs.values('course__id', 'course__title', 'course__instructor__user__full_name')
+        .annotate(revenue=Sum('final_price'), transactions=Count('id'))
+        .order_by('-revenue')[:limit]
+    )
+    return [
+        {
+            'course_id': r['course__id'],
+            'title': r['course__title'],
+            'instructor_name': r['course__instructor__user__full_name'],
+            'revenue': float(r['revenue'] or 0),
+            'transactions': r['transactions'],
+        }
+        for r in top
     ]

@@ -6,6 +6,7 @@ import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 import { Avatar, AvatarFallback } from "./ui/avatar"
 import { Badge } from "./ui/badge"
+import { NotificationSidebar } from "./NotificationSidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +17,6 @@ import {
 } from "./ui/dropdown-menu"
 import {
   Menu,
-  Bell,
   User,
   Settings,
   LogOut,
@@ -111,10 +111,11 @@ export function AdminHeader({
           </div>
 
 
-          <Button variant="ghost" size="icon" className="relative" onClick={() => navigate('/notifications')}>
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
-          </Button>
+          <NotificationSidebar
+            viewAllPath={null}
+            settingsPath={null}
+            buttonClassName="inline-flex h-10 w-10 items-center justify-center rounded-md hover:bg-accent dark:hover:bg-accent"
+          />
 
 
           <DropdownMenu>

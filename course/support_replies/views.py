@@ -18,14 +18,14 @@ class SupportReplyListView(APIView):
     def post(self, request):
         data = request.data
         try:
-            support_reply = create_support_reply(data)
+            support_reply = create_support_reply(data, actor=request.user)
             return Response({"message": "Support reply created successfully.", "data": support_reply}, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request, support_id):
         try:
-            replies = get_support_replies(support_id)
+            replies = get_support_replies(support_id, actor=request.user)
             return paginate_queryset(replies, request, SupportReplySerializer)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
@@ -34,14 +34,14 @@ class SupportReplyDetailView(APIView):
     throttle_scope = 'burst'
     def get(self, request, reply_id):
         try:
-            reply = get_support_reply_by_id(reply_id)
+            reply = get_support_reply_by_id(reply_id, actor=request.user)
             return Response(reply, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, reply_id):
         try:
-            response = delete_support_reply(reply_id)
+            response = delete_support_reply(reply_id, actor=request.user)
             return Response(response, status=status.HTTP_204_NO_CONTENT)
         except ValidationError as e:
             return Response(e.detail, status=status.HTTP_404_NOT_FOUND)

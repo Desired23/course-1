@@ -24,15 +24,12 @@ from .services import (
     advisor_chat_stream,
     create_advisor_draft_path,
     create_learning_path,
-    get_learning_path_advisor_stats,
-    get_learning_path_for_admin,
     get_learning_path_for_user,
     get_learning_paths_for_user,
     merge_advisor_messages,
     upsert_path_conversation,
     update_learning_path_from_advisor,
 )
-from .models import LearningPath
 
 
 logger = logging.getLogger(__name__)
@@ -333,122 +330,3 @@ class LearningPathRecalculateView(APIView):
             )
 
 
-class LearningPathAdvisorStatsView(APIView):
-    permission_classes = [RolePermissionFactory(['admin'])]
-
-    def get(self, request):
-        provider = (request.query_params.get('provider') or '').strip().lower() or None
-        if provider not in {None, 'gemini', 'rule_based'}:
-            return Response({'errors': 'Invalid provider filter.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        limit_param = request.query_params.get('limit')
-        try:
-            limit = max(1, min(50, int(limit_param or 10)))
-        except ValueError:
-            return Response({'errors': 'Invalid limit filter.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        fallback_only = (request.query_params.get('fallback_only') or '').strip().lower() in {'1', 'true', 'yes'}
-        stats = get_learning_path_advisor_stats(limit=limit, provider=provider, fallback_only=fallback_only)
-        return Response(stats, status=status.HTTP_200_OK)
-
-
-class LearningPathAdminDetailView(APIView):
-    permission_classes = [RolePermissionFactory(['admin'])]
-
-    def get(self, request, path_id):
-        try:
-            path = get_learning_path_for_admin(path_id)
-            return Response(LearningPathDetailSerializer(path).data, status=status.HTTP_200_OK)
-        except ValidationError as exc:
-            return Response({'errors': str(exc)}, status=status.HTTP_404_NOT_FOUND)
-
-
-class LearningPathAdminActionView(APIView):
-    permission_classes = [RolePermissionFactory(['admin'])]
-
-    def post(self, request, path_id):
-        action = (request.data.get('action') or '').strip().lower()
-        if action not in {'delete', 'archive', 'restore'}:
-            return Response({'errors': 'Unsupported action.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            path = get_learning_path_for_admin(path_id)
-            if action == 'delete':
-                path.delete()
-                return Response({'ok': True, 'action': 'delete', 'path_id': path_id}, status=status.HTTP_200_OK)
-
-            if action == 'archive':
-                path.is_archived = True
-                path.save(update_fields=['is_archived', 'updated_at'])
-                return Response({'ok': True, 'action': 'archive', 'path_id': path_id}, status=status.HTTP_200_OK)
-
-            path.is_archived = False
-            path.save(update_fields=['is_archived', 'updated_at'])
-            return Response({'ok': True, 'action': 'restore', 'path_id': path_id}, status=status.HTTP_200_OK)
-        except ValidationError as exc:
-            return Response({'errors': str(exc)}, status=status.HTTP_404_NOT_FOUND)
-
-
-class LearningPathAdminBulkActionView(APIView):
-    permission_classes = [RolePermissionFactory(['admin'])]
-
-    def post(self, request):
-        action = (request.data.get('action') or '').strip().lower()
-        path_ids = request.data.get('path_ids') or []
-
-        if action not in {'delete', 'archive', 'restore'}:
-            return Response({'errors': 'Unsupported action.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not isinstance(path_ids, list) or not path_ids:
-            return Response({'errors': 'path_ids must be a non-empty list.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        normalized_ids = []
-        for raw_id in path_ids:
-            try:
-                normalized_id = int(raw_id)
-            except (TypeError, ValueError):
-                return Response({'errors': 'Each path_id must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
-            if normalized_id <= 0:
-                return Response({'errors': 'Each path_id must be > 0.'}, status=status.HTTP_400_BAD_REQUEST)
-            normalized_ids.append(normalized_id)
-
-        existing_ids = list(
-            LearningPath.objects.filter(id__in=normalized_ids)
-            .values_list('id', flat=True)
-        )
-        if not existing_ids:
-            return Response({'ok': True, 'action': action, 'affected_count': 0, 'affected_ids': []}, status=status.HTTP_200_OK)
-
-        if action == 'archive':
-            affected_count = LearningPath.objects.filter(id__in=existing_ids).update(is_archived=True)
-            return Response(
-                {
-                    'ok': True,
-                    'action': 'archive',
-                    'affected_count': affected_count,
-                    'affected_ids': existing_ids,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        if action == 'restore':
-            affected_count = LearningPath.objects.filter(id__in=existing_ids).update(is_archived=False)
-            return Response(
-                {
-                    'ok': True,
-                    'action': 'restore',
-                    'affected_count': affected_count,
-                    'affected_ids': existing_ids,
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        LearningPath.objects.filter(id__in=existing_ids).delete()
-        return Response(
-            {
-                'ok': True,
-                'action': 'delete',
-                'deleted_count': len(existing_ids),
-                'deleted_ids': existing_ids,
-            },
-            status=status.HTTP_200_OK,
-        )

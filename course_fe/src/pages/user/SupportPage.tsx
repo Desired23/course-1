@@ -112,7 +112,7 @@ export function SupportPage() {
     },
     {
       question: t('support.faq_q5', "How do I contact my instructor?"),
-      answer: t('support.faq_a5', "You can contact your instructor through the Q&A section of each course. Instructors typically respond within 24-48 hours.")
+      answer: t('support.faq_a5', "You can contact your instructor through lesson comments or direct messages. Instructors typically respond within 24-48 hours.")
     },
     {
       question: t('support.faq_q6', "Do I get a certificate after completing a course?"),

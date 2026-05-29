@@ -24,10 +24,12 @@ from activity_logs.services import log_activity
 from enrollments.models import Enrollment
 from notifications.services import create_notification
 from users.preferences import format_datetime_for_user
+from utils.admin_actors import resolve_admin_actor, actor_user_id
 
 
-def create_subscription_plan(data, admin_user=None):
+def create_subscription_plan(data, admin_actor=None):
     try:
+        admin = resolve_admin_actor(admin_actor, required=bool(admin_actor))
         plan_data = {
             'name': data.get('name'),
             'description': data.get('description', ''),
@@ -42,12 +44,12 @@ def create_subscription_plan(data, admin_user=None):
             'yearly_discount_percent': data.get('yearly_discount_percent', 0),
             'thumbnail': data.get('thumbnail'),
         }
-        if admin_user:
-            plan_data['created_by'] = admin_user.id
-
         serializer = SubscriptionPlanSerializer(data=plan_data)
         if serializer.is_valid(raise_exception=True):
-            plan = serializer.save()
+            save_kwargs = {}
+            if admin:
+                save_kwargs['created_by'] = admin
+            plan = serializer.save(**save_kwargs)
 
             course_ids = data.get('course_ids', [])
             for cid in course_ids:
@@ -55,7 +57,7 @@ def create_subscription_plan(data, admin_user=None):
                     course = Course.objects.get(id=cid, is_deleted=False)
                     PlanCourse.objects.create(
                         plan=plan, course=course,
-                        added_by=admin_user
+                        added_by=admin
                     )
                 except Course.DoesNotExist:
                     pass
@@ -109,8 +111,9 @@ def delete_subscription_plan(plan_id):
         raise ValidationError({"error": "Subscription plan not found."})
 
 
-def add_course_to_plan(plan_id, course_id, admin_user=None, added_reason=None):
+def add_course_to_plan(plan_id, course_id, admin_actor=None, added_reason=None):
     try:
+        admin = resolve_admin_actor(admin_actor, required=bool(admin_actor))
         plan = SubscriptionPlan.objects.get(id=plan_id, is_deleted=False)
         course = Course.objects.get(id=course_id, is_deleted=False)
 
@@ -127,7 +130,7 @@ def add_course_to_plan(plan_id, course_id, admin_user=None, added_reason=None):
         pc, created = PlanCourse.objects.get_or_create(
             plan=plan, course=course,
             defaults={
-                'added_by': admin_user,
+                'added_by': admin,
                 'added_reason': added_reason,
                 'status': 'active',
             }
@@ -135,7 +138,7 @@ def add_course_to_plan(plan_id, course_id, admin_user=None, added_reason=None):
         if not created and (pc.is_deleted or pc.status == 'removed'):
             pc.is_deleted = False
             pc.status = 'active'
-            pc.added_by = admin_user
+            pc.added_by = admin
             pc.added_reason = added_reason
             pc.removed_at = None
             pc.removed_by = None
@@ -145,7 +148,7 @@ def add_course_to_plan(plan_id, course_id, admin_user=None, added_reason=None):
             raise ValidationError({"error": "Course already in this plan."})
 
         log_activity(
-            user_id=admin_user.id if admin_user else None,
+            user_id=actor_user_id(admin_actor),
             action="PLAN_COURSE_ADDED",
             entity_type="PlanCourse",
             entity_id=pc.id,
@@ -160,7 +163,7 @@ def add_course_to_plan(plan_id, course_id, admin_user=None, added_reason=None):
         raise ValidationError({"error": "Course not found."})
 
 
-def remove_course_from_plan(plan_id, course_id, admin_user=None):
+def remove_course_from_plan(plan_id, course_id, admin_actor=None):
     try:
         pc = PlanCourse.objects.get(
             plan_id=plan_id, course_id=course_id, is_deleted=False, status='active'
@@ -170,12 +173,12 @@ def remove_course_from_plan(plan_id, course_id, admin_user=None):
 
 
     result = schedule_plan_course_removal(
-        pc.id, admin_user,
+        pc.id, admin_actor,
         reason="Admin removed course from plan"
     )
 
     log_activity(
-        user_id=admin_user.id if admin_user else None,
+        user_id=actor_user_id(admin_actor),
         action="PLAN_COURSE_REMOVAL_SCHEDULED",
         entity_type="PlanCourse",
         entity_id=pc.id,
@@ -809,7 +812,7 @@ def reactivate_subscription_enrollments(new_subscription: UserSubscription):
     return {"reactivated_enrollments": reactivated}
 
 
-def schedule_plan_course_removal(plan_course_id: int, admin_user, reason: str = ''):
+def schedule_plan_course_removal(plan_course_id: int, admin_actor, reason: str = ''):
     """
     Đặt lịch xóa khóa học khỏi plan sau 7 ngày + thông báo cho tất cả user
     đang sử dụng gói có khóa học này.
@@ -826,9 +829,10 @@ def schedule_plan_course_removal(plan_course_id: int, admin_user, reason: str = 
 
     removal_date = timezone.now() + timedelta(days=7)
     plan_course.scheduled_removal_at = removal_date
+    plan_course.removed_by = resolve_admin_actor(admin_actor, required=bool(admin_actor))
     if reason:
         plan_course.added_reason = reason
-    plan_course.save(update_fields=['scheduled_removal_at', 'added_reason'])
+    plan_course.save(update_fields=['scheduled_removal_at', 'added_reason', 'removed_by'])
 
 
     active_users = (

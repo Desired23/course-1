@@ -2,6 +2,8 @@ from django.urls import path
 from .views import (
     PromotionManagementView,
     PromotionValidateView,
+    PromotionHomepageView,
+    PromotionCourseView,
 )
 urlpatterns = [
     path('promotions/<int:promotion_id>/update', PromotionManagementView.as_view(), name='promotion-update'),
@@ -9,4 +11,6 @@ urlpatterns = [
     path('promotions/', PromotionManagementView.as_view(), name='promotion-list'),
     path('promotions/create', PromotionManagementView.as_view(), name='promotion-create'),
     path('promotions/validate/', PromotionValidateView.as_view(), name='promotion-validate'),
+    path('promotions/homepage/', PromotionHomepageView.as_view(), name='promotion-homepage'),
+    path('promotions/course/<int:course_id>/', PromotionCourseView.as_view(), name='promotion-course'),
 ]

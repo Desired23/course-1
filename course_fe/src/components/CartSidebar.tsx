@@ -17,7 +17,7 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
   const sidebarRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
 
-  const formatPrice = (value: number) => `VND ${value.toLocaleString('vi-VN')}`
+  const formatPrice = (value: number) => value === 0 ? 'Miễn phí' : `VND ${value.toLocaleString('vi-VN')}`
 
   const handleMouseEnter = () => {
     if (hoverTimeoutRef.current) {

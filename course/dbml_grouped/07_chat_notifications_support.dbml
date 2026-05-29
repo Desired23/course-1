@@ -1,0 +1,218 @@
+// DBML group export excluding Django system tables
+// Generated from Django models and migrations
+// Group file: 07_chat_notifications_support.dbml
+// NHOM 7: CHAT, THONG BAO, HO TRO
+// Only includes intra-group relationships
+
+// Primary tables
+Table ChatRooms {
+  id integer [pk, not null]
+  user1_id integer [not null]
+  user2_id integer [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatMessages {
+  id integer [pk, not null]
+  room_id integer [not null]
+  sender_id integer [not null]
+  content varchar [not null]
+  is_read boolean [not null]
+  created_at datetime [not null]
+}
+
+Table ChatConversations {
+  id integer [pk, not null]
+  type varchar [not null]
+  title varchar
+  avatar varchar
+  description varchar
+  created_by_id integer
+  owner_id integer
+  is_public boolean [not null]
+  is_archived boolean [not null]
+  last_message_id integer
+  last_message_at datetime
+  deleted_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatConversationParticipants {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  user_id integer [not null]
+  role varchar [not null]
+  joined_at datetime [not null]
+  joined_by_id integer
+  left_at datetime
+  removed_at datetime
+  removed_by_id integer
+  is_active boolean [not null]
+  nickname varchar
+  mute_until datetime
+  is_pinned boolean [not null]
+  last_read_message_id integer
+  last_read_at datetime
+  notification_level varchar [not null]
+  can_send_message boolean [not null]
+  can_add_members boolean [not null]
+  can_change_group_info boolean [not null]
+}
+
+Table ChatConversationMessages {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  sender_id integer [not null]
+  type varchar [not null]
+  text_content varchar
+  reply_to_message_id integer
+  forwarded_from_message_id integer
+  forwarded_from_conversation_id integer
+  metadata varchar [not null]
+  status varchar [not null]
+  report_count integer [not null]
+  last_report_reason varchar
+  last_reported_at datetime
+  revoked_at datetime
+  revoked_by_id integer
+  edited_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatMessageAttachments {
+  id integer [pk, not null]
+  message_id integer [not null]
+  kind varchar [not null]
+  storage_provider varchar [not null]
+  file_url varchar [not null]
+  thumbnail_url varchar
+  file_name varchar [not null]
+  mime_type varchar [not null]
+  file_size integer [not null]
+  width integer
+  height integer
+  duration_seconds integer
+  checksum varchar
+  created_at datetime [not null]
+}
+
+Table ChatMessageReactions {
+  id integer [pk, not null]
+  message_id integer [not null]
+  user_id integer [not null]
+  reaction varchar [not null]
+  created_at datetime [not null]
+}
+
+Table ChatPinnedMessages {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  message_id integer [not null]
+  pinned_by_id integer [not null]
+  pinned_at datetime [not null]
+  note varchar
+  is_active boolean [not null]
+}
+
+Table ChatUserPrivacySettings {
+  id integer [pk, not null]
+  user_id integer [not null]
+  allow_direct_messages boolean [not null]
+  show_online_status boolean [not null]
+  allow_group_invites boolean [not null]
+  read_receipts_enabled boolean [not null]
+  last_seen_visibility varchar [not null]
+  updated_at datetime [not null]
+}
+
+Table ChatUserBlocks {
+  id integer [pk, not null]
+  blocker_id integer [not null]
+  blocked_id integer [not null]
+  reason varchar
+  created_at datetime [not null]
+}
+
+Table ChatMessageDeliveryStates {
+  id integer [pk, not null]
+  message_id integer [not null]
+  user_id integer [not null]
+  delivered_at datetime
+  read_at datetime
+}
+
+Table ChatSystemEvents {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  actor_id integer
+  event_type varchar [not null]
+  payload varchar [not null]
+  created_at datetime [not null]
+}
+
+Table notifications_notification {
+  title varchar [not null]
+  id integer [pk, not null]
+  sender_id integer
+  receiver_id integer [not null]
+  message varchar [not null]
+  is_read boolean [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  type varchar [not null]
+  notification_code varchar
+  related_id integer
+}
+
+Table Support {
+  id integer [pk, not null]
+  user_id integer
+  name varchar
+  email varchar [not null]
+  subject varchar [not null]
+  message varchar [not null]
+  status varchar [not null]
+  priority varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  admin_id integer
+}
+
+Table support_replies_supportreply {
+  id integer [pk, not null]
+  support_id integer [not null]
+  user_id integer [not null]
+  admin_id integer
+  message varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+// Relationships
+Ref: ChatConversationMessages.conversation_id > ChatConversations.id
+Ref: ChatConversationMessages.forwarded_from_conversation_id > ChatConversations.id
+Ref: ChatConversationMessages.forwarded_from_message_id > ChatConversationMessages.id
+Ref: ChatConversationMessages.reply_to_message_id > ChatConversationMessages.id
+Ref: ChatConversationParticipants.conversation_id > ChatConversations.id
+Ref: ChatConversationParticipants.last_read_message_id > ChatConversationMessages.id
+Ref: ChatConversations.last_message_id > ChatConversationMessages.id
+Ref: ChatMessageAttachments.message_id > ChatConversationMessages.id
+Ref: ChatMessageDeliveryStates.message_id > ChatConversationMessages.id
+Ref: ChatMessageReactions.message_id > ChatConversationMessages.id
+Ref: ChatMessages.room_id > ChatRooms.id
+Ref: ChatPinnedMessages.conversation_id > ChatConversations.id
+Ref: ChatPinnedMessages.message_id > ChatConversationMessages.id
+Ref: ChatSystemEvents.conversation_id > ChatConversations.id
+Ref: support_replies_supportreply.support_id > Support.id

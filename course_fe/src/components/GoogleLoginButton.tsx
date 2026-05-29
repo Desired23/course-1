@@ -12,6 +12,7 @@ interface GoogleLoginButtonProps {
   useCustomButton?: boolean
   buttonText?: string
   className?: string
+  redirectTo?: string
 }
 
 export function GoogleLoginButton({
@@ -20,6 +21,7 @@ export function GoogleLoginButton({
   useCustomButton = false,
   buttonText = 'Continue with Google',
   className = '',
+  redirectTo = '/',
 }: GoogleLoginButtonProps) {
   const { t } = useTranslation()
   const { loginWithGoogle } = useAuth()
@@ -35,7 +37,7 @@ export function GoogleLoginButton({
         console.log('Google login successful:', userData)
         onSuccess?.()
 
-        navigate('/')
+        navigate(redirectTo)
       } else {
         throw new Error('Google login failed')
       }

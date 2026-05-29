@@ -6,6 +6,7 @@ export interface UploadedFile {
   format: string
   resource_type?: string
   type?: string
+  duration?: number
 }
 
 interface UploadOptions {

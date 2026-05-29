@@ -49,6 +49,7 @@ export interface QuizQuestion {
   image?: string
   code?: string
   codeLanguage?: string
+  requireCompletion?: boolean
   enhancedCodeQuizData?: EnhancedCodeQuizData
 }
 
@@ -190,6 +191,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
   const [image, setImage] = useState('')
   const [codeSnippet, setCodeSnippet] = useState('')
   const [codeSnippetLang, setCodeSnippetLang] = useState('javascript')
+  const [requireCompletion, setRequireCompletion] = useState(false)
 
   useEffect(() => {
     if (isOpen && initialQuestion) {
@@ -202,6 +204,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       setImage(initialQuestion.image || '')
       setCodeSnippet(initialQuestion.code || '')
       setCodeSnippetLang(initialQuestion.codeLanguage || 'javascript')
+      setRequireCompletion(initialQuestion.requireCompletion || false)
 
       if (initialQuestion.enhancedCodeQuizData) {
         setCodeData(initialQuestion.enhancedCodeQuizData)
@@ -261,6 +264,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
       codeLanguage: codeSnippet ? codeSnippetLang : undefined,
       options: type !== 'text' && type !== 'code' ? options.filter(o => o.trim()) : undefined,
       correctAnswer: type !== 'code' ? correctAnswer : undefined,
+      requireCompletion: type === 'code' ? requireCompletion : undefined,
       enhancedCodeQuizData: type === 'code' ? {
         ...codeData,
         title: questionText,
@@ -345,6 +349,14 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
               rows={6}
               className="font-mono text-sm"
             />
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">{t('question_wizard.content.require_completion')}</Label>
+              <p className="text-xs text-muted-foreground">{t('question_wizard.content.require_completion_desc')}</p>
+            </div>
+            <Switch checked={requireCompletion} onCheckedChange={setRequireCompletion} />
           </div>
 
           <div className="space-y-2">

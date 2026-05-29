@@ -34,6 +34,7 @@ export interface Payment {
 }
 
 export interface PaymentCourse {
+  payment_detail_id?: number
   course_id: number
   course_title: string
   course_thumbnail?: string | null
@@ -47,6 +48,8 @@ export interface PaymentCourse {
   final_price: string
   enrollment_status?: string | null
   enrollment_id?: number | null
+  refund_status?: string | null
+  refund_eligible?: boolean
 }
 
 export interface PaymentDetail {
@@ -104,6 +107,7 @@ export interface CreatePaymentResponse {
 export async function createPaymentRecord(data: {
   user_id: number
   payment_method: string
+  return_url?: string
   payment_type?: string
   billing_cycle?: 'monthly' | 'yearly'
   subscription_plan_id?: number
@@ -170,6 +174,9 @@ export interface MyPaymentItem {
   enrollment_status?: string | null
   enrollment_progress?: string | null
   enrollment_expiry_date?: string | null
+  refund_transaction_id?: string | null
+  refund_response_code?: string | null
+  refund_timeline?: Array<{ event: string; actor?: string | null; note?: string | null; timestamp: string; metadata?: Record<string, string | number | boolean | null> | null }>
 }
 
 export interface MyPayment {
@@ -186,6 +193,9 @@ export interface MyPayment {
   created_at: string | null
   retryable_until?: string | null
   can_retry_payment?: boolean
+  gateway_response?: string | null
+  payment_gateway?: string | null
+  ipn_attempts?: number
   items: MyPaymentItem[]
 }
 
@@ -364,6 +374,14 @@ export async function cancelRefundRequest(data: {
   payment_details_ids: number[]
 }): Promise<{ message: string }> {
   return http.put<{ message: string }>('/refunds/details/', data)
+}
+
+export async function adminCreateRefund(data: {
+  payment_id: number
+  payment_details_ids: number[]
+  reason?: string
+}): Promise<{ message: string; results: AdminRefundItem[] }> {
+  return http.post('/payments/refund/admin/create/', data)
 }
 
 export async function getPaymentAdminConfig<T = any[]>(configKey: PaymentAdminConfigKey): Promise<PaymentAdminConfigResponse<T>> {

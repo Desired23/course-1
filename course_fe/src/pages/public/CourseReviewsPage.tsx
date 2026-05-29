@@ -179,6 +179,20 @@ export function CourseReviewsPage() {
     return matchesSearch && matchesCourse && review.rating === parseInt(filterRating, 10)
   })
 
+  const sortedReviews = [...filteredReviews].sort((a, b) => {
+    switch (sortBy) {
+      case 'helpful':
+        return b.helpful - a.helpful
+      case 'rating-high':
+        return b.rating - a.rating
+      case 'rating-low':
+        return a.rating - b.rating
+      case 'recent':
+      default:
+        return a.id - b.id
+    }
+  })
+
   const handleSubmitReview = (e: React.FormEvent) => {
     e.preventDefault()
     console.log('Submitting review:', newReview, courseId)
@@ -441,7 +455,7 @@ export function CourseReviewsPage() {
       </motion.div>
 
       <motion.div className="space-y-6" variants={fadeInUp}>
-        {filteredReviews.map((review, index) => (
+        {sortedReviews.map((review, index) => (
           <motion.div
             key={review.id}
             initial={{ opacity: 0, y: 10 }}
@@ -573,7 +587,7 @@ export function CourseReviewsPage() {
           </motion.div>
         ))}
 
-        {filteredReviews.length === 0 && (
+        {sortedReviews.length === 0 && (
           <div className="text-center py-12">
             <Star className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="mb-2">{t('course_reviews_page.empty.title')}</h3>

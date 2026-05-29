@@ -49,11 +49,15 @@ class Command(BaseCommand):
         if payment.payment_method != "momo":
             raise CommandError("simulate_momo_refund only supports refunds for MoMo payments.")
 
-        from users.models import User
+        from admins.models import Admin
 
         try:
-            admin_user = User.objects.get(id=admin_user_id, user_type="admin", status="active")
-        except User.DoesNotExist as exc:
+            admin_actor = Admin.objects.select_related("user").get(
+                user_id=admin_user_id,
+                user__user_type="admin",
+                user__status="active",
+            )
+        except Admin.DoesNotExist as exc:
             raise CommandError(f"Admin user {admin_user_id} not found or inactive.") from exc
 
         if detail.refund_status == Payment_Details.RefundStatus.PENDING:
@@ -78,7 +82,7 @@ class Command(BaseCommand):
         gateway_result = map_momo_refund_result(response_payload)
 
         with patch("payments.refund_services.send_momo_refund_request", return_value=gateway_result):
-            result = admin_refund_action(action, [detail.id], admin_user)
+            result = admin_refund_action(action, [detail.id], admin_actor)
 
         detail.refresh_from_db()
         self.stdout.write(self.style.SUCCESS(f"Refund action result: {result}"))

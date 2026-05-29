@@ -11,6 +11,7 @@ from .services import (
     update_cart,
     delete_cart,
     get_cart_by_user,
+    bulk_delete_cart,
 )
 from utils.permissions import RolePermissionFactory
 
@@ -52,3 +53,17 @@ class CartListView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CartBulkDeleteView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        try:
+            payload = request.data or {}
+            cart_ids = payload.get('cart_ids')
+            result = bulk_delete_cart(request.user.id, cart_ids)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)

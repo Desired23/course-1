@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from "../../components/Router"
-import { QuizPlayer } from "../../components/QuizPlayer"
+import { QuizPlayer, type Quiz, type QuizQuestion } from "../../components/QuizPlayer"
 import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
 import { TranscriptVideoPlayer } from "../../components/TranscriptVideoPlayer"
 import { Button } from "../../components/ui/button"
+import { Card, CardContent } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
 import { Separator } from "../../components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
@@ -50,6 +51,7 @@ import {
   resolveAttachmentUrl,
   type LessonAttachment,
 } from "../../services/lesson-attachments.api"
+import { getLessonQuiz, type LessonQuizQuestion } from "../../services/quiz-questions.api"
 import { useTranslation } from "react-i18next"
 import { MOTION_DURATIONS, MOTION_EASING } from '../../lib/motion'
 
@@ -145,7 +147,7 @@ function buildCurriculum(
             transcriptStatus: lesson.transcript_status || null,
             hasPublishedTranscript: lesson.has_published_transcript || false,
             duration: lesson.duration ? formatDuration(lesson.duration) : '',
-            type: lesson.has_quiz ? 'quiz' as const : lesson.content_type === 'text' ? 'text' as const : 'video' as const,
+            type: (lesson.has_quiz || lesson.content_type === 'code') ? 'quiz' as const : lesson.content_type === 'text' ? 'text' as const : 'video' as const,
             isFree: lesson.is_free,
             isCompleted: lp?.is_completed || false,
             order: lesson.order,
@@ -176,6 +178,63 @@ function findLesson(curriculum: CurriculumSection[], lessonId: number): Curricul
 
 function flattenLessons(curriculum: CurriculumSection[]): CurriculumLesson[] {
   return curriculum.flatMap(section => section.lessons)
+}
+
+function getQuizOptionText(option: LessonQuizQuestion['options'][number]): string {
+  if (typeof option === 'string') return option
+  return option.option_text || option.text || ''
+}
+
+function getCorrectOptionIndex(options: LessonQuizQuestion['options']): number {
+  const flaggedIndex = options.findIndex((option) => typeof option === 'object' && option.is_correct)
+  return flaggedIndex >= 0 ? flaggedIndex : 0
+}
+
+function mapLessonQuizQuestion(question: LessonQuizQuestion): QuizQuestion {
+  const options = question.options.map(getQuizOptionText).filter(Boolean)
+
+  if (question.question_type === 'code') {
+    return {
+      id: question.question_id,
+      question: question.question_text,
+      type: 'code',
+      points: question.points,
+      explanation: question.description || undefined,
+      requireCompletion: question.require_completion,
+      codeQuestion: {
+        id: question.question_id,
+        question: question.question_text,
+        description: question.description || undefined,
+        type: 'code',
+        allowedLanguages: question.allowed_languages || undefined,
+        starterCode: question.starter_code || undefined,
+        functionName: question.function_name || undefined,
+        timeLimit: question.time_limit || undefined,
+        memoryLimit: question.memory_limit || undefined,
+        difficulty: question.difficulty,
+        points: question.points,
+        testCases: question.test_cases.map((testCase) => ({
+          id: testCase.id,
+          input: testCase.input_data,
+          expectedOutput: testCase.expected_output || '',
+          isHidden: testCase.is_hidden,
+          points: testCase.points,
+        })),
+      },
+    }
+  }
+
+  return {
+    id: question.question_id,
+    question: question.question_text,
+    type: 'single',
+    options,
+    correctAnswer: getCorrectOptionIndex(question.options),
+    explanation: question.description || undefined,
+    points: question.points,
+    image: question.image_url || undefined,
+    code: question.code_snippet || undefined,
+  }
 }
 
 function parseLessonLearningData(raw: string | null | undefined, fallbackLessonId: number): LessonLearningData {
@@ -305,6 +364,9 @@ export function CoursePlayerPage() {
     try { const s = localStorage.getItem('quizProgress'); return s ? JSON.parse(s) : {} }
     catch { return {} }
   })
+  const [currentQuiz, setCurrentQuiz] = useState<Quiz | null>(null)
+  const [quizLoading, setQuizLoading] = useState(false)
+  const [quizError, setQuizError] = useState<string | null>(null)
   const [locallyCompletedLessons, setLocallyCompletedLessons] = useState<Record<number, boolean>>({})
   const completionInFlightRef = useRef(new Set<number>())
   const lastProgressSyncRef = useRef(new Map<number, number>())
@@ -352,6 +414,8 @@ export function CoursePlayerPage() {
     return done
   }, [lessonProgressMap, locallyCompletedLessons])
 
+  const isInstructorPreview = course?.access_info?.access_type === 'instructor'
+
   const furthestUnlockedIndex = useMemo(() => {
     if (orderedLessons.length === 0) return -1
     let furthest = 0
@@ -366,6 +430,7 @@ export function CoursePlayerPage() {
   }, [orderedLessons, completedLessonIds])
 
   const isLessonUnlocked = (lessonId: number): boolean => {
+    if (isInstructorPreview) return true
     const lessonIndex = orderedLessons.findIndex(l => l.id === lessonId)
     if (lessonIndex === -1) return false
     if (completedLessonIds.has(lessonId)) return true
@@ -394,20 +459,20 @@ export function CoursePlayerPage() {
       try {
         setLoading(true)
         setError(null)
-        const [courseData, progressData] = await Promise.allSettled([
-          getCourseById(courseId),
-          getCourseProgress(courseId),
-        ])
+        const courseData = await getCourseById(courseId)
         if (cancelled) return
-        if (courseData.status === 'fulfilled') {
-          setCourse(courseData.value)
-        } else {
-          setError(t('course_player.load_failed'))
+        if (courseData.access_info && !courseData.access_info.has_access) {
+          setCourse(null)
+          setCourseProgress(null)
+          setError(t('course_player.not_enrolled'))
           return
         }
-        if (progressData.status === 'fulfilled') {
-          setCourseProgress(progressData.value)
-        }
+        setCourse(courseData)
+        try {
+          const progressData = await getCourseProgress(courseId)
+          if (cancelled) return
+          setCourseProgress(progressData)
+        } catch {}
       } catch (err: any) {
         if (!cancelled) setError(err.message || t('course_player.load_failed'))
       } finally {
@@ -439,6 +504,44 @@ export function CoursePlayerPage() {
   useEffect(() => {
     try { localStorage.setItem('quizProgress', JSON.stringify(quizProgress)) } catch {}
   }, [quizProgress])
+
+  useEffect(() => {
+    if (!currentLesson || currentLesson.type !== 'quiz') {
+      setCurrentQuiz(null)
+      setQuizError(null)
+      setQuizLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setQuizLoading(true)
+    setQuizError(null)
+
+    getLessonQuiz(currentLesson.id)
+      .then((quiz) => {
+        if (cancelled) return
+        setCurrentQuiz({
+          id: quiz.quiz_id,
+          title: quiz.title,
+          description: quiz.description,
+          passingScore: quiz.passing_score,
+          timeLimit: quiz.time_limit ? Math.ceil(quiz.time_limit / 60) : undefined,
+          questions: quiz.questions.map(mapLessonQuizQuestion),
+        })
+      })
+      .catch(() => {
+        if (cancelled) return
+        setCurrentQuiz(null)
+        setQuizError(t('quiz_player.no_questions_desc'))
+      })
+      .finally(() => {
+        if (!cancelled) setQuizLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentLesson, t])
 
 
   const resolveCommentUser = async (userId: number): Promise<{ name: string; initials: string }> => {
@@ -723,7 +826,7 @@ export function CoursePlayerPage() {
   }
 
   const handleLessonChange = (lessonId: number) => {
-    if (!isLessonUnlocked(lessonId)) {
+    if (!isInstructorPreview && !isLessonUnlocked(lessonId)) {
       toast.error(t('course_player.unlock_previous_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT }))
       return
     }
@@ -736,7 +839,7 @@ export function CoursePlayerPage() {
 
   const goToNextLesson = () => {
     if (!currentLessonId) return
-    if (!currentLessonCompleted) {
+    if (!isInstructorPreview && !currentLessonCompleted) {
       toast.error(t('course_player.complete_current_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT }))
       return
     }
@@ -754,6 +857,7 @@ export function CoursePlayerPage() {
 
   const handleLessonComplete = async (lessonId: number = currentLessonId || 0) => {
     if (!lessonId || completedLessonIds.has(lessonId) || completionInFlightRef.current.has(lessonId)) return
+    if (isInstructorPreview) return
     completionInFlightRef.current.add(lessonId)
     setLocallyCompletedLessons(prev => ({ ...prev, [lessonId]: true }))
     toast.success(t('course_player.lesson_completed'))
@@ -772,7 +876,15 @@ export function CoursePlayerPage() {
     }
     setTimeout(() => {
       const next = findNextLesson(curriculum, lessonId)
-      if (next) { toast.info(t('course_player.auto_playing_next', { title: next.title })); handleLessonChange(next.id) }
+      if (next) {
+        toast.info(t('course_player.auto_playing_next', { title: next.title }))
+        // Bypass stale closure lock check — next lesson is unlocked because we just completed the current one
+        setCurrentLessonId(next.id)
+        setProgress([0])
+        setCurrentPlaybackTimeSec(0)
+        window.scrollTo({ top: 0, behavior: shouldReduceMotion ? 'auto' : 'smooth' })
+        setIsSidebarOpen(false)
+      }
     }, 3000)
   }
 
@@ -781,6 +893,7 @@ export function CoursePlayerPage() {
     const normalized = Math.min(payload.percentage, 100)
     setCurrentPlaybackTimeSec(payload.currentTime)
     setProgress(prev => [Math.max(prev[0] || 0, normalized)])
+    if (isInstructorPreview) return
     try {
       const existing = localStorage.getItem(`video_progress_${currentLessonId}`)
       const existingValue = existing ? parseFloat(existing) : 0
@@ -883,16 +996,16 @@ export function CoursePlayerPage() {
                   <button
                     key={lesson.id}
                     onClick={() => handleLessonChange(lesson.id)}
-                    disabled={!isLessonUnlocked(lesson.id)}
+                    disabled={!isInstructorPreview && !isLessonUnlocked(lesson.id)}
                     className={`w-full px-4 py-3 pl-12 flex items-center justify-between transition-colors ${
                       lesson.id === currentLessonId ? 'bg-accent' : ''
-                    } ${isLessonUnlocked(lesson.id) ? 'hover:bg-accent/50' : 'opacity-50 cursor-not-allowed'}`}
-                    title={!isLessonUnlocked(lesson.id)
+                    } ${isInstructorPreview || isLessonUnlocked(lesson.id) ? 'hover:bg-accent/50' : 'opacity-50 cursor-not-allowed'}`}
+                    title={!isInstructorPreview && !isLessonUnlocked(lesson.id)
                       ? t('course_player.unlock_previous_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT })
                       : undefined}
                   >
                     <div className="flex items-center gap-3 flex-1 text-left">
-                      {!isLessonUnlocked(lesson.id) ? (
+                      {!isInstructorPreview && !isLessonUnlocked(lesson.id) ? (
                         <Lock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       ) : lesson.isCompleted || completedLessonIds.has(lesson.id) ? (
                         <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -978,26 +1091,40 @@ export function CoursePlayerPage() {
             >
               {currentLesson.type === 'quiz' ? (
                 <div className="bg-muted/50 p-6 overflow-y-auto">
-                  <QuizPlayer
-                    quiz={{ id: currentLessonId!, title: currentLesson.title, passingScore: 70, questions: [] }}
-                    lessonId={currentLessonId!}
-                    enrollmentId={course.user_enrollment?.enrollment_id}
-                    savedProgress={quizProgress[currentLessonId!]?.answers}
-                    onProgressChange={(answers) => {
-                      setQuizProgress(prev => ({
-                        ...prev,
-                        [currentLessonId!]: { ...prev[currentLessonId!], answers, lastSaved: new Date().toISOString() }
-                      }))
-                    }}
-                    onComplete={(score, passed) => {
-                      setQuizProgress(prev => ({
-                        ...prev,
-                        [currentLessonId!]: { ...prev[currentLessonId!], score, passed, completedAt: new Date().toISOString(), lessonId: currentLessonId }
-                      }))
-                      if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete() }
-                    }}
-                    onNext={() => goToNextLesson()}
-                  />
+                  {quizLoading ? (
+                    <div className="flex justify-center py-16">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : quizError || !currentQuiz ? (
+                    <div className="max-w-4xl mx-auto p-6">
+                      <Card>
+                        <CardContent className="p-8 text-center text-muted-foreground">
+                          {quizError || t('quiz_player.no_questions_desc')}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ) : (
+                    <QuizPlayer
+                      quiz={currentQuiz}
+                      lessonId={currentLessonId!}
+                      enrollmentId={course.user_enrollment?.enrollment_id}
+                      savedProgress={quizProgress[currentLessonId!]?.answers}
+                      onProgressChange={(answers) => {
+                        setQuizProgress(prev => ({
+                          ...prev,
+                          [currentLessonId!]: { ...prev[currentLessonId!], answers, lastSaved: new Date().toISOString() }
+                        }))
+                      }}
+                      onComplete={(score, passed) => {
+                        setQuizProgress(prev => ({
+                          ...prev,
+                          [currentLessonId!]: { ...prev[currentLessonId!], score, passed, completedAt: new Date().toISOString(), lessonId: currentLessonId }
+                        }))
+                        if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete() }
+                      }}
+                      onNext={() => goToNextLesson()}
+                    />
+                  )}
                 </div>
               ) : isDirectVideoUrl(currentLesson.videoUrl) ? (
                 <TranscriptVideoPlayer
@@ -1011,7 +1138,7 @@ export function CoursePlayerPage() {
                   onComplete={() => handleLessonComplete(currentLessonId!)}
                   savedProgress={getSavedProgressForLesson(currentLessonId!)}
                   completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
-                  restrictForwardSeeking={true}
+                  restrictForwardSeeking={!isInstructorPreview}
                   externalSeekRequest={seekRequest}
                 />
               ) : (
@@ -1026,7 +1153,7 @@ export function CoursePlayerPage() {
                   onComplete={() => handleLessonComplete(currentLessonId!)}
                   savedProgress={getSavedProgressForLesson(currentLessonId!)}
                   completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
-                  restrictForwardSeeking={true}
+                  restrictForwardSeeking={!isInstructorPreview}
                   externalSeekRequest={seekRequest}
                 />
               )}
@@ -1056,9 +1183,9 @@ export function CoursePlayerPage() {
               <Button
                 variant="default"
                 onClick={goToNextLesson}
-                disabled={!findNextLesson(curriculum, currentLessonId!) || !currentLessonCompleted}
+                disabled={!findNextLesson(curriculum, currentLessonId!) || (!isInstructorPreview && !currentLessonCompleted)}
                 className="w-full sm:flex-1"
-                title={!currentLessonCompleted
+                title={!isInstructorPreview && !currentLessonCompleted
                   ? t('course_player.complete_current_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT })
                   : undefined}
               >

@@ -170,6 +170,8 @@ export function TranscriptVideoPlayer({
                 onComplete?.()
               }
             }}
+            controlsList="nodownload"
+            onContextMenu={e => e.preventDefault()}
           />
         </div>
         {bookmarks.length > 0 && (

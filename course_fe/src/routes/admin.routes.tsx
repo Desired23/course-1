@@ -17,7 +17,7 @@ const StatisticsPage = lazy(() => import('../pages/admin/StatisticsPage').then((
 const PermissionsPage = lazy(() => import('../pages/admin/PermissionsPage').then((module) => ({ default: module.PermissionsPage })))
 const PlatformSettingsPage = lazy(() => import('../pages/admin/PlatformSettingsPage').then((module) => ({ default: module.PlatformSettingsPage })))
 const AdminBlogPostsPage = lazy(() => import('../pages/admin/AdminBlogPostsPage').then((module) => ({ default: module.AdminBlogPostsPage })))
-const AdminForumPage = lazy(() => import('../pages/admin/AdminForumPage').then((module) => ({ default: module.AdminForumPage })))
+const AdminQAPage = lazy(() => import('../pages/admin/AdminQAPage').then((module) => ({ default: module.AdminQAPage })))
 const ReviewManagementPage = lazy(() => import('../pages/admin/ReviewManagementPage').then((module) => ({ default: module.ReviewManagementPage })))
 const ReportManagementPage = lazy(() => import('../pages/admin/ReportManagementPage').then((module) => ({ default: module.ReportManagementPage })))
 const ActivityLogPage = lazy(() => import('../pages/admin/ActivityLogPage').then((module) => ({ default: module.ActivityLogPage })))
@@ -28,8 +28,7 @@ const WebsiteManagementPage = lazy(() => import('../pages/admin/WebsiteManagemen
 const AdminWebsiteSettingsPage = lazy(() => import('../pages/admin/AdminWebsiteSettingsPage').then((module) => ({ default: module.AdminWebsiteSettingsPage })))
 const AdminHomeLayoutPage = lazy(() => import('../pages/admin/AdminHomeLayoutPage').then((module) => ({ default: module.AdminHomeLayoutPage })))
 const AdminDataBackupPage = lazy(() => import('../pages/admin/AdminDataBackupPage').then((module) => ({ default: module.AdminDataBackupPage })))
-const AdminCourseMetadataPage = lazy(() => import('../pages/admin/AdminCourseMetadataPage').then((module) => ({ default: module.AdminCourseMetadataPage })))
-const AdminLearningPathAdvisorPage = lazy(() => import('../pages/admin/AdminLearningPathAdvisorPage').then((module) => ({ default: module.AdminLearningPathAdvisorPage })))
+const AdminImportPage = lazy(() => import('../pages/admin/AdminImportPage').then((module) => ({ default: module.AdminImportPage })))
 
 interface AdminRouteDefinition {
   path: string
@@ -64,7 +63,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/permissions', page: <PermissionsPage /> },
   { path: '/admin/settings', page: <PlatformSettingsPage /> },
   { path: '/admin/blog', page: <AdminBlogPostsPage /> },
-  { path: '/admin/forum', page: <AdminForumPage /> },
+  { path: '/admin/qa', page: <AdminQAPage /> },
   { path: '/admin/reviews', page: <ReviewManagementPage /> },
   { path: '/admin/reports', page: <ReportManagementPage /> },
   { path: '/admin/refunds', page: <PaymentManagementPage /> },
@@ -75,8 +74,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/website-settings', page: <AdminWebsiteSettingsPage /> },
   { path: '/admin/home-layout', page: <AdminHomeLayoutPage /> },
   { path: '/admin/data-backup', page: <AdminDataBackupPage /> },
-  { path: '/admin/catalog-metadata', page: <AdminCourseMetadataPage /> },
-  { path: '/admin/ai-learning-paths', page: <AdminLearningPathAdvisorPage /> },
+  { path: '/admin/import', page: <AdminImportPage /> },
 ]
 
 export const adminRoutes: RouteConfig[] = adminRouteDefinitions.map((route) => ({

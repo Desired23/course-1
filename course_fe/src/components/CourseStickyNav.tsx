@@ -55,7 +55,7 @@ export function CourseStickyNav({
     }
   }, [sidebarCardRef])
 
-  const formatPrice = (value: number) => `VND ${value.toLocaleString('vi-VN')}`
+  const formatPrice = (value: number) => value === 0 ? 'Miễn phí' : `VND ${value.toLocaleString('vi-VN')}`
   const primaryLabel = primaryActionLabel ?? t('course_sticky_nav.buy_now')
 
   return (

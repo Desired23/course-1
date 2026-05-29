@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ArrowRight, CheckCircle, Clock, Heart, Loader2, Play, ShoppingCart, Star, Users } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -63,13 +63,18 @@ export function CourseCard({
 }: CourseCardProps) {
   const { t } = useTranslation()
   const { navigate } = useRouter()
-  const { addToCart, addToCartFromApi, isInCart, isInCartByCourseId } = useCart()
+  const { addToCart, addToCartFromApi, isInCart, isInCartByCourseId, syncCartIfStale } = useCart()
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist()
   const { execute: executeAuth } = useAuthAction()
   const { user, isAuthenticated } = useAuth()
 
   const [isAddingToCart, setIsAddingToCart] = useState(false)
   const [discountExpired, setDiscountExpired] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return
+    void syncCartIfStale(parseInt(user.id, 10))
+  }, [isAuthenticated, syncCartIfStale, user?.id])
 
   const handleDiscountExpire = useCallback(() => {
     setDiscountExpired(true)
@@ -94,10 +99,17 @@ export function CourseCard({
   const displayPrice = discountExpired && originalPrice ? originalPrice : price
   const displayOriginalPrice = discountExpired ? undefined : originalPrice
 
+  const isFree = (() => {
+    const val = typeof displayPrice === "string" ? parseFloat(displayPrice.replace(/[^0-9.]/g, "")) : displayPrice
+    return !val || val <= 0
+  })()
+  const effectiveShowAddToCart = showAddToCart && !isFree
+
   const formattedPrice = formatPrice(displayPrice)
   const formattedOriginalPrice = displayOriginalPrice ? formatPrice(displayOriginalPrice) : undefined
   const formattedStudents = formatStudents(students)
   const showCountdown = !discountExpired && !!discountEndDate && !!originalPrice
+  const numericCourseId = courseId ? courseId.replace("course-", "") : ""
 
   const discountPercent = (() => {
     if (!originalPrice || !showCountdown) return 0
@@ -138,13 +150,13 @@ export function CourseCard({
   }
 
   const handleClick = () => {
-    if (isOwned && courseId) {
-      navigate(`/course-player/${courseId}`)
+    if (isOwned && numericCourseId) {
+      navigate(`/course-player/${numericCourseId}`)
       return
     }
 
-    if (courseId) {
-      navigate(`/course/${courseId.replace("course-", "")}`)
+    if (numericCourseId) {
+      navigate(`/course/${numericCourseId}`)
       return
     }
 
@@ -167,14 +179,14 @@ export function CourseCard({
     setIsAddingToCart(true)
 
     try {
-      const numericCourseId = parseInt(courseId.replace("course-", ""), 10)
+      const parsedCourseId = parseInt(numericCourseId, 10)
 
-      if (isAuthenticated && user?.id && !Number.isNaN(numericCourseId)) {
-        if (isInCartByCourseId(numericCourseId)) {
+      if (isAuthenticated && user?.id && !Number.isNaN(parsedCourseId)) {
+        if (isInCartByCourseId(parsedCourseId)) {
           toast.info(t("course_card.already_in_cart"))
           return
         }
-        await addToCartFromApi(parseInt(user.id, 10), numericCourseId, {})
+        await addToCartFromApi(parseInt(user.id, 10), parsedCourseId, {})
       } else {
         const currentPriceVal =
           typeof price === "string" ? parseFloat(price.replace(/[^0-9.]/g, "")) : price || 0
@@ -190,7 +202,7 @@ export function CourseCard({
 
         addToCart({
           id: courseId,
-          courseId: numericCourseId,
+          courseId: parsedCourseId,
           title,
           instructor,
           image,
@@ -246,7 +258,7 @@ export function CourseCard({
           />
           {isOwned ? renderOwnedBadge() : renderStatusBadges()}
 
-          {!isOwned && showAddToCart && (
+          {!isOwned && effectiveShowAddToCart && (
             <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/60 transition-all duration-300 flex items-center justify-center">
               <Button
                 className="opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 bg-white text-gray-900 hover:bg-gray-100"
@@ -364,7 +376,7 @@ export function CourseCard({
                     {formattedOriginalPrice && <span className="text-sm text-muted-foreground line-through">{formattedOriginalPrice}</span>}
                     {discountPercent > 0 && <span className="text-xs font-bold text-red-600">-{discountPercent}%</span>}
                   </div>
-                  {showAddToCart && (
+                  {effectiveShowAddToCart && (
                     <Button size="sm" onClick={handleAddToCart} disabled={isAddingToCart}>
                       {isAddingToCart ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -407,7 +419,7 @@ export function CourseCard({
         {isOwned ? renderOwnedBadge() : renderStatusBadges()}
         {renderWishlistButton()}
 
-        {!isOwned && showAddToCart && (
+        {!isOwned && effectiveShowAddToCart && (
           <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/60 transition-all duration-300 flex items-center justify-center">
             <div className="opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col gap-2 px-4 w-full">
               <Button

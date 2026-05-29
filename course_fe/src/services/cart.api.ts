@@ -90,6 +90,20 @@ export async function removeFromCart(
   return http.delete<{ message: string }>(`/carts/${cartId}/delete/`)
 }
 
+export interface BulkDeleteCartResponse {
+  message: string
+  deleted_count: number
+  deleted_ids: number[]
+  missing_ids: number[]
+  unauthorized_ids: number[]
+}
+
+export async function bulkDeleteCart(cartIds: number[]): Promise<BulkDeleteCartResponse> {
+  return http.post<BulkDeleteCartResponse>('/carts/bulk-delete/', {
+    cart_ids: cartIds,
+  })
+}
+
 
 
 

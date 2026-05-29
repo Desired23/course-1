@@ -15,6 +15,7 @@ from payments.models import Payment
 from .momo_services import query_momo_refund_status, send_momo_refund_request
 from .services import get_payment_admin_config
 from .vnpay_services import send_vnpay_refund_request
+from utils.admin_actors import resolve_admin_actor, actor_user_id
 
 
 REFUND_PROGRESS_LIMIT = 50
@@ -23,7 +24,7 @@ REFUND_MODE_DIRECT_SYSTEM = "direct_system"
 DELETED_STATUS = "deleted"
 
 DEFAULT_REFUND_SETTINGS = {
-    "refund_mode": REFUND_MODE_ADMIN_APPROVAL,
+    "refund_mode": REFUND_MODE_DIRECT_SYSTEM,
     "refund_retry_cooldown_minutes": 30,
     "refund_max_retry_count": 3,
     "refund_timeout_seconds": 15,
@@ -112,7 +113,7 @@ def _serialize_refund_detail(detail):
         "is_deleted": detail.is_deleted,
         "deleted_at": detail.deleted_at,
         "timeline": detail.refund_timeline or [],
-        "processed_by": detail.processed_by.full_name if detail.processed_by else None,
+        "processed_by": detail.processed_by.user.full_name if detail.processed_by and detail.processed_by.user else None,
     }
 
 def _calculate_refund_amount(payment, detail):
@@ -216,14 +217,16 @@ def _mark_processing(detail, actor, message, settings_value):
     _append_timeline(detail, "gateway_processing", actor=actor, note=message)
 
 
-def _mark_failed(detail, actor, message, response_code=None):
+def _mark_failed(detail, actor, message, response_code=None, retryable=True):
     detail.refund_status = Payment_Details.RefundStatus.FAILED
     detail.refund_response_code = response_code
     detail.last_gateway_error = message
     detail.processing_lock_token = None
+    if not retryable:
+        detail.next_retry_at = None
     if actor.startswith("admin:"):
         detail.processed_by_id = int(actor.split(":")[1])
-    _append_timeline(detail, "gateway_failed", actor=actor, note=message, metadata={"response_code": response_code})
+    _append_timeline(detail, "gateway_failed", actor=actor, note=message, metadata={"response_code": response_code, "retryable": retryable})
 
 
 def _mark_success(detail, actor, message, transaction_id=None, response_code=None):
@@ -263,11 +266,14 @@ def _execute_gateway_refund(detail, actor, settings_value):
     ])
 
     if detail.payment.payment_method == Payment.PaymentMethod.MOMO:
-        result = send_momo_refund_request(
-            detail,
-            reason=detail.refund_reason,
-            timeout_seconds=int(settings_value["refund_timeout_seconds"]),
-        )
+        try:
+            result = send_momo_refund_request(
+                detail,
+                reason=detail.refund_reason,
+                timeout_seconds=int(settings_value["refund_timeout_seconds"]),
+            )
+        except Exception as exc:
+            result = {"status": "failed", "message": str(exc)}
     else:
         result = send_vnpay_refund_request(
             detail,
@@ -288,7 +294,13 @@ def _execute_gateway_refund(detail, actor, settings_value):
         )
         _apply_success_side_effects(detail)
     elif result["status"] == "failed":
-        _mark_failed(detail, actor=actor, message=result["message"], response_code=result.get("response_code"))
+        _mark_failed(
+            detail,
+            actor=actor,
+            message=result["message"],
+            response_code=result.get("response_code"),
+            retryable=result.get("retryable", True),
+        )
     else:
         _mark_processing(detail, actor=actor, message=result["message"], settings_value=settings_value)
 
@@ -316,7 +328,13 @@ def _sync_momo_processing_refund(detail, actor, settings_value):
         )
         _apply_success_side_effects(detail)
     elif result["status"] == "failed":
-        _mark_failed(detail, actor=actor, message=result["message"], response_code=result.get("response_code"))
+        _mark_failed(
+            detail,
+            actor=actor,
+            message=result["message"],
+            response_code=result.get("response_code"),
+            retryable=result.get("retryable", True),
+        )
     else:
         _mark_processing(detail, actor=actor, message=result["message"], settings_value=settings_value)
 
@@ -327,6 +345,13 @@ def _sync_momo_processing_refund(detail, actor, settings_value):
 def _ensure_retryable(detail, settings_value):
     if detail.refund_status not in [Payment_Details.RefundStatus.PROCESSING, Payment_Details.RefundStatus.FAILED]:
         raise ValidationError("Only processing or failed refunds can be retried.")
+    max_retry = int(settings_value.get("refund_max_retry_count", 3))
+    if (detail.gateway_attempt_count or 0) >= max_retry:
+        raise ValidationError(f"Refund đã đạt giới hạn retry tối đa ({max_retry} lần).")
+    if detail.next_retry_at and detail.next_retry_at > timezone.now():
+        wait_secs = int((detail.next_retry_at - timezone.now()).total_seconds()) + 1
+        wait_min = (wait_secs + 59) // 60
+        raise ValidationError(f"Chưa đến thời gian retry. Vui lòng thử lại sau {wait_min} phút.")
 
 
 def _get_details_for_payment(payment_id, payment_details_ids, include_deleted=False):
@@ -422,9 +447,10 @@ def _apply_admin_override(detail, target_status, actor, note):
     detail.save()
 
 
-def admin_refund_action(action, refund_ids, admin_user, note=None, override_status=None):
+def admin_refund_action(action, refund_ids, admin_actor, note=None, override_status=None):
     settings_value = get_refund_settings()
-    actor = f"admin:{admin_user.id}"
+    admin = resolve_admin_actor(admin_actor)
+    actor = f"admin:{admin.id}"
     updated_items = []
     skipped_items = []
     errors = []
@@ -439,17 +465,17 @@ def admin_refund_action(action, refund_ids, admin_user, note=None, override_stat
                     if detail.refund_status != Payment_Details.RefundStatus.PENDING:
                         raise ValidationError("Only pending refunds can be approved.")
                     _append_timeline(detail, "admin_approved", actor=actor, note=note)
-                    _log_refund_activity(admin_user.id, "REFUND_APPROVED", detail, f"Admin approved refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_APPROVED", detail, f"Admin approved refund {detail.id}")
                     detail.save(update_fields=["refund_timeline", "updated_at"])
                     _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
                 elif action == "reject":
                     if detail.refund_status != Payment_Details.RefundStatus.PENDING:
                         raise ValidationError("Only pending refunds can be rejected.")
                     detail.refund_status = Payment_Details.RefundStatus.REJECTED
-                    detail.processed_by = admin_user
+                    detail.processed_by = admin
                     _append_timeline(detail, "admin_rejected", actor=actor, note=note)
                     detail.save()
-                    _log_refund_activity(admin_user.id, "REFUND_REJECTED", detail, f"Admin rejected refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_REJECTED", detail, f"Admin rejected refund {detail.id}")
                 elif action == "retry":
                     _ensure_retryable(detail, settings_value)
                     if detail.payment.payment_method == Payment.PaymentMethod.MOMO and detail.refund_status == Payment_Details.RefundStatus.PROCESSING:
@@ -457,53 +483,53 @@ def admin_refund_action(action, refund_ids, admin_user, note=None, override_stat
                         if sync_result["status"] == "processing":
                             raise ValidationError("Refund MoMo van dang duoc xu ly. Khong nen retry luc nay.")
                         if sync_result["status"] == "success":
-                            _log_refund_activity(admin_user.id, "REFUND_SYNCED", detail, f"Admin synced refund {detail.id} from MoMo query")
+                            _log_refund_activity(actor_user_id(admin_actor), "REFUND_SYNCED", detail, f"Admin synced refund {detail.id} from MoMo query")
                             updated_items.append(_serialize_refund_detail(detail))
                             continue
                     _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
-                    _log_refund_activity(admin_user.id, "REFUND_RETRIED", detail, f"Admin retried refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_RETRIED", detail, f"Admin retried refund {detail.id}")
                 elif action == "sync":
                     if detail.payment.payment_method != Payment.PaymentMethod.MOMO:
                         raise ValidationError("Sync action hien chi ho tro refund MoMo.")
                     if detail.refund_status != Payment_Details.RefundStatus.PROCESSING:
                         raise ValidationError("Chi refund dang processing moi co the sync.")
                     _sync_momo_processing_refund(detail, actor=actor, settings_value=settings_value)
-                    _log_refund_activity(admin_user.id, "REFUND_SYNCED", detail, f"Admin synced refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_SYNCED", detail, f"Admin synced refund {detail.id}")
                 elif action == "cancel":
                     if detail.refund_status not in [Payment_Details.RefundStatus.PENDING, Payment_Details.RefundStatus.PROCESSING]:
                         raise ValidationError("Only pending or processing refunds can be cancelled.")
                     detail.refund_status = Payment_Details.RefundStatus.CANCELLED
                     detail.processing_lock_token = None
                     detail.next_retry_at = None
-                    detail.processed_by = admin_user
+                    detail.processed_by = admin
                     _append_timeline(detail, "admin_cancelled", actor=actor, note=note)
                     detail.save()
-                    _log_refund_activity(admin_user.id, "REFUND_CANCELLED", detail, f"Admin cancelled refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_CANCELLED", detail, f"Admin cancelled refund {detail.id}")
                 elif action == "soft_delete":
                     if not settings_value.get("allow_admin_soft_delete_refund", True):
                         raise ValidationError("Soft delete is disabled by configuration.")
                     detail.is_deleted = True
                     detail.deleted_at = timezone.now()
-                    detail.deleted_by = admin_user
-                    detail.processed_by = admin_user
+                    detail.deleted_by = admin.user
+                    detail.processed_by = admin
                     _append_timeline(detail, "admin_soft_deleted", actor=actor, note=note)
                     detail.save()
-                    _log_refund_activity(admin_user.id, "REFUND_SOFT_DELETED", detail, f"Admin archived refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_SOFT_DELETED", detail, f"Admin archived refund {detail.id}")
                 elif action == "restore":
                     detail.is_deleted = False
                     detail.deleted_at = None
                     detail.deleted_by = None
-                    detail.processed_by = admin_user
+                    detail.processed_by = admin
                     _append_timeline(detail, "admin_restored", actor=actor, note=note)
                     detail.save()
-                    _log_refund_activity(admin_user.id, "REFUND_RESTORED", detail, f"Admin restored refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_RESTORED", detail, f"Admin restored refund {detail.id}")
                 elif action == "add_note":
                     existing = detail.internal_note or ""
                     detail.internal_note = f"{existing}\n[{timezone.now().isoformat()}] {note}".strip()
-                    detail.processed_by = admin_user
+                    detail.processed_by = admin
                     _append_timeline(detail, "admin_note_added", actor=actor, note=note)
                     detail.save()
-                    _log_refund_activity(admin_user.id, "REFUND_NOTE_ADDED", detail, f"Admin added note to refund {detail.id}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_NOTE_ADDED", detail, f"Admin added note to refund {detail.id}")
                 elif action == "override_status":
                     if not settings_value.get("allow_admin_override_refund_status", True):
                         raise ValidationError("Override status is disabled by configuration.")
@@ -515,7 +541,7 @@ def admin_refund_action(action, refund_ids, admin_user, note=None, override_stat
                     ]:
                         raise ValidationError("Unsupported override status.")
                     _apply_admin_override(detail, override_status, actor=actor, note=note)
-                    _log_refund_activity(admin_user.id, "REFUND_STATUS_OVERRIDDEN", detail, f"Admin overrode refund {detail.id} to {override_status}")
+                    _log_refund_activity(actor_user_id(admin_actor), "REFUND_STATUS_OVERRIDDEN", detail, f"Admin overrode refund {detail.id} to {override_status}")
                 else:
                     raise ValidationError("Unsupported refund action.")
 
@@ -565,6 +591,53 @@ def get_refund_details(payment_id, payment_details_ids, user):
     if payment.user != user and getattr(user, "user_type", None) != "admin":
         raise ValidationError("You do not have permission to view this refund details.")
     return [_serialize_refund_detail(detail) for detail in details]
+
+
+def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None):
+    """Admin tạo refund thay cho user, bỏ qua kiểm tra ownership và tự approve."""
+    settings_value = get_refund_settings()
+    actor = f"admin:{admin_user.id}"
+    results = []
+
+    with transaction.atomic():
+        payment, details = _get_details_for_payment(payment_id, payment_details_ids)
+        for detail in details:
+            # Validate business rules (không check user ownership)
+            if payment.payment_type != Payment.PaymentType.COURSE_PURCHASE:
+                raise ValidationError("Chỉ hỗ trợ hoàn tiền cho giao dịch mua khóa học.")
+            if payment.payment_status not in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]:
+                raise ValidationError("Chỉ có thể hoàn tiền cho giao dịch đã hoàn tất.")
+            if detail.is_deleted:
+                raise ValidationError("Chi tiết giao dịch này đã bị lưu trữ.")
+            if detail.refund_request_time or detail.refund_status in [
+                Payment_Details.RefundStatus.PROCESSING,
+                Payment_Details.RefundStatus.SUCCESS,
+                Payment_Details.RefundStatus.REJECTED,
+                Payment_Details.RefundStatus.FAILED,
+                Payment_Details.RefundStatus.CANCELLED,
+            ]:
+                raise ValidationError("Khóa học này đã có yêu cầu hoàn tiền.")
+
+            detail.refund_reason = reason or "Hoàn tiền do admin khởi tạo"
+            detail.refund_request_time = timezone.now()
+            detail.refund_amount = _calculate_refund_amount(payment, detail)
+            detail.last_gateway_error = None
+            detail.processed_by_id = admin_user.id
+            _append_timeline(detail, "refund_requested", actor=actor, note=reason)
+            _append_timeline(detail, "refund_approved", actor=actor, note="Tự động duyệt bởi admin")
+            detail.refund_status = Payment_Details.RefundStatus.APPROVED
+            detail.save()
+
+            # Kích hoạt cổng thanh toán ngay lập tức
+            _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
+
+            _log_refund_activity(
+                admin_user.id, "REFUND_REQUESTED", detail,
+                f"Admin tạo refund cho course {detail.course_id} thuộc payment {payment_id}"
+            )
+            results.append(_serialize_refund_detail(detail))
+
+    return {"message": "Yêu cầu hoàn tiền đã được tạo và gửi đến cổng thanh toán.", "results": results}
 
 
 def get_user_refunds(user, refund_status_filter=None, search=None, date_from=None, date_to=None):

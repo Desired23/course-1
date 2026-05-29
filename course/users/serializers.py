@@ -10,6 +10,22 @@ from .preferences import (
 )
 
 class Userserializers(serializers.ModelSerializer):
+    enrollment_count = serializers.SerializerMethodField()
+    courses_count = serializers.SerializerMethodField()
+
+    def get_enrollment_count(self, obj):
+        if hasattr(obj, 'enrollment_count_db'):
+            return obj.enrollment_count_db
+        return obj.enrollment_user.filter(is_deleted=False).count()
+
+    def get_courses_count(self, obj):
+        instructor = getattr(obj, 'instructor', None)
+        if instructor is None:
+            return None
+        if hasattr(obj, 'courses_count_db'):
+            return obj.courses_count_db
+        return instructor.courses_instructor.filter(is_deleted=False).count()
+
     class Meta:
         model = User
         fields = [
@@ -24,7 +40,9 @@ class Userserializers(serializers.ModelSerializer):
             'created_at',
             'last_login',
             'status',
-            'user_type'
+            'user_type',
+            'enrollment_count',
+            'courses_count',
         ]
         extra_kwargs = {
             'password_hash': {'write_only': True},

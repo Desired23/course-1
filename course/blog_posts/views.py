@@ -22,10 +22,12 @@ class AdminBlogPostView(APIView):
         try:
             if request.query_params.get('blog_post_id'):
                 blog_post_id = request.query_params.get('blog_post_id')
-                blog_post = get_blog_post(blog_post_id)
+                blog_post = get_blog_post(blog_post_id, actor_user=request.user)
                 return Response(blog_post, status=status.HTTP_200_OK)
             else:
                 blog_posts = get_all_blog_posts()
+                if not getattr(request.user, 'admin', None):
+                    blog_posts = blog_posts.filter(author=request.user)
                 return paginate_queryset(blog_posts, request, BlogPostSerializer)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -33,20 +35,20 @@ class AdminBlogPostView(APIView):
     def post(self, request):
         try:
             data = request.data
-            blog_post = create_blog_post(data)
+            blog_post = create_blog_post(data, actor_user=request.user, request=request)
             return Response(blog_post, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     def patch(self, request, blog_post_id):
         try:
             data = request.data
-            blog_post = update_blog_post(blog_post_id, data)
+            blog_post = update_blog_post(blog_post_id, data, actor_user=request.user, request=request)
             return Response(blog_post, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, blog_post_id):
         try:
-            response = delete_blog_post(blog_post_id)
+            response = delete_blog_post(blog_post_id, actor_user=request.user, request=request)
             return Response(response, status=status.HTTP_204_NO_CONTENT)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Instructor
 from users.models import User
 from users.serializers import Userserializers
+from instructor_levels.serializers import InstructorLevelSerializer
 
 class InstructorSerializers(serializers.ModelSerializer):
 
@@ -9,6 +10,7 @@ class InstructorSerializers(serializers.ModelSerializer):
         queryset=User.objects.all(), source='user', write_only=True, required=False
     )
     user = Userserializers(read_only=True)
+    level = InstructorLevelSerializer(read_only=True)
 
     class Meta:
         model = Instructor
@@ -24,7 +26,8 @@ class InstructorSerializers(serializers.ModelSerializer):
             'rating',
             'total_students',
             'total_courses',
-            'payment_info'
+            'payment_info',
+            'level',
         ]
         extra_kwargs = {
             'total_students': {'read_only': True},

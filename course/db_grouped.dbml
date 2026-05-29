@@ -1,0 +1,3 @@
+// Deprecated grouped artifact
+// DBML is now split by business domain under course/dbml_grouped/
+// Source remains course/db_full_nodjango.dbml

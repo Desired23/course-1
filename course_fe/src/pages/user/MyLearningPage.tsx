@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Award, BookOpen, Crown, Loader2, Play } from 'lucide-react'
+import { Award, BookOpen, Crown, Loader2, Map, Play, Sparkles } from 'lucide-react'
 import { motion } from 'motion/react'
 
 import { Button } from "../../components/ui/button"
@@ -14,10 +14,14 @@ import { UserPagination } from '../../components/UserPagination'
 import { getMyEnrollments, type Enrollment, parseProgress } from '../../services/enrollment.api'
 import { formatDuration } from '../../services/course.api'
 import { getMySubscriptionCourses, type PlanCourse, formatPrice as formatSubscriptionPrice } from '../../services/subscription.api'
+import { getLearningPaths } from '../../services/learning-paths.api'
+import type { LearningPathSummary } from '../../services/learning-paths.api'
+import { LearningPathTrackingCard } from '../../components/LearningPathTrackingCard'
+import { openAiLearningPath } from '../../components/AiLearningPathLauncher'
 import { listItemTransition } from '../../lib/motion'
 
 type SortBy = 'recent_access' | 'newest_enrollment' | 'oldest_enrollment' | 'title_asc' | 'progress_desc'
-type LearningTab = 'in-progress' | 'completed' | 'plan-courses' | 'bookmarks'
+type LearningTab = 'all' | 'in-progress' | 'completed' | 'plan-courses' | 'bookmarks' | 'learning-paths'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -45,8 +49,9 @@ export function MyLearningPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
 
-  const [selectedTab, setSelectedTab] = useState<LearningTab>('in-progress')
+  const [selectedTab, setSelectedTab] = useState<LearningTab>('all')
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
+  const [allCourseCount, setAllCourseCount] = useState(0)
   const [inProgressCount, setInProgressCount] = useState(0)
   const [completedCount, setCompletedCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -76,8 +81,13 @@ export function MyLearningPage() {
   const [recentCourses, setRecentCourses] = useState<Enrollment[]>([])
   const [recentCoursesLoading, setRecentCoursesLoading] = useState(true)
 
-  const isCourseTab = selectedTab === 'in-progress' || selectedTab === 'completed'
+  const [learningPaths, setLearningPaths] = useState<LearningPathSummary[]>([])
+  const [learningPathsLoading, setLearningPathsLoading] = useState(false)
+  const [learningPathsLoaded, setLearningPathsLoaded] = useState(false)
+
+  const isCourseTab = selectedTab === 'all' || selectedTab === 'in-progress' || selectedTab === 'completed'
   const isPlanCoursesTab = selectedTab === 'plan-courses'
+  const isLearningPathsTab = selectedTab === 'learning-paths'
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -121,6 +131,32 @@ export function MyLearningPage() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+
+    Promise.all([
+      getMyEnrollments({ page: 1, page_size: 1 }),
+      getMyEnrollments({ page: 1, page_size: 1, status: 'active' }),
+      getMyEnrollments({ page: 1, page_size: 1, status: 'complete' }),
+    ])
+      .then(([allRes, activeRes, completeRes]) => {
+        if (cancelled) return
+        setAllCourseCount(allRes.count || 0)
+        setInProgressCount(activeRes.count || 0)
+        setCompletedCount(completeRes.count || 0)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setAllCourseCount(0)
+        setInProgressCount(0)
+        setCompletedCount(0)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     if (!isCourseTab) {
       setLoading(false)
       return
@@ -130,7 +166,7 @@ export function MyLearningPage() {
     setLoading(true)
     setError(null)
 
-    const statusFilter = selectedTab === 'in-progress' ? 'active' : 'complete'
+    const statusFilter = selectedTab === 'all' ? undefined : selectedTab === 'in-progress' ? 'active' : 'complete'
 
     getMyEnrollments({
       page: currentPage,
@@ -148,7 +184,9 @@ export function MyLearningPage() {
         setEnrollments(listRes.results)
         setTotalCount(listRes.count || 0)
         setTotalPages(listRes.total_pages || 1)
-        if (selectedTab === 'in-progress') {
+        if (selectedTab === 'all') {
+          setAllCourseCount(listRes.count || 0)
+        } else if (selectedTab === 'in-progress') {
           setInProgressCount(listRes.count || 0)
         } else {
           setCompletedCount(listRes.count || 0)
@@ -161,8 +199,9 @@ export function MyLearningPage() {
           setEnrollments([])
           setTotalCount(0)
           setTotalPages(1)
-          if (selectedTab === 'in-progress') setInProgressCount(0)
-          if (selectedTab === 'completed') setCompletedCount(0)
+          if (selectedTab === 'all') setAllCourseCount(0)
+          else if (selectedTab === 'in-progress') setInProgressCount(0)
+          else if (selectedTab === 'completed') setCompletedCount(0)
           setHasLoadedOnce(true)
           return
         }
@@ -211,6 +250,35 @@ export function MyLearningPage() {
       cancelled = true
     }
   }, [isPlanCoursesTab, planCurrentPage, planPageSize, debouncedPlanSearch, t])
+
+  useEffect(() => {
+    if (!isLearningPathsTab || learningPathsLoaded) return
+
+    let cancelled = false
+    setLearningPathsLoading(true)
+
+    getLearningPaths(1, 50)
+      .then((res) => {
+        if (cancelled) return
+        const active = (res.results || []).filter((p) => !p.is_archived)
+        setLearningPaths(active)
+        setLearningPathsLoaded(true)
+        if (active.length === 0) openAiLearningPath()
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLearningPaths([])
+        setLearningPathsLoaded(true)
+        openAiLearningPath()
+      })
+      .finally(() => {
+        if (!cancelled) setLearningPathsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isLearningPathsTab, learningPathsLoaded])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -541,6 +609,16 @@ export function MyLearningPage() {
         <motion.div variants={sectionStagger} initial="hidden" animate="show">
         <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as LearningTab)} className="w-full">
           <TabsList className="relative h-auto w-full justify-start overflow-x-auto p-1">
+            <TabsTrigger value="all" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'all' && (
+                <motion.span
+                  layoutId="my-learning-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10">{t('my_learning.all_courses')} ({allCourseCount})</span>
+            </TabsTrigger>
             <TabsTrigger value="in-progress" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
               {selectedTab === 'in-progress' && (
                 <motion.span
@@ -580,6 +658,19 @@ export function MyLearningPage() {
                 />
               )}
               <span className="relative z-10">{t('my_learning.archived')}</span>
+            </TabsTrigger>
+            <TabsTrigger value="learning-paths" className="relative shrink-0 whitespace-nowrap px-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              {selectedTab === 'learning-paths' && (
+                <motion.span
+                  layoutId="my-learning-tabs-glider"
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-0 rounded-md bg-background shadow-sm"
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <Map className="h-3.5 w-3.5" />
+                Lộ trình của tôi
+              </span>
             </TabsTrigger>
           </TabsList>
 
@@ -657,6 +748,13 @@ export function MyLearningPage() {
             </div>
           )}
 
+          <TabsContent value="all" className="mt-6 md:mt-8">
+            <motion.div variants={fadeInUp} className="space-y-6 md:space-y-8">
+              {renderRecentCourses()}
+              {renderCourseGrid(enrollments)}
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="in-progress" className="mt-6 md:mt-8">
             <motion.div variants={fadeInUp} className="space-y-6 md:space-y-8">
               {renderRecentCourses()}
@@ -676,6 +774,52 @@ export function MyLearningPage() {
             <motion.div variants={fadeInUp} className="text-center py-12 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>{t('my_learning.empty_title')}</p>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="learning-paths" className="mt-6 md:mt-8">
+            <motion.div variants={fadeInUp}>
+              {learningPathsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="overflow-hidden rounded-lg border bg-card p-4 space-y-4">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-2 w-full" />
+                      <div className="grid grid-cols-3 gap-2">
+                        <Skeleton className="h-14 rounded-lg" />
+                        <Skeleton className="h-14 rounded-lg" />
+                        <Skeleton className="h-14 rounded-lg" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : learningPaths.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground space-y-4">
+                  <Map className="h-14 w-14 mx-auto opacity-40" />
+                  <div>
+                    <p className="font-medium text-base">Chưa có lộ trình nào</p>
+                    <p className="text-sm mt-1">Hãy dùng trợ lý AI để tạo lộ trình học phù hợp với bạn</p>
+                  </div>
+                  <Button
+                    onClick={() => openAiLearningPath()}
+                    className="mt-2"
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Tạo lộ trình với AI
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                  {learningPaths.map((path) => (
+                    <LearningPathTrackingCard
+                      key={path.id}
+                      path={path}
+                      onOpenAdvisor={(pathId) => openAiLearningPath(pathId)}
+                    />
+                  ))}
+                </div>
+              )}
             </motion.div>
           </TabsContent>
         </Tabs>

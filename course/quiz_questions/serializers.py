@@ -65,6 +65,8 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
             'memory_limit',
             'allowed_languages',
             'starter_code',
+            'function_name',
+            'require_completion',
             'test_cases',
             'created_at',
             'updated_at'
@@ -115,6 +117,8 @@ class QuizQuestionForStudentSerializer(serializers.ModelSerializer):
             'memory_limit',
             'allowed_languages',
             'starter_code',
+            'function_name',
+            'require_completion',
             'test_cases'
         ]
 

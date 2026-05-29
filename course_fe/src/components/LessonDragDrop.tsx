@@ -166,7 +166,7 @@ export function DraggableLessonCard({
   const canGenerateTranscript = lesson.type === 'video' || lesson.content_type === 'video'
 
   const renderTranscriptBadge = () => {
-    if (!transcriptStatus) return null
+    if (!transcriptStatus || transcriptStatus === 'queued') return null
 
     const tone =
       transcriptStatus === 'published'

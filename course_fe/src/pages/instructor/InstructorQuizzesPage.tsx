@@ -330,6 +330,7 @@ export function InstructorQuizzesPage() {
         explanation: question.explanation,
         order_number: question.order,
         starter_code: question.code || undefined,
+        require_completion: question.requireCompletion ?? false,
       }
 
       let savedQuestion: any

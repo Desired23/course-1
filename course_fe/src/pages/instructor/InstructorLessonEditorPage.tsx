@@ -308,6 +308,26 @@ export function InstructorLessonEditorPage() {
     setEditedLesson({ ...editedLesson, ...updates })
   }
 
+  const handleVideoSave = async (videoData: { videoUrl: string; videoPublicId: string; duration?: number }) => {
+    if (!editedLesson) return
+    try {
+      await updateLessonApi(editedLesson.id, {
+        title: editedLesson.title,
+        description: editedLesson.description,
+        content_type: editedLesson.content_type || editedLesson.type,
+        video_url: videoData.videoUrl,
+        video_public_id: videoData.videoPublicId || undefined,
+        is_free: editedLesson.is_free,
+        status: editedLesson.status,
+        ...(videoData.duration != null ? { duration: Math.round(videoData.duration) } : {}),
+      })
+      setIsDirty(false)
+      setLastSaved(new Date())
+    } catch {
+      toast.error(t('instructor_lesson_editor_page.errors.save_lesson'))
+    }
+  }
+
   const handleNext = () => {
       if (currentStep < steps.length - 1) {
 
@@ -378,7 +398,7 @@ export function InstructorLessonEditorPage() {
             </div>
           )
         }
-        return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} />
+        return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} onSaveVideo={handleVideoSave} />
       case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
       case 3:

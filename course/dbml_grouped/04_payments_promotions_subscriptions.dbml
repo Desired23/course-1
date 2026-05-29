@@ -1,0 +1,217 @@
+// DBML group export excluding Django system tables
+// Generated from Django models and migrations
+// Group file: 04_payments_promotions_subscriptions.dbml
+// NHOM 4: THANH TOAN, KHUYEN MAI, SUBSCRIPTION
+// Only includes intra-group relationships
+
+// Primary tables
+Table Promotions_applicable_courses {
+  id integer [pk, not null]
+  promotion_id integer [not null]
+  course_id integer [not null]
+}
+
+Table Promotions_applicable_categories {
+  id integer [pk, not null]
+  promotion_id integer [not null]
+  category_id integer [not null]
+}
+
+Table Promotions {
+  id integer [pk, not null]
+  code varchar [not null]
+  description varchar
+  discount_type varchar [not null]
+  discount_value decimal [not null]
+  start_date datetime [not null]
+  end_date datetime [not null]
+  usage_limit integer
+  used_count integer [not null]
+  min_purchase decimal [not null]
+  max_discount decimal
+  admin_id integer
+  instructor_id integer
+  status varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table Cart {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer
+  promotion_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table payments {
+  id integer [pk, not null]
+  user_id integer [not null]
+  payment_type varchar [not null]
+  subscription_plan_id integer
+  amount decimal [not null]
+  discount_amount decimal [not null]
+  total_amount decimal [not null]
+  transaction_id varchar
+  payment_date datetime [not null]
+  payment_status varchar [not null]
+  payment_method varchar [not null]
+  promotion_id integer
+  refund_amount decimal [not null]
+  payment_gateway varchar [not null]
+  gateway_response varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+  ipn_attempts integer [not null]
+}
+
+Table payment_details {
+  id integer [pk, not null]
+  payment_id integer [not null]
+  course_id integer [not null]
+  price decimal [not null]
+  discount decimal [not null]
+  final_price decimal [not null]
+  promotion_id integer
+  refund_transaction_id varchar
+  refund_status varchar [not null]
+  refund_request_time datetime
+  refund_response_code varchar
+  refund_amount decimal
+  refund_reason varchar
+  refund_date datetime
+  internal_note varchar
+  gateway_attempt_count integer [not null]
+  last_gateway_attempt_at datetime
+  next_retry_at datetime
+  last_gateway_error varchar
+  processing_lock_token varchar
+  refund_timeline varchar [not null]
+  processed_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  deleted_by_id integer
+  is_deleted boolean [not null]
+}
+
+Table subscription_plans {
+  id integer [pk, not null]
+  name varchar [not null]
+  description varchar
+  price decimal [not null]
+  discount_price decimal
+  duration_type varchar [not null]
+  duration_days integer [not null]
+  status varchar [not null]
+  is_featured boolean [not null]
+  max_subscribers integer
+  instructor_share_percent decimal [not null]
+  yearly_discount_percent decimal [not null]
+  thumbnail varchar
+  features varchar [not null]
+  not_included varchar [not null]
+  badge_text varchar
+  icon varchar
+  highlight_color varchar
+  created_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  deleted_at datetime
+  is_deleted boolean [not null]
+}
+
+Table plan_courses {
+  id integer [pk, not null]
+  plan_id integer [not null]
+  course_id integer [not null]
+  status varchar [not null]
+  added_at datetime [not null]
+  added_by_id integer
+  added_reason varchar
+  removed_at datetime
+  removed_by_id integer
+  scheduled_removal_at datetime
+  is_deleted boolean [not null]
+}
+
+Table user_subscriptions {
+  id integer [pk, not null]
+  user_id integer [not null]
+  plan_id integer [not null]
+  payment_id integer
+  status varchar [not null]
+  start_date datetime [not null]
+  end_date datetime
+  auto_renew boolean [not null]
+  cancelled_at datetime
+  notified_7d boolean [not null]
+  notified_3d boolean [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table course_subscription_consents {
+  id integer [pk, not null]
+  instructor_id integer [not null]
+  course_id integer [not null]
+  consent_status varchar [not null]
+  note varchar
+  consented_at datetime [not null]
+  is_deleted boolean [not null]
+}
+
+Table subscription_usages {
+  id integer [pk, not null]
+  user_subscription_id integer [not null]
+  user_id integer [not null]
+  course_id integer [not null]
+  enrollment_id integer
+  usage_type varchar [not null]
+  usage_date date [not null]
+  access_count integer [not null]
+  consumed_minutes integer [not null]
+  last_accessed_at datetime [not null]
+}
+
+Table UserPaymentMethods {
+  id integer [pk, not null]
+  user_id integer [not null]
+  method_type varchar [not null]
+  is_default boolean [not null]
+  nickname varchar
+  gateway_token varchar
+  masked_account varchar
+  bank_name varchar
+  bank_branch varchar
+  account_number varchar
+  account_name varchar
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  is_deleted boolean [not null]
+  deleted_at datetime
+}
+
+// Relationships
+Ref: Cart.promotion_id > Promotions.id
+Ref: Promotions_applicable_categories.promotion_id > Promotions.id
+Ref: Promotions_applicable_courses.promotion_id > Promotions.id
+Ref: payment_details.payment_id > payments.id
+Ref: payment_details.promotion_id > Promotions.id
+Ref: payments.promotion_id > Promotions.id
+Ref: payments.subscription_plan_id > subscription_plans.id
+Ref: plan_courses.plan_id > subscription_plans.id
+Ref: subscription_usages.user_subscription_id > user_subscriptions.id
+Ref: user_subscriptions.payment_id > payments.id
+Ref: user_subscriptions.plan_id > subscription_plans.id

@@ -46,10 +46,12 @@ import {
 import { toast } from 'sonner'
 import { getAdminPayments, fixPayment } from '../../services/admin.api'
 import type { AdminPayment } from '../../services/admin.api'
-import { adminRefundAction, getPaymentStatus, getAdminRefunds, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
+import { adminRefundAction, adminCreateRefund, getPaymentStatus, getAdminRefunds, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
 import type { AdminRefundItem } from '../../services/payment.api'
 import type { RefundSettings } from '../../services/payment.api'
+import { getInstructorLevels, updateInstructorLevel } from '../../services/instructor-levels.api'
+import type { InstructorLevel } from '../../services/instructor-levels.api'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { UserPagination } from '../../components/UserPagination'
@@ -119,16 +121,6 @@ interface PaymentPolicy {
   updated_at: Date
 }
 
-interface InstructorRate {
-  id: string
-  instructor_id: string
-  instructor_name: string
-  commission_rate: number
-  effective_from: Date
-  effective_to?: Date
-  is_custom: boolean
-  created_by: string
-}
 
 interface DiscountRule {
   id: string
@@ -148,7 +140,7 @@ interface DiscountRule {
   status: 'active' | 'inactive' | 'expired'
 }
 
-type PaymentConfigEditorType = 'policies' | 'instructor-rates' | 'discounts' | 'refund-settings'
+type PaymentConfigEditorType = 'policies' | 'discounts' | 'refund-settings'
 const ITEMS_PER_PAGE = 10
 
 const sectionStagger = {
@@ -180,13 +172,6 @@ function mapPolicies(value: any[]): PaymentPolicy[] {
   }))
 }
 
-function mapInstructorRates(value: any[]): InstructorRate[] {
-  return (value || []).map((item: any) => ({
-    ...item,
-    effective_from: new Date(item.effective_from || Date.now()),
-    effective_to: item.effective_to ? new Date(item.effective_to) : undefined,
-  }))
-}
 
 function mapDiscountRules(value: any[]): DiscountRule[] {
   return (value || []).map((item: any) => ({
@@ -248,7 +233,7 @@ export function PaymentManagementPage() {
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
   const [filteredRefundRequests, setFilteredRefundRequests] = useState<RefundRequest[]>([])
   const [policies, setPolicies] = useState<PaymentPolicy[]>([])
-  const [instructorRates, setInstructorRates] = useState<InstructorRate[]>([])
+  const [instructorLevels, setInstructorLevels] = useState<InstructorLevel[]>([])
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([])
   const [refundSettings, setRefundSettings] = useState<RefundSettings>({
     refund_mode: 'admin_approval',
@@ -293,12 +278,95 @@ export function PaymentManagementPage() {
   const [overrideStatusValue, setOverrideStatusValue] = useState<'success' | 'failed' | 'rejected' | 'cancelled'>('failed')
   const [overrideNoteValue, setOverrideNoteValue] = useState('')
   const [refundsPage, setRefundsPage] = useState(1)
+  // Admin-initiated refund dialog
+  const [adminRefundPayment, setAdminRefundPayment] = useState<FullPayment | null>(null)
+  const [adminRefundLoading, setAdminRefundLoading] = useState(false)
+  const [adminRefundFetchingId, setAdminRefundFetchingId] = useState<number | null>(null)
+  const [adminRefundSelectedIds, setAdminRefundSelectedIds] = useState<number[]>([])
+  const [adminRefundReason, setAdminRefundReason] = useState('')
+  const [adminRefundSubmitting, setAdminRefundSubmitting] = useState(false)
+  // Inline edit instructor commission rates
+  const [editingLevelId, setEditingLevelId] = useState<number | null>(null)
+  const [editLevelValues, setEditLevelValues] = useState<{ commission_rate: string; plan_commission_rate: string }>({ commission_rate: '', plan_commission_rate: '' })
+  const [savingLevelId, setSavingLevelId] = useState<number | null>(null)
 
   const getRefundModeLabel = (mode: RefundSettings['refund_mode']) =>
     t(`payment_management.refunds.settings.mode_options.${mode}`)
 
   const getToggleStatusLabel = (enabled: boolean) =>
     enabled ? t('payment_management.common.enabled') : t('payment_management.common.disabled')
+
+  const openAdminRefundDialog = async (paymentId: number) => {
+    setAdminRefundFetchingId(paymentId)
+    try {
+      const detail = await getPaymentStatus(paymentId)
+      setAdminRefundPayment(detail)
+      setAdminRefundSelectedIds(
+        detail.courses
+          .filter(c => c.refund_eligible !== false && c.payment_detail_id)
+          .map(c => c.payment_detail_id as number)
+      )
+      setAdminRefundReason('')
+    } catch {
+      toast.error('Không thể tải chi tiết giao dịch')
+    } finally {
+      setAdminRefundFetchingId(null)
+    }
+  }
+
+  const submitAdminRefund = async () => {
+    if (!adminRefundPayment) return
+    if (!adminRefundReason.trim()) { toast.error('Vui lòng nhập lý do hoàn tiền'); return }
+    if (adminRefundSelectedIds.length === 0) { toast.error('Chọn ít nhất một khóa học'); return }
+    setAdminRefundSubmitting(true)
+    try {
+      const res = await adminCreateRefund({
+        payment_id: adminRefundPayment.id,
+        payment_details_ids: adminRefundSelectedIds,
+        reason: adminRefundReason.trim(),
+      })
+      const failed = res.results.filter(r => r.status === 'failed')
+      const succeeded = res.results.filter(r => r.status === 'success')
+      if (failed.length === res.results.length) {
+        toast.error(`Hoàn tiền thất bại: ${failed[0]?.last_gateway_error || 'Cổng thanh toán từ chối'}`)
+      } else if (failed.length > 0) {
+        toast.warning(`${succeeded.length}/${res.results.length} khóa hoàn tiền thành công, ${failed.length} thất bại`)
+      } else {
+        toast.success('Đã gửi yêu cầu hoàn tiền đến cổng thanh toán')
+      }
+      setAdminRefundPayment(null)
+      await loadRefundQueue()
+      setActiveTab('refunds')
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể tạo hoàn tiền')
+    } finally {
+      setAdminRefundSubmitting(false)
+    }
+  }
+
+  const startEditLevel = (level: InstructorLevel) => {
+    setEditingLevelId(level.id)
+    setEditLevelValues({ commission_rate: level.commission_rate, plan_commission_rate: level.plan_commission_rate })
+  }
+
+  const cancelEditLevel = () => { setEditingLevelId(null) }
+
+  const saveEditLevel = async (levelId: number) => {
+    setSavingLevelId(levelId)
+    try {
+      const updated = await updateInstructorLevel(levelId, {
+        commission_rate: editLevelValues.commission_rate,
+        plan_commission_rate: editLevelValues.plan_commission_rate,
+      })
+      setInstructorLevels(prev => prev.map(l => l.id === levelId ? updated : l))
+      setEditingLevelId(null)
+      toast.success('Đã cập nhật tỷ lệ hoa hồng')
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể lưu tỷ lệ hoa hồng')
+    } finally {
+      setSavingLevelId(null)
+    }
+  }
 
   const loadRefundQueue = async () => {
     const refunds = await getAdminRefunds({ page: 1, page_size: 200, include_deleted: true })
@@ -329,20 +397,20 @@ export function PaymentManagementPage() {
       }
 
       try {
-        const [policyConfig, rateConfig, discountConfig, refundConfig] = await Promise.all([
+        const [policyConfig, discountConfig, refundConfig, levelsData] = await Promise.all([
           getPaymentAdminConfig<any[]>('policies'),
-          getPaymentAdminConfig<any[]>('instructor-rates'),
           getPaymentAdminConfig<any[]>('discounts'),
           getPaymentAdminConfig<RefundSettings>('refund-settings'),
+          getInstructorLevels(),
         ])
         setPolicies(mapPolicies(policyConfig.value))
-        setInstructorRates(mapInstructorRates(rateConfig.value))
         setDiscountRules(mapDiscountRules(discountConfig.value))
         setRefundSettings(refundConfig.value)
+        setInstructorLevels(levelsData)
       } catch {
         setPolicies([])
-        setInstructorRates([])
         setDiscountRules([])
+        setInstructorLevels([])
       }
     }
     loadData()
@@ -352,10 +420,6 @@ export function PaymentManagementPage() {
     setConfigEditorType(type)
     if (type === 'policies') {
       setConfigEditorValue(stringifyConfig(policies))
-      return
-    }
-    if (type === 'instructor-rates') {
-      setConfigEditorValue(stringifyConfig(instructorRates))
       return
     }
     if (type === 'refund-settings') {
@@ -377,7 +441,6 @@ export function PaymentManagementPage() {
       }
       const response = await updatePaymentAdminConfig(configEditorType, parsed)
       if (configEditorType === 'policies') setPolicies(mapPolicies(response.value))
-      if (configEditorType === 'instructor-rates') setInstructorRates(mapInstructorRates(response.value))
       if (configEditorType === 'discounts') setDiscountRules(mapDiscountRules(response.value))
       if (configEditorType === 'refund-settings') setRefundSettings(response.value)
       toast.success(t('payment_management.config_save_success'))
@@ -999,13 +1062,13 @@ export function PaymentManagementPage() {
                                 {t('payment_management.payments.fix')}
                               </DropdownMenuItem>
                             )}
-                            {payment.payment_status === 'completed' && (
-                              <DropdownMenuItem onClick={() => {
-                                setActiveTab('refunds')
-                                toast.info(t('payment_management.switch_to_refunds_hint'))
-                              }}>
+                            {(payment.payment_status === 'completed' || payment.payment_status === 'refunded') && (
+                              <DropdownMenuItem
+                                disabled={adminRefundFetchingId === payment.payment_id}
+                                onClick={() => void openAdminRefundDialog(payment.payment_id)}
+                              >
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                {t('payment_management.payments.refund')}
+                                {adminRefundFetchingId === payment.payment_id ? 'Đang tải...' : t('payment_management.payments.refund')}
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
@@ -1299,56 +1362,126 @@ export function PaymentManagementPage() {
 
 
         <TabsContent value="instructor-rates" className="space-y-6">
-          <Card className="border-amber-200 bg-amber-50/60">
-            <CardContent className="pt-6 text-sm text-amber-900">
-              {t('payment_management.notices.instructor_rates')}
+          <Card className="border-blue-200 bg-blue-50/60">
+            <CardContent className="pt-6 text-sm text-blue-900">
+              Tỷ lệ hoa hồng được tính tự động dựa theo <strong>cấp độ giảng viên (InstructorLevel)</strong>. Để thay đổi tỷ lệ, hãy chỉnh sửa trực tiếp ở trang <em>Quản lý cấp độ giảng viên</em>.
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>{t('payment_management.instructor_rates.title')}</CardTitle>
-                <Button onClick={() => openConfigEditor('instructor-rates')}>
-                  <Percent className="h-4 w-4 mr-2" />
-                  {t('payment_management.instructor_rates.configure')}
-                </Button>
-              </div>
+              <CardTitle className="flex items-center gap-2">
+                <Percent className="h-5 w-5" />
+                {t('payment_management.instructor_rates.title')}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('payment_management.instructor_rates.table.instructor')}</TableHead>
-                    <TableHead>{t('payment_management.instructor_rates.table.rate')}</TableHead>
-                    <TableHead>{t('payment_management.instructor_rates.table.type')}</TableHead>
-                    <TableHead>{t('payment_management.instructor_rates.table.from')}</TableHead>
-                    <TableHead>{t('payment_management.instructor_rates.table.to')}</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {instructorRates.map((rate) => (
-                    <TableRow key={rate.id}>
-                      <TableCell className="font-medium">{rate.instructor_name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{rate.commission_rate}%</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={rate.is_custom ? 'default' : 'secondary'}>
-                          {rate.is_custom ? t('payment_management.instructor_rates.custom') : t('payment_management.instructor_rates.default')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{rate.effective_from.toLocaleDateString()}</TableCell>
-                      <TableCell>{rate.effective_to?.toLocaleDateString() || t('payment_management.instructor_rates.no_end')}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => openConfigEditor('instructor-rates')}>
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+              {instructorLevels.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">Chưa có cấp độ giảng viên nào.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cấp độ</TableHead>
+                      <TableHead>Hoa hồng khóa học (% nền tảng)</TableHead>
+                      <TableHead>Hoa hồng subscription (% nền tảng)</TableHead>
+                      <TableHead>Học viên tối thiểu</TableHead>
+                      <TableHead>Doanh thu tối thiểu</TableHead>
+                      <TableHead className="text-right">Số GV</TableHead>
+                      <TableHead className="w-[100px]"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {instructorLevels.map((level) => {
+                      const isEditing = editingLevelId === level.id
+                      const isSaving = savingLevelId === level.id
+                      const courseShare = 100 - parseFloat(isEditing ? editLevelValues.commission_rate : level.commission_rate)
+                      const planShare = 100 - parseFloat(isEditing ? editLevelValues.plan_commission_rate : level.plan_commission_rate)
+                      return (
+                        <TableRow key={level.id}>
+                          <TableCell className="font-medium">{level.name}</TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={editLevelValues.commission_rate}
+                                  onChange={e => setEditLevelValues(v => ({ ...v, commission_rate: e.target.value }))}
+                                  className="w-20 h-7 text-sm"
+                                />
+                                <span className="text-xs text-muted-foreground">% nền tảng</span>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="w-fit">
+                                {courseShare.toFixed(0)}% GV / {parseFloat(level.commission_rate).toFixed(0)}% nền tảng
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={editLevelValues.plan_commission_rate}
+                                  onChange={e => setEditLevelValues(v => ({ ...v, plan_commission_rate: e.target.value }))}
+                                  className="w-20 h-7 text-sm"
+                                />
+                                <span className="text-xs text-muted-foreground">% nền tảng</span>
+                              </div>
+                            ) : (
+                              <Badge variant="secondary" className="w-fit">
+                                {planShare.toFixed(0)}% GV / {parseFloat(level.plan_commission_rate).toFixed(0)}% nền tảng
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>{level.min_students.toLocaleString('vi-VN')} học viên</TableCell>
+                          <TableCell>{Number(level.min_revenue).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 })}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="outline">{level.instructor_count} GV</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {isEditing ? (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  className="h-7 px-2"
+                                  onClick={() => void saveEditLevel(level.id)}
+                                  disabled={isSaving}
+                                >
+                                  {isSaving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 px-2"
+                                  onClick={cancelEditLevel}
+                                  disabled={isSaving}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2"
+                                onClick={() => startEditLevel(level)}
+                              >
+                                <Settings className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1631,7 +1764,7 @@ export function PaymentManagementPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 [&>*]:min-w-0">
                 <div>
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.transaction_id')}</Label>
                   <p className="font-mono">{selectedPayment.id}</p>
@@ -1640,14 +1773,14 @@ export function PaymentManagementPage() {
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.status')}</Label>
                   <div className="mt-1">{getStatusBadge(selectedPayment.payment_status)}</div>
                 </div>
-                <div>
+                <div className="overflow-hidden">
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.email')}</Label>
-                  <p>{selectedPayment.user}</p>
+                  <p className="truncate">{selectedPayment.user}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.course')}</Label>
-                  <p>{selectedPayment.courses[0]?.course_title}</p>
-                  <p className="text-sm text-muted-foreground">{t('payment_management.payment_detail.instructor', { name: selectedPayment.courses[0]?.instructor_name })}</p>
+                  <p className="truncate">{selectedPayment.courses[0]?.course_title}</p>
+                  <p className="text-sm text-muted-foreground truncate">{t('payment_management.payment_detail.instructor', { name: selectedPayment.courses[0]?.instructor_name })}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.amount')}</Label>
@@ -1658,13 +1791,13 @@ export function PaymentManagementPage() {
                   <Badge variant="outline">{selectedPayment.payment_method}</Badge>
                 </div>
                 {selectedPayment.transaction_id && (
-                  <div>
+                  <div className="col-span-2 overflow-hidden">
                     <Label className="text-sm font-medium">{t('payment_management.payment_detail.transaction_id')}</Label>
-                    <p className="font-mono text-sm">{selectedPayment.transaction_id}</p>
+                    <p className="font-mono text-sm break-all bg-muted/50 rounded px-2 py-1 mt-1">{selectedPayment.transaction_id}</p>
                   </div>
                 )}
                 <div>
-                    <Label className="text-sm font-medium">{t('payment_management.payment_detail.created_at')}</Label>
+                  <Label className="text-sm font-medium">{t('payment_management.payment_detail.created_at')}</Label>
                   <p>{new Date(selectedPayment.created_at).toLocaleString()}</p>
                 </div>
                 {selectedPayment.payment_date && (
@@ -1867,6 +2000,95 @@ export function PaymentManagementPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Admin create refund dialog */}
+      <Dialog open={!!adminRefundPayment || adminRefundFetchingId !== null} onOpenChange={open => { if (!open) setAdminRefundPayment(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Hoàn tiền cho người dùng</DialogTitle>
+            <DialogDescription>
+              Admin tạo hoàn tiền trực tiếp — sẽ được gửi ngay đến cổng thanh toán.
+            </DialogDescription>
+          </DialogHeader>
+          {adminRefundFetchingId !== null && !adminRefundPayment ? (
+            <div className="flex justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : adminRefundPayment ? (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Giao dịch #{adminRefundPayment.id} — {adminRefundPayment.courses.length} khóa học
+                {adminRefundPayment.courses.every(c => c.refund_eligible === false) && (
+                  <span className="ml-2 text-amber-600 font-medium">— Tất cả khóa học đã được hoàn tiền</span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Chọn khóa học cần hoàn tiền</Label>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {adminRefundPayment.courses.map(course => {
+                    const eligible = course.refund_eligible !== false && !!course.payment_detail_id
+                    const refundStatusLabel: Record<string, string> = {
+                      success: 'Đã hoàn', processing: 'Đang xử lý', approved: 'Đã duyệt',
+                      rejected: 'Từ chối', failed: 'Thất bại', cancelled: 'Đã hủy', pending: 'Chờ xử lý',
+                    }
+                    const statusLabel = !eligible && course.refund_status
+                      ? (refundStatusLabel[course.refund_status] ?? course.refund_status)
+                      : null
+                    return (
+                      <label
+                        key={course.payment_detail_id ?? course.course_id}
+                        className={`flex items-start gap-3 p-2 rounded-md border ${eligible ? 'cursor-pointer hover:bg-muted/50' : 'opacity-50 cursor-not-allowed bg-muted/30'}`}
+                      >
+                        <Checkbox
+                          checked={eligible && adminRefundSelectedIds.includes(course.payment_detail_id!)}
+                          onCheckedChange={checked => {
+                            if (!eligible) return
+                            const id = course.payment_detail_id!
+                            setAdminRefundSelectedIds(prev =>
+                              checked ? [...prev, id] : prev.filter(x => x !== id)
+                            )
+                          }}
+                          disabled={!eligible}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{course.course_title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Giá: {formatCurrency(parseFloat(course.final_price))}
+                            {statusLabel && <span className="ml-2 text-amber-600">• {statusLabel}</span>}
+                          </p>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="admin-refund-reason" className="text-sm font-medium">Lý do hoàn tiền <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="admin-refund-reason"
+                  placeholder="Nhập lý do hoàn tiền..."
+                  value={adminRefundReason}
+                  onChange={e => setAdminRefundReason(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setAdminRefundPayment(null)} disabled={adminRefundSubmitting}>
+                  Hủy
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => void submitAdminRefund()}
+                  disabled={adminRefundSubmitting || adminRefundSelectedIds.length === 0 || !adminRefundReason.trim()}
+                >
+                  {adminRefundSubmitting ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Xác nhận hoàn tiền
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   )
 }

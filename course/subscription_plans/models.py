@@ -1,5 +1,6 @@
 from django.db import models
 from decimal import Decimal
+from admins.models import Admin
 from users.models import User
 from courses.models import Course
 from payments.models import Payment
@@ -67,7 +68,7 @@ class SubscriptionPlan(models.Model):
     )
 
     created_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        Admin, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='created_subscription_plans'
     )
     created_at = models.DateTimeField(auto_now_add=True)
@@ -115,13 +116,13 @@ class PlanCourse(models.Model):
     )
     added_at = models.DateTimeField(auto_now_add=True)
     added_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        Admin, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='added_plan_courses'
     )
     added_reason = models.TextField(blank=True, null=True)
     removed_at = models.DateTimeField(null=True, blank=True)
     removed_by = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True,
+        Admin, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='removed_plan_courses'
     )
     scheduled_removal_at = models.DateTimeField(

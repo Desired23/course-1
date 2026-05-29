@@ -104,6 +104,8 @@ export function VideoPlayerPreview({
             }}
             onError={() => setHasError(true)}
             onLoadedMetadata={() => setHasError(false)}
+            controlsList="nodownload"
+            onContextMenu={e => e.preventDefault()}
           >
             <source src={videoUrl} type="video/mp4" />
             {t('video_player_preview.unsupported_video')}

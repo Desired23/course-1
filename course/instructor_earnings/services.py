@@ -2,8 +2,9 @@ from rest_framework.exceptions import ValidationError
 from .serializers import InstructorEarningSerializer
 from .models import InstructorEarning
 from django.db import transaction
+from django.db.models import Q, Sum
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from instructor_payouts.models import InstructorPayout
 from decimal import Decimal
 from instructor_levels.models import InstructorLevel
@@ -434,3 +435,47 @@ def get_subscription_revenue_breakdown_by_course(instructor_id, search=None, sor
     }
     breakdown_qs = breakdown_qs.order_by(ordering_map.get(sort_by, '-earnings'), 'course_id')
     return breakdown_qs, total_earnings
+
+
+def get_instructor_earnings_by_month(instructor_id, months=12):
+    try:
+        Instructor.objects.get(id=instructor_id)
+    except Instructor.DoesNotExist:
+        raise ValidationError("Khong tim thay giang vien.")
+
+    now = timezone.now()
+    result = []
+    for i in range(months - 1, -1, -1):
+        month_index = now.month - 1 - i
+        year = now.year + (month_index // 12)
+        month = (month_index % 12) + 1
+        first_day = datetime(year, month, 1, tzinfo=dt_timezone.utc)
+        if month == 12:
+            month_end = datetime(year + 1, 1, 1, tzinfo=dt_timezone.utc)
+        else:
+            month_end = datetime(year, month + 1, 1, tzinfo=dt_timezone.utc)
+
+        qs = InstructorEarning.objects.filter(
+            instructor_id=instructor_id,
+            is_deleted=False,
+            earning_date__gte=first_day,
+            earning_date__lt=month_end,
+        )
+        agg = qs.aggregate(
+            retail_amount=Sum('amount', filter=Q(payment__isnull=False)),
+            retail_net=Sum('net_amount', filter=Q(payment__isnull=False)),
+            sub_amount=Sum('amount', filter=Q(user_subscription__isnull=False)),
+            sub_net=Sum('net_amount', filter=Q(user_subscription__isnull=False)),
+        )
+        retail_net = agg['retail_net'] or Decimal('0')
+        sub_net = agg['sub_net'] or Decimal('0')
+        result.append({
+            'date': first_day.strftime('%Y-%m'),
+            'retail_gross': float(agg['retail_amount'] or 0),
+            'retail_net': float(retail_net),
+            'sub_gross': float(agg['sub_amount'] or 0),
+            'sub_net': float(sub_net),
+            'total_net': float(retail_net + sub_net),
+        })
+
+    return result

@@ -117,8 +117,8 @@ function mapApiUser(u: UserItem): User {
     email: u.email,
     roles,
     status: (u.status === 'banned' ? 'banned' : u.status === 'inactive' ? 'pending' : 'active') as 'active' | 'banned' | 'pending',
-    enrollments: 0,
-    coursesCreated: undefined,
+    enrollments: u.enrollment_count ?? 0,
+    coursesCreated: u.courses_count ?? undefined,
     joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
     lastActive: u.last_login ? new Date(u.last_login).toLocaleDateString() : ''
   }

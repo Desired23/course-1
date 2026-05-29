@@ -1,0 +1,41 @@
+// DBML group export excluding Django system tables
+// Generated from Django models and migrations
+// Group file: 08_chatbot_ai_assistant.dbml
+// NHOM 8: CHATBOT VA AI ASSISTANT
+// Only includes intra-group relationships
+
+// Primary tables
+Table PathConversations {
+  id integer [pk, not null]
+  path_id integer [not null]
+  messages varchar [not null]
+  advisor_meta varchar [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table knowledge_assistantconversation {
+  id integer [pk, not null]
+  user_id integer [not null]
+  course_id integer [not null]
+  lesson_id integer
+  title varchar [not null]
+  status varchar [not null]
+  last_message_at datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table knowledge_assistantmessage {
+  id integer [pk, not null]
+  conversation_id integer [not null]
+  role varchar [not null]
+  content varchar [not null]
+  citations_json varchar [not null]
+  retrieval_context_json varchar [not null]
+  token_usage varchar [not null]
+  created_at datetime [not null]
+}
+
+// Relationships
+Ref: knowledge_assistantmessage.conversation_id > knowledge_assistantconversation.id

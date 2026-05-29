@@ -22,7 +22,7 @@ export function PreviewDemo() {
     status: 'published',
     is_free: true,
     description: t('preview_demo.mock.lesson.description'),
-    videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+    videoUrl: 'https://res.cloudinary.com/dqzopvk2t/video/upload/v1780068574/course_lessons/course_sample_lesson.mp4',
     content: `<h2>${t('preview_demo.mock.lesson.content_title')}</h2><p>${t('preview_demo.mock.lesson.content_body')}</p>`,
   }
 

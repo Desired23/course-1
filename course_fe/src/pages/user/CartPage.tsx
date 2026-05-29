@@ -10,9 +10,19 @@ import { useRouter } from '../../components/Router'
 import { useCart } from '../../contexts/CartContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
-import { formatCartPrice } from '../../services/cart.api'
+import { bulkDeleteCart, formatCartPrice } from '../../services/cart.api'
 import { DiscountCountdown } from '../../components/DiscountCountdown'
 import { motion } from 'motion/react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../../components/ui/alert-dialog'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -83,6 +93,8 @@ export function CartPage() {
   const [isApplying, setIsApplying] = useState(false)
   const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false)
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
   const initializedSelectionRef = useRef(false)
   const previousCartItemIdsRef = useRef<Set<string>>(new Set())
 
@@ -184,6 +196,53 @@ export function CartPage() {
     })
   }
 
+  const handleBulkDeleteSelected = async () => {
+    if (selectedItems.length === 0) {
+      toast.error(t('cart.select_at_least_one', 'Vui lòng chọn ít nhất một khóa học để thao tác'))
+      return
+    }
+
+    const deletableIds = selectedItems
+      .map((item) => Number(item.id))
+      .filter((id) => Number.isInteger(id) && id > 0)
+
+    if (deletableIds.length === 0) {
+      toast.error(t('cart.bulk_delete_invalid_selection', 'Không tìm thấy mục hợp lệ để xóa'))
+      return
+    }
+
+    setIsBulkDeleting(true)
+    try {
+      const result = await bulkDeleteCart(deletableIds)
+
+      if (user?.id) {
+        await loadCart(parseInt(user.id))
+      }
+
+      setSelectedItemIds((prev) => {
+        const next = new Set(prev)
+        result.deleted_ids.forEach((id) => next.delete(String(id)))
+        return next
+      })
+
+      if (result.deleted_count > 0) {
+        toast.success(
+          t('cart.bulk_delete_success', 'Đã xóa {{count}} khóa học khỏi giỏ hàng', {
+            count: result.deleted_count,
+          })
+        )
+      } else {
+        toast.info(t('cart.bulk_delete_nothing', 'Không có mục nào được xóa'))
+      }
+    } catch (error: any) {
+      const message = error?.message || t('cart.bulk_delete_failed', 'Xóa nhiều mục thất bại')
+      toast.error(typeof message === 'string' ? message : JSON.stringify(message))
+    } finally {
+      setIsBulkDeleting(false)
+      setIsBulkDeleteDialogOpen(false)
+    }
+  }
+
   const listBottomSpacingClass = isCheckoutExpanded ? 'pb-[32rem] sm:pb-[28rem]' : 'pb-40 sm:pb-44'
 
   if (cartItems.length === 0) {
@@ -232,15 +291,28 @@ export function CartPage() {
           <motion.div className="min-w-0 space-y-6" variants={fadeInUp}>
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
               <span>{cartItems.length} {t('cart.courses_in_cart')}</span>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="cart-select-all"
-                  checked={allSelected}
-                  onCheckedChange={(checked) => toggleSelectAll(Boolean(checked))}
-                />
-                <label htmlFor="cart-select-all" className="cursor-pointer text-sm">
-                  {t('cart.select_all', 'Chọn tất cả')} ({selectedItems.length})
-                </label>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="cart-select-all"
+                    checked={allSelected}
+                    onCheckedChange={(checked) => toggleSelectAll(Boolean(checked))}
+                  />
+                  <label htmlFor="cart-select-all" className="cursor-pointer text-sm">
+                    {t('cart.select_all', 'Chọn tất cả')} ({selectedItems.length})
+                  </label>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={selectedItems.length === 0 || isBulkDeleting}
+                  onClick={() => setIsBulkDeleteDialogOpen(true)}
+                  className="text-destructive hover:text-destructive"
+                >
+                  {isBulkDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+                  {t('cart.bulk_delete_selected', 'Xóa mục đã chọn')}
+                </Button>
               </div>
             </div>
 
@@ -489,6 +561,33 @@ export function CartPage() {
             )}
           </div>
         </motion.div>
+
+        <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('cart.bulk_delete_confirm_title', 'Xóa các khóa học đã chọn?')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('cart.bulk_delete_confirm_description', 'Bạn sắp xóa {{count}} khóa học khỏi giỏ hàng. Hành động này không thể hoàn tác.', {
+                  count: selectedItems.length,
+                })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isBulkDeleting}>{t('common.cancel', 'Hủy')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={isBulkDeleting}
+                onClick={(event) => {
+                  event.preventDefault()
+                  handleBulkDeleteSelected()
+                }}
+              >
+                {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {t('cart.bulk_delete_confirm_action', 'Xóa đã chọn')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </motion.div>
   )

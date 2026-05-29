@@ -18,6 +18,7 @@ from instructors.models import Instructor
 from courses.models import Course
 from coursemodules.models import CourseModule
 from lessons.models import Lesson
+from quiz_questions.models import QuizQuestion, QuizTestCase
 from enrollments.models import Enrollment
 from reviews.models import Review
 from notifications.models import Notification
@@ -62,6 +63,43 @@ AVATARS = [
 
 DEFAULT_PASSWORD = make_password("password123")
 
+CODE_CHALLENGE_TEMPLATES = [
+    {
+        "title": "Sum two integers",
+        "description": "Implement `solve(a, b)` and return the sum of two integers.",
+        "starter_code": "def solve(a, b):\n    # TODO: return the sum\n    pass",
+        "solution": "def solve(a, b):\n    return a + b",
+        "test_cases": [
+            ("1 2", "3", False),
+            ("10 -4", "6", True),
+        ],
+    },
+    {
+        "title": "String length",
+        "description": "Implement `solve(text)` and return the input string length.",
+        "starter_code": "def solve(text):\n    # TODO: return len(text)\n    pass",
+        "solution": "def solve(text):\n    return len(text)",
+        "test_cases": [
+            ("python", "6", False),
+            ("chatgpt", "7", True),
+        ],
+    },
+]
+
+
+def build_code_challenge(seed_value: int):
+    template = CODE_CHALLENGE_TEMPLATES[seed_value % len(CODE_CHALLENGE_TEMPLATES)]
+    return {
+        "question_text": template["title"],
+        "description": template["description"],
+        "starter_code": template["starter_code"],
+        "correct_answer": template["solution"],
+        "time_limit": 120,
+        "memory_limit": 65536,
+        "allowed_languages": [71, 63],
+        "test_cases": template["test_cases"],
+    }
+
 
 class Command(BaseCommand):
     help = "Seed the database with realistic fake data for UI testing."
@@ -80,6 +118,8 @@ class Command(BaseCommand):
             Notification.objects.all().delete()
             Wishlist.objects.all().delete()
             Enrollment.objects.all().delete()
+            QuizTestCase.objects.all().delete()
+            QuizQuestion.objects.all().delete()
             Lesson.objects.all().delete()
             CourseModule.objects.all().delete()
             Course.objects.all().delete()
@@ -421,7 +461,7 @@ class Command(BaseCommand):
                         description=f"Lesson về {mod_title}",
                         content_type=content_type,
                         content=f"<p>Nội dung bài học {l_idx + 1}</p>" if content_type == "text" else "",
-                        video_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ" if content_type == "video" else "",
+                        video_url="https://res.cloudinary.com/dqzopvk2t/video/upload/v1780068574/course_lessons/course_sample_lesson.mp4" if content_type == "video" else "",
                         duration=random.randint(5, 30),
                         is_free=(l_idx == 0),
                         order=l_idx + 1,
@@ -429,6 +469,73 @@ class Command(BaseCommand):
                     )
                     lesson_count += 1
         self.stdout.write(f"  Modules: {module_count}, Lessons: {lesson_count}")
+
+        quiz_question_count = 0
+        quiz_test_case_count = 0
+        quiz_lessons = list(Lesson.objects.filter(content_type="quiz").select_related("coursemodule__course"))
+        for lesson_idx, lesson in enumerate(quiz_lessons):
+            question_count = random.randint(2, 4)
+            for q_idx in range(1, question_count + 1):
+                if (lesson_idx + q_idx) % 3 == 0:
+                    challenge = build_code_challenge(lesson_idx + q_idx + lesson.id)
+                    question = QuizQuestion.objects.create(
+                        lesson=lesson,
+                        difficulty=QuizQuestion.DifficultyLevel.MEDIUM,
+                        question_text=f"{challenge['question_text']} - {lesson.title}",
+                        question_type=QuizQuestion.QuestionType.CODE,
+                        options=None,
+                        correct_answer=challenge["correct_answer"],
+                        points=5,
+                        explanation=f"Code challenge: {challenge['description']}",
+                        order_number=q_idx,
+                        description=challenge["description"],
+                        starter_code=challenge["starter_code"],
+                        time_limit=challenge["time_limit"],
+                        memory_limit=challenge["memory_limit"],
+                        allowed_languages=challenge["allowed_languages"],
+                    )
+                    quiz_question_count += 1
+                    for tc_order, (input_data, expected_output, is_hidden) in enumerate(challenge["test_cases"], 1):
+                        QuizTestCase.objects.create(
+                            question=question,
+                            input_data=input_data,
+                            expected_output=expected_output,
+                            is_hidden=is_hidden,
+                            points=2,
+                            order_number=tc_order,
+                        )
+                        quiz_test_case_count += 1
+                elif (lesson_idx + q_idx) % 2 == 0:
+                    QuizQuestion.objects.create(
+                        lesson=lesson,
+                        difficulty=QuizQuestion.DifficultyLevel.EASY,
+                        question_text=f"True/False {q_idx} for {lesson.title}",
+                        question_type=QuizQuestion.QuestionType.TRUE_FALSE,
+                        options=[{"text": "True"}, {"text": "False"}],
+                        correct_answer="True",
+                        points=2,
+                        explanation="Review the lesson content and validate the statement.",
+                        order_number=q_idx,
+                    )
+                    quiz_question_count += 1
+                else:
+                    QuizQuestion.objects.create(
+                        lesson=lesson,
+                        difficulty=QuizQuestion.DifficultyLevel.EASY,
+                        question_text=f"Multiple choice {q_idx} for {lesson.title}",
+                        question_type=QuizQuestion.QuestionType.MULTIPLE_CHOICE,
+                        options=[
+                            {"text": "Option A", "is_correct": True},
+                            {"text": "Option B", "is_correct": False},
+                            {"text": "Option C", "is_correct": False},
+                        ],
+                        correct_answer="Option A",
+                        points=2,
+                        explanation="Option A is the seeded correct answer.",
+                        order_number=q_idx,
+                    )
+                    quiz_question_count += 1
+        self.stdout.write(f"  QuizQuestions: {quiz_question_count}, QuizTestCases: {quiz_test_case_count}")
 
 
         enrollment_count = 0

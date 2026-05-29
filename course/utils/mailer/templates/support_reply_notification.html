@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Support ticket reply</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+  <h2 style="color: #2563EB;">Ticket #{{ ticket_id }} has a new reply</h2>
+  <p>Hello <strong>{{ user_name }}</strong>,</p>
+  <p>Your ticket <strong>"{{ ticket_subject }}"</strong> has received a support reply:</p>
+  <div style="background: #F3F4F6; border-left: 4px solid #2563EB; padding: 15px; margin: 15px 0; border-radius: 4px;">
+    <p style="margin: 0; color: #374151;">{{ reply_message }}</p>
+  </div>
+  <p>Ticket status: <strong>{{ ticket_status }}</strong></p>
+  <p>Please sign in to view and continue the conversation.</p>
+  <hr>
+  <p style="color: #6B7280; font-size: 12px;">This is an automated email. Please do not reply.</p>
+</body>
+</html>

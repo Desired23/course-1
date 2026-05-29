@@ -18,6 +18,8 @@ class SupportSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            'user',
+            'admin',
             'created_at',
             'updated_at'
         ]

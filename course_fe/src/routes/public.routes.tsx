@@ -13,11 +13,13 @@ const EmailVerificationPage = lazy(() => import('../pages/auth/EmailVerification
 const GoogleCallbackPage = lazy(() => import('../pages/auth/GoogleCallbackPage').then((module) => ({ default: module.GoogleCallbackPage })))
 const UdemyBusinessPage = lazy(() => import('../pages/public/UdemyBusinessPage').then((module) => ({ default: module.UdemyBusinessPage })))
 const TeachOnUdemyPage = lazy(() => import('../pages/public/TeachOnUdemyPage').then((module) => ({ default: module.TeachOnUdemyPage })))
+const CommunityPage = lazy(() => import('../pages/public/CommunityPage').then((module) => ({ default: module.CommunityPage })))
 const BlogPage = lazy(() => import('../pages/public/BlogPage').then((module) => ({ default: module.BlogPage })))
+const BlogCreatePage = lazy(() => import('../pages/public/BlogCreatePage').then((module) => ({ default: module.BlogCreatePage })))
 const BlogPostDetailPage = lazy(() => import('../pages/public/BlogPostDetailPage').then((module) => ({ default: module.BlogPostDetailPage })))
-const ForumPage = lazy(() => import('../pages/public/ForumPage').then((module) => ({ default: module.ForumPage })))
-const ForumTopicDetailPage = lazy(() => import('../pages/public/ForumTopicDetailPage').then((module) => ({ default: module.ForumTopicDetailPage })))
-const QnAPage = lazy(() => import('../pages/public/QnAPage').then((module) => ({ default: module.QnAPage })))
+const QuestionsPage = lazy(() => import('../pages/public/QuestionsPage').then((module) => ({ default: module.QuestionsPage })))
+const QuestionDetailPage = lazy(() => import('../pages/public/QuestionDetailPage').then((module) => ({ default: module.QuestionDetailPage })))
+const AskQuestionPage = lazy(() => import('../pages/public/AskQuestionPage').then((module) => ({ default: module.AskQuestionPage })))
 const CourseReviewsPage = lazy(() => import('../pages/public/CourseReviewsPage').then((module) => ({ default: module.CourseReviewsPage })))
 const CategoryPage = lazy(() => import('../pages/public/CategoryPage'))
 const TopicPage = lazy(() => import('../pages/public/TopicPage'))
@@ -72,16 +74,18 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/instructor/view/:instructorId', element: <InstructorPublicProfilePage />, dynamic: true },
 
 
+  { path: '/community', element: <CommunityPage /> },
+
   { path: '/blog', element: <BlogPage /> },
+  { path: '/blog/create', element: <BlogCreatePage /> },
   { path: '/blog/:slug', element: <BlogPostDetailPage />, dynamic: true },
 
 
-  { path: '/forum', element: <ForumPage /> },
-  { path: '/forum/topic/:id', element: <ForumTopicDetailPage />, dynamic: true },
+  { path: '/qa', element: <QuestionsPage /> },
+  { path: '/qa/ask', element: <AskQuestionPage /> },
+  { path: '/qa/:id', element: <QuestionDetailPage />, dynamic: true },
 
 
-  { path: '/qna/:courseId', element: <QnAPage />, dynamic: true },
-  { path: '/qna', element: <QnAPage /> },
   { path: '/reviews/:courseId', element: <CourseReviewsPage />, dynamic: true },
   { path: '/reviews', element: <CourseReviewsPage /> },
 

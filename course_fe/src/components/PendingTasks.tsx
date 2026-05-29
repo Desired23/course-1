@@ -57,7 +57,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
           description: t('pending_tasks.mock.admin.review_reported_content_description'),
           priority: 'high',
           status: 'in_progress',
-          actionUrl: '/admin/forum',
+          actionUrl: '/admin/qa',
           category: 'Moderation'
         },
         {
@@ -84,15 +84,6 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
 
     if (userRole === 'instructor') {
       return [
-        {
-          id: '6',
-          title: t('pending_tasks.mock.instructor.answer_student_questions_title'),
-          description: t('pending_tasks.mock.instructor.answer_student_questions_description'),
-          priority: 'high',
-          status: 'pending',
-          actionUrl: '/instructor/qna',
-          category: 'Q&A'
-        },
         {
           id: '7',
           title: t('pending_tasks.mock.instructor.update_course_content_title'),

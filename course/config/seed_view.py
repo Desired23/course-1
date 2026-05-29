@@ -41,11 +41,8 @@ from payments.models import Payment
 from wishlists.models import Wishlist
 from carts.models import Cart
 from promotions.models import Promotion
-from qna_answers.models import QnAAnswer
-from qnas.models import QnA
-from forum_comments.models import ForumComment
-from forum_topics.models import ForumTopic
-from forums.models import Forum
+from answers.models import Answer
+from questions.models import Question
 from blog_comments.models import BlogComment
 from blog_posts.models import BlogPost
 from quiz_results.models import QuizResult
@@ -106,11 +103,8 @@ def _run_seed():
         Wishlist.objects.all().delete()
         Cart.objects.all().delete()
         Promotion.objects.all().delete()
-        QnAAnswer.objects.all().delete()
-        QnA.objects.all().delete()
-        ForumComment.objects.all().delete()
-        ForumTopic.objects.all().delete()
-        Forum.objects.all().delete()
+        Answer.objects.all().delete()
+        Question.objects.all().delete()
         BlogComment.objects.all().delete()
         BlogPost.objects.all().delete()
         QuizResult.objects.all().delete()

@@ -36,14 +36,14 @@ class SystemsSettingsView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
     def post(self, request):
         try:
-            settings = create_systems_setting(request.data)
+            settings = create_systems_setting(request.data, admin_actor=request.user.admin)
             return Response(settings, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, setting_id):
         try:
-            updated_settings = update_systems_setting(setting_id, request.data)
+            updated_settings = update_systems_setting(setting_id, request.data, admin_actor=request.user.admin)
             return Response(updated_settings, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

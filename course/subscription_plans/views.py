@@ -87,7 +87,7 @@ class SubscriptionPlanAdminView(APIView):
 
     def post(self, request, plan_id=None):
         try:
-            result = create_subscription_plan(request.data, admin_user=request.user)
+            result = create_subscription_plan(request.data, admin_actor=request.user.admin)
             return Response(result, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -122,7 +122,7 @@ class PlanCourseAdminView(APIView):
                 )
             result = add_course_to_plan(
                 plan_id, course_id,
-                admin_user=request.user,
+                admin_actor=request.user.admin,
                 added_reason=added_reason
             )
             return Response(result, status=status.HTTP_201_CREATED)
@@ -137,7 +137,7 @@ class PlanCourseAdminView(APIView):
                     {"error": "course_id is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            result = remove_course_from_plan(plan_id, course_id, admin_user=request.user)
+            result = remove_course_from_plan(plan_id, course_id, admin_actor=request.user.admin)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -435,7 +435,7 @@ class SchedulePlanCourseRemovalView(APIView):
     def post(self, request, plan_course_id):
         try:
             reason = request.data.get('reason', '')
-            result = schedule_plan_course_removal(plan_course_id, request.user, reason)
+            result = schedule_plan_course_removal(plan_course_id, request.user.admin, reason)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

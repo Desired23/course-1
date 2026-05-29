@@ -4,4 +4,4 @@ class SupportReplySerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportReply
         fields = ['id', 'support', 'user', 'admin', 'message', 'created_at']
-        read_only_fields = ['id', 'created_at']                                                     
+        read_only_fields = ['id', 'user', 'admin', 'created_at']

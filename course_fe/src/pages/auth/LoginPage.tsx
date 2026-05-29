@@ -36,6 +36,26 @@ const fadeInUp = {
   },
 }
 
+const blockedRedirectPaths = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/email-verification',
+  '/auth/google/callback',
+  '/google-callback',
+]
+
+function getSafeRedirectTarget(search: string) {
+  const redirect = new URLSearchParams(search).get('redirect')
+  if (!redirect || !redirect.startsWith('/') || redirect.startsWith('//')) return '/'
+
+  const path = redirect.split('?')[0]
+  if (blockedRedirectPaths.includes(path)) return '/'
+
+  return redirect
+}
+
 export function LoginPage() {
   const { t } = useTranslation()
   const [showPassword, setShowPassword] = useState(false)
@@ -47,6 +67,7 @@ export function LoginPage() {
 
   const { navigate } = useRouter()
   const { login, error: authError, clearError } = useAuth()
+  const redirectTarget = getSafeRedirectTarget(window.location.search)
 
   useEffect(() => {
     debugGoogleOAuthConfig()
@@ -83,7 +104,7 @@ export function LoginPage() {
       if (success) {
         localStorage.setItem('remember_me', String(rememberMe))
         toast.success(t('auth.login_success'))
-        navigate('/')
+        navigate(redirectTarget)
       } else {
         toast.error(useAuthStore.getState().error || t('auth.error_occurred'))
       }
@@ -260,6 +281,7 @@ export function LoginPage() {
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
             className="w-full"
+            redirectTo={redirectTarget}
           />
 
           <Button variant="outline" className="w-full h-10 bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-200 transition-colors">

@@ -18,7 +18,8 @@ import { Textarea } from '../../components/ui/textarea'
 import { Label } from '../../components/ui/label'
 import { toast } from 'sonner'
 import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
-import { getAllLessons, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
+import { getAllLessons, getLessonById, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
+import { getLessonQuiz } from "../../services/quiz-questions.api"
 import { getCourseById } from "../../services/course.api"
 import { generateLessonTranscript } from "../../services/transcript.api"
 import { useAuthStore } from "../../stores/auth.store"
@@ -632,7 +633,44 @@ export function InstructorLessonsPageNew() {
     }
   }, [setSections, t])
 
-  const handlePreviewLesson = (lesson: any) => {
+  const handlePreviewLesson = async (lesson: any) => {
+    const type = lesson.content_type || lesson.type
+    if (type === 'code') {
+      try {
+        const lessonQuiz = await getLessonQuiz(lesson.id)
+        const codeQuestion = lessonQuiz.questions.find((q: any) => q.question_type === 'code')
+        if (codeQuestion) {
+          setPreviewLesson({
+            ...lesson,
+            quizData: {
+              functionName: codeQuestion.function_name || undefined,
+              starterCode: codeQuestion.starter_code
+                ? { javascript: codeQuestion.starter_code, 63: codeQuestion.starter_code }
+                : undefined,
+              testCases: (codeQuestion.test_cases || []).map((tc: any) => ({
+                id: tc.id,
+                input: tc.input_data,
+                expectedOutput: tc.expected_output || '',
+                isHidden: tc.is_hidden,
+              })),
+            },
+          })
+          return
+        }
+      } catch (e) {
+        // getLessonQuiz failed — fallback to lesson.content (JSON-serialized quizData)
+        try {
+          const fullLesson = await getLessonById(lesson.id)
+          if (fullLesson.content) {
+            const quizData = JSON.parse(fullLesson.content)
+            setPreviewLesson({ ...lesson, quizData })
+            return
+          }
+        } catch (e2) {
+          console.error('Failed to load lesson content for preview', e2)
+        }
+      }
+    }
     setPreviewLesson(lesson)
   }
 

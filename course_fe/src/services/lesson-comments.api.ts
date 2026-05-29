@@ -16,6 +16,8 @@ import { http } from './http'
 export interface LessonComment {
   id: number
   user: number
+  user_full_name: string
+  user_avatar: string | null
   lesson: number
   parent_comment: number | null
   content: string
@@ -89,7 +91,7 @@ export async function getLessonCommentReplies(
   commentId: number,
   params?: { page?: number; page_size?: number }
 ): Promise<PaginatedResponse<LessonComment>> {
-  const q: Record<string, string | number> = { replies: 1 }
+  const q: Record<string, string | number> = { replies: 'true' }
   if (params?.page) q.page = params.page
   if (params?.page_size) q.page_size = params.page_size
   return http.get<PaginatedResponse<LessonComment>>(`/comments/${commentId}`, q)

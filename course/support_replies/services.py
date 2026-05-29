@@ -1,32 +1,99 @@
 from rest_framework.exceptions import ValidationError
 from .models import SupportReply
 from .serializers import SupportReplySerializer
+from supports.models import Support
+import logging
 
 
-def create_support_reply(data):
+logger = logging.getLogger(__name__)
+
+
+def _is_admin(user):
+    return bool(getattr(user, 'admin', None))
+
+
+def _assert_reply_access(reply, actor):
+    if _is_admin(actor) or reply.user_id == actor.id or reply.support.user_id == actor.id:
+        return
+    raise ValidationError({"error": "Bạn không có quyền truy cập phản hồi này."})
+
+
+def _assert_support_access(support, actor):
+    if _is_admin(actor) or support.user_id == actor.id:
+        return
+    raise ValidationError({"error": "Bạn không có quyền truy cập ticket này."})
+
+
+def create_support_reply(data, actor):
     try:
-        serializer = SupportReplySerializer(data=data)
+        support_id = data.get('support')
+        if not support_id:
+            raise ValidationError({"error": "support is required."})
+        support = Support.objects.get(id=support_id)
+        _assert_support_access(support, actor)
+        payload = dict(data)
+        payload.pop('user', None)
+        payload.pop('admin', None)
+        serializer = SupportReplySerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
-            support_reply = serializer.save()
-            return support_reply
+            save_kwargs = {'user': actor}
+            if _is_admin(actor):
+                save_kwargs['admin'] = actor.admin
+            support_reply = serializer.save(**save_kwargs)
+            _send_admin_reply_notification(support_reply)
+            return SupportReplySerializer(support_reply).data
+    except Support.DoesNotExist:
+        raise ValidationError({"error": "Support request not found."})
     except ValidationError as e:
         raise ValidationError({"error": "Invalid data provided.", "details": e.detail})
-def get_support_replies(support_id):
+
+
+def _send_admin_reply_notification(reply):
+    if not reply.admin_id:
+        return
+    ticket = reply.support
+    recipient = ticket.user
+    if not recipient or not recipient.email:
+        return
     try:
+        from utils.mailer.mailer import send_email
+
+        send_email(
+            subject=f'[Ticket #{ticket.id}] Support reply: {ticket.subject}',
+            to=recipient.email,
+            template_name='support_reply_notification.html',
+            context={
+                'ticket_id': ticket.id,
+                'user_name': recipient.full_name or recipient.email,
+                'ticket_subject': ticket.subject,
+                'reply_message': reply.message,
+                'ticket_status': ticket.status,
+            },
+        )
+    except Exception as exc:
+        logger.warning('Failed to send support reply notification: %s', exc)
+
+
+def get_support_replies(support_id, actor):
+    try:
+        support = Support.objects.get(id=support_id)
+        _assert_support_access(support, actor)
         replies = SupportReply.objects.filter(support=support_id)
         return replies
-    except SupportReply.DoesNotExist:
+    except Support.DoesNotExist:
         raise ValidationError({"error": "Support request not found."})
-def get_support_reply_by_id(reply_id):
+def get_support_reply_by_id(reply_id, actor):
     try:
         reply = SupportReply.objects.get(id=reply_id)
+        _assert_reply_access(reply, actor)
         serializer = SupportReplySerializer(reply)
         return serializer.data
     except SupportReply.DoesNotExist:
         raise ValidationError({"error": "Support reply not found."})
-def delete_support_reply(reply_id):
+def delete_support_reply(reply_id, actor):
     try:
         reply = SupportReply.objects.get(id=reply_id)
+        _assert_reply_access(reply, actor)
         reply.delete()
         return {"message": "Support reply deleted successfully."}
     except SupportReply.DoesNotExist:

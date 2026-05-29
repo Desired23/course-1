@@ -2,6 +2,7 @@ import json
 import math
 import re
 import time
+import unicodedata
 from abc import ABC, abstractmethod
 
 try:
@@ -44,6 +45,16 @@ NEGATIVE_SKILL_PATTERNS = {
     ],
 }
 
+KNOWN_SKILL_CONTEXT_PATTERNS = [
+    r"\b(toi|m[ìi]nh|em|i)\s+(da\s+)?biet\b",
+    r"\bco\s+kinh\s*nghiem\b",
+    r"\bco\s+nen\s*tang\b",
+    r"\bused\b",
+    r"\balready\s+know\b",
+    r"\bexperience\s+with\b",
+    r"\bfamiliar\s+with\b",
+]
+
 MINIMAL_MODE_PATTERNS = [
     "toi thieu",
     "tối thiểu",
@@ -56,10 +67,13 @@ MINIMAL_MODE_PATTERNS = [
 ]
 
 COURSE_SEARCH_PATTERNS = [
-    r"tim\s*(khoa|khóa)\s*hoc",
-    r"goi\s*y.*(khoa|khóa)\s*hoc",
-    r"de\s*xuat.*(khoa|khóa)\s*hoc",
-    r"khoa\s*hoc\s*phu\s*hop",
+    r"\btim\b(?:\s+\w+){0,4}\s+khoa\s*hoc\b",
+    r"\bgoi\s*y\b(?:\s+\w+){0,4}\s+khoa\s*hoc\b",
+    r"\bde\s*xuat\b(?:\s+\w+){0,4}\s+khoa\s*hoc\b",
+    r"\bkhoa\s*hoc\s*phu\s*hop\b",
+    r"\bkhoa\s*hoc\s*nao\b",
+    r"\bkhoa\s*hoc\s*co\b",
+    r"course\s*recommend",
     r"recommend\s*course",
     r"find\s*course",
     r"search\s*course",
@@ -118,7 +132,7 @@ Rules:
 - If the user asks something outside learning/course scope, do not answer that topic directly.
 - In that case, return type=question and redirect politely to supported scope (course recommendations and learning paths).
 
-Formatting requirements for `type=path`:
+Formatting requirements for `type=path` (apply only when user explicitly asks for roadmap/learning path output):
 - Keep response language aligned with user language (Vietnamese if user writes Vietnamese).
 - `summary` must be structured and concise, and include a markdown roadmap table.
 - The table must contain at least these columns:
@@ -161,6 +175,12 @@ def build_combined_text(goal_text, messages):
             add_part(message.get("content", ""))
 
     return " ".join(merged_parts).lower()
+
+
+def normalize_intent_text(value):
+    normalized = unicodedata.normalize("NFKD", value or "")
+    stripped = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    return re.sub(r"\s+", " ", stripped).strip().lower()
 
 
 def _trim_history_messages(messages, max_messages=MAX_GEMINI_HISTORY_MESSAGES):
@@ -223,11 +243,13 @@ def _compact_catalog_snapshot(catalog_snapshot, goal_text, messages, limit=MAX_G
 def normalize_known_skills(goal_text, messages, known_skills):
     explicit_skills = {skill.strip().lower() for skill in (known_skills or []) if skill and skill.strip()}
     detected = set(explicit_skills)
-    combined_text = build_combined_text(goal_text, messages)
+    combined_text = normalize_intent_text(build_combined_text(goal_text, messages))
+    has_known_context = any(re.search(pattern, combined_text) for pattern in KNOWN_SKILL_CONTEXT_PATTERNS)
 
-    for skill, patterns in SKILL_PATTERNS.items():
-        if any(re.search(pattern, combined_text) for pattern in patterns):
-            detected.add(skill)
+    if has_known_context:
+        for skill, patterns in SKILL_PATTERNS.items():
+            if any(re.search(pattern, combined_text) for pattern in patterns):
+                detected.add(skill)
 
     for skill, patterns in NEGATIVE_SKILL_PATTERNS.items():
         if skill in explicit_skills:
@@ -256,20 +278,41 @@ def detect_minimal_mode(goal_text, messages):
 
 
 def detect_course_search_mode(goal_text, messages):
-    combined_text = build_combined_text(goal_text, messages)
+    combined_text = normalize_intent_text(build_combined_text(goal_text, messages))
     latest_user_message = ""
     for message in reversed(messages or []):
         if isinstance(message, dict) and message.get("role") == "user":
-            latest_user_message = (message.get("content") or "").lower()
+            latest_user_message = normalize_intent_text(message.get("content") or "")
             break
 
-    explicit_search_only = re.search(r"(chi|chỉ)\s+(tim|tìm|goi\s*y|gợi\s*ý)\s*(khoa|khóa)\s*hoc", combined_text)
-    explicit_roadmap_only = re.search(r"(chi|chỉ)\s+(muon|muốn|can|cần)?\s*(lo\s*trinh|roadmap|learning\s*path)", combined_text)
+    explicit_search_only = re.search(r"\bchi\b\s+(tim|goi\s*y|de\s*xuat)(?:\s+\w+){0,4}\s+khoa\s*hoc\b", combined_text)
+    explicit_roadmap_only = re.search(r"\bchi\b\s+(muon|can)?\s*(lo\s*trinh|roadmap|learning\s*path)\b", combined_text)
 
-    search_hit = any(re.search(pattern, combined_text) for pattern in COURSE_SEARCH_PATTERNS)
-    roadmap_hit = any(re.search(pattern, combined_text) for pattern in ROADMAP_PATTERNS)
-    latest_search_hit = any(re.search(pattern, latest_user_message) for pattern in COURSE_SEARCH_PATTERNS)
-    latest_roadmap_hit = any(re.search(pattern, latest_user_message) for pattern in ROADMAP_PATTERNS)
+    search_matches = [
+        match
+        for pattern in COURSE_SEARCH_PATTERNS
+        for match in re.finditer(pattern, combined_text)
+    ]
+    roadmap_matches = [
+        match
+        for pattern in ROADMAP_PATTERNS
+        for match in re.finditer(pattern, combined_text)
+    ]
+    latest_search_matches = [
+        match
+        for pattern in COURSE_SEARCH_PATTERNS
+        for match in re.finditer(pattern, latest_user_message)
+    ]
+    latest_roadmap_matches = [
+        match
+        for pattern in ROADMAP_PATTERNS
+        for match in re.finditer(pattern, latest_user_message)
+    ]
+
+    search_hit = bool(search_matches)
+    roadmap_hit = bool(roadmap_matches)
+    latest_search_hit = bool(latest_search_matches)
+    latest_roadmap_hit = bool(latest_roadmap_matches)
 
     if explicit_search_only:
         return True
@@ -277,9 +320,39 @@ def detect_course_search_mode(goal_text, messages):
         return False
     if latest_search_hit and not latest_roadmap_hit:
         return True
+    if latest_roadmap_hit and not latest_search_hit:
+        return False
     if latest_search_hit and latest_roadmap_hit:
-
         return True
+    if search_hit and roadmap_hit:
+        return True
+    return bool(search_hit and not roadmap_hit)
+
+
+def detect_explicit_course_search_only(goal_text, messages):
+    combined_text = normalize_intent_text(build_combined_text(goal_text, messages))
+    latest_user_message = ""
+    for message in reversed(messages or []):
+        if isinstance(message, dict) and message.get("role") == "user":
+            latest_user_message = normalize_intent_text(message.get("content") or "")
+            break
+
+    explicit_search_only = re.search(r"\bchi\b\s+(tim|goi\s*y|de\s*xuat)(?:\s+\w+){0,4}\s+khoa\s*hoc\b", combined_text)
+    explicit_roadmap_only = re.search(r"\bchi\b\s+(muon|can)?\s*(lo\s*trinh|roadmap|learning\s*path)\b", combined_text)
+
+    latest_search_hit = any(re.search(pattern, latest_user_message) for pattern in COURSE_SEARCH_PATTERNS)
+    latest_roadmap_hit = any(re.search(pattern, latest_user_message) for pattern in ROADMAP_PATTERNS)
+    search_hit = any(re.search(pattern, combined_text) for pattern in COURSE_SEARCH_PATTERNS)
+    roadmap_hit = any(re.search(pattern, combined_text) for pattern in ROADMAP_PATTERNS)
+
+    if explicit_roadmap_only:
+        return False
+    if explicit_search_only:
+        return True
+    if latest_search_hit and not latest_roadmap_hit:
+        return True
+    if latest_roadmap_hit:
+        return False
     return bool(search_hit and not roadmap_hit)
 
 
@@ -495,6 +568,20 @@ class RuleBasedAdvisorProvider(AdvisorProvider):
                 details.append(f"{duration}h")
             if skills:
                 details.append(f"skills: {skills}")
+            if course.get("has_coding_exercises"):
+                details.append("co bai code")
+            lesson_count_by_type = course.get("lesson_count_by_type") or {}
+            quiz_count = course.get("total_quizzes") or 0
+            if lesson_count_by_type:
+                detail_parts = []
+                for lesson_type in ("video", "code", "assignment", "quiz", "text"):
+                    count = lesson_count_by_type.get(lesson_type)
+                    if count:
+                        detail_parts.append(f"{lesson_type}:{count}")
+                if detail_parts:
+                    details.append("noi dung " + ", ".join(detail_parts))
+            if quiz_count:
+                details.append(f"quiz:{quiz_count}")
             lines.append(f"{idx}. {course.get('title')} (id {course.get('course_id')}) - {' | '.join(details)}")
 
         lines.append("Nếu bạn muốn, mình có thể tạo luôn lộ trình học từ những khóa học này.")
@@ -554,6 +641,8 @@ class RuleBasedAdvisorProvider(AdvisorProvider):
                     " ".join(course.get("tags", []) or []),
                     course.get("category_name", "") or "",
                     course.get("subcategory_name", "") or "",
+                    " ".join((course.get("lesson_count_by_type") or {}).keys()),
+                    "code" if course.get("has_coding_exercises") else "",
                 ]
             ).lower()
             haystack_tokens = tokenize_text(haystack)
@@ -574,7 +663,7 @@ class RuleBasedAdvisorProvider(AdvisorProvider):
                 }
             )
 
-        ranked.sort(key=lambda item: (item["_level_rank"], -item["_score"], item.get("title", "")))
+        ranked.sort(key=lambda item: (-item["_score"], item["_level_rank"], item.get("title", "")))
         return ranked
 
     def _select_courses(self, ranked_courses, known_skill_set, minimal_mode):
@@ -635,6 +724,19 @@ class RuleBasedAdvisorProvider(AdvisorProvider):
                 reason_parts.append(f"Khóa này nối tốt với prerequisite {', '.join(course['prerequisites'][:2])}.")
             if course.get("skills_taught"):
                 reason_parts.append(f"Kỹ năng đầu ra chính là {', '.join(course['skills_taught'][:2])}.")
+            lesson_count_by_type = course.get("lesson_count_by_type") or {}
+            if lesson_count_by_type:
+                lesson_parts = []
+                for lesson_type in ("video", "code", "assignment", "quiz", "text"):
+                    count = lesson_count_by_type.get(lesson_type)
+                    if count:
+                        lesson_parts.append(f"{count} {lesson_type}")
+                if lesson_parts:
+                    reason_parts.append(f"Nội dung gồm {', '.join(lesson_parts)}.")
+            if course.get("total_quizzes"):
+                reason_parts.append(f"Khóa có {course.get('total_quizzes')} bài quiz để luyện tập.")
+            if course.get("has_coding_exercises"):
+                reason_parts.append("Có bài code thực hành theo từng chặng học.")
             if not reason_parts:
                 reason_parts.append("Khóa này phù hợp với mục tiêu và đúng thứ tự trong lộ trình hiện tại.")
 

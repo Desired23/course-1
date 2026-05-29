@@ -5,12 +5,21 @@ import { markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead } f
 import { useAuth } from "../contexts/AuthContext"
 import { useNotifications } from "../contexts/NotificationContext"
 import { useTranslation } from "react-i18next"
+import { cn } from "./ui/utils"
 
 interface NotificationSidebarProps {
   onHover?: (isHovered: boolean) => void
+  buttonClassName?: string
+  viewAllPath?: string | null
+  settingsPath?: string | null
 }
 
-export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
+export function NotificationSidebar({
+  onHover,
+  buttonClassName,
+  viewAllPath = '/notifications',
+  settingsPath = '/notifications/settings',
+}: NotificationSidebarProps) {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -57,6 +66,19 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
       setIsOpen(false)
       onHover?.(false)
     }, 300)
+  }
+
+  const handleBellClick = () => {
+    if (viewAllPath) {
+      navigate(viewAllPath)
+      return
+    }
+
+    setIsOpen(open => {
+      const nextOpen = !open
+      onHover?.(nextOpen)
+      return nextOpen
+    })
   }
 
 
@@ -136,8 +158,8 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
     >
 
       <button
-        className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-        onClick={() => navigate('/notifications')}
+        className={cn("relative p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors", buttonClassName)}
+        onClick={handleBellClick}
       >
         <Bell className="w-5 h-5" />
         {unreadCount > 0 && (
@@ -163,16 +185,18 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
                 )}
               </h3>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => {
-                    navigate('/notifications/settings')
-                    setIsOpen(false)
-                  }}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                  title={t('notification_sidebar.settings')}
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
+                {settingsPath && (
+                  <button
+                    onClick={() => {
+                      navigate(settingsPath)
+                      setIsOpen(false)
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title={t('notification_sidebar.settings')}
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   onClick={() => setIsOpen(false)}
                   className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -273,11 +297,11 @@ export function NotificationSidebar({ onHover }: NotificationSidebarProps) {
           </div>
 
 
-          {notifications.length > 0 && (
+          {notifications.length > 0 && viewAllPath && (
             <div className="p-3 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => {
-                  navigate('/notifications')
+                  navigate(viewAllPath)
                   setIsOpen(false)
                 }}
                 className="w-full text-sm text-center text-primary hover:underline"

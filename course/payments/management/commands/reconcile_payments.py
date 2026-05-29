@@ -3,6 +3,7 @@ from django.utils import timezone
 from payments.models import Payment
 from payment_details.models import Payment_Details
 from enrollments.models import Enrollment
+from enrollments.services import create_enrollment
 from decimal import Decimal
 
 class Command(BaseCommand):
@@ -52,9 +53,12 @@ class Command(BaseCommand):
                     problems += 1
                     msg = f"User {payment.user.id} not enrolled in course {course.id} for payment {payment.id}"
                     if fix:
-                        Enrollment.objects.create(
-                            user=payment.user, course=course, status=Enrollment.Status.Active
-                        )
+                        create_enrollment({
+                            "user_id": payment.user_id,
+                            "course_id": course.id,
+                            "payment": payment.id,
+                            "source": Enrollment.Source.PURCHASE,
+                        })
                         msg = msg + " (enrollment created)"
                     self.stdout.write(self.style.ERROR(msg))
         if problems == 0:

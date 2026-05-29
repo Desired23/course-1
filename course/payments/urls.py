@@ -4,7 +4,7 @@ from .views import (
     CreatePaymentRecordView, VnpayIPNView, PaymentStatusView,
     CheckEnrollmentView, AdminRefundUpdateView, UserRefundListView,
     UserPaymentListView, AdminPaymentFixView, AdminPaymentListView, AdminPaymentConfigView,
-    AdminRefundActionView,
+    AdminRefundActionView, AdminCreateRefundView,
     CreateMomoPaymentView, MomoIPNView, MomoPaymentReturnView,
 )
 
@@ -23,6 +23,7 @@ urlpatterns = [
     path('payments/check-enrollment/<int:course_id>/', CheckEnrollmentView.as_view(), name='check-enrollment'),
     path('payments/refund/admin/', AdminRefundUpdateView.as_view(), name='admin-refund-update'),
     path('payments/refund/admin/action/', AdminRefundActionView.as_view(), name='admin-refund-action'),
+    path('payments/refund/admin/create/', AdminCreateRefundView.as_view(), name='admin-create-refund'),
 
 
     path('payments/my/', UserPaymentListView.as_view(), name='user-payment-list'),

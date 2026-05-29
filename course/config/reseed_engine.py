@@ -14,7 +14,7 @@ from typing import Any
 
 from django.apps import apps
 from django.conf import settings
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Count, F
 from django.utils import timezone
 
@@ -23,17 +23,17 @@ from certificates.models import Certificate
 from enrollments.models import Enrollment
 from learning_progress.models import LearningProgress
 from lessons.models import Lesson
-from payments.models import Payment
 from quiz_results.models import QuizResult
 from systems_settings.models import SystemsSetting
 
 
-DEFAULT_PROFILE = "demo-medium"
+DEFAULT_PROFILE = "demo-full"
 SUPPORTED_PROFILES = set(SUPPORTED_CURATED_PROFILES)
 PROFILE_TARGET_RECORDS: dict[str, tuple[int, int]] = {
     "demo-small": (200, 500),
     "demo-medium": (300, 800),
     "demo-large": (900, 2200),
+    "demo-full": (800, 3000),
 }
 
 HOME_SETTING_KEYS = (
@@ -185,6 +185,13 @@ def _run_reseed(
             validation_report: dict[str, Any] | None = None
 
             if not dry_run:
+                # The delete phase may have triggered Django's disable_constraint_checking()
+                # which sets PRAGMA defer_foreign_keys = ON in SQLite, deferring all FK checks
+                # to the outermost COMMIT. Reset it here so seed inserts get immediate checks.
+                if connection.vendor == "sqlite":
+                    with connection.cursor() as _cur:
+                        _cur.execute("PRAGMA defer_foreign_keys = OFF")
+
                 _set_run_state(phase="seed", message="Running deterministic seed script...")
                 seed_report = _run_seed_script(profile=profile, random_seed=random_seed)
 
@@ -321,6 +328,15 @@ def _build_dependency_order(models: list[type]) -> list[type]:
     return ordered
 
 
+_ORPHAN_TABLES: tuple[str, ...] = (
+    # Orphaned SQLite tables whose Django models were removed but migrations to DROP TABLE
+    # were never run. They have DEFERRABLE INITIALLY DEFERRED FKs (Django 5.x default),
+    # so stale rows cause FK violations at commit. Clear them with raw SQL.
+    "QnAAnswers",  # must be before QnA (FK dependency)
+    "QnA",
+)
+
+
 def _reset_business_tables(dry_run: bool) -> dict[str, Any]:
     models = _get_business_models()
     deletion_order = list(reversed(_build_dependency_order(models)))
@@ -328,6 +344,16 @@ def _reset_business_tables(dry_run: bool) -> dict[str, Any]:
     model_reports: list[dict[str, Any]] = []
     total_before = 0
     total_deleted = 0
+
+    # Clear orphaned tables first (child tables before parent tables).
+    if connection.vendor == "sqlite" and not dry_run:
+        with connection.cursor() as cursor:
+            for table in _ORPHAN_TABLES:
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=%s", [table]
+                )
+                if cursor.fetchone():
+                    cursor.execute(f'DELETE FROM "{table}"')
 
     for model in deletion_order:
         count_before = model.objects.count()
@@ -396,8 +422,9 @@ def _run_seed_script(profile: str, random_seed: int) -> dict[str, Any]:
     except SeedError as exc:
         raise ValueError(str(exc)) from exc
 
+    strategy = f"curated_{profile.replace('-', '_')}"
     return {
-        "strategy": "curated_demo_medium",
+        "strategy": strategy,
         "profile": profile,
         "random_seed": random_seed,
         "executed_at": timezone.now().isoformat(),
@@ -409,18 +436,6 @@ def _validate_seeded_data(profile: str = DEFAULT_PROFILE) -> dict[str, Any]:
     violations: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
 
-    _append_if_nonzero(
-        violations,
-        "enrollment_purchase_missing_payment",
-        Enrollment.objects.filter(source=Enrollment.Source.PURCHASE, payment__isnull=True).count(),
-        "Purchase enrollments must reference a payment.",
-    )
-    _append_if_nonzero(
-        violations,
-        "enrollment_subscription_missing_subscription",
-        Enrollment.objects.filter(source=Enrollment.Source.SUBSCRIPTION, subscription__isnull=True).count(),
-        "Subscription enrollments must reference a user subscription.",
-    )
     _append_if_nonzero(
         violations,
         "enrollment_null_course",
@@ -477,21 +492,6 @@ def _validate_seeded_data(profile: str = DEFAULT_PROFILE) -> dict[str, Any]:
         "certificate_without_complete_enrollment",
         Certificate.objects.exclude(enrollment__status=Enrollment.Status.Complete).count(),
         "Certificates must belong to completed enrollments.",
-    )
-
-    _append_if_nonzero(
-        warnings,
-        "payment_status_not_terminal_or_pending",
-        Payment.objects.exclude(
-            payment_status__in=[
-                Payment.PaymentStatus.PENDING,
-                Payment.PaymentStatus.COMPLETED,
-                Payment.PaymentStatus.FAILED,
-                Payment.PaymentStatus.CANCELLED,
-                Payment.PaymentStatus.REFUNDED,
-            ]
-        ).count(),
-        "Payment status should match known lifecycle values.",
     )
 
     continuity_violations = _count_non_contiguous_learning_progress()

@@ -119,7 +119,11 @@ def validate_user_data(data):
     return {"errors": serializer.errors}
 def get_users(filters=None):
     filters = filters or {}
-    users = User.objects.select_related('instructor', 'admin').filter(is_deleted=False)
+    from django.db.models import Count, Q
+    users = User.objects.select_related('instructor', 'admin').annotate(
+        enrollment_count_db=Count('enrollment_user', filter=Q(enrollment_user__is_deleted=False), distinct=True),
+        courses_count_db=Count('instructor__courses_instructor', filter=Q(instructor__courses_instructor__is_deleted=False), distinct=True),
+    ).filter(is_deleted=False)
 
     search = (filters.get('search') or '').strip()
     if search:

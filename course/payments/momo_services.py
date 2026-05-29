@@ -20,6 +20,7 @@ from instructor_earnings.services import generate_instructor_earnings_from_payme
 from payments.models import Payment
 
 from .services import ensure_payment_retryable
+from .return_url import resolve_payment_return_url
 from .vnpay_services import create_enrollments_from_payment
 
 
@@ -183,102 +184,118 @@ def send_momo_refund_request(detail, reason=None, timeout_seconds=30):
     payment = detail.payment
     if payment.payment_method != Payment.PaymentMethod.MOMO:
         raise ValidationError("Payment method must be MoMo.")
-    if not payment.transaction_id:
-        raise ValidationError("MoMo transaction id is required for refund.")
-    try:
-        trans_id = int(str(payment.transaction_id))
-    except (TypeError, ValueError) as exc:
-        raise ValidationError("MoMo transaction id must be numeric.") from exc
+    raw_tid = str(payment.transaction_id or "").strip()
+    if not raw_tid or not raw_tid.lstrip("-").isdigit():
+        raise ValidationError(
+            f"Giao dịch MoMo không có mã số hợp lệ để hoàn tiền "
+            f"(transaction_id lưu trong DB: {payment.transaction_id!r}). "
+            "Đây thường xảy ra với giao dịch test hoặc IPN chưa trả về transId."
+        )
+    trans_id = int(raw_tid)
 
     refund_order_id = f"refund-{detail.id}-{uuid.uuid4().hex[:10]}"
     request_id = f"refund-req-{detail.id}-{uuid.uuid4().hex[:10]}"
-    description = _sanitize_momo_text(reason or detail.refund_reason or f"Refund payment detail {detail.id}")
-    payload = {
-        "partnerCode": settings.MOMO_PARTNER_CODE,
-        "orderId": refund_order_id,
-        "requestId": request_id,
-        "amount": int(detail.refund_amount or detail.final_price),
-        "transId": trans_id,
-        "lang": "vi",
-        "description": description,
-    }
-    signature_data = (
-        f"accessKey={settings.MOMO_ACCESS_KEY}"
-        f"&amount={payload['amount']}"
-        f"&description={payload['description']}"
-        f"&orderId={payload['orderId']}"
-        f"&partnerCode={payload['partnerCode']}"
-        f"&requestId={payload['requestId']}"
-        f"&transId={payload['transId']}"
-    )
-    payload["signature"] = _momo_hmac(signature_data)
-
-    logger.info(
-        "MoMo refund request prepared payment_id=%s payment_detail_id=%s request_id=%s amount=%s trans_id=%s",
-        payment.id,
-        detail.id,
-        request_id,
-        payload["amount"],
-        payload["transId"],
-    )
-    logger.debug("MoMo refund request signature_data=%s", signature_data)
-    logger.debug("MoMo refund request payload=%s", {k: v for k, v in payload.items() if k != "signature"})
 
     try:
-        response = requests.post(
-            settings.MOMO_REFUND_URL,
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=timeout_seconds,
+        description = _sanitize_momo_text(reason or detail.refund_reason or f"Refund payment detail {detail.id}")
+        payload = {
+            "partnerCode": settings.MOMO_PARTNER_CODE,
+            "orderId": refund_order_id,
+            "requestId": request_id,
+            "amount": int(detail.refund_amount or detail.final_price),
+            "transId": trans_id,
+            "lang": "vi",
+            "description": description,
+        }
+        signature_data = (
+            f"accessKey={settings.MOMO_ACCESS_KEY}"
+            f"&amount={payload['amount']}"
+            f"&description={payload['description']}"
+            f"&orderId={payload['orderId']}"
+            f"&partnerCode={payload['partnerCode']}"
+            f"&requestId={payload['requestId']}"
+            f"&transId={payload['transId']}"
         )
-        response_data = _parse_momo_response(response)
-        if response.status_code >= 400:
-            logger.warning(
-                "MoMo refund HTTP error payment_id=%s payment_detail_id=%s status_code=%s body=%s",
-                payment.id,
-                detail.id,
-                response.status_code,
-                response_data,
+        payload["signature"] = _momo_hmac(signature_data)
+
+        logger.info(
+            "MoMo refund request prepared payment_id=%s payment_detail_id=%s request_id=%s amount=%s trans_id=%s",
+            payment.id,
+            detail.id,
+            request_id,
+            payload["amount"],
+            payload["transId"],
+        )
+        logger.debug("MoMo refund request signature_data=%s", signature_data)
+        logger.debug("MoMo refund request payload=%s", {k: v for k, v in payload.items() if k != "signature"})
+
+        try:
+            response = requests.post(
+                settings.MOMO_REFUND_URL,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=timeout_seconds,
             )
+            response_data = _parse_momo_response(response)
+            if response.status_code >= 400:
+                logger.warning(
+                    "MoMo refund HTTP error payment_id=%s payment_detail_id=%s status_code=%s body=%s",
+                    payment.id,
+                    detail.id,
+                    response.status_code,
+                    response_data,
+                )
+                return {
+                    "status": "failed",
+                    "message": str(response_data.get("message") or response_data.get("localMessage") or response_data),
+                    "response_code": str(response_data.get("resultCode") or response.status_code),
+                    "refund_order_id": refund_order_id,
+                    "refund_request_id": request_id,
+                }
+        except requests.Timeout:
+            logger.warning("MoMo refund timeout payment_id=%s payment_detail_id=%s", payment.id, detail.id)
             return {
-                "status": "failed",
-                "message": str(response_data.get("message") or response_data.get("localMessage") or response_data),
-                "response_code": str(response_data.get("resultCode") or response.status_code),
+                "status": "processing",
+                "message": "MoMo refund request timed out.",
                 "refund_order_id": refund_order_id,
                 "refund_request_id": request_id,
             }
-    except requests.Timeout:
-        logger.warning("MoMo refund timeout payment_id=%s payment_detail_id=%s", payment.id, detail.id)
-        return {
-            "status": "processing",
-            "message": "MoMo refund request timed out.",
-            "refund_order_id": refund_order_id,
-            "refund_request_id": request_id,
-        }
-    except (requests.RequestException, ValueError) as exc:
-        logger.warning("MoMo refund request error payment_id=%s payment_detail_id=%s error=%s", payment.id, detail.id, exc)
-        return {
-            "status": "processing",
-            "message": str(exc),
-            "refund_order_id": refund_order_id,
-            "refund_request_id": request_id,
-        }
+        except (requests.RequestException, ValueError) as exc:
+            logger.warning("MoMo refund request error payment_id=%s payment_detail_id=%s error=%s", payment.id, detail.id, exc)
+            return {
+                "status": "processing",
+                "message": str(exc),
+                "refund_order_id": refund_order_id,
+                "refund_request_id": request_id,
+            }
 
-    result_code = int(response_data.get("resultCode", -1))
-    message = response_data.get("message") or "MoMo refund response received."
-    logger.info(
-        "MoMo refund response payment_id=%s payment_detail_id=%s result_code=%s trans_id=%s",
-        payment.id,
-        detail.id,
-        result_code,
-        response_data.get("transId"),
-    )
-    logger.debug("MoMo refund response payload=%s", response_data)
+        result_code = int(response_data.get("resultCode", -1))
+        message = response_data.get("message") or "MoMo refund response received."
+        logger.info(
+            "MoMo refund response payment_id=%s payment_detail_id=%s result_code=%s trans_id=%s",
+            payment.id,
+            detail.id,
+            result_code,
+            response_data.get("transId"),
+        )
+        logger.debug("MoMo refund response payload=%s", response_data)
 
-    result = map_momo_refund_result(response_data)
-    result["refund_order_id"] = refund_order_id
-    result["refund_request_id"] = request_id
-    return result
+        result = map_momo_refund_result(response_data)
+        result["refund_order_id"] = refund_order_id
+        result["refund_request_id"] = request_id
+        return result
+
+    except ValidationError:
+        raise
+    except Exception as exc:
+        logger.error(
+            "MoMo refund unexpected error payment_id=%s payment_detail_id=%s error=%s",
+            payment.id,
+            detail.id,
+            exc,
+            exc_info=True,
+        )
+        raise ValidationError(f"Lỗi không xác định khi gửi hoàn tiền MoMo: {exc}")
 
 
 def map_momo_refund_result(response_data: dict) -> dict:
@@ -290,14 +307,21 @@ def map_momo_refund_result(response_data: dict) -> dict:
             "message": message,
             "transaction_id": str(response_data.get("transId")),
             "response_code": str(result_code),
+            "retryable": False,
         }
     if result_code in MOMO_PENDING_CODES:
-        return {"status": "processing", "message": message, "response_code": str(result_code)}
+        return {"status": "processing", "message": message, "response_code": str(result_code), "retryable": False}
     if result_code in MOMO_REFUND_RETRYABLE_CODES:
-        return {"status": "failed", "message": message, "response_code": str(result_code)}
-    if result_code in MOMO_REFUND_FINAL_FAILED_CODES or result_code in MOMO_FINAL_FAILED_CODES:
-        return {"status": "failed", "message": message, "response_code": str(result_code)}
-    return {"status": "failed", "message": message, "response_code": str(result_code)}
+        # 1080: MoMo cho phép retry
+        return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": True}
+    if result_code in MOMO_REFUND_FINAL_FAILED_CODES:
+        # 1081: đang xử lý phía MoMo, không retry; 1088: thất bại cuối cùng
+        return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": False}
+    if result_code in MOMO_FINAL_FAILED_CODES:
+        # Lỗi dữ liệu / cấu hình — retry không có tác dụng
+        return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": False}
+    # Unknown code — mặc định không retry cho an toàn
+    return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": False}
 
 
 def query_momo_refund_status(refund_order_id: str, timeout_seconds: int = 30) -> dict:
@@ -344,10 +368,12 @@ def _finalize_momo_success(payment: Payment, payload: dict):
         if payment.payment_status == Payment.PaymentStatus.COMPLETED:
             return payment
         payment.payment_status = Payment.PaymentStatus.COMPLETED
-        payment.transaction_id = str(payload.get("transId"))
+        _trans_id_raw = payload.get("transId")
+        payment.transaction_id = str(_trans_id_raw) if _trans_id_raw is not None else None
         payment.gateway_response = str(payload.get("resultCode"))
         payment.payment_gateway = "momo"
-        payment.save(update_fields=["payment_status", "transaction_id", "gateway_response", "payment_gateway", "updated_at"])
+        payment.ipn_attempts = (payment.ipn_attempts or 0) + 1
+        payment.save(update_fields=["payment_status", "transaction_id", "gateway_response", "payment_gateway", "ipn_attempts", "updated_at"])
 
         log_activity(
             user_id=payment.user.id,
@@ -368,7 +394,8 @@ def _finalize_momo_failure(payment: Payment, payload: dict):
     payment.transaction_id = str(payload.get("transId") or payment.transaction_id or "")
     payment.gateway_response = str(payload.get("resultCode"))
     payment.payment_gateway = "momo"
-    payment.save(update_fields=["payment_status", "transaction_id", "gateway_response", "payment_gateway", "updated_at"])
+    payment.ipn_attempts = (payment.ipn_attempts or 0) + 1
+    payment.save(update_fields=["payment_status", "transaction_id", "gateway_response", "payment_gateway", "ipn_attempts", "updated_at"])
     return payment
 
 
@@ -378,7 +405,7 @@ def momo_payment_return(request):
     result_code = int(params.get("resultCode", "-1"))
     message = params.get("message") or "MoMo payment result"
     trans_id = params.get("transId")
-    result_url = settings.MOMO_FE_RETURN_URL
+    result_url = resolve_payment_return_url(order_id, settings.MOMO_FE_RETURN_URL)
     encoded_message = urllib.parse.quote_plus(message)
     if result_code in MOMO_SUCCESS_CODES:
         return HttpResponseRedirect(

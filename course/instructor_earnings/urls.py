@@ -5,6 +5,8 @@ from .views import (
     SubscriptionEarningsCalculationView,
     InstructorEarningsSummaryView,
     InstructorSubscriptionRevenueBreakdownView,
+    InstructorEarningsMonthlyView,
+    InstructorEarningsExportView,
 )
 
 urlpatterns = [
@@ -13,4 +15,6 @@ urlpatterns = [
     path('instructor-earnings/subscription-calc/', SubscriptionEarningsCalculationView.as_view(), name='subscription-earnings-calc'),
     path('instructor-earnings/summary/', InstructorEarningsSummaryView.as_view(), name='instructor-earnings-summary'),
     path('instructor-earnings/subscription-breakdown/', InstructorSubscriptionRevenueBreakdownView.as_view(), name='instructor-earnings-subscription-breakdown'),
+    path('instructor-earnings/monthly/', InstructorEarningsMonthlyView.as_view(), name='instructor-earnings-monthly'),
+    path('instructor-earnings/export/', InstructorEarningsExportView.as_view(), name='instructor-earnings-export'),
 ]

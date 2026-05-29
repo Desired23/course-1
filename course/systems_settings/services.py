@@ -1,6 +1,7 @@
 from rest_framework.exceptions import ValidationError
 from .models import SystemsSetting
 from .serializers import SystemsSettingSerializer
+from utils.admin_actors import resolve_admin_actor
 
 def _normalize_setting_payload(data, *, is_create=False):
     payload = dict(data or {})
@@ -20,12 +21,12 @@ def _normalize_setting_payload(data, *, is_create=False):
 
     return payload
 
-def create_systems_setting(data):
+def create_systems_setting(data, admin_actor=None):
     try:
         payload = _normalize_setting_payload(data, is_create=True)
         serializer = SystemsSettingSerializer(data=payload)
         if serializer.is_valid(raise_exception=True):
-            systems_setting = serializer.save()
+            systems_setting = serializer.save(admin=resolve_admin_actor(admin_actor))
             return SystemsSettingSerializer(systems_setting).data
         raise ValidationError(serializer.errors)
     except ValidationError:
@@ -57,13 +58,13 @@ def get_systems_setting_by_admin_id(admin_id):
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
-def update_systems_setting(setting_id, data):
+def update_systems_setting(setting_id, data, admin_actor=None):
     try:
         systems_setting = SystemsSetting.objects.get(id=setting_id)
         payload = _normalize_setting_payload(data, is_create=False)
         serializer = SystemsSettingSerializer(systems_setting, data=payload, partial=True)
         if serializer.is_valid(raise_exception=True):
-            updated_systems_setting = serializer.save()
+            updated_systems_setting = serializer.save(admin=resolve_admin_actor(admin_actor))
             return SystemsSettingSerializer(updated_systems_setting).data
         raise ValidationError(serializer.errors)
     except SystemsSetting.DoesNotExist:

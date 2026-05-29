@@ -130,8 +130,8 @@ def update_quiz_result(quiz_result_id, data):
         quiz_result = QuizResult.objects.get(id=quiz_result_id)
         serializer = QuizResultSerializer(quiz_result, data=data, partial=True)
         if serializer.is_valid(raise_exception=True):
-            updated_quiz_result = serializer.save()
-            return updated_quiz_result
+            serializer.save()
+            return serializer.data
         raise ValidationError(serializer.errors)
     except QuizResult.DoesNotExist:
         raise ValidationError("Quiz result not found")

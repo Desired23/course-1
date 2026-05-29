@@ -69,7 +69,7 @@ export function CheckoutPage() {
   const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
-  const { cartItems, orderCoupon, appliedPromotion, clearCart } = useCart()
+  const { cartItems, orderCoupon, appliedPromotion } = useCart()
   const gatewayOptions: Array<{
     id: GatewayMethod
     title: string
@@ -149,6 +149,7 @@ export function CheckoutPage() {
       const result = await createPaymentRecord({
         user_id: Number(user.id),
         payment_method: paymentMethod,
+        return_url: `${window.location.origin}/payment/result`,
         payment_type: "course_purchase",
         payment_details: paymentDetails,
         promotion_id: adminPromotionId,
@@ -183,7 +184,6 @@ export function CheckoutPage() {
     setIsProcessing(true)
     try {
       if (confirmedGatewayUrl) {
-        clearCart()
         window.location.href = confirmedGatewayUrl
         return
       }
@@ -200,7 +200,6 @@ export function CheckoutPage() {
     if (paymentMethod === "momo") {
       const gatewayUrl = result?.gateway_payment?.url
       if (gatewayUrl) {
-        clearCart()
         window.location.href = gatewayUrl
         return
       }
@@ -208,7 +207,6 @@ export function CheckoutPage() {
 
     const vnpayUrl = result?.gateway_payment?.url
     if (vnpayUrl) {
-      clearCart()
       window.location.href = vnpayUrl
       return
     }
@@ -220,7 +218,6 @@ export function CheckoutPage() {
     })
 
     if (vnpayRes.payment_url) {
-      clearCart()
       window.location.href = vnpayRes.payment_url
       return
     }

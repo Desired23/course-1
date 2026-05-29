@@ -2,6 +2,8 @@ import { AnalyticsCharts } from "../../components/AnalyticsCharts"
 import { BarChart3 } from "lucide-react"
 import { motion } from 'motion/react'
 import { useTranslation } from "react-i18next"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { AdminRevenueTab } from "./AdminRevenueTab"
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -43,7 +45,18 @@ export function AdminAnalyticsPage() {
       </motion.div>
 
       <motion.div variants={fadeInUp}>
-        <AnalyticsCharts type="platform" />
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="overview">Tổng quan</TabsTrigger>
+            <TabsTrigger value="revenue">Doanh thu</TabsTrigger>
+          </TabsList>
+          <TabsContent value="overview">
+            <AnalyticsCharts type="platform" />
+          </TabsContent>
+          <TabsContent value="revenue">
+            <AdminRevenueTab />
+          </TabsContent>
+        </Tabs>
       </motion.div>
     </motion.div>
   )

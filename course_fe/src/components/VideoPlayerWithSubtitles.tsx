@@ -181,6 +181,8 @@ export function VideoPlayerWithSubtitles({
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onClick={handlePlayPause}
+        controlsList="nodownload"
+        onContextMenu={e => e.preventDefault()}
       />
 
 

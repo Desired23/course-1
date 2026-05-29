@@ -18,7 +18,6 @@ def get_instructor_dashboard_stats(instructor):
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review
-    from qnas.models import QnA
     from instructor_earnings.models import InstructorEarning
 
     now = timezone.now()
@@ -49,11 +48,6 @@ def get_instructor_dashboard_stats(instructor):
     )
     avg_rating = reviews_qs.aggregate(avg=Avg('rating'))['avg'] or 0
     total_reviews = reviews_qs.count()
-
-    pending_questions = QnA.objects.filter(
-        course_id__in=course_ids, is_deleted=False, status='unanswered'
-    ).count()
-
 
     course_stats = []
     for course in courses_qs.order_by('-created_at'):
@@ -87,7 +81,6 @@ def get_instructor_dashboard_stats(instructor):
         'this_month_earnings': float(this_month_earnings),
         'average_rating': round(float(avg_rating), 2),
         'total_reviews': total_reviews,
-        'pending_questions': pending_questions,
         'course_stats': course_stats,
     }
 

@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from "./ui/dropdown-menu"
-import { MessageCircle, Sun, Moon, User, LogOut, BookOpen, Settings, LayoutDashboard, GraduationCap, Heart, Globe, Menu, Search } from "lucide-react"
+import { MessageCircle, Sun, Moon, User, LogOut, BookOpen, Settings, LayoutDashboard, GraduationCap, Heart, Globe, Menu, Search, ChevronDown } from "lucide-react"
 import { Badge } from "./ui/badge"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -152,6 +152,31 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
             >
               {t('common.teach_on_udemy')}
             </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden md:flex hover:bg-blue-50 dark:hover:bg-blue-900/20 text-foreground font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 gap-1"
+                >
+                  {t('common.community')}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuItem onClick={() => navigate('/community')}>
+                  {t('common.community')}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/community?focus=blog')}>
+                  {t('common.blog')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/community?focus=qa')}>
+                  {t('common.qa')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
 
             <Button

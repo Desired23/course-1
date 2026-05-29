@@ -1,9 +1,9 @@
 import { http } from './http'
 
-export type AdminReportType = 'forum_post' | 'review' | 'qa_question' | 'message'
+export type AdminReportType = 'forum_post' | 'review' | 'message'
 export type AdminReportStatus = 'pending' | 'reviewing' | 'resolved' | 'dismissed'
 export type AdminReportPriority = 'low' | 'medium' | 'high' | 'critical'
-export type AdminReportAction = 'approve' | 'dismiss' | 'lock' | 'delete' | 'hide' | 'close' | 'revoke'
+export type AdminReportAction = 'approve' | 'dismiss' | 'lock' | 'delete' | 'hide' | 'revoke'
 
 export interface AdminReport {
   id: string

@@ -158,7 +158,7 @@ export function getPayoutStatusLabel(status: PayoutStatus): string {
     pending: 'Chờ xử lý',
     processed: 'Đã xử lý',
     cancelled: 'Đã hủy',
-    failed: 'ThÃ¡ÂºÂ¥t bÃ¡ÂºÂ¡i',
+    failed: 'Thất bại',
   }
   return labels[status] || status
 }

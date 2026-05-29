@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.utils import timezone
+from django.test import override_settings
 from users.models import User as UserModel
 from decimal import Decimal
 from unittest.mock import patch
@@ -32,6 +33,11 @@ from payments.momo_services import (
     create_momo_payment,
     send_momo_refund_request,
     simulate_momo_ipn,
+)
+from payments.return_url import (
+    resolve_payment_return_url,
+    store_payment_return_url,
+    validate_and_normalize_return_url,
 )
 
 
@@ -592,6 +598,71 @@ class PaymentViewsTests(TestCase):
         data = resp.json()
         self.assertTrue(all(p['has_problem'] for p in data))
 
+    @override_settings(PAYMENT_RETURN_URL_ALLOWLIST=["http://localhost:5173"])
+    @patch('payments.views.create_momo_payment')
+    @patch('payments.views.create_payment')
+    def test_payment_create_view_stores_and_normalizes_return_url(self, mock_create_payment, mock_create_momo_payment):
+        from payments.models import Payment as PaymentModel
+
+        payment = PaymentModel.objects.create(
+            user=self.student,
+            amount=Decimal('250.00'),
+            discount_amount=Decimal('0.00'),
+            total_amount=Decimal('250.00'),
+            payment_status=PaymentModel.PaymentStatus.PENDING,
+            payment_method=PaymentModel.PaymentMethod.MOMO,
+        )
+        mock_create_payment.return_value = {'payment': {'id': payment.id}}
+        mock_create_momo_payment.return_value = {'payUrl': 'https://momo.test/pay'}
+
+        resp = self.client.post(
+            '/api/payment/create/',
+            {
+                'payment_method': 'momo',
+                'return_url': 'http://localhost:5173/payment/result?status=success&from=checkout',
+            },
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(mock_create_payment.call_count, 1)
+        self.assertEqual(mock_create_momo_payment.call_count, 1)
+        self.assertEqual(
+            resolve_payment_return_url(payment.id, 'http://localhost:5173/payment/result'),
+            'http://localhost:5173/payment/result',
+        )
+
+    @override_settings(PAYMENT_RETURN_URL_ALLOWLIST=["http://localhost:5173"])
+    @patch('payments.views.create_momo_payment')
+    def test_momo_create_view_stores_and_normalizes_return_url(self, mock_create_momo_payment):
+        from payments.models import Payment as PaymentModel
+
+        payment = PaymentModel.objects.create(
+            user=self.student,
+            amount=Decimal('250.00'),
+            discount_amount=Decimal('0.00'),
+            total_amount=Decimal('250.00'),
+            payment_status=PaymentModel.PaymentStatus.PENDING,
+            payment_method=PaymentModel.PaymentMethod.MOMO,
+        )
+        mock_create_momo_payment.return_value = {'payUrl': 'https://momo.test/pay'}
+
+        resp = self.client.post(
+            '/api/momo/create/',
+            {
+                'payment_id': payment.id,
+                'return_url': 'http://localhost:5173/payment/result?status=success&source=momo',
+            },
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(mock_create_momo_payment.call_count, 1)
+        self.assertEqual(
+            resolve_payment_return_url(payment.id, 'http://localhost:5173/payment/result'),
+            'http://localhost:5173/payment/result',
+        )
+
 
 class RefundWorkflowTests(TestCase):
     def setUp(self):
@@ -623,7 +694,7 @@ class RefundWorkflowTests(TestCase):
             user_type="admin", status="active",
         )
         from admins.models import Admin as AdminModel
-        AdminModel.objects.create(user=self.admin_user, department="IT", role="super_admin")
+        self.admin = AdminModel.objects.create(user=self.admin_user, department="IT", role="super_admin")
 
         self.course = Course.objects.create(
             title="Refund Course",
@@ -789,7 +860,7 @@ class RefundWorkflowTests(TestCase):
         self.detail.refresh_from_db()
         self.assertFalse(result["errors"])
         self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.REJECTED)
-        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+        self.assertEqual(self.detail.processed_by_id, self.admin.id)
 
     @patch('payments.refund_services.send_vnpay_refund_request')
     def test_admin_cancel_processing_refund(self, mock_gateway):
@@ -813,7 +884,7 @@ class RefundWorkflowTests(TestCase):
         self.detail.refresh_from_db()
         self.assertFalse(result["errors"])
         self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.CANCELLED)
-        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+        self.assertEqual(self.detail.processed_by_id, self.admin.id)
 
     @patch('payments.refund_services.send_vnpay_refund_request')
     def test_retry_is_allowed_without_waiting_for_cooldown(self, mock_gateway):
@@ -961,7 +1032,7 @@ class RefundWorkflowTests(TestCase):
         self.assertFalse(restore_result["errors"])
         self.assertFalse(self.detail.is_deleted)
         self.assertIn("Investigating with finance", self.detail.internal_note)
-        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+        self.assertEqual(self.detail.processed_by_id, self.admin.id)
 
     def test_admin_override_status_to_failed(self):
         from payments.refund_services import admin_refund_action, user_refund_request
@@ -984,7 +1055,7 @@ class RefundWorkflowTests(TestCase):
         self.detail.refresh_from_db()
         self.assertFalse(result["errors"])
         self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.FAILED)
-        self.assertEqual(self.detail.processed_by_id, self.admin_user.id)
+        self.assertEqual(self.detail.processed_by_id, self.admin.id)
 
     @patch('payments.vnpay_services.requests.post')
     def test_vnpay_refund_request_uses_pipe_signature_and_32_char_request_id(self, mock_post):
@@ -1105,6 +1176,9 @@ class MomoIntegrationTests(TestCase):
         Cart.objects.create(user=self.student, course=self.course)
 
     def test_create_payment_keeps_cart_until_payment_is_completed(self):
+        self.detail.delete()
+        self.payment.delete()
+
         payment_data = create_payment({
             "user_id": self.student.id,
             "payment_method": Payment.PaymentMethod.MOMO,
@@ -1114,6 +1188,43 @@ class MomoIntegrationTests(TestCase):
 
         self.assertTrue(Cart.objects.filter(user=self.student, course=self.course).exists())
         self.assertEqual(payment_data["payment"]["payment_status"], Payment.PaymentStatus.PENDING)
+
+    def test_create_payment_blocks_retryable_pending_payment(self):
+        from rest_framework.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError) as ctx:
+            create_payment({
+                "user_id": self.student.id,
+                "payment_method": Payment.PaymentMethod.MOMO,
+                "payment_type": Payment.PaymentType.COURSE_PURCHASE,
+                "payment_details": [{"course_id": self.course.id}],
+            })
+
+        self.assertIn("payment chưa hoàn tất", str(ctx.exception))
+
+    def test_create_payment_blocks_completed_payment_when_enrollment_soft_deleted(self):
+        from rest_framework.exceptions import ValidationError
+
+        self.payment.payment_status = Payment.PaymentStatus.COMPLETED
+        self.payment.save(update_fields=["payment_status", "updated_at"])
+        Enrollment.objects.create(
+            user=self.student,
+            course=self.course,
+            payment=self.payment,
+            status=Enrollment.Status.Active,
+            is_deleted=True,
+            deleted_at=timezone.now(),
+        )
+
+        with self.assertRaises(ValidationError) as ctx:
+            create_payment({
+                "user_id": self.student.id,
+                "payment_method": Payment.PaymentMethod.MOMO,
+                "payment_type": Payment.PaymentType.COURSE_PURCHASE,
+                "payment_details": [{"course_id": self.course.id}],
+            })
+
+        self.assertIn("payment thành công", str(ctx.exception))
 
     def test_payment_status_includes_retry_window_fields(self):
         data = get_payment_status(self.payment.id, self.student)
@@ -1174,7 +1285,30 @@ class MomoIntegrationTests(TestCase):
                 is_deleted=False,
             ).exists()
         )
+        enrollment = Enrollment.objects.get(user=self.student, course=self.course, payment=self.payment)
+        self.assertIsNotNone(enrollment.enrollment_date)
         self.assertFalse(Cart.objects.filter(user=self.student, course=self.course).exists())
+
+    def test_simulate_momo_ipn_restores_soft_deleted_enrollment(self):
+        enrollment = Enrollment.objects.create(
+            user=self.student,
+            course=self.course,
+            payment=None,
+            status=Enrollment.Status.Cancelled,
+            is_deleted=True,
+            deleted_at=timezone.now(),
+        )
+
+        response = simulate_momo_ipn(self.payment, trans_id=4088878654, result_code=0, message="Successful.")
+        self.assertEqual(response.status_code, 200)
+
+        enrollment.refresh_from_db()
+        self.assertFalse(enrollment.is_deleted)
+        self.assertIsNone(enrollment.deleted_at)
+        self.assertEqual(enrollment.status, Enrollment.Status.Active)
+        self.assertEqual(enrollment.payment_id, self.payment.id)
+        self.assertIsNotNone(enrollment.enrollment_date)
+        self.assertEqual(Enrollment.objects.filter(user=self.student, course=self.course).count(), 1)
 
     def test_simulate_momo_ipn_creates_subscription_for_subscription_payment(self):
         from subscription_plans.models import SubscriptionPlan, UserSubscription
@@ -1292,3 +1426,35 @@ class MomoIntegrationTests(TestCase):
         self.assertEqual(self.detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
         mock_momo_refund.assert_called_once()
         mock_vnpay_refund.assert_not_called()
+
+
+class PaymentReturnUrlHelperTests(TestCase):
+    @override_settings(PAYMENT_RETURN_URL_ALLOWLIST=["http://localhost:5173", "https://course-1-1.onrender.com"])
+    def test_validate_and_normalize_return_url_accepts_allowlisted_origin(self):
+        normalized = validate_and_normalize_return_url("http://localhost:5173/payment/result?status=success")
+        self.assertEqual(normalized, "http://localhost:5173/payment/result")
+
+    @override_settings(PAYMENT_RETURN_URL_ALLOWLIST=["http://localhost:5173"])
+    def test_validate_and_normalize_return_url_rejects_non_allowlisted_origin(self):
+        from rest_framework.exceptions import ValidationError
+
+        with self.assertRaises(ValidationError):
+            validate_and_normalize_return_url("https://evil.example.com/payment/result")
+
+    @override_settings(PAYMENT_RETURN_URL_ALLOWLIST=[])
+    def test_resolve_payment_return_url_prefers_cached_url(self):
+        payment_id = 98765
+        default_url = "http://localhost:5173/payment/result"
+        expected_url = "https://course-1-1.onrender.com/payment/result"
+        store_payment_return_url(payment_id, expected_url)
+
+        resolved = resolve_payment_return_url(payment_id, default_url)
+        self.assertEqual(resolved, expected_url)
+
+    @override_settings(PAYMENT_RETURN_URL_ALLOWLIST=["http://localhost:5173"])
+    def test_validate_and_normalize_return_url_legacy_setting_fallback(self):
+        from django.test.utils import override_settings as _override
+
+        with _override(PAYMENT_RETURN_URL_ALLOWLIST=[], PAYMENT_RETURN_ALLOWED_ORIGINS=["http://localhost:3000"]):
+            normalized = validate_and_normalize_return_url("http://localhost:3000/payment/result")
+            self.assertEqual(normalized, "http://localhost:3000/payment/result")

@@ -29,9 +29,10 @@ interface Lesson {
 interface ContentTabProps {
   lesson: Lesson
   onUpdate: (updates: Partial<Lesson>) => void
+  onSaveVideo?: (data: { videoUrl: string; videoPublicId: string; duration?: number }) => Promise<void>
 }
 
-export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
+export function ContentTab({ lesson, onUpdate, onSaveVideo }: ContentTabProps) {
   const { t } = useTranslation()
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -67,9 +68,19 @@ export function ContentTab({ lesson, onUpdate }: ContentTabProps) {
       const uploadedUrl = uploaded[0].url
       setUploadedFile(uploadedUrl)
       if (mode === 'video') {
+        const cloudinaryDuration = uploaded[0].duration
+        const durationStr = cloudinaryDuration != null
+          ? `${Math.floor(cloudinaryDuration / 60)}:${String(Math.round(cloudinaryDuration % 60)).padStart(2, '0')}`
+          : undefined
         onUpdate({
           videoUrl: uploadedUrl,
           videoPublicId: uploaded[0].public_id,
+          ...(durationStr != null ? { duration: durationStr } : {}),
+        })
+        await onSaveVideo?.({
+          videoUrl: uploadedUrl,
+          videoPublicId: uploaded[0].public_id,
+          duration: cloudinaryDuration,
         })
       } else {
         onUpdate({

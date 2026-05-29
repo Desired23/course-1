@@ -6,6 +6,8 @@ import { Card, CardContent } from "../../components/ui/card"
 import { useRouter } from "../../components/Router"
 import { formatCurrency, getPaymentStatus, Payment } from "../../services/payment.api"
 import { motion } from "motion/react"
+import { useCart } from "../../contexts/CartContext"
+import { useAuth } from "../../contexts/AuthContext"
 
 type PaymentPageStatus = "success" | "failed" | "error" | "loading"
 
@@ -49,14 +51,77 @@ const fadeInUp = {
 export function PaymentResultPage() {
   const { navigate } = useRouter()
   const { t } = useTranslation()
+  const { clearCart, loadCart } = useCart()
+  const { user, isAuthenticated } = useAuth()
   const [status, setStatus] = useState<PaymentPageStatus>("loading")
   const [paymentId, setPaymentId] = useState<string | null>(null)
   const [transactionId, setTransactionId] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [responseCode, setResponseCode] = useState<string | null>(null)
   const [paymentData, setPaymentData] = useState<Payment | null>(null)
+  const [requiresAuthForDetails, setRequiresAuthForDetails] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
+
+    const pollPaymentStatus = async (pid: number) => {
+      const maxAttempts = 6
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        if (cancelled) return
+        try {
+          const data = await getPaymentStatus(pid)
+          if (cancelled) return
+
+          setPaymentData(data)
+
+          if (data.payment_status === "completed") {
+            setStatus("success")
+            clearCart()
+            if (user?.id) {
+              await loadCart(Number(user.id))
+            }
+            return
+          }
+
+          if (data.payment_status === "failed" || data.payment_status === "cancelled") {
+            setStatus("failed")
+            setErrorMessage(t("payment_result_page.failure_default"))
+            return
+          }
+
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 1500))
+            continue
+          }
+
+          setStatus("error")
+          setErrorMessage(t("payment_result_page.processing_timeout", "Thanh toán đang được xử lý. Vui lòng kiểm tra lại trong lịch sử thanh toán."))
+          return
+        } catch (err: any) {
+          if (cancelled) return
+          if (err?.status === 401 || err?.status === 403) {
+            setStatus("success")
+            setRequiresAuthForDetails(true)
+            setErrorMessage(
+              t(
+                "payment_result_page.login_required_for_details",
+                "Thanh toán đã ghi nhận thành công. Vui lòng đăng nhập để xem chi tiết đơn thanh toán."
+              )
+            )
+            return
+          }
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, 1200))
+            continue
+          }
+
+          setErrorMessage(err?.message || t("payment_result_page.load_failed"))
+          setStatus("error")
+          return
+        }
+      }
+    }
+
     const params = new URLSearchParams(window.location.search)
     const statusParam = params.get("status")
     const pid = params.get("payment_id")
@@ -68,9 +133,10 @@ export function PaymentResultPage() {
     setTransactionId(txn)
     setErrorMessage(msg)
     setResponseCode(code)
+    setRequiresAuthForDetails(false)
 
     if (statusParam === "success") {
-      setStatus("success")
+      setStatus("loading")
     } else if (statusParam === "failed") {
       setStatus("failed")
     } else if (statusParam === "error") {
@@ -81,14 +147,13 @@ export function PaymentResultPage() {
     }
 
     if (statusParam === "success" && pid) {
-      getPaymentStatus(Number(pid))
-        .then((data) => setPaymentData(data))
-        .catch((err: any) => {
-          setErrorMessage(err?.message || t("payment_result_page.load_failed"))
-          setStatus("error")
-        })
+      void pollPaymentStatus(Number(pid))
     }
-  }, [t])
+
+    return () => {
+      cancelled = true
+    }
+  }, [clearCart, isAuthenticated, loadCart, t, user?.id])
 
   const failureDescription = useMemo(() => {
     if (errorMessage?.trim()) return errorMessage
@@ -195,8 +260,14 @@ export function PaymentResultPage() {
 
             {status === "success" && !paymentData && (
               <div className="py-4 text-center">
-                <Loader2 className="inline w-6 h-6 animate-spin mr-2" />
-                <span>{t("payment_result_page.loading_invoice")}</span>
+                {requiresAuthForDetails ? (
+                  <span>{errorMessage || t("payment_result_page.login_required_for_details", "Vui lòng đăng nhập để xem chi tiết thanh toán.")}</span>
+                ) : (
+                  <>
+                    <Loader2 className="inline w-6 h-6 animate-spin mr-2" />
+                    <span>{t("payment_result_page.loading_invoice")}</span>
+                  </>
+                )}
               </div>
             )}
 
@@ -254,9 +325,11 @@ export function PaymentResultPage() {
             <motion.div className="flex flex-col sm:flex-row gap-3 w-full pt-2" variants={fadeInUp} initial="hidden" animate="show">
               {status === "success" ? (
                 <>
-                  <Button className="flex-1" onClick={() => navigate("/my-learning")}>
+                  <Button className="flex-1" onClick={() => navigate(requiresAuthForDetails ? "/login" : "/my-learning")}>
                     <BookOpen className="w-4 h-4 mr-2" />
-                    {t("payment_result_page.go_to_learning")}
+                    {requiresAuthForDetails
+                      ? t("payment_result_page.login_to_view_details", "Đăng nhập để xem chi tiết")
+                      : t("payment_result_page.go_to_learning")}
                   </Button>
                   <Button variant="outline" className="flex-1" onClick={() => navigate("/")}>
                     {t("payment_result_page.back_to_home")}

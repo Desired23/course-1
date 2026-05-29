@@ -25,6 +25,7 @@ def upload_file_to_cloudinary(
                     "format": upload_result.get("format"),
                     "resource_type": upload_result.get("resource_type"),
                     "type": upload_result.get("type"),
+                    "duration": upload_result.get("duration"),
                 }
             )
         return results

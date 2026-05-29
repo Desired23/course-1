@@ -22,7 +22,8 @@ import {
   type MyPaymentItem,
   type UserRefundItem,
 } from "../../services/payment.api"
-import { Calendar, CreditCard, ExternalLink, PackageOpen, Receipt, ShoppingBag } from "lucide-react"
+import { Calendar, CheckCircle2, CreditCard, ExternalLink, Info, PackageOpen, Receipt, ShoppingBag, XCircle } from "lucide-react"
+import { ScrollArea } from "../../components/ui/scroll-area"
 import { toast } from "sonner"
 import { listItemTransition } from '../../lib/motion'
 
@@ -52,6 +53,29 @@ interface RefundDialogState {
   paymentId: number
   paymentType: string
   items: MyPaymentItem[]
+}
+
+function interpretIPN(gateway: string | null | undefined, code: string | null | undefined) {
+  if (code === null || code === undefined || code === '') return null
+  const isSuccess = gateway === 'momo' ? code === '0' : code === '00'
+  return { isSuccess, label: isSuccess ? 'Thành công' : `Lỗi` }
+}
+
+function refundEventLabel(event: string) {
+  const map: Record<string, string> = {
+    requested: 'Yêu cầu hoàn tiền',
+    approved: 'Đã duyệt',
+    rejected: 'Từ chối',
+    processing: 'Đang xử lý',
+    gateway_attempted: 'Gửi yêu cầu đến cổng',
+    gateway_success: 'Cổng xác nhận thành công',
+    gateway_failed: 'Cổng phản hồi thất bại',
+    cancelled: 'Đã hủy',
+    failed: 'Thất bại',
+    success: 'Hoàn tiền thành công',
+    note_added: 'Ghi chú được thêm',
+  }
+  return map[event] || event
 }
 
 function formatRetryCountdown(target: string | null | undefined, nowMs: number) {
@@ -100,6 +124,8 @@ export function TransactionHistoryPage() {
   const [cancellingRefundId, setCancellingRefundId] = useState<number | null>(null)
   const [retryingPaymentId, setRetryingPaymentId] = useState<number | null>(null)
   const [nowMs, setNowMs] = useState(Date.now())
+  const [detailPayment, setDetailPayment] = useState<MyPayment | null>(null)
+  const [detailRefund, setDetailRefund] = useState<UserRefundItem | null>(null)
 
   const statusBadge = (status: string) => {
     switch (status) {
@@ -501,9 +527,14 @@ export function TransactionHistoryPage() {
                               {canRetryPayment && <p className="mt-1 text-xs text-amber-700">{t("transaction_history_page.retry_available", { countdown: retryCountdown })}</p>}
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="font-bold text-base">{formatCurrency(payment.total_amount)}</div>
-                            {parseFloat(payment.discount_amount) > 0 && <div className="text-xs text-green-600">-{formatCurrency(payment.discount_amount)}</div>}
+                          <div className="flex items-start gap-2 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="font-bold text-base">{formatCurrency(payment.total_amount)}</div>
+                              {parseFloat(payment.discount_amount) > 0 && <div className="text-xs text-green-600">-{formatCurrency(payment.discount_amount)}</div>}
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 mt-0.5" onClick={(e) => { e.stopPropagation(); setDetailPayment(payment) }} title="Xem chi tiết IPN">
+                              <Info className="h-4 w-4 text-muted-foreground" />
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -628,6 +659,9 @@ export function TransactionHistoryPage() {
                       </div>
                       <div className="flex w-full items-center gap-2 sm:w-auto">
                         {refundStatusBadge(refund.status)}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => setDetailRefund(refund)} title="Xem chi tiết hoàn tiền">
+                          <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
                         {refund.status === "pending" && (
                           <Button size="sm" variant="outline" disabled={cancellingRefundId === refund.refund_id} onClick={() => void handleCancelRefund(refund)}>
                             {cancellingRefundId === refund.refund_id ? t("transaction_history_page.cancelling") : t("transaction_history_page.cancel_refund_request")}
@@ -649,6 +683,170 @@ export function TransactionHistoryPage() {
         </motion.div>
       </motion.div>
 
+      {/* ── Payment Detail Modal (IPN) ── */}
+      <Dialog open={!!detailPayment} onOpenChange={(open) => { if (!open) setDetailPayment(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Giao dịch #{detailPayment?.id}
+            </DialogTitle>
+            <DialogDescription>Chi tiết thanh toán và kết quả xác nhận từ cổng</DialogDescription>
+          </DialogHeader>
+          {detailPayment && (() => {
+            const ipn = interpretIPN(detailPayment.payment_gateway, detailPayment.gateway_response)
+            return (
+              <ScrollArea className="max-h-[65vh]">
+                <div className="space-y-4 pr-2">
+                  {/* IPN Result */}
+                  <div className="rounded-md border p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Kết quả IPN từ cổng thanh toán</p>
+                    {ipn ? (
+                      <div className="flex items-center gap-2">
+                        {ipn.isSuccess
+                          ? <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          : <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
+                        <span className={`text-sm font-medium ${ipn.isSuccess ? 'text-green-700' : 'text-red-600'}`}>{ipn.label}</span>
+                        <span className="text-xs text-muted-foreground ml-1">Mã: <code className="bg-muted px-1 rounded">{detailPayment.gateway_response}</code></span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Chưa nhận phản hồi IPN</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground mt-1">
+                      <span>Cổng:</span><span className="font-medium text-foreground">{detailPayment.payment_gateway ? detailPayment.payment_gateway.toUpperCase() : '—'}</span>
+                      <span>Phương thức:</span><span className="font-medium text-foreground">{detailPayment.payment_method.toUpperCase()}</span>
+                      <span>Số lần IPN:</span><span className="font-medium text-foreground">{detailPayment.ipn_attempts ?? 0}</span>
+                      <span>Mã GD tại cổng:</span><span className="font-medium text-foreground truncate">{detailPayment.transaction_id || '—'}</span>
+                    </div>
+                  </div>
+
+                  {/* Amount Breakdown */}
+                  <div className="rounded-md border p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chi tiết số tiền</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Gốc</span><span>{formatCurrency(detailPayment.amount)}</span></div>
+                      {parseFloat(detailPayment.discount_amount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Giảm giá</span><span className="text-green-600">-{formatCurrency(detailPayment.discount_amount)}</span></div>}
+                      <div className="flex justify-between font-semibold border-t pt-1"><span>Tổng thanh toán</span><span>{formatCurrency(detailPayment.total_amount)}</span></div>
+                      {parseFloat(detailPayment.refund_amount) > 0 && <div className="flex justify-between text-purple-600"><span>Đã hoàn tiền</span><span>{formatCurrency(detailPayment.refund_amount)}</span></div>}
+                    </div>
+                  </div>
+
+                  {/* Items with refund details */}
+                  {detailPayment.items.length > 0 && (
+                    <div className="rounded-md border p-3 space-y-3">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chi tiết từng khóa học</p>
+                      {detailPayment.items.map((item) => (
+                        <div key={item.id} className="space-y-1 border-b pb-3 last:border-b-0 last:pb-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium truncate flex-1">{item.course_title}</p>
+                            {refundStatusBadge(item.refund_status)}
+                          </div>
+                          <div className="flex gap-3 text-xs text-muted-foreground">
+                            {parseFloat(item.discount) > 0 && <span className="line-through">{formatCurrency(item.price)}</span>}
+                            <span className="font-semibold text-foreground">{formatCurrency(item.final_price)}</span>
+                          </div>
+                          {(item.refund_transaction_id || item.refund_response_code) && (
+                            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-muted-foreground bg-muted/40 rounded p-2">
+                              {item.refund_transaction_id && <><span>Mã GD hoàn:</span><span className="font-medium text-foreground truncate">{item.refund_transaction_id}</span></>}
+                              {item.refund_response_code && <><span>Phản hồi cổng:</span><span className="font-medium text-foreground"><code className="bg-muted px-1 rounded">{item.refund_response_code}</code></span></>}
+                            </div>
+                          )}
+                          {item.refund_timeline && item.refund_timeline.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {item.refund_timeline.map((ev, i) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                                  <span>{new Date(ev.timestamp).toLocaleString('vi-VN')}</span>
+                                  <span className="font-medium text-foreground">{refundEventLabel(ev.event)}</span>
+                                  {ev.note && <span className="italic">— {ev.note}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Dates */}
+                  <div className="text-xs text-muted-foreground space-y-0.5 px-1">
+                    <p>Ngày tạo: {detailPayment.created_at ? new Date(detailPayment.created_at).toLocaleString('vi-VN') : '—'}</p>
+                    <p>Ngày thanh toán: {detailPayment.payment_date ? new Date(detailPayment.payment_date).toLocaleString('vi-VN') : '—'}</p>
+                  </div>
+                </div>
+              </ScrollArea>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Refund Detail Modal ── */}
+      <Dialog open={!!detailRefund} onOpenChange={(open) => { if (!open) setDetailRefund(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Chi tiết hoàn tiền</DialogTitle>
+            <DialogDescription>
+              {detailRefund?.course_title || `Khóa học #${detailRefund?.course_id}`} — Thanh toán #{detailRefund?.payment_id}
+            </DialogDescription>
+          </DialogHeader>
+          {detailRefund && (
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 pr-2">
+                {/* Status & amounts */}
+                <div className="rounded-md border p-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                  <span className="text-muted-foreground">Trạng thái</span><span>{refundStatusBadge(detailRefund.status)}</span>
+                  <span className="text-muted-foreground">Số tiền gốc</span><span className="font-medium">{formatCurrency(detailRefund.amount)}</span>
+                  {detailRefund.refund_amount && <><span className="text-muted-foreground">Số tiền hoàn</span><span className="font-medium text-purple-600">{formatCurrency(detailRefund.refund_amount)}</span></>}
+                  <span className="text-muted-foreground">Ngày yêu cầu</span><span>{new Date(detailRefund.request_date).toLocaleString('vi-VN')}</span>
+                  {detailRefund.processed_date && <><span className="text-muted-foreground">Ngày xử lý</span><span>{new Date(detailRefund.processed_date).toLocaleString('vi-VN')}</span></>}
+                </div>
+
+                {/* Gateway details */}
+                <div className="rounded-md border p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chi tiết cổng thanh toán</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <span className="text-muted-foreground">Mã GD hoàn</span><span className="font-medium truncate">{detailRefund.transaction_id || '—'}</span>
+                    <span className="text-muted-foreground">Số lần thử</span><span className="font-medium">{detailRefund.gateway_attempt_count}</span>
+                    {detailRefund.last_gateway_attempt_at && <><span className="text-muted-foreground">Lần thử cuối</span><span>{new Date(detailRefund.last_gateway_attempt_at).toLocaleString('vi-VN')}</span></>}
+                    {detailRefund.next_retry_at && <><span className="text-muted-foreground">Thử lại lúc</span><span>{new Date(detailRefund.next_retry_at).toLocaleString('vi-VN')}</span></>}
+                  </div>
+                  {detailRefund.last_gateway_error && (
+                    <p className="text-xs text-red-600 bg-red-50 rounded p-2 mt-1">{detailRefund.last_gateway_error}</p>
+                  )}
+                </div>
+
+                {/* Timeline */}
+                {detailRefund.timeline && detailRefund.timeline.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Lịch sử xử lý</p>
+                    <ol className="space-y-2">
+                      {detailRefund.timeline.map((ev, i) => (
+                        <li key={i} className="flex items-start gap-2 text-xs">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+                          <div>
+                            <span className="font-medium text-foreground">{refundEventLabel(ev.event)}</span>
+                            <span className="text-muted-foreground ml-2">{new Date(ev.timestamp).toLocaleString('vi-VN')}</span>
+                            {ev.note && <p className="text-muted-foreground italic mt-0.5">{ev.note}</p>}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {detailRefund.reason && (
+                  <div className="rounded-md border p-3 text-xs">
+                    <p className="font-semibold text-muted-foreground uppercase tracking-wider mb-1">Lý do hoàn tiền</p>
+                    <p className="text-foreground">{detailRefund.reason}</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Refund Request Dialog ── */}
       <Dialog
         open={refundDialogOpen}
         onOpenChange={(open) => {

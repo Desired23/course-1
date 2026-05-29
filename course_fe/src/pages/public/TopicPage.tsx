@@ -143,7 +143,7 @@ const topicCourses: Record<string, any[]> = {
       image: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=800",
       rating: 4.7,
       reviews: 87654,
-      price: "���1.299.000",
+      price: "₫1.299.000",
       originalPrice: "₫2.999.000",
       duration: "25 hours",
       students: "320K+",

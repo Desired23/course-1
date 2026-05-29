@@ -2,7 +2,7 @@
 
 
 
-import { http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 export interface InstructorEarning {
@@ -21,6 +21,7 @@ export interface InstructorEarning {
   payment_transaction_id: string | null
   plan_name: string | null
   earning_source: 'retail' | 'subscription'
+  commission_rate_applied: string
   created_at: string
 }
 
@@ -75,6 +76,15 @@ export interface SubscriptionRevenueBreakdownRow {
   share_pct: string
 }
 
+export interface EarningsMonthlyEntry {
+  date: string
+  retail_gross: number
+  retail_net: number
+  sub_gross: number
+  sub_net: number
+  total_net: number
+}
+
 export async function getInstructorEarnings(
   params?: EarningsListParams
 ): Promise<PaginatedResponse<InstructorEarning>> {
@@ -125,6 +135,44 @@ export async function getInstructorSubscriptionRevenueBreakdown(
     page_size: params?.page_size,
   })
   return http.get<PaginatedResponse<SubscriptionRevenueBreakdownRow>>('/instructor-earnings/subscription-breakdown/', query)
+}
+
+export async function getInstructorEarningsMonthly(
+  months = 12,
+  instructorId?: number
+): Promise<EarningsMonthlyEntry[]> {
+  const query: Record<string, number> = { months }
+  if (instructorId) query.instructor_id = instructorId
+  return http.get<EarningsMonthlyEntry[]>('/instructor-earnings/monthly/', query)
+}
+
+export async function exportInstructorEarnings(
+  format: 'csv' | 'excel' = 'csv',
+  instructorId?: number,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<void> {
+  const params = new URLSearchParams({ format })
+  if (instructorId) params.set('instructor_id', String(instructorId))
+  if (dateFrom) params.set('date_from', dateFrom)
+  if (dateTo) params.set('date_to', dateTo)
+  const token = getAccessToken()
+  const response = await fetch(`${API_BASE_URL}/instructor-earnings/export/?${params.toString()}`, {
+    headers: {
+      ...getApiTransportHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  if (!response.ok) throw new Error('Export failed')
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `instructor_earnings.${format === 'excel' ? 'xlsx' : 'csv'}`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 export function parseEarningAmount(val: string | null | undefined): number {

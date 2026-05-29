@@ -79,7 +79,10 @@ def get_lessons(filters=None):
 def get_lesson_by_id(lesson_id):
     try:
         lesson = Lesson.objects.get(id=lesson_id)
+        
         serializer = LessonSerializer(lesson)
+        s = "asss" 
+        
         return serializer.data
     except Lesson.DoesNotExist:
         raise ValidationError({"error": "Lesson not found."})

@@ -9,6 +9,7 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
     payment_transaction_id = serializers.CharField(source='payment.transaction_id', read_only=True)
     plan_name = serializers.CharField(source='user_subscription.plan.name', read_only=True)
     earning_source = serializers.SerializerMethodField()
+    commission_rate_applied = serializers.SerializerMethodField()
 
     class Meta:
         model = InstructorEarning
@@ -23,18 +24,26 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
             'user_subscription',
             'plan_name',
             'earning_source',
+            'commission_rate_applied',
             'amount',
             'net_amount',
             'status',
             'earning_date',
             'instructor_payout',
         ]
-        read_only_fields = ['id', 'earning_date', 'net_amount', 'earning_source']
+        read_only_fields = ['id', 'earning_date', 'net_amount', 'earning_source', 'commission_rate_applied']
 
     def get_earning_source(self, obj):
         if obj.user_subscription_id:
             return 'subscription'
         return 'retail'
+
+    def get_commission_rate_applied(self, obj):
+        amount = obj.amount or Decimal('0')
+        if not amount:
+            return '0.00'
+        commission = (Decimal(amount) - Decimal(obj.net_amount or 0)) / Decimal(amount) * Decimal('100')
+        return f"{commission.quantize(Decimal('0.01'))}"
 
 
 class SubscriptionRevenueBreakdownSerializer(serializers.Serializer):

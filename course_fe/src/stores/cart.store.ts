@@ -23,6 +23,8 @@ import {
   type PromotionInfo,
 } from '../services/promotion.api'
 
+let cartSyncPromise: Promise<void> | null = null
+
 
 export interface Course {
   id: string
@@ -85,9 +87,11 @@ interface CartState {
   orderCoupon: Coupon | null
   appliedPromotion: AppliedPromotion | null
   _synced: boolean
+  lastSyncedAt: number | null
 
 
   loadCart: (userId: number) => Promise<void>
+  syncCartIfStale: (userId: number, maxAgeMs?: number) => Promise<void>
   addToCart: (course: Course) => void
   addToCartFromApi: (userId: number, courseId: number, courseMeta: Partial<Course>) => Promise<void>
   removeFromCart: (courseId: string) => void
@@ -112,16 +116,38 @@ export const useCartStore = create<CartState>()(
         orderCoupon: null,
         appliedPromotion: null,
         _synced: false,
+        lastSyncedAt: null,
 
 
         loadCart: async (userId) => {
           try {
             const items = await getAllCartByUser(userId)
             const courses = items.map(cartItemToCourse)
-            set({ cartItems: courses, _synced: true })
+            set({ cartItems: courses, _synced: true, lastSyncedAt: Date.now() })
           } catch {
 
-            set({ cartItems: [], _synced: true })
+            set({ cartItems: [], _synced: true, lastSyncedAt: Date.now() })
+          }
+        },
+
+        syncCartIfStale: async (userId, maxAgeMs = 30_000) => {
+          const state = get()
+          const now = Date.now()
+          const ageMs = state.lastSyncedAt ? now - state.lastSyncedAt : Number.POSITIVE_INFINITY
+          if (state._synced && ageMs <= maxAgeMs) {
+            return
+          }
+
+          if (cartSyncPromise) {
+            await cartSyncPromise
+            return
+          }
+
+          cartSyncPromise = get().loadCart(userId)
+          try {
+            await cartSyncPromise
+          } finally {
+            cartSyncPromise = null
           }
         },
 
@@ -146,7 +172,7 @@ export const useCartStore = create<CartState>()(
           try {
             const created = await addToCartApi({ user: userId, course: courseId })
             const newCourse = cartItemToCourse(created)
-            set({ cartItems: [...get().cartItems, newCourse] })
+            set({ cartItems: [...get().cartItems, newCourse], lastSyncedAt: Date.now(), _synced: true })
             toast.success(i18n.t('cart_store.added_to_cart'))
           } catch {
             toast.error(i18n.t('cart_store.add_to_cart_failed'))
@@ -157,7 +183,9 @@ export const useCartStore = create<CartState>()(
 
           const item = get().cartItems.find(i => i.id === courseId)
           set((state) => ({
-            cartItems: state.cartItems.filter(item => item.id !== courseId)
+            cartItems: state.cartItems.filter(item => item.id !== courseId),
+            lastSyncedAt: Date.now(),
+            _synced: true,
           }))
 
           if (courseId && !isNaN(parseInt(courseId))) {
@@ -172,7 +200,7 @@ export const useCartStore = create<CartState>()(
           }
         },
 
-        clearCart: () => set({ cartItems: [], orderCoupon: null, appliedPromotion: null }),
+        clearCart: () => set({ cartItems: [], orderCoupon: null, appliedPromotion: null, _synced: false, lastSyncedAt: null }),
 
         mergeCart: (serverItems) => {
           const state = get()

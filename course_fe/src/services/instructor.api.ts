@@ -29,6 +29,18 @@ export interface Instructor {
   total_students: number
   total_courses: number
   payment_info: unknown | null
+  level: InstructorLevel | null
+}
+
+export interface InstructorLevel {
+  id: number
+  name: string
+  description: string | null
+  commission_rate: string
+  plan_commission_rate: string
+  min_students: number
+  min_revenue: string
+  min_plan_minutes: number
 }
 
 
@@ -78,7 +90,6 @@ export interface InstructorDashboardStats {
   this_month_earnings: number
   average_rating: number
   total_reviews: number
-  pending_questions: number
   course_stats: Array<{
     course_id: number
     title: string

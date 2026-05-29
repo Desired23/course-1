@@ -41,6 +41,8 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
     effective_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     current_subscribers = serializers.IntegerField(read_only=True)
     course_count = serializers.SerializerMethodField()
+    created_by = serializers.SerializerMethodField()
+    created_by_admin_id = serializers.IntegerField(source='created_by_id', read_only=True)
 
     class Meta:
         model = SubscriptionPlan
@@ -51,7 +53,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             'yearly_discount_percent',
             'thumbnail', 'features', 'not_included', 'badge_text',
             'icon', 'highlight_color',
-            'created_by', 'created_at', 'updated_at',
+            'created_by', 'created_by_admin_id', 'created_at', 'updated_at',
             'effective_price', 'current_subscribers', 'course_count',
             'courses',
         ]
@@ -62,6 +64,11 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
 
     def get_course_count(self, obj):
         return obj.plan_courses.filter(is_deleted=False, status='active').count()
+
+    def get_created_by(self, obj):
+        if obj.created_by and obj.created_by.user_id:
+            return obj.created_by.user_id
+        return None
 
 
 class SubscriptionPlanListSerializer(serializers.ModelSerializer):

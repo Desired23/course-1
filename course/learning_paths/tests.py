@@ -13,6 +13,7 @@ from admins.models import Admin
 from courses.models import Course
 from learning_paths.models import LearningPath
 from learning_paths.services import get_advisor_provider, merge_advisor_messages, reset_advisor_runtime_state_for_tests
+from learning_paths.provider import normalize_known_skills
 from systems_settings.models import SystemsSetting
 from users.models import User
 
@@ -201,6 +202,41 @@ class LearningPathApiTests(TestCase):
         self.assertEqual(data["type"], "question")
         self.assertIn("goi y", fold_text(data["message"]))
         self.assertIn("provider_used", data["advisor_meta"])
+
+    @override_settings(LEARNING_PATH_PROVIDER="rule_based", LEARNING_PATH_FORCE_GEMINI=False)
+    def test_advisor_chat_python_search_prioritizes_python_course(self):
+        response = self.client.post(
+            "/api/learning-paths/advisor/chat",
+            {
+                "goal_text": "Toi can tim khoa hoc ve python",
+                "messages": [{"role": "user", "content": "Cho toi danh sach khoa hoc python"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["type"], "question")
+        message = data.get("message", "")
+        self.assertIn(f"(id {self.python_course.id})", message)
+        lines = [line.strip() for line in message.splitlines() if line.strip().startswith("1.")]
+        self.assertTrue(lines)
+        self.assertIn(str(self.python_course.id), lines[0])
+
+    def test_normalize_known_skills_does_not_treat_search_topic_as_known_skill(self):
+        inferred = normalize_known_skills(
+            "Toi can tim khoa hoc python",
+            [{"role": "user", "content": "cho toi danh sach khoa hoc python"}],
+            known_skills=[],
+        )
+        self.assertNotIn("python", inferred)
+
+    def test_normalize_known_skills_infers_skill_when_user_explicitly_says_known(self):
+        inferred = normalize_known_skills(
+            "Toi da biet python co ban",
+            [{"role": "user", "content": "toi da biet python"}],
+            known_skills=[],
+        )
+        self.assertIn("python", inferred)
 
     @override_settings(LEARNING_PATH_PROVIDER="rule_based", LEARNING_PATH_FORCE_GEMINI=False)
     def test_advisor_chat_greeting_is_not_hardcoded_three_fields_prompt(self):
@@ -804,6 +840,147 @@ class LearningPathApiTests(TestCase):
         self.assertEqual(data["advisor_meta"]["provider_used"], "gemini")
         self.assertEqual(mock_client.models.generate_content_stream.call_count, 1)
         self.assertEqual(mock_client.models.generate_content_stream.call_args.kwargs["model"], "gemini-2.5-flash")
+
+    @override_settings(LEARNING_PATH_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    @patch("learning_paths.provider.genai.Client")
+    def test_advisor_chat_search_only_guard_converts_gemini_path_to_question(self, mock_client_cls):
+        stream_chunk = Mock()
+        stream_chunk.text = (
+            "{"
+            '"type":"path",'
+            '"path":['
+            f'{{"course_id":{self.sql_course.id},"order":1,"reason":"Build SQL foundation","is_skippable":false,"skippable_reason":null}},'
+            f'{{"course_id":{self.python_course.id},"order":2,"reason":"Use Python for analysis","is_skippable":false,"skippable_reason":null}}'
+            "],"
+            '"estimated_weeks":8,'
+            '"summary":"Lộ trình học tập: ..."'
+            "}"
+        )
+        mock_client = mock_client_cls.return_value
+        mock_client.models.generate_content_stream.return_value = [stream_chunk]
+
+        response = self.client.post(
+            "/api/learning-paths/advisor/chat",
+            {
+                "goal_text": "Toi chi tim khoa hoc python phu hop",
+                "messages": [{"role": "user", "content": "Toi chi tim khoa hoc python"}],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["type"], "question")
+        self.assertIn("goi y", fold_text(data.get("message", "")))
+        self.assertEqual((data.get("advisor_meta") or {}).get("forced_course_search"), True)
+
+    @override_settings(LEARNING_PATH_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    @patch("learning_paths.provider.genai.Client")
+    def test_advisor_chat_followup_machine_learning_stays_in_course_suggestions(self, mock_client_cls):
+        stream_chunk = Mock()
+        stream_chunk.text = (
+            "{"
+            '"type":"path",'
+            '"path":['
+            f'{{"course_id":{self.sql_course.id},"order":1,"reason":"Build SQL foundation","is_skippable":false,"skippable_reason":null}},'
+            f'{{"course_id":{self.python_course.id},"order":2,"reason":"Use Python for analysis","is_skippable":false,"skippable_reason":null}}'
+            "],"
+            '"estimated_weeks":8,'
+            '"summary":"Lộ trình học tập: ..."'
+            "}"
+        )
+        mock_client = mock_client_cls.return_value
+        mock_client.models.generate_content_stream.return_value = [stream_chunk]
+
+        response = self.client.post(
+            "/api/learning-paths/advisor/chat",
+            {
+                "goal_text": "machine learning",
+                "messages": [
+                    {"role": "user", "content": "toi can tim khoa hoc ve ai"},
+                    {"role": "assistant", "content": "Ban muon tap trung vao khia canh nao cua AI?"},
+                    {"role": "user", "content": "machine learning"},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["type"], "question")
+        self.assertIn("goi y", fold_text(data.get("message", "")))
+        self.assertEqual((data.get("advisor_meta") or {}).get("forced_course_search"), True)
+
+    @override_settings(LEARNING_PATH_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    @patch("learning_paths.provider.genai.Client")
+    def test_advisor_chat_followup_js_bo_sung_kien_thuc_stays_in_course_suggestions(self, mock_client_cls):
+        stream_chunk = Mock()
+        stream_chunk.text = (
+            "{"
+            '"type":"path",'
+            '"path":['
+            f'{{"course_id":{self.sql_course.id},"order":1,"reason":"Build SQL foundation","is_skippable":false,"skippable_reason":null}}'
+            "],"
+            '"estimated_weeks":4,'
+            '"summary":"Lộ trình học tập: ..."'
+            "}"
+        )
+        mock_client = mock_client_cls.return_value
+        mock_client.models.generate_content_stream.return_value = [stream_chunk]
+
+        response = self.client.post(
+            "/api/learning-paths/advisor/chat",
+            {
+                "goal_text": "toi chi muon bo sung kien thuc",
+                "messages": [
+                    {"role": "user", "content": "co khoa hoc nao ve js khong"},
+                    {"role": "assistant", "content": "Ban muon tim khoa hoc JavaScript de lam gi?"},
+                    {"role": "user", "content": "toi chi muon bo sung kien thuc"},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["type"], "question")
+        self.assertIn("goi y", fold_text(data.get("message", "")))
+        self.assertEqual((data.get("advisor_meta") or {}).get("forced_course_search"), True)
+
+    @override_settings(LEARNING_PATH_PROVIDER="gemini", GEMINI_API_KEY="test-key")
+    @patch("learning_paths.provider.genai.Client")
+    def test_advisor_chat_vn_no_roadmap_but_find_js_course_stays_in_course_suggestions(self, mock_client_cls):
+        stream_chunk = Mock()
+        stream_chunk.text = (
+            "{"
+            '"type":"path",'
+            '"path":['
+            f'{{"course_id":{self.sql_course.id},"order":1,"reason":"Build SQL foundation","is_skippable":false,"skippable_reason":null}}'
+            "],"
+            '"estimated_weeks":4,'
+            '"summary":"Lộ trình học tập: ..."'
+            "}"
+        )
+        mock_client = mock_client_cls.return_value
+        mock_client.models.generate_content_stream.return_value = [stream_chunk]
+
+        response = self.client.post(
+            "/api/learning-paths/advisor/chat",
+            {
+                "goal_text": "khong muon tim lo trinh ma tim 1 khoa hoc ve js",
+                "messages": [
+                    {"role": "assistant", "content": "Ban muon hoc ve khia canh nao cua JavaScript?"},
+                    {"role": "user", "content": "FE js di"},
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data["type"], "question")
+        self.assertIn("goi y", fold_text(data.get("message", "")))
+        self.assertEqual((data.get("advisor_meta") or {}).get("forced_course_search"), True)
 
     @override_settings(
         LEARNING_PATH_PROVIDER="gemini",

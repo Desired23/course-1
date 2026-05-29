@@ -114,13 +114,6 @@ export function ReportManagementPage() {
         { label: t('admin_reports.resolve_actions.delete_topic'), action: 'delete' },
       ]
     }
-    if (report.reported_type === 'qa_question') {
-      return [
-        { label: t('admin_reports.resolve_actions.approve_qa'), action: 'approve' },
-        { label: t('admin_reports.resolve_actions.close_qa'), action: 'close' },
-        { label: t('admin_reports.resolve_actions.delete_qa'), action: 'delete' },
-      ]
-    }
     if (report.reported_type === 'message') {
       return [
         { label: t('admin_reports.resolve_actions.approve_message'), action: 'approve' },
@@ -184,7 +177,6 @@ export function ReportManagementPage() {
       options: [
         { label: t('admin_reports.types.forum_post'), value: 'forum_post', count: reports.filter(r => r.reported_type === 'forum_post').length },
         { label: t('admin_reports.types.review'), value: 'review', count: reports.filter(r => r.reported_type === 'review').length },
-        { label: t('admin_reports.types.qa_question'), value: 'qa_question', count: reports.filter(r => r.reported_type === 'qa_question').length },
         { label: t('admin_reports.types.message'), value: 'message', count: reports.filter(r => r.reported_type === 'message').length },
       ],
     },
@@ -373,13 +365,11 @@ export function ReportManagementPage() {
     const icons = {
       forum_post: MessageSquare,
       review: BookOpen,
-      qa_question: MessageSquare,
       message: MessageSquare,
     }
     const labels = {
       forum_post: t('admin_reports.types.forum_post'),
       review: t('admin_reports.types.review'),
-      qa_question: t('admin_reports.system_notes.qa_question'),
       message: t('admin_reports.types.message'),
     }
     const Icon = icons[type]
@@ -757,17 +747,6 @@ export function ReportManagementPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">{t('admin_reports.detail.post_content')}</p>
-                    <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || t('admin_reports.no_content')}</p>
-                  </div>
-                </div>
-              ) : selectedReport.reported_type === 'qa_question' ? (
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.course_or_qa')}</p>
-                    <p className="text-sm">{selectedReport.reported_content_title}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium mb-1">{t('admin_reports.detail.question')}</p>
                     <p className="text-sm p-3 bg-muted rounded-lg">{selectedReport.description || t('admin_reports.no_content')}</p>
                   </div>
                 </div>

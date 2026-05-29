@@ -15,20 +15,17 @@ import {
   Clock,
   Users,
   BookOpen,
-  MessageCircle,
   Eye,
   CheckCircle,
-  TrendingUp,
   Calendar,
   User,
   FileText,
-  HelpCircle,
   ChevronRight,
   X
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-type SearchTab = 'all' | 'courses' | 'instructors' | 'articles' | 'qna'
+type SearchTab = 'all' | 'courses' | 'instructors' | 'articles'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -225,58 +222,9 @@ export function EnhancedSearchPage() {
         image: 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=300&h=200&fit=crop',
         views: 15230
       }
-    ],
-    qna: [
-      {
-        id: 1,
-        question: t('enhanced_search_page.mock.qna.question_1.question'),
-        excerpt: t('enhanced_search_page.mock.qna.question_1.excerpt'),
-        author: 'Sarah Wilson',
-        authorAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-        answers: 15,
-        views: 2340,
-        tags: [
-          t('enhanced_search_page.mock.qna.question_1.tag_1'),
-          t('enhanced_search_page.mock.qna.question_1.tag_2'),
-          t('enhanced_search_page.mock.qna.question_1.tag_3')
-        ],
-        isAnswered: true,
-        votes: 23
-      },
-      {
-        id: 2,
-        question: t('enhanced_search_page.mock.qna.question_2.question'),
-        excerpt: t('enhanced_search_page.mock.qna.question_2.excerpt'),
-        author: 'Mike Johnson',
-        authorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-        answers: 8,
-        views: 1560,
-        tags: [
-          t('enhanced_search_page.mock.qna.question_2.tag_1'),
-          t('enhanced_search_page.mock.qna.question_2.tag_2'),
-          t('enhanced_search_page.mock.qna.question_2.tag_3')
-        ],
-        isAnswered: true,
-        votes: 18
-      },
-      {
-        id: 3,
-        question: t('enhanced_search_page.mock.qna.question_3.question'),
-        excerpt: t('enhanced_search_page.mock.qna.question_3.excerpt'),
-        author: 'Alex Chen',
-        authorAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-        answers: 22,
-        views: 4560,
-        tags: [
-          t('enhanced_search_page.mock.qna.question_3.tag_1'),
-          t('enhanced_search_page.mock.qna.question_3.tag_2'),
-          t('enhanced_search_page.mock.qna.question_3.tag_3')
-        ],
-        isAnswered: true,
-        votes: 35
-      }
     ]
   }
+
 
   const popularSearches = {
     courses: [
@@ -292,11 +240,6 @@ export function EnhancedSearchPage() {
       t('enhanced_search_page.popular.articles_2'),
       t('enhanced_search_page.popular.articles_3')
     ],
-    qna: [
-      t('enhanced_search_page.popular.qna_1'),
-      t('enhanced_search_page.popular.qna_2'),
-      t('enhanced_search_page.popular.qna_3')
-    ]
   }
 
   useEffect(() => {
@@ -304,8 +247,7 @@ export function EnhancedSearchPage() {
       const allContent = [
         ...searchData.courses.map((course) => course.title),
         ...searchData.instructors.map((instructor) => instructor.name),
-        ...searchData.articles.map((article) => article.title),
-        ...searchData.qna.map((qa) => qa.question)
+        ...searchData.articles.map((article) => article.title)
       ]
       const filtered = allContent.filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5)
       setSuggestions(filtered)
@@ -331,7 +273,7 @@ export function EnhancedSearchPage() {
   }
 
   const getFilteredResults = () => {
-    if (!searchQuery) return { courses: [], instructors: [], articles: [], qna: [] }
+    if (!searchQuery) return { courses: [], instructors: [], articles: [] }
     const query = searchQuery.toLowerCase()
 
     return {
@@ -348,11 +290,6 @@ export function EnhancedSearchPage() {
         article.title.toLowerCase().includes(query) ||
         article.excerpt.toLowerCase().includes(query) ||
         article.tags.some((tag) => tag.toLowerCase().includes(query))
-      ),
-      qna: searchData.qna.filter((qa) =>
-        qa.question.toLowerCase().includes(query) ||
-        qa.excerpt.toLowerCase().includes(query) ||
-        qa.tags.some((tag) => tag.toLowerCase().includes(query))
       )
     }
   }
@@ -451,33 +388,6 @@ export function EnhancedSearchPage() {
     </motion.div>
   )
 
-  const renderQnACard = (qa: any) => (
-    <motion.div key={qa.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/qna/${qa.id}`)}>
-      <Card className="h-full hover:shadow-lg transition-shadow">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-3">
-            <Avatar className="w-10 h-10"><img src={qa.authorAvatar} alt={qa.author} /></Avatar>
-            <div className="flex-1">
-              <h3 className="font-semibold mb-2 line-clamp-2">{qa.question}</h3>
-              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{qa.excerpt}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-                <span>{t('enhanced_search_page.labels.by_author_lower', { author: qa.author })}</span>
-                <div className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /><span>{t('enhanced_search_page.labels.answers_count', { count: qa.answers })}</span></div>
-                <div className="flex items-center gap-1"><Eye className="w-4 h-4" /><span>{qa.views}</span></div>
-                <div className="flex items-center gap-1"><TrendingUp className="w-4 h-4" /><span>{t('enhanced_search_page.labels.votes_count', { count: qa.votes })}</span></div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-1">
-                  {qa.tags.slice(0, 3).map((tag: string) => <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>)}
-                </div>
-                {qa.isAnswered && <div className="flex items-center gap-1 text-green-600"><CheckCircle className="w-4 h-4" /><span className="text-xs">{t('enhanced_search_page.labels.answered')}</span></div>}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  )
 
   return (
     <motion.div
@@ -522,7 +432,6 @@ export function EnhancedSearchPage() {
               <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><BookOpen className="w-5 h-5 text-blue-500" />{t('enhanced_search_page.sections.popular_courses')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.courses.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
               <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><User className="w-5 h-5 text-green-500" />{t('enhanced_search_page.sections.top_instructors')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.instructors.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
               <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><FileText className="w-5 h-5 text-purple-500" />{t('enhanced_search_page.sections.popular_articles')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.articles.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
-              <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><HelpCircle className="w-5 h-5 text-orange-500" />{t('enhanced_search_page.sections.trending_qna')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.qna.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
             </div>
             {recentSearches.length > 0 && <Card><CardHeader><CardTitle>{t('enhanced_search_page.sections.recent_searches')}</CardTitle></CardHeader><CardContent><div className="flex flex-wrap gap-2">{recentSearches.map((term) => <Badge key={term} variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => handleSearch(term)}>{term}</Badge>)}</div></CardContent></Card>}
           </motion.div>
@@ -539,18 +448,15 @@ export function EnhancedSearchPage() {
                   <TabsTrigger value="courses" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'courses' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.courses', { count: filteredResults.courses.length })}</span></TabsTrigger>
                   <TabsTrigger value="instructors" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'instructors' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.instructors', { count: filteredResults.instructors.length })}</span></TabsTrigger>
                   <TabsTrigger value="articles" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'articles' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.articles', { count: filteredResults.articles.length })}</span></TabsTrigger>
-                  <TabsTrigger value="qna" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'qna' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.qna', { count: filteredResults.qna.length })}</span></TabsTrigger>
                 </TabsList>
                 <TabsContent value="all" className="space-y-8">
                   {filteredResults.courses.length > 0 && <div><h3 className="text-lg font-semibold mb-4">{t('enhanced_search_page.headings.courses')}</h3><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredResults.courses.slice(0, 3).map(renderCourseCard)}</div>{filteredResults.courses.length > 3 && <div className="text-center mt-4"><Button variant="outline" onClick={() => setActiveTab('courses')}>{t('enhanced_search_page.actions.view_all_courses', { count: filteredResults.courses.length })}<ChevronRight className="w-4 h-4 ml-1" /></Button></div>}</div>}
                   {filteredResults.instructors.length > 0 && <div><h3 className="text-lg font-semibold mb-4">{t('enhanced_search_page.headings.instructors')}</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{filteredResults.instructors.slice(0, 2).map(renderInstructorCard)}</div>{filteredResults.instructors.length > 2 && <div className="text-center mt-4"><Button variant="outline" onClick={() => setActiveTab('instructors')}>{t('enhanced_search_page.actions.view_all_instructors', { count: filteredResults.instructors.length })}<ChevronRight className="w-4 h-4 ml-1" /></Button></div>}</div>}
                   {filteredResults.articles.length > 0 && <div><h3 className="text-lg font-semibold mb-4">{t('enhanced_search_page.headings.articles')}</h3><div className="space-y-4">{filteredResults.articles.slice(0, 3).map(renderArticleCard)}</div>{filteredResults.articles.length > 3 && <div className="text-center mt-4"><Button variant="outline" onClick={() => setActiveTab('articles')}>{t('enhanced_search_page.actions.view_all_articles', { count: filteredResults.articles.length })}<ChevronRight className="w-4 h-4 ml-1" /></Button></div>}</div>}
-                  {filteredResults.qna.length > 0 && <div><h3 className="text-lg font-semibold mb-4">{t('enhanced_search_page.headings.qna')}</h3><div className="space-y-4">{filteredResults.qna.slice(0, 3).map(renderQnACard)}</div>{filteredResults.qna.length > 3 && <div className="text-center mt-4"><Button variant="outline" onClick={() => setActiveTab('qna')}>{t('enhanced_search_page.actions.view_all_qna', { count: filteredResults.qna.length })}<ChevronRight className="w-4 h-4 ml-1" /></Button></div>}</div>}
                 </TabsContent>
                 <TabsContent value="courses"><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredResults.courses.map(renderCourseCard)}</div></TabsContent>
                 <TabsContent value="instructors"><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{filteredResults.instructors.map(renderInstructorCard)}</div></TabsContent>
                 <TabsContent value="articles"><div className="space-y-4">{filteredResults.articles.map(renderArticleCard)}</div></TabsContent>
-                <TabsContent value="qna"><div className="space-y-4">{filteredResults.qna.map(renderQnACard)}</div></TabsContent>
               </Tabs>
             )}
           </motion.div>

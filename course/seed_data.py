@@ -35,11 +35,8 @@ from quiz_results.models import QuizResult
 from reviews.models import Review
 from blog_posts.models import BlogPost
 from blog_comments.models import BlogComment
-from forums.models import Forum
-from forum_topics.models import ForumTopic
-from forum_comments.models import ForumComment
-from qnas.models import QnA
-from qna_answers.models import QnAAnswer
+from questions.models import Question
+from answers.models import Answer
 from promotions.models import Promotion
 from carts.models import Cart
 from wishlists.models import Wishlist
@@ -58,6 +55,56 @@ from applications.models import Application, ApplicationResponse
 from subscription_plans.models import SubscriptionPlan, PlanCourse, UserSubscription, CourseSubscriptionConsent, SubscriptionUsage
 
 now = timezone.now()
+
+CODE_CHALLENGE_TEMPLATES = [
+    {
+        "title": "Tong hai so nguyen",
+        "description": "Viet ham `solve(a, b)` tra ve tong cua hai so nguyen.",
+        "starter_code": "def solve(a, b):\n    # TODO: return the sum\n    pass",
+        "solution": "def solve(a, b):\n    return a + b",
+        "test_cases": [
+            ("1 2", "3", False),
+            ("10 -4", "6", True),
+            ("0 0", "0", True),
+        ],
+    },
+    {
+        "title": "Do dai chuoi",
+        "description": "Viet ham `solve(text)` tra ve do dai cua chuoi dau vao.",
+        "starter_code": "def solve(text):\n    # TODO: return len(text)\n    pass",
+        "solution": "def solve(text):\n    return len(text)",
+        "test_cases": [
+            ("python", "6", False),
+            ("chatgpt", "7", True),
+            ("", "0", True),
+        ],
+    },
+    {
+        "title": "So lon nhat trong 3 so",
+        "description": "Viet ham `solve(a, b, c)` tra ve gia tri lon nhat.",
+        "starter_code": "def solve(a, b, c):\n    # TODO: return the maximum value\n    pass",
+        "solution": "def solve(a, b, c):\n    return max(a, b, c)",
+        "test_cases": [
+            ("1 9 3", "9", False),
+            ("-5 -2 -9", "-2", True),
+            ("7 7 1", "7", True),
+        ],
+    },
+]
+
+
+def build_code_challenge(seed_value):
+    template = CODE_CHALLENGE_TEMPLATES[seed_value % len(CODE_CHALLENGE_TEMPLATES)]
+    return {
+        "question_text": template["title"],
+        "description": template["description"],
+        "starter_code": template["starter_code"],
+        "correct_answer": template["solution"],
+        "time_limit": 120,
+        "memory_limit": 65536,
+        "allowed_languages": [71, 63],
+        "test_cases": template["test_cases"],
+    }
 
 def hashed(pw):
     return make_password(pw)
@@ -393,7 +440,7 @@ for course in courses:
                 description=f"Bài học {l_idx} trong module {m_idx}",
                 content_type=ct,
                 content=f"Nội dung chi tiết cho bài {l_idx}..." if ct == "text" else None,
-                video_url=f"https://example.com/videos/c{course.id}_m{m_idx}_l{l_idx}.mp4" if ct == "video" else None,
+                video_url="https://res.cloudinary.com/dqzopvk2t/video/upload/v1780068574/course_lessons/course_sample_lesson.mp4" if ct == "video" else None,
                 duration=random.randint(5, 45) if ct != "quiz" else random.randint(10, 30),
                 is_free=(m_idx == 1 and l_idx <= 2),
                 order=l_idx,
@@ -420,6 +467,13 @@ for lesson in quiz_lessons[:80]:
     num_q = random.randint(3, 8)
     for q_idx in range(1, num_q + 1):
         qtype = random.choice(["multiple", "truefalse", "multiple", "code"])
+        question_text = f"CÃ¢u há»i {q_idx} cho bÃ i {lesson.title}?"
+        description = None
+        starter_code = None
+        time_limit = None
+        memory_limit = None
+        allowed_languages = None
+        explanation = f"Giáº£i thÃ­ch cho cÃ¢u {q_idx}."
         if qtype == "multiple":
             options = [
                 {"text": f"Đáp án A", "is_correct": q_idx % 4 == 1},
@@ -433,7 +487,15 @@ for lesson in quiz_lessons[:80]:
             correct = random.choice(["True", "False"])
         else:
             options = None
-            correct = 'print("Hello World")'
+            challenge = build_code_challenge(q_idx + lesson.id)
+            question_text = f"{challenge['question_text']} - {lesson.title}"
+            description = challenge["description"]
+            starter_code = challenge["starter_code"]
+            correct = challenge["correct_answer"]
+            time_limit = challenge["time_limit"]
+            memory_limit = challenge["memory_limit"]
+            allowed_languages = challenge["allowed_languages"]
+            explanation = f"Code challenge: {challenge['description']}"
 
         qq = QuizQuestion.objects.create(
             lesson=lesson,
@@ -448,12 +510,32 @@ for lesson in quiz_lessons[:80]:
         )
 
         if qtype == "code":
-            for tc_idx in range(1, 4):
+            qq.question_text = question_text
+            qq.correct_answer = correct
+            qq.explanation = explanation
+            qq.description = description
+            qq.starter_code = starter_code
+            qq.time_limit = time_limit
+            qq.memory_limit = memory_limit
+            qq.allowed_languages = allowed_languages
+            qq.save(
+                update_fields=[
+                    "question_text",
+                    "correct_answer",
+                    "explanation",
+                    "description",
+                    "starter_code",
+                    "time_limit",
+                    "memory_limit",
+                    "allowed_languages",
+                ]
+            )
+            for tc_idx, (input_data, expected_output, is_hidden) in enumerate(challenge["test_cases"], 1):
                 QuizTestCase.objects.create(
                     question=qq,
-                    input_data=f"input_{tc_idx}",
-                    expected_output=f"output_{tc_idx}",
-                    is_hidden=(tc_idx > 1),
+                    input_data=input_data,
+                    expected_output=expected_output,
+                    is_hidden=is_hidden,
                     points=1,
                     order_number=tc_idx,
                 )
@@ -482,7 +564,7 @@ for name, price, dtype, days, features, not_inc in plans_data:
             'features': features,
             'not_included': not_inc,
             'badge_text': "Phổ biến" if name == "Tiêu chuẩn" else None,
-            'created_by': admin_user,
+            'created_by': admin_obj,
         }
     )
     sub_plans.append(sp)
@@ -492,7 +574,7 @@ for sp in sub_plans:
     if courses:
         plan_courses_list = random.sample(courses, k=min(random.randint(10, 30), len(courses)))
         for c in plan_courses_list:
-            PlanCourse.objects.get_or_create(plan=sp, course=c, defaults={'status': "active", 'added_by': admin_user})
+            PlanCourse.objects.get_or_create(plan=sp, course=c, defaults={'status': "active", 'added_by': admin_obj})
 
 
 
@@ -805,73 +887,46 @@ for i, title in enumerate(blog_titles):
 
 
 
-print("  → Forums & Topics...")
-forums_list = []
-for course in courses[:20]:
-    f = Forum.objects.create(
-        course=course,
-        title=f"Diễn đàn: {course.title}",
-        description=f"Thảo luận về khóa học {course.title}",
-        user=course.instructor.user if course.instructor else admin_user,
-        status="active",
+print("  → Questions & Answers (QA Community)...")
+qa_tags_pool = [['python'], ['django'], ['javascript'], ['react'], ['css'], ['sql'], ['api'], ['debug'], ['html'], ['git']]
+question_titles = [
+    "Làm thế nào để xử lý lỗi này?",
+    "Cách tối ưu query trong Django?",
+    "React hooks hoạt động như thế nào?",
+    "Khác nhau giữa async/await và Promise?",
+    "Cách deploy ứng dụng lên Render?",
+    "CSS flexbox vs grid, khi nào dùng cái nào?",
+    "Cách viết unit test cho Django REST API?",
+    "JWT token refresh hoạt động ra sao?",
+    "Cách tối ưu performance React app?",
+    "Migrations trong Django, best practices?",
+]
+for q_idx in range(min(30, len(student_users) * 2)):
+    student = random.choice(student_users)
+    q = Question.objects.create(
+        title=question_titles[q_idx % len(question_titles)],
+        content=f"Mình đang gặp vấn đề số {q_idx + 1}. Bạn nào giúp mình với?",
+        author=student,
+        tags=qa_tags_pool[q_idx % len(qa_tags_pool)],
+        status="open",
+        views=random.randint(5, 300),
+        score=random.randint(0, 20),
     )
-    forums_list.append(f)
-
-    for t_idx in range(random.randint(2, 5)):
-        topic = ForumTopic.objects.create(
-            forum=f,
-            title=f"Câu hỏi {t_idx + 1} về {course.title[:30]}",
-            content=f"Mình gặp vấn đề với bài {t_idx + 1}, ai giúp mình với?",
-            user=random.choice(student_users),
-            views=random.randint(10, 500),
-            likes=random.randint(0, 30),
-            status="active",
+    num_answers = random.randint(0, 4)
+    for a_idx in range(num_answers):
+        Answer.objects.create(
+            question=q,
+            content=random.choice([
+                "Bạn thử cách này nhé...",
+                "Mình đã gặp vấn đề tương tự và giải quyết bằng...",
+                "Tham khảo tài liệu chính thức tại docs.djangoproject.com",
+                "Đây là approach mình hay dùng:",
+                "Hãy kiểm tra lại phần import và dependencies.",
+            ]),
+            author=random.choice(all_users[:20]),
+            score=random.randint(0, 15),
         )
-
-        for _ in range(random.randint(1, 4)):
-            ForumComment.objects.create(
-                topic=topic,
-                content=random.choice([
-                    "Mình cũng gặp vấn đề tương tự.",
-                    "Bạn thử cách này xem...",
-                    "Đã giải quyết được rồi, cảm ơn!",
-                    "Tham khảo tài liệu bài 3 nhé.",
-                ]),
-                user=random.choice(all_users[:20]),
-                status="active",
-                likes=random.randint(0, 10),
-            )
-
-
-
-
-print("  → Q&A...")
-for course in courses[:25]:
-    course_lessons_qs = Lesson.objects.filter(coursemodule__course=course, is_deleted=False)[:5]
-    for lesson in course_lessons_qs:
-        if random.random() < 0.5:
-            qna = QnA.objects.create(
-                course=course, lesson=lesson,
-                question=f"Làm sao để hiểu rõ hơn nội dung bài {lesson.title}?",
-                user=random.choice(student_users),
-                status=random.choice(["Pending", "Answered"]),
-                views=random.randint(5, 200),
-                description="Chi tiết câu hỏi...",
-                tags=["help", course.category.name.lower() if course.category else "general"],
-                votes=random.randint(0, 20),
-            )
-            for _ in range(random.randint(1, 3)):
-                QnAAnswer.objects.create(
-                    qna=qna,
-                    answer=random.choice([
-                        "Bạn nên xem lại phần video giải thích.",
-                        "Tham khảo tài liệu đính kèm nhé.",
-                        "Mình gợi ý bạn thử practice exercise.",
-                    ]),
-                    user=random.choice(instructor_users + student_users[:5]),
-                    is_accepted=random.random() < 0.3,
-                    likes=random.randint(0, 10),
-                )
+    Question.objects.filter(id=q.id).update(answer_count=num_answers)
 
 
 
@@ -1098,7 +1153,7 @@ form, _ = RegistrationForm.objects.update_or_create(
         'description': "Form đăng ký trở thành giảng viên trên nền tảng",
         'is_active': True,
         'version': 1,
-        'created_by': admin_user,
+        'created_by': admin_obj,
     }
 )
 q1, _ = FormQuestion.objects.update_or_create(
@@ -1144,7 +1199,7 @@ for u in instructor_users[:5]:
         user=u, form=form,
         defaults={
             'status': "approved",
-            'reviewed_by': admin_user,
+            'reviewed_by': admin_obj,
             'reviewed_at': past(30),
             'admin_notes': "Đáp ứng yêu cầu.",
         }

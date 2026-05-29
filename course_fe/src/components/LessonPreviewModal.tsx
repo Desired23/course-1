@@ -39,6 +39,8 @@ import { cn } from './ui/utils'
 import { useState, useEffect, useRef } from 'react'
 import { CommentItem } from './CommentItem'
 import { useTranslation } from 'react-i18next'
+import { getLessonComments, getAllReplies, createLessonComment, formatCommentDate } from '../services/lesson-comments.api'
+import { useAuthStore } from '../stores/auth.store'
 
 interface Lesson {
   id: number
@@ -68,6 +70,7 @@ export function LessonPreviewModal({
   lesson
 }: LessonPreviewModalProps) {
   const { t } = useTranslation()
+  const currentUser = useAuthStore(s => s.user)
   const [device, setDevice] = useState<DeviceType>('desktop')
   const [viewMode, setViewMode] = useState<ViewMode>('enrolled')
   const [activeTab, setActiveTab] = useState<'problem' | 'code'>('problem')
@@ -76,42 +79,44 @@ export function LessonPreviewModal({
   const [consoleOutput, setConsoleOutput] = useState<any>(null)
   const codeRef = useRef('')
 
-
-  const [comments, setComments] = useState<any[]>([
-    {
-      id: 1,
-      user: 'Sarah Mitchell',
-      avatar: 'S',
-      date: t('lesson_preview_modal.mock_dates.two_days_ago'),
-      content: 'Is this solution definitely O(n)? I thought the string replacement might add overhead.',
-      likes: 12,
-      parentId: null,
-      replies: [
-        {
-          id: 101,
-          user: 'Instructor Team',
-          avatar: 'I',
-          date: t('lesson_preview_modal.mock_dates.one_day_ago'),
-          content: 'Good catch! The replace regex is also O(n), so the total complexity remains O(n) + O(n) which simplifies to O(n).',
-          likes: 5,
-          parentId: 1,
-          replies: []
-        }
-      ]
-    },
-    {
-      id: 2,
-      user: 'David Chen',
-      avatar: 'D',
-      date: t('lesson_preview_modal.mock_dates.five_days_ago'),
-      content: 'Would a recursive solution be acceptable for this problem?',
-      likes: 3,
-      parentId: null,
-      replies: []
-    }
-  ])
+  const [comments, setComments] = useState<any[]>([])
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
+  const [commentsRefreshKey, setCommentsRefreshKey] = useState(0)
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!open || !lesson?.id) return
+    const fetchComments = async () => {
+      setIsLoadingComments(true)
+      try {
+        const rootData = await getLessonComments(lesson.id, { page_size: 50 })
+        const roots = rootData.results
+        const rootsWithReplies = await Promise.all(
+          roots.map(async (root) => {
+            const replies = await getAllReplies(root.id)
+            return { ...root, fetchedReplies: replies }
+          })
+        )
+        const mapComment = (c: any, replyList: any[] = []) => ({
+          id: c.id,
+          user: c.user_full_name || `User ${c.user}`,
+          avatar: c.user_avatar || (c.user_full_name || 'U')[0].toUpperCase(),
+          date: formatCommentDate(c.created_at),
+          content: c.content,
+          likes: c.votes,
+          parentId: c.parent_comment,
+          replies: replyList.map((r: any) => mapComment(r))
+        })
+        setComments(rootsWithReplies.map(root => mapComment(root, root.fetchedReplies)))
+      } catch {
+        // fail silently
+      } finally {
+        setIsLoadingComments(false)
+      }
+    }
+    fetchComments()
+  }, [open, lesson?.id, commentsRefreshKey])
 
 
   useEffect(() => {
@@ -178,12 +183,39 @@ export function LessonPreviewModal({
 
     try {
       const userCode = codeRef.current
-      const results = quizData.testCases?.map((tc: any) => {
+      const fnMatch = (userCode || '').match(/function\s+([A-Za-z_]\w*)\s*\(/) ||
+                      (userCode || '').match(/([A-Za-z_]\w*)\s*=\s*\([^)]*\)\s*=>/)
+      const fnName = quizData.functionName || (fnMatch ? fnMatch[1] : 'solution')
+      const results = (quizData.testCases ?? []).map((tc: any) => {
         try {
           const run = new Function(`
             ${userCode}
             try {
-              return isPalindrome(${tc.input})
+              function __parseScalar(t) {
+                var v = t.trim();
+                try { return JSON.parse(v); } catch(e) {}
+                if (/^-?\\d+$/.test(v)) return parseInt(v, 10);
+                if (/^-?[\\d.]+$/.test(v)) return parseFloat(v);
+                if ((v[0]==='"'&&v[v.length-1]==='"')||(v[0]==="'"&&v[v.length-1]==="'")) return v.slice(1,-1);
+                return v;
+              }
+              function __parseArg(line) {
+                var v = line.trim();
+                try { return JSON.parse(v); } catch(e) {}
+                if (v.indexOf(',') !== -1) return v.split(',').map(__parseScalar);
+                return __parseScalar(v);
+              }
+              var __lines = ${JSON.stringify(String(tc.input))}.trim().split(/\\n/).filter(Boolean);
+              var __args = [];
+              __lines.forEach(function(line) {
+                var v = line.trim();
+                var isJsonArr = false;
+                try { if (Array.isArray(JSON.parse(v))) isJsonArr = true; } catch(e) {}
+                var parsed = __parseArg(line);
+                if (Array.isArray(parsed) && !isJsonArr) { __args = __args.concat(parsed); }
+                else { __args.push(parsed); }
+              });
+              return ${fnName}.apply(null, __args);
             } catch (e) {
               return "Error: " + e.message
             }
@@ -227,51 +259,26 @@ export function LessonPreviewModal({
     }
   }
 
-  const handlePostComment = () => {
+  const handlePostComment = async () => {
      if (!newComment.trim()) return
-     const comment = {
-       id: Date.now(),
-       user: 'You',
-       avatar: 'Y',
-       date: t('lesson_preview_modal.just_now'),
-       content: newComment,
-       likes: 0,
-       parentId: null,
-       replies: []
+     try {
+       await createLessonComment({ lesson: lesson.id, content: newComment })
+       setNewComment('')
+       setCommentsRefreshKey(k => k + 1)
+     } catch {
+       // fail silently
      }
-     setComments([comment, ...comments])
-     setNewComment('')
   }
 
-  const handlePostReply = (parentId: number, content: string) => {
+  const handlePostReply = async (parentId: number, content: string) => {
      if (!content.trim()) return
-
-     const newReply = {
-       id: Date.now(),
-       user: 'You',
-       avatar: 'Y',
-       date: t('lesson_preview_modal.just_now'),
-       content: content,
-       likes: 0,
-       parentId: parentId,
-       replies: []
+     try {
+       await createLessonComment({ lesson: lesson.id, content, parent_comment: parentId })
+       setReplyingTo(null)
+       setCommentsRefreshKey(k => k + 1)
+     } catch {
+       // fail silently
      }
-
-
-     const addReply = (items: any[]): any[] => {
-       return items.map(item => {
-         if (item.id === parentId) {
-           return { ...item, replies: [...item.replies, newReply] }
-         }
-         if (item.replies && item.replies.length > 0) {
-           return { ...item, replies: addReply(item.replies) }
-         }
-         return item
-       })
-     }
-
-     setComments(addReply(comments))
-     setReplyingTo(null)
   }
 
   const renderPreview = () => {
@@ -388,7 +395,11 @@ export function LessonPreviewModal({
 
 
                         <div className="flex-1 overflow-y-auto p-4">
-                          {comments.length > 0 ? (
+                          {isLoadingComments ? (
+                            <div className="flex justify-center py-10">
+                              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : comments.length > 0 ? (
                             comments.map((comment) => (
                               <CommentItem
                                 key={comment.id}
@@ -396,6 +407,7 @@ export function LessonPreviewModal({
                                 replyingTo={replyingTo}
                                 setReplyingTo={setReplyingTo}
                                 onPostReply={handlePostReply}
+                                currentUser={currentUser?.name}
                               />
                             ))
                           ) : (
@@ -518,17 +530,17 @@ export function LessonPreviewModal({
                          <h4 className="font-bold text-gray-300">{t('lesson_preview_modal.test_results')}</h4>
                          <span className={cn(
                            "text-xs px-2 py-1 rounded",
-                           consoleOutput.results.every((r: any) => r.passed) ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"
+                           (consoleOutput.results ?? []).every((r: any) => r.passed) ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"
                          )}>
                            {t('lesson_preview_modal.passed_summary', {
-                             passed: consoleOutput.results.filter((r: any) => r.passed).length,
-                             total: consoleOutput.results.length,
+                             passed: (consoleOutput.results ?? []).filter((r: any) => r.passed).length,
+                             total: (consoleOutput.results ?? []).length,
                            })}
                          </span>
                        </div>
 
                        <div className="space-y-3">
-                         {consoleOutput.results.map((result: any, i: number) => (
+                         {(consoleOutput.results ?? []).map((result: any, i: number) => (
                            <div key={i} className="bg-[#252526] rounded p-3 text-xs">
                              <div className="flex items-center justify-between mb-2">
                                <span className="font-semibold text-gray-400">Test Case {i + 1}</span>
@@ -669,7 +681,7 @@ export function LessonPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("p-0 gap-0 overflow-hidden", deviceSizes[device])}>
+      <DialogContent aria-describedby={undefined} className={cn("p-0 gap-0 overflow-hidden", deviceSizes[device])}>
         <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/50">
           <div className="flex items-center gap-2">
             <DialogTitle className="text-sm font-medium">{t('lesson_preview_modal.title')}</DialogTitle>

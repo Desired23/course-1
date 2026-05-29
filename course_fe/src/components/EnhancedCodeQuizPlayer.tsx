@@ -301,7 +301,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
   const getExecutableCode = (): string => {
     const langValue = SUPPORTED_LANGUAGES.find(l => l.id === selectedLanguage)?.value || 'javascript'
-    return shouldWrapUserCode(code, langValue) ? wrapUserCode(code, langValue, '') : code
+    return shouldWrapUserCode(code, langValue) ? wrapUserCode(code, langValue, '', quiz.functionName || undefined) : code
   }
 
   return (

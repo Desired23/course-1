@@ -22,6 +22,7 @@ from instructor_earnings.models import InstructorEarning
 from utils.mailer.mailer import send_payment_invoice
 from activity_logs.services import log_activity
 from .services import ensure_payment_retryable
+from .return_url import resolve_payment_return_url
 
 
 
@@ -248,11 +249,6 @@ def create_enrollments_from_payment(payment):
             print(f"[WARN] PaymentDetail {detail.id} has no course, skipping enrollment")
             continue
 
-        existing = Enrollment.objects.filter(
-            user=payment.user, course=course_obj, is_deleted=False
-        ).first()
-        if existing:
-            continue
         try:
             create_enrollment({
                 'user_id': payment.user.id,
@@ -279,6 +275,7 @@ def payment_return(request):
         vnp = vnpay()
         vnp.responseData = inputData.dict()
         order_id = inputData['vnp_TxnRef']
+        result_url = resolve_payment_return_url(order_id, settings.VNPAY_FE_RETURN_URL)
 
         vnp_amount = Decimal(inputData['vnp_Amount']) / Decimal('100')
         amount = vnp_amount
@@ -353,6 +350,7 @@ def payment_ipn(request):
                 payment.transaction_id = vnp_TransactionNo
                 payment.gateway_response = vnp_ResponseCode
                 payment.payment_gateway = 'vnpay'
+                payment.ipn_attempts = (payment.ipn_attempts or 0) + 1
                 payment.save()
 
                 log_activity(
@@ -380,6 +378,7 @@ def payment_ipn(request):
             payment.payment_status = Payment.PaymentStatus.FAILED
             payment.transaction_id = vnp_TransactionNo
             payment.gateway_response = vnp_ResponseCode
+            payment.ipn_attempts = (payment.ipn_attempts or 0) + 1
             payment.save()
 
         return JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})

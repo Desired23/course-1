@@ -7,6 +7,15 @@ from .views import (
     AdminRevenueAnalyticsView,
     AdminUserAnalyticsView,
     AdminCourseAnalyticsView,
+    AdminRevenueBreakdownView,
+    AdminRevenueMonthlyBreakdownView,
+    AdminCommissionAnalyticsView,
+    AdminRefundAnalyticsView,
+    AdminTopCoursesByRevenueView,
+    AdminRevenueExportView,
+    AdminImportSubscriptionView,
+    AdminImportUsersView,
+    AdminImportCourseGrantsView,
 )
 
 urlpatterns = [
@@ -21,4 +30,16 @@ urlpatterns = [
     path('admin/analytics/revenue/', AdminRevenueAnalyticsView.as_view(), name='admin-analytics-revenue'),
     path('admin/analytics/users/', AdminUserAnalyticsView.as_view(), name='admin-analytics-users'),
     path('admin/analytics/courses/', AdminCourseAnalyticsView.as_view(), name='admin-analytics-courses'),
+    path('admin/analytics/revenue-breakdown/', AdminRevenueBreakdownView.as_view(), name='admin-revenue-breakdown'),
+    path('admin/analytics/revenue-monthly-breakdown/', AdminRevenueMonthlyBreakdownView.as_view(), name='admin-revenue-monthly-breakdown'),
+    path('admin/analytics/commission/', AdminCommissionAnalyticsView.as_view(), name='admin-commission'),
+    path('admin/analytics/refunds/', AdminRefundAnalyticsView.as_view(), name='admin-refunds'),
+    path('admin/analytics/top-courses-revenue/', AdminTopCoursesByRevenueView.as_view(), name='admin-top-courses-revenue'),
+    path('admin/analytics/revenue/export/', AdminRevenueExportView.as_view(), name='admin-revenue-export'),
+    path('admin/import/subscription-plan/', AdminImportSubscriptionView.as_view(), name='admin-import-subscription'),
+    path('admin/import/subscription-plan/template/', AdminImportSubscriptionView.as_view(), name='admin-import-subscription-template'),
+    path('admin/import/users/', AdminImportUsersView.as_view(), name='admin-import-users'),
+    path('admin/import/users/template/', AdminImportUsersView.as_view(), name='admin-import-users-template'),
+    path('admin/import/course-grants/', AdminImportCourseGrantsView.as_view(), name='admin-import-course-grants'),
+    path('admin/import/course-grants/template/', AdminImportCourseGrantsView.as_view(), name='admin-import-course-grants-template'),
 ]

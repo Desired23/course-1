@@ -5,7 +5,7 @@
 import i18n from './i18n'
 
 export interface RealtimeNotification {
-  type: 'qna_response' | 'review_response' | 'new_question' | 'new_review' | 'course_update' | 'promotion' | 'discussion'
+  type: 'review_response' | 'new_review' | 'course_update' | 'promotion' | 'discussion'
   title: string
   message: string
   actionUrl?: string
@@ -19,28 +19,10 @@ class RealtimeNotificationService {
   private getMockNotifications(): RealtimeNotification[] {
     return [
       {
-        type: 'new_question',
-        title: i18n.t('realtime_notifications.new_question.title'),
-        message: i18n.t('realtime_notifications.new_question.message'),
-        actionUrl: '/instructor/qna'
-      },
-      {
         type: 'new_review',
         title: i18n.t('realtime_notifications.new_five_star_review.title'),
         message: i18n.t('realtime_notifications.new_five_star_review.message'),
         actionUrl: '/instructor/reviews'
-      },
-      {
-        type: 'qna_response',
-        title: i18n.t('realtime_notifications.qna_response.title'),
-        message: i18n.t('realtime_notifications.qna_response.message'),
-        actionUrl: '/instructor/qna'
-      },
-      {
-        type: 'new_question',
-        title: i18n.t('realtime_notifications.urgent_question.title'),
-        message: i18n.t('realtime_notifications.urgent_question.message'),
-        actionUrl: '/instructor/qna'
       },
       {
         type: 'new_review',
@@ -118,9 +100,7 @@ export const realtimeNotificationService = new RealtimeNotificationService()
 
 export const getNotificationIcon = (type: string) => {
   const icons: Record<string, string> = {
-    qna_response: '💬',
     review_response: '⭐',
-    new_question: '❓',
     new_review: '📝',
     course_update: '📚',
     promotion: '🎁',
@@ -132,9 +112,7 @@ export const getNotificationIcon = (type: string) => {
 
 export const getNotificationColor = (type: string) => {
   const colors: Record<string, string> = {
-    qna_response: 'blue',
     review_response: 'yellow',
-    new_question: 'purple',
     new_review: 'green',
     course_update: 'blue',
     promotion: 'orange',

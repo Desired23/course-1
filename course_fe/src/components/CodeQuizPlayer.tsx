@@ -58,6 +58,7 @@ export interface CodeQuestion {
   language?: string
   allowedLanguages?: number[]
   starterCode?: string
+  functionName?: string
   testCases: TestCase[]
   timeLimit?: number
   memoryLimit?: number
@@ -75,6 +76,19 @@ interface CodeQuizPlayerProps {
   className?: string
 }
 
+function resolveStarterCode(starterCode: string | undefined, langId: number): string {
+  if (!starterCode) return ''
+  try {
+    const parsed = JSON.parse(starterCode)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed[langId] || parsed[String(langId)] || ''
+    }
+  } catch {
+    // plain code string, use as-is
+  }
+  return starterCode
+}
+
 export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, onSubmit, className }: CodeQuizPlayerProps) {
   const { t } = useTranslation()
   const { saveQuizAnswer, getQuizAnswer } = useQuizStore()
@@ -87,7 +101,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     savedAnswer?.language || question.allowedLanguages?.[0] || 63
   )
   const [code, setCode] = useState<string>(
-    savedAnswer?.code || question.starterCode || getStarterCode(getLanguageById(selectedLanguage)?.value || 'javascript')
+    savedAnswer?.code || resolveStarterCode(question.starterCode, selectedLanguage) || getStarterCode(getLanguageById(selectedLanguage)?.value || 'javascript')
   )
   const [isRunning, setIsRunning] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(savedAnswer?.isSubmitted || false)
@@ -132,7 +146,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
   useEffect(() => {
     const defaultLang = question.allowedLanguages?.[0] || 63
     const lang = getLanguageById(defaultLang)
-    const defaultCode = question.starterCode || getStarterCode(lang?.value || 'javascript')
+    const defaultCode = resolveStarterCode(question.starterCode, defaultLang) || getStarterCode(lang?.value || 'javascript')
 
     setSelectedLanguage(defaultLang)
     setCode(defaultCode)
@@ -183,9 +197,10 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
 
 
   useEffect(() => {
-    if (!code || code === question.starterCode) {
+    const resolved = resolveStarterCode(question.starterCode, selectedLanguage)
+    if (!code || code === resolved) {
       const lang = getLanguageById(selectedLanguage)
-      setCode(question.starterCode || getStarterCode(lang?.value || 'javascript'))
+      setCode(resolved || getStarterCode(lang?.value || 'javascript'))
     }
   }, [selectedLanguage])
 
@@ -259,7 +274,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
       const languageValue = lang?.value || 'javascript'
       const shouldWrap = shouldWrapUserCode(code, languageValue)
       const executableCode = shouldWrap
-        ? wrapUserCode(code, languageValue, '')
+        ? wrapUserCode(code, languageValue, '', question.functionName || undefined)
         : code
 
       console.log('Execution mode:', shouldWrap ? 'function-wrapper' : 'raw-stdin')

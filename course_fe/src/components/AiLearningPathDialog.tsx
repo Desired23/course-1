@@ -201,6 +201,8 @@ export function AiLearningPathDialog({
   const [messages, setMessages] = useState<AdvisorMessage[]>([])
   const [advisorState, setAdvisorState] = useState<AdvisorState | null>(null)
   const [savedPathId, setSavedPathId] = useState<number | null>(null)
+  const [pathSnapshots, setPathSnapshots] = useState<Record<number, AdvisorState>>({})
+  const [savedMessagePaths, setSavedMessagePaths] = useState<Record<number, number>>({})
   const [isThinking, setIsThinking] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingSavedPath, setIsLoadingSavedPath] = useState(false)
@@ -359,6 +361,8 @@ export function AiLearningPathDialog({
     setMessages([])
     setAdvisorState(null)
     setSavedPathId(null)
+    setPathSnapshots({})
+    setSavedMessagePaths({})
     setIsThinking(false)
     setIsSaving(false)
     setIsLoadingSavedPath(false)
@@ -435,12 +439,15 @@ export function AiLearningPathDialog({
         setSavedPathId(result.path_id)
       }
       const assistantSummary = buildPathAssistantSummary(result.summary, result.path, tr)
-      setAdvisorState({
+      const snapshot: AdvisorState = {
         path: result.path,
         estimated_weeks: result.estimated_weeks,
         summary: result.summary,
         advisor_meta: result.advisor_meta,
-      })
+      }
+      setAdvisorState(snapshot)
+      const newMsgIndex = nextMessages.length
+      setPathSnapshots((prev) => ({ ...prev, [newMsgIndex]: snapshot }))
       setMessages([...nextMessages, { role: 'assistant', content: assistantSummary }])
       const suggested = (result.advisor_meta?.suggested_actions || []).slice(0, 2)
       setQuickReplyActions(suggested)
@@ -591,6 +598,49 @@ export function AiLearningPathDialog({
     }
   }
 
+  const handleSaveSnapshot = async (messageIndex: number, snapshot: AdvisorState) => {
+    if (savedMessagePaths[messageIndex]) {
+      toast.success(tr('ai_learning_path.toast_path_already_saved', 'Lộ trình đã được lưu.'))
+      return
+    }
+    if (!isAuthenticated) {
+      openLogin({ onSuccess: () => void handleSaveSnapshot(messageIndex, snapshot) })
+      return
+    }
+    try {
+      setIsSaving(true)
+      const saved = await createLearningPath({
+        goal_text: goalText,
+        summary: snapshot.summary,
+        estimated_weeks: snapshot.estimated_weeks,
+        path: snapshot.path,
+        messages: messages.slice(0, messageIndex + 1),
+        advisor_meta: snapshot.advisor_meta,
+      })
+      setSavedMessagePaths((prev) => ({ ...prev, [messageIndex]: saved.id }))
+      setHistoryPaths((prev) => {
+        const nextItem: LearningPathSummary = {
+          id: saved.id,
+          goal_text: saved.goal_text,
+          summary: saved.summary,
+          estimated_weeks: saved.estimated_weeks,
+          created_at: saved.created_at,
+          updated_at: saved.updated_at,
+          conversation_count: saved.messages.length,
+          advisor_meta: saved.advisor_meta,
+          items: saved.items,
+        }
+        return [nextItem, ...prev.filter((p) => p.id !== saved.id)]
+      })
+      onSaved?.(saved)
+      toast.success(tr('ai_learning_path.toast_path_saved_success', 'Đã lưu lộ trình học.'))
+    } catch (error: any) {
+      toast.error(error?.message || tr('ai_learning_path.toast_save_path_failed', 'Không thể lưu lộ trình.'))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleOpenCourse = (courseId: number, continueLearning = false) => {
     closeDialog(false)
     window.setTimeout(() => {
@@ -607,16 +657,7 @@ export function AiLearningPathDialog({
     handleOpenCourse(progressSnapshot.nextActionItem.course_id, isOwned(progressSnapshot.nextActionItem.course_id))
   }
 
-  const handleOpenCatalog = () => {
-    closeDialog(false)
-    window.setTimeout(() => {
-      if (user?.roles?.includes('admin')) {
-        navigate('/admin/catalog-metadata')
-        return
-      }
-      navigate('/instructor/courses')
-    }, 0)
-  }
+
 
   const addMissingCoursesToCart = async () => {
     if (!advisorState || missingPathItems.length === 0) {
@@ -752,17 +793,33 @@ export function AiLearningPathDialog({
                           {row.map((cell, colIdx) => {
 
                             if (colIdx === courseNameColIdx && courseId) {
+                              const stepSnapshot = progressSnapshot?.stepSnapshots.find(
+                                (s) => s.item.course_id === courseId
+                              )
+                              const isFree =
+                                !isOwned &&
+                                stepSnapshot &&
+                                parseFloat(stepSnapshot.item.course_price ?? '1') === 0
+                              const navPath = isOwned
+                                ? `/course-player/${courseId}`
+                                : `/course/${courseId}`
+
                               return (
                                 <td key={`cell-${rowIdx}-${colIdx}`} className="border-r border-slate-700/20 px-3 py-2 text-slate-100 last:border-r-0 break-words">
                                   <button
                                     type="button"
-                                    onClick={() => handleMessageLinkNavigate(`/course/${courseId}`)}
+                                    onClick={() => handleMessageLinkNavigate(navPath)}
                                     className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300 hover:underline transition-colors font-medium"
                                   >
                                     {cell}
                                     {isOwned && (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/40 whitespace-nowrap">
-                                        Đã có
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/40 whitespace-nowrap">
+                                        ▶ Tiếp tục học
+                                      </span>
+                                    )}
+                                    {isFree && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap">
+                                        Miễn phí
                                       </span>
                                     )}
                                   </button>
@@ -1032,7 +1089,7 @@ export function AiLearningPathDialog({
             )}
 
             {messages.map((message, index) => (
-              <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div key={`${message.role}-${index}`} className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-full sm:max-w-[78%] lg:max-w-[70%] rounded-lg px-4 py-2 ${
                   message.role === 'user'
                     ? 'bg-blue-600/70 text-white'
@@ -1044,6 +1101,21 @@ export function AiLearningPathDialog({
                     <div className="text-sm leading-relaxed break-words">{renderMessageContent(message.content, isOwned)}</div>
                   )}
                 </div>
+                {message.role === 'assistant' && pathSnapshots[index] && (
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveSnapshot(index, pathSnapshots[index])}
+                    disabled={isSaving || !!savedMessagePaths[index]}
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-slate-700/50 bg-slate-800/40 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-700/50 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                  >
+                    <Save className="h-3 w-3" />
+                    {savedMessagePaths[index]
+                      ? tr('ai_learning_path.saved_label', 'Đã lưu')
+                      : isSaving
+                        ? tr('ai_learning_path.saving_label', 'Đang lưu...')
+                        : tr('ai_learning_path.save_label', 'Lưu lộ trình này')}
+                  </button>
+                )}
               </div>
             ))}
 

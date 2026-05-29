@@ -328,6 +328,7 @@ export async function deleteCourse(
 
 
 
+
 export function parseDecimal(value: string | null | undefined): number {
   if (!value) return 0
   const num = parseFloat(value)

@@ -17,8 +17,8 @@ registerCacheClearer(() => {
 
 export function useOwnedCourses() {
   const { user, isAuthenticated } = useAuth()
-  const [ownedIds, setOwnedIds] = useState<Set<number>>(_cache?.courseIds ?? new Set())
-  const [enrollmentMap, setEnrollmentMap] = useState<Map<number, Enrollment>>(_cache?.enrollmentMap ?? new Map())
+  const [ownedIds, setOwnedIds] = useState<Set<number>>(new Set())
+  const [enrollmentMap, setEnrollmentMap] = useState<Map<number, Enrollment>>(new Map())
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
@@ -29,7 +29,9 @@ export function useOwnedCourses() {
     }
 
 
-    if (_cache && _cache.userId === user.id) {
+    const userId = String(user.id)
+
+    if (_cache && _cache.userId === userId) {
       setOwnedIds(_cache.courseIds)
       setEnrollmentMap(_cache.enrollmentMap)
       return
@@ -47,11 +49,12 @@ export function useOwnedCourses() {
           map.set(cid, e)
         }
       }
-      _cache = { userId: user.id, courseIds: ids, enrollmentMap: map }
+      _cache = { userId, courseIds: ids, enrollmentMap: map }
       setOwnedIds(ids)
       setEnrollmentMap(map)
     } catch {
-
+      setOwnedIds(new Set())
+      setEnrollmentMap(new Map())
     } finally {
       setLoading(false)
     }

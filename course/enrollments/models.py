@@ -14,6 +14,7 @@ class Enrollment(models.Model):
     class Source(models.TextChoices):
         PURCHASE = 'purchase', 'Purchase'
         SUBSCRIPTION = 'subscription', 'Subscription'
+        GRANTED = 'granted', 'Granted'
 
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='enrollment_user')
@@ -54,7 +55,7 @@ class Enrollment(models.Model):
         ]
 
     def __str__(self):
-        return f"Enrollment {self.status} - {self.certificate}"
+        return f"Enrollment {self.id} - {self.certificate} - {self.user.username} - {self.course.title}"
 
 
 

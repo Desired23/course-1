@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 class AdminReportSerializer(serializers.Serializer):
     id = serializers.CharField()
-    reported_type = serializers.ChoiceField(choices=['forum_post', 'review', 'qa_question', 'message'])
+    reported_type = serializers.ChoiceField(choices=['forum_post', 'review', 'message'])
     reported_id = serializers.IntegerField()
     report_count = serializers.IntegerField()
     reporter_name = serializers.CharField(allow_blank=True, allow_null=True)

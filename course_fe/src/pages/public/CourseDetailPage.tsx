@@ -10,6 +10,7 @@ import { CourseStickyNav } from "../../components/CourseStickyNav"
 import { LearningGoals } from "../../components/LearningGoals"
 import { toast } from "sonner@2.0.3"
 import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from "../../services/course.api"
+import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
 import { getInitials } from "../../services/instructor.api"
 import { extractRouteParams } from "../../utils/routeHelpers"
 import { getAllWishlistByUser, addToWishlist, removeFromWishlist, type WishlistItem } from "../../services/wishlist.api"
@@ -29,7 +30,7 @@ import { motion } from 'motion/react'
 import { listItemTransition } from '../../lib/motion'
 import {
   Star, Users, Clock, Globe, Languages, Play, FileText,
-  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen, Flag
+  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen, Flag, Tag
 } from 'lucide-react'
 
 const sectionStagger = {
@@ -73,6 +74,7 @@ export function CourseDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false)
   const [discountExpired, setDiscountExpired] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
+  const [coursePromos, setCoursePromos] = useState<HomepagePromotion[]>([])
 
   const handleDiscountExpire = useCallback(() => {
     setDiscountExpired(true)
@@ -82,7 +84,7 @@ export function CourseDetailPage() {
   const sidebarCardInnerRef = useRef<HTMLDivElement>(null)
   const [cardPosition, setCardPosition] = useState<'natural' | 'fixed' | 'docked'>('natural')
 
-  const { addToCart, addToCartFromApi, isInCartByCourseId } = useCart()
+  const { addToCart, addToCartFromApi, isInCartByCourseId, loadCart } = useCart()
   const { user, isAuthenticated } = useAuth()
   const { openChatWithUser } = useChat()
   const { navigate, currentRoute } = useRouter()
@@ -186,7 +188,10 @@ export function CourseDetailPage() {
           return
         }
         const data = await getCourseById(courseId)
-        if (!cancelled) setCourseData(data)
+        if (!cancelled) {
+          setCourseData(data)
+          getCoursePromotions(courseId).then(setCoursePromos).catch(() => {})
+        }
       } catch (err: any) {
         if (!cancelled) setError(err.message || t('course_detail.load_failed'))
       } finally {
@@ -252,12 +257,13 @@ export function CourseDetailPage() {
   const handleAddToCart = async () => {
     if (!courseData) return
 
+    if (isInCartByCourseId(courseData.id)) {
+      navigate('/cart')
+      return
+    }
+
 
     if (isAuthenticated && user?.id) {
-      if (isInCartByCourseId(courseData.id)) {
-        toast.info(t('course_detail.already_in_cart'))
-        return
-      }
       await addToCartFromApi(parseInt(user.id), courseData.id, {})
     } else {
 
@@ -276,6 +282,13 @@ export function CourseDetailPage() {
     }
     toast.success(t('course_detail.added_to_cart_toast'), { description: courseData.title })
   }
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || !courseData?.id) {
+      return
+    }
+    void loadCart(parseInt(user.id))
+  }, [courseData?.id, isAuthenticated, loadCart, user?.id])
 
   const handleBuyNow = async () => {
     await handleAddToCart()
@@ -551,6 +564,17 @@ export function CourseDetailPage() {
                               <DiscountCountdown endDate={discountEndDate} onExpire={handleDiscountExpire} variant="banner" />
                            )}
 
+                           {coursePromos.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
+                                 {coursePromos.map((promo) => (
+                                    <div key={promo.id} className="flex items-center gap-1.5 rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 dark:border-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                                       <Tag className="h-3 w-3" />
+                                       <span>Giảm {formatDiscountValue(promo.discount_type, promo.discount_value)} · mã: <span className="font-mono font-semibold">{promo.code}</span></span>
+                                    </div>
+                                 ))}
+                              </div>
+                           )}
+
                            <div className="flex items-end gap-3">
                               <span className="text-3xl font-bold text-red-600 dark:text-red-400">
                                  {formatPrice(effectivePrice)}
@@ -587,14 +611,16 @@ export function CourseDetailPage() {
                               </div>
                            )}
 
-                           <div className="space-y-3 pt-2">
-                              <Button className="w-full h-12 text-lg font-bold" onClick={handleAddToCart}>
-                                 {t('course_detail.add_to_cart')}
-                              </Button>
+                          <div className="space-y-3 pt-2">
+                            <Button className="w-full h-12 text-lg font-bold" onClick={handleAddToCart}>
+                              {isInCartByCourseId(courseData.id) ? t('course_sticky_nav.go_to_cart') : t('course_detail.add_to_cart')}
+                            </Button>
+                            {!isInCartByCourseId(courseData.id) && (
                               <Button variant="outline" className="w-full h-12 font-semibold" onClick={handleBuyNow}>
-                                 {t('course_detail.buy_now')}
+                                {t('course_detail.buy_now')}
                               </Button>
-                           </div>
+                            )}
+                          </div>
                            <p className="text-xs text-center text-muted-foreground">
                               {t('course_detail.money_back')}
                            </p>
@@ -726,12 +752,14 @@ export function CourseDetailPage() {
                         )}
 
                         <div className="space-y-3 pt-2">
-                              <Button className="w-full h-12 text-lg font-bold" onClick={handleAddToCart}>
-                                {t('course_detail.add_to_cart')}
+                            <Button className="w-full h-12 text-lg font-bold" onClick={handleAddToCart}>
+                              {isInCartByCourseId(courseData.id) ? t('course_sticky_nav.go_to_cart') : t('course_detail.add_to_cart')}
                             </Button>
-                            <Button variant="outline" className="w-full h-12 font-semibold" onClick={handleBuyNow}>
-                                {t('course_detail.buy_now')}
-                            </Button>
+                            {!isInCartByCourseId(courseData.id) && (
+                              <Button variant="outline" className="w-full h-12 font-semibold" onClick={handleBuyNow}>
+                                  {t('course_detail.buy_now')}
+                              </Button>
+                            )}
                         </div>
                         <p className="text-xs text-center text-muted-foreground">
                             {t('course_detail.money_back')}

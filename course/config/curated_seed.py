@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import random
 import json
-import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth.hashers import make_password
-from django.db import transaction
+from django.db import connection, transaction
+from django.db.models import Avg, Sum
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -26,24 +26,17 @@ from certificates.models import Certificate
 from coursemodules.models import CourseModule
 from courses.models import Course
 from enrollments.models import Enrollment
-from forum_comments.models import ForumComment
-from forum_topics.models import ForumTopic
-from forums.models import Forum
-from instructor_earnings.models import InstructorEarning
+from answers.models import Answer
+from questions.models import Question
 from instructor_levels.models import InstructorLevel
-from instructor_payouts.models import InstructorPayout
 from instructors.models import Instructor
 from learning_progress.models import LearningProgress
 from lesson_attachments.models import LessonAttachment
 from lesson_comments.models import LessonComment
 from lessons.models import Lesson
 from notifications.models import Notification
-from payment_details.models import Payment_Details
 from payment_methods.models import InstructorPayoutMethod, UserPaymentMethod
-from payments.models import Payment
 from promotions.models import Promotion
-from qna_answers.models import QnAAnswer
-from qnas.models import QnA
 from quiz_questions.models import QuizQuestion, QuizTestCase
 from quiz_results.models import QuizResult
 from registration_forms.models import FormQuestion, RegistrationForm
@@ -52,8 +45,6 @@ from subscription_plans.models import (
     CourseSubscriptionConsent,
     PlanCourse,
     SubscriptionPlan,
-    SubscriptionUsage,
-    UserSubscription,
 )
 from support_replies.models import SupportReply
 from supports.models import Support
@@ -85,10 +76,7 @@ THUMB_URLS = [
 ]
 
 VIDEO_URLS = [
-    "https://picsum.photos/seed/lesson-video-1/1280/720",
-    "https://picsum.photos/seed/lesson-video-2/1280/720",
-    "https://picsum.photos/seed/lesson-video-3/1280/720",
-    "https://picsum.photos/seed/lesson-video-4/1280/720",
+    "https://res.cloudinary.com/dqzopvk2t/video/upload/v1780068574/course_lessons/course_sample_lesson.mp4",
 ]
 
 DEFAULT_HOMEPAGE_COMPONENTS = [
@@ -106,6 +94,39 @@ DEFAULT_HOMEPAGE_COMPONENTS = [
     "NewsletterSection",
 ]
 
+CODE_CHALLENGE_TEMPLATES = [
+    {
+        "title": "Sum two integers",
+        "description": "Implement `solve(a, b)` and return the sum of two integers.",
+        "starter_code": "def solve(a, b):\n    # TODO: return the sum\n    pass",
+        "solution": "def solve(a, b):\n    return a + b",
+        "test_cases": [
+            ("1 2", "3", False),
+            ("10 -4", "6", True),
+        ],
+    },
+    {
+        "title": "String length",
+        "description": "Implement `solve(text)` and return the input string length.",
+        "starter_code": "def solve(text):\n    # TODO: return len(text)\n    pass",
+        "solution": "def solve(text):\n    return len(text)",
+        "test_cases": [
+            ("python", "6", False),
+            ("chatgpt", "7", True),
+        ],
+    },
+    {
+        "title": "Maximum of three numbers",
+        "description": "Implement `solve(a, b, c)` and return the maximum value.",
+        "starter_code": "def solve(a, b, c):\n    # TODO: return max(a, b, c)\n    pass",
+        "solution": "def solve(a, b, c):\n    return max(a, b, c)",
+        "test_cases": [
+            ("1 9 3", "9", False),
+            ("-5 -2 -9", "-2", True),
+        ],
+    },
+]
+
 
 @dataclass
 class SeedContext:
@@ -118,68 +139,137 @@ class SeedError(Exception):
     """Raised when curated seed profile is not supported."""
 
 
-SUPPORTED_CURATED_PROFILES = ("demo-small", "demo-medium", "demo-large")
+SUPPORTED_CURATED_PROFILES = ("demo-small", "demo-medium", "demo-large", "demo-full")
 
-PROFILE_SETTINGS: dict[str, dict[str, int]] = {
+INSTRUCTOR_SPECS_ALL = [
+    ("nguyenvana", "Nguyen Van A", "Web Development"),
+    ("tranthib", "Tran Thi B", "Data Science"),
+    ("levanc", "Le Van C", "DevOps"),
+    ("phamthid", "Pham Thi D", "UI/UX"),
+    ("hoangvane", "Hoang Van E", "Mobile"),
+    ("vothif", "Vo Thi F", "Backend"),
+    ("dangvang", "Dang Van G", "Cybersecurity"),
+    ("ngothih", "Ngo Thi H", "AI/ML"),
+    ("buivani", "Bui Van I", "Database"),
+    ("lethij", "Le Thi J", "Cloud/Networking"),
+]
+
+PROFILE_SETTINGS: dict[str, dict[str, Any]] = {
     "demo-small": {
         "students_count": 10,
+        "instructors_count": 6,
+        "extra_admins": 0,
         "total_courses": 8,
         "published_courses": 6,
         "quiz_lesson_limit": 12,
+        "promo_count": 1,
         "promo_course_limit": 4,
+        "plan_count": 2,
         "plan_course_limit": 5,
         "purchase_student_count": 6,
         "subscription_student_count": 2,
         "review_limit": 12,
         "blog_post_count": 3,
         "blog_comments_per_post": 1,
-        "forum_course_limit": 2,
-        "qna_course_limit": 3,
+        "question_count": 3,
+        "answers_per_question": 1,
         "support_count": 3,
+        "support_reply_count": 2,
         "lesson_comment_limit": 4,
         "wishlist_per_student": 1,
         "activity_log_count": 3,
         "application_count": 2,
+        "form_count": 1,
+        "form_questions_per_form": 3,
+        "instructor_payout_count": 1,
+        "consent_course_count": 5,
     },
     "demo-medium": {
         "students_count": 18,
+        "instructors_count": 6,
+        "extra_admins": 0,
         "total_courses": 12,
         "published_courses": 10,
         "quiz_lesson_limit": 24,
+        "promo_count": 1,
         "promo_course_limit": 6,
+        "plan_count": 2,
         "plan_course_limit": 8,
         "purchase_student_count": 10,
         "subscription_student_count": 4,
         "review_limit": 24,
         "blog_post_count": 5,
         "blog_comments_per_post": 1,
-        "forum_course_limit": 4,
-        "qna_course_limit": 6,
+        "question_count": 6,
+        "answers_per_question": 1,
         "support_count": 5,
+        "support_reply_count": 3,
         "lesson_comment_limit": 8,
         "wishlist_per_student": 1,
         "activity_log_count": 5,
         "application_count": 4,
+        "form_count": 1,
+        "form_questions_per_form": 3,
+        "instructor_payout_count": 1,
+        "consent_course_count": 8,
     },
     "demo-large": {
         "students_count": 30,
+        "instructors_count": 6,
+        "extra_admins": 0,
         "total_courses": 16,
         "published_courses": 14,
         "quiz_lesson_limit": 40,
+        "promo_count": 1,
         "promo_course_limit": 10,
+        "plan_count": 2,
         "plan_course_limit": 12,
         "purchase_student_count": 20,
         "subscription_student_count": 8,
         "review_limit": 40,
         "blog_post_count": 8,
         "blog_comments_per_post": 2,
-        "forum_course_limit": 6,
-        "qna_course_limit": 10,
+        "question_count": 10,
+        "answers_per_question": 1,
         "support_count": 10,
+        "support_reply_count": 5,
         "lesson_comment_limit": 20,
         "wishlist_per_student": 2,
         "activity_log_count": 25,
         "application_count": 6,
+        "form_count": 1,
+        "form_questions_per_form": 3,
+        "instructor_payout_count": 1,
+        "consent_course_count": 8,
+    },
+    "demo-full": {
+        "students_count": 30,
+        "instructors_count": 10,
+        "extra_admins": 2,
+        "total_courses": 16,
+        "published_courses": 14,
+        "quiz_lesson_limit": 40,
+        "promo_count": 3,
+        "promo_course_limit": 10,
+        "plan_count": 5,
+        "plan_course_limit": 12,
+        "purchase_student_count": 20,
+        "subscription_student_count": 10,
+        "review_limit": 40,
+        "blog_post_count": 10,
+        "blog_comments_per_post": 2,
+        "question_count": 10,
+        "answers_per_question": 2,
+        "support_count": 10,
+        "support_reply_count": 10,
+        "lesson_comment_limit": 20,
+        "wishlist_per_student": 2,
+        "activity_log_count": 25,
+        "application_count": 10,
+        "form_count": 2,
+        "form_questions_per_form": 6,
+        "instructor_payout_count": 10,
+        "consent_course_count": 14,
     },
 }
 
@@ -194,12 +284,31 @@ def run_curated_seed(profile: str, random_seed: int) -> dict[str, Any]:
     ctx = SeedContext(now=timezone.now(), rng=rng, report={})
 
     with transaction.atomic():
+        # Ensure FK checks are immediate (not deferred) so violations surface at the
+        # specific INSERT/UPDATE rather than as a cryptic commit error.
+        if connection.vendor == "sqlite":
+            with connection.cursor() as _cur:
+                _cur.execute("PRAGMA defer_foreign_keys = OFF")
+
         users_data = _seed_users(ctx, profile_settings)
         content_data = _seed_learning_content(ctx, users_data, profile_settings)
         commerce_data = _seed_commerce(ctx, users_data, content_data, profile_settings)
         _seed_learning_outcomes(ctx, users_data, content_data, commerce_data, profile_settings)
         _seed_social_and_support(ctx, users_data, content_data, profile_settings)
         _seed_platform_metadata(ctx, users_data, profile_settings)
+        recalc_report = _recalculate_all_counters()
+
+        # Diagnostic: catch any FK violations before the savepoint is released.
+        if connection.vendor == "sqlite":
+            with connection.cursor() as _cur:
+                _cur.execute("PRAGMA foreign_key_check")
+                fk_rows = _cur.fetchall()
+                if fk_rows:
+                    details = [
+                        {"table": r[0], "rowid": r[1], "parent_table": r[2], "fk_index": r[3]}
+                        for r in fk_rows
+                    ]
+                    raise SeedError(f"FK integrity violations detected before commit: {details}")
 
     total_records = sum(ctx.report.values())
     return {
@@ -207,6 +316,7 @@ def run_curated_seed(profile: str, random_seed: int) -> dict[str, Any]:
         "random_seed": int(random_seed),
         "created_counts": ctx.report,
         "total_records": total_records,
+        "recalculation": recalc_report,
     }
 
 
@@ -214,7 +324,21 @@ def _count(ctx: SeedContext, key: str, amount: int) -> None:
     ctx.report[key] = ctx.report.get(key, 0) + amount
 
 
-def _seed_users(ctx: SeedContext, profile_settings: dict[str, int]) -> dict[str, Any]:
+def _build_code_challenge(seed_value: int) -> dict[str, Any]:
+    template = CODE_CHALLENGE_TEMPLATES[seed_value % len(CODE_CHALLENGE_TEMPLATES)]
+    return {
+        "question_text": template["title"],
+        "description": template["description"],
+        "starter_code": template["starter_code"],
+        "correct_answer": template["solution"],
+        "time_limit": 120,
+        "memory_limit": 65536,
+        "allowed_languages": [71, 63],
+        "test_cases": template["test_cases"],
+    }
+
+
+def _seed_users(ctx: SeedContext, profile_settings: dict[str, Any]) -> dict[str, Any]:
     password_hash = make_password("password123")
 
     admin_user = User.objects.create(
@@ -228,6 +352,20 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, int]) -> dict[str,
         phone="0900000001",
     )
     admin = Admin.objects.create(user=admin_user, department="Operations", role="super_admin")
+
+    extra_admins = []
+    for i in range(profile_settings.get("extra_admins", 0)):
+        eu = User.objects.create(
+            username=f"admin{i+2}",
+            email=f"admin{i+2}@example.com",
+            password_hash=password_hash,
+            full_name=f"Admin {i+2}",
+            user_type=User.UserTypeChoices.ADMIN,
+            status=User.StatusChoices.ACTIVE,
+            avatar=AVATAR_URLS[i % len(AVATAR_URLS)],
+            phone=f"09000{i+2:05d}",
+        )
+        extra_admins.append(Admin.objects.create(user=eu, department=["Tech", "Finance"][i % 2], role="admin"))
 
     level_specs = [
         ("Bronze", 0, Decimal("0.00"), Decimal("30.00")),
@@ -248,16 +386,10 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, int]) -> dict[str,
             )
         )
 
-    instructor_specs = [
-        ("nguyenvana", "Nguyen Van A", "Web Development"),
-        ("tranthib", "Tran Thi B", "Data Science"),
-        ("levanc", "Le Van C", "DevOps"),
-        ("phamthid", "Pham Thi D", "UI/UX"),
-        ("hoangvane", "Hoang Van E", "Mobile"),
-        ("vothif", "Vo Thi F", "Backend"),
-    ]
+    instructor_count = profile_settings.get("instructors_count", 6)
+    selected_instructor_specs = INSTRUCTOR_SPECS_ALL[:instructor_count]
     instructors = []
-    for idx, (username, full_name, specialization) in enumerate(instructor_specs):
+    for idx, (username, full_name, specialization) in enumerate(selected_instructor_specs):
         user = User.objects.create(
             username=username,
             email=f"{username}@example.com",
@@ -299,14 +431,16 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, int]) -> dict[str,
             )
         )
 
-    _count(ctx, "users", 1 + len(instructor_specs) + len(students))
-    _count(ctx, "admins", 1)
+    total_admin_count = 1 + len(extra_admins)
+    _count(ctx, "users", total_admin_count + len(instructors) + len(students))
+    _count(ctx, "admins", total_admin_count)
     _count(ctx, "instructor_levels", len(levels))
     _count(ctx, "instructors", len(instructors))
 
     return {
         "admin_user": admin_user,
         "admin": admin,
+        "extra_admins": extra_admins,
         "instructors": instructors,
         "students": students,
         "all_users": [admin_user] + [ins.user for ins in instructors] + students,
@@ -316,7 +450,7 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, int]) -> dict[str,
 def _seed_learning_content(
     ctx: SeedContext,
     users_data: dict[str, Any],
-    profile_settings: dict[str, int],
+    profile_settings: dict[str, Any],
 ) -> dict[str, Any]:
     taxonomy = {
         "Programming": ["Python", "JavaScript"],
@@ -457,7 +591,8 @@ def _seed_learning_content(
             if (idx + q_order) % 3 == 0:
                 qtype = QuizQuestion.QuestionType.CODE
                 options = None
-                answer = "def solve(a, b):\n    return a + b"
+                challenge = _build_code_challenge(idx + q_order + lesson.id)
+                answer = challenge["correct_answer"]
             elif (idx + q_order) % 2 == 0:
                 qtype = QuizQuestion.QuestionType.TRUE_FALSE
                 options = [{"text": "True"}, {"text": "False"}]
@@ -474,26 +609,36 @@ def _seed_learning_content(
             question = QuizQuestion.objects.create(
                 lesson=lesson,
                 difficulty=QuizQuestion.DifficultyLevel.MEDIUM,
-                question_text=f"{lesson.title} question {q_order}",
                 question_type=qtype,
                 options=options,
                 correct_answer=answer,
                 points=5,
-                explanation="Deterministic explanation",
+                explanation=(
+                    f"Code challenge: {challenge['description']}"
+                    if qtype == QuizQuestion.QuestionType.CODE
+                    else "Deterministic explanation"
+                ),
                 order_number=q_order,
-                time_limit=120 if qtype == QuizQuestion.QuestionType.CODE else None,
-                memory_limit=65536 if qtype == QuizQuestion.QuestionType.CODE else None,
-                allowed_languages=[71, 63] if qtype == QuizQuestion.QuestionType.CODE else None,
+                question_text=(
+                    f"{challenge['question_text']} - {lesson.title}"
+                    if qtype == QuizQuestion.QuestionType.CODE
+                    else f"{lesson.title} question {q_order}"
+                ),
+                description=challenge["description"] if qtype == QuizQuestion.QuestionType.CODE else None,
+                starter_code=challenge["starter_code"] if qtype == QuizQuestion.QuestionType.CODE else None,
+                time_limit=challenge["time_limit"] if qtype == QuizQuestion.QuestionType.CODE else None,
+                memory_limit=challenge["memory_limit"] if qtype == QuizQuestion.QuestionType.CODE else None,
+                allowed_languages=challenge["allowed_languages"] if qtype == QuizQuestion.QuestionType.CODE else None,
             )
             quiz_questions.append(question)
 
             if qtype == QuizQuestion.QuestionType.CODE:
-                for tc_order in range(1, 3):
+                for tc_order, (input_data, expected_output, is_hidden) in enumerate(challenge["test_cases"], 1):
                     QuizTestCase.objects.create(
                         question=question,
-                        input_data=f"{tc_order},{tc_order + 1}",
-                        expected_output=str(tc_order + tc_order + 1),
-                        is_hidden=(tc_order == 2),
+                        input_data=input_data,
+                        expected_output=expected_output,
+                        is_hidden=is_hidden,
                         points=2,
                         order_number=tc_order,
                     )
@@ -537,102 +682,105 @@ def _seed_commerce(
     ctx: SeedContext,
     users_data: dict[str, Any],
     content_data: dict[str, Any],
-    profile_settings: dict[str, int],
+    profile_settings: dict[str, Any],
 ) -> dict[str, Any]:
+    """
+    Seed commerce config (plans, promos, payment method configs) and direct enrollments.
+    Payments, PaymentDetails, UserSubscriptions, InstructorEarnings, InstructorPayouts
+    are intentionally NOT created — they depend on real gateway callbacks (VNPay/MoMo)
+    and cannot be faked without causing business logic conflicts.
+    """
     admin = users_data["admin"]
     students = users_data["students"]
     published_courses = content_data["published_courses"]
 
-    promo = Promotion.objects.create(
-        code="WELCOME20",
-        description="Welcome discount",
-        discount_type=Promotion.DiscountTypeChoices.PERCENTAGE,
-        discount_value=Decimal("20.00"),
-        start_date=ctx.now - timedelta(days=2),
-        end_date=ctx.now + timedelta(days=25),
-        usage_limit=200,
-        used_count=0,
-        min_purchase=Decimal("0.00"),
-        max_discount=Decimal("250000.00"),
-        admin=admin,
-        status=Promotion.StatusChoices.ACTIVE,
-    )
-    promo.applicable_courses.set(published_courses[: profile_settings["promo_course_limit"]])
-
-    plans = [
-        SubscriptionPlan.objects.create(
-            name="Basic Monthly",
-            description="Access selected courses",
-            price=Decimal("199000.00"),
-            duration_type=SubscriptionPlan.DurationType.MONTHLY,
-            duration_days=30,
-            status=SubscriptionPlan.Status.ACTIVE,
-            is_featured=False,
-            features=["Core courses", "Community support"],
-            not_included=["1:1 mentoring"],
-            badge_text=None,
-            created_by=users_data["admin_user"],
-        ),
-        SubscriptionPlan.objects.create(
-            name="Pro Monthly",
-            description="Access all standard courses",
-            price=Decimal("299000.00"),
-            duration_type=SubscriptionPlan.DurationType.MONTHLY,
-            duration_days=30,
-            status=SubscriptionPlan.Status.ACTIVE,
-            is_featured=True,
-            features=["All courses", "Priority support", "Certificates"],
-            not_included=[],
-            badge_text="Most Popular",
-            created_by=users_data["admin_user"],
-        ),
+    # --- Promotion configs (discount codes only, not tied to any transaction) ---
+    PROMO_SPECS = [
+        ("WELCOME20", "PERCENTAGE", Decimal("20.00"), "Welcome 20% off", Decimal("0.00")),
+        ("SUMMER30", "PERCENTAGE", Decimal("30.00"), "Summer sale 30% off", Decimal("300000.00")),
+        ("NEWUSER50K", "FIXED_AMOUNT", Decimal("50000.00"), "New user 50K off", Decimal("200000.00")),
     ]
+    promo_count = profile_settings.get("promo_count", 1)
+    promos = []
+    for i, (code, dtype, dvalue, desc, min_purchase) in enumerate(PROMO_SPECS[:promo_count]):
+        p = Promotion.objects.create(
+            code=code,
+            description=desc,
+            discount_type=Promotion.DiscountTypeChoices.PERCENTAGE if dtype == "PERCENTAGE" else Promotion.DiscountTypeChoices.FIXED_AMOUNT,
+            discount_value=dvalue,
+            start_date=ctx.now - timedelta(days=2),
+            end_date=ctx.now + timedelta(days=25),
+            usage_limit=200,
+            used_count=0,
+            min_purchase=min_purchase,
+            max_discount=Decimal("250000.00"),
+            admin=admin,
+            status=Promotion.StatusChoices.ACTIVE,
+        )
+        p.applicable_courses.set(published_courses[: profile_settings["promo_course_limit"]])
+        promos.append(p)
+
+    # --- Subscription plan configs (plan definitions only) ---
+    PLAN_SPECS = [
+        ("Basic Monthly", Decimal("199000.00"), SubscriptionPlan.DurationType.MONTHLY, 30, False, None),
+        ("Pro Monthly", Decimal("299000.00"), SubscriptionPlan.DurationType.MONTHLY, 30, True, "Most Popular"),
+        ("Basic Quarterly", Decimal("499000.00"), SubscriptionPlan.DurationType.QUARTERLY, 90, False, None),
+        ("Pro Annual", Decimal("2990000.00"), SubscriptionPlan.DurationType.ANNUAL, 365, True, "Best Value"),
+        ("Student Plan", Decimal("99000.00"), SubscriptionPlan.DurationType.MONTHLY, 30, False, "For Students"),
+    ]
+    plan_count = profile_settings.get("plan_count", 2)
+    plan_features = [
+        ["Core courses", "Community support"],
+        ["All courses", "Priority support", "Certificates"],
+        ["Core courses", "Community support", "3-month access"],
+        ["All courses", "Priority support", "Certificates", "Annual savings"],
+        ["Selected courses", "Student community"],
+    ]
+    plan_not_included = [
+        ["1:1 mentoring"],
+        [],
+        ["1:1 mentoring", "Priority support"],
+        [],
+        ["1:1 mentoring", "Priority support", "Certificates"],
+    ]
+    plans = []
+    for i, (name, price, duration_type, duration_days, is_featured, badge_text) in enumerate(PLAN_SPECS[:plan_count]):
+        plans.append(
+            SubscriptionPlan.objects.create(
+                name=name,
+                description=f"Access {name.lower()} courses",
+                price=price,
+                duration_type=duration_type,
+                duration_days=duration_days,
+                status=SubscriptionPlan.Status.ACTIVE,
+                is_featured=is_featured,
+                features=plan_features[i],
+                not_included=plan_not_included[i],
+                badge_text=badge_text,
+                created_by=users_data["admin"],
+            )
+        )
 
     for plan in plans:
         for course in published_courses[: profile_settings["plan_course_limit"]]:
-            PlanCourse.objects.create(plan=plan, course=course, status=PlanCourse.Status.ACTIVE, added_by=users_data["admin_user"])
+            PlanCourse.objects.create(plan=plan, course=course, status=PlanCourse.Status.ACTIVE, added_by=users_data["admin"])
 
+    # --- Direct enrollments (no payment record — admin-granted for demo purposes) ---
     enrollments: list[Enrollment] = []
-    payments: list[Payment] = []
-    user_subscriptions: list[UserSubscription] = []
-    payment_details_count = 0
+    total_to_enroll = profile_settings["purchase_student_count"] + profile_settings["subscription_student_count"]
+    enrolled_pairs: set[tuple[int, int]] = set()
 
-    purchase_count = profile_settings["purchase_student_count"]
-    subscription_count = profile_settings["subscription_student_count"]
-
-    for idx, student in enumerate(students[:purchase_count]):
-        chosen_courses = published_courses[(idx % 6):(idx % 6) + 2]
+    for idx, student in enumerate(students[:total_to_enroll]):
+        start = idx % max(1, len(published_courses) - 1)
+        chosen_courses = published_courses[start : start + 2]
         if len(chosen_courses) < 2:
             chosen_courses = published_courses[:2]
 
-        payment = Payment.objects.create(
-            user=student,
-            payment_type=Payment.PaymentType.COURSE_PURCHASE,
-            amount=Decimal("0.00"),
-            discount_amount=Decimal("0.00"),
-            total_amount=Decimal("0.00"),
-            transaction_id=f"TXN_{uuid.uuid4().hex[:16].upper()}",
-            payment_status=Payment.PaymentStatus.COMPLETED,
-            payment_method=Payment.PaymentMethod.VNPAY if idx % 2 == 0 else Payment.PaymentMethod.MOMO,
-            promotion=promo if idx % 3 == 0 else None,
-        )
-
-        gross = Decimal("0.00")
-        discount_total = Decimal("0.00")
-
         for course in chosen_courses:
-            price = course.discount_price or course.price
-            discount = (price * Decimal("0.20")).quantize(Decimal("0.01")) if idx % 3 == 0 else Decimal("0.00")
-            final_price = max(Decimal("0.00"), price - discount)
-            Payment_Details.objects.create(
-                payment=payment,
-                course=course,
-                price=price,
-                discount=discount,
-                final_price=final_price,
-                promotion=promo if discount > 0 else None,
-            )
-            payment_details_count += 1
+            pair = (student.id, course.id)
+            if pair in enrolled_pairs:
+                continue
+            enrolled_pairs.add(pair)
 
             progress_val = Decimal("100.00") if idx % 5 == 0 else Decimal(str(40 + (idx % 4) * 15))
             status = Enrollment.Status.Complete if progress_val >= 100 else Enrollment.Status.Active
@@ -640,7 +788,8 @@ def _seed_commerce(
             enrollment = Enrollment.objects.create(
                 user=student,
                 course=course,
-                payment=payment,
+                payment=None,
+                subscription=None,
                 source=Enrollment.Source.PURCHASE,
                 enrollment_date=ctx.now - timedelta(days=20 - idx),
                 progress=progress_val,
@@ -650,103 +799,20 @@ def _seed_commerce(
             )
             enrollments.append(enrollment)
 
-            InstructorEarning.objects.create(
-                instructor=course.instructor,
-                course=course,
-                payment=payment,
-                amount=final_price,
-                net_amount=(final_price * Decimal("0.72")).quantize(Decimal("0.01")),
-                status=InstructorEarning.StatusChoices.AVAILABLE if idx % 2 == 0 else InstructorEarning.StatusChoices.PENDING,
-            )
-
-            gross += price
-            discount_total += discount
-
-        payment.amount = gross
-        payment.discount_amount = discount_total
-        payment.total_amount = gross - discount_total
-        payment.save(update_fields=["amount", "discount_amount", "total_amount"])
-        payments.append(payment)
-
-    for idx, student in enumerate(students[purchase_count : purchase_count + subscription_count]):
-        plan = plans[idx % len(plans)]
-        sub_payment = Payment.objects.create(
-            user=student,
-            payment_type=Payment.PaymentType.SUBSCRIPTION,
-            subscription_plan=plan,
-            amount=plan.price,
-            discount_amount=Decimal("0.00"),
-            total_amount=plan.price,
-            transaction_id=f"SUB_{uuid.uuid4().hex[:16].upper()}",
-            payment_status=Payment.PaymentStatus.COMPLETED,
-            payment_method=Payment.PaymentMethod.MOMO,
-        )
-        payments.append(sub_payment)
-
-        start_date = ctx.now - timedelta(days=10 + idx)
-        user_subscription = UserSubscription.objects.create(
-            user=student,
-            plan=plan,
-            payment=sub_payment,
-            status=UserSubscription.Status.ACTIVE,
-            start_date=start_date,
-            end_date=start_date + timedelta(days=plan.duration_days),
-            auto_renew=(idx % 2 == 0),
-        )
-        user_subscriptions.append(user_subscription)
-
-        plan_courses = list(PlanCourse.objects.filter(plan=plan, status=PlanCourse.Status.ACTIVE)[:2])
-        for plan_course in plan_courses:
-            enrollment = Enrollment.objects.create(
-                user=student,
-                course=plan_course.course,
-                source=Enrollment.Source.SUBSCRIPTION,
-                subscription=user_subscription,
-                enrollment_date=start_date,
-                progress=Decimal("25.00"),
-                status=Enrollment.Status.Active,
-                last_access_date=ctx.now - timedelta(days=1),
-            )
-            enrollments.append(enrollment)
-            SubscriptionUsage.objects.create(
-                user_subscription=user_subscription,
-                user=student,
-                course=plan_course.course,
-                enrollment=enrollment,
-                usage_type=SubscriptionUsage.UsageType.COURSE_ACCESS,
-                access_count=3 + idx,
-                consumed_minutes=90 + idx * 20,
-            )
-
-    for idx, course in enumerate(published_courses[:8]):
+    # --- CourseSubscriptionConsent ---
+    consent_course_count = profile_settings.get("consent_course_count", 8)
+    for idx, course in enumerate(published_courses[:consent_course_count]):
         CourseSubscriptionConsent.objects.create(
             instructor=course.instructor,
             course=course,
             consent_status=(
-                CourseSubscriptionConsent.ConsentStatus.OPTED_IN if idx % 3 != 0 else CourseSubscriptionConsent.ConsentStatus.OPTED_OUT
+                CourseSubscriptionConsent.ConsentStatus.OPTED_IN if idx % 3 != 0
+                else CourseSubscriptionConsent.ConsentStatus.OPTED_OUT
             ),
             note="Curated consent state",
         )
 
-    payout = InstructorPayout.objects.create(
-        instructor=users_data["instructors"][0],
-        amount=Decimal("2500000.00"),
-        fee=Decimal("50000.00"),
-        net_amount=Decimal("2450000.00"),
-        payment_method="bank_transfer",
-        status=InstructorPayout.PayoutStatusChoices.PROCESSED,
-        period=ctx.now.strftime("%Y-%m"),
-        processed_by=admin,
-        processed_date=ctx.now - timedelta(days=1),
-        notes="Curated payout",
-    )
-
-    first_available = InstructorEarning.objects.filter(status=InstructorEarning.StatusChoices.AVAILABLE).order_by("id")[:2]
-    for earning in first_available:
-        earning.status = InstructorEarning.StatusChoices.PAID
-        earning.instructor_payout = payout
-        earning.save(update_fields=["status", "instructor_payout"])
-
+    # --- User payment method configs (stored preferences, not transactions) ---
     for idx, student in enumerate(students):
         UserPaymentMethod.objects.create(
             user=student,
@@ -757,6 +823,7 @@ def _seed_commerce(
             bank_name="VCB",
         )
 
+    # --- Instructor payout method configs (bank account info, not actual payouts) ---
     for instructor in users_data["instructors"]:
         InstructorPayoutMethod.objects.create(
             instructor=instructor,
@@ -768,23 +835,17 @@ def _seed_commerce(
             account_name=instructor.user.full_name.upper(),
         )
 
-    _count(ctx, "promotions", 1)
+    _count(ctx, "promotions", len(promos))
     _count(ctx, "subscription_plans", len(plans))
     _count(ctx, "plan_courses", PlanCourse.objects.count())
-    _count(ctx, "payments", len(payments))
-    _count(ctx, "payment_details", payment_details_count)
     _count(ctx, "enrollments", len(enrollments))
-    _count(ctx, "user_subscriptions", len(user_subscriptions))
-    _count(ctx, "subscription_usage", SubscriptionUsage.objects.count())
     _count(ctx, "course_subscription_consents", CourseSubscriptionConsent.objects.count())
-    _count(ctx, "instructor_earnings", InstructorEarning.objects.count())
-    _count(ctx, "instructor_payouts", 1)
     _count(ctx, "user_payment_methods", UserPaymentMethod.objects.count())
     _count(ctx, "instructor_payout_methods", InstructorPayoutMethod.objects.count())
 
     return {
         "enrollments": enrollments,
-        "payments": payments,
+        "payments": [],
     }
 
 
@@ -793,7 +854,7 @@ def _seed_learning_outcomes(
     users_data: dict[str, Any],
     content_data: dict[str, Any],
     commerce_data: dict[str, Any],
-    profile_settings: dict[str, int],
+    profile_settings: dict[str, Any],
 ) -> None:
     lessons_by_course = content_data["lessons_by_course"]
     quiz_lesson_ids = {lesson.id for lesson in content_data["quiz_lessons"]}
@@ -811,47 +872,77 @@ def _seed_learning_outcomes(
             continue
 
         if enrollment.status == Enrollment.Status.Complete:
-            completed_count = min(6, len(course_lessons))
-        else:
-            completed_count = min(3, len(course_lessons))
-
-        for idx, lesson in enumerate(course_lessons[:6]):
-            is_completed = idx < completed_count
-            LearningProgress.objects.create(
-                user=enrollment.user,
-                enrollment=enrollment,
-                course=enrollment.course,
-                lesson=lesson,
-                progress_percentage=Decimal("100.00") if is_completed else Decimal("45.00"),
-                status=LearningProgress.StatusChoices.COMPLETED if is_completed else LearningProgress.StatusChoices.IN_PROGRESS,
-                start_time=ctx.now - timedelta(days=5, hours=idx),
-                completion_date=(ctx.now - timedelta(days=2, hours=idx)) if is_completed else None,
-                time_spent=1200 if is_completed else 500,
-                is_completed=is_completed,
-            )
-            progress_count += 1
-
-            if lesson.id in quiz_lesson_ids:
-                total_questions = 6
-                correct_answers = 5 if is_completed else 2
-                start_time = ctx.now - timedelta(days=1, hours=idx)
-                submit_time = start_time + timedelta(minutes=14)
-                score = Decimal("83.00") if is_completed else Decimal("42.00")
-                QuizResult.objects.create(
+            # Create LearningProgress for ALL lessons, all marked completed
+            for idx, lesson in enumerate(course_lessons):
+                LearningProgress.objects.create(
+                    user=enrollment.user,
                     enrollment=enrollment,
+                    course=enrollment.course,
                     lesson=lesson,
-                    start_time=start_time,
-                    submit_time=submit_time,
-                    time_taken=840,
-                    total_questions=total_questions,
-                    correct_answers=correct_answers,
-                    total_points=30,
-                    score=score,
-                    answers={"q1": "A", "q2": "B"},
-                    passed=bool(score >= 60),
-                    attempt=1,
+                    progress_percentage=Decimal("100.00"),
+                    status=LearningProgress.StatusChoices.COMPLETED,
+                    start_time=ctx.now - timedelta(days=5, hours=idx),
+                    completion_date=ctx.now - timedelta(days=2, hours=idx),
+                    time_spent=1200,
+                    is_completed=True,
                 )
-                quiz_result_count += 1
+                progress_count += 1
+
+                if lesson.id in quiz_lesson_ids:
+                    start_time = ctx.now - timedelta(days=1, hours=idx)
+                    submit_time = start_time + timedelta(minutes=14)
+                    QuizResult.objects.create(
+                        enrollment=enrollment,
+                        lesson=lesson,
+                        start_time=start_time,
+                        submit_time=submit_time,
+                        time_taken=840,
+                        total_questions=6,
+                        correct_answers=5,
+                        total_points=30,
+                        score=Decimal("83.00"),
+                        answers={"q1": "A", "q2": "B"},
+                        passed=True,
+                        attempt=1,
+                    )
+                    quiz_result_count += 1
+        else:
+            # Active enrollment: first 4 lessons, first 2 completed, rest IN_PROGRESS
+            for idx, lesson in enumerate(course_lessons[:4]):
+                is_completed = idx < 2
+                LearningProgress.objects.create(
+                    user=enrollment.user,
+                    enrollment=enrollment,
+                    course=enrollment.course,
+                    lesson=lesson,
+                    progress_percentage=Decimal("100.00") if is_completed else Decimal("45.00"),
+                    status=LearningProgress.StatusChoices.COMPLETED if is_completed else LearningProgress.StatusChoices.IN_PROGRESS,
+                    start_time=ctx.now - timedelta(days=5, hours=idx),
+                    completion_date=(ctx.now - timedelta(days=2, hours=idx)) if is_completed else None,
+                    time_spent=1200 if is_completed else 500,
+                    is_completed=is_completed,
+                )
+                progress_count += 1
+
+                if lesson.id in quiz_lesson_ids:
+                    start_time = ctx.now - timedelta(days=1, hours=idx)
+                    submit_time = start_time + timedelta(minutes=14)
+                    score = Decimal("83.00") if is_completed else Decimal("42.00")
+                    QuizResult.objects.create(
+                        enrollment=enrollment,
+                        lesson=lesson,
+                        start_time=start_time,
+                        submit_time=submit_time,
+                        time_taken=840,
+                        total_questions=6,
+                        correct_answers=5 if is_completed else 2,
+                        total_points=30,
+                        score=score,
+                        answers={"q1": "A", "q2": "B"},
+                        passed=bool(score >= 60),
+                        attempt=1,
+                    )
+                    quiz_result_count += 1
 
         if enrollment.status == Enrollment.Status.Complete and enrollment.course.certificate and not Certificate.objects.filter(enrollment=enrollment).exists():
             cert = Certificate.objects.create(
@@ -902,7 +993,7 @@ def _seed_social_and_support(
     ctx: SeedContext,
     users_data: dict[str, Any],
     content_data: dict[str, Any],
-    profile_settings: dict[str, int],
+    profile_settings: dict[str, Any],
 ) -> None:
     students = users_data["students"]
     instructors = users_data["instructors"]
@@ -940,84 +1031,78 @@ def _seed_social_and_support(
             )
             blog_comment_count += 1
 
-    forums = []
-    topic_count = 0
-    forum_comment_count = 0
-    for idx, course in enumerate(courses[: profile_settings["forum_course_limit"]]):
-        forum = Forum.objects.create(
-            course=course,
-            title=f"Forum for {course.title}",
-            description="Discuss lessons and exercises",
-            user=course.instructor.user,
-            status="active",
+    question_list = []
+    answer_count = 0
+    qa_tags = [['python'], ['django'], ['javascript'], ['react'], ['css'], ['sql'], ['api'], ['testing']]
+    answers_per_question = profile_settings.get("answers_per_question", 1)
+    for idx in range(profile_settings["question_count"]):
+        student = students[idx % len(students)]
+        question = Question.objects.create(
+            title=f"How to solve problem #{idx + 1}?",
+            content=f"I'm having trouble understanding concept {idx + 1}. Can someone help?",
+            author=student,
+            tags=qa_tags[idx % len(qa_tags)],
+            status="open",
+            views=10 + idx,
         )
-        forums.append(forum)
-        for topic_idx in range(2):
-            topic = ForumTopic.objects.create(
-                forum=forum,
-                title=f"Topic {topic_idx + 1} - {course.title}",
-                content="How to approach the assignment?",
-                user=students[(idx + topic_idx) % len(students)],
-                status="active",
-                views=20 + topic_idx,
-                likes=topic_idx,
-            )
-            topic_count += 1
-            ForumComment.objects.create(
-                topic=topic,
-                content="Try module notes first.",
-                user=course.instructor.user,
-                status="active",
-            )
-            forum_comment_count += 1
+        question_list.append(question)
 
-    qna_count = 0
-    qna_answer_count = 0
-    for idx, course in enumerate(courses[: profile_settings["qna_course_limit"]]):
-        lesson = Lesson.objects.filter(coursemodule__course=course, is_deleted=False).order_by("coursemodule__order_number", "order").first()
-        if not lesson:
-            continue
-        qna = QnA.objects.create(
-            course=course,
-            lesson=lesson,
-            question="Can you explain this concept with an example?",
-            user=students[idx % len(students)],
-            status=QnA.StatusChoices.ANSWERED,
-            description="Need a more concrete scenario.",
-            tags=["clarification"],
-            views=15 + idx,
-            votes=idx % 4,
+        # First answer is the accepted one (sets question.status="closed")
+        instructor_user = courses[idx % len(courses)].instructor.user if courses else student
+        Answer.objects.create(
+            question=question,
+            content="Great question! The key is to break it down step by step.",
+            author=instructor_user,
+            score=idx,
         )
-        qna_count += 1
-        QnAAnswer.objects.create(
-            qna=qna,
-            answer="Sure, here is a practical walk-through.",
-            user=course.instructor.user,
-            is_accepted=True,
-            likes=2,
-        )
-        qna_answer_count += 1
+        answer_count += 1
+
+        # Additional answers if answers_per_question > 1
+        for extra_idx in range(1, answers_per_question):
+            extra_author = students[(idx + extra_idx) % len(students)]
+            Answer.objects.create(
+                question=question,
+                content=f"Another perspective on problem #{idx + 1}: approach it from the basics.",
+                author=extra_author,
+                score=0,
+            )
+            answer_count += 1
+
+        Question.objects.filter(id=question.id).update(answer_count=answers_per_question)
+
+        # Close question if we have at least one accepted answer
+        if answers_per_question >= 1:
+            Question.objects.filter(id=question.id).update(status="closed")
 
     support_count = 0
     support_reply_count = 0
+    supports_created = []
     for idx in range(profile_settings["support_count"]):
         support = Support.objects.create(
-            user=students[idx],
-            name=students[idx].full_name,
-            email=students[idx].email,
+            user=students[idx % len(students)],
+            name=students[idx % len(students)].full_name,
+            email=students[idx % len(students)].email,
             subject=f"Support request {idx + 1}",
             message="Need help with payment confirmation.",
             status=["open", "in_progress", "resolved"][idx % 3],
             priority=["low", "medium", "high"][idx % 3],
             admin=users_data["admin"],
         )
+        supports_created.append(support)
         support_count += 1
-        if idx % 2 == 0:
+
+    # Distribute support_reply_count replies across in_progress and resolved supports
+    reply_target_statuses = {"in_progress", "resolved"}
+    reply_eligible_supports = [s for s in supports_created if s.status in reply_target_statuses]
+    total_reply_count = profile_settings.get("support_reply_count", support_count // 2)
+    if reply_eligible_supports:
+        for reply_idx in range(total_reply_count):
+            support = reply_eligible_supports[reply_idx % len(reply_eligible_supports)]
             SupportReply.objects.create(
                 support=support,
                 user=users_data["admin_user"],
                 admin=users_data["admin"],
-                message="We have reviewed your request and replied.",
+                message=f"We have reviewed your request and replied (reply {reply_idx + 1}).",
             )
             support_reply_count += 1
 
@@ -1057,11 +1142,8 @@ def _seed_social_and_support(
 
     _count(ctx, "blog_posts", len(blog_posts))
     _count(ctx, "blog_comments", blog_comment_count)
-    _count(ctx, "forums", len(forums))
-    _count(ctx, "forum_topics", topic_count)
-    _count(ctx, "forum_comments", forum_comment_count)
-    _count(ctx, "qnas", qna_count)
-    _count(ctx, "qna_answers", qna_answer_count)
+    _count(ctx, "questions", len(question_list))
+    _count(ctx, "answers", answer_count)
     _count(ctx, "supports", support_count)
     _count(ctx, "support_replies", support_reply_count)
     _count(ctx, "lesson_comments", lesson_comment_count)
@@ -1072,7 +1154,7 @@ def _seed_social_and_support(
     _seed_activity_logs(ctx, all_users, profile_settings)
 
 
-def _seed_activity_logs(ctx: SeedContext, all_users: list[User], profile_settings: dict[str, int]) -> None:
+def _seed_activity_logs(ctx: SeedContext, all_users: list[User], profile_settings: dict[str, Any]) -> None:
     actions = ["REGISTER", "LOGIN", "ENROLL", "PAYMENT_SUCCESS", "VIEW_LESSON", "COMMENT"]
     created = 0
     for idx in range(profile_settings["activity_log_count"]):
@@ -1091,21 +1173,62 @@ def _seed_activity_logs(ctx: SeedContext, all_users: list[User], profile_setting
     _count(ctx, "activity_logs", created)
 
 
-def _seed_platform_metadata(ctx: SeedContext, users_data: dict[str, Any], profile_settings: dict[str, int]) -> None:
+def _seed_platform_metadata(ctx: SeedContext, users_data: dict[str, Any], profile_settings: dict[str, Any]) -> None:
+    form_count = profile_settings.get("form_count", 1)
+    form_questions_per_form = profile_settings.get("form_questions_per_form", 3)
+
+    # First form: INSTRUCTOR_APPLICATION (always)
     form = RegistrationForm.objects.create(
         type=RegistrationForm.FormType.INSTRUCTOR_APPLICATION,
         title="Instructor Application Form",
         description="Apply to become a course instructor.",
         is_active=True,
         version=2,
-        created_by=users_data["admin_user"],
+        created_by=users_data["admin"],
     )
 
-    questions = [
-        FormQuestion.objects.create(form=form, order=1, label="Specialization", type=FormQuestion.QuestionType.TEXT, required=True),
-        FormQuestion.objects.create(form=form, order=2, label="Years of experience", type=FormQuestion.QuestionType.NUMBER, required=True),
-        FormQuestion.objects.create(form=form, order=3, label="Portfolio URL", type=FormQuestion.QuestionType.URL, required=False),
+    INSTRUCTOR_FORM_QUESTIONS = [
+        ("Specialization", FormQuestion.QuestionType.TEXT, True),
+        ("Years of experience", FormQuestion.QuestionType.NUMBER, True),
+        ("Portfolio URL", FormQuestion.QuestionType.URL, False),
+        ("Teaching style", FormQuestion.QuestionType.TEXT, False),
+        ("Preferred course category", FormQuestion.QuestionType.TEXT, True),
+        ("Short bio", FormQuestion.QuestionType.TEXT, False),
     ]
+
+    questions = []
+    for i in range(min(form_questions_per_form, len(INSTRUCTOR_FORM_QUESTIONS))):
+        label, qtype, required = INSTRUCTOR_FORM_QUESTIONS[i]
+        questions.append(
+            FormQuestion.objects.create(form=form, order=i + 1, label=label, type=qtype, required=required)
+        )
+
+    all_forms = [form]
+    all_form_questions_count = len(questions)
+
+    # Second form: USER_REGISTRATION (if form_count >= 2)
+    if form_count >= 2:
+        USER_FORM_QUESTIONS = [
+            ("Full Name", FormQuestion.QuestionType.TEXT, True),
+            ("Date of Birth", FormQuestion.QuestionType.TEXT, False),
+            ("Learning goals", FormQuestion.QuestionType.TEXT, True),
+            ("Preferred language", FormQuestion.QuestionType.TEXT, False),
+            ("How did you hear about us", FormQuestion.QuestionType.TEXT, False),
+            ("Referral code", FormQuestion.QuestionType.TEXT, False),
+        ]
+        form2 = RegistrationForm.objects.create(
+            type=RegistrationForm.FormType.USER_REGISTRATION,
+            title="User Registration Form",
+            description="Complete your registration profile.",
+            is_active=True,
+            version=1,
+            created_by=users_data["admin"],
+        )
+        all_forms.append(form2)
+        for i in range(min(form_questions_per_form, len(USER_FORM_QUESTIONS))):
+            label, qtype, required = USER_FORM_QUESTIONS[i]
+            FormQuestion.objects.create(form=form2, order=i + 1, label=label, type=qtype, required=required)
+            all_form_questions_count += 1
 
     application_count = 0
     response_count = 0
@@ -1114,7 +1237,7 @@ def _seed_platform_metadata(ctx: SeedContext, users_data: dict[str, Any], profil
             user=student,
             form=form,
             status=Application.Status.PENDING if idx < 2 else Application.Status.APPROVED,
-            reviewed_by=users_data["admin_user"] if idx >= 2 else None,
+            reviewed_by=users_data["admin"] if idx >= 2 else None,
             reviewed_at=ctx.now - timedelta(days=1) if idx >= 2 else None,
             admin_notes="Looks promising" if idx >= 2 else None,
         )
@@ -1125,12 +1248,12 @@ def _seed_platform_metadata(ctx: SeedContext, users_data: dict[str, Any], profil
             2 + idx,
             f"https://portfolio.example.com/{student.username}",
         ]
-        for question, answer in zip(questions, answers):
+        for question, answer in zip(questions[:3], answers):
             ApplicationResponse.objects.create(application=app, question=question, value=answer)
             response_count += 1
 
-    _count(ctx, "registration_forms", 1)
-    _count(ctx, "form_questions", len(questions))
+    _count(ctx, "registration_forms", len(all_forms))
+    _count(ctx, "form_questions", all_form_questions_count)
     _count(ctx, "applications", application_count)
     _count(ctx, "application_responses", response_count)
 
@@ -1198,3 +1321,107 @@ def _seed_default_system_settings(ctx: SeedContext, users_data: dict[str, Any]) 
         )
 
     _count(ctx, "system_settings", len(settings_data))
+
+
+def _recalculate_all_counters() -> dict[str, Any]:
+    """Run Business_Rules.md checklist - recalculate all counter fields."""
+    report = {}
+
+    # 1. course counters
+    courses_updated = 0
+    for course in Course.objects.filter(is_deleted=False):
+        modules_count = CourseModule.objects.filter(course=course, is_deleted=False).count()
+        lessons_qs = Lesson.objects.filter(coursemodule__course=course, is_deleted=False)
+        lessons_count = lessons_qs.count()
+        duration_total = lessons_qs.aggregate(total=Sum('duration'))['total'] or 0
+        students_count = Enrollment.objects.filter(
+            course=course, is_deleted=False,
+            status__in=[Enrollment.Status.Active, Enrollment.Status.Complete]
+        ).count()
+        approved_reviews = Review.objects.filter(course=course, status=Review.StatusChoices.APPROVED, is_deleted=False)
+        total_reviews = approved_reviews.count()
+        avg_rating_val = approved_reviews.aggregate(avg=Avg('rating'))['avg']
+        Course.objects.filter(id=course.id).update(
+            total_modules=modules_count,
+            total_lessons=lessons_count,
+            duration=duration_total,
+            total_students=students_count,
+            total_reviews=total_reviews,
+            rating=Decimal(str(round(avg_rating_val, 1))) if avg_rating_val else course.rating,
+        )
+        courses_updated += 1
+    report['courses_recalculated'] = courses_updated
+
+    # 2. instructor counters
+    instructors_updated = 0
+    for instructor in Instructor.objects.filter(is_deleted=False):
+        total_courses_count = Course.objects.filter(instructor=instructor, is_deleted=False).count()
+        total_students_count = Enrollment.objects.filter(
+            course__instructor=instructor, is_deleted=False,
+            status__in=[Enrollment.Status.Active, Enrollment.Status.Complete]
+        ).values('user').distinct().count()
+        approved = Review.objects.filter(course__instructor=instructor, status=Review.StatusChoices.APPROVED, is_deleted=False)
+        avg_r = approved.aggregate(avg=Avg('rating'))['avg']
+        update_kwargs = {'total_courses': total_courses_count, 'total_students': total_students_count}
+        if avg_r is not None:
+            update_kwargs['rating'] = Decimal(str(round(avg_r, 1)))
+        Instructor.objects.filter(id=instructor.id).update(**update_kwargs)
+        instructors_updated += 1
+    report['instructors_recalculated'] = instructors_updated
+
+    # 3 & 4. enrollment progress + status from LearningProgress
+    enrollments_updated = 0
+    for enrollment in Enrollment.objects.filter(is_deleted=False, course__isnull=False):
+        total_lessons_count = Lesson.objects.filter(
+            coursemodule__course=enrollment.course, is_deleted=False
+        ).count()
+        if total_lessons_count == 0:
+            continue
+        completed_count = LearningProgress.objects.filter(
+            enrollment=enrollment, is_completed=True, is_deleted=False
+        ).count()
+        progress = round(completed_count / total_lessons_count * 100, 2)
+        if progress >= 100:
+            new_status = Enrollment.Status.Complete
+        else:
+            new_status = Enrollment.Status.Active
+        Enrollment.objects.filter(id=enrollment.id).update(
+            progress=Decimal(str(progress)),
+            status=new_status,
+        )
+        enrollments_updated += 1
+    report['enrollments_recalculated'] = enrollments_updated
+
+    # 5. Create Certificates for Complete enrollments with certificate-enabled courses
+    certs_created = 0
+    for enrollment in Enrollment.objects.filter(
+        status=Enrollment.Status.Complete, is_deleted=False,
+        course__certificate=True, course__isnull=False
+    ).select_related('user', 'course', 'course__instructor__user'):
+        if Certificate.objects.filter(enrollment=enrollment).exists():
+            continue
+        instructor_name = ""
+        if enrollment.course.instructor and enrollment.course.instructor.user:
+            instructor_name = enrollment.course.instructor.user.full_name
+        Certificate.objects.create(
+            user=enrollment.user,
+            course=enrollment.course,
+            enrollment=enrollment,
+            certificate_url=f"https://example.com/certs/{enrollment.id}.pdf",
+            student_name=enrollment.user.full_name,
+            course_title=enrollment.course.title,
+            instructor_name=instructor_name,
+            completion_date=enrollment.completion_date or timezone.now(),
+        )
+        certs_created += 1
+    report['certificates_created'] = certs_created
+
+    # 6. Recalculate Question.answer_count
+    questions_updated = 0
+    for question in Question.objects.filter(is_deleted=False):
+        count = Answer.objects.filter(question=question, status='active', is_deleted=False).count()
+        Question.objects.filter(id=question.id).update(answer_count=count)
+        questions_updated += 1
+    report['questions_recalculated'] = questions_updated
+
+    return report

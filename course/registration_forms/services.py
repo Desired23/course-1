@@ -4,9 +4,10 @@ from .serializers import (
     RegistrationFormSerializer,
     FormQuestionSerializer,
 )
+from utils.admin_actors import resolve_admin_actor
 
 
-def create_registration_form(data, user=None):
+def create_registration_form(data, admin_actor=None):
     try:
         form_data = {
             'type': data.get('type'),
@@ -15,12 +16,12 @@ def create_registration_form(data, user=None):
             'is_active': data.get('is_active', True),
             'version': data.get('version', 1),
         }
-        if user:
-            form_data['created_by'] = user.id
-
         serializer = RegistrationFormSerializer(data=form_data)
         if serializer.is_valid(raise_exception=True):
-            form = serializer.save()
+            save_kwargs = {}
+            if admin_actor:
+                save_kwargs['created_by'] = resolve_admin_actor(admin_actor)
+            form = serializer.save(**save_kwargs)
 
             questions_data = data.get('questions', [])
             for q_data in questions_data:

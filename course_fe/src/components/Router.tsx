@@ -44,8 +44,7 @@ const KNOWN_DYNAMIC_PATTERNS = [
   '/category/:slug',
   '/topic/:slug',
   '/blog/:slug',
-  '/forum/topic/:id',
-  '/qna/:courseId',
+  '/qa/:id',
   '/reviews/:courseId',
   '/instructor/:instructorId/profile',
   '/instructor/view/:instructorId',
@@ -69,6 +68,7 @@ export function Router({ children }: { children: React.ReactNode }) {
   const navigate = (route: Route, routeParams?: Record<string, string>, queryParams?: Record<string, string>) => {
 
     let fullUrl = route
+    const routePath = route.split('?')[0]
     if (queryParams && Object.keys(queryParams).length > 0) {
       const searchParams = new URLSearchParams()
       Object.entries(queryParams).forEach(([key, value]) => {
@@ -85,7 +85,7 @@ export function Router({ children }: { children: React.ReactNode }) {
       setParams(routeParams)
     } else {
 
-      setParams(extractParamsFromUrl(KNOWN_DYNAMIC_PATTERNS, route))
+      setParams(extractParamsFromUrl(KNOWN_DYNAMIC_PATTERNS, routePath))
     }
 
     if (typeof window !== 'undefined') {

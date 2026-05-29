@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
-import { Textarea } from '../../components/ui/textarea'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Label } from '../../components/ui/label'
 import { Separator } from '../../components/ui/separator'
-import { Search, Plus, Eye, MessageCircle, Heart, Share2, Clock, Filter, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { Search, Plus, Eye, MessageCircle, Heart, Share2, Clock, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -21,10 +19,8 @@ import {
   type BlogComment as ApiBlogComment,
   getAllPublishedBlogPosts,
   getAdminBlogPosts,
-  createBlogPost,
   updateBlogPost,
   getAllBlogComments,
-  createBlogComment,
 } from '../../services/blog-posts.api'
 import { listItemTransition } from '../../lib/motion'
 
@@ -137,16 +133,8 @@ export function BlogPage() {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState('published')
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null)
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
-  const [newPost, setNewPost] = useState({
-    title: '',
-    content: '',
-    excerpt: '',
-    category: '',
-    tags: ''
-  })
 
 
   const [posts, setPosts] = useState<BlogPost[]>([])
@@ -201,24 +189,6 @@ export function BlogPage() {
 
     return matchesSearch && matchesCategory && matchesTab
   })
-
-  const handleCreatePost = async () => {
-    try {
-      await createBlogPost({
-        title: newPost.title,
-        content: newPost.content,
-        summary: newPost.excerpt,
-        category: undefined,
-        tags: newPost.tags.split(',').map(t => t.trim()).filter(Boolean),
-        slug: newPost.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
-      })
-      setIsCreateDialogOpen(false)
-      setNewPost({ title: '', content: '', excerpt: '', category: '', tags: '' })
-      loadPosts()
-    } catch (err) {
-      console.error('Failed to create post:', err)
-    }
-  }
 
   const handleApprovePost = async (postId: string) => {
     try {
@@ -385,86 +355,10 @@ export function BlogPage() {
           <p className="text-muted-foreground">{t('blog.articles_subtitle')}</p>
         </div>
         {canCreatePosts && (
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                {t('blog.create_post')}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{t('blog.create_post_title')}</DialogTitle>
-                <DialogDescription>
-                  {t('blog.create_post_desc')}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="title">{t('blog.title_field')}</Label>
-                  <Input
-                    id="title"
-                    value={newPost.title}
-                    onChange={(e) => setNewPost({...newPost, title: e.target.value})}
-                    placeholder={t('blog.title_placeholder')}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="excerpt">{t('blog.excerpt_field')}</Label>
-                  <Input
-                    id="excerpt"
-                    value={newPost.excerpt}
-                    onChange={(e) => setNewPost({...newPost, excerpt: e.target.value})}
-                    placeholder={t('blog.excerpt_placeholder')}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label htmlFor="category">{t('blog.category_field')}</Label>
-                    <Select value={newPost.category} onValueChange={(value) => setNewPost({...newPost, category: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('blog.select_category')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Education">{t('blog.categories.education')}</SelectItem>
-                        <SelectItem value="Technology">{t('blog.categories.technology')}</SelectItem>
-                        <SelectItem value="Business">{t('blog.categories.business')}</SelectItem>
-                        <SelectItem value="Design">{t('blog.categories.design')}</SelectItem>
-                        <SelectItem value="Content Creation">{t('blog.categories.content_creation')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="tags">{t('blog.tags_field')}</Label>
-                    <Input
-                      id="tags"
-                      value={newPost.tags}
-                      onChange={(e) => setNewPost({...newPost, tags: e.target.value})}
-                      placeholder={t('blog.tags_placeholder')}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="content">{t('blog.content_field')}</Label>
-                  <Textarea
-                    id="content"
-                    value={newPost.content}
-                    onChange={(e) => setNewPost({...newPost, content: e.target.value})}
-                    placeholder={t('blog.content_placeholder')}
-                    rows={10}
-                  />
-                </div>
-                <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} className="w-full sm:w-auto">
-                    {t('blog.cancel')}
-                  </Button>
-                  <Button onClick={handleCreatePost} className="w-full sm:w-auto">
-                    {t('blog.submit_for_review')}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => navigate('/blog/create')}>
+            <Plus className="h-4 w-4 mr-2" />
+            {t('blog.create_post')}
+          </Button>
         )}
       </motion.div>
 

@@ -22,7 +22,7 @@ class SupportListView(APIView):
     def post(self, request):
         try:
             data = request.data
-            support = create_support(data)
+            support = create_support(data, actor=request.user)
             return Response(support, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -33,11 +33,11 @@ class SupportListView(APIView):
         try:
             if 'support_id' in request.query_params:
                 support_id = request.query_params.get('support_id')
-                support = get_support_by_id(support_id)
+                support = get_support_by_id(support_id, actor=request.user)
                 return Response(support, status=status.HTTP_200_OK)
             elif 'user_id' in request.query_params:
                 user_id = request.query_params.get('user_id')
-                supports = get_supports_by_user(user_id)
+                supports = get_supports_by_user(user_id, actor=request.user)
 
                 status_filter = request.query_params.get('status')
                 priority_filter = request.query_params.get('priority')
@@ -62,14 +62,14 @@ class SupportListView(APIView):
 
                 return paginate_queryset(supports, request, SupportSerializer)
             else:
-                supports = get_all_supports()
+                supports = get_all_supports(actor=request.user)
                 return paginate_queryset(supports, request, SupportSerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
 
     def patch(self, request, support_id):
         try:
-            support = update_support(support_id, request.data)
+            support = update_support(support_id, request.data, actor=request.user)
             return Response(support, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -77,14 +77,14 @@ class SupportListView(APIView):
     def put(self, request, support_id):
         try:
             admin_id = request.data.get('admin_id')
-            updated_support = update_admin_id(support_id, admin_id)
+            updated_support = update_admin_id(support_id, admin_id, actor=request.user)
             return Response(updated_support, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, support_id):
         try:
-            result = delete_support(support_id)
+            result = delete_support(support_id, actor=request.user)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)

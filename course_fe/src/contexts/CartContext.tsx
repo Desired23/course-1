@@ -35,6 +35,7 @@ export function useCart() {
     removeFromCart: store.removeFromCart,
     clearCart: store.clearCart,
     loadCart: store.loadCart,
+    syncCartIfStale: store.syncCartIfStale,
     applyCoupon: store.applyCoupon,
     removeCoupon: store.removeCoupon,
     getTotalPrice: store.getTotalPrice,

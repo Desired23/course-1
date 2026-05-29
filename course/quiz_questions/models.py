@@ -31,6 +31,8 @@ class QuizQuestion(models.Model):
     memory_limit = models.IntegerField(null=True, blank=True, help_text="Memory limit in KB for code execution")
     allowed_languages = models.JSONField(blank=True, null=True, help_text="Array of Judge0 language IDs allowed for this question")
     starter_code = models.TextField(blank=True, null=True, help_text="Starter/template code for students")
+    function_name = models.CharField(max_length=100, blank=True, default='', help_text="Function name students must implement")
+    require_completion = models.BooleanField(default=False, help_text="If True, student must pass 100% of test cases. If False, quiz passing score threshold applies.")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
