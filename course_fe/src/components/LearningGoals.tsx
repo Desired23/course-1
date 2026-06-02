@@ -2,9 +2,11 @@ import { Check } from "lucide-react"
 import { ImageWithFallback } from "./figma/ImageWithFallback"
 import { Button } from "./ui/button"
 import { useTranslation } from "react-i18next"
+import { useRouter } from "./Router"
 
 export function LearningGoals() {
   const { t } = useTranslation()
+  const { navigate } = useRouter()
 
   const goals = [
     t('learning_goals.goal_latest_skills'),
@@ -36,7 +38,7 @@ export function LearningGoals() {
               ))}
             </div>
 
-            <Button size="lg" className="mt-6">
+            <Button size="lg" className="mt-6" onClick={() => navigate('/pricing')}>
               {t('learning_goals.view_plans')}
             </Button>
           </div>

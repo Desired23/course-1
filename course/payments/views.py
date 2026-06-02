@@ -1,8 +1,11 @@
+import logging
+
 from django.db.models import Q
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import status
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -31,6 +34,8 @@ from .services import (
     get_payment_admin_config,
     update_payment_admin_config,
 )
+logger = logging.getLogger(__name__)
+
 from .momo_services import create_momo_payment, momo_ipn, momo_payment_return
 from .return_url import (
     store_payment_return_url,
@@ -47,8 +52,11 @@ class CreateVnpayPaymentView(APIView):
     def post(self, request):
         try:
             return create_vnpay_payment(request)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except ValidationError as e:
+            return Response({"message": e.detail if isinstance(e.detail, str) else str(e.detail), "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("CreateVnpayPayment error")
+            return Response({"message": "Không thể tạo thanh toán. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CreateMomoPaymentView(APIView):
@@ -65,8 +73,13 @@ class CreateMomoPaymentView(APIView):
                 normalized_return_url = validate_and_normalize_return_url(return_url)
                 store_payment_return_url(payment.id, normalized_return_url)
             return Response(create_momo_payment(payment), status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Payment.DoesNotExist:
+            raise NotFound("Không tìm thấy đơn hàng.")
+        except ValidationError as e:
+            return Response({"message": e.detail if isinstance(e.detail, str) else str(e.detail), "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("CreateMomoPayment error")
+            return Response({"message": "Không thể tạo thanh toán. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -76,10 +89,11 @@ class VnpayIPNView(APIView):
 
     def get(self, request):
         try:
-            return_data = payment_ipn(request)
-            return return_data
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return payment_ipn(request)
+        except Exception:
+            logger.exception("VNPay IPN unexpected error")
+            from django.http import JsonResponse
+            return JsonResponse({"RspCode": "99", "Message": "Unknown error"})
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -90,8 +104,10 @@ class MomoIPNView(APIView):
     def post(self, request):
         try:
             return momo_ipn(request)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            logger.exception("MoMo IPN unexpected error")
+            from django.http import JsonResponse
+            return JsonResponse({"resultCode": 99, "message": "Unknown error"})
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -106,12 +122,13 @@ class VnpayPaymentReturnView(APIView):
     def get(self, request):
         try:
             return payment_return(request)
-        except Exception as e:
+        except Exception:
             from django.conf import settings
             from django.http import HttpResponseRedirect
             import urllib.parse
 
-            redirect_url = f"{settings.VNPAY_FE_RETURN_URL}?status=error&message={urllib.parse.quote_plus(str(e))}"
+            logger.exception("VNPay payment return error")
+            redirect_url = f"{settings.VNPAY_FE_RETURN_URL}?status=error&message={urllib.parse.quote_plus('payment_processing_error')}"
             return HttpResponseRedirect(redirect_url)
 
 
@@ -123,12 +140,13 @@ class MomoPaymentReturnView(APIView):
     def get(self, request):
         try:
             return momo_payment_return(request)
-        except Exception as e:
+        except Exception:
             from django.conf import settings
             from django.http import HttpResponseRedirect
             import urllib.parse
 
-            redirect_url = f"{settings.MOMO_FE_RETURN_URL}?status=error&message={urllib.parse.quote_plus(str(e))}"
+            logger.exception("MoMo payment return error")
+            redirect_url = f"{settings.MOMO_FE_RETURN_URL}?status=error&message={urllib.parse.quote_plus('payment_processing_error')}"
             return HttpResponseRedirect(redirect_url)
 
 
@@ -178,8 +196,11 @@ class CreatePaymentRecordView(APIView):
                 }
 
             return Response(payment_result, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("CreatePaymentRecord error")
+            return Response({"message": "Không thể tạo đơn thanh toán. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RefundDetailView(APIView):
@@ -189,12 +210,18 @@ class RefundDetailView(APIView):
     def get(self, request):
         try:
             payment_id = request.query_params.get('payment_id')
-            payment_details_ids = request.query_params.getlist('payment_details_ids')
-            payment_details_ids = [int(pid) for pid in payment_details_ids]
+            raw_ids = request.query_params.getlist('payment_details_ids')
+            try:
+                payment_details_ids = [int(pid) for pid in raw_ids]
+            except (ValueError, TypeError):
+                return Response({"message": "payment_details_ids phải là danh sách số nguyên."}, status=status.HTTP_400_BAD_REQUEST)
             refund_details = get_refund_details(payment_id, payment_details_ids, request.user)
             return Response(refund_details, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("RefundDetail GET error")
+            return Response({"message": "Lỗi hệ thống. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request):
         try:
@@ -203,8 +230,11 @@ class RefundDetailView(APIView):
             reason = request.data.get('reason')
             return_data = user_refund_request(payment_id, payment_details_ids, request.user, reason)
             return Response(return_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("RefundDetail POST error")
+            return Response({"message": "Lỗi hệ thống. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request):
         try:
@@ -212,8 +242,11 @@ class RefundDetailView(APIView):
             payment_details_ids = request.data.get('payment_details_ids')
             user_cancel_refund_request(payment_id, payment_details_ids, request.user)
             return Response({"message": "Refund request cancelled successfully"}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("RefundDetail PUT error")
+            return Response({"message": "Lỗi hệ thống. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminRefundUpdateView(APIView):
@@ -241,8 +274,11 @@ class AdminRefundUpdateView(APIView):
             paginator = StandardPagination()
             paged_result = paginator.paginate_queryset(data, request, view=self)
             return paginator.get_paginated_response(paged_result)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminRefundUpdate GET error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request):
         try:
@@ -260,8 +296,11 @@ class AdminRefundUpdateView(APIView):
                 admin_user=request.user.admin,
             )
             return Response(result, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminRefundUpdate PATCH error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminCreateRefundView(APIView):
@@ -276,8 +315,11 @@ class AdminCreateRefundView(APIView):
             reason = request.data.get('reason')
             result = admin_create_refund(payment_id, payment_details_ids, request.user.admin, reason)
             return Response(result, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminCreateRefund error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminRefundActionView(APIView):
@@ -292,8 +334,11 @@ class AdminRefundActionView(APIView):
             override_status = request.data.get('override_status')
             result = admin_refund_action(action, refund_ids, request.user.admin, note=note, override_status=override_status)
             return Response(result, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminRefundAction error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PaymentStatusView(APIView):
@@ -305,8 +350,11 @@ class PaymentStatusView(APIView):
             is_admin = getattr(request.user, 'user_type', None) == 'admin'
             data = get_payment_status(payment_id, request.user, admin_override=is_admin)
             return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("PaymentStatus GET error payment_id=%s", payment_id)
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminPaymentFixView(APIView):
@@ -316,12 +364,15 @@ class AdminPaymentFixView(APIView):
     def post(self, request):
         payment_id = request.data.get('payment_id')
         if not payment_id:
-            return Response({"error": "payment_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "payment_id là bắt buộc."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             result = fix_payment(payment_id)
             return Response({"message": "Fix applied", "result": result}, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminPaymentFix error payment_id=%s", payment_id)
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminPaymentListView(APIView):
@@ -334,6 +385,33 @@ class AdminPaymentListView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+class AdminPaymentExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        from utils.export_helpers import export_to_csv, export_to_excel
+        payments = list_admin_payments()
+        headers = ['Payment ID', 'User ID', 'User Name', 'User Email', 'Status', 'Total Amount', 'Course(s)', 'Created At']
+        rows = [
+            [
+                p['payment_id'],
+                p['user_id'],
+                p['user_name'],
+                p['user_email'],
+                p['payment_status'],
+                p['total_amount'],
+                ', '.join(c['course_title'] or '' for c in p.get('courses', [])),
+                p['created_at'].isoformat() if p['created_at'] else '',
+            ]
+            for p in payments
+        ]
+        fmt = request.query_params.get('format', 'csv')
+        if fmt == 'excel':
+            return export_to_excel(headers, rows, 'payments_export', 'Payments')
+        return export_to_csv(headers, rows, 'payments_export')
+
+
 class AdminPaymentConfigView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
@@ -342,8 +420,11 @@ class AdminPaymentConfigView(APIView):
         try:
             data = get_payment_admin_config(config_key)
             return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminPaymentConfig GET error key=%s", config_key)
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request, config_key):
         try:
@@ -351,8 +432,11 @@ class AdminPaymentConfigView(APIView):
             admin = getattr(request.user, 'admin', None)
             data = update_payment_admin_config(config_key, value, admin=admin)
             return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("AdminPaymentConfig PATCH error key=%s", config_key)
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class CheckEnrollmentView(APIView):
@@ -363,8 +447,11 @@ class CheckEnrollmentView(APIView):
         try:
             data = check_enrollment_by_course(course_id, request.user)
             return Response(data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("CheckEnrollment error course_id=%s", course_id)
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UserPaymentListView(APIView):
@@ -539,8 +626,11 @@ class UserPaymentListView(APIView):
             paginator = StandardPagination()
             paged_result = paginator.paginate_queryset(result, request, view=self)
             return paginator.get_paginated_response(paged_result)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("UserPaymentList GET error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UserRefundListView(APIView):
@@ -577,8 +667,11 @@ class UserRefundListView(APIView):
             paginator = StandardPagination()
             paged_result = paginator.paginate_queryset(data, request, view=self)
             return paginator.get_paginated_response(paged_result)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("UserRefundList GET error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def post(self, request):
         try:
@@ -587,5 +680,8 @@ class UserRefundListView(APIView):
             reason = request.data.get('reason')
             result = user_refund_request(payment_id, payment_details_ids, request.user, reason)
             return Response(result, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValidationError, PermissionDenied) as e:
+            raise
+        except Exception:
+            logger.exception("UserRefundList POST error")
+            return Response({"message": "Lỗi hệ thống."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

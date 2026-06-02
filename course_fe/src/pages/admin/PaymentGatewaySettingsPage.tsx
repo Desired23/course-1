@@ -410,7 +410,7 @@ export function PaymentGatewaySettingsPage() {
           ))}
         </Tabs>
         </motion.div>
-      </div>
+      </motion.div>
     </motion.div>
   )
 }

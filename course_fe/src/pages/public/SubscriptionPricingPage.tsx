@@ -674,7 +674,7 @@ export function SubscriptionPricingPage() {
             </div>
             <h3 className="mb-2 text-lg font-semibold">{t('subscription_pricing_page.support.title')}</h3>
             <p className="mb-6 max-w-sm text-muted-foreground">{t('subscription_pricing_page.support.description')}</p>
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:gap-4">
+            <div className="hidden flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:gap-4">
               <Button variant="outline" className="w-full bg-white dark:bg-slate-800 sm:w-auto">
                 {t('subscription_pricing_page.support.email')}
               </Button>

@@ -1,13 +1,13 @@
 import { useRouter } from "./Router"
-import { getHomepageConfig } from "../data/db-extended"
 import { TrendingUp } from "lucide-react"
 import { useTranslation } from "react-i18next"
+
+const POPULAR_SKILLS = ["Web Development", "Python", "Data Science", "UI/UX Design", "Digital Marketing"]
 
 export function PopularSkillsSection() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
-  const config = getHomepageConfig()
-  const skills = config.popular_skills
+  const skills = POPULAR_SKILLS
 
   return (
     <section className="py-16 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
@@ -29,7 +29,7 @@ export function PopularSkillsSection() {
           {skills.map((skill, index) => (
             <button
               key={index}
-              onClick={() => navigate('/courses', { query: skill })}
+              onClick={() => navigate('/courses', undefined, { query: skill })}
               className="group px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full hover:border-primary hover:bg-primary/5 transition-all duration-300 hover:scale-105"
             >
               <span className="font-medium text-gray-700 dark:text-gray-300 group-hover:text-primary">

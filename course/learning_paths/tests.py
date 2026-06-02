@@ -69,8 +69,6 @@ class LearningPathApiTests(TestCase):
             level="beginner",
             duration=1200,
             target_audience=["Accountants moving into data analysis"],
-            skills_taught=["SQL", "JOIN", "GROUP BY"],
-            prerequisites=[],
             status="published",
             is_public=True,
         )
@@ -82,8 +80,6 @@ class LearningPathApiTests(TestCase):
             level="intermediate",
             duration=1800,
             target_audience=["Data Analyst"],
-            skills_taught=["Python", "Pandas", "NumPy"],
-            prerequisites=["SQL basics"],
             status="published",
             is_public=True,
         )
@@ -95,8 +91,6 @@ class LearningPathApiTests(TestCase):
             level="intermediate",
             duration=900,
             target_audience=["Business analyst"],
-            skills_taught=["Dashboard", "Storytelling"],
-            prerequisites=["SQL basics"],
             status="published",
             is_public=True,
         )
@@ -120,8 +114,6 @@ class LearningPathApiTests(TestCase):
         response = self.client.get("/api/courses/")
         self.assertEqual(response.status_code, 200, response.content)
         first = response.json()["results"][0]
-        self.assertIn("skills_taught", first)
-        self.assertIn("prerequisites", first)
         self.assertIn("duration_hours", first)
 
     def test_merge_advisor_messages_deduplicates_overlapping_history(self):

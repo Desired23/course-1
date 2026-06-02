@@ -311,6 +311,12 @@ export const useAuthStore = create<AuthState>()(
           console.log('auth.store: fetchProfile starting for', user.id)
           const profile = await getUserById(Number(user.id))
           console.log('auth.store: fetchProfile result', profile)
+          // Re-sync roles from the server (the backend is the source of truth);
+          // this lets admin role changes take effect on the next load without
+          // forcing the user to log in again.
+          const nextRoles = profile.roles && profile.roles.length > 0
+            ? mapUserTypes(profile.roles)
+            : user.roles
           set({
             user: {
               ...user,
@@ -322,6 +328,8 @@ export const useAuthStore = create<AuthState>()(
               address: profile.address || undefined,
               createdAt: new Date(profile.created_at),
               status: profile.status,
+              roles: nextRoles,
+              permissions: derivePermissions(nextRoles),
             },
           })
         } catch (err) {

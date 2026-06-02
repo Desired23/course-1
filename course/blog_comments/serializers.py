@@ -6,6 +6,7 @@ from utils.input_validators import MAX_COMMENT_LENGTH, validate_plain_user_text
 class BlogCommentSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
     user_avatar = serializers.SerializerMethodField()
+    user_role = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -17,6 +18,7 @@ class BlogCommentSerializer(serializers.ModelSerializer):
             'user',
             'user_name',
             'user_avatar',
+            'user_role',
             'created_at',
             'updated_at',
             'parent',
@@ -31,6 +33,9 @@ class BlogCommentSerializer(serializers.ModelSerializer):
 
     def get_user_avatar(self, obj):
         return obj.user.avatar if obj.user else None
+
+    def get_user_role(self, obj):
+        return obj.user.user_type if obj.user else None
 
     def get_replies_count(self, obj):
         return obj.replies.filter(status='active').count()

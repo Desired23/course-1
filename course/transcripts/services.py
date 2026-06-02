@@ -16,7 +16,9 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
+
+from utils.roles import is_active_admin, is_active_instructor
 
 from lessons.models import Lesson
 from lessons.video_signing import build_signed_video_url
@@ -632,11 +634,11 @@ def run_next_transcript_job() -> TranscriptJob | None:
 
 
 def assert_transcript_management_access(user, lesson: Lesson) -> None:
-    is_admin = bool(user and hasattr(user, "admin"))
+    is_admin = is_active_admin(user)
     if is_admin:
         return
 
     instructor = getattr(user, "instructor", None)
     owner_instructor_id = getattr(getattr(lesson.coursemodule, "course", None), "instructor_id", None)
-    if not instructor or owner_instructor_id != instructor.id:
-        raise ValidationError({"error": "You do not have permission to manage this transcript."})
+    if not is_active_instructor(user) or owner_instructor_id != instructor.id:
+        raise PermissionDenied("Bạn không có quyền quản lý transcript này.")

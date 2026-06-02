@@ -16,6 +16,7 @@ import {
   type ImportResult,
 } from '../../services/admin.api'
 import { getAllCourses, type CourseListItem } from '../../services/course.api'
+import { getErrorMessage } from '../../lib/apiError'
 
 export function AdminImportPage() {
   const [plans, setPlans] = useState<any[]>([])
@@ -35,10 +36,10 @@ export function AdminImportPage() {
     let cancelled = false
     getAdminSubscriptionPlans()
       .then((items) => { if (!cancelled) setPlans(items) })
-      .catch(() => { if (!cancelled) setPlans([]) })
+      .catch((e) => { if (!cancelled) { setPlans([]); setError(getErrorMessage(e, 'Không thể tải danh sách gói.')) } })
     getAllCourses({ status: 'published' })
       .then((items) => { if (!cancelled) setCourses(items) })
-      .catch(() => { if (!cancelled) setCourses([]) })
+      .catch((e) => { if (!cancelled) { setCourses([]); setError(getErrorMessage(e, 'Không thể tải danh sách khóa học.')) } })
     return () => { cancelled = true }
   }, [])
 
@@ -87,7 +88,7 @@ export function AdminImportPage() {
     try {
       setResult(await action())
     } catch (err: any) {
-      setError(err?.message || 'Import failed')
+      setError(getErrorMessage(err, 'Import thất bại.'))
     } finally {
       setLoading(false)
     }

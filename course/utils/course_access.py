@@ -15,16 +15,17 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from enrollments.models import Enrollment
 from subscription_plans.models import PlanCourse, UserSubscription
+from utils.roles import is_active_admin, is_active_instructor
 
 
 def check_course_access(user, course):
 
 
-    if hasattr(user, 'admin') and user.admin:
+    if is_active_admin(user):
         return None
 
 
-    if hasattr(user, 'instructor') and user.instructor:
+    if is_active_instructor(user):
         if course.instructor_id == user.instructor.id:
             return None
 
@@ -102,10 +103,10 @@ def get_course_access_info(user, course):
     Returns access info for a course (used in course detail API for UX).
     """
 
-    if hasattr(user, 'admin') and user.admin:
+    if is_active_admin(user):
         return {"has_access": True, "access_type": "admin"}
 
-    if hasattr(user, 'instructor') and user.instructor:
+    if is_active_instructor(user):
         if course.instructor_id == user.instructor.id:
             return {"has_access": True, "access_type": "instructor"}
 

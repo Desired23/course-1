@@ -32,8 +32,6 @@ import {
 type DraftFields = {
   level: string
   target_audience: string
-  skills_taught: string
-  prerequisites: string
   learning_objectives: string
 }
 
@@ -53,8 +51,6 @@ function getMissingFields(course: CourseListItem) {
   if (!course.level) missing.push('level')
   if (!course.duration && !course.duration_hours) missing.push('duration')
   if (!(course.target_audience || []).length) missing.push('target_audience')
-  if (!(course.skills_taught || []).length) missing.push('skills_taught')
-  if (!Array.isArray(course.prerequisites)) missing.push('prerequisites')
   if (course.status !== 'published') missing.push('status')
   if (!course.is_public) missing.push('visibility')
   return missing
@@ -64,8 +60,6 @@ function buildDraft(course: CourseListItem): DraftFields {
   return {
     level: course.level || 'all_levels',
     target_audience: toMultiline(course.target_audience),
-    skills_taught: toMultiline(course.skills_taught),
-    prerequisites: toMultiline(course.prerequisites),
     learning_objectives: toMultiline(course.learning_objectives),
   }
 }
@@ -103,8 +97,6 @@ interface BulkEditState {
 }
 
 const BULK_FIELD_LABELS: Record<BulkField, string> = {
-  skills_taught: 'Skills taught',
-  prerequisites: 'Prerequisites',
   target_audience: 'Target audience',
   learning_objectives: 'Learning objectives',
   tags: 'Tags',
@@ -294,7 +286,6 @@ export function AdminCourseMetadataPage() {
         course.title,
         course.instructor_name || '',
         course.category_name || '',
-        (course.skills_taught || []).join(' '),
       ]
         .join(' ')
         .toLowerCase()
@@ -339,8 +330,6 @@ export function AdminCourseMetadataPage() {
       const updated = await updateCourse(courseId, {
         level: draft.level as CourseListItem['level'],
         target_audience: parseMultiline(draft.target_audience),
-        skills_taught: parseMultiline(draft.skills_taught),
-        prerequisites: parseMultiline(draft.prerequisites),
         learning_objectives: parseMultiline(draft.learning_objectives),
       })
 
@@ -460,8 +449,8 @@ export function AdminCourseMetadataPage() {
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Course Catalog Metadata</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Màn hình này dùng để rà soát khóa học nào đủ metadata cho AI tư vấn lộ trình, khóa học nào còn thiếu level,
-            target audience, skills_taught hoặc prerequisites.
+            Màn hình này dùng để rà soát khóa học nào đủ metadata cho AI tư vấn lộ trình, khóa học nào còn thiếu level
+            hoặc target audience.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -747,26 +736,6 @@ export function AdminCourseMetadataPage() {
                       onChange={(event) => updateDraft(course.id, 'target_audience', event.target.value)}
                       rows={4}
                       placeholder="Mỗi dòng là 1 đối tượng học"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Skills taught</Label>
-                    <Textarea
-                      value={draft.skills_taught}
-                      onChange={(event) => updateDraft(course.id, 'skills_taught', event.target.value)}
-                      rows={5}
-                      placeholder="Mỗi dòng là 1 skill sẽ dạy trong khóa học"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Prerequisites</Label>
-                    <Textarea
-                      value={draft.prerequisites}
-                      onChange={(event) => updateDraft(course.id, 'prerequisites', event.target.value)}
-                      rows={5}
-                      placeholder="Mỗi dòng là 1 kiến thức đầu vào"
                     />
                   </div>
 

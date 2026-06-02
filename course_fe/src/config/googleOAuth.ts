@@ -6,7 +6,8 @@
 
 export const GOOGLE_OAUTH_CONFIG = {
 
-  clientId: '769246063466-q50orj7aqn9rshcdaiu2m03d1lc8fq46.apps.googleusercontent.com',
+  clientId: (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ||
+    '769246063466-q50orj7aqn9rshcdaiu2m03d1lc8fq46.apps.googleusercontent.com',
 
 
   redirectUri: window.location.hostname === 'localhost'

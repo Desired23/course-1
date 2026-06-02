@@ -13,6 +13,8 @@ import { useAuth } from "../../contexts/AuthContext"
 import { UserPagination } from "../../components/UserPagination"
 import { getMyUserSettings, updateMyUserSettings } from "../../services/user-settings.api"
 import { listItemTransition } from '../../lib/motion'
+import { toast } from 'sonner'
+import { getErrorMessage } from '../../lib/apiError'
 import {
   type Notification as NotifType,
   type NotificationType,
@@ -32,11 +34,11 @@ const typeIconMap: Record<NotificationType, React.ComponentType<{ className?: st
 }
 
 const notificationSettingsDefaults = {
-  course_updates: true,
-  promotions: true,
-  discussions: true,
-  reminders: true,
-  achievements: true,
+  courseUpdates: true,
+  promotions: false,
+  announcements: true,
+  weeklyDigest: true,
+  instructorMessages: true,
 }
 
 const sectionStagger = {
@@ -97,7 +99,7 @@ export function NotificationsPage() {
   )
 
   const settingsLabels: Record<NotificationSettingKey, { label: string; description: string }> = {
-    course_updates: {
+    courseUpdates: {
       label: t("notifications_page.settings.course_updates.label"),
       description: t("notifications_page.settings.course_updates.description"),
     },
@@ -105,15 +107,15 @@ export function NotificationsPage() {
       label: t("notifications_page.settings.promotions.label"),
       description: t("notifications_page.settings.promotions.description"),
     },
-    discussions: {
+    announcements: {
       label: t("notifications_page.settings.discussions.label"),
       description: t("notifications_page.settings.discussions.description"),
     },
-    reminders: {
+    weeklyDigest: {
       label: t("notifications_page.settings.reminders.label"),
       description: t("notifications_page.settings.reminders.description"),
     },
-    achievements: {
+    instructorMessages: {
       label: t("notifications_page.settings.achievements.label"),
       description: t("notifications_page.settings.achievements.description"),
     },
@@ -172,25 +174,35 @@ export function NotificationsPage() {
   }, [selectedTab, typeFilter, searchTerm, pageSize])
 
   const handleMarkAsRead = async (id: number) => {
+    const prev = [...notifications]
+    setNotifications((ns) => ns.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
     try {
       await markNotificationAsRead(id)
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
-    } catch {}
+    } catch (e) {
+      setNotifications(prev)
+      toast.error(getErrorMessage(e, 'Không thể đánh dấu đã đọc.'))
+    }
   }
 
   const handleMarkAllAsRead = async () => {
     if (!user?.id) return
+    const prev = [...notifications]
+    setNotifications((ns) => ns.map((n) => ({ ...n, is_read: true })))
     try {
       await markAllNotificationsAsRead(user.id)
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-    } catch {}
+    } catch (e) {
+      setNotifications(prev)
+      toast.error(getErrorMessage(e, 'Không thể đánh dấu tất cả đã đọc.'))
+    }
   }
 
   const handleSaveNotificationSettings = async () => {
     setSavingSettings(true)
     try {
       await updateMyUserSettings({ notification_preferences: notificationSettings })
-    } catch {
+      toast.success('Đã lưu cài đặt thông báo.')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Không thể lưu cài đặt.'))
     } finally {
       setSavingSettings(false)
     }

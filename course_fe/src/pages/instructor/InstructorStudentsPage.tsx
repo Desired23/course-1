@@ -23,7 +23,9 @@ import {
 } from '../../services/instructor.api'
 import { formatPrice } from '../../services/course.api'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { listItemTransition } from '../../lib/motion'
+import { getErrorMessage } from '../../lib/apiError'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -113,7 +115,7 @@ export function InstructorStudentsPage() {
           setStats(data)
         }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('instructor_students_page.errors.load_data'))
+        if (!cancelled) setError(getErrorMessage(err, t('instructor_students_page.errors.load_data')))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -143,7 +145,7 @@ export function InstructorStudentsPage() {
           setStudentTotalPages(studentData.total_pages || 1)
         }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('instructor_students_page.errors.load_data'))
+        if (!cancelled) setError(getErrorMessage(err, t('instructor_students_page.errors.load_data')))
       } finally {
         if (!cancelled) setStudentsLoading(false)
       }
@@ -206,7 +208,7 @@ export function InstructorStudentsPage() {
       setExporting(true)
       await exportInstructorStudents()
     } catch (err: any) {
-      window.alert(err?.message || t('instructor_students_page.errors.export_students'))
+      toast.error(getErrorMessage(err, t('instructor_students_page.errors.export_students')))
     } finally {
       setExporting(false)
     }
@@ -218,7 +220,7 @@ export function InstructorStudentsPage() {
       const detail = await getInstructorStudentDetail(studentId)
       setSelectedStudent(detail)
     } catch (err: any) {
-      window.alert(err?.message || t('instructor_students_page.errors.load_student_details'))
+      toast.error(getErrorMessage(err, t('instructor_students_page.errors.load_student_details')))
     } finally {
       setStudentDetailLoading(false)
     }

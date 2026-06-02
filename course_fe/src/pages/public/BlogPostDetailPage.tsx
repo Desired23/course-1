@@ -43,8 +43,13 @@ import {
   type BlogPost as ApiBlogPost,
   getPublishedBlogPost,
   getAdminBlogPost,
+  deleteBlogPost,
   increaseViews,
+  likeBlogPost,
+  bookmarkBlogPost,
+  reportBlogPost,
 } from '../../services/blog-posts.api'
+import { showNotification } from '../../utils/notifications'
 import { useTranslation } from 'react-i18next'
 import { listItemTransition } from '../../lib/motion'
 
@@ -72,6 +77,7 @@ const fadeInUp = {
 
 interface BlogPostDetail {
   id: string
+  authorId: string
   title: string
   content: string
   excerpt: string
@@ -126,6 +132,7 @@ export function BlogPostDetailPage() {
 
     return {
       id: String(apiPost.id),
+      authorId: String(apiPost.author ?? ''),
       title: apiPost.title,
       content: apiPost.content,
       excerpt: apiPost.summary || `${apiPost.content.substring(0, 150)}...`,
@@ -151,14 +158,14 @@ export function BlogPostDetailPage() {
 
     setLoading(true)
     try {
-      const apiPost = await getPublishedBlogPost(Number(postId))
+      const apiPost = await getPublishedBlogPost(postId)
       setPost(mapApiPostToDetail(apiPost))
       try {
-        await increaseViews(Number(postId))
+        await increaseViews(apiPost.id)
       } catch {}
     } catch {
       try {
-        const apiPost = await getAdminBlogPost(Number(postId))
+        const apiPost = await getAdminBlogPost(postId)
         setPost(mapApiPostToDetail(apiPost))
       } catch {
         setPost(null)
@@ -168,24 +175,22 @@ export function BlogPostDetailPage() {
     }
   }
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!user || !post) return
-
-    setIsLiked(!isLiked)
-    setPost({
-      ...post,
-      likes: isLiked ? post.likes - 1 : post.likes + 1,
-    })
+    try {
+      const updated = await likeBlogPost(Number(post.id))
+      setIsLiked(prev => !prev)
+      setPost({ ...post, likes: updated.likes })
+    } catch { /* silent */ }
   }
 
-  const handleBookmark = () => {
+  const handleBookmark = async () => {
     if (!user || !post) return
-
-    setIsBookmarked(!isBookmarked)
-    setPost({
-      ...post,
-      bookmarks: isBookmarked ? post.bookmarks - 1 : post.bookmarks + 1,
-    })
+    try {
+      const result = await bookmarkBlogPost(Number(post.id))
+      setIsBookmarked(result.bookmarked)
+      setPost({ ...post, bookmarks: result.count })
+    } catch { /* silent */ }
   }
 
   const handleShare = () => {
@@ -204,10 +209,37 @@ export function BlogPostDetailPage() {
   }
 
   const canEditPost =
-    !!user &&
+    !!user && !!post &&
     (hasPermission('admin.blog.manage') ||
       hasPermission('instructor.blog.edit') ||
-      user.email === post?.author.name)
+      user.id === post.authorId)
+
+  const handleEditPost = () => {
+    if (!post) return
+    navigate('/blog/create', undefined, { edit: post.id })
+  }
+
+  const handleDeletePost = async () => {
+    if (!post || !window.confirm('Bạn có chắc muốn xóa bài viết này không?')) return
+    try {
+      await deleteBlogPost(Number(post.id))
+      showNotification.success('Đã xóa bài viết')
+      navigate('/blog')
+    } catch {
+      showNotification.error('Không thể xóa bài viết, vui lòng thử lại')
+    }
+  }
+
+  const handleReportPost = async () => {
+    if (!user) {
+      showNotification.loginRequired()
+      return
+    }
+    try {
+      await reportBlogPost(Number(post!.id), 'inappropriate')
+      showNotification.info('Báo cáo đã được ghi nhận, chúng tôi sẽ xem xét sớm nhất')
+    } catch { /* silent */ }
+  }
 
   if (loading) {
     return (
@@ -336,12 +368,12 @@ export function BlogPostDetailPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleEditPost}>
                           <Edit className="mr-2 h-4 w-4" />
                           {t('blog_post_detail_page.actions.edit')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem className="text-destructive" onClick={handleDeletePost}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           {t('blog_post_detail_page.actions.delete')}
                         </DropdownMenuItem>
@@ -399,7 +431,7 @@ export function BlogPostDetailPage() {
                   </Button>
                 </div>
 
-                <Button variant="ghost" size="sm">
+                <Button variant="ghost" size="sm" onClick={handleReportPost}>
                   <Flag className="mr-2 h-4 w-4" />
                   {t('blog_post_detail_page.actions.report')}
                 </Button>

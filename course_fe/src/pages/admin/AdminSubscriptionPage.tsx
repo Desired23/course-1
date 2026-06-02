@@ -129,6 +129,9 @@ export function AdminSubscriptionPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [revenueData, setRevenueData] = useState<{month: string; revenue: number}[]>([])
   const [planDistribution, setPlanDistribution] = useState<{name: string; value: number; color: string}[]>([])
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
+  const [isEditPlanOpen, setIsEditPlanOpen] = useState(false)
+  const [editPlanForm, setEditPlanForm] = useState({ name: '', description: '', price: '', isActive: true, isPopular: false })
 
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
@@ -257,6 +260,31 @@ export function AdminSubscriptionPage() {
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+
+  const openEditPlan = (plan: SubscriptionPlan) => {
+    setEditingPlan(plan)
+    setEditPlanForm({ name: plan.name, description: plan.description, price: String(plan.price), isActive: plan.isActive, isPopular: plan.isPopular })
+    setIsEditPlanOpen(true)
+  }
+
+  const handleSaveEditPlan = async () => {
+    if (!editingPlan) return
+    try {
+      await updateSubscriptionPlan(Number(editingPlan.id), {
+        name: editPlanForm.name,
+        description: editPlanForm.description,
+        price: Number(editPlanForm.price),
+        status: editPlanForm.isActive ? 'active' : 'inactive',
+        is_featured: editPlanForm.isPopular,
+      })
+      toast.success(t('subscriptions_page.admin.plan_updated', 'Plan updated'))
+      const apiPlans = await getAdminSubscriptionPlans()
+      setPlans(apiPlans.map(mapPlan))
+      setIsEditPlanOpen(false)
+    } catch {
+      toast.error(t('subscriptions_page.admin.plan_update_failed', 'Failed to update plan'))
+    }
+  }
 
   const handleCreatePlan = async () => {
     const parsedPrice = Number(planForm.price)
@@ -885,10 +913,10 @@ export function AdminSubscriptionPage() {
                   </div>
 
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" className="w-full" size="sm">
+                    <Button variant="outline" className="w-full" size="sm" onClick={() => openEditPlan(plan)}>
                       <Edit className="w-4 h-4 mr-2" /> {t('subscriptions_page.admin.plan_card.edit')}
                     </Button>
-                    <Button variant="outline" className="w-full" size="sm">
+                    <Button variant="outline" className="w-full" size="sm" onClick={() => setActiveTab('subscriptions')}>
                       <BarChart3 className="w-4 h-4 mr-2" /> {t('subscriptions_page.admin.plan_card.details')}
                     </Button>
                   </div>
@@ -1239,6 +1267,42 @@ export function AdminSubscriptionPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
+      <Dialog open={isEditPlanOpen} onOpenChange={setIsEditPlanOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('subscriptions_page.admin.plan_card.edit')}</DialogTitle>
+            <DialogDescription>{editingPlan?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label>{t('subscriptions_page.admin.create_dialog.name_label')}</Label>
+              <Input value={editPlanForm.name} onChange={e => setEditPlanForm(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('subscriptions_page.admin.create_dialog.description_label')}</Label>
+              <Input value={editPlanForm.description} onChange={e => setEditPlanForm(p => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>{t('subscriptions_page.admin.create_dialog.price_label')}</Label>
+              <Input type="number" value={editPlanForm.price} onChange={e => setEditPlanForm(p => ({ ...p, price: e.target.value }))} />
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch checked={editPlanForm.isActive} onCheckedChange={v => setEditPlanForm(p => ({ ...p, isActive: v }))} />
+                <Label>{t('subscriptions_page.admin.actions.activate')}</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={editPlanForm.isPopular} onCheckedChange={v => setEditPlanForm(p => ({ ...p, isPopular: v }))} />
+                <Label>{t('subscriptions_page.admin.actions.mark_featured')}</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditPlanOpen(false)}>{t('common.cancel')}</Button>
+            <Button onClick={() => void handleSaveEditPlan()}><Save className="w-4 h-4 mr-2" />{t('common.save', 'Save')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </motion.div>
     </motion.div>
   )

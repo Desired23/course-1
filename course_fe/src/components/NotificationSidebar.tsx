@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react"
 import { Bell, X, Check, Trash2, Settings } from "lucide-react"
+import { toast } from "sonner"
 import { useRouter } from "./Router"
 import { markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead } from "../services/notification.api"
 import { useAuth } from "../contexts/AuthContext"
 import { useNotifications } from "../contexts/NotificationContext"
 import { useTranslation } from "react-i18next"
 import { cn } from "./ui/utils"
+import { getErrorMessage } from "../lib/apiError"
 
 interface NotificationSidebarProps {
   onHover?: (isHovered: boolean) => void
@@ -91,21 +93,33 @@ export function NotificationSidebar({
   }, [])
 
   const markAsRead = (notificationId: number) => {
-    apiMarkAsRead(notificationId).catch(() => {})
+    const prevNotifs = [...notifications]
+    const prevCount = unreadCount
     setNotifications(notifs =>
       notifs.map(n =>
         (n.notification_id ?? Number(n.id)) === notificationId ? { ...n, is_read: true, read: true } : n
       )
     )
     setUnreadCount(prev => Math.max(0, prev - 1))
+    apiMarkAsRead(notificationId).catch((e) => {
+      setNotifications(prevNotifs)
+      setUnreadCount(prevCount)
+      toast.error(getErrorMessage(e, 'Không thể đánh dấu đã đọc.'))
+    })
   }
 
   const markAllAsRead = () => {
-    if (user?.id) {
-      markAllNotificationsAsRead(parseInt(user.id)).catch(() => {})
-    }
+    const prevNotifs = [...notifications]
+    const prevCount = unreadCount
     setNotifications(notifs => notifs.map(n => ({ ...n, is_read: true, read: true })))
     setUnreadCount(0)
+    if (user?.id) {
+      markAllNotificationsAsRead(parseInt(user.id)).catch((e) => {
+        setNotifications(prevNotifs)
+        setUnreadCount(prevCount)
+        toast.error(getErrorMessage(e, 'Không thể đánh dấu tất cả đã đọc.'))
+      })
+    }
   }
 
   const deleteNotification = (notificationId: number) => {
@@ -114,6 +128,26 @@ export function NotificationSidebar({
     if (notification && !(notification.is_read ?? notification.read)) {
       setUnreadCount(prev => Math.max(0, prev - 1))
     }
+  }
+
+  const getNotificationLink = (notification: any): string | null => {
+    const code = notification.notification_code ?? notification.notificationCode
+    const relatedId = notification.related_id ?? notification.relatedId
+
+    switch (code) {
+      case 'application_approved':
+      case 'application_rejected':
+      case 'application_changes_requested':
+        return '/instructor/onboarding'
+      case 'application_submitted':
+      case 'application_resubmitted':
+        return '/admin/instructor-applications'
+    }
+
+    if (relatedId) {
+      return `/course/${relatedId}`
+    }
+    return null
   }
 
   const getNotificationIcon = (type: string) => {
@@ -237,9 +271,9 @@ export function NotificationSidebar({
                     onClick={() => {
                       const notificationId = Number(notification.notification_id ?? notification.id)
                       markAsRead(notificationId)
-                      const relatedId = notification.related_id ?? notification.relatedId
-                      if (relatedId) {
-                        navigate(`/course/${relatedId}`)
+                      const link = getNotificationLink(notification)
+                      if (link) {
+                        navigate(link)
                         setIsOpen(false)
                       }
                     }}

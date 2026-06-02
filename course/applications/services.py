@@ -66,6 +66,19 @@ def submit_application(user, data):
         ]
         ApplicationResponse.objects.bulk_create(response_objects)
 
+    try:
+        from notifications.services import notify_admins
+        notify_admins(
+            title="Đơn đăng ký instructor mới",
+            message=f"{user.full_name} vừa nộp đơn đăng ký trở thành instructor.",
+            type='other',
+            notification_code='application_submitted',
+            related_id=application.id,
+            sender_id=user.id,
+        )
+    except Exception:
+        pass
+
     return ApplicationSerializer(application).data
 
 
@@ -162,14 +175,28 @@ def review_application(application_id, admin_actor, data):
     now = timezone.now()
 
     if action == 'approve':
-        application.status = 'approved'
-        application.reviewed_at = now
-        application.reviewed_by = admin
-        application.admin_notes = data.get('admin_notes', '')
-        application.save()
+        with transaction.atomic():
+            application.status = 'approved'
+            application.reviewed_at = now
+            application.reviewed_by = admin
+            application.admin_notes = data.get('admin_notes', '')
+            application.save()
 
-        if application.form.type == 'instructor_application':
-            _promote_to_instructor(application)
+            if application.form.type == 'instructor_application':
+                _promote_to_instructor(application)
+
+        try:
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=application.user.id,
+                title="Đơn đăng ký được chấp thuận",
+                message="Chúc mừng! Đơn đăng ký instructor của bạn đã được chấp thuận.",
+                type='other',
+                related_id=application.id,
+                notification_code='application_approved',
+            )
+        except Exception:
+            pass
 
     elif action == 'reject':
         application.status = 'rejected'
@@ -179,12 +206,57 @@ def review_application(application_id, admin_actor, data):
         application.rejection_reason = data.get('rejection_reason', '')
         application.save()
 
+        try:
+            from notifications.services import create_notification
+            reason = application.rejection_reason
+            msg = f"Đơn đăng ký của bạn không được chấp thuận.{' Lý do: ' + reason if reason else ''}"
+            create_notification(
+                receiver_id=application.user.id,
+                title="Đơn đăng ký không được chấp thuận",
+                message=msg,
+                type='other',
+                related_id=application.id,
+                notification_code='application_rejected',
+            )
+        except Exception:
+            pass
+
     elif action == 'request_changes':
         application.status = 'changes_requested'
         application.reviewed_at = now
         application.reviewed_by = admin
         application.admin_notes = data.get('admin_notes', '')
         application.save()
+
+        try:
+            from notifications.services import create_notification
+            notes = application.admin_notes
+            msg = f"Đơn đăng ký của bạn cần bổ sung thêm thông tin.{' Ghi chú: ' + notes if notes else ''}"
+            create_notification(
+                receiver_id=application.user.id,
+                title="Đơn đăng ký cần bổ sung",
+                message=msg,
+                type='other',
+                related_id=application.id,
+                notification_code='application_changes_requested',
+            )
+        except Exception:
+            pass
+
+    try:
+        from utils.mailer.mailer import send_application_result
+        import threading
+        threading.Thread(
+            target=send_application_result,
+            args=(application.user.email, application.user.full_name, action),
+            kwargs={
+                "rejection_reason": data.get('rejection_reason', '') or None,
+                "admin_notes": data.get('admin_notes', '') or None,
+            },
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
 
     return ApplicationSerializer(application).data
 
@@ -268,5 +340,18 @@ def resubmit_application(application_id, user, data):
 
         application.status = 'pending'
         application.save()
+
+    try:
+        from notifications.services import notify_admins
+        notify_admins(
+            title="Đơn đăng ký được nộp lại",
+            message=f"{user.full_name} vừa nộp lại đơn đăng ký instructor.",
+            type='other',
+            notification_code='application_resubmitted',
+            related_id=application.id,
+            sender_id=user.id,
+        )
+    except Exception:
+        pass
 
     return ApplicationSerializer(application).data

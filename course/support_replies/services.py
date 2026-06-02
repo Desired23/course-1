@@ -2,6 +2,7 @@ from rest_framework.exceptions import ValidationError
 from .models import SupportReply
 from .serializers import SupportReplySerializer
 from supports.models import Support
+from utils.roles import is_active_admin
 import logging
 
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _is_admin(user):
-    return bool(getattr(user, 'admin', None))
+    return is_active_admin(user)
 
 
 def _assert_reply_access(reply, actor):

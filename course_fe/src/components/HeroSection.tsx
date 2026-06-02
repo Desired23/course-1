@@ -99,14 +99,6 @@ export function HeroSection() {
               >
                 AI tư vấn lộ trình
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-2 border-gray-300 dark:border-gray-600 hover:border-primary dark:hover:border-primary bg-white dark:bg-gray-800 font-semibold"
-                onClick={() => navigate('/udemy-business')}
-              >
-                {t('hero.try_business')}
-              </Button>
             </div>
 
 

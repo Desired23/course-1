@@ -128,7 +128,7 @@ export function ReviewManagementPage() {
           helpful_count: review.likes || 0,
           reply_count: review.instructor_response ? 1 : 0,
           status: mapStatus(review.status, review.report_count),
-          is_verified_purchase: true,
+          is_verified_purchase: review.is_verified_purchase ?? false,
           created_at: new Date(review.review_date),
           updated_at: new Date(review.updated_date),
           flagged_reason: review.report_count > 0

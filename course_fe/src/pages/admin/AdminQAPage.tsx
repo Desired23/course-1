@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
@@ -14,6 +15,7 @@ import {
   formatQADate,
   getStatusLabel,
 } from '../../services/qa.api'
+import { getErrorMessage } from '../../lib/apiError'
 
 export function AdminQAPage() {
   const [reportedQuestions, setReportedQuestions] = useState<Question[]>([])
@@ -38,9 +40,10 @@ export function AdminQAPage() {
       // Filter client-side for reported (report_count > 0)
       setReportedQuestions(all.results.filter(q => q.report_count > 0))
       setAllQuestions(all.results)
-    } catch {
+    } catch (e) {
       setReportedQuestions([])
       setAllQuestions([])
+      toast.error(getErrorMessage(e, 'Không thể tải danh sách câu hỏi.'))
     } finally {
       setLoading(false)
     }
@@ -52,7 +55,9 @@ export function AdminQAPage() {
       await moderateQuestion(questionId, action)
       await fetchData()
       if (selectedQuestion?.id === questionId) setSelectedQuestion(null)
-    } catch {}
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Không thể thực hiện hành động này.'))
+    }
     setActionLoading(null)
   }
 
@@ -62,8 +67,9 @@ export function AdminQAPage() {
     try {
       const res = await getAnswers(question.id)
       setAnswers(res.results)
-    } catch {
+    } catch (e) {
       setAnswers([])
+      toast.error(getErrorMessage(e, 'Không thể tải câu trả lời.'))
     } finally {
       setLoadingAnswers(false)
     }
@@ -75,7 +81,9 @@ export function AdminQAPage() {
       await acceptAnswer(questionId, answerId)
       const res = await getAnswers(questionId)
       setAnswers(res.results)
-    } catch {}
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Không thể chấp nhận câu trả lời.'))
+    }
     setActionLoading(null)
   }
 

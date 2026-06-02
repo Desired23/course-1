@@ -9,6 +9,7 @@ import { CourseBreadcrumb } from "../../components/CourseBreadcrumb"
 import { CourseStickyNav } from "../../components/CourseStickyNav"
 import { LearningGoals } from "../../components/LearningGoals"
 import { toast } from "sonner@2.0.3"
+import { getErrorMessage } from "../../lib/apiError"
 import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from "../../services/course.api"
 import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
 import { getInitials } from "../../services/instructor.api"
@@ -190,10 +191,10 @@ export function CourseDetailPage() {
         const data = await getCourseById(courseId)
         if (!cancelled) {
           setCourseData(data)
-          getCoursePromotions(courseId).then(setCoursePromos).catch(() => {})
+          getCoursePromotions(courseId).then(setCoursePromos).catch((e) => console.error('getCoursePromotions failed:', e))
         }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('course_detail.load_failed'))
+        if (!cancelled) setError(getErrorMessage(err, t('course_detail.load_failed')))
       } finally {
         if (!cancelled) setLoading(false)
       }

@@ -183,7 +183,7 @@ export function InstructorHeader({ title, subtitle, className }: InstructorHeade
                 <User className="mr-2 h-4 w-4" />
                 {t('instructor_header.profile')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/instructor/settings')}>
+              <DropdownMenuItem onClick={() => navigate('/instructor/profile')}>
                 {t('instructor_header.settings')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/')}>

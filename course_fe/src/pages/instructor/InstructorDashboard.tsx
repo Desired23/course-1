@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
+import { getErrorMessage } from "../../lib/apiError"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
@@ -122,7 +123,7 @@ export function InstructorDashboard() {
           setInstructorProfile(profile)
         }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('instructor_dashboard.load_dashboard_failed'))
+        if (!cancelled) setError(getErrorMessage(err, t('instructor_dashboard.load_dashboard_failed')))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -180,7 +181,7 @@ export function InstructorDashboard() {
         setTotalCount(res.count || 0)
         setTotalPages(res.total_pages || 1)
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('instructor_dashboard.load_courses_failed'))
+        if (!cancelled) setError(getErrorMessage(err, t('instructor_dashboard.load_courses_failed')))
       } finally {
         if (!cancelled) setListLoading(false)
       }

@@ -87,6 +87,31 @@ def issue_certificate(user, course_id):
         description=f"Chứng chỉ được cấp cho khóa học: {course.title}"
     )
 
+    try:
+        from notifications.services import create_notification
+        create_notification(
+            receiver_id=user.id,
+            title="Chứng chỉ hoàn thành khóa học",
+            message=f"Chúc mừng! Bạn đã hoàn thành \"{course.title}\" và nhận được chứng chỉ.",
+            type='course',
+            related_id=certificate.id,
+            notification_code='certificate_issued',
+        )
+    except Exception:
+        pass
+
+    try:
+        from utils.mailer.mailer import send_certificate_issued
+        import threading
+        threading.Thread(
+            target=send_certificate_issued,
+            args=(user.email, user.full_name, course.title, certificate.verification_code),
+            kwargs={"instructor_name": instructor_name},
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+
     return CertificateSerializer(certificate).data
 
 
@@ -216,6 +241,19 @@ def revoke_certificate(certificate_id, admin_user):
         entity_id=cert.id,
         description=f"Chứng chỉ bị thu hồi: {cert.course_title} - {cert.student_name}"
     )
+
+    try:
+        from notifications.services import create_notification
+        create_notification(
+            receiver_id=cert.user_id,
+            title="Chứng chỉ đã bị thu hồi",
+            message=f"Chứng chỉ cho khóa học \"{cert.course_title}\" đã bị thu hồi bởi quản trị viên.",
+            type='course',
+            related_id=cert.id,
+            notification_code='certificate_revoked',
+        )
+    except Exception:
+        pass
 
     return CertificateSerializer(cert).data
 

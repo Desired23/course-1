@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Yêu cầu hoàn tiền được duyệt</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9;">
+  <div style="background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+    <h2 style="color: #16A34A; margin-top: 0;">✅ Yêu cầu hoàn tiền đã được duyệt</h2>
+    <p>Xin chào <strong>{{ user_name }}</strong>,</p>
+    <p>Yêu cầu hoàn tiền của bạn đã được <strong>chấp thuận</strong> và đang được xử lý qua cổng thanh toán.</p>
+    <div style="background: #F0FDF4; border-left: 4px solid #16A34A; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      <p style="margin: 0;"><strong>Khóa học:</strong> {{ course_title }}</p>
+      <p style="margin: 8px 0 0;"><strong>Số tiền hoàn:</strong> {{ refund_amount }}</p>
+      <p style="margin: 8px 0 0;"><strong>Mã đơn hàng:</strong> #{{ payment_id }}</p>
+    </div>
+    <p>Tiền sẽ được hoàn về tài khoản của bạn trong vòng <strong>1–5 ngày làm việc</strong> tùy theo ngân hàng.</p>
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;">
+    <p style="color: #6B7280; font-size: 12px;">Hỗ trợ: <strong>{{ support_email }}</strong>. Đây là email tự động, vui lòng không reply.</p>
+  </div>
+</body>
+</html>

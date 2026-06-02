@@ -11,7 +11,6 @@ const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage')
 const ResetPasswordPage = lazy(() => import('../pages/auth/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })))
 const EmailVerificationPage = lazy(() => import('../pages/auth/EmailVerificationPage').then((module) => ({ default: module.EmailVerificationPage })))
 const GoogleCallbackPage = lazy(() => import('../pages/auth/GoogleCallbackPage').then((module) => ({ default: module.GoogleCallbackPage })))
-const UdemyBusinessPage = lazy(() => import('../pages/public/UdemyBusinessPage').then((module) => ({ default: module.UdemyBusinessPage })))
 const TeachOnUdemyPage = lazy(() => import('../pages/public/TeachOnUdemyPage').then((module) => ({ default: module.TeachOnUdemyPage })))
 const CommunityPage = lazy(() => import('../pages/public/CommunityPage').then((module) => ({ default: module.CommunityPage })))
 const BlogPage = lazy(() => import('../pages/public/BlogPage').then((module) => ({ default: module.BlogPage })))
@@ -53,6 +52,7 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/topics', element: <AllTopicsPage /> },
   { path: '/categories', element: <CategoriesPage /> },
   { path: '/category/:slug', element: <CategoryPage />, dynamic: true },
+  { path: '/category/:slug/:subSlug', element: <CategoryPage />, dynamic: true },
   { path: '/topic/:slug', element: <TopicPage />, dynamic: true },
 
 
@@ -65,7 +65,6 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/google-callback', element: <GoogleCallbackPage /> },
 
 
-  { path: '/udemy-business', element: <UdemyBusinessPage /> },
   { path: '/teach', element: <TeachOnUdemyPage /> },
   { path: '/pricing', element: <SubscriptionPricingPage /> },
 

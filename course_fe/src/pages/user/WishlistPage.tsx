@@ -299,7 +299,7 @@ export function WishlistPage() {
                     </div>
 
                     <CardHeader className="pb-3">
-                      <CardTitle className="line-clamp-2 cursor-pointer hover:text-primary" onClick={() => navigate(`/courses/${item.course}`)}>
+                      <CardTitle className="line-clamp-2 cursor-pointer hover:text-primary" onClick={() => navigate(`/course/${item.course}`)}>
                         {course.title}
                       </CardTitle>
                       <CardDescription>{t('wishlist.by_instructor', { name: course.instructor_name || t('course_detail.by_instructor') })}</CardDescription>

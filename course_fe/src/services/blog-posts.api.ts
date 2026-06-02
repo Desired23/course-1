@@ -47,6 +47,7 @@ export interface BlogComment {
   user: number
   user_name: string | null
   user_avatar: string | null
+  user_role: 'student' | 'instructor' | 'admin' | null
   created_at: string
   updated_at: string
   parent: number | null
@@ -103,7 +104,7 @@ export async function getAllPublishedBlogPosts(): Promise<BlogPost[]> {
 }
 
 
-export async function getPublishedBlogPost(blogPostId: number): Promise<BlogPost> {
+export async function getPublishedBlogPost(blogPostId: string | number): Promise<BlogPost> {
   return http.get<BlogPost>('/client/blog-posts/', { blog_post_id: blogPostId })
 }
 
@@ -126,7 +127,7 @@ export async function getAdminBlogPosts(
 }
 
 
-export async function getAdminBlogPost(blogPostId: number): Promise<BlogPost> {
+export async function getAdminBlogPost(blogPostId: string | number): Promise<BlogPost> {
   return http.get<BlogPost>('/admin/blog-posts/', { blog_post_id: blogPostId })
 }
 
@@ -225,4 +226,21 @@ export async function updateBlogComment(
 
 export async function deleteBlogComment(commentId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/blog_comments/${commentId}/delete/`)
+}
+
+
+export async function likeBlogPost(blogPostId: number): Promise<BlogPost> {
+  return http.patch<BlogPost>(`/client/blog-posts/like/${blogPostId}/`, {})
+}
+
+export async function bookmarkBlogPost(blogPostId: number): Promise<{ bookmarked: boolean; count: number }> {
+  return http.post<{ bookmarked: boolean; count: number }>(`/client/blog-posts/bookmark/${blogPostId}/`, {})
+}
+
+export async function reportBlogPost(blogPostId: number, reason: string): Promise<{ message: string }> {
+  return http.post<{ message: string }>(`/client/blog-posts/report/${blogPostId}/`, { reason })
+}
+
+export async function likeBlogComment(commentId: number): Promise<BlogComment> {
+  return http.patch<BlogComment>(`/blog_comments/${commentId}/like/`, {})
 }

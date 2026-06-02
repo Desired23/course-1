@@ -17,6 +17,7 @@ import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Label } from '../../components/ui/label'
 import { toast } from 'sonner'
+import { getErrorMessage } from '../../lib/apiError'
 import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
 import { getAllLessons, getLessonById, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
 import { getLessonQuiz } from "../../services/quiz-questions.api"
@@ -220,7 +221,7 @@ export function InstructorLessonsPageNew() {
         hasLoadedInitialDataRef.current = true
       } catch (err) {
         console.error(t('instructor_lessons_page_new.errors.load_course_structure_console'), err)
-
+        toast.error(getErrorMessage(err, t('instructor_lessons_page_new.errors.load_course_structure_console')))
       }
     }
     fetchCourseData()
@@ -533,7 +534,10 @@ export function InstructorLessonsPageNew() {
             : section
         )
       )
-      toast.success(t('instructor_lessons_page_new.toasts.section_status_updated', { status: statusLabel }))
+      const label = status === 'Published'
+        ? t('instructor_lessons_page_new.status.published')
+        : t('instructor_lessons_page_new.status.draft')
+      toast.success(t('instructor_lessons_page_new.toasts.section_status_updated', { status: label }))
     } catch (err) {
       console.error(err)
       toast.error(t('instructor_lessons_page_new.toasts.failed_to_update_section_status'))

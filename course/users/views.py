@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from .serializers import Userserializers, UserUpdateBySelfSerializer, UserSettingsSerializer
 from .services import create_user, update_user_by_admin, delete_user, get_users, get_user_by_id, register, login, google_login, refresh_token, user_reset_password, confirm_reset_password, user_confirm_email, resend_verification_email, update_user_by_selfself, get_or_create_user_settings, update_user_settings, deactivate_user_self, delete_user_self, change_password_self
 from utils.permissions import RolePermissionFactory
+from utils.roles import is_active_admin
 from .models import User
 from utils.pagination import paginate_queryset
 class UserManagementView(APIView):
@@ -26,7 +27,7 @@ class UserManagementView(APIView):
     def patch(self, request, user_id):
         try:
             user = update_user_by_admin (user_id,request.data)
-            return Response(Userserializers(user).data, status=status.HTTP_201_CREATED)
+            return Response(Userserializers(user).data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, user_id):
@@ -42,7 +43,7 @@ class UserDetailView(APIView):
 
     def get(self, request, user_id):
         try:
-            is_admin = bool(hasattr(request.user, 'admin') and getattr(request.user, 'admin', None))
+            is_admin = is_active_admin(request.user)
             user_payload = get_user_by_id(user_id=user_id, viewer_id=request.user.id, is_admin=is_admin)
             if user_payload.get("is_private"):
                 return Response(user_payload, status=status.HTTP_403_FORBIDDEN)
@@ -56,7 +57,7 @@ class UserUpdateView(APIView):
 
     def patch(self, request, user_id):
 
-        if request.user.id != user_id and not hasattr(request.user, 'admin'):
+        if request.user.id != user_id and not is_active_admin(request.user):
             return Response({"error": "Bạn không có quyền cập nhật thông tin người dùng khác."}, status=status.HTTP_403_FORBIDDEN)
         try:
             updated_user = update_user_by_selfself(user_id, request.data)

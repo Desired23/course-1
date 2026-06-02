@@ -32,9 +32,9 @@ def RolePermissionFactory(roles):
             user_type = ["student"]
             admin = getattr(user, "admin", None)
             instructor = getattr(user, "instructor", None)
-            if admin:
+            if admin and not admin.is_deleted:
                 user_type.append("admin")
-            if instructor:
+            if instructor and not instructor.is_deleted:
                 user_type.append("instructor")
             if not any(role in roles for role in user_type):
                 raise PermissionDenied("Bạn không có quyền truy cập.")

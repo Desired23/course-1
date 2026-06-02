@@ -119,7 +119,7 @@ function promotionToDiscount(p: Promotion, coursesMap: Map<number, string>): Dis
     status: statusMap[p.status] ?? 'active',
     applicableCourses: p.applicable_courses.map(id => coursesMap.get(id) || `Course #${id}`),
     applicableCourseIds: p.applicable_courses,
-    revenue: 0,
+    revenue: typeof p.revenue === 'number' ? p.revenue : 0,
   }
 }
 

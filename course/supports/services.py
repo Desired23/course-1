@@ -1,10 +1,12 @@
 from rest_framework.exceptions import ValidationError
+from utils.roles import is_active_admin
+
 from .models import Support
 from .serializers import SupportSerializer
 
 
 def _is_admin(user):
-    return bool(getattr(user, 'admin', None))
+    return is_active_admin(user)
 
 
 def _assert_support_access(support, actor):

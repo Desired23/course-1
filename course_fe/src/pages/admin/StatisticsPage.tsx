@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 import { TrendingUp, TrendingDown, Users, BookOpen, DollarSign, Star, Download, Calendar, Filter } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { getAdminDashboardStats, getAdminRevenueAnalytics, getAdminUserAnalytics, getAdminCourseAnalytics } from '../../services/admin.api'
+import { toast } from 'sonner'
+import { getAdminDashboardStats, getAdminRevenueAnalytics, getAdminUserAnalytics, getAdminCourseAnalytics, getAdminRevenueMonthlyBreakdown, getAdminCommissionAnalytics, exportAdminRevenue } from '../../services/admin.api'
 import { getAllCategories } from '../../services/category.api'
 import { useTranslation } from 'react-i18next'
 
@@ -49,6 +50,7 @@ export function StatisticsPage() {
   const [userGrowth, setUserGrowth] = useState<any[]>([])
   const [detailedCourses, setDetailedCourses] = useState<any[]>([])
   const [stats, setStats] = useState<any>({})
+  const [generatingReport, setGeneratingReport] = useState<string | null>(null)
 
   useEffect(() => {
     const ensureArray = <T,>(payload: unknown): T[] => {
@@ -63,8 +65,8 @@ export function StatisticsPage() {
       try {
         const [dashStats, revenue, users, courses, categories] = await Promise.all([
           getAdminDashboardStats().catch(() => null),
-          getAdminRevenueAnalytics(6).catch(() => []),
-          getAdminUserAnalytics(6).catch(() => []),
+          getAdminRevenueAnalytics(timeRange === '1month' ? 1 : timeRange === '3months' ? 3 : timeRange === '1year' ? 12 : 6).catch(() => []),
+          getAdminUserAnalytics(timeRange === '1month' ? 1 : timeRange === '3months' ? 3 : timeRange === '1year' ? 12 : 6).catch(() => []),
           getAdminCourseAnalytics().catch(() => []),
           getAllCategories().catch(() => [])
         ])
@@ -90,9 +92,9 @@ export function StatisticsPage() {
           title: c.title,
           instructor: c.instructor_name || t('admin_statistics.not_available'),
           students: c.enrollment_count,
-          revenue: 0,
+          revenue: c.revenue ?? 0,
           rating: c.rating,
-          status: 'active'
+          status: c.status || 'active'
         })))
         setCourseCategories(categoryRows.map((cat: any, idx: number) => ({
           name: cat.name,
@@ -104,7 +106,75 @@ export function StatisticsPage() {
       }
     }
     load()
-  }, [])
+  }, [timeRange])
+
+  const downloadCsv = (rows: string[][], filename: string) => {
+    const csv = rows.map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleMonthlyReport = async () => {
+    setGeneratingReport('monthly')
+    try {
+      const data = await getAdminRevenueMonthlyBreakdown(12)
+      const rows = [
+        [t('admin_statistics.reports.csv.month'), t('admin_statistics.reports.csv.retail'), t('admin_statistics.reports.csv.subscription'), t('admin_statistics.reports.csv.gross'), t('admin_statistics.reports.csv.refunded'), t('admin_statistics.reports.csv.net')],
+        ...data.map(r => [r.date, String(r.retail), String(r.subscription), String(r.gross), String(r.refunded), String(r.net)]),
+      ]
+      downloadCsv(rows, `monthly_report_${new Date().toISOString().slice(0, 7)}.csv`)
+      toast.success(t('admin_statistics.reports.toast.success'))
+    } catch {
+      toast.error(t('admin_statistics.reports.toast.error'))
+    } finally {
+      setGeneratingReport(null)
+    }
+  }
+
+  const handleInstructorReport = async () => {
+    setGeneratingReport('instructor')
+    try {
+      const data = await getAdminCommissionAnalytics()
+      const rows = [
+        [t('admin_statistics.reports.csv.instructor'), t('admin_statistics.reports.csv.gross'), t('admin_statistics.reports.csv.earnings'), t('admin_statistics.reports.csv.retail_earnings'), t('admin_statistics.reports.csv.sub_earnings'), t('admin_statistics.reports.csv.pending'), t('admin_statistics.reports.csv.available'), t('admin_statistics.reports.csv.paid')],
+        ...data.per_instructor.map(r => [
+          r.instructor_name ?? t('admin_statistics.not_available'),
+          String(r.gross),
+          String(r.total_earnings),
+          String(r.retail_earnings),
+          String(r.sub_earnings),
+          String(r.pending),
+          String(r.available),
+          String(r.paid),
+        ]),
+      ]
+      downloadCsv(rows, `instructor_performance_${new Date().toISOString().slice(0, 10)}.csv`)
+      toast.success(t('admin_statistics.reports.toast.success'))
+    } catch {
+      toast.error(t('admin_statistics.reports.toast.error'))
+    } finally {
+      setGeneratingReport(null)
+    }
+  }
+
+  const handleRevenueReport = async () => {
+    setGeneratingReport('revenue')
+    try {
+      await exportAdminRevenue('csv')
+      toast.success(t('admin_statistics.reports.toast.success'))
+    } catch {
+      toast.error(t('admin_statistics.reports.toast.error'))
+    } finally {
+      setGeneratingReport(null)
+    }
+  }
 
   if (!canAccess(['admin'], ['admin.statistics.view'])) {
     return (
@@ -203,11 +273,11 @@ export function StatisticsPage() {
           <p className="text-muted-foreground">{t('admin_statistics.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => void exportAdminRevenue()}>
             <Download className="h-4 w-4 mr-2" />
             {t('admin_statistics.export')}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled>
             <Calendar className="h-4 w-4 mr-2" />
             {t('admin_statistics.schedule_report')}
           </Button>
@@ -340,7 +410,7 @@ export function StatisticsPage() {
                   <CardTitle>{t('admin_statistics.course_performance.title')}</CardTitle>
                   <CardDescription>{t('admin_statistics.course_performance.description')}</CardDescription>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" disabled>
                   <Filter className="h-4 w-4 mr-2" />
                   {t('common.filter')}
                 </Button>
@@ -444,7 +514,10 @@ export function StatisticsPage() {
                 <CardDescription>{t('admin_statistics.reports.monthly.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
+                <Button className="w-full" disabled={generatingReport !== null} onClick={handleMonthlyReport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {generatingReport === 'monthly' ? t('admin_statistics.reports.generating') : t('admin_statistics.generate_report')}
+                </Button>
               </CardContent>
             </Card>
 
@@ -454,7 +527,10 @@ export function StatisticsPage() {
                 <CardDescription>{t('admin_statistics.reports.instructor.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
+                <Button className="w-full" disabled={generatingReport !== null} onClick={handleInstructorReport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {generatingReport === 'instructor' ? t('admin_statistics.reports.generating') : t('admin_statistics.generate_report')}
+                </Button>
               </CardContent>
             </Card>
 
@@ -464,7 +540,10 @@ export function StatisticsPage() {
                 <CardDescription>{t('admin_statistics.reports.revenue.description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button className="w-full">{t('admin_statistics.generate_report')}</Button>
+                <Button className="w-full" disabled={generatingReport !== null} onClick={handleRevenueReport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {generatingReport === 'revenue' ? t('admin_statistics.reports.generating') : t('admin_statistics.generate_report')}
+                </Button>
               </CardContent>
             </Card>
           </div>

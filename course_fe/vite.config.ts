@@ -61,7 +61,8 @@
               if (
                 normalizedId.includes('/react/') ||
                 normalizedId.includes('/react-dom/') ||
-                normalizedId.includes('/scheduler/')
+                normalizedId.includes('/scheduler/') ||
+                normalizedId.includes('/react-i18next/')
               ) {
                 return 'react-vendor'
               }

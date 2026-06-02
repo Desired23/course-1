@@ -348,6 +348,12 @@ export function CartPage() {
                         {t('cart.by_instructor', { name: item.instructor })}
                       </p>
 
+                      {item.inPlan && (
+                        <span className="mb-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          {t('cart.in_plan_tag')}
+                        </span>
+                      )}
+
                       <div className="mb-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         {item.rating && (
                           <div className="flex items-center gap-1">
@@ -399,7 +405,7 @@ export function CartPage() {
                           size="sm"
                           onClick={() => {
                             removeFromCart(item.id)
-                            toast.success(t('cart.coupon_removed'))
+                            toast.success(t('cart.item_removed'))
                           }}
                           className="w-auto text-destructive hover:text-destructive hover:bg-destructive/10"
                         >

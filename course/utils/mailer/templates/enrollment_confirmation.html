@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng ký khóa học thành công</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9;">
+  <div style="background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+    <h2 style="color: #2563EB; margin-top: 0;">🎉 Đăng ký khóa học thành công!</h2>
+    <p>Xin chào <strong>{{ user_name }}</strong>,</p>
+    <p>Bạn đã đăng ký thành công khóa học:</p>
+    <div style="background: #F3F4F6; border-left: 4px solid #2563EB; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      <strong style="font-size: 16px;">{{ course_title }}</strong>
+      {% if instructor_name %}
+      <p style="margin: 8px 0 0; color: #6B7280;">Giảng viên: {{ instructor_name }}</p>
+      {% endif %}
+    </div>
+    <p>Bắt đầu học ngay bây giờ để đạt được mục tiêu của bạn. Chúc bạn học tập hiệu quả!</p>
+    {% if course_url %}
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="{{ course_url }}" style="background: #2563EB; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold;">Vào học ngay</a>
+    </p>
+    {% endif %}
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;">
+    <p style="color: #6B7280; font-size: 12px;">Nếu có thắc mắc, liên hệ <strong>{{ support_email }}</strong>. Đây là email tự động, vui lòng không reply.</p>
+  </div>
+</body>
+</html>

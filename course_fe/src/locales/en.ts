@@ -549,15 +549,11 @@ export const en = {
     mock: {
       admin: {
         review_pending_courses_title: "Review Pending Courses",
-        review_pending_courses_description: "12 courses waiting for approval",
+        review_pending_courses_description: "{{count}} courses waiting for approval",
         process_refunds_title: "Process Refund Requests",
-        process_refunds_description: "5 refund requests need attention",
+        process_refunds_description: "{{count}} refund requests need attention",
         review_reported_content_title: "Review Reported Content",
-        review_reported_content_description: "8 forum posts flagged by users",
-        update_platform_settings_title: "Update Platform Settings",
-        update_platform_settings_description: "Configure new payment gateway",
-        review_user_reports_title: "Review User Reports",
-        review_user_reports_description: "3 users reported for violation",
+        review_reported_content_description: "{{count}} items flagged by users",
       },
       instructor: {
         answer_student_questions_title: "Answer Student Questions",
@@ -1442,6 +1438,7 @@ export const en = {
   },
   cart: {
     title: "Shopping Cart",
+    in_plan_tag: "Already in your plan — buy lifetime?",
     empty_title: "Your cart is empty",
     empty_subtitle: "Keep shopping to find a course!",
     keep_shopping: "Keep shopping",
@@ -4187,6 +4184,7 @@ export const en = {
       image_required: "Please upload a course image",
       saved_draft: "Draft saved successfully",
       published_success: "Course published successfully",
+      submitted_review: "Course submitted for review",
       save_failed: "Failed to save course",
     },
     languages: { vietnamese: "Vietnamese", english: "English", japanese: "Japanese", chinese: "Chinese" },
@@ -6419,6 +6417,14 @@ export const en = {
       monthly: { title: "Monthly Report", description: "Comprehensive monthly analytics" },
       instructor: { title: "Instructor Performance", description: "Detailed instructor metrics" },
       revenue: { title: "Revenue Analysis", description: "Financial breakdown and trends" },
+      generating: "Generating...",
+      toast: { success: "Report exported successfully", error: "Failed to export report" },
+      csv: {
+        month: "Month", retail: "Retail", subscription: "Subscription", gross: "Gross Revenue",
+        refunded: "Refunded", net: "Net Revenue", instructor: "Instructor",
+        earnings: "Earnings", retail_earnings: "Retail Earnings", sub_earnings: "Subscription Earnings",
+        pending: "Pending", available: "Available", paid: "Paid",
+      },
     },
   },
   admin_reviews: {

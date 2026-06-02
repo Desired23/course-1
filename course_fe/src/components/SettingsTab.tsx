@@ -29,7 +29,7 @@ interface Lesson {
     requirePrevious?: boolean
     scheduledPublish?: string
     notifyStudents?: boolean
-    accessLevel?: 'all' | 'enrolled' | 'premium'
+    accessLevel?: 'enrolled' | 'premium'
     autoplay?: boolean
     showTranscript?: boolean
   }
@@ -79,7 +79,6 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('settings_tab.access_all')}</SelectItem>
                   <SelectItem value="enrolled">{t('settings_tab.access_enrolled')}</SelectItem>
                   <SelectItem value="premium">{t('settings_tab.access_premium')}</SelectItem>
                 </SelectContent>

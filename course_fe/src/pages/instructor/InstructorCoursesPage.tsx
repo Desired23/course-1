@@ -18,6 +18,7 @@ import { UserPagination } from '../../components/UserPagination'
 import { getCourses, updateCourse, deleteCourse, type CourseListItem, formatPrice, parseDecimal, getLevelLabel, formatDuration } from '../../services/course.api'
 import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
 import { toast } from 'sonner'
+import { getErrorMessage } from "../../lib/apiError"
 import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 6
@@ -106,7 +107,7 @@ export function InstructorCoursesPage() {
         const dashboardStats = await getInstructorDashboardStats(profile.id)
         if (!cancelled) setStats(dashboardStats)
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('instructor_courses.load_failed'))
+        if (!cancelled) setError(getErrorMessage(err, t('instructor_courses.load_failed')))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -178,7 +179,7 @@ export function InstructorCoursesPage() {
         setTotalPages(res.total_pages || 1)
         setTotalCount(res.count || 0)
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('instructor_courses.load_failed'))
+        if (!cancelled) setError(getErrorMessage(err, t('instructor_courses.load_failed')))
       } finally {
         if (!cancelled) setListLoading(false)
       }

@@ -27,7 +27,7 @@ export function RequireAuth({
 
     if (!isAuthenticated) {
       if (showToast) {
-        toast.error(t('system_notifications.login_required_description'))
+        toast.error(t('system_notifications.login_required_description'), { id: 'login-required' })
       }
       if (redirectTo === '/login') {
         navigate('/login', undefined, { redirect: currentRoute })
@@ -40,7 +40,7 @@ export function RequireAuth({
 
     if (!canAccess(roles, permissions)) {
       if (showToast) {
-        toast.error(t('system_notifications.access_denied_description'))
+        toast.error(t('system_notifications.access_denied_description'), { id: 'access-denied' })
       }
 
       if (user?.roles.includes('admin')) {

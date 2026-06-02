@@ -10,8 +10,16 @@ export { PERMISSIONS }
 
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { user, logout, updateProfile } = useAuthStore()
+  const { user, logout, updateProfile, fetchProfile } = useAuthStore()
   const { t } = useTranslation()
+
+  // On app start, re-sync the signed-in user's profile (incl. roles) from the
+  // server so role changes made by an admin are reflected without re-login.
+  useEffect(() => {
+    if (useAuthStore.getState().user) {
+      void fetchProfile()
+    }
+  }, [fetchProfile])
 
 
   useEffect(() => {

@@ -31,6 +31,7 @@ interface UserWithPermissions {
   lastLogin: Date
   status: 'active' | 'inactive' | 'suspended'
   adminLevel?: 'super' | 'sub'
+  adminRecordId?: number
 }
 
 interface RoleTemplate {
@@ -128,7 +129,8 @@ export function PermissionsPage() {
             createdAt: new Date(u.created_at),
             lastLogin: u.last_login ? new Date(u.last_login) : new Date(),
             status: u.status as any,
-            adminLevel: admin ? (admin.is_super_admin ? 'super' : 'sub') : undefined
+            adminLevel: admin ? (admin.is_super_admin ? 'super' : 'sub') : undefined,
+            adminRecordId: admin ? admin.id : undefined
           }
         }))
         const uniqueAdminPermissions = Array.from(new Set(apiAdmins.flatMap(admin => admin.permissions || [])))
@@ -201,22 +203,18 @@ export function PermissionsPage() {
       await adminUpdateUser(Number(editingUser.id), {
         user_type: editingUser.roles.includes('admin') ? 'admin' : editingUser.roles.includes('instructor') ? 'instructor' : 'student'
       })
+      if (editingUser.roles.includes('admin') && editingUser.adminRecordId) {
+        await updateAdmin(editingUser.adminRecordId, {
+          role: editingUser.adminLevel === 'super' ? 'super_admin' : 'admin',
+          is_super_admin: editingUser.adminLevel === 'super',
+          permissions: editingUser.permissions,
+        })
+      }
       setUsers(prev => prev.map(u => u.id === editingUser.id ? editingUser : u))
       toast.success(t('permissions_page.update_success'))
       setIsUserDialogOpen(false)
       setEditingUser(null)
     } catch { toast.error(t('permissions_page.update_failed')) }
-  }
-
-  const handleTogglePermission = (permissionId: string) => {
-    if (!editingUser) return
-
-    const hasPermission = editingUser.permissions.includes(permissionId)
-    const updatedPermissions = hasPermission
-      ? editingUser.permissions.filter(p => p !== permissionId)
-      : [...editingUser.permissions, permissionId]
-
-    setEditingUser({ ...editingUser, permissions: updatedPermissions })
   }
 
   const handleToggleRole = (role: UserRole) => {
@@ -537,33 +535,6 @@ export function PermissionsPage() {
                     </Select>
                   </div>
                 )}
-              </div>
-
-              <Separator />
-
-              <div>
-                <Label className="text-base font-semibold">{t('permissions_page.individual_permissions')}</Label>
-                <div className="space-y-4 mt-3">
-                  {Object.entries(getPermissionsByCategory()).map(([category, permissions]) => (
-                    <div key={category}>
-                      <h4 className="font-medium text-sm text-muted-foreground mb-2">{category}</h4>
-                      <div className="grid grid-cols-2 gap-3">
-                        {permissions.map((permission) => (
-                          <div key={permission.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={permission.id}
-                              checked={editingUser.permissions.includes(permission.id)}
-                              onCheckedChange={() => handleTogglePermission(permission.id)}
-                            />
-                            <Label htmlFor={permission.id} className="text-sm">
-                              {permission.name}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
 

@@ -36,6 +36,7 @@ import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getCourseById as getCourseByIdApi, updateCourse as updateCourseApi, deleteCourse as deleteCourseApi } from '../../services/course.api'
+import { exportCourseStudents } from '../../services/admin.api'
 import { getAllReviewsByCourse } from '../../services/review.api'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../../components/ui/breadcrumb'
 import {
@@ -431,7 +432,7 @@ export function AdminCourseDetailPage() {
   }
   const handleCourseAction = async (action: string) => {
     if (action === 'edit') {
-      navigate(`/admin/courses/${courseId}/edit`)
+      navigate(`/admin/courses/${courseId}`)
     }
   }
 
@@ -780,7 +781,7 @@ export function AdminCourseDetailPage() {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>{t('admin_course_detail.students.title')}</CardTitle>
-                  <Button variant="outline" size="sm" disabled>
+                  <Button variant="outline" size="sm" onClick={() => void exportCourseStudents(Number(courseId))}>
                     <Download className="h-4 w-4 mr-2" />
                     {t('admin_course_detail.students.export')}
                   </Button>
@@ -832,7 +833,7 @@ export function AdminCourseDetailPage() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/users/${student.student_id}/edit`)}>
                             <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>

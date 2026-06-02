@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Separator } from '../../components/ui/separator'
-import { Search, Plus, Eye, MessageCircle, Heart, Share2, Clock, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
+import { Search, Eye, MessageCircle, Heart, Share2, Clock, CheckCircle, XCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
@@ -21,8 +21,13 @@ import {
   getAdminBlogPosts,
   updateBlogPost,
   getAllBlogComments,
+  likeBlogPost,
+  createBlogComment,
+  likeBlogComment,
 } from '../../services/blog-posts.api'
 import { listItemTransition } from '../../lib/motion'
+import { toast } from 'sonner'
+import { Textarea } from '../../components/ui/textarea'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -97,6 +102,7 @@ function mapApiPostToUi(p: ApiBlogPost): BlogPost {
       name: p.author_name || 'Unknown',
       avatar: p.author_avatar || '/api/placeholder/40/40',
       role: 'Author',
+      id: p.author,
     },
     category: p.category_name || 'General',
     tags: p.tags || [],
@@ -107,6 +113,7 @@ function mapApiPostToUi(p: ApiBlogPost): BlogPost {
     likes: p.likes,
     comments: p.comments_count,
     featured: p.is_featured,
+    slug: p.slug,
   }
 }
 
@@ -140,6 +147,8 @@ export function BlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [comments, setComments] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
+  const [newComment, setNewComment] = useState('')
+  const [submittingComment, setSubmittingComment] = useState(false)
 
   useEffect(() => {
     loadPosts()
@@ -185,7 +194,7 @@ export function BlogPage() {
                       (activeTab === 'published' && post.status === 'approved') ||
                       (activeTab === 'pending' && post.status === 'pending') ||
                       (activeTab === 'drafts' && post.status === 'draft') ||
-                      (activeTab === 'my-posts' && post.author.name === user?.name)
+                      (activeTab === 'my-posts' && (post.author as any).id === user?.id)
 
     return matchesSearch && matchesCategory && matchesTab
   })
@@ -206,6 +215,35 @@ export function BlogPage() {
     } catch (err) {
       console.error('Failed to reject post:', err)
     }
+  }
+
+  const handleLikePost = async (postId: string) => {
+    if (!user) { toast.error(t('blog.login_to_like')); return }
+    try {
+      await likeBlogPost(Number(postId))
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: p.likes + 1 } : p))
+      if (selectedPost?.id === postId) setSelectedPost(prev => prev ? { ...prev, likes: prev.likes + 1 } : prev)
+    } catch { /* silent */ }
+  }
+
+  const handleSubmitComment = async () => {
+    if (!user || !selectedPost || !newComment.trim()) return
+    setSubmittingComment(true)
+    try {
+      await createBlogComment({ post: Number(selectedPost.id), content: newComment.trim() })
+      setNewComment('')
+      const updated = await getAllBlogComments(Number(selectedPost.id))
+      setComments(prev => [...prev.filter(c => c.postId !== selectedPost.id), ...updated.map(c => mapApiCommentToUi(c, updated))])
+    } catch { toast.error(t('blog.comment_failed')) }
+    finally { setSubmittingComment(false) }
+  }
+
+  const handleLikeComment = async (commentId: string) => {
+    if (!user) return
+    try {
+      await likeBlogComment(Number(commentId))
+      setComments(prev => prev.map(c => c.id === commentId ? { ...c, likes: c.likes + 1 } : c))
+    } catch { /* silent */ }
   }
 
   const getStatusIcon = (status: BlogPost['status']) => {
@@ -299,7 +337,7 @@ export function BlogPage() {
           </Button>
           <Button
             size="sm"
-            onClick={() => navigate(`/blog/${post.id}`)}
+            onClick={() => navigate(`/blog/${(post as any).slug || post.id}`)}
             className="flex-1"
           >
             <ExternalLink className="h-4 w-4 mr-2" />
@@ -349,20 +387,6 @@ export function BlogPage() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      <motion.div className="flex justify-between items-center" variants={fadeInUp} initial="hidden" animate="show">
-        <div>
-          <h1 className="text-3xl font-bold">{t('blog.title')}</h1>
-          <p className="text-muted-foreground">{t('blog.articles_subtitle')}</p>
-        </div>
-        {canCreatePosts && (
-          <Button onClick={() => navigate('/blog/create')}>
-            <Plus className="h-4 w-4 mr-2" />
-            {t('blog.create_post')}
-          </Button>
-        )}
-      </motion.div>
-
-
       <motion.div className="app-surface-elevated flex flex-col gap-3 rounded-lg p-4 sm:flex-row sm:items-center sm:gap-4" variants={fadeInUp} initial="hidden" animate="show">
         <div className="relative w-full flex-1 sm:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -512,12 +536,9 @@ export function BlogPage() {
                           </div>
                           <p className="text-sm">{comment.content}</p>
                           <div className="flex items-center gap-2">
-                            <Button size="sm" variant="ghost" className="h-8 px-2">
+                            <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => handleLikeComment(comment.id)}>
                               <Heart className="h-3 w-3 mr-1" />
                               {comment.likes}
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-8 px-2">
-                              {t('blog.reply')}
                             </Button>
                           </div>
                         </div>
@@ -555,8 +576,15 @@ export function BlogPage() {
                       <AvatarFallback>{user.name?.split(' ').map((n: string) => n[0]).join('') || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
-                      <Textarea placeholder={t('blog.add_comment_placeholder')} rows={3} />
-                      <Button size="sm">{t('blog.submit_comment')}</Button>
+                      <Textarea
+                        placeholder={t('blog.add_comment_placeholder')}
+                        rows={3}
+                        value={newComment}
+                        onChange={e => setNewComment(e.target.value)}
+                      />
+                      <Button size="sm" disabled={submittingComment || !newComment.trim()} onClick={handleSubmitComment}>
+                        {t('blog.submit_comment')}
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -565,11 +593,11 @@ export function BlogPage() {
 
             <div className="flex justify-between items-center pt-4 border-t">
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => selectedPost && handleLikePost(selectedPost.id)}>
                   <Heart className="h-4 w-4 mr-2" />
                   {t('blog.like')}
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => { navigator.clipboard?.writeText(window.location.href); toast.success(t('blog.link_copied')) }}>
                   <Share2 className="h-4 w-4 mr-2" />
                   {t('blog.share')}
                 </Button>

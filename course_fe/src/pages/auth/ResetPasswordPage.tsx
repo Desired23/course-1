@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { CheckCircle2, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmPasswordReset } from '../../services/auth.api'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -41,7 +42,7 @@ export function ResetPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [resetSuccess, setResetSuccess] = useState(false)
 
-  const token = params?.token
+  const token = new URLSearchParams(window.location.search).get('token') ?? params?.token
 
   const validatePassword = (pwd: string): string | null => {
     if (pwd.length < 8) {
@@ -74,17 +75,22 @@ export function ResetPasswordPage() {
       return
     }
 
+    if (!token) {
+      toast.error(t('reset_password_page.invalid_token'))
+      return
+    }
+
     setIsSubmitting(true)
-
-
-    setTimeout(() => {
+    try {
+      await confirmPasswordReset(token, password)
       setResetSuccess(true)
-      setIsSubmitting(false)
       toast.success(t('reset_password_page.reset_success_toast'))
-      setTimeout(() => {
-        navigate('/login')
-      }, 2000)
-    }, 1500)
+      setTimeout(() => navigate('/login'), 2000)
+    } catch {
+      toast.error(t('reset_password_page.reset_failed'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (resetSuccess) {

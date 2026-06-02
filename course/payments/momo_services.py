@@ -22,6 +22,7 @@ from payments.models import Payment
 from .services import ensure_payment_retryable
 from .return_url import resolve_payment_return_url
 from .vnpay_services import create_enrollments_from_payment
+from notifications.services import create_notification
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ def _momo_hmac(data: str) -> str:
         data.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
-print("")
+
 
 def _momo_create_signature(payload: dict) -> str:
     raw = (
@@ -382,9 +383,31 @@ def _finalize_momo_success(payment: Payment, payload: dict):
             entity_id=payment.id,
             description=f"Thanh toán thành công: {payment.total_amount} VND qua MoMo",
         )
-        generate_instructor_earnings_from_payment(payment.id)
+        from instructor_earnings.models import InstructorEarning
+        if not InstructorEarning.objects.filter(payment=payment).exists():
+            generate_instructor_earnings_from_payment(payment.id)
         create_enrollments_from_payment(payment)
-        return payment
+
+    try:
+        create_notification(
+            receiver_id=payment.user.id,
+            title="Thanh toán thành công",
+            message=f"Đơn hàng #{payment.id} đã được thanh toán thành công.",
+            type='payment',
+            related_id=payment.id,
+            notification_code='payment_completed',
+        )
+    except Exception:
+        pass
+
+    try:
+        from utils.mailer.mailer import send_payment_invoice
+        if payment.payment_details.exists():
+            send_payment_invoice(payment.user.email, payment)
+    except Exception:
+        pass
+
+    return payment
 
 
 def _finalize_momo_failure(payment: Payment, payload: dict):
@@ -396,13 +419,38 @@ def _finalize_momo_failure(payment: Payment, payload: dict):
     payment.payment_gateway = "momo"
     payment.ipn_attempts = (payment.ipn_attempts or 0) + 1
     payment.save(update_fields=["payment_status", "transaction_id", "gateway_response", "payment_gateway", "ipn_attempts", "updated_at"])
+    try:
+        create_notification(
+            receiver_id=payment.user.id,
+            title="Thanh toán thất bại",
+            message=f"Đơn hàng #{payment.id} thanh toán không thành công. Vui lòng thử lại.",
+            type='payment',
+            related_id=payment.id,
+            notification_code='payment_failed',
+        )
+    except Exception:
+        pass
+    try:
+        from utils.mailer.mailer import send_payment_failed
+        import threading
+        threading.Thread(
+            target=send_payment_failed,
+            args=(payment.user.email, payment.user.full_name, payment.id, payment.total_amount, 'momo'),
+            kwargs={"error_code": payload.get("resultCode")},
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
     return payment
 
 
 def momo_payment_return(request):
     params = request.GET
     order_id = params.get("orderId")
-    result_code = int(params.get("resultCode", "-1"))
+    try:
+        result_code = int(params.get("resultCode", "-1"))
+    except (ValueError, TypeError):
+        result_code = -1
     message = params.get("message") or "MoMo payment result"
     trans_id = params.get("transId")
     result_url = resolve_payment_return_url(order_id, settings.MOMO_FE_RETURN_URL)
@@ -452,11 +500,41 @@ def momo_ipn(request):
     except Payment.DoesNotExist:
         return JsonResponse({"resultCode": 42, "message": "OrderId not found"})
 
-    result_code = int(payload.get("resultCode", -1))
+    try:
+        result_code = int(payload.get("resultCode", -1))
+    except (ValueError, TypeError):
+        logger.warning("MoMo IPN invalid resultCode payload=%s", payload)
+        return JsonResponse({"resultCode": 20, "message": "Invalid result code"})
+
+    try:
+        ipn_amount = int(payload.get("amount", -1))
+    except (ValueError, TypeError):
+        logger.warning("MoMo IPN invalid amount payload=%s", payload)
+        return JsonResponse({"resultCode": 21, "message": "Invalid amount"})
+
+    if ipn_amount != int(payment.total_amount):
+        logger.warning(
+            "MoMo IPN amount mismatch order_id=%s expected=%s got=%s",
+            payment.id,
+            payment.total_amount,
+            ipn_amount,
+        )
+        return JsonResponse({"resultCode": 21, "message": "Invalid amount"})
+
+    if payment.payment_status != Payment.PaymentStatus.PENDING:
+        return JsonResponse({"resultCode": 0, "message": "Order already updated"})
+
     if result_code in MOMO_SUCCESS_CODES:
         _finalize_momo_success(payment, payload)
     elif result_code in MOMO_FINAL_FAILED_CODES:
         _finalize_momo_failure(payment, payload)
+    else:
+        logger.info(
+            "MoMo IPN unhandled result_code=%s order_id=%s — will retry",
+            result_code,
+            payment.id,
+        )
+        return JsonResponse({"resultCode": 99, "message": "Unhandled result code"})
 
     return JsonResponse({"resultCode": 0, "message": "Confirm Success"})
 

@@ -1,4 +1,4 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from .models import Lesson
 from .serializers import LessonSerializer
@@ -7,6 +7,7 @@ from notifications.services import create_notification
 from activity_logs.services import log_activity
 from courses.services import mark_course_content_changed
 from transcripts.services import enqueue_transcript_generation, get_lesson_source_snapshot, mark_lesson_transcripts_stale
+from utils.roles import is_active_admin, is_active_instructor
 
 
 def validate_lesson_data(data):
@@ -149,12 +150,12 @@ def update_lesson(lesson_id, data, requesting_user=None):
         raise ValidationError({"error": "Lesson not found."})
 
 
-    is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
+    is_admin = is_active_admin(requesting_user)
     if requesting_user and not is_admin:
         instructor = getattr(requesting_user, 'instructor', None)
         owner_instructor_id = getattr(getattr(lesson.coursemodule, 'course', None), 'instructor_id', None)
-        if not instructor or owner_instructor_id != instructor.id:
-            raise ValidationError({"error": "You do not have permission to update this lesson."})
+        if not is_active_instructor(requesting_user) or owner_instructor_id != instructor.id:
+            raise PermissionDenied("Bạn không có quyền chỉnh sửa bài học này.")
 
     update_payload, status_meta = _pop_status_update_meta(data)
     old_status = lesson.status

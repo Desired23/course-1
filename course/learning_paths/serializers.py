@@ -12,7 +12,6 @@ class LearningPathItemSerializer(serializers.ModelSerializer):
     course_discount_price = serializers.CharField(source='course.discount_price', read_only=True)
     course_discount_start_date = serializers.DateTimeField(source='course.discount_start_date', read_only=True)
     course_discount_end_date = serializers.DateTimeField(source='course.discount_end_date', read_only=True)
-    skills_taught = serializers.ListField(source='course.skills_taught', child=serializers.CharField(), read_only=True)
 
     class Meta:
         model = LearningPathItem
@@ -26,7 +25,6 @@ class LearningPathItemSerializer(serializers.ModelSerializer):
             'course_discount_price',
             'course_discount_start_date',
             'course_discount_end_date',
-            'skills_taught',
             'order',
             'reason',
             'is_skippable',

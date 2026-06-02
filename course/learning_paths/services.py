@@ -16,8 +16,6 @@ from .errors import AdvisorUpstreamError
 from .models import LearningPath, LearningPathItem, PathConversation
 from .provider import (
     GeminiAdvisorProvider,
-    RuleBasedAdvisorProvider,
-    detect_course_search_mode,
     extract_json_object,
 )
 from .runtime import GeminiCircuitBreaker, get_advisor_runtime_config
@@ -62,14 +60,9 @@ def _record_gemini_failure(exc):
     )
 
 
-def _ensure_gemini_circuit_available(require_gemini):
-    if not _gemini_circuit_breaker.is_open():
-        return
-
-    if require_gemini:
-        raise AdvisorUpstreamError('Gemini temporarily unavailable (circuit breaker open).')
-
-    raise AdvisorUpstreamError('Gemini temporarily unavailable, switching to fallback (circuit breaker open).')
+def _ensure_gemini_circuit_available():
+    if _gemini_circuit_breaker.is_open():
+        raise AdvisorUpstreamError('Chatbot đang bảo trì, vui lòng thử lại sau.')
 
 
 def reset_advisor_runtime_state_for_tests():
@@ -118,21 +111,14 @@ def _normalize_gemini_model(raw_model):
 
 def get_advisor_provider():
     runtime = get_advisor_runtime_config()
-    provider_name = runtime.provider_mode
     gemini_api_key = runtime.gemini_api_key
-    fallback_provider = RuleBasedAdvisorProvider()
-    if provider_name in {'auto', 'gemini'} and gemini_api_key:
-        return GeminiAdvisorProvider(
-            api_key=gemini_api_key,
-            model=_resolve_gemini_model(),
-            timeout=runtime.gemini_timeout_seconds,
-            fallback_provider=fallback_provider,
-        )
-    return fallback_provider
-
-
-def is_gemini_required():
-    return get_advisor_runtime_config().force_gemini
+    if not gemini_api_key:
+        raise AdvisorUpstreamError('Chatbot đang bảo trì, vui lòng thử lại sau.')
+    return GeminiAdvisorProvider(
+        api_key=gemini_api_key,
+        model=_resolve_gemini_model(),
+        timeout=runtime.gemini_timeout_seconds,
+    )
 
 
 def build_catalog_snapshot():
@@ -144,7 +130,7 @@ def build_catalog_snapshot():
     courses = (
         Course.objects
         .filter(is_deleted=False, is_public=True, status=Course.Status.PUBLISHED)
-        .select_related('category', 'subcategory')
+        .select_related('category', 'subcategory', 'instructor__user')
         .prefetch_related(Prefetch('modules', queryset=module_queryset))
         .order_by('title')
     )
@@ -174,8 +160,15 @@ def build_catalog_snapshot():
             'course_discount_start_date': course.discount_start_date.isoformat() if course.discount_start_date else None,
             'course_discount_end_date': course.discount_end_date.isoformat() if course.discount_end_date else None,
             'duration_hours': round(course.duration / 60, 2) if course.duration is not None else None,
-            'skills_taught': course.skills_taught or [],
-            'prerequisites': course.prerequisites or [],
+            'language': course.language or '',
+            'rating': str(course.rating),
+            'total_students': course.total_students,
+            'has_certificate': course.certificate,
+            'instructor_name': (
+                course.instructor.user.full_name
+                if course.instructor and course.instructor.user
+                else ''
+            ),
             'target_audience': course.target_audience or [],
             'learning_objectives': course.learning_objectives or [],
             'tags': course.tags or [],
@@ -225,7 +218,6 @@ def validate_advisor_payload(payload, catalog_snapshot):
             'course_discount_start_date': course.get('course_discount_start_date'),
             'course_discount_end_date': course.get('course_discount_end_date'),
             'duration_hours': course.get('duration_hours'),
-            'skills_taught': course.get('skills_taught') or [],
             '_estimated_weeks': int(item.get('_estimated_weeks') or 1),
         })
         expected_order += 1
@@ -317,27 +309,6 @@ def create_advisor_draft_path(*, user, goal_text, summary='', estimated_weeks=0,
     return path
 
 
-def run_rule_based_fallback(*, goal_text, weekly_hours, messages, known_skills, catalog_snapshot, reason):
-    logger.warning('Learning path advisor falling back to rule-based provider: %s', reason)
-    fallback_provider = RuleBasedAdvisorProvider()
-    fallback_response = fallback_provider.chat(
-        goal_text=goal_text,
-        weekly_hours=weekly_hours,
-        messages=messages or [],
-        known_skills=known_skills or [],
-        catalog_snapshot=catalog_snapshot,
-    )
-    fallback_meta = fallback_response.get('advisor_meta') or {}
-    fallback_response['advisor_meta'] = {
-        **fallback_meta,
-        'provider_used': 'rule_based',
-        'fallback_triggered': True,
-        'fallback_reason': reason,
-        'fallback_provider': 'rule_based',
-    }
-    return validate_advisor_payload(fallback_response, catalog_snapshot)
-
-
 def _extract_preview_text(partial_json_text):
     for pattern in (MESSAGE_FIELD_PATTERN, SUMMARY_FIELD_PATTERN):
         match = pattern.search(partial_json_text)
@@ -360,242 +331,63 @@ class AdvisorOrchestrator:
         self.catalog_snapshot = build_catalog_snapshot()
         if not self.catalog_snapshot:
             raise ValidationError('Catalog does not have any published public courses for advisor use.')
-
         self.provider = get_advisor_provider()
-        self.provider_name = self.provider.__class__.__name__
-        self.require_gemini = is_gemini_required()
-        self.max_attempts = get_advisor_runtime_config().gemini_max_attempts
-        self.search_only_guard_enabled = detect_course_search_mode(self.goal_text, self.messages)
-
-        if self.require_gemini and not isinstance(self.provider, GeminiAdvisorProvider):
-            raise ValidationError('Gemini is required but not configured. Please set a valid GEMINI_API_KEY.')
-
-    def _call_provider_chat(self):
-        return self.provider.chat(
-            goal_text=self.goal_text,
-            weekly_hours=self.weekly_hours,
-            messages=self.messages,
-            known_skills=self.known_skills,
-            catalog_snapshot=self.catalog_snapshot,
-        )
-
-    def _enrich_meta(self, response, *, attempt, fallback_triggered):
-        existing_meta = response.get('advisor_meta') or {}
-        response['advisor_meta'] = {
-            **existing_meta,
-            'provider_used': existing_meta.get('provider_used') or ('rule_based' if fallback_triggered else 'gemini'),
-            'model': existing_meta.get('model') or getattr(self.provider, 'model', ''),
-            'attempt_count': attempt,
-            'max_attempts': self.max_attempts,
-            'fallback_triggered': fallback_triggered,
-        }
-        if fallback_triggered and not self.require_gemini:
-            response['advisor_meta']['fallback_provider'] = existing_meta.get('fallback_provider') or 'rule_based'
-        return response
-
-    def _apply_search_only_guard(self, response):
-        if not self.search_only_guard_enabled:
-            return response
-        if response.get('type') != 'path':
-            return response
-
-        rule_provider = RuleBasedAdvisorProvider()
-        forced = rule_provider.chat(
-            goal_text=self.goal_text,
-            weekly_hours=self.weekly_hours,
-            messages=self.messages,
-            known_skills=self.known_skills,
-            catalog_snapshot=self.catalog_snapshot,
-        )
-
-        if forced.get('type') != 'question':
-            ranked = rule_provider._rank_courses(self.goal_text, set(), self.catalog_snapshot)
-            suggestions = rule_provider._select_course_suggestions(ranked, set())
-            forced = {
-                'type': 'question',
-                'message': rule_provider._format_course_suggestions_message(suggestions),
-                'advisor_meta': {
-                    'conversation_state': {
-                        'mode': 'course_search',
-                        'missing_slots': [],
-                    },
-                },
-            }
-
-        forced_meta = forced.get('advisor_meta') or {}
-        forced['advisor_meta'] = {
-            **forced_meta,
-            'forced_course_search': True,
-            'forced_reason': 'search_only_guard',
-        }
-        return forced
-
-    def _validate_rule_based_response(self):
-        response = self._apply_search_only_guard(self._call_provider_chat())
-        response['advisor_meta'] = {
-            **(response.get('advisor_meta') or {}),
-            'provider_used': 'rule_based',
-            'attempt_count': 1,
-            'max_attempts': 1,
-            'fallback_triggered': False,
-        }
-        return validate_advisor_payload(response, self.catalog_snapshot)
 
     def chat(self):
-        logger.info('Learning path advisor request started with provider=%s', self.provider_name)
-        if not isinstance(self.provider, GeminiAdvisorProvider):
-            validated = self._validate_rule_based_response()
-            logger.info('Learning path advisor request succeeded with provider=%s', self.provider_name)
-            return validated
-
-        _ensure_gemini_circuit_available(self.require_gemini)
-        last_error = None
-        for attempt in range(1, self.max_attempts + 1):
-            response = self._apply_search_only_guard(self._call_provider_chat())
-            fallback_triggered = bool((response.get('advisor_meta') or {}).get('fallback_triggered'))
-            self._enrich_meta(response, attempt=attempt, fallback_triggered=fallback_triggered)
-            if fallback_triggered:
-                _record_gemini_failure((response.get('advisor_meta') or {}).get('fallback_reason') or 'gemini_fallback_triggered')
-                if self.require_gemini:
-                    raise AdvisorUpstreamError(
-                        (response.get('advisor_meta') or {}).get('fallback_reason')
-                        or 'Gemini request failed while strict Gemini mode is enabled.'
-                    )
-            try:
-                validated = validate_advisor_payload(response, self.catalog_snapshot)
-                _record_gemini_success()
-                logger.info('Learning path advisor request succeeded with provider=%s attempt=%s', self.provider_name, attempt)
-                return validated
-            except ValidationError as exc:
-                last_error = exc
-                logger.warning(
-                    'Learning path advisor returned invalid payload from provider=%s attempt=%s error=%s',
-                    self.provider_name,
-                    attempt,
-                    exc,
-                )
-
-        if self.require_gemini:
-            raise AdvisorUpstreamError(f'Gemini validation failed: {last_error}')
-
-        return self._apply_search_only_guard(run_rule_based_fallback(
-            goal_text=self.goal_text,
-            weekly_hours=self.weekly_hours,
-            messages=self.messages,
-            known_skills=self.known_skills,
-            catalog_snapshot=self.catalog_snapshot,
-            reason=f'gemini_validation_failed: {last_error}',
-        ))
-
-    def stream(self):
-        logger.info('Learning path advisor stream request started with provider=%s', self.provider_name)
-        if not isinstance(self.provider, GeminiAdvisorProvider):
-            validated = self._validate_rule_based_response()
-            preview = (validated.get('message') or validated.get('summary') or '').strip()
-            if preview:
-                yield {'event': 'delta', 'delta': preview, 'attempt': 1}
-            yield {'event': 'final', 'result': validated}
-            return
-
+        logger.info('Learning path advisor request started')
         try:
-            _ensure_gemini_circuit_available(self.require_gemini)
-        except AdvisorUpstreamError as exc:
-            if self.require_gemini:
-                raise
-            fallback_result = self._apply_search_only_guard(run_rule_based_fallback(
+            _ensure_gemini_circuit_available()
+            response = self.provider.chat(
                 goal_text=self.goal_text,
                 weekly_hours=self.weekly_hours,
                 messages=self.messages,
                 known_skills=self.known_skills,
                 catalog_snapshot=self.catalog_snapshot,
-                reason=f'gemini_circuit_open: {exc}',
-            ))
-            fallback_preview = (fallback_result.get('message') or fallback_result.get('summary') or '').strip()
-            if fallback_preview:
-                yield {'event': 'delta', 'delta': fallback_preview, 'attempt': 1}
-            yield {'event': 'final', 'result': fallback_result}
-            return
+            )
+            validated = validate_advisor_payload(response, self.catalog_snapshot)
+            _record_gemini_success()
+            logger.info('Learning path advisor request succeeded')
+            return validated
+        except (ValidationError, AdvisorUpstreamError):
+            raise
+        except Exception as exc:
+            _record_gemini_failure(exc)
+            logger.warning('Learning path advisor request failed: %s', exc)
+            raise AdvisorUpstreamError('Chatbot đang bảo trì, vui lòng thử lại sau.') from exc
 
-        last_error = None
-        consecutive_overload_errors = 0
-        for attempt in range(1, self.max_attempts + 1):
-            raw_response = ""
-            preview_text = ""
-            try:
-                for chunk in self.provider.stream_chunks(
-                    goal_text=self.goal_text,
-                    weekly_hours=self.weekly_hours,
-                    messages=self.messages,
-                    known_skills=self.known_skills,
-                    catalog_snapshot=self.catalog_snapshot,
-                ):
-                    raw_response += chunk
-                    next_preview = _extract_preview_text(raw_response)
-                    if next_preview and next_preview.startswith(preview_text):
-                        delta = next_preview[len(preview_text):]
-                        if delta:
-                            preview_text = next_preview
-                            yield {'event': 'delta', 'delta': delta, 'attempt': attempt}
+    def stream(self):
+        logger.info('Learning path advisor stream request started')
+        _ensure_gemini_circuit_available()
 
-                parsed_response = self._apply_search_only_guard(extract_json_object(raw_response))
-                fallback_triggered = bool((parsed_response.get('advisor_meta') or {}).get('fallback_triggered'))
-                self._enrich_meta(parsed_response, attempt=attempt, fallback_triggered=fallback_triggered)
-                if fallback_triggered and self.require_gemini:
-                    raise ValidationError(
-                        (parsed_response.get('advisor_meta') or {}).get('fallback_reason')
-                        or 'Gemini request failed while strict Gemini mode is enabled.'
-                    )
+        raw_response = ""
+        preview_text = ""
+        try:
+            for chunk in self.provider.stream_chunks(
+                goal_text=self.goal_text,
+                weekly_hours=self.weekly_hours,
+                messages=self.messages,
+                known_skills=self.known_skills,
+                catalog_snapshot=self.catalog_snapshot,
+            ):
+                raw_response += chunk
+                next_preview = _extract_preview_text(raw_response)
+                if next_preview and next_preview.startswith(preview_text):
+                    delta = next_preview[len(preview_text):]
+                    if delta:
+                        preview_text = next_preview
+                        yield {'event': 'delta', 'delta': delta, 'attempt': 1}
 
-                validated = validate_advisor_payload(parsed_response, self.catalog_snapshot)
-                _record_gemini_success()
-                logger.info('Learning path advisor stream request succeeded with provider=%s attempt=%s', self.provider_name, attempt)
-                yield {'event': 'final', 'result': validated}
-                return
-            except ValidationError as exc:
-                last_error = exc
-                logger.warning(
-                    'Learning path advisor stream returned invalid payload from provider=%s attempt=%s error=%s',
-                    self.provider_name,
-                    attempt,
-                    exc,
-                )
-            except Exception as exc:
-                last_error = exc
-                _record_gemini_failure(exc)
-                if _is_upstream_overloaded_error(exc):
-                    consecutive_overload_errors += 1
-                else:
-                    consecutive_overload_errors = 0
-                logger.warning(
-                    'Learning path advisor stream failed from provider=%s attempt=%s error=%s',
-                    self.provider_name,
-                    attempt,
-                    exc,
-                )
-
-                if not self.require_gemini and consecutive_overload_errors >= 2:
-                    logger.warning(
-                        'Learning path advisor stream triggering fail-fast fallback after consecutive overload errors provider=%s attempt=%s',
-                        self.provider_name,
-                        attempt,
-                    )
-                    break
-
-        if self.require_gemini:
-            raise AdvisorUpstreamError(f'Gemini stream failed: {last_error}')
-
-        fallback_result = self._apply_search_only_guard(run_rule_based_fallback(
-            goal_text=self.goal_text,
-            weekly_hours=self.weekly_hours,
-            messages=self.messages,
-            known_skills=self.known_skills,
-            catalog_snapshot=self.catalog_snapshot,
-            reason=f'gemini_stream_failed: {last_error}',
-        ))
-        fallback_preview = (fallback_result.get('message') or fallback_result.get('summary') or '').strip()
-        if fallback_preview:
-            yield {'event': 'delta', 'delta': fallback_preview, 'attempt': self.max_attempts}
-        yield {'event': 'final', 'result': fallback_result}
+            parsed_response = extract_json_object(raw_response)
+            validated = validate_advisor_payload(parsed_response, self.catalog_snapshot)
+            _record_gemini_success()
+            logger.info('Learning path advisor stream request succeeded')
+            yield {'event': 'final', 'result': validated}
+        except (ValidationError, AdvisorUpstreamError):
+            raise
+        except Exception as exc:
+            _record_gemini_failure(exc)
+            logger.warning('Learning path advisor stream failed: %s', exc)
+            raise AdvisorUpstreamError('Chatbot đang bảo trì, vui lòng thử lại sau.') from exc
 
 
 def advisor_chat_stream(*, goal_text, weekly_hours=None, messages=None, known_skills=None):

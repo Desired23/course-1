@@ -300,8 +300,24 @@ export async function exportAdminRevenue(format: 'csv' | 'excel' = 'csv', dateFr
   if (dateFrom) params.set('date_from', dateFrom)
   if (dateTo) params.set('date_to', dateTo)
   await downloadBlob(
-    `/admin/analytics/revenue/export/?${params.toString()}`,
+    `/admin/analytics/revenue-export/?${params.toString()}`,
     `revenue_report.${format === 'excel' ? 'xlsx' : 'csv'}`
+  )
+}
+
+export async function exportCourseStudents(courseId: number, format: 'csv' | 'excel' = 'csv'): Promise<void> {
+  const params = new URLSearchParams({ format })
+  await downloadBlob(
+    `/courses/${courseId}/students/export/?${params.toString()}`,
+    `course_${courseId}_students.${format === 'excel' ? 'xlsx' : 'csv'}`
+  )
+}
+
+export async function exportAdminPayments(format: 'csv' | 'excel' = 'csv'): Promise<void> {
+  const params = new URLSearchParams({ format })
+  await downloadBlob(
+    `/payments/export/?${params.toString()}`,
+    `payments_export.${format === 'excel' ? 'xlsx' : 'csv'}`
   )
 }
 
@@ -494,6 +510,7 @@ export interface UserItem {
   avatar: string | null
   status: 'active' | 'inactive' | 'banned'
   user_type: string
+  roles?: string[]
   created_at: string
   last_login: string | null
   enrollment_count: number

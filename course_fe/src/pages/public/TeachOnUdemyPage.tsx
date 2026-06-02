@@ -119,7 +119,7 @@ export function TeachOnUdemyPage() {
                   {t('teach_page.get_started')}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-                <Button size="lg" variant="outline" className="border-white dark:border-gray-600 bg-transparent text-white hover:bg-white dark:hover:bg-gray-800 hover:text-purple-600 dark:hover:text-purple-400">
+                <Button size="lg" variant="outline" className="hidden border-white dark:border-gray-600 bg-transparent text-white hover:bg-white dark:hover:bg-gray-800 hover:text-purple-600 dark:hover:text-purple-400">
                   <Play className="mr-2 h-5 w-5" />
                   {t('teach_page.watch_how')}
                 </Button>

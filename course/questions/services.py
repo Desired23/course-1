@@ -1,34 +1,31 @@
 from django.db.models import Q, F
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+
+from utils.roles import is_active_admin
 
 from .models import Question
 from .serializers import QuestionSerializer
 
 
 def _is_admin(user):
-    return bool(getattr(user, 'admin', None))
+    return is_active_admin(user)
 
 
 def create_question(data, author):
-    try:
-        payload = dict(data)
-        payload.pop('author', None)
-        serializer = QuestionSerializer(data=payload)
-        if serializer.is_valid():
-            question = serializer.save(author=author)
-            return QuestionSerializer(question).data
+    payload = dict(data)
+    payload.pop('author', None)
+    serializer = QuestionSerializer(data=payload)
+    if not serializer.is_valid():
         raise ValidationError(serializer.errors)
-    except ValidationError as e:
-        raise ValidationError({'error': str(e)})
+    return QuestionSerializer(serializer.save(author=author)).data
 
 
 def get_question_by_id(question_id):
     try:
-        question = Question.objects.get(id=question_id, is_deleted=False)
-        return QuestionSerializer(question).data
+        return QuestionSerializer(Question.objects.get(id=question_id, is_deleted=False)).data
     except Question.DoesNotExist:
-        raise ValidationError({'error': 'Question not found'})
+        raise NotFound("Question not found.")
 
 
 def get_all_questions(search=None, tag=None, status=None, sort='newest'):
@@ -51,40 +48,36 @@ def get_all_questions(search=None, tag=None, status=None, sort='newest'):
 def update_question(question_id, data, actor):
     try:
         question = Question.objects.get(id=question_id, is_deleted=False)
-        if question.author_id != actor.id and not _is_admin(actor):
-            raise ValidationError({'error': 'Bạn không có quyền chỉnh sửa câu hỏi này.'})
-        payload = dict(data)
-        payload.pop('author', None)
-        serializer = QuestionSerializer(question, data=payload, partial=True)
-        if serializer.is_valid():
-            return QuestionSerializer(serializer.save()).data
-        raise ValidationError(serializer.errors)
     except Question.DoesNotExist:
-        raise ValidationError({'error': 'Question not found'})
-    except ValidationError as e:
-        raise ValidationError({'error': str(e)})
+        raise NotFound("Question not found.")
+    if question.author_id != actor.id and not _is_admin(actor):
+        raise PermissionDenied("Bạn không có quyền chỉnh sửa câu hỏi này.")
+    payload = dict(data)
+    payload.pop('author', None)
+    serializer = QuestionSerializer(question, data=payload, partial=True)
+    if not serializer.is_valid():
+        raise ValidationError(serializer.errors)
+    return QuestionSerializer(serializer.save()).data
 
 
 def delete_question(question_id, actor):
     try:
         question = Question.objects.get(id=question_id, is_deleted=False)
-        if question.author_id != actor.id and not _is_admin(actor):
-            raise ValidationError({'error': 'Bạn không có quyền xóa câu hỏi này.'})
-        question.is_deleted = True
-        question.deleted_at = timezone.now()
-        question.deleted_by = actor
-        question.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
-        return {'message': 'Question deleted successfully'}
     except Question.DoesNotExist:
-        raise ValidationError({'error': 'Question not found'})
-    except ValidationError as e:
-        raise ValidationError({'error': str(e)})
+        raise NotFound("Question not found.")
+    if question.author_id != actor.id and not _is_admin(actor):
+        raise PermissionDenied("Bạn không có quyền xóa câu hỏi này.")
+    question.is_deleted = True
+    question.deleted_at = timezone.now()
+    question.deleted_by = actor
+    question.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+    return {'message': 'Question deleted successfully'}
 
 
 def increase_question_views(question_id):
     updated = Question.objects.filter(id=question_id, is_deleted=False).update(views=F('views') + 1)
     if not updated:
-        raise ValidationError({'error': 'Question not found'})
+        raise NotFound("Question not found.")
     return {'message': 'Views updated'}
 
 
@@ -95,16 +88,27 @@ def report_question(question_id, reason=''):
         question.last_report_reason = (reason or '').strip() or question.last_report_reason
         question.last_reported_at = timezone.now()
         question.save(update_fields=['report_count', 'last_report_reason', 'last_reported_at'])
+        try:
+            from notifications.services import notify_admins
+            notify_admins(
+                title="Câu hỏi bị báo cáo",
+                message=f"Câu hỏi #{question.id} bị báo cáo ({question.report_count} lần). Lý do: {question.last_report_reason or 'Không có'}",
+                type='other',
+                notification_code='question_reported',
+                related_id=question.id,
+            )
+        except Exception:
+            pass
         return QuestionSerializer(question).data
     except Question.DoesNotExist:
-        raise ValidationError({'error': 'Question not found'})
+        raise NotFound("Question not found.")
 
 
 def moderate_question(question_id, action, reason=''):
     try:
         question = Question.objects.get(id=question_id)
     except Question.DoesNotExist:
-        raise ValidationError({'error': 'Question not found'})
+        raise NotFound("Question not found.")
 
     action = (action or '').strip().lower()
     if action == 'approve':
@@ -139,8 +143,20 @@ def accept_answer(question_id, answer_id, actor):
         answer = Answer.objects.get(id=answer_id, question=question, is_deleted=False)
         answer.is_accepted = True
         answer.save(update_fields=['is_accepted'])
+        try:
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=answer.author_id,
+                title="Câu trả lời của bạn được chấp nhận",
+                message="Câu trả lời của bạn đã được chọn là câu trả lời tốt nhất.",
+                type='other',
+                related_id=answer.id,
+                notification_code='answer_accepted',
+            )
+        except Exception:
+            pass
         return QuestionSerializer(question).data
     except Question.DoesNotExist:
-        raise ValidationError({'error': 'Question not found'})
+        raise NotFound("Question not found.")
     except Answer.DoesNotExist:
         raise ValidationError({'error': 'Answer not found or does not belong to this question'})

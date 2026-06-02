@@ -309,30 +309,48 @@ class HttpService {
     return this.request<T>(endpoint, { method: 'DELETE' })
   }
 
-  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
+  async upload<T>(endpoint: string, formData: FormData, retry = true): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
     const token = getAccessToken()
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: formData,
-    })
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...getApiTransportHeaders(),
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      })
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({
-        message: response.statusText,
-      }))
+      if (response.status === 401 && retry) {
+        const newToken = await this.handleTokenRefresh()
+        if (newToken) {
+          return this.upload<T>(endpoint, formData, false)
+        }
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({
+          message: response.statusText,
+        }))
+        throw {
+          message: error.message || 'Upload failed',
+          status: response.status,
+          errors: error.errors,
+        } as ApiError
+      }
+
+      return response.json().catch(() => undefined as T)
+    } catch (error) {
+      if ((error as ApiError).status !== undefined) {
+        throw error
+      }
       throw {
-        message: error.message || 'Upload failed',
-        status: response.status,
-        errors: error.errors,
+        message: error instanceof Error ? error.message : 'Network error',
+        status: 0,
       } as ApiError
     }
-
-    return response.json()
   }
 }
 

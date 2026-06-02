@@ -72,3 +72,21 @@ class PublicHomeSettingsView(APIView):
             return Response(payload, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"errors": {"error": str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class PublicBrandingView(APIView):
+    permission_classes = [AllowAny]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            keys = ['site_name', 'site_logo']
+            rows = (
+                SystemsSetting.objects
+                .filter(setting_key__in=keys, is_deleted=False)
+                .values('setting_key', 'setting_value')
+            )
+            payload = {row['setting_key']: row['setting_value'] for row in rows}
+            return Response(payload, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"errors": {"error": str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

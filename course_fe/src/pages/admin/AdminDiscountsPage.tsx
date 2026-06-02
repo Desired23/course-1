@@ -751,12 +751,8 @@ export function AdminDiscountsPage() {
                                   ? t("admin_discounts.actions.disable_title")
                                   : t("admin_discounts.actions.activate_title"),
                                 discount.status === "active"
-                                  ? t("admin_discounts.actions.disable_description", {
-                                      code: discount.code,
-                                    })
-                                  : t("admin_discounts.actions.activate_description", {
-                                      code: discount.code,
-                                    }),
+                                  ? t("admin_discounts.actions.disable_description", { code: discount.code })
+                                  : t("admin_discounts.actions.activate_description", { code: discount.code }),
                                 discount.status === "active"
                                   ? t("admin_discounts.actions.disable")
                                   : t("admin_discounts.actions.activate"),
@@ -764,10 +760,7 @@ export function AdminDiscountsPage() {
                               )
                             }
                           >
-                            <Edit className="h-4 w-4 mr-2" />
-                            {discount.status === "active"
-                              ? t("admin_discounts.actions.disable")
-                              : t("admin_discounts.actions.activate")}
+                            {discount.status === "active" ? t("admin_discounts.actions.disable") : t("admin_discounts.actions.activate")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() =>

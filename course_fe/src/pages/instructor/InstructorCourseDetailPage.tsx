@@ -13,6 +13,7 @@ import { Progress } from "../../components/ui/progress"
 import { Skeleton } from '../../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { UserPagination } from "../../components/UserPagination"
 import { getReviewsByCourse } from "../../services/review.api"
 import { deleteCourse, formatDuration, formatPrice, getCourseById, parseDecimal, updateCourse, type CourseDetail } from "../../services/course.api"
 import { getInstructorCourseAnalytics, type CourseAnalytics } from "../../services/instructor.api"
@@ -47,6 +48,8 @@ export function InstructorCourseDetailPage() {
   const [course, setCourse] = useState<CourseDetail | null>(null)
   const [analytics, setAnalytics] = useState<CourseAnalytics | null>(null)
   const [reviews, setReviews] = useState<any[]>([])
+  const [reviewPage, setReviewPage] = useState(1)
+  const [reviewTotalPages, setReviewTotalPages] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
@@ -84,10 +87,9 @@ export function InstructorCourseDetailPage() {
     async function load() {
       try {
         setLoading(true)
-        const [courseData, analyticsData, reviewsData] = await Promise.allSettled([
+        const [courseData, analyticsData] = await Promise.allSettled([
           getCourseById(courseId),
           getInstructorCourseAnalytics(courseId),
-          getReviewsByCourse(courseId, 1, 10),
         ])
 
         if (cancelled) return
@@ -103,10 +105,6 @@ export function InstructorCourseDetailPage() {
           setAnalyticsError(null)
         } else {
           setAnalyticsError(t("instructor_course_detail_page.analytics_unavailable"))
-        }
-
-        if (reviewsData.status === "fulfilled") {
-          setReviews(reviewsData.value.results || [])
         }
       } catch (err: any) {
         if (!cancelled) {
@@ -126,10 +124,9 @@ export function InstructorCourseDetailPage() {
   }, [courseId, t])
 
   const refreshCourse = async () => {
-    const [courseData, analyticsData, reviewsData] = await Promise.allSettled([
+    const [courseData, analyticsData] = await Promise.allSettled([
       getCourseById(courseId),
       getInstructorCourseAnalytics(courseId),
-      getReviewsByCourse(courseId, 1, 10),
     ])
 
     if (courseData.status === "fulfilled") setCourse(courseData.value)
@@ -141,9 +138,20 @@ export function InstructorCourseDetailPage() {
       setAnalytics(null)
       setAnalyticsError(t("instructor_course_detail_page.analytics_unavailable"))
     }
-
-    if (reviewsData.status === "fulfilled") setReviews(reviewsData.value.results || [])
   }
+
+  useEffect(() => {
+    if (isNaN(courseId)) return
+    let cancelled = false
+    getReviewsByCourse(courseId, reviewPage, 10)
+      .then((res) => {
+        if (cancelled) return
+        setReviews(res.results || [])
+        setReviewTotalPages(res.total_pages || 1)
+      })
+      .catch(() => { /* reviews are non-critical for this page */ })
+    return () => { cancelled = true }
+  }, [courseId, reviewPage])
 
   const handleStatusChange = async (nextStatus: "pending" | "draft" | "archived" | "published", confirmation: string) => {
     if (!course || !window.confirm(confirmation)) return
@@ -569,6 +577,11 @@ export function InstructorCourseDetailPage() {
                 <p>{t("instructor_course_detail_page.no_reviews")}</p>
               </div>
             </Card>
+          )}
+          {reviewTotalPages > 1 && (
+            <div className="mt-4">
+              <UserPagination currentPage={reviewPage} totalPages={reviewTotalPages} onPageChange={setReviewPage} />
+            </div>
           )}
         </TabsContent>
         </Tabs>

@@ -3,6 +3,7 @@ from .serializers import NotificationSerializer
 from .models import Notification
 from users.models import User
 from users.preferences import is_notification_allowed
+from utils.roles import is_active_admin
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
@@ -50,6 +51,22 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
             raise ValidationError(serializer.errors)
     except Exception as e:
         raise ValidationError(f"Error creating notification: {str(e)}")
+
+def notify_admins(title, message, type, notification_code, related_id=None, sender_id=None):
+    admin_ids = User.objects.filter(
+        user_type='admin', is_deleted=False, status='active'
+    ).values_list('id', flat=True)
+    for admin_id in admin_ids:
+        create_notification(
+            receiver_id=admin_id,
+            title=title,
+            message=message,
+            type=type,
+            related_id=related_id,
+            sender=sender_id,
+            notification_code=notification_code,
+        )
+
 
 def get_notification_by_id(notification_id, user_id=None):
     try:
@@ -168,7 +185,7 @@ def revoke_notification_batch(notification_code, actor):
             notification_code=notification_code,
             is_deleted=False,
         )
-        if hasattr(actor, 'admin'):
+        if is_active_admin(actor):
             pass
         else:
             notifications = notifications.filter(sender=actor)
@@ -214,7 +231,7 @@ def update_notification_batch(notification_code, actor, title=None, message=None
             notification_code=notification_code,
             is_deleted=False,
         )
-        if hasattr(actor, 'admin'):
+        if is_active_admin(actor):
             pass
         else:
             notifications = notifications.filter(sender=actor)

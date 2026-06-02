@@ -35,7 +35,9 @@ interface ReportItem extends Omit<AdminReport, 'created_at' | 'updated_at'> {
 }
 
 const toUiStatus = (report: AdminReport): UiReportStatus => {
-  if (report.status === 'pending') return 'pending'
+  if (report.status === 'resolved') return 'resolved'
+  if (report.status === 'dismissed') return 'dismissed'
+  if (report.status === 'reviewing') return 'reviewing'
   return 'pending'
 }
 
@@ -280,6 +282,12 @@ export function ReportManagementPage() {
     action?: AdminReportAction
   ) => {
     if (nextStatus === 'reviewing') {
+      try {
+        await resolveAdminReport(report.reported_type, report.reported_id, {
+          action: 'reviewing' as AdminReportAction,
+          reason: t('admin_reports.system_notes.marked_reviewing'),
+        })
+      } catch { /* non-critical: update local state regardless */ }
       syncReport(report.id, item => ({ ...item, status: 'reviewing', updated_at: new Date() }))
       return
     }

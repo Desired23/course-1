@@ -335,7 +335,7 @@ export function EnhancedSearchPage() {
   )
 
   const renderInstructorCard = (instructor: any) => (
-    <motion.div key={instructor.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/instructor/${instructor.id}`)}>
+    <motion.div key={instructor.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/instructor/${instructor.id}/profile`)}>
       <Card className="h-full hover:shadow-lg transition-shadow">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
@@ -364,7 +364,7 @@ export function EnhancedSearchPage() {
   )
 
   const renderArticleCard = (article: any) => (
-    <motion.div key={article.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/blog/${article.id}`)}>
+    <motion.div key={article.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/blog/${article.slug || article.id}`)}>
       <Card className="h-full hover:shadow-lg transition-shadow">
         <div className="flex">
           <img src={article.image} alt={article.title} className="w-32 h-24 object-cover rounded-l-lg" />

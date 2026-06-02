@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
 import { Badge } from '../../components/ui/badge'
@@ -92,7 +93,9 @@ export function QuestionDetailPage({ questionId }: QuestionDetailPageProps) {
       setAnswers(prev => [...prev, newAnswer])
       setAnswerContent('')
       if (question) setQuestion({ ...question, answer_count: question.answer_count + 1 })
-    } catch {}
+    } catch (e: any) {
+      toast.error(e?.message || 'Không thể gửi câu trả lời. Vui lòng thử lại.')
+    }
     setSubmitting(false)
   }
 
@@ -101,8 +104,10 @@ export function QuestionDetailPage({ questionId }: QuestionDetailPageProps) {
     const reason = window.prompt('Lý do báo cáo (tùy chọn):') ?? ''
     try {
       await reportQuestion(id, reason)
-      alert('Đã báo cáo câu hỏi.')
-    } catch {}
+      toast.success('Đã báo cáo câu hỏi.')
+    } catch (e: any) {
+      toast.error(e?.message || 'Không thể báo cáo. Vui lòng thử lại.')
+    }
   }
 
   if (loading) {

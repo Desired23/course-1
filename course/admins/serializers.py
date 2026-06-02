@@ -9,6 +9,8 @@ class AdminSerializer(serializers.ModelSerializer):
             'user',
             'department',
             'role',
+            'is_super_admin',
+            'permissions',
             'created_at',
             'updated_at',
         ]

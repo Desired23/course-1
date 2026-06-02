@@ -1,5 +1,5 @@
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import Course
 from .serializers import CourseSerializer, CourseDetailSerializer
 from activity_logs.services import log_activity
@@ -7,10 +7,11 @@ from django.db.models import Avg, Sum
 from enrollments.models import Enrollment
 from learning_progress.models import LearningProgress
 from reviews.models import Review
+from utils.roles import is_active_admin, is_active_instructor
 
 
 INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS = {
-    Course.Status.DRAFT: {Course.Status.PUBLISHED},
+    Course.Status.DRAFT: {Course.Status.PENDING},
     Course.Status.PENDING: {Course.Status.DRAFT, Course.Status.PUBLISHED},
     Course.Status.REJECTED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
     Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
@@ -34,8 +35,6 @@ COURSE_CONTENT_FIELDS = {
     'requirements',
     'learning_objectives',
     'target_audience',
-    'skills_taught',
-    'prerequisites',
     'tags',
     'promotional_video',
     'certificate',
@@ -253,13 +252,13 @@ def get_public_stats():
 def update_course(course_id, data, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
-        is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
+        is_admin = is_active_admin(requesting_user)
 
 
         if requesting_user and not is_admin:
             instructor = getattr(requesting_user, 'instructor', None)
-            if not instructor or course.instructor_id != instructor.id:
-                raise ValidationError("You do not have permission to update this course.")
+            if not is_active_instructor(requesting_user) or course.instructor_id != instructor.id:
+                raise PermissionDenied("Bạn không có quyền chỉnh sửa khóa học này.")
 
         payload = data.copy()
         status_reason = payload.pop('status_reason', None)
@@ -354,6 +353,22 @@ def update_course(course_id, data, requesting_user=None):
                         except Exception:
 
                             pass
+
+                    if updated_course.instructor and updated_course.instructor.user:
+                        new_status = updated_course.status
+                        if new_status in (Course.Status.PUBLISHED, Course.Status.REJECTED):
+                            try:
+                                from utils.mailer.mailer import send_course_status_changed
+                                import threading
+                                instructor_user = updated_course.instructor.user
+                                threading.Thread(
+                                    target=send_course_status_changed,
+                                    args=(instructor_user.email, instructor_user.full_name, updated_course.title, new_status),
+                                    kwargs={"reason": reason_text or None},
+                                    daemon=True,
+                                ).start()
+                            except Exception:
+                                pass
             elif not is_admin and content_fields_being_updated and old_status in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
                 if updated_course.content_changed_since_publish:
                     updated_course.save(update_fields=['content_changed_since_publish', 'updated_at'])
@@ -367,9 +382,9 @@ def delete_course(course_id, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
 
-        if requesting_user and not hasattr(requesting_user, 'admin'):
+        if requesting_user and not is_active_admin(requesting_user):
             instructor = getattr(requesting_user, 'instructor', None)
-            if not instructor or course.instructor_id != instructor.id:
+            if not is_active_instructor(requesting_user) or course.instructor_id != instructor.id:
                 raise ValidationError("Bạn không có quyền xóa khóa học này.")
         course_title = course.title
         instructor_id = course.instructor.user.id if course.instructor else None

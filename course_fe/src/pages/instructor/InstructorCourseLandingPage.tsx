@@ -22,11 +22,11 @@ import { uploadFiles } from "../../services/upload.api"
 type Item = { id: number; text: string }
 type Data = {
   title: string; subtitle: string; description: string; category: string; subcategory: string; language: string; level: string;
-  learningObjectives: Item[]; requirements: Item[]; targetAudience: Item[]; skillsTaught: Item[]; prerequisites: Item[]; courseImagePreview: string | null; promotionalVideoPreview: string | null;
+  learningObjectives: Item[]; requirements: Item[]; targetAudience: Item[]; courseImagePreview: string | null; promotionalVideoPreview: string | null;
   price: string; currency: string; tags: string[]
 }
 
-const initialData: Data = { title: '', subtitle: '', description: '', category: '', subcategory: '', language: 'Vietnamese', level: '', learningObjectives: [], requirements: [], targetAudience: [], skillsTaught: [], prerequisites: [], courseImagePreview: null, promotionalVideoPreview: null, price: '', currency: 'VND', tags: [] }
+const initialData: Data = { title: '', subtitle: '', description: '', category: '', subcategory: '', language: 'Vietnamese', level: '', learningObjectives: [], requirements: [], targetAudience: [], courseImagePreview: null, promotionalVideoPreview: null, price: '', currency: 'VND', tags: [] }
 const getId = (value: unknown) => typeof value === 'number' ? String(value) : typeof value === 'object' && value && typeof (value as Record<string, unknown>).id === 'number' ? String((value as Record<string, number>).id) : ''
 const normalizeLanguage = (value?: string | null) => ['english', 'japanese', 'chinese'].includes(value?.trim().toLowerCase() || '') ? value!.trim() : 'Vietnamese'
 const levelOptions = [
@@ -73,8 +73,6 @@ export function InstructorCourseLandingPage() {
   const [newObjective, setNewObjective] = useState('')
   const [newRequirement, setNewRequirement] = useState('')
   const [newAudience, setNewAudience] = useState('')
-  const [newSkill, setNewSkill] = useState('')
-  const [newPrerequisite, setNewPrerequisite] = useState('')
   const [newTag, setNewTag] = useState('')
   const imageRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
@@ -101,8 +99,6 @@ export function InstructorCourseLandingPage() {
             learningObjectives: (course.learning_objectives || []).map((text: string, i: number) => ({ id: i + 1, text })),
             requirements: course.requirements ? course.requirements.split('\n').filter(Boolean).map((text: string, i: number) => ({ id: i + 1, text })) : [],
             targetAudience: (course.target_audience || []).map((text: string, i: number) => ({ id: i + 1, text })),
-            skillsTaught: (course.skills_taught || []).map((text: string, i: number) => ({ id: i + 1, text })),
-            prerequisites: (course.prerequisites || []).map((text: string, i: number) => ({ id: i + 1, text })),
             courseImagePreview: course.thumbnail || null, promotionalVideoPreview: course.promotional_video || null, price: course.price ? String(parseFloat(course.price)) : '', currency: 'VND', tags: course.tags || [],
           })
         }
@@ -114,12 +110,12 @@ export function InstructorCourseLandingPage() {
     return () => { cancelled = true }
   }, [courseId, t, user?.id])
 
-  const addItem = (key: 'learningObjectives' | 'requirements' | 'targetAudience' | 'skillsTaught' | 'prerequisites', value: string, setValue: (v: string) => void, errorKey: string) => {
+  const addItem = (key: 'learningObjectives' | 'requirements' | 'targetAudience', value: string, setValue: (v: string) => void, errorKey: string) => {
     if (!value.trim()) return void toast.error(t(errorKey))
     setData((prev) => ({ ...prev, [key]: [...prev[key], { id: Date.now(), text: value }] }))
     setValue('')
   }
-  const removeItem = (key: 'learningObjectives' | 'requirements' | 'targetAudience' | 'skillsTaught' | 'prerequisites', id: number) => setData((prev) => ({ ...prev, [key]: prev[key].filter((item) => item.id !== id) }))
+  const removeItem = (key: 'learningObjectives' | 'requirements' | 'targetAudience', id: number) => setData((prev) => ({ ...prev, [key]: prev[key].filter((item) => item.id !== id) }))
   const addTag = () => {
     if (!newTag.trim()) return void toast.error(t('instructor_course_landing_page.toasts.tag_required'))
     if (data.tags.includes(newTag)) return void toast.error(t('instructor_course_landing_page.toasts.tag_exists'))
@@ -146,17 +142,16 @@ export function InstructorCourseLandingPage() {
     if (!data.subtitle.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.subtitle_required')), setActiveTab('basic'))
     if (!data.description.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.description_required')), setActiveTab('basic'))
     if (!data.category) return void (toast.error(t('instructor_course_landing_page.toasts.category_required')), setActiveTab('basic'))
-    if (data.learningObjectives.length < 4) return void (toast.error(t('instructor_course_landing_page.toasts.objectives_min')), setActiveTab('target'))
     if (!data.courseImagePreview) return void (toast.error(t('instructor_course_landing_page.toasts.image_required')), setActiveTab('media'))
     try {
       setSaving(true)
       const payload: Record<string, any> = {
         title: data.title.trim(), shortdescription: data.subtitle.trim(), description: data.description.trim(), category: Number(data.category), subcategory: data.subcategory ? Number(data.subcategory) : null,
         level: data.level || 'all_levels', language: data.language || 'Vietnamese', price: data.price ? Number(data.price) : 0, thumbnail: data.courseImagePreview || null, promotional_video: data.promotionalVideoPreview || null,
-        learning_objectives: data.learningObjectives.map((x) => x.text), requirements: data.requirements.map((x) => x.text).join('\n'), target_audience: data.targetAudience.map((x) => x.text), skills_taught: data.skillsTaught.map((x) => x.text), prerequisites: data.prerequisites.map((x) => x.text), tags: data.tags, status: status === 'submit_review' ? 'pending' : 'draft',
+        learning_objectives: data.learningObjectives.map((x) => x.text), requirements: data.requirements.map((x) => x.text).join('\n'), target_audience: data.targetAudience.map((x) => x.text), tags: data.tags, status: status === 'submit_review' ? 'pending' : 'draft',
       }
       if (courseId === 'new') { if (instructorId) payload.instructor = instructorId; await createCourse(payload) } else { await updateCourse(Number(courseId), payload) }
-      toast.success(t(status === 'draft' ? 'instructor_course_landing_page.toasts.saved_draft' : 'instructor_course_landing_page.toasts.published_success'))
+      toast.success(t(status === 'draft' ? 'instructor_course_landing_page.toasts.saved_draft' : 'instructor_course_landing_page.toasts.submitted_review'))
       setTimeout(() => navigate('/instructor/courses'), 1000)
     } catch (err: any) {
       console.error(err)
@@ -165,7 +160,7 @@ export function InstructorCourseLandingPage() {
   }
 
   const completion = Math.round(([
-    Boolean(data.title), Boolean(data.description && data.description.length >= 200), data.learningObjectives.length >= 4, Boolean(data.courseImagePreview),
+    Boolean(data.title), Boolean(data.description && data.description.length >= 200), data.learningObjectives.length > 0, Boolean(data.courseImagePreview),
   ].filter(Boolean).length / 4) * 100)
 
   const renderItemList = (items: Item[], remove: (id: number) => void, icon = false) => items.length > 0 && <div className="space-y-2">{items.map((item) => <div key={item.id} className="flex items-start gap-2 p-3 bg-muted/50 rounded-md">{icon && <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />}<span className="text-sm flex-1">{item.text}</span><Button variant="ghost" size="sm" onClick={() => remove(item.id)}><X className="h-4 w-4" /></Button></div>)}</div>
@@ -184,7 +179,7 @@ export function InstructorCourseLandingPage() {
           <div><h1 className="mb-2">{t('instructor_course_landing_page.title')}</h1><p className="text-muted-foreground">{t('instructor_course_landing_page.subtitle')}</p></div>
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end"><span className="text-sm text-muted-foreground">{t('instructor_course_landing_page.completion_label')}</span><div className="flex items-center gap-2"><Progress value={completion} className="w-24 h-2" /><span className="text-sm">{completion}%</span></div></div>
-            <Button variant="outline" onClick={() => setShowPreview(true)}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
+            <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
             <Button onClick={() => save('submit_review')}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
           </div>
         </div>
@@ -193,7 +188,7 @@ export function InstructorCourseLandingPage() {
       <motion.div className="mb-6 flex gap-2 flex-wrap" variants={fadeInUp}>
         <Badge variant={data.title ? "default" : "outline"} className="gap-1">{data.title ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.title')}</Badge>
         <Badge variant={data.description && data.description.length >= 200 ? "default" : "outline"} className="gap-1">{data.description && data.description.length >= 200 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.description')}</Badge>
-        <Badge variant={data.learningObjectives.length >= 4 ? "default" : "outline"} className="gap-1">{data.learningObjectives.length >= 4 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.objectives', { count: data.learningObjectives.length })}</Badge>
+        <Badge variant={data.learningObjectives.length > 0 ? "default" : "outline"} className="gap-1">{data.learningObjectives.length > 0 ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.objectives', { count: data.learningObjectives.length })}</Badge>
         <Badge variant={data.courseImagePreview ? "default" : "outline"} className="gap-1">{data.courseImagePreview ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}{t('instructor_course_landing_page.checks.course_image')}</Badge>
       </motion.div>
 
@@ -236,8 +231,6 @@ export function InstructorCourseLandingPage() {
           <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.objectives_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.objectives_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.target.objectives_placeholder')} value={newObjective} onChange={(e) => setNewObjective(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('learningObjectives', newObjective, setNewObjective, 'instructor_course_landing_page.toasts.objective_required')} /><Button onClick={() => addItem('learningObjectives', newObjective, setNewObjective, 'instructor_course_landing_page.toasts.objective_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.learningObjectives, (id) => removeItem('learningObjectives', id), true)}{data.learningObjectives.length < 4 && <p className="text-sm text-amber-600 flex items-center gap-2"><AlertCircle className="w-4 h-4" />{t('instructor_course_landing_page.target.objectives_remaining', { count: 4 - data.learningObjectives.length })}</p>}</CardContent></Card>
           <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.requirements_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.requirements_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.target.requirements_placeholder')} value={newRequirement} onChange={(e) => setNewRequirement(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('requirements', newRequirement, setNewRequirement, 'instructor_course_landing_page.toasts.requirement_required')} /><Button onClick={() => addItem('requirements', newRequirement, setNewRequirement, 'instructor_course_landing_page.toasts.requirement_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.requirements, (id) => removeItem('requirements', id))}</CardContent></Card>
           <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.audience_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.audience_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.target.audience_placeholder')} value={newAudience} onChange={(e) => setNewAudience(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('targetAudience', newAudience, setNewAudience, 'instructor_course_landing_page.toasts.audience_required')} /><Button onClick={() => addItem('targetAudience', newAudience, setNewAudience, 'instructor_course_landing_page.toasts.audience_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.targetAudience, (id) => removeItem('targetAudience', id))}</CardContent></Card>
-          <Card><CardHeader><CardTitle>Catalog skills_taught</CardTitle><CardDescription>Cac skill AI co the dung de map lo trinh va giai thich tai sao khoa hoc can thiet.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder="Vi du: SQL joins, Pandas cleaning, dashboard storytelling" value={newSkill} onChange={(e) => setNewSkill(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('skillsTaught', newSkill, setNewSkill, 'instructor_course_landing_page.toasts.requirement_required')} /><Button onClick={() => addItem('skillsTaught', newSkill, setNewSkill, 'instructor_course_landing_page.toasts.requirement_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.skillsTaught, (id) => removeItem('skillsTaught', id))}</CardContent></Card>
-          <Card><CardHeader><CardTitle>Catalog prerequisites</CardTitle><CardDescription>Nhap nhung kien thuc dau vao de advisor co the danh dau is_skippable hoac sap thu tu hoc.</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder="Vi du: Excel co ban, tu duy logic, da tung viet Python" value={newPrerequisite} onChange={(e) => setNewPrerequisite(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('prerequisites', newPrerequisite, setNewPrerequisite, 'instructor_course_landing_page.toasts.requirement_required')} /><Button onClick={() => addItem('prerequisites', newPrerequisite, setNewPrerequisite, 'instructor_course_landing_page.toasts.requirement_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.prerequisites, (id) => removeItem('prerequisites', id))}</CardContent></Card>
         </TabsContent>
 
         <TabsContent value="media" className="space-y-6">
@@ -255,7 +248,7 @@ export function InstructorCourseLandingPage() {
       <motion.div className="flex justify-between items-center pt-6 border-t" variants={fadeInUp}>
         <Button variant="outline" onClick={() => save('draft')} disabled={saving}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => setShowPreview(true)}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
+          <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
           <Button onClick={() => save('submit_review')} disabled={saving}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
         </div>
       </motion.div>

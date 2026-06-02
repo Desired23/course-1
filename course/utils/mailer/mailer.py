@@ -181,3 +181,140 @@ def send_verify_email(user_email, verify_link, expires_in_minutes=30):
         template_name="verify_email.html",
         context=context
     )
+
+
+_SUPPORT_EMAIL = "support@mycourse.vn"
+_SITE_NAME = "MyCourse"
+
+
+def send_enrollment_confirmation(user_email, user_name, course_title, instructor_name=None, course_url=None):
+    return send_email(
+        subject=f"Đăng ký thành công: {course_title}",
+        to=user_email,
+        template_name="enrollment_confirmation.html",
+        context={
+            "user_name": user_name,
+            "course_title": course_title,
+            "instructor_name": instructor_name,
+            "course_url": course_url,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_payment_failed(user_email, user_name, payment_id, total_amount, gateway, error_code=None, retry_url=None):
+    return send_email(
+        subject="Thanh toán không thành công",
+        to=user_email,
+        template_name="payment_failed.html",
+        context={
+            "user_name": user_name,
+            "payment_id": payment_id,
+            "total_amount": f"{total_amount:,.0f} đ" if total_amount else "",
+            "gateway": gateway.upper() if gateway else "",
+            "error_code": error_code,
+            "retry_url": retry_url,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_refund_approved(user_email, user_name, course_title, refund_amount, payment_id):
+    return send_email(
+        subject="Yêu cầu hoàn tiền đã được duyệt",
+        to=user_email,
+        template_name="refund_approved.html",
+        context={
+            "user_name": user_name,
+            "course_title": course_title,
+            "refund_amount": f"{refund_amount:,.0f} đ" if refund_amount else "",
+            "payment_id": payment_id,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_refund_rejected(user_email, user_name, course_title, refund_amount, note=None):
+    return send_email(
+        subject="Yêu cầu hoàn tiền bị từ chối",
+        to=user_email,
+        template_name="refund_rejected.html",
+        context={
+            "user_name": user_name,
+            "course_title": course_title,
+            "refund_amount": f"{refund_amount:,.0f} đ" if refund_amount else "",
+            "note": note,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_refund_success(user_email, user_name, course_title, refund_amount, payment_id):
+    from django.utils import timezone
+    return send_email(
+        subject="Hoàn tiền thành công",
+        to=user_email,
+        template_name="refund_approved.html",
+        context={
+            "user_name": user_name,
+            "course_title": course_title,
+            "refund_amount": f"{refund_amount:,.0f} đ" if refund_amount else "",
+            "payment_id": payment_id,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_certificate_issued(user_email, user_name, course_title, verification_code, instructor_name=None, certificate_url=None):
+    return send_email(
+        subject=f"Chứng chỉ hoàn thành: {course_title}",
+        to=user_email,
+        template_name="certificate_issued.html",
+        context={
+            "user_name": user_name,
+            "course_title": course_title,
+            "instructor_name": instructor_name,
+            "verification_code": verification_code,
+            "certificate_url": certificate_url,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_course_status_changed(instructor_email, instructor_name, course_title, new_status, reason=None):
+    is_approved = new_status in ('published',)
+    subject = f"Khóa học '{course_title}' đã được duyệt!" if is_approved else f"Cập nhật trạng thái khóa học '{course_title}'"
+    return send_email(
+        subject=subject,
+        to=instructor_email,
+        template_name="course_status_changed.html",
+        context={
+            "instructor_name": instructor_name,
+            "course_title": course_title,
+            "new_status": new_status,
+            "is_approved": is_approved,
+            "reason": reason,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )
+
+
+def send_application_result(user_email, user_name, action, rejection_reason=None, admin_notes=None):
+    subjects = {
+        'approve': "Đơn đăng ký giảng viên đã được duyệt!",
+        'reject': "Kết quả đơn đăng ký giảng viên",
+        'request_changes': "Yêu cầu bổ sung thông tin đơn đăng ký",
+    }
+    return send_email(
+        subject=subjects.get(action, "Cập nhật đơn đăng ký"),
+        to=user_email,
+        template_name="application_result.html",
+        context={
+            "user_name": user_name,
+            "is_approved": action == 'approve',
+            "is_rejected": action == 'reject',
+            "rejection_reason": rejection_reason,
+            "admin_notes": admin_notes,
+            "support_email": _SUPPORT_EMAIL,
+        },
+    )

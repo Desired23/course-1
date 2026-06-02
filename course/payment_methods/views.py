@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 
 from utils.permissions import RolePermissionFactory
+from utils.roles import is_active_instructor
 from utils.pagination import paginate_queryset
 from .serializers import (
     UserPaymentMethodSerializer,
@@ -116,14 +117,14 @@ class InstructorPayoutMethodListCreateView(APIView):
 
     def get(self, request):
         instructor = getattr(request.user, 'instructor', None)
-        if not instructor:
+        if not is_active_instructor(request.user):
             return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
         methods = get_instructor_payout_methods(instructor.id)
         return Response(InstructorPayoutMethodSerializer(methods, many=True).data)
 
     def post(self, request):
         instructor = getattr(request.user, 'instructor', None)
-        if not instructor:
+        if not is_active_instructor(request.user):
             return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
         ser = InstructorPayoutMethodCreateSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
@@ -144,7 +145,7 @@ class InstructorPayoutMethodDetailView(APIView):
 
     def patch(self, request, method_id):
         instructor = getattr(request.user, 'instructor', None)
-        if not instructor:
+        if not is_active_instructor(request.user):
             return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
         try:
             method = update_instructor_payout_method(method_id, instructor, request.data)
@@ -154,7 +155,7 @@ class InstructorPayoutMethodDetailView(APIView):
 
     def delete(self, request, method_id):
         instructor = getattr(request.user, 'instructor', None)
-        if not instructor:
+        if not is_active_instructor(request.user):
             return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
         try:
             delete_instructor_payout_method(method_id, instructor)
@@ -170,7 +171,7 @@ class InstructorPayoutMethodSetDefaultView(APIView):
 
     def post(self, request, method_id):
         instructor = getattr(request.user, 'instructor', None)
-        if not instructor:
+        if not is_active_instructor(request.user):
             return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
         try:
             method = set_default_instructor_payout_method(method_id, instructor)

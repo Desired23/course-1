@@ -1,10 +1,11 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import CourseModule
 from .serializers import CourseModuleSerializer
 from activity_logs.services import log_activity
 from notifications.services import create_notification
 from courses.services import mark_course_content_changed
+from utils.roles import is_active_admin, is_active_instructor
 
 
 def validate_course_module_data(data):
@@ -36,7 +37,7 @@ def get_course_module_by_id(course_module_id):
         serializer = CourseModuleSerializer(course_module)
         return serializer.data
     except CourseModule.DoesNotExist:
-        raise ValidationError({"error": "Course module not found."})
+        raise NotFound("Course module not found.")
 
 
 def create_course_module(data):
@@ -75,14 +76,14 @@ def update_course_module(course_module_id, data, requesting_user=None):
     try:
         course_module = CourseModule.objects.get(id=course_module_id)
     except CourseModule.DoesNotExist:
-        raise ValidationError({"error": "Course module not found."})
+        raise NotFound("Course module not found.")
 
-    is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
+    is_admin = is_active_admin(requesting_user)
     if requesting_user and not is_admin:
         instructor = getattr(requesting_user, 'instructor', None)
         owner_instructor_id = getattr(getattr(course_module.course, 'instructor', None), 'id', None)
-        if not instructor or owner_instructor_id != instructor.id:
-            raise ValidationError({"error": "You do not have permission to update this module."})
+        if not is_active_instructor(requesting_user) or owner_instructor_id != instructor.id:
+            raise PermissionDenied("Bạn không có quyền chỉnh sửa module này.")
 
     update_payload, status_meta = _pop_status_update_meta(data)
     old_status = course_module.status
@@ -141,16 +142,16 @@ def update_course_module(course_module_id, data, requesting_user=None):
 def delete_course_module(course_module_id, requesting_user=None):
     try:
         course_module = CourseModule.objects.get(id=course_module_id)
-        is_admin = bool(requesting_user and hasattr(requesting_user, 'admin'))
+        is_admin = is_active_admin(requesting_user)
         if requesting_user and not is_admin:
             instructor = getattr(requesting_user, 'instructor', None)
             owner_instructor_id = getattr(getattr(course_module.course, 'instructor', None), 'id', None)
-            if not instructor or owner_instructor_id != instructor.id:
-                raise ValidationError({"error": "You do not have permission to delete this module."})
+            if not is_active_instructor(requesting_user) or owner_instructor_id != instructor.id:
+                raise PermissionDenied("Bạn không có quyền xóa module này.")
         related_course = getattr(course_module, 'course', None)
         course_module.delete()
         if related_course and not is_admin:
             mark_course_content_changed(related_course)
         return {"message": "Course module deleted successfully."}
     except CourseModule.DoesNotExist:
-        raise ValidationError({"error": "Course module not found."})
+        raise NotFound("Course module not found.")

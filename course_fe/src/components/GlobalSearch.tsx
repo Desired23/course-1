@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Search, X, Clock, TrendingUp, BookOpen, User, FileText } from "lucide-react"
 import { useRouter } from "./Router"
-import { getCoursesWithInstructors } from "../data/db-extended"
+import { getCourses, type CourseListItem } from "../services/course.api"
 import { Input } from "./ui/input"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "../contexts/AuthContext"
@@ -12,7 +12,7 @@ import { getPublishedBlogPosts, type BlogPost } from "../services/blog-posts.api
 const RECENT_SEARCHES_STORAGE_KEY = "global-search-recent-searches"
 const MAX_RECENT_SEARCHES = 5
 
-type CourseSuggestion = ReturnType<typeof getCoursesWithInstructors>[number]
+type CourseSuggestion = CourseListItem
 
 type InstructorSuggestion = {
   id: number | null
@@ -124,56 +124,56 @@ export function GlobalSearch() {
 
 
   useEffect(() => {
-    if (query.length > 2) {
-      const normalizedQuery = normalizeSearchText(query)
-      const courses = getCoursesWithInstructors()
-      const filteredCourses = courses.filter(course =>
-        normalizeSearchText(course.title).includes(normalizedQuery) ||
-        normalizeSearchText(course.description).includes(normalizedQuery) ||
-        normalizeSearchText(course.instructor_name).includes(normalizedQuery) ||
-        normalizeSearchText(course.category_name).includes(normalizedQuery)
-      ).slice(0, 5)
-
-      const filteredInstructors = allInstructors
-        .filter((instructor) => {
-          return (
-            normalizeSearchText(instructor.user.full_name).includes(normalizedQuery) ||
-            normalizeSearchText(instructor.specialization).includes(normalizedQuery) ||
-            normalizeSearchText(instructor.bio).includes(normalizedQuery)
-          )
-        })
-        .slice(0, 4)
-        .map((instructor) => ({
-          id: instructor.id,
-          name: instructor.user.full_name,
-          avatar: instructor.user.avatar,
-          courseCount: instructor.total_courses,
-        }))
-
-      const filteredArticles = allArticles
-        .filter((article) => {
-          return (
-            normalizeSearchText(article.title).includes(normalizedQuery) ||
-            normalizeSearchText(article.summary).includes(normalizedQuery) ||
-            normalizeSearchText(article.content).includes(normalizedQuery)
-          )
-        })
-        .slice(0, 4)
-        .map((article) => ({
-          id: article.id,
-          title: article.title,
-          summary: article.summary,
-          slug: article.slug,
-        }))
-
-      setCourseResults(filteredCourses)
-      setInstructorResults(filteredInstructors)
-      setArticleResults(filteredArticles)
-    } else {
+    if (query.length <= 2) {
       setCourseResults([])
       setInstructorResults([])
       setArticleResults([])
+      return
     }
+
+    const normalizedQuery = normalizeSearchText(query)
+
+    const filteredInstructors = allInstructors
+      .filter((instructor) =>
+        normalizeSearchText(instructor.user.full_name).includes(normalizedQuery) ||
+        normalizeSearchText(instructor.specialization).includes(normalizedQuery) ||
+        normalizeSearchText(instructor.bio).includes(normalizedQuery)
+      )
+      .slice(0, 4)
+      .map((instructor) => ({
+        id: instructor.id,
+        name: instructor.user.full_name,
+        avatar: instructor.user.avatar,
+        courseCount: instructor.total_courses,
+      }))
+
+    const filteredArticles = allArticles
+      .filter((article) =>
+        normalizeSearchText(article.title).includes(normalizedQuery) ||
+        normalizeSearchText(article.summary).includes(normalizedQuery) ||
+        normalizeSearchText(article.content).includes(normalizedQuery)
+      )
+      .slice(0, 4)
+      .map((article) => ({
+        id: article.id,
+        title: article.title,
+        summary: article.summary,
+        slug: article.slug,
+      }))
+
+    setInstructorResults(filteredInstructors)
+    setArticleResults(filteredArticles)
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await getCourses({ search: query, page_size: 5, status: 'published' })
+        setCourseResults(res.results)
+      } catch {
+        setCourseResults([])
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
   }, [query, allInstructors, allArticles])
 
 
@@ -349,12 +349,12 @@ export function GlobalSearch() {
               <div className="space-y-2">
                 {courseResults.map((course) => (
                   <button
-                    key={course.course_id}
-                    onClick={() => handleCourseClick(course.course_id)}
+                    key={course.id}
+                    onClick={() => handleCourseClick(course.id)}
                     className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-left"
                   >
                     <img
-                      src={course.thumbnail}
+                      src={course.thumbnail ?? ''}
                       alt={course.title}
                       className="w-16 h-10 object-cover rounded flex-shrink-0"
                     />
@@ -371,7 +371,7 @@ export function GlobalSearch() {
                       </div>
                     </div>
                     <div className="text-sm font-semibold text-primary flex-shrink-0">
-                      ₫{(course.discount_price || course.price).toLocaleString('vi-VN')}
+                      ₫{parseFloat(course.discount_price || course.price).toLocaleString('vi-VN')}
                     </div>
                   </button>
                 ))}

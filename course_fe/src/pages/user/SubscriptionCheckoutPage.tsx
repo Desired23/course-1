@@ -25,6 +25,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { getSubscriptionPlans, type SubscriptionPlanListItem } from "../../services/subscription.api"
 import { createPaymentRecord } from "../../services/payment.api"
 import { motion } from "motion/react"
+import { getErrorMessage } from "../../lib/apiError"
 
 const iconMap: Record<string, React.ComponentType<any>> = { Zap, Crown, Shield }
 const colorMap: Record<string, { color: string; bg: string }> = {
@@ -81,8 +82,9 @@ export function SubscriptionCheckoutPage() {
       .then((plans) => {
         const match = plans.find((plan) => String(plan.id) === p)
         if (match) setApiPlan(match)
+        else if (p) toast.error('Không tìm thấy gói đăng ký.')
       })
-      .catch(() => {})
+      .catch((e) => toast.error(getErrorMessage(e, 'Không thể tải thông tin gói đăng ký.')))
   }, [])
 
   const paymentMethods = [
@@ -142,9 +144,15 @@ export function SubscriptionCheckoutPage() {
 
   const selectedPlan = (() => {
     if (apiPlan) {
-      const monthlyPrice = Number(apiPlan.effective_price || apiPlan.discount_price || apiPlan.price)
+      const effectivePrice = Number(apiPlan.effective_price || apiPlan.discount_price || apiPlan.price)
       const yearlyDiscountPercent = Number(apiPlan.yearly_discount_percent || 0)
-      const annualPrice = Math.round(monthlyPrice * 12 * (1 - yearlyDiscountPercent / 100))
+      const isAnnualPlan = ['annual', 'semi_annual', 'quarterly', 'lifetime'].includes(apiPlan.duration_type)
+      const monthlyPrice = isAnnualPlan
+        ? Math.round(effectivePrice / (apiPlan.duration_type === 'semi_annual' ? 6 : apiPlan.duration_type === 'quarterly' ? 3 : 12))
+        : effectivePrice
+      const annualPrice = isAnnualPlan
+        ? effectivePrice
+        : Math.round(effectivePrice * 12 * (1 - yearlyDiscountPercent / 100))
       const colors = colorMap[apiPlan.highlight_color || ""] || colorMap.blue
       const IconComp = apiPlan.icon ? iconMap[apiPlan.icon] : Zap
       return {

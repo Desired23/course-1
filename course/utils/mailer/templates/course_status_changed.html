@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Cập nhật trạng thái khóa học</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9;">
+  <div style="background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+    {% if is_approved %}
+    <h2 style="color: #16A34A; margin-top: 0;">✅ Khóa học đã được duyệt!</h2>
+    {% else %}
+    <h2 style="color: #DC2626; margin-top: 0;">❌ Khóa học chưa được duyệt</h2>
+    {% endif %}
+
+    <p>Xin chào <strong>{{ instructor_name }}</strong>,</p>
+
+    {% if is_approved %}
+    <p>Khóa học của bạn đã được <strong>duyệt và xuất bản</strong> trên nền tảng:</p>
+    {% else %}
+    <p>Khóa học của bạn <strong>chưa đáp ứng yêu cầu</strong> để được duyệt:</p>
+    {% endif %}
+
+    <div style="background: #F3F4F6; border-left: 4px solid {% if is_approved %}#16A34A{% else %}#DC2626{% endif %}; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      <strong style="font-size: 16px;">{{ course_title }}</strong>
+      <p style="margin: 8px 0 0; color: #6B7280;">Trạng thái mới: <strong>{{ new_status }}</strong></p>
+      {% if reason %}<p style="margin: 8px 0 0;">Lý do: {{ reason }}</p>{% endif %}
+    </div>
+
+    {% if is_approved %}
+    <p>Học viên có thể tìm kiếm và đăng ký khóa học của bạn ngay bây giờ!</p>
+    {% else %}
+    <p>Vui lòng xem lại khóa học theo phản hồi bên trên và gửi lại để được xét duyệt.</p>
+    {% endif %}
+
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;">
+    <p style="color: #6B7280; font-size: 12px;">Hỗ trợ: <strong>{{ support_email }}</strong>. Đây là email tự động, vui lòng không reply.</p>
+  </div>
+</body>
+</html>

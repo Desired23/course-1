@@ -55,6 +55,7 @@ export interface UserProfile {
   last_login: string | null
   status: 'active' | 'inactive' | 'banned'
   user_type: string
+  roles?: UserType[]
 }
 
 export interface ActionMessageResponse {

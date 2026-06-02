@@ -1,29 +1,10 @@
 import { useEffect, useState } from "react"
-import { getSystemSettings } from "../services/admin.api"
+import { getApiTransportHeaders } from "@/services/http"
 
-const DEFAULT_SITE_NAME = "Udemy"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
+
+const DEFAULT_SITE_NAME = "EduCourse"
 const DEFAULT_SITE_LOGO = ""
-
-function readSettingValue(setting: any): string {
-  return String(setting?.value ?? setting?.setting_value ?? "")
-}
-
-function readSettingKey(setting: any): string {
-  return String(setting?.key ?? setting?.setting_key ?? "")
-}
-
-function canReadSystemSettings(): boolean {
-  try {
-    const raw = localStorage.getItem("auth-storage")
-    if (!raw) return false
-
-    const parsed = JSON.parse(raw)
-    const roles = parsed?.state?.user?.roles
-    return Array.isArray(roles) && roles.includes("admin")
-  } catch {
-    return false
-  }
-}
 
 export function useSiteBranding() {
   const [siteName, setSiteName] = useState(DEFAULT_SITE_NAME)
@@ -32,27 +13,21 @@ export function useSiteBranding() {
   useEffect(() => {
     let cancelled = false
     const loadBranding = async () => {
-      if (!canReadSystemSettings()) return
-
       try {
-        const settings = await getSystemSettings()
-        if (cancelled) return
-
-        const map = new Map<string, any>()
-        settings.forEach((setting: any) => {
-          map.set(readSettingKey(setting), setting)
+        const response = await fetch(`${API_BASE_URL}/systems_settings/public/branding/`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json", ...getApiTransportHeaders() },
         })
+        if (!response.ok || cancelled) return
 
-        const nameSetting = map.get("site_name")
-        const logoSetting = map.get("site_logo")
-
-        const nextName = readSettingValue(nameSetting).trim()
-        const nextLogo = readSettingValue(logoSetting).trim()
+        const data = await response.json()
+        const nextName = String(data.site_name ?? "").trim()
+        const nextLogo = String(data.site_logo ?? "").trim()
 
         if (nextName) setSiteName(nextName)
         if (nextLogo) setSiteLogo(nextLogo)
       } catch {
-
+        // network error — keep defaults
       }
     }
 
@@ -62,8 +37,5 @@ export function useSiteBranding() {
     }
   }, [])
 
-  return {
-    siteName,
-    siteLogo,
-  }
+  return { siteName, siteLogo }
 }

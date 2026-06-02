@@ -127,7 +127,7 @@ export function AdminCategoriesPage() {
     icon: c.icon || 'Folder',
     color: '#3b82f6',
     isActive: c.status === 'active',
-    coursesCount: 0,
+    coursesCount: (c as any).courses_count ?? 0,
     order: idx + 1,
     createdAt: c.created_at ? new Date(c.created_at).toLocaleDateString() : '',
   })
@@ -146,7 +146,7 @@ export function AdminCategoriesPage() {
         name: c.name,
         slug: c.name.toLowerCase().replace(/\s+/g, '-'),
         categoryId: String(c.parent_category),
-        coursesCount: 0,
+        coursesCount: (c as any).courses_count ?? 0,
         isActive: c.status === 'active',
       })))
     } catch {

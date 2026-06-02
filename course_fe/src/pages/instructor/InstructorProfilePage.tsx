@@ -271,7 +271,7 @@ export function InstructorProfilePage() {
           </div>
           {canEditProfile && (
             <div className="flex gap-2">
-            <Button variant="outline" onClick={() => window.open('/instructor/profile/public', '_blank')}>
+            <Button variant="outline" onClick={() => window.open(`/instructor/${user?.id}/profile`, '_blank')}>
               <Eye className="h-4 w-4 mr-2" />
               {t('instructor_profile_page.actions.view_public_profile')}
             </Button>
@@ -702,7 +702,7 @@ export function InstructorProfilePage() {
                           <Button size="sm" variant="outline" onClick={() => handleToggleSectionVisibility(section.id)}>
                             {section.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => { setIsEditing(true); setActiveTab('edit') }}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button size="sm" variant="outline" onClick={() => handleDeleteSection(section.id)}>

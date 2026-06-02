@@ -7,6 +7,7 @@ import { userRoutes } from './user.routes'
 import { instructorRoutes } from './instructor.routes'
 import { adminRoutes } from './admin.routes'
 import { reducedRouteTransitionVariants, routeTransition, routeTransitionVariants } from '../lib/motion'
+import { CommunityLayout } from '../components/community/CommunityLayout'
 
 function RouteLoadingFallback() {
   const { t } = useTranslation()
@@ -53,6 +54,11 @@ export function AppRoutes() {
     return false
   })
 
+  const isCommunityRoute = (path: string) => {
+    if (path === '/blog/create' || path === '/qa/ask') return false
+    return path === '/community' || path.startsWith('/blog') || path.startsWith('/qa')
+  }
+
   const isSidebarShellRoute = (path: string) => {
     if (path.startsWith('/admin')) return true
     if (path.startsWith('/instructor')) {
@@ -95,7 +101,11 @@ export function AppRoutes() {
   }
 
   if (matchedRoute) {
-    return renderWithTransition(matchedRoute.element, currentPath)
+    const element = renderWithTransition(matchedRoute.element, currentPath)
+    if (isCommunityRoute(currentPath)) {
+      return <CommunityLayout>{element}</CommunityLayout>
+    }
+    return element
   }
 
 

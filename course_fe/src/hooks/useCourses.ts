@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getErrorMessage } from '../lib/apiError'
 import {
   getCourses,
   getCourse,
@@ -95,7 +96,7 @@ export function useCreateCourse() {
       toast.success('Course created successfully!')
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to create course')
+      toast.error(getErrorMessage(error, 'Không thể tạo khóa học.'))
     }
   })
 }
@@ -121,7 +122,7 @@ export function useUpdateCourse() {
       }
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to update course')
+      toast.error(getErrorMessage(error, 'Không thể cập nhật khóa học.'))
     }
   })
 }
@@ -144,7 +145,7 @@ export function useDeleteCourse() {
       toast.success('Course deleted successfully!')
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete course')
+      toast.error(getErrorMessage(error, 'Không thể xóa khóa học.'))
     }
   })
 }
@@ -171,7 +172,7 @@ export function usePublishCourse() {
       }
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to update course status')
+      toast.error(getErrorMessage(error, 'Không thể cập nhật trạng thái khóa học.'))
     }
   })
 }

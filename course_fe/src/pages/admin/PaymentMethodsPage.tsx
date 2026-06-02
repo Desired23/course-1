@@ -192,7 +192,7 @@ export function PaymentMethodsPage() {
     try {
       const method: PaymentMethod = {
         id: Date.now().toString(), name: newMethod.name, type: newMethod.type,
-        provider: newMethod.provider, details: {}, isDefault: false, isActive: true,
+        provider: newMethod.provider, details: { apiKey: newMethod.apiKey, secretKey: newMethod.secretKey, webhookUrl: newMethod.webhookUrl }, isDefault: false, isActive: true,
         isVerified: false, fees: { fixed: 0, percentage: 0 },
         limits: { min: 0, max: 10000, daily: 50000, monthly: 200000 },
         countries: [], currencies: [], processingTime: 'Instant',
@@ -499,7 +499,7 @@ export function PaymentMethodsPage() {
                       <Button size="sm" variant="outline" onClick={() => setSelectedMethod(method)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => setIsEditingMethod(true)}>
+                      <Button size="sm" variant="outline" onClick={() => setSelectedMethod(method)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => openConfirm(

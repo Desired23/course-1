@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Thanh toán không thành công</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9;">
+  <div style="background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+    <h2 style="color: #DC2626; margin-top: 0;">❌ Thanh toán không thành công</h2>
+    <p>Xin chào <strong>{{ user_name }}</strong>,</p>
+    <p>Rất tiếc, giao dịch thanh toán của bạn đã <strong>không thành công</strong>.</p>
+    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      <p style="margin: 0;"><strong>Mã đơn hàng:</strong> #{{ payment_id }}</p>
+      <p style="margin: 8px 0 0;"><strong>Số tiền:</strong> {{ total_amount }}</p>
+      <p style="margin: 8px 0 0;"><strong>Cổng thanh toán:</strong> {{ gateway }}</p>
+      {% if error_code %}<p style="margin: 8px 0 0; color: #6B7280; font-size: 13px;">Mã lỗi: {{ error_code }}</p>{% endif %}
+    </div>
+    <p>Bạn có thể thử lại thanh toán bằng cách quay lại giỏ hàng. Nếu vấn đề tiếp tục xảy ra, vui lòng liên hệ bộ phận hỗ trợ.</p>
+    {% if retry_url %}
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="{{ retry_url }}" style="background: #2563EB; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold;">Thử lại thanh toán</a>
+    </p>
+    {% endif %}
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;">
+    <p style="color: #6B7280; font-size: 12px;">Hỗ trợ: <strong>{{ support_email }}</strong>. Đây là email tự động, vui lòng không reply.</p>
+  </div>
+</body>
+</html>

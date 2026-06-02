@@ -1,5 +1,5 @@
 import React, { useRef } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
@@ -33,6 +33,80 @@ import {
 } from 'lucide-react'
 import { uploadFiles } from '../services/upload.api'
 import './blog-editor.css'
+
+// ── Resizable image node view ──────────────────────────────────────────────
+
+function ResizableImageView({
+  node,
+  updateAttributes,
+  selected,
+}: {
+  node: { attrs: { src: string; alt?: string; title?: string; width?: number | null } }
+  updateAttributes: (attrs: Record<string, unknown>) => void
+  selected: boolean
+}) {
+  const imgRef = useRef<HTMLImageElement>(null)
+  const width = node.attrs.width ?? null
+
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startW = imgRef.current?.offsetWidth ?? (width ?? 400)
+
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(80, startW + (ev.clientX - startX))
+      updateAttributes({ width: newW })
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  return (
+    <NodeViewWrapper
+      className={`resizable-image-wrapper${selected ? ' is-selected' : ''}`}
+      style={width ? { width: `${width}px`, maxWidth: '100%' } : undefined}
+    >
+      <div style={{ position: 'relative' }}>
+        <img
+          ref={imgRef}
+          src={node.attrs.src}
+          alt={node.attrs.alt ?? ''}
+          title={node.attrs.title ?? ''}
+          style={{ display: 'block', width: '100%', height: 'auto', borderRadius: '0.5rem' }}
+        />
+        {selected && (
+          <div className="img-resize-handle" onMouseDown={startResize} />
+        )}
+      </div>
+    </NodeViewWrapper>
+  )
+}
+
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (el) => {
+          const w = el.getAttribute('width')
+          return w ? Number(w) : null
+        },
+        renderHTML: (attrs) => (attrs.width ? { width: String(attrs.width) } : {}),
+      },
+    }
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageView)
+  },
+})
+
+// ──────────────────────────────────────────────────────────────────────────
 
 interface BlogRichEditorProps {
   content: string
@@ -84,7 +158,7 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
         openOnClick: false,
         HTMLAttributes: { rel: 'noopener noreferrer' },
       }),
-      Image.configure({ inline: false, allowBase64: false }),
+      ResizableImage.configure({ inline: false, allowBase64: false }),
       Placeholder.configure({ placeholder: placeholder || 'Bắt đầu viết bài...' }),
       CharacterCount,
     ],

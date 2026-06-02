@@ -502,7 +502,7 @@ export function CourseCard({
                 <span className="font-medium">{progress}%</span>
               </div>
               <Progress value={progress} className="h-2" />
-              <Button className="w-full mt-2" size="sm">
+              <Button className="w-full mt-2" size="sm" onClick={(e) => { e.stopPropagation(); handleClick() }}>
                 <Play className="h-4 w-4 mr-2" />
                 {t("course_card.continue_learning")}
               </Button>

@@ -110,7 +110,7 @@ export function GoogleUserInfo() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/admin/dashboard')}
+            onClick={() => navigate('/admin')}
           >
             {t('google_user_info.admin_dashboard')}
           </Button>
@@ -119,7 +119,7 @@ export function GoogleUserInfo() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/instructor/dashboard')}
+            onClick={() => navigate('/instructor')}
           >
             {t('google_user_info.instructor_dashboard')}
           </Button>

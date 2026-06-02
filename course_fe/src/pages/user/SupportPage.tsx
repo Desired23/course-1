@@ -143,6 +143,7 @@ export function SupportPage() {
         subject: ticketForm.subject,
         message: ticketForm.description,
         priority: (ticketForm.priority || 'medium') as any,
+        category: ticketForm.category || undefined,
       })
       toast.success(t('support.ticket_submitted'))
       setTicketForm({ subject: '', category: '', priority: '', description: '' })

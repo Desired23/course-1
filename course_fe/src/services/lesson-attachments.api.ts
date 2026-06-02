@@ -11,7 +11,7 @@
 
 
 
-import { API_BASE_URL, http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http, refreshAccessToken } from './http'
 
 
 
@@ -26,6 +26,7 @@ export interface LessonAttachment {
   file_type: string | null
   file_size: number | null
   download_count: number
+  download_url?: string
   created_at: string
 }
 
@@ -159,4 +160,54 @@ export function resolveAttachmentUrl(filePath: string | null | undefined): strin
   const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, '')
   const normalizedPath = filePath.startsWith('/') ? filePath : `/${filePath}`
   return `${apiOrigin}${normalizedPath}`
+}
+
+function filenameFromContentDisposition(contentDisposition: string | null): string | null {
+  if (!contentDisposition) return null
+
+  const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+  if (utfMatch?.[1]) return decodeURIComponent(utfMatch[1].replace(/"/g, ''))
+
+  const match = contentDisposition.match(/filename="?([^";]+)"?/i)
+  return match?.[1] || null
+}
+
+function resolveDownloadEndpoint(resource: LessonAttachment): string {
+  if (!resource.download_url) return `${API_BASE_URL}/attachments/${resource.id}/download/`
+  if (/^https?:\/\//i.test(resource.download_url)) return resource.download_url
+  if (resource.download_url.startsWith('/')) {
+    return `${API_BASE_URL.replace(/\/api\/?$/, '')}${resource.download_url}`
+  }
+  return `${API_BASE_URL}/${resource.download_url.replace(/^\/+/, '')}`
+}
+
+export async function downloadAttachmentFile(resource: LessonAttachment): Promise<{ blob: Blob; fileName: string }> {
+  const endpoint = resolveDownloadEndpoint(resource)
+
+  async function fetchWithToken(token: string | null) {
+    return fetch(endpoint, {
+      headers: {
+        ...getApiTransportHeaders(),
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    })
+  }
+
+  let response = await fetchWithToken(getAccessToken())
+  if (response.status === 401) {
+    response = await fetchWithToken(await refreshAccessToken())
+  }
+
+  if (!response.ok) {
+    throw new Error(response.statusText || 'Download failed')
+  }
+
+  const blob = await response.blob()
+  const fileName =
+    filenameFromContentDisposition(response.headers.get('Content-Disposition')) ||
+    resource.file_path.split('/').pop() ||
+    resource.title ||
+    `attachment-${resource.id}`
+
+  return { blob, fileName }
 }

@@ -1,12 +1,13 @@
-from django.db.models import F
+from django.db.models import Avg, Count, F
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from .models import Review
 from .serializers import ReviewSerializer
 from courses.models import Course
 from enrollments.models import Enrollment
 from users.models import User
+from utils.roles import is_active_admin
 
 
 def create_review(data):
@@ -34,26 +35,33 @@ def create_review(data):
     serializer = ReviewSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
         Course.objects.filter(id=course_id).update(total_reviews=F('total_reviews') + 1)
-        return serializer.save()
+        review = serializer.save()
+        try:
+            from notifications.services import create_notification
+            if course.instructor_id and course.instructor.user_id:
+                create_notification(
+                    receiver_id=course.instructor.user_id,
+                    title="Học viên vừa để lại đánh giá",
+                    message=f"Khóa học \"{course.title}\" nhận được đánh giá {data.get('rating', '')}⭐.",
+                    type='course',
+                    related_id=review.id,
+                    sender=user.id,
+                    notification_code='review_received',
+                )
+        except Exception:
+            pass
+        return review
     raise ValidationError(serializer.errors)
 
 
 def get_reviews_by_course(course_id):
-    try:
-        if course_id:
-            reviews = Review.objects.filter(course=course_id, is_deleted=False).select_related('user', 'course')
-        else:
-            reviews = Review.objects.filter(is_deleted=False).select_related('user', 'course')
-        return reviews
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+    if course_id:
+        return Review.objects.filter(course=course_id, is_deleted=False).select_related('user', 'course')
+    return Review.objects.filter(is_deleted=False).select_related('user', 'course')
 
 
 def get_reviews_by_user(user_id):
-    try:
-        return Review.objects.filter(user_id=user_id, is_deleted=False).select_related('user', 'course')
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+    return Review.objects.filter(user_id=user_id, is_deleted=False).select_related('user', 'course')
 
 
 def get_review_by_id(review_id):
@@ -61,16 +69,26 @@ def get_review_by_id(review_id):
         review = Review.objects.get(id=review_id, is_deleted=False)
         return ReviewSerializer(review).data
     except Review.DoesNotExist:
-        raise ValidationError({"error": "Khong tim thay danh gia."})
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+        raise NotFound("Không tìm thấy đánh giá.")
 
 
 def count_reviews_by_course(course_id):
-    try:
-        return Review.objects.filter(course=course_id, is_deleted=False).count()
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+    return Review.objects.filter(course=course_id, is_deleted=False).count()
+
+
+def get_course_review_stats(course_id):
+    qs = Review.objects.filter(course=course_id, is_deleted=False)
+    agg = qs.aggregate(total=Count('id'), average=Avg('rating'))
+    distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for row in qs.values('rating').annotate(count=Count('id')):
+        rating = row['rating']
+        if rating in distribution:
+            distribution[rating] = row['count']
+    return {
+        'total': agg['total'] or 0,
+        'average': round(float(agg['average']), 1) if agg['average'] is not None else 0,
+        'distribution': distribution,
+    }
 
 
 def count_like_review(review_id):
@@ -89,8 +107,8 @@ def update_review(review_id, data, requesting_user=None):
     except Review.DoesNotExist:
         raise ValidationError({"error": "Khong tim thay danh gia."})
 
-    if requesting_user and review.user_id != requesting_user.id and not hasattr(requesting_user, 'admin'):
-        raise ValidationError({"error": "Ban khong co quyen chinh sua danh gia nay."})
+    if requesting_user and review.user_id != requesting_user.id and not is_active_admin(requesting_user):
+        raise PermissionDenied("Bạn không có quyền chỉnh sửa đánh giá này.")
 
     serializer = ReviewSerializer(review, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
@@ -99,23 +117,17 @@ def update_review(review_id, data, requesting_user=None):
 
 
 def get_reviews_by_instructor(instructor_id):
-    try:
-        return Review.objects.filter(
-            course__instructor_id=instructor_id,
-            is_deleted=False,
-        ).select_related('user', 'course')
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+    return Review.objects.filter(
+        course__instructor_id=instructor_id,
+        is_deleted=False,
+    ).select_related('user', 'course')
 
 
 def get_reported_reviews():
-    try:
-        return Review.objects.filter(
-            is_deleted=False,
-            report_count__gt=0,
-        ).select_related('user', 'course')
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+    return Review.objects.filter(
+        is_deleted=False,
+        report_count__gt=0,
+    ).select_related('user', 'course')
 
 
 def report_review(review_id, reason=''):
@@ -130,6 +142,17 @@ def report_review(review_id, reason=''):
         review.last_report_reason = cleaned_reason
     review.last_reported_at = timezone.now()
     review.save(update_fields=['report_count', 'last_report_reason', 'last_reported_at', 'updated_at'])
+    try:
+        from notifications.services import notify_admins
+        notify_admins(
+            title="Review bị báo cáo",
+            message=f"Review #{review.id} đã bị báo cáo ({review.report_count} lần). Lý do: {review.last_report_reason or 'Không có'}",
+            type='other',
+            notification_code='review_reported',
+            related_id=review.id,
+        )
+    except Exception:
+        pass
     return review
 
 
@@ -173,20 +196,36 @@ def moderate_review(review_id, action, reason=''):
         'deleted_at',
         'deleted_by',
     ])
+    if action in {'hide', 'delete'}:
+        try:
+            from notifications.services import create_notification
+            msg = (
+                "Đánh giá của bạn đã bị ẩn do vi phạm chính sách."
+                if action == 'hide'
+                else "Đánh giá của bạn đã bị xóa bởi quản trị viên."
+            )
+            create_notification(
+                receiver_id=review.user_id,
+                title="Đánh giá của bạn đã bị xử lý",
+                message=msg,
+                type='other',
+                related_id=review.id,
+                notification_code='review_moderated',
+            )
+        except Exception:
+            pass
     return review
 
 
 def delete_review(review_id, requesting_user=None):
     try:
         review = Review.objects.get(id=review_id, is_deleted=False)
-        if requesting_user and review.user_id != requesting_user.id and not hasattr(requesting_user, 'admin'):
-            raise ValidationError({"error": "Ban khong co quyen xoa danh gia nay."})
-        review.is_deleted = True
-        review.deleted_at = timezone.now()
-        review.deleted_by = requesting_user
-        review.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'updated_at'])
-        return {"message": "Danh gia da duoc xoa thanh cong."}
     except Review.DoesNotExist:
-        raise ValidationError({"error": "Khong tim thay danh gia."})
-    except Exception as exc:
-        raise ValidationError({"error": str(exc)})
+        raise NotFound("Không tìm thấy đánh giá.")
+    if requesting_user and review.user_id != requesting_user.id and not is_active_admin(requesting_user):
+        raise PermissionDenied("Bạn không có quyền xóa đánh giá này.")
+    review.is_deleted = True
+    review.deleted_at = timezone.now()
+    review.deleted_by = requesting_user
+    review.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'updated_at'])
+    return {"message": "Đánh giá đã được xóa thành công."}

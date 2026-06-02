@@ -549,15 +549,11 @@
     mock: {
       admin: {
         review_pending_courses_title: "Xem xét khóa học đang chờ duyệt",
-        review_pending_courses_description: "Có 12 khóa học đang chờ phê duyệt",
+        review_pending_courses_description: "Có {{count}} khóa học đang chờ phê duyệt",
         process_refunds_title: "Xử lý yêu cầu hoàn tiền",
-        process_refunds_description: "Có 5 yêu cầu hoàn tiền cần xử lý",
+        process_refunds_description: "Có {{count}} yêu cầu hoàn tiền cần xử lý",
         review_reported_content_title: "Kiểm tra nội dung bị báo cáo",
-        review_reported_content_description: "Có 8 bài viết diễn đàn bị người dùng đánh dấu",
-        update_platform_settings_title: "Cập nhật cài đặt nền tảng",
-        update_platform_settings_description: "Cấu hình cổng thanh toán mới",
-        review_user_reports_title: "Xem xét báo cáo người dùng",
-        review_user_reports_description: "Có 3 người dùng bị báo cáo vì vi phạm",
+        review_reported_content_description: "Có {{count}} nội dung bị người dùng đánh dấu",
       },
       instructor: {
         answer_student_questions_title: "Trả lời câu hỏi của học viên",
@@ -1442,6 +1438,7 @@
   },
   cart: {
     title: "Giỏ hàng",
+    in_plan_tag: "Đã có trong gói của bạn — mua vĩnh viễn?",
     empty_title: "Giỏ hàng trống",
     empty_subtitle: "Tiếp tục mua sắm để tìm khóa học!",
     keep_shopping: "Tiếp tục mua sắm",
@@ -4188,6 +4185,7 @@
       image_required: "Vui lòng tải lên ảnh khóa học",
       saved_draft: "Đã lưu bản nháp thành công",
       published_success: "Đã xuất bản khóa học thành công",
+      submitted_review: "Đã gửi khóa học để chờ duyệt",
       save_failed: "Lưu khóa học thất bại",
     },
     languages: { vietnamese: "Tiếng Việt", english: "English", japanese: "日本語", chinese: "中文" },
@@ -6420,6 +6418,14 @@
       monthly: { title: "Báo cáo tháng", description: "Phân tích toàn diện theo tháng" },
       instructor: { title: "Hiệu suất giảng viên", description: "Chỉ số chi tiết của giảng viên" },
       revenue: { title: "Phân tích doanh thu", description: "Phân rã tài chính và xu hướng" },
+      generating: "Đang tạo...",
+      toast: { success: "Xuất báo cáo thành công", error: "Xuất báo cáo thất bại" },
+      csv: {
+        month: "Tháng", retail: "Bán lẻ", subscription: "Đăng ký", gross: "Doanh thu gộp",
+        refunded: "Đã hoàn tiền", net: "Doanh thu thuần", instructor: "Giảng viên",
+        earnings: "Thu nhập", retail_earnings: "Thu nhập bán lẻ", sub_earnings: "Thu nhập đăng ký",
+        pending: "Đang chờ", available: "Khả dụng", paid: "Đã thanh toán",
+      },
     },
   },
   admin_reviews: {

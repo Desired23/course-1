@@ -31,6 +31,7 @@ export interface CartItem {
   user: number
   course: number
   course_detail: CartCourseDetail
+  in_plan?: boolean
   promotion: number | null
   created_at: string
 }

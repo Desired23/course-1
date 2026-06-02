@@ -2,6 +2,7 @@ from rest_framework.exceptions import ValidationError
 from .models import Cart
 from .serializers import CartSerializer
 from enrollments.models import Enrollment
+from utils.course_access import get_course_access_info
 
 def create_cart(data):
     try:
@@ -55,13 +56,44 @@ def get_all_carts():
     return carts
 
 def get_cart_by_user(user_id):
-    try:
-        cart = Cart.objects.select_related(
-            'course__instructor__user', 'course__category'
-        ).filter(user=user_id)
-        return cart
-    except Cart.DoesNotExist:
-        raise ValidationError({"error": "Cart not found for this user."})
+    """Return the user's cart, removing courses already owned permanently and
+    tagging courses that are already covered by an active subscription/plan.
+
+    - Course owned outright (purchased, or admin/instructor access) -> dropped
+      from the cart on load.
+    - Course included in a plan the user currently owns -> kept, with
+      `_in_plan` set so the UI can show an "already in your plan" tag and let
+      the user decide whether to buy it permanently.
+    """
+    carts = list(
+        Cart.objects.select_related(
+            'course__instructor__user', 'course__category',
+            'user__admin', 'user__instructor',
+        ).filter(user=user_id).order_by('-created_at')
+    )
+
+    owned_ids = []
+    remaining = []
+    for cart in carts:
+        if cart.course is None:
+            remaining.append(cart)
+            continue
+        info = get_course_access_info(cart.user, cart.course)
+        access_type = info.get('access_type')
+        # Course bought outright -> remove from cart. (Admin/instructor "access"
+        # is not a purchase, so their cart items are left untouched.)
+        if access_type == 'purchase':
+            owned_ids.append(cart.id)
+            continue
+        # Covered by an active subscription/plan -> keep, but tag so the UI can
+        # offer buying it permanently.
+        cart._in_plan = access_type == 'subscription'
+        remaining.append(cart)
+
+    if owned_ids:
+        Cart.objects.filter(id__in=owned_ids).delete()
+
+    return remaining
 def update_cart(cart_id, data):
     try:
         cart = Cart.objects.get(pk=cart_id)

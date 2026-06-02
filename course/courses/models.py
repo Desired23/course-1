@@ -60,8 +60,6 @@ class Course(models.Model):
     requirements = models.TextField(blank=True, null=True)
     learning_objectives = models.JSONField(default=list, blank=True, help_text='Danh sách mục tiêu học tập')
     target_audience = models.JSONField(default=list, blank=True, help_text='Danh sách đối tượng mục tiêu')
-    skills_taught = models.JSONField(default=list, blank=True, help_text='Danh sách kỹ năng đầu ra')
-    prerequisites = models.JSONField(default=list, blank=True, help_text='Danh sách tiên quyết')
     tags = models.JSONField(default=list, blank=True, help_text='Danh sách tags')
     promotional_video = models.CharField(max_length=500, blank=True, null=True, help_text='URL video giới thiệu')
     status = models.CharField(

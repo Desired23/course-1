@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { getAllMyEnrollments, type Enrollment } from '../services/enrollment.api'
+import { getAllMySubscriptionCourses } from '../services/subscription.api'
 import { registerCacheClearer } from '../services/cacheRegistry'
 
 
@@ -9,7 +10,12 @@ import { registerCacheClearer } from '../services/cacheRegistry'
 
 
 
-let _cache: { userId: string; courseIds: Set<number>; enrollmentMap: Map<number, Enrollment> } | null = null
+let _cache: {
+  userId: string
+  courseIds: Set<number>
+  enrollmentMap: Map<number, Enrollment>
+  subscriptionIds: Set<number>
+} | null = null
 
 registerCacheClearer(() => {
   _cache = null
@@ -39,7 +45,10 @@ export function useOwnedCourses() {
 
     setLoading(true)
     try {
-      const enrollments = await getAllMyEnrollments()
+      const [enrollments, planCourses] = await Promise.all([
+        getAllMyEnrollments(),
+        getAllMySubscriptionCourses(),
+      ])
       const ids = new Set<number>()
       const map = new Map<number, Enrollment>()
       for (const e of enrollments) {
@@ -49,7 +58,14 @@ export function useOwnedCourses() {
           map.set(cid, e)
         }
       }
-      _cache = { userId, courseIds: ids, enrollmentMap: map }
+      const subIds = new Set<number>()
+      for (const pc of planCourses) {
+        if (pc.status === 'active') {
+          ids.add(pc.course)
+          subIds.add(pc.course)
+        }
+      }
+      _cache = { userId, courseIds: ids, enrollmentMap: map, subscriptionIds: subIds }
       setOwnedIds(ids)
       setEnrollmentMap(map)
     } catch {

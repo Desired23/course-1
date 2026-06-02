@@ -50,7 +50,7 @@ export function GoogleCallbackPage() {
         if (params.code) {
           setStatus('error')
           setErrorMessage(t('google_callback_page.backend_integration_required'))
-          setTimeout(() => navigate('/login'), 5000)
+          setTimeout(() => navigate('/login'), 3000)
           return
         }
 

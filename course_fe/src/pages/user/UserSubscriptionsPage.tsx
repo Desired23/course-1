@@ -86,7 +86,7 @@ export function UserSubscriptionsPage() {
   }, [currentPage, pageSize, statusFilter, searchTerm, sortBy])
 
   const activeSubscription = useMemo(
-    () => subscriptions.find((s) => s.is_active) || subscriptions[0] || null,
+    () => subscriptions.find((s) => s.is_active) ?? null,
     [subscriptions]
   )
 

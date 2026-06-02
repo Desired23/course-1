@@ -5,6 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getErrorMessage } from '../lib/apiError'
 import {
   login,
   register,
@@ -31,7 +32,7 @@ export function useLogin() {
       toast.success(`Welcome back, ${data.user.name}!`)
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Login failed')
+      toast.error(getErrorMessage(error, 'Đăng nhập thất bại.'))
     }
   })
 }
@@ -54,7 +55,7 @@ export function useSignup() {
       toast.success(`Welcome, ${data.user.name}! Account created successfully.`)
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Signup failed')
+      toast.error(getErrorMessage(error, 'Đăng ký thất bại.'))
     }
   })
 }

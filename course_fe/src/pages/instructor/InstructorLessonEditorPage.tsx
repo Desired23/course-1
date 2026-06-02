@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { useUIStore } from '../../stores'
@@ -28,7 +28,7 @@ import { ResourcesTab } from '../../components/ResourcesTab'
 import { QuizTab } from '../../components/QuizTab'
 import { SettingsTab } from '../../components/SettingsTab'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
-import { EnhancedCodeQuizCreator } from '../../components/EnhancedCodeQuizCreator'
+import { EnhancedCodeQuizCreator, type EnhancedCodeQuizCreatorHandle } from '../../components/EnhancedCodeQuizCreator'
 import { TranscriptEditorPanel } from '../../components/TranscriptEditorPanel'
 import { getLessonById, updateLesson as updateLessonApi } from '../../services/lessons.api'
 import { getCourseModuleById } from '../../services/course-modules.api'
@@ -107,6 +107,7 @@ export function InstructorLessonEditorPage() {
   }, [darkMode])
 
   const [currentStep, setCurrentStep] = useState(0)
+  const codeCreatorRef = useRef<EnhancedCodeQuizCreatorHandle>(null)
   const [editedLesson, setEditedLesson] = useState<Lesson | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
@@ -253,14 +254,14 @@ export function InstructorLessonEditorPage() {
     navigate('/instructor/lessons')
   }
 
-  const handleSave = async () => {
-    if (!editedLesson) return
+  const handleSave = async (): Promise<boolean> => {
+    if (!editedLesson) return false
 
 
     if (!editedLesson.title.trim()) {
       toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
       setCurrentStep(0)
-      return
+      return false
     }
 
     setIsSaving(true)
@@ -294,12 +295,20 @@ export function InstructorLessonEditorPage() {
       setIsDirty(false)
       setLastSaved(new Date())
       toast.success(t('instructor_lesson_editor_page.toasts.lesson_saved'))
+      return true
     } catch (error) {
       console.error(error)
       toast.error(t('instructor_lesson_editor_page.errors.save_lesson'))
+      return false
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleFinish = async () => {
+    const saved = await handleSave()
+    if (!saved) return
+    navigate(returnCourseId ? `/instructor/lessons/${returnCourseId}` : '/instructor/lessons')
   }
 
   const handleUpdate = (updates: Partial<Lesson>) => {
@@ -335,11 +344,19 @@ export function InstructorLessonEditorPage() {
         toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
         return
       }
+      const type = editedLesson?.content_type || editedLesson?.type
+      if (currentStep === 1 && type === 'code' && codeCreatorRef.current?.goNext()) {
+        return
+      }
       setCurrentStep(curr => curr + 1)
     }
   }
 
   const handleBack = () => {
+    const type = editedLesson?.content_type || editedLesson?.type
+    if (currentStep === 1 && type === 'code' && codeCreatorRef.current?.goPrev()) {
+      return
+    }
     if (currentStep > 0) {
       setCurrentStep(curr => curr - 1)
     }
@@ -348,9 +365,7 @@ export function InstructorLessonEditorPage() {
   if (!editedLesson) return <div className="p-8 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
 
   const contentType = editedLesson.content_type || editedLesson.type
-  const steps = contentType === 'video'
-    ? [...BASE_STEPS, { id: 'transcript', icon: FileText }]
-    : BASE_STEPS
+  const steps = BASE_STEPS
 
   const statusConfig = {
     published: {
@@ -388,6 +403,7 @@ export function InstructorLessonEditorPage() {
 
                 <div className="p-0 h-full overflow-y-auto">
                    <EnhancedCodeQuizCreator
+                      ref={codeCreatorRef}
                       initialData={editedLesson.quizData}
                       onChange={(data) => handleUpdate({ quizData: data })}
                       onSave={(data) => handleUpdate({ quizData: data })}
@@ -577,7 +593,7 @@ export function InstructorLessonEditorPage() {
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button onClick={handleSave} className="w-32">
+                    <Button onClick={handleFinish} className="w-32">
                       {t('instructor_lesson_editor_page.actions.finish')}
                     </Button>
                   )}

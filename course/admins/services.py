@@ -41,7 +41,7 @@ def get_admin_by_id(admin_id):
 
 def get_admins():
     try:
-        admins = Admin.objects.all()
+        admins = Admin.objects.filter(is_deleted=False)
         return admins
     except Exception as e:
         raise ValidationError(f"Error retrieving admins: {str(e)}")

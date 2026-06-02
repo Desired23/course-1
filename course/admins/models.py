@@ -6,6 +6,8 @@ class Admin(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin', null=True, unique=True)
     department = models.CharField(max_length=100)
     role = models.CharField(max_length=100, default='none')
+    is_super_admin = models.BooleanField(default=False)
+    permissions = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)

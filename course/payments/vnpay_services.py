@@ -23,6 +23,7 @@ from utils.mailer.mailer import send_payment_invoice
 from activity_logs.services import log_activity
 from .services import ensure_payment_retryable
 from .return_url import resolve_payment_return_url
+from notifications.services import create_notification
 
 
 
@@ -222,7 +223,7 @@ def create_enrollments_from_payment(payment):
         from subscription_plans.services import subscribe_to_plan
 
         if not payment.subscription_plan_id:
-            print(f"[WARN] Payment {payment.id} is subscription type but has no subscription_plan, skipping")
+            logger.warning("Payment %s is subscription type but has no subscription_plan, skipping", payment.id)
             return
 
         existing_subscription = UserSubscription.objects.filter(
@@ -235,7 +236,7 @@ def create_enrollments_from_payment(payment):
         try:
             subscribe_to_plan(payment.user, payment.subscription_plan_id, payment.id)
         except Exception as e:
-            print(f"[WARN] Failed to create subscription for payment {payment.id}: {e}")
+            logger.warning("Failed to create subscription for payment %s: %s", payment.id, e)
         return
 
     from carts.models import Cart
@@ -246,7 +247,7 @@ def create_enrollments_from_payment(payment):
         course_obj = detail.course
         if not course_obj:
 
-            print(f"[WARN] PaymentDetail {detail.id} has no course, skipping enrollment")
+            logger.warning("PaymentDetail %s has no course, skipping enrollment", detail.id)
             continue
 
         try:
@@ -257,7 +258,7 @@ def create_enrollments_from_payment(payment):
                 'source': Enrollment.Source.PURCHASE,
             })
         except Exception as e:
-            print(f"[WARN] Failed to create enrollment for course {course_obj.id}: {e}")
+            logger.warning("Failed to create enrollment for course %s payment %s: %s", course_obj.id, payment.id, e)
     if payment.payment_type == Payment.PaymentType.COURSE_PURCHASE:
         Cart.objects.filter(user=payment.user).delete()
 
@@ -368,6 +369,18 @@ def payment_ipn(request):
                 create_enrollments_from_payment(payment)
 
             try:
+                create_notification(
+                    receiver_id=payment.user.id,
+                    title="Thanh toán thành công",
+                    message=f"Đơn hàng #{payment.id} đã được thanh toán thành công.",
+                    type='payment',
+                    related_id=payment.id,
+                    notification_code='payment_completed',
+                )
+            except Exception:
+                pass
+
+            try:
                 details = payment.payment_details.all()
                 if details.exists():
                     send_payment_invoice(payment.user.email, payment)
@@ -380,6 +393,28 @@ def payment_ipn(request):
             payment.gateway_response = vnp_ResponseCode
             payment.ipn_attempts = (payment.ipn_attempts or 0) + 1
             payment.save()
+            try:
+                create_notification(
+                    receiver_id=payment.user.id,
+                    title="Thanh toán thất bại",
+                    message=f"Đơn hàng #{payment.id} thanh toán không thành công. Vui lòng thử lại.",
+                    type='payment',
+                    related_id=payment.id,
+                    notification_code='payment_failed',
+                )
+            except Exception:
+                pass
+            try:
+                from utils.mailer.mailer import send_payment_failed
+                import threading
+                threading.Thread(
+                    target=send_payment_failed,
+                    args=(payment.user.email, payment.user.full_name, payment.id, payment.total_amount, 'vnpay'),
+                    kwargs={"error_code": vnp_ResponseCode},
+                    daemon=True,
+                ).start()
+            except Exception:
+                pass
 
         return JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
 

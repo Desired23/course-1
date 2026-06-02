@@ -117,7 +117,8 @@ class CertificateDownloadView(APIView):
 
 
         is_admin = getattr(request.user, 'admin', None)
-        if cert.user_id != request.user.id and not is_admin:
+        is_active_admin = is_admin and not getattr(is_admin, 'is_deleted', True)
+        if cert.user_id != request.user.id and not is_active_admin:
             return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         if not cert.certificate_url:

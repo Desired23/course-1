@@ -4,7 +4,7 @@ import uuid
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from activity_logs.services import log_activity
 from enrollments.models import Enrollment
@@ -135,7 +135,7 @@ def _get_enrollment(payment, detail):
 
 def _validate_refundable_detail(payment, detail, user):
     if payment.user != user:
-        raise ValidationError("You do not have permission to refund this payment.")
+        raise PermissionDenied("Bạn không có quyền hoàn tiền đơn hàng này.")
     if payment.payment_type != Payment.PaymentType.COURSE_PURCHASE:
         raise ValidationError("Only course purchase payments can be refunded.")
     if payment.payment_status not in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]:
@@ -293,6 +293,17 @@ def _execute_gateway_refund(detail, actor, settings_value):
             response_code=result.get("response_code"),
         )
         _apply_success_side_effects(detail)
+        try:
+            from utils.mailer.mailer import send_refund_success
+            import threading
+            u = detail.payment.user
+            threading.Thread(
+                target=send_refund_success,
+                args=(u.email, u.full_name, detail.course.title if detail.course else '', detail.refund_amount, detail.payment.id),
+                daemon=True,
+            ).start()
+        except Exception:
+            pass
     elif result["status"] == "failed":
         _mark_failed(
             detail,
@@ -305,6 +316,35 @@ def _execute_gateway_refund(detail, actor, settings_value):
         _mark_processing(detail, actor=actor, message=result["message"], settings_value=settings_value)
 
     detail.save()
+
+    if result["status"] == "success":
+        try:
+            from notifications.services import create_notification
+            course_title = detail.course.title if detail.course else f"Khóa học #{detail.course_id}"
+            create_notification(
+                receiver_id=detail.payment.user_id,
+                title="Hoàn tiền thành công",
+                message=f"Hoàn tiền cho khóa học \"{course_title}\" đã được xử lý thành công.",
+                type='payment',
+                related_id=detail.id,
+                notification_code='refund_processed',
+            )
+        except Exception:
+            pass
+    elif result["status"] == "failed" and not result.get("retryable", True):
+        try:
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=detail.payment.user_id,
+                title="Hoàn tiền thất bại",
+                message="Yêu cầu hoàn tiền của bạn không thể xử lý. Vui lòng liên hệ hỗ trợ.",
+                type='payment',
+                related_id=detail.id,
+                notification_code='refund_failed',
+            )
+        except Exception:
+            pass
+
     return result
 
 
@@ -413,6 +453,21 @@ def user_refund_request(payment_id, payment_details_ids, user, reason=None):
 
             results.append(_serialize_refund_detail(detail))
 
+    try:
+        from notifications.services import notify_admins
+        for detail in details:
+            course_title = detail.course.title if detail.course else f"Khóa học #{detail.course_id}"
+            notify_admins(
+                title="Yêu cầu hoàn tiền mới",
+                message=f"{user.full_name} yêu cầu hoàn tiền cho khóa học \"{course_title}\".",
+                type='payment',
+                notification_code='refund_requested',
+                related_id=detail.id,
+                sender_id=user.id,
+            )
+    except Exception:
+        pass
+
     return {
         "message": "Refund request processed successfully.",
         "mode": refund_mode,
@@ -468,6 +523,17 @@ def admin_refund_action(action, refund_ids, admin_actor, note=None, override_sta
                     _log_refund_activity(actor_user_id(admin_actor), "REFUND_APPROVED", detail, f"Admin approved refund {detail.id}")
                     detail.save(update_fields=["refund_timeline", "updated_at"])
                     _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
+                    try:
+                        from utils.mailer.mailer import send_refund_approved
+                        import threading
+                        u = detail.payment.user
+                        threading.Thread(
+                            target=send_refund_approved,
+                            args=(u.email, u.full_name, detail.course.title if detail.course else '', detail.refund_amount, detail.payment.id),
+                            daemon=True,
+                        ).start()
+                    except Exception:
+                        pass
                 elif action == "reject":
                     if detail.refund_status != Payment_Details.RefundStatus.PENDING:
                         raise ValidationError("Only pending refunds can be rejected.")
@@ -476,6 +542,34 @@ def admin_refund_action(action, refund_ids, admin_actor, note=None, override_sta
                     _append_timeline(detail, "admin_rejected", actor=actor, note=note)
                     detail.save()
                     _log_refund_activity(actor_user_id(admin_actor), "REFUND_REJECTED", detail, f"Admin rejected refund {detail.id}")
+                    try:
+                        from utils.mailer.mailer import send_refund_rejected
+                        import threading
+                        u = detail.payment.user
+                        threading.Thread(
+                            target=send_refund_rejected,
+                            args=(u.email, u.full_name, detail.course.title if detail.course else '', detail.refund_amount),
+                            kwargs={"note": note},
+                            daemon=True,
+                        ).start()
+                    except Exception:
+                        pass
+                    try:
+                        from notifications.services import create_notification
+                        course_title = detail.course.title if detail.course else f"Khóa học #{detail.course_id}"
+                        msg = f"Yêu cầu hoàn tiền cho khóa học \"{course_title}\" đã bị từ chối."
+                        if note:
+                            msg += f" Lý do: {note}"
+                        create_notification(
+                            receiver_id=detail.payment.user_id,
+                            title="Yêu cầu hoàn tiền bị từ chối",
+                            message=msg,
+                            type='payment',
+                            related_id=detail.id,
+                            notification_code='refund_rejected',
+                        )
+                    except Exception:
+                        pass
                 elif action == "retry":
                     _ensure_retryable(detail, settings_value)
                     if detail.payment.payment_method == Payment.PaymentMethod.MOMO and detail.refund_status == Payment_Details.RefundStatus.PROCESSING:
@@ -572,7 +666,7 @@ def user_cancel_refund_request(payment_id, payment_details_ids, user):
     with transaction.atomic():
         payment, details = _get_details_for_payment(payment_id, payment_details_ids)
         if payment.user != user:
-            raise ValidationError("You do not have permission to cancel this refund request.")
+            raise PermissionDenied("Bạn không có quyền hủy yêu cầu hoàn tiền này.")
         for detail in details:
             if detail.refund_status != Payment_Details.RefundStatus.PENDING:
                 raise ValidationError("Only pending refund requests can be cancelled.")
@@ -589,7 +683,7 @@ def user_cancel_refund_request(payment_id, payment_details_ids, user):
 def get_refund_details(payment_id, payment_details_ids, user):
     payment, details = _get_details_for_payment(payment_id, payment_details_ids, include_deleted=True)
     if payment.user != user and getattr(user, "user_type", None) != "admin":
-        raise ValidationError("You do not have permission to view this refund details.")
+        raise PermissionDenied("Bạn không có quyền xem chi tiết hoàn tiền này.")
     return [_serialize_refund_detail(detail) for detail in details]
 
 

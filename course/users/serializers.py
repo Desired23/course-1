@@ -12,6 +12,17 @@ from .preferences import (
 class Userserializers(serializers.ModelSerializer):
     enrollment_count = serializers.SerializerMethodField()
     courses_count = serializers.SerializerMethodField()
+    roles = serializers.SerializerMethodField()
+
+    def get_roles(self, obj):
+        roles = ['student']
+        admin = getattr(obj, 'admin', None)
+        if admin and not admin.is_deleted:
+            roles.append('admin')
+        instructor = getattr(obj, 'instructor', None)
+        if instructor and not instructor.is_deleted:
+            roles.append('instructor')
+        return roles
 
     def get_enrollment_count(self, obj):
         if hasattr(obj, 'enrollment_count_db'):
@@ -41,6 +52,7 @@ class Userserializers(serializers.ModelSerializer):
             'last_login',
             'status',
             'user_type',
+            'roles',
             'enrollment_count',
             'courses_count',
         ]

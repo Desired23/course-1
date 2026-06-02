@@ -51,10 +51,32 @@ def _send_email_verification(user):
         daemon=True,
     ).start()
 
+def _generate_username_from_email(email):
+    base = re.sub(r"[^a-z0-9_]", "", email.split("@")[0].lower())
+    base = base.strip("_") or "user"
+    base = base[:25]
+    if not User.objects.filter(username=base).exists():
+        return base
+    for _ in range(10):
+        suffix = secrets.token_hex(2)
+        candidate = f"{base}_{suffix}"
+        if not User.objects.filter(username=candidate).exists():
+            return candidate
+    return f"user_{secrets.token_hex(4)}"
+
+
 def create_user(data):
+    data = dict(data)
+    if 'password' in data and 'password_hash' not in data:
+        data['password_hash'] = make_password(data.pop('password'))
+    if 'username' not in data or not data['username']:
+        data['username'] = _generate_username_from_email(data.get('email', ''))
     serializer = Userserializers(data=data)
     if serializer.is_valid(raise_exception=True):
         user = serializer.save()
+        user_type = data.get('user_type', 'student')
+        if user_type in ('admin', 'instructor'):
+            _sync_role_records(user, user_type)
         return user
     raise ValidationError(serializer.errors)
 
@@ -77,15 +99,77 @@ def update_user_by_selfself(user_id, data):
         )
         return updated_user
     raise ValidationError(serializer.errors)
+def _sync_role_records(user, roles):
+    """Sync Admin/Instructor records to match the desired role set (additive multi-role).
+
+    `roles` is a list such as ['student', 'instructor', 'admin'] ('user' is treated as
+    'student'). A role present -> its record is created/restored; a role absent -> its
+    record is soft-deleted (and elevated admin flags reset). Roles are NOT mutually
+    exclusive: a user can be both admin and instructor at once.
+    """
+    from admins.models import Admin
+    from instructors.models import Instructor
+
+    role_set = {('student' if r == 'user' else r) for r in (roles or [])}
+    want_admin = 'admin' in role_set
+    want_instructor = 'instructor' in role_set
+
+    admin = getattr(user, 'admin', None)
+    if want_admin:
+        if admin is None:
+            Admin.objects.create(user=user, department='', role='none')
+        elif admin.is_deleted:
+            admin.is_deleted = False
+            admin.deleted_at = None
+            admin.deleted_by = None
+            admin.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+    elif admin and not admin.is_deleted:
+        admin.is_deleted = True
+        admin.is_super_admin = False
+        admin.permissions = []
+        admin.save(update_fields=['is_deleted', 'is_super_admin', 'permissions'])
+
+    instructor = getattr(user, 'instructor', None)
+    if want_instructor:
+        if instructor is None:
+            Instructor.objects.create(user=user)
+        elif instructor.is_deleted:
+            instructor.is_deleted = False
+            instructor.deleted_at = None
+            instructor.deleted_by = None
+            instructor.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+    elif instructor and not instructor.is_deleted:
+        instructor.is_deleted = True
+        instructor.save(update_fields=['is_deleted'])
+
+
 def update_user_by_admin(user_id, data):
     try:
-        user = User.objects.get(id=user_id)
+        user = User.objects.select_related('admin', 'instructor').get(id=user_id)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
+
+    data = dict(data)
+    # Accept an additive multi-role list ('roles'); fall back to a single 'user_type'
+    # for backward compatibility. The legacy single user_type field is set to the
+    # highest-privilege role so existing code that reads it still behaves sensibly.
+    roles = data.pop('roles', None)
+    if roles is None and 'user_type' in data:
+        roles = [data['user_type']]
+    if roles is not None:
+        role_set = {('student' if r == 'user' else r) for r in roles}
+        if 'admin' in role_set:
+            data['user_type'] = 'admin'
+        elif 'instructor' in role_set:
+            data['user_type'] = 'instructor'
+        else:
+            data['user_type'] = 'student'
 
     serializer = Userserializers(user, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_user = serializer.save()
+        if roles is not None:
+            _sync_role_records(updated_user, roles)
         return updated_user
     raise ValidationError(serializer.errors)
 
@@ -492,7 +576,7 @@ def user_reset_password(data):
         JWT_SECRET,
         algorithm=JWT_ALGORITHM
     )
-    reset_link = f"https://example.com/reset-password?token={reset_token}"
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
     try:
         send_reset_password(user.email, reset_link)
         return {"message": "Reset password email sent."}

@@ -38,10 +38,24 @@ class BlogPost(models.Model):
     allow_comments = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
 
+    report_count = models.IntegerField(default=0)
+    last_report_reason = models.CharField(max_length=500, null=True, blank=True)
+    last_reported_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         db_table = "blog_posts"
 
     def __str__(self):
         return f"BlogPost {self.title} - {self.status}"
+
+
+class BlogBookmark(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blog_bookmarks')
+    blog_post = models.ForeignKey(BlogPost, on_delete=models.CASCADE, related_name='bookmarks_set')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'blog_bookmarks'
+        unique_together = ('user', 'blog_post')
 
 

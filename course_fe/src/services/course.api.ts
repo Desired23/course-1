@@ -39,8 +39,6 @@ export interface CourseListItem {
   requirements: string | null
   learning_objectives: string[]
   target_audience: string[]
-  skills_taught: string[]
-  prerequisites: string[]
   tags: string[]
   promotional_video: string | null
   duration_hours?: number | null
@@ -159,8 +157,6 @@ export interface CourseDetail {
   requirements: string | null
   learning_objectives: string[]
   target_audience: string[]
-  skills_taught: string[]
-  prerequisites: string[]
   tags: string[]
   promotional_video: string | null
   duration_hours?: number | null
@@ -313,6 +309,50 @@ export async function updateCourse(
   data: CourseUpdateData
 ): Promise<CourseListItem> {
   return http.patch<CourseListItem>(`/courses/${courseId}/update`, data)
+}
+
+
+export interface AIMetadataFields {
+  level?: string
+  target_audience?: string[]
+  learning_objectives?: string[]
+  tags?: string[]
+}
+
+export interface BulkAIMetadataResult {
+  updated_ids: number[]
+  updated_count: number
+  errors: { id: number; error: string }[]
+  not_found_ids: number[]
+}
+
+// Apply the same AI-metadata fields to several courses at once. There is no
+// dedicated bulk endpoint, so this fans out per-course PATCH calls and reports
+// which succeeded.
+export async function bulkUpdateAIMetadata(
+  courseIds: number[],
+  fields: AIMetadataFields
+): Promise<BulkAIMetadataResult> {
+  const updated_ids: number[] = []
+  const errors: { id: number; error: string }[] = []
+
+  await Promise.all(
+    courseIds.map(async (id) => {
+      try {
+        await updateCourse(id, fields as CourseUpdateData)
+        updated_ids.push(id)
+      } catch (err: any) {
+        errors.push({ id, error: err?.message || 'update failed' })
+      }
+    })
+  )
+
+  return {
+    updated_ids,
+    updated_count: updated_ids.length,
+    errors,
+    not_found_ids: [],
+  }
 }
 
 

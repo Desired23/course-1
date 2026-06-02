@@ -358,7 +358,7 @@ export function InstructorCommunicationPage() {
     }
 
     try {
-      setAnnouncementUpdating(true)
+      setAnnouncementSubmitting(true)
       const created = await createInstructorAnnouncement({
         type: announcementData.type as 'educational' | 'promotional',
         title: announcementData.title.trim(),
@@ -373,6 +373,7 @@ export function InstructorCommunicationPage() {
           limit: prev[created.type].limit,
         },
       }))
+      toast.success(t('instructor_communication_page.announcement_sent'))
       setShowAnnouncementDialog(false)
       setAnnouncementData({
         type: 'educational',
@@ -380,10 +381,8 @@ export function InstructorCommunicationPage() {
         content: '',
         targetCourse: 'all'
       })
-      return
     } catch (err: any) {
       toast.error(err?.message || t('instructor_communication_page.send_announcement_failed'))
-      return
     } finally {
       setAnnouncementSubmitting(false)
     }
@@ -605,7 +604,7 @@ export function InstructorCommunicationPage() {
                             </div>
                           </div>
 
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="hidden">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </div>
@@ -659,7 +658,7 @@ export function InstructorCommunicationPage() {
 
                       <div className="p-4 border-t">
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="hidden">
                             <Paperclip className="w-4 h-4" />
                           </Button>
                           <Input

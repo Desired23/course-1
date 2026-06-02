@@ -9,16 +9,12 @@ import { Switch } from '../../components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Separator } from '../../components/ui/separator'
-import { Badge } from '../../components/ui/badge'
-import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { Settings, DollarSign, Shield, Mail, Bell, Database, Users, CreditCard, FileText, Globe, Save, Plus, Edit, Trash2 } from 'lucide-react'
+import { Settings, DollarSign, Shield, Mail, Bell, Database, Users, CreditCard, FileText, Globe, Save, ExternalLink } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getSystemSettings, createSystemSetting, updateSystemSetting } from '../../services/admin.api'
-import type { SystemSetting } from '../../services/admin.api'
 import { useTranslation } from 'react-i18next'
+import { useRouter } from '../../components/Router'
 
 
 interface PlatformSettings {
@@ -76,14 +72,6 @@ interface PlatformSettings {
   }
 }
 
-interface PaymentMethod {
-  id: string
-  name: string
-  type: 'card' | 'bank' | 'wallet'
-  enabled: boolean
-  fees: number
-  processingTime: string
-}
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -112,13 +100,7 @@ const fadeInUp = {
 export function PlatformSettingsPage() {
   const { canAccess } = useAuth()
   const { t } = useTranslation()
-  const defaultPaymentMethods: PaymentMethod[] = [
-    { id: '1', name: 'Stripe', type: 'card', enabled: true, fees: 2.9, processingTime: t('platform_settings.financial.processing_times.instant') },
-    { id: '2', name: 'PayPal', type: 'wallet', enabled: true, fees: 3.5, processingTime: t('platform_settings.financial.processing_times.instant') },
-    { id: '3', name: t('platform_settings.financial.method_names.bank_transfer'), type: 'bank', enabled: false, fees: 1.0, processingTime: t('platform_settings.financial.processing_times.three_to_five_days') },
-    { id: '4', name: 'Apple Pay', type: 'wallet', enabled: true, fees: 2.9, processingTime: t('platform_settings.financial.processing_times.instant') },
-    { id: '5', name: 'Google Pay', type: 'wallet', enabled: true, fees: 2.9, processingTime: t('platform_settings.financial.processing_times.instant') }
-  ]
+  const { navigate } = useRouter()
   const [platformSettingId, setPlatformSettingId] = useState<number | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const defaultSettings: PlatformSettings = {
@@ -131,26 +113,6 @@ export function PlatformSettingsPage() {
   }
   const [settings, setSettings] = useState<PlatformSettings>(defaultSettings)
   const [activeTab, setActiveTab] = useState('general')
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null)
-  const [confirmState, setConfirmState] = useState<{
-    open: boolean
-    title: string
-    description: string
-    confirmLabel: string
-    destructive: boolean
-    loading: boolean
-    action: null | (() => Promise<void> | void)
-  }>({
-    open: false,
-    title: '',
-    description: '',
-    confirmLabel: '',
-    destructive: false,
-    loading: false,
-    action: null,
-  })
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(defaultPaymentMethods)
 
   useEffect(() => {
     const load = async () => {
@@ -194,74 +156,6 @@ export function PlatformSettingsPage() {
     } finally {
       setIsSaving(false)
     }
-  }
-
-  const openConfirm = (
-    title: string,
-    description: string,
-    confirmLabel: string,
-    action: () => Promise<void> | void,
-    destructive = false
-  ) => {
-    setConfirmState({
-      open: true,
-      title,
-      description,
-      confirmLabel,
-      destructive,
-      loading: false,
-      action,
-    })
-  }
-
-  const runConfirmedAction = async () => {
-    if (!confirmState.action) return
-    try {
-      setConfirmState((prev) => ({ ...prev, loading: true }))
-      await confirmState.action()
-      setConfirmState({
-        open: false,
-        title: '',
-        description: '',
-        confirmLabel: '',
-        destructive: false,
-        loading: false,
-        action: null,
-      })
-    } catch {
-      setConfirmState((prev) => ({ ...prev, loading: false }))
-    }
-  }
-
-  const resetPaymentMethodForm = () => {
-    setSelectedPaymentMethod({
-      id: '',
-      name: '',
-      type: 'card',
-      enabled: true,
-      fees: 0,
-      processingTime: '',
-    })
-    setIsPaymentDialogOpen(true)
-  }
-
-  const handleSavePaymentMethod = () => {
-    if (!selectedPaymentMethod) return
-    if (!selectedPaymentMethod.name.trim()) {
-      toast.error(t('platform_settings.financial.toasts.name_required'))
-      return
-    }
-
-    if (selectedPaymentMethod.id) {
-      setPaymentMethods((prev) => prev.map((method) => method.id === selectedPaymentMethod.id ? selectedPaymentMethod : method))
-      toast.success(t('platform_settings.financial.toasts.update_method_success'))
-    } else {
-      setPaymentMethods((prev) => [...prev, { ...selectedPaymentMethod, id: Date.now().toString() }])
-      toast.success(t('platform_settings.financial.toasts.add_method_success'))
-    }
-
-    setIsPaymentDialogOpen(false)
-    setSelectedPaymentMethod(null)
   }
 
   const updateSettings = (section: keyof PlatformSettings, field: string, value: any) => {
@@ -507,139 +401,16 @@ export function PlatformSettingsPage() {
 
               <Separator />
 
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">{t('platform_settings.financial.payment_methods')}</h3>
-                    <p className="text-sm text-muted-foreground">{t('platform_settings.financial.payment_methods_description')}</p>
-                  </div>
-                  <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" onClick={resetPaymentMethodForm}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('platform_settings.financial.add_method')}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>{t('platform_settings.financial.add_method')}</DialogTitle>
-                        <DialogDescription>{t('platform_settings.financial.add_method_description')}</DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label>{t('platform_settings.financial.form.name')}</Label>
-                          <Input
-                            value={selectedPaymentMethod?.name || ''}
-                            onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', type: 'card', enabled: true, fees: 0, processingTime: '' }), name: e.target.value }))}
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label>{t('platform_settings.financial.form.type')}</Label>
-                            <Select
-                              value={selectedPaymentMethod?.type || 'card'}
-                              onValueChange={(value: 'card' | 'bank' | 'wallet') => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', enabled: true, fees: 0, processingTime: '' }), type: value }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="card">{t('platform_settings.financial.method_types.card')}</SelectItem>
-                                <SelectItem value="bank">{t('platform_settings.financial.method_types.bank')}</SelectItem>
-                                <SelectItem value="wallet">{t('platform_settings.financial.method_types.wallet')}</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label>{t('platform_settings.financial.form.fees')}</Label>
-                            <Input
-                              type="number"
-                              value={selectedPaymentMethod?.fees ?? 0}
-                              onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', enabled: true, processingTime: '' }), fees: Number(e.target.value) || 0 }))}
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label>{t('platform_settings.financial.form.processing_time')}</Label>
-                          <Input
-                            value={selectedPaymentMethod?.processingTime || ''}
-                            onChange={(e) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', enabled: true, fees: 0 }), processingTime: e.target.value }))}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between rounded border p-3">
-                          <Label>{t('platform_settings.common.enabled')}</Label>
-                          <Switch
-                            checked={selectedPaymentMethod?.enabled ?? true}
-                            onCheckedChange={(checked) => setSelectedPaymentMethod((prev) => ({ ...(prev || { id: '', name: '', type: 'card', fees: 0, processingTime: '' }), enabled: checked }))}
-                          />
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => setIsPaymentDialogOpen(false)}>{t('common.cancel')}</Button>
-                          <Button onClick={handleSavePaymentMethod}>{t('platform_settings.financial.form.save_method')}</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">{t('platform_settings.financial.payment_methods')}</h3>
+                  <p className="text-sm text-muted-foreground">{t('platform_settings.financial.payment_methods_description')}</p>
                 </div>
-
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('platform_settings.financial.table.method')}</TableHead>
-                      <TableHead>{t('platform_settings.financial.table.type')}</TableHead>
-                      <TableHead>{t('platform_settings.financial.table.fees')}</TableHead>
-                      <TableHead>{t('platform_settings.financial.table.processing_time')}</TableHead>
-                      <TableHead>{t('platform_settings.financial.table.status')}</TableHead>
-                      <TableHead>{t('platform_settings.financial.table.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paymentMethods.map((method) => (
-                      <TableRow key={method.id}>
-                        <TableCell className="font-medium">{method.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {method.type === 'card' && <CreditCard className="h-3 w-3 mr-1" />}
-                            {t(`platform_settings.financial.method_types.${method.type}`)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{method.fees}%</TableCell>
-                        <TableCell>{method.processingTime}</TableCell>
-                        <TableCell>
-                          <Badge variant={method.enabled ? 'default' : 'secondary'}>
-                            {method.enabled ? t('platform_settings.common.enabled') : t('platform_settings.common.disabled')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" onClick={() => {
-                              setSelectedPaymentMethod(method)
-                              setIsPaymentDialogOpen(true)
-                            }}>
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openConfirm(
-                                t('platform_settings.financial.delete_method_title'),
-                                t('platform_settings.financial.delete_method_description', { name: method.name }),
-                                t('common.delete'),
-                                () => {
-                                  setPaymentMethods((prev) => prev.filter((item) => item.id !== method.id))
-                                  toast.success(t('platform_settings.financial.toasts.delete_method_success'))
-                                },
-                                true,
-                              )}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <Button size="sm" variant="outline" onClick={() => navigate('/admin/payments/methods')}>
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  {t('platform_settings.financial.payment_methods')}
+                  <ExternalLink className="h-3 w-3 ml-2" />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -942,16 +713,6 @@ export function PlatformSettingsPage() {
       </Tabs>
       </motion.div>
       </motion.div>
-      <AdminConfirmDialog
-        open={confirmState.open}
-        title={confirmState.title}
-        description={confirmState.description}
-        confirmLabel={confirmState.confirmLabel}
-        destructive={confirmState.destructive}
-        loading={confirmState.loading}
-        onOpenChange={(open) => setConfirmState((prev) => ({ ...prev, open }))}
-        onConfirm={runConfirmedAction}
-      />
     </motion.div>
   )
 }

@@ -43,7 +43,7 @@ export function EditUserPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    status: "active" as "active" | "banned" | "pending",
+    status: "active" as "active" | "banned",
     roles: [] as string[],
   })
 
@@ -53,21 +53,17 @@ export function EditUserPage() {
         const numId = Number(userId)
         if (!numId) return
         const user = await getUserById(numId)
-        const userType = (user.user_type || "").toLowerCase()
-        const roles: string[] = []
-        if (userType === "admin") roles.push("admin")
-        else if (userType === "instructor") roles.push("instructor")
-        else roles.push("user")
+        // Multi-role: backend exposes the user's active roles. Map the backend
+        // "student" role to the "user" checkbox id used by this form.
+        const backendRoles = user.roles && user.roles.length > 0
+          ? user.roles
+          : [user.user_type || "student"]
+        const roles = backendRoles.map((r) => (r === "student" ? "user" : r))
 
         setFormData({
           name: user.full_name || user.username,
           email: user.email,
-          status:
-            user.status === "banned"
-              ? "banned"
-              : user.status === "inactive"
-                ? "pending"
-                : "active",
+          status: user.status === "banned" ? "banned" : "active",
           roles,
         })
       } catch {
@@ -96,7 +92,7 @@ export function EditUserPage() {
     },
   ]
 
-  const getStatusLabel = (status: "active" | "banned" | "pending") => {
+  const getStatusLabel = (status: "active" | "banned") => {
     return t(`admin_user_form.status.${status}`)
   }
 
@@ -130,12 +126,10 @@ export function EditUserPage() {
       await adminUpdateUser(Number(userId), {
         full_name: formData.name,
         email: formData.email,
-        status: formData.status === "pending" ? "inactive" : formData.status,
-        user_type: formData.roles.includes("admin")
-          ? "admin"
-          : formData.roles.includes("instructor")
-            ? "instructor"
-            : "student",
+        status: formData.status,
+        // Multi-role: send the full role set (additive). Map the "user" checkbox
+        // back to the backend "student" role.
+        roles: formData.roles.map((r) => (r === "user" ? "student" : r)),
       })
       toast.success(t("admin_user_form.toasts.update_success"))
       navigate("/admin/users")
@@ -260,13 +254,6 @@ export function EditUserPage() {
                 onClick={() => setFormData((prev) => ({ ...prev, status: "banned" }))}
               >
                 {t("admin_user_form.status.banned")}
-              </Button>
-              <Button
-                type="button"
-                variant={formData.status === "pending" ? "secondary" : "outline"}
-                onClick={() => setFormData((prev) => ({ ...prev, status: "pending" }))}
-              >
-                {t("admin_user_form.status.pending")}
               </Button>
             </div>
           </div>

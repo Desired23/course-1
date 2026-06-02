@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_date
 from utils.list_params import get_int_param, get_search_param, get_sort_param
 from utils.pagination import paginate_queryset
 from utils.permissions import RolePermissionFactory
+from utils.roles import is_active_admin, is_active_instructor
 from utils.export_helpers import export_to_csv, export_to_excel
 from .serializers import InstructorEarningSerializer, SubscriptionRevenueBreakdownSerializer
 from .services import (
@@ -42,12 +43,12 @@ class InstructorEarningsView(APIView):
         try:
             requested_instructor_id = get_int_param(request, 'instructor_id')
             user = request.user
-            admin = getattr(user, 'admin', None)
+            admin = is_active_admin(user)
             user_instructor = getattr(user, 'instructor', None)
 
             scoped_instructor_id = instructor_id_raw
             if not admin:
-                if not user_instructor:
+                if not is_active_instructor(user):
                     return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
                 scoped_instructor_id = str(user_instructor.id)
                 if requested_instructor_id is not None and requested_instructor_id != user_instructor.id:
@@ -141,7 +142,7 @@ class InstructorEarningsSummaryView(APIView):
 
     def get(self, request):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         user_instructor = getattr(user, 'instructor', None)
 
         try:
@@ -157,7 +158,7 @@ class InstructorEarningsSummaryView(APIView):
                 )
             instructor_id = requested_instructor_id
         else:
-            if not user_instructor:
+            if not is_active_instructor(user):
                 return Response(
                     {"error": "Instructor profile not found."},
                     status=status.HTTP_403_FORBIDDEN,
@@ -187,7 +188,7 @@ class InstructorSubscriptionRevenueBreakdownView(APIView):
 
     def get(self, request):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         user_instructor = getattr(user, 'instructor', None)
         search = get_search_param(request)
         sort_by = get_sort_param(
@@ -209,7 +210,7 @@ class InstructorSubscriptionRevenueBreakdownView(APIView):
                 )
             instructor_id = requested_instructor_id
         else:
-            if not user_instructor:
+            if not is_active_instructor(user):
                 return Response(
                     {"error": "Instructor profile not found."},
                     status=status.HTTP_403_FORBIDDEN,
@@ -245,14 +246,14 @@ class InstructorEarningsMonthlyView(APIView):
         try:
             months = max(1, min(int(request.query_params.get('months', 12)), 36))
             user = request.user
-            admin = getattr(user, 'admin', None)
+            admin = is_active_admin(user)
             user_instructor = getattr(user, 'instructor', None)
             if admin:
                 instructor_id = get_int_param(request, 'instructor_id')
                 if not instructor_id:
                     return Response({'error': 'instructor_id is required for admin.'}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                if not user_instructor:
+                if not is_active_instructor(user):
                     return Response({'error': 'Instructor profile not found.'}, status=status.HTTP_403_FORBIDDEN)
                 instructor_id = user_instructor.id
             return Response(get_instructor_earnings_by_month(instructor_id, months))
@@ -272,7 +273,7 @@ class InstructorEarningsExportView(APIView):
             return Response({'error': 'format must be csv or excel.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         user_instructor = getattr(user, 'instructor', None)
         try:
             if admin:
@@ -280,7 +281,7 @@ class InstructorEarningsExportView(APIView):
                 if not instructor_id:
                     return Response({'error': 'instructor_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                if not user_instructor:
+                if not is_active_instructor(user):
                     return Response({'error': 'Instructor profile not found.'}, status=status.HTTP_403_FORBIDDEN)
                 instructor_id = user_instructor.id
         except ValueError:

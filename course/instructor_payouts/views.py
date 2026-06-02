@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from utils.permissions import RolePermissionFactory
+from utils.roles import is_active_admin, is_active_instructor
 from instructor_payouts.services import (
     admin_update_instructor_payout,
     get_payouts_for_instructor,
@@ -47,7 +48,8 @@ class InstructorPayoutView(APIView):
     def get(self, request):
         user = request.user
         instructor = getattr(user, "instructor", None)
-        admin = getattr(user, "admin", None)
+        is_instructor = is_active_instructor(user)
+        admin = is_active_admin(user)
 
         status_payout = request.query_params.get("status")
         period = request.query_params.get("period")
@@ -76,7 +78,7 @@ class InstructorPayoutView(APIView):
                 )
                 return paginate_queryset(payouts, request, InstructorPayoutSerializer)
 
-            elif instructor:
+            elif is_instructor:
                 payouts = get_payouts_for_instructor(
                     instructor_id=instructor.id,
                     status=status_payout,
@@ -91,8 +93,8 @@ class InstructorPayoutView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, payout_id):
-        admin = request.user.admin
-        if not admin:
+        admin = getattr(request.user, 'admin', None)
+        if not is_active_admin(request.user):
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
         if not payout_id:
             return Response({"detail": "Payout ID is required."}, status=status.HTTP_400_BAD_REQUEST)
@@ -114,7 +116,7 @@ class InstructorPayoutRequestView(APIView):
 
     def post(self, request):
         instructor = getattr(request.user, 'instructor', None)
-        if not instructor:
+        if not is_active_instructor(request.user):
             return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         amount = request.data.get('amount')
@@ -144,7 +146,7 @@ class AdminPayoutApproveView(APIView):
 
     def put(self, request, payout_id):
         admin = getattr(request.user, 'admin', None)
-        if not admin:
+        if not is_active_admin(request.user):
             return Response({"error": "Admin profile not found."}, status=status.HTTP_403_FORBIDDEN)
         try:
             result = admin_approve_payout(
@@ -169,7 +171,7 @@ class AdminPayoutRejectView(APIView):
 
     def put(self, request, payout_id):
         admin = getattr(request.user, 'admin', None)
-        if not admin:
+        if not is_active_admin(request.user):
             return Response({"error": "Admin profile not found."}, status=status.HTTP_403_FORBIDDEN)
         try:
             result = admin_reject_payout(

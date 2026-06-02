@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useRouter } from './Router'
 import { useAuth } from '../contexts/AuthContext'
+import { useAuthStore } from '../stores/auth.store'
 import { useCart } from '../contexts/CartContext'
 import { useOwnedCourses } from '../hooks/useOwnedCourses'
 import { useModal } from '../stores/modal.store'
@@ -553,7 +554,7 @@ export function AiLearningPathDialog({
       return
     }
 
-    if (!isAuthenticated) {
+    if (!useAuthStore.getState().user) {
       openLogin({
         onSuccess: () => {
           void handleSave()
@@ -603,7 +604,7 @@ export function AiLearningPathDialog({
       toast.success(tr('ai_learning_path.toast_path_already_saved', 'Lộ trình đã được lưu.'))
       return
     }
-    if (!isAuthenticated) {
+    if (!useAuthStore.getState().user) {
       openLogin({ onSuccess: () => void handleSaveSnapshot(messageIndex, snapshot) })
       return
     }

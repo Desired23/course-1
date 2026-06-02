@@ -41,7 +41,6 @@ import {
   SUPPORTED_LANGUAGES,
   runTestCases,
   calculateScore,
-  getStarterCode,
   getLanguageById,
   wrapUserCode,
   shouldWrapUserCode,
@@ -101,7 +100,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     savedAnswer?.language || question.allowedLanguages?.[0] || 63
   )
   const [code, setCode] = useState<string>(
-    savedAnswer?.code || resolveStarterCode(question.starterCode, selectedLanguage) || getStarterCode(getLanguageById(selectedLanguage)?.value || 'javascript')
+    savedAnswer?.code || resolveStarterCode(question.starterCode, selectedLanguage) || ''
   )
   const [isRunning, setIsRunning] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(savedAnswer?.isSubmitted || false)
@@ -145,8 +144,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
 
   useEffect(() => {
     const defaultLang = question.allowedLanguages?.[0] || 63
-    const lang = getLanguageById(defaultLang)
-    const defaultCode = resolveStarterCode(question.starterCode, defaultLang) || getStarterCode(lang?.value || 'javascript')
+    const defaultCode = resolveStarterCode(question.starterCode, defaultLang) || ''
 
     setSelectedLanguage(defaultLang)
     setCode(defaultCode)
@@ -199,8 +197,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
   useEffect(() => {
     const resolved = resolveStarterCode(question.starterCode, selectedLanguage)
     if (!code || code === resolved) {
-      const lang = getLanguageById(selectedLanguage)
-      setCode(resolved || getStarterCode(lang?.value || 'javascript'))
+      setCode(resolved || '')
     }
   }, [selectedLanguage])
 
@@ -253,8 +250,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     const newLang = parseInt(languageId)
     if (confirm(t('code_quiz_player.confirm_change_language'))) {
       setSelectedLanguage(newLang)
-      const lang = getLanguageById(newLang)
-      setCode(question.starterCode || getStarterCode(lang?.value || 'javascript'))
+      setCode(question.starterCode || '')
     }
   }
 
@@ -344,8 +340,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
 
   const handleReset = () => {
     if (confirm(t('code_quiz_player.reset_confirm'))) {
-      const lang = getLanguageById(selectedLanguage)
-      setCode(question.starterCode || getStarterCode(lang?.value || 'javascript'))
+      setCode(question.starterCode || '')
       setTestResults([])
       setIsSubmitted(false)
     }

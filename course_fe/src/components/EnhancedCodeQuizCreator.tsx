@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
@@ -135,6 +135,13 @@ interface EnhancedCodeQuizCreatorProps {
   onChange?: (data: EnhancedCodeQuizData) => void
   onCancel?: () => void
 }
+
+export interface EnhancedCodeQuizCreatorHandle {
+  goNext: () => boolean
+  goPrev: () => boolean
+}
+
+const SUB_TAB_ORDER = ['overview', 'problem', 'examples', 'testcases', 'hints', 'solution', 'settings']
 
 function createDefaultEnhancedCodeQuizData(): EnhancedCodeQuizData {
   return {
@@ -314,10 +321,31 @@ function DraggableTestCase({
 
 
 
-export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCancel }: EnhancedCodeQuizCreatorProps) {
+export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle, EnhancedCodeQuizCreatorProps>(
+  function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCancel }, ref) {
   const { t } = useTranslation()
   const RUN_ACTION_DEBOUNCE_MS = 1000
   const [formData, setFormData] = useState<EnhancedCodeQuizData>(initialData || createDefaultEnhancedCodeQuizData())
+  const [activeTab, setActiveTab] = useState('overview')
+
+  useImperativeHandle(ref, () => ({
+    goNext: () => {
+      const idx = SUB_TAB_ORDER.indexOf(activeTab)
+      if (idx < SUB_TAB_ORDER.length - 1) {
+        setActiveTab(SUB_TAB_ORDER[idx + 1])
+        return true
+      }
+      return false
+    },
+    goPrev: () => {
+      const idx = SUB_TAB_ORDER.indexOf(activeTab)
+      if (idx > 0) {
+        setActiveTab(SUB_TAB_ORDER[idx - 1])
+        return true
+      }
+      return false
+    },
+  }), [activeTab])
 
   const [currentTag, setCurrentTag] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -722,7 +750,7 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
           </Alert>
         )}
 
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid grid-cols-7 w-full p-1 bg-muted/50 h-auto">
             <TabsTrigger
               value="overview"
@@ -1629,4 +1657,4 @@ export function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCance
       </div>
     </DndProvider>
   )
-}
+})

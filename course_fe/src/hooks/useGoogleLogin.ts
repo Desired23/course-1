@@ -89,12 +89,20 @@ export function useGoogleLogin({ onSuccess, onError, autoLoad = false, disabled 
     if ((window as any).google) {
       ;(window as any).google.accounts.id.prompt((notification: any) => {
         if (!notification) return
-        if (
-          notification.isNotDisplayed?.() ||
-          notification.isSkippedMoment?.() ||
-          notification.isDismissedMoment?.()
-        ) {
-
+        // Surface the real reason instead of silently swallowing it — the most
+        // common cause is the current origin not being registered as an
+        // "Authorized JavaScript origin" for the OAuth client in Google Cloud.
+        if (notification.isNotDisplayed?.()) {
+          const reason = notification.getNotDisplayedReason?.() || 'unknown'
+          const err = new Error(`Google Sign-In not displayed (${reason}).`)
+          console.error('Google One Tap not displayed:', reason)
+          setError(err.message)
+          onError?.(err)
+        } else if (notification.isSkippedMoment?.()) {
+          const reason = notification.getSkippedReason?.() || 'unknown'
+          console.warn('Google One Tap skipped:', reason)
+        } else if (notification.isDismissedMoment?.()) {
+          // User dismissed the prompt — not an error.
           setError(null)
         }
       })

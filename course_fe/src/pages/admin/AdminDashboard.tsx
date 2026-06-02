@@ -24,7 +24,6 @@ import {
   MoreVertical,
   Eye,
   Edit,
-  Trash2,
   Filter,
   Plus,
   BarChart3
@@ -396,17 +395,13 @@ export function AdminDashboard() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => navigate(`/admin/users/${user.id}`)}>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/users/${user.id}/edit`)}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.view_profile')}
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => navigate(`/admin/users/${user.id}/edit`)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.edit_user')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate('/admin/users')}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                {t('admin_dashboard.open_delete_flow')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -507,10 +502,6 @@ export function AdminDashboard() {
                               <DropdownMenuItem onClick={() => navigate(`/admin/courses/${course.id}`)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 {t('admin_dashboard.edit_course')}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => navigate('/admin/courses')}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                {t('admin_dashboard.open_delete_flow')}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

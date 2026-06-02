@@ -103,59 +103,77 @@ def create_enrollment(data):
                 entity_id=enrollment.id,
                 description=f"Đăng ký khóa học: {course.title}"
             )
+            try:
+                from utils.mailer.mailer import send_enrollment_confirmation
+                import threading
+                instructor_name = course.instructor.user.full_name if course.instructor and course.instructor.user else None
+                threading.Thread(
+                    target=send_enrollment_confirmation,
+                    args=(enrollment.user.email, enrollment.user.full_name, course.title),
+                    kwargs={"instructor_name": instructor_name},
+                    daemon=True,
+                ).start()
+            except Exception:
+                pass
+            try:
+                from notifications.services import create_notification
+                if dataCopy.get('source') != Enrollment.Source.PURCHASE:
+                    create_notification(
+                        receiver_id=enrollment.user.id,
+                        title="Đăng ký khóa học thành công",
+                        message=f"Bạn đã được ghi danh vào khóa học \"{course.title}\".",
+                        type='course',
+                        related_id=enrollment.course_id,
+                        notification_code='enrollment_created',
+                    )
+                if course.instructor_id and course.instructor.user_id:
+                    create_notification(
+                        receiver_id=course.instructor.user_id,
+                        title="Học viên mới đăng ký",
+                        message=f"Một học viên mới vừa đăng ký khóa học \"{course.title}\".",
+                        type='course',
+                        related_id=enrollment.id,
+                        notification_code='new_enrollment_received',
+                    )
+            except Exception:
+                pass
             return EnrollmentCreateSerializer(enrollment).data
         raise ValidationError(serializer.errors)
     except ValidationError:
-
         raise
-    except Exception as e:
 
-        raise ValidationError({"error": f"Lỗi khi tạo enrollment: {str(e)}"})
 def get_enrollment_by_user(user_id):
     logger = logging.getLogger(__name__)
     logger.info(f"service.get_enrollment_by_user called for user_id={user_id}")
-    try:
-        enrollments = Enrollment.objects.select_related(
-            'course__instructor__user', 'course__category'
-        ).filter(user=user_id, is_deleted=False)
-        return enrollments
-    except Exception as e:
-        logger.error(f"error in get_enrollment_by_user: {e}")
-        raise ValidationError({"error": str(e)})
+    return Enrollment.objects.select_related(
+        'course__instructor__user', 'course__category'
+    ).filter(user=user_id, is_deleted=False)
+
 def find_enrollment_by_id(enrollment_id):
     try:
         enrollment = Enrollment.objects.get(id=enrollment_id)
-        serializer = EnrollmentSerializer(enrollment)
-        return serializer.data
+        return EnrollmentSerializer(enrollment).data
     except Enrollment.DoesNotExist:
-        raise ValidationError({"error": "Enrollment not found."})
-    except Exception as e:
-        raise ValidationError({"error": str(e)})
+        from rest_framework.exceptions import NotFound
+        raise NotFound("Enrollment not found.")
+
 def find_by_user_and_course(user_id, course_id):
     try:
         enrollment = Enrollment.objects.get(user_id=user_id, course_id=course_id)
-        serializer = EnrollmentSerializer(enrollment)
-        return serializer.data
+        return EnrollmentSerializer(enrollment).data
     except Enrollment.DoesNotExist:
-        raise ValidationError({"error": "Enrollment not found."})
-    except Exception as e:
-        raise ValidationError({"error": str(e)})
+        from rest_framework.exceptions import NotFound
+        raise NotFound("Enrollment not found.")
+
 def count_enrollments_by_course(course_id):
-    try:
-        count = Enrollment.objects.filter(course=course_id).count()
-        return count
-    except Exception as e:
-        raise ValidationError({"error": str(e)})
+    return Enrollment.objects.filter(course=course_id).count()
+
 def has_access(user_id, course_id):
     try:
         enrollment = Enrollment.objects.get(user=user_id, course=course_id)
-        if enrollment.status in [Enrollment.Status.Active, Enrollment.Status.Complete]:
-            return True
-        return False
+        return enrollment.status in [Enrollment.Status.Active, Enrollment.Status.Complete]
     except Enrollment.DoesNotExist:
-        raise ValidationError({"error": "Enrollment not found."})
-    except Exception as e:
-        raise ValidationError({"error": str(e)})
+        return False
 
 
 

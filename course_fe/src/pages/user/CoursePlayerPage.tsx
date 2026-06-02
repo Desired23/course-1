@@ -34,6 +34,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { toast } from "sonner"
+import { getErrorMessage } from "../../lib/apiError"
 import { CommentItem } from "../../components/CommentItem"
 import { getCourseById, type CourseDetail, type ModuleSummary, formatDuration } from "../../services/course.api"
 import { getCourseProgress, updateLessonProgress, type CourseProgress, type LessonProgress } from "../../services/enrollment.api"
@@ -47,6 +48,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { getLessonTranscript, type LessonTranscriptDTO } from "../../services/transcript.api"
 import {
   formatFileSize,
+  downloadAttachmentFile,
   getAttachmentsByLesson,
   resolveAttachmentUrl,
   type LessonAttachment,
@@ -472,9 +474,12 @@ export function CoursePlayerPage() {
           const progressData = await getCourseProgress(courseId)
           if (cancelled) return
           setCourseProgress(progressData)
-        } catch {}
+        } catch (e) {
+          // progress load failure is non-critical — course still usable
+          console.error('getCourseProgress failed:', e)
+        }
       } catch (err: any) {
-        if (!cancelled) setError(err.message || t('course_player.load_failed'))
+        if (!cancelled) setError(getErrorMessage(err, t('course_player.load_failed')))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -785,27 +790,51 @@ export function CoursePlayerPage() {
     }
   }
 
-  const handleDownloadResource = (resource: LessonAttachment) => {
-    const resolvedUrl = resolveAttachmentUrl(resource.file_path)
-    if (!resolvedUrl) {
-      toast.error(t('course_player.resource_download_unavailable'))
+  const handleDownloadResource = async (resource: LessonAttachment) => {
+    const isExternalUrl = /^https?:\/\//i.test(resource.file_path) || resource.file_path.startsWith('//')
+    if (isExternalUrl) {
+      const resolvedUrl = resolveAttachmentUrl(resource.file_path)
+      if (!resolvedUrl) {
+        toast.error(t('course_player.resource_download_unavailable'))
+        return
+      }
+
+      const anchor = document.createElement('a')
+      anchor.href = resolvedUrl
+      anchor.target = '_blank'
+      anchor.rel = 'noopener noreferrer'
+      anchor.download = resource.title || `attachment-${resource.id}`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+
+      toast.success(
+        t('course_player.downloading_resource', {
+          resourceName: resource.title || t('course_player.resource_file_fallback'),
+        })
+      )
       return
     }
 
-    const anchor = document.createElement('a')
-    anchor.href = resolvedUrl
-    anchor.target = '_blank'
-    anchor.rel = 'noopener noreferrer'
-    anchor.download = resource.title || `attachment-${resource.id}`
-    document.body.appendChild(anchor)
-    anchor.click()
-    document.body.removeChild(anchor)
+    try {
+      const { blob, fileName } = await downloadAttachmentFile(resource)
+      const objectUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = fileName
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(objectUrl)
 
-    toast.success(
-      t('course_player.downloading_resource', {
-        resourceName: resource.title || t('course_player.resource_file_fallback'),
-      })
-    )
+      toast.success(
+        t('course_player.downloading_resource', {
+          resourceName: resource.title || t('course_player.resource_file_fallback'),
+        })
+      )
+    } catch {
+      toast.error(t('course_player.resource_download_unavailable'))
+    }
   }
 
   const getSavedProgressForLesson = (lessonId: number): number => {
@@ -844,7 +873,7 @@ export function CoursePlayerPage() {
       return
     }
     const next = findNextLesson(curriculum, currentLessonId)
-    if (next && isLessonUnlocked(next.id)) { handleLessonChange(next.id); toast.success(`Playing: ${next.title}`) }
+    if (next && isLessonUnlocked(next.id)) { handleLessonChange(next.id); toast.success(t('course_player.playing_lesson', { title: next.title })) }
     else toast.info(t('course_player.end_of_course'))
   }
 
@@ -865,7 +894,7 @@ export function CoursePlayerPage() {
       await updateLessonProgress({ lesson_id: lessonId, progress_percentage: 100, is_completed: true })
       try { const updated = await getCourseProgress(courseId); setCourseProgress(updated) } catch {}
     } catch (err) {
-      console.error('Failed to update lesson progress:', err)
+      toast.error(getErrorMessage(err, t('course_player.load_failed')))
       setLocallyCompletedLessons(prev => {
         const next = { ...prev }
         delete next[lessonId]
@@ -911,7 +940,9 @@ export function CoursePlayerPage() {
           last_position: Math.floor(payload.maxWatchedTime),
           is_completed: normalized >= LESSON_COMPLETION_THRESHOLD_PERCENT,
         })
-      } catch {}
+      } catch (e) {
+        console.error('Background progress sync failed:', e)
+      }
     }
 
     if (normalized >= LESSON_COMPLETION_THRESHOLD_PERCENT) {

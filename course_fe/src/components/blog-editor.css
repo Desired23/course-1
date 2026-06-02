@@ -100,13 +100,38 @@
   max-width: 100%;
   height: auto;
   border-radius: 0.5rem;
-  margin-block: 1rem;
   cursor: default;
 }
 
-.blog-editor-content .ProseMirror img.ProseMirror-selectednode {
+/* Resizable image NodeView wrapper */
+.blog-editor-content .ProseMirror .resizable-image-wrapper {
+  display: block;
+  margin-block: 1rem;
+  max-width: 100%;
+}
+
+.blog-editor-content .ProseMirror .resizable-image-wrapper.is-selected > div {
   outline: 3px solid var(--ring, #6366f1);
   outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+/* Resize drag handle (bottom-right corner) */
+.img-resize-handle {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 14px;
+  height: 14px;
+  background: var(--ring, #6366f1);
+  border-radius: 3px 0 3px 0;
+  cursor: nwse-resize;
+  z-index: 10;
+  transition: transform 0.1s;
+}
+
+.img-resize-handle:hover {
+  transform: scale(1.25);
 }
 
 .blog-editor-content .ProseMirror hr {

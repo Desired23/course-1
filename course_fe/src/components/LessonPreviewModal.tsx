@@ -356,12 +356,9 @@ export function LessonPreviewModal({
                       </div>
                       <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
                         <p>{lesson.description || t('lesson_preview_modal.no_description')}</p>
-                        <h4>{t('lesson_preview_modal.learning_points_title')}</h4>
-                        <ul>
-                          <li>{t('lesson_preview_modal.learning_points.point_1')}</li>
-                          <li>{t('lesson_preview_modal.learning_points.point_2')}</li>
-                          <li>{t('lesson_preview_modal.learning_points.point_3')}</li>
-                        </ul>
+                        {lesson.content && (
+                          <p className="whitespace-pre-line">{lesson.content}</p>
+                        )}
                       </div>
                    </TabsContent>
 

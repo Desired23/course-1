@@ -171,6 +171,18 @@ export async function getMySubscriptionCourses(params?: {
   return http.get<PaginatedResponse<PlanCourse>>(`/subscriptions/me/courses/${qs ? `?${qs}` : ''}`)
 }
 
+export async function getAllMySubscriptionCourses(): Promise<PlanCourse[]> {
+  const all: PlanCourse[] = []
+  let page = 1
+  while (true) {
+    const res = await getMySubscriptionCourses({ page, page_size: 100 })
+    all.push(...res.results)
+    if (!res.next) break
+    page++
+  }
+  return all
+}
+
 export async function cancelSubscription(subscriptionId: number): Promise<{ message: string }> {
   return http.post<{ message: string }>(`/subscriptions/${subscriptionId}/cancel/`, {})
 }

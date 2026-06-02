@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path  # noqa
 from .views import (
     AdminManagementView,
     AdminDetailView,
@@ -35,7 +35,7 @@ urlpatterns = [
     path('admin/analytics/commission/', AdminCommissionAnalyticsView.as_view(), name='admin-commission'),
     path('admin/analytics/refunds/', AdminRefundAnalyticsView.as_view(), name='admin-refunds'),
     path('admin/analytics/top-courses-revenue/', AdminTopCoursesByRevenueView.as_view(), name='admin-top-courses-revenue'),
-    path('admin/analytics/revenue/export/', AdminRevenueExportView.as_view(), name='admin-revenue-export'),
+    path('admin/analytics/revenue-export/', AdminRevenueExportView.as_view(), name='admin-revenue-export'),
     path('admin/import/subscription-plan/', AdminImportSubscriptionView.as_view(), name='admin-import-subscription'),
     path('admin/import/subscription-plan/template/', AdminImportSubscriptionView.as_view(), name='admin-import-subscription-template'),
     path('admin/import/users/', AdminImportUsersView.as_view(), name='admin-import-users'),

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Chứng chỉ hoàn thành khóa học</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9;">
+  <div style="background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+    <h2 style="color: #7C3AED; margin-top: 0;">🏆 Chúc mừng! Bạn đã nhận được chứng chỉ</h2>
+    <p>Xin chào <strong>{{ user_name }}</strong>,</p>
+    <p>Chúc mừng bạn đã hoàn thành xuất sắc khóa học và được cấp chứng chỉ:</p>
+    <div style="background: #F5F3FF; border-left: 4px solid #7C3AED; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      <strong style="font-size: 16px;">{{ course_title }}</strong>
+      {% if instructor_name %}<p style="margin: 8px 0 0; color: #6B7280;">Giảng viên: {{ instructor_name }}</p>{% endif %}
+      <p style="margin: 8px 0 0; color: #6B7280;">Mã xác thực: <code style="background: #EDE9FE; padding: 2px 6px; border-radius: 3px;">{{ verification_code }}</code></p>
+    </div>
+    <p>Chia sẻ thành tựu này với mọi người và tiếp tục hành trình học tập của bạn!</p>
+    {% if certificate_url %}
+    <p style="text-align: center; margin: 24px 0;">
+      <a href="{{ certificate_url }}" style="background: #7C3AED; color: #fff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold;">Xem & tải chứng chỉ</a>
+    </p>
+    {% endif %}
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;">
+    <p style="color: #6B7280; font-size: 12px;">Hỗ trợ: <strong>{{ support_email }}</strong>. Đây là email tự động, vui lòng không reply.</p>
+  </div>
+</body>
+</html>

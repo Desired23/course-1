@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Kết quả đơn đăng ký giảng viên</title>
+</head>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9;">
+  <div style="background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 5px rgba(0,0,0,0.08);">
+    {% if is_approved %}
+    <h2 style="color: #16A34A; margin-top: 0;">🎉 Đơn đăng ký giảng viên đã được duyệt!</h2>
+    {% elif is_rejected %}
+    <h2 style="color: #DC2626; margin-top: 0;">❌ Đơn đăng ký giảng viên bị từ chối</h2>
+    {% else %}
+    <h2 style="color: #D97706; margin-top: 0;">📝 Yêu cầu bổ sung thông tin</h2>
+    {% endif %}
+
+    <p>Xin chào <strong>{{ user_name }}</strong>,</p>
+
+    {% if is_approved %}
+    <p>Chúc mừng! Đơn đăng ký trở thành giảng viên của bạn đã được <strong>chấp thuận</strong>. Tài khoản của bạn đã được nâng cấp lên quyền giảng viên.</p>
+    <div style="background: #F0FDF4; border-left: 4px solid #16A34A; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      <p style="margin: 0;">Bạn có thể bắt đầu tạo và xuất bản khóa học ngay bây giờ. Chào mừng bạn gia nhập đội ngũ giảng viên!</p>
+    </div>
+    {% elif is_rejected %}
+    <p>Rất tiếc, đơn đăng ký của bạn <strong>chưa được chấp thuận</strong> lần này.</p>
+    <div style="background: #FEF2F2; border-left: 4px solid #DC2626; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      {% if rejection_reason %}<p style="margin: 0;"><strong>Lý do:</strong> {{ rejection_reason }}</p>{% else %}<p style="margin: 0;">Vui lòng liên hệ hỗ trợ để biết thêm chi tiết.</p>{% endif %}
+    </div>
+    <p>Bạn có thể cải thiện hồ sơ và nộp đơn lại sau.</p>
+    {% else %}
+    <p>Đơn đăng ký của bạn cần được bổ sung thêm thông tin trước khi xét duyệt.</p>
+    <div style="background: #FFFBEB; border-left: 4px solid #D97706; padding: 16px; border-radius: 4px; margin: 16px 0;">
+      {% if admin_notes %}<p style="margin: 0;"><strong>Ghi chú từ admin:</strong> {{ admin_notes }}</p>{% else %}<p style="margin: 0;">Vui lòng đăng nhập để xem chi tiết yêu cầu bổ sung.</p>{% endif %}
+    </div>
+    {% endif %}
+
+    <hr style="border: none; border-top: 1px solid #E5E7EB; margin: 24px 0;">
+    <p style="color: #6B7280; font-size: 12px;">Hỗ trợ: <strong>{{ support_email }}</strong>. Đây là email tự động, vui lòng không reply.</p>
+  </div>
+</body>
+</html>

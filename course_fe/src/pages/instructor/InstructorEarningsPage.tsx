@@ -13,6 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { UserPagination } from '../../components/UserPagination'
 import { useAuth } from '../../contexts/AuthContext'
 import { listItemTransition } from '../../lib/motion'
+import { toast } from 'sonner'
+import { getErrorMessage } from '../../lib/apiError'
 import { getMyInstructorProfile, getInstructorDashboardStats, type Instructor, type InstructorDashboardStats } from '../../services/instructor.api'
 import { getInstructorPayouts, getPayoutStatusColor, getPayoutStatusLabel, type InstructorPayout } from '../../services/instructor-payouts.api'
 import {
@@ -120,7 +122,7 @@ export function InstructorEarningsPage() {
         setTransactionsTotalPages(res.total_pages || 1)
         setTransactionsTotalCount(res.count || 0)
       } catch (err) {
-        if (!cancelled) console.error(t('instructor_earnings_page.errors.load_transactions_console'), err)
+        if (!cancelled) toast.error(getErrorMessage(err, t('instructor_earnings_page.errors.load_transactions_console')))
       } finally {
         if (!cancelled) setTransactionsLoading(false)
       }

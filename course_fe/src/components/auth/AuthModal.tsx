@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useModal } from '../../stores/modal.store'
+import { useRouter } from '../Router'
 import { useAuthStore } from '../../stores/auth.store'
+import { GoogleLoginButton } from '../GoogleLoginButton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Button } from '../ui/button'
@@ -10,11 +12,13 @@ import { Label } from '../ui/label'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { getErrorMessage } from '../../lib/apiError'
 
 export function AuthModal() {
   const { t } = useTranslation()
   const { login, signup, clearError } = useAuth()
   const { isOpen, close, data } = useModal('login')
+  const { navigate } = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('login')
 
@@ -85,7 +89,7 @@ export function AuthModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { resetForms(); close() } }}>
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="sm:max-w-[400px]" style={{ zIndex: 350 }}>
         <DialogHeader>
           <DialogTitle className="text-center text-2xl font-bold">
             {activeTab === 'login' ? t('auth.welcome') : t('auth.create_account')}
@@ -119,7 +123,7 @@ export function AuthModal() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="modal-password">{t('auth.password')}</Label>
-                  <Button variant="link" className="p-0 h-auto text-xs" type="button">
+                  <Button variant="link" className="p-0 h-auto text-xs" type="button" onClick={() => { close(); navigate('/forgot-password') }}>
                     {t('auth.forgot_password')}
                   </Button>
                 </div>
@@ -142,6 +146,25 @@ export function AuthModal() {
                 {t('auth.login')}
               </Button>
             </form>
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">{t('auth.or', 'Hoặc')}</span>
+              </div>
+            </div>
+            <GoogleLoginButton
+              useCustomButton
+              buttonText={t('auth.google', 'Đăng nhập với Google')}
+              onSuccess={() => {
+                resetForms()
+                close()
+                data?.onSuccess?.()
+              }}
+              onError={(error) => toast.error(getErrorMessage(error, 'Đăng nhập Google thất bại.'))}
+              redirectTo={typeof window !== 'undefined' ? window.location.pathname : '/'}
+            />
           </TabsContent>
 
           <TabsContent value="signup">

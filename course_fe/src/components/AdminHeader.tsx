@@ -130,7 +130,7 @@ export function AdminHeader({
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>{t('admin_header.admin_account')}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/admin/profile')}>
+              <DropdownMenuItem onClick={() => navigate('/admin/settings')}>
                 <User className="mr-2 h-4 w-4" />
                 {t('common.profile')}
               </DropdownMenuItem>

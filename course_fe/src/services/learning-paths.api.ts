@@ -31,7 +31,6 @@ export interface LearningPathItem {
    course_discount_price?: string | null
    course_discount_start_date?: string | null
    course_discount_end_date?: string | null
-  skills_taught?: string[]
   order: number
   reason: string
   is_skippable: boolean

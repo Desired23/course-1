@@ -12,6 +12,7 @@ from .models import (
     CourseSubscriptionConsent,
     SubscriptionUsage,
 )
+from utils.roles import is_active_instructor
 from .serializers import (
     SubscriptionPlanSerializer,
     PlanCourseSerializer,
@@ -461,7 +462,7 @@ def expire_overdue_subscriptions():
 
 
 def upsert_course_subscription_consent(user, course_id, consent_status, note=''):
-    if not hasattr(user, 'instructor') or not user.instructor:
+    if not is_active_instructor(user):
         raise ValidationError({"error": "Chỉ instructor mới có thể thiết lập consent."})
 
     try:
@@ -517,7 +518,7 @@ def upsert_course_subscription_consent(user, course_id, consent_status, note='')
 
 
 def get_instructor_course_consents(user):
-    if not hasattr(user, 'instructor') or not user.instructor:
+    if not is_active_instructor(user):
         raise ValidationError({"error": "Chỉ instructor mới có thể xem consent."})
 
     return CourseSubscriptionConsent.objects.filter(

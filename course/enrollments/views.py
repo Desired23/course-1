@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 from utils.pagination import paginate_queryset
+from utils.roles import is_active_admin, is_active_instructor
 from .serializers import EnrollmentSerializer
 from .services import (
     create_enrollment,
@@ -134,7 +135,7 @@ class EnrollmentDetailView(APIView):
         try:
             enrollment = find_enrollment_by_id(enrollment_id)
 
-            if not hasattr(request.user, 'admin') and not hasattr(request.user, 'instructor'):
+            if not is_active_admin(request.user) and not is_active_instructor(request.user):
                 if enrollment.get('user_id') != request.user.id:
                     return Response({"error": "Bạn không có quyền xem thông tin đăng ký này."}, status=status.HTTP_403_FORBIDDEN)
             return Response(enrollment, status=status.HTTP_200_OK)

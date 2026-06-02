@@ -1,16 +1,19 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from .services import (
 create_blog_post
 , update_blog_post, delete_blog_post, get_blog_post, get_all_blog_posts,
 get_blog_posts_published,
 get_blog_post_published,
-increase_blog_post_views
+increase_blog_post_views,
+like_blog_post,
+toggle_blog_bookmark,
+report_blog_post,
 )
 from utils.permissions import RolePermissionFactory
+from utils.roles import is_active_admin
 from utils.pagination import paginate_queryset
 from .serializers import BlogPostSerializer
 
@@ -19,58 +22,59 @@ class AdminBlogPostView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
-        try:
-            if request.query_params.get('blog_post_id'):
-                blog_post_id = request.query_params.get('blog_post_id')
-                blog_post = get_blog_post(blog_post_id, actor_user=request.user)
-                return Response(blog_post, status=status.HTTP_200_OK)
-            else:
-                blog_posts = get_all_blog_posts()
-                if not getattr(request.user, 'admin', None):
-                    blog_posts = blog_posts.filter(author=request.user)
-                return paginate_queryset(blog_posts, request, BlogPostSerializer)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if request.query_params.get('blog_post_id'):
+            blog_post = get_blog_post(request.query_params.get('blog_post_id'), actor_user=request.user)
+            return Response(blog_post, status=status.HTTP_200_OK)
+        blog_posts = get_all_blog_posts()
+        if not is_active_admin(request.user):
+            blog_posts = blog_posts.filter(author=request.user)
+        return paginate_queryset(blog_posts, request, BlogPostSerializer)
 
     def post(self, request):
-        try:
-            data = request.data
-            blog_post = create_blog_post(data, actor_user=request.user, request=request)
-            return Response(blog_post, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        blog_post = create_blog_post(request.data, actor_user=request.user, request=request)
+        return Response(blog_post, status=status.HTTP_201_CREATED)
+
     def patch(self, request, blog_post_id):
-        try:
-            data = request.data
-            blog_post = update_blog_post(blog_post_id, data, actor_user=request.user, request=request)
-            return Response(blog_post, status=status.HTTP_200_OK)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        blog_post = update_blog_post(blog_post_id, request.data, actor_user=request.user, request=request)
+        return Response(blog_post, status=status.HTTP_200_OK)
+
     def delete(self, request, blog_post_id):
-        try:
-            response = delete_blog_post(blog_post_id, actor_user=request.user, request=request)
-            return Response(response, status=status.HTTP_204_NO_CONTENT)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        response = delete_blog_post(blog_post_id, actor_user=request.user, request=request)
+        return Response(response, status=status.HTTP_204_NO_CONTENT)
 class ClientBlogPostView(APIView):
     throttle_scope = 'search'
     permission_classes = [AllowAny]
 
     def get(self, request):
-        try:
-            blog_post_id = request.query_params.get('blog_post_id')
-            if blog_post_id:
-                blog_post = get_blog_post_published(blog_post_id)
-                return Response(blog_post, status=status.HTTP_200_OK)
-            else:
-                blog_posts = get_blog_posts_published()
-                return paginate_queryset(blog_posts, request, BlogPostSerializer)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        blog_post_id = request.query_params.get('blog_post_id')
+        if blog_post_id:
+            return Response(get_blog_post_published(blog_post_id), status=status.HTTP_200_OK)
+        return paginate_queryset(get_blog_posts_published(), request, BlogPostSerializer)
+
     def patch(self, request, blog_post_id):
-        try:
-            blog_post = increase_blog_post_views(blog_post_id)
-            return Response(blog_post, status=status.HTTP_200_OK)
-        except ValidationError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(increase_blog_post_views(blog_post_id), status=status.HTTP_200_OK)
+
+
+class ClientBlogPostLikeView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def patch(self, request, blog_post_id):
+        return Response(like_blog_post(blog_post_id), status=status.HTTP_200_OK)
+
+
+class ClientBlogBookmarkView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, blog_post_id):
+        return Response(toggle_blog_bookmark(blog_post_id, request.user), status=status.HTTP_200_OK)
+
+
+class ClientBlogPostReportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, blog_post_id):
+        return Response(report_blog_post(blog_post_id, request.data.get('reason', '')), status=status.HTTP_200_OK)
 

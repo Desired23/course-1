@@ -323,7 +323,7 @@ export function InstructorQuizzesPage() {
       const apiData = {
         lesson: lessonId,
         question_text: question.question,
-        question_type: question.type === 'multiple' ? 'multiple' as const : 'multiple' as const,
+        question_type: question.type === 'multiple' ? 'multiple' as const : 'single' as const,
         options: question.options.map(o => ({ text: o })),
         correct_answer: Array.isArray(question.correctAnswer) ? JSON.stringify(question.correctAnswer) : question.correctAnswer,
         points: question.points,

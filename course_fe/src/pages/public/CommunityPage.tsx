@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  BookOpen, MessageSquare, ArrowRight, ChevronLeft,
+  BookOpen, MessageSquare, ArrowRight,
   Search, Flame, Tag, Edit3, Eye,
 } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -18,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { getAllPublishedBlogPosts, type BlogPost } from '../../services/blog-posts.api'
 import { getQuestions, type Question, formatQADate } from '../../services/qa.api'
 import { QuestionCard } from '../../components/qa/QuestionCard'
+
 
 const BLOG_CATEGORIES = ['all', 'Education', 'Technology', 'Business', 'Design', 'Content Creation']
 const QA_POPULAR_TAGS = ['python', 'django', 'javascript', 'react', 'css', 'sql', 'api', 'html', 'git', 'testing']
@@ -75,14 +76,9 @@ function BlogPostCard({ post, onClick }: { post: BlogPost; onClick: () => void }
 }
 
 export function CommunityPage() {
-  const { currentRoute, navigate } = useRouter()
-  const { isAuthenticated } = useAuth()
-
-  const focus = useMemo(() => {
-    const qs = currentRoute.includes('?') ? currentRoute.split('?')[1] : ''
-    const val = new URLSearchParams(qs).get('focus')
-    return val === 'blog' || val === 'qa' ? val : 'overview'
-  }, [currentRoute])
+  const { navigate } = useRouter()
+  const { isAuthenticated, hasPermission } = useAuth()
+  const canWriteBlog = hasPermission('instructor.blog.create')
 
   // Blog
   const [allBlogPosts, setAllBlogPosts] = useState<BlogPost[]>([])
@@ -114,11 +110,10 @@ export function CommunityPage() {
   }, [])
 
   useEffect(() => {
-    if (focus !== 'overview') return
     getQuestions({ sort: 'votes', page_size: 5 })
       .then(res => setHotQuestions(res.results))
       .catch(() => {})
-  }, [focus])
+  }, [])
 
   useEffect(() => {
     setQaLoading(true)
@@ -276,76 +271,17 @@ export function CommunityPage() {
     </div>
   )
 
-  // ── Focus mode ────────────────────────────────────────────────────────────
-  if (focus !== 'overview') {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-6 max-w-5xl">
-          <div className="flex items-center justify-between mb-6">
-            <button
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => navigate('/community')}
-            >
-              <ChevronLeft className="w-4 h-4" /> Quay lại tổng quan
-            </button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-sm gap-1"
-              onClick={() => navigate(`/community?focus=${focus === 'blog' ? 'qa' : 'blog'}`)}
-            >
-              Chuyển sang {focus === 'blog' ? 'Hỏi & Đáp' : 'Blog'} <ArrowRight className="w-3 h-3" />
-            </Button>
-          </div>
-
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-1">
-              {focus === 'blog'
-                ? <BookOpen className="w-6 h-6 text-blue-500" />
-                : <MessageSquare className="w-6 h-6 text-green-500" />}
-              <h1 className="text-2xl font-bold">
-                {focus === 'blog' ? 'Bài viết Blog' : 'Hỏi & Đáp'}
-              </h1>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              {focus === 'blog'
-                ? 'Khám phá các bài viết kiến thức từ cộng đồng học tập'
-                : 'Đặt câu hỏi và tìm câu trả lời từ cộng đồng'}
-            </p>
-          </div>
-
-          {focus === 'blog' ? BlogContent : QAContent}
-        </div>
-      </div>
-    )
-  }
-
   // ── Overview mode ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background">
+    <div>
       <div className="bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-800 dark:to-indigo-900 text-white py-14 px-4">
         <div className="container mx-auto max-w-4xl text-center">
           <h1 className="text-4xl font-bold mb-3">Cộng đồng học tập</h1>
           <p className="text-blue-100 text-lg mb-8">
             Thảo luận, chia sẻ kiến thức và kết nối với hàng nghìn học viên
           </p>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            {isAuthenticated && (
-              <Button variant="secondary" onClick={() => navigate('/blog')} className="gap-2">
-                <BookOpen className="w-4 h-4" /> Viết bài
-              </Button>
-            )}
-            <Button
-              variant={isAuthenticated ? 'outline' : 'secondary'}
-              onClick={() => navigate('/qa/ask')}
-              className={`gap-2 ${isAuthenticated ? 'border-white/60 text-white hover:bg-white/10' : ''}`}
-            >
-              <MessageSquare className="w-4 h-4" /> Đặt câu hỏi
-            </Button>
-          </div>
         </div>
       </div>
-
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {featuredPosts.length > 0 && (
           <section className="mb-10">
@@ -356,7 +292,7 @@ export function CommunityPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/community?focus=blog')}
+                onClick={() => navigate('/blog')}
                 className="gap-1 text-sm"
               >
                 Xem tất cả <ArrowRight className="w-3 h-3" />
@@ -387,7 +323,7 @@ export function CommunityPage() {
                   variant="ghost"
                   size="sm"
                   className="text-sm gap-1"
-                  onClick={() => navigate(`/community?focus=${activeTab}`)}
+                  onClick={() => navigate(activeTab === 'blog' ? '/blog' : '/qa')}
                 >
                   Chỉ xem {activeTab === 'blog' ? 'Blog' : 'Hỏi & Đáp'} <ArrowRight className="w-3 h-3" />
                 </Button>
@@ -435,7 +371,7 @@ export function CommunityPage() {
                     variant="ghost"
                     size="sm"
                     className="w-full text-xs"
-                    onClick={() => navigate('/community?focus=qa')}
+                    onClick={() => navigate('/qa')}
                   >
                     Xem tất cả Hỏi & Đáp <ArrowRight className="w-3 h-3 ml-1" />
                   </Button>

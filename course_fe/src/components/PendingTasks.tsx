@@ -1,11 +1,14 @@
-import { CheckCircle2, Clock, AlertCircle, ChevronRight, Filter } from "lucide-react"
+import { CheckCircle2, Clock, AlertCircle, ChevronRight } from "lucide-react"
 import { Button } from "./ui/button"
 import { Badge } from "./ui/badge"
 import { Card } from "./ui/card"
 import { cn } from "./ui/utils"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "./Router"
 import { useTranslation } from "react-i18next"
+import { getAdminDashboardStats } from '../services/admin.api'
+import { getAdminRefunds } from '../services/payment.api'
+import { getAdminReports } from '../services/report.api'
 
 interface Task {
   id: string
@@ -27,61 +30,74 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
   const { t } = useTranslation()
   const { navigate } = useRouter()
   const [filter, setFilter] = useState<'all' | 'pending' | 'urgent'>('all')
+  const [adminTasks, setAdminTasks] = useState<Task[]>([])
+  const [isLoading, setIsLoading] = useState(userRole === 'admin')
 
+  useEffect(() => {
+    if (userRole !== 'admin') return
+    let cancelled = false
 
-  const getMockTasks = (): Task[] => {
-    if (userRole === 'admin') {
-      return [
-        {
-          id: '1',
-          title: t('pending_tasks.mock.admin.review_pending_courses_title'),
-          description: t('pending_tasks.mock.admin.review_pending_courses_description'),
-          priority: 'high',
-          status: 'pending',
-          actionUrl: '/admin/courses',
-          category: 'Courses'
-        },
-        {
-          id: '2',
-          title: t('pending_tasks.mock.admin.process_refunds_title'),
-          description: t('pending_tasks.mock.admin.process_refunds_description'),
-          priority: 'urgent',
-          status: 'pending',
-          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
-          actionUrl: '/admin/refunds',
-          category: 'Payments'
-        },
-        {
-          id: '3',
-          title: t('pending_tasks.mock.admin.review_reported_content_title'),
-          description: t('pending_tasks.mock.admin.review_reported_content_description'),
-          priority: 'high',
-          status: 'in_progress',
-          actionUrl: '/admin/qa',
-          category: 'Moderation'
-        },
-        {
-          id: '4',
-          title: t('pending_tasks.mock.admin.update_platform_settings_title'),
-          description: t('pending_tasks.mock.admin.update_platform_settings_description'),
-          priority: 'medium',
-          status: 'pending',
-          actionUrl: '/admin/settings',
-          category: 'Settings'
-        },
-        {
-          id: '5',
-          title: t('pending_tasks.mock.admin.review_user_reports_title'),
-          description: t('pending_tasks.mock.admin.review_user_reports_description'),
-          priority: 'high',
-          status: 'pending',
-          dueDate: new Date(Date.now() + 1000 * 60 * 60 * 48),
-          actionUrl: '/admin/users',
-          category: 'Users'
-        },
-      ]
+    const fetchAdminTasks = async () => {
+      try {
+        const [stats, refundsRes, reportsRes] = await Promise.all([
+          getAdminDashboardStats(),
+          getAdminRefunds({ status: 'pending', page: 1, page_size: 1 }),
+          getAdminReports({ page: 1, page_size: 1 }),
+        ])
+        if (cancelled) return
+
+        const tasks: Task[] = []
+
+        if (stats.pending_courses > 0) {
+          tasks.push({
+            id: 'pending-courses',
+            title: t('pending_tasks.mock.admin.review_pending_courses_title'),
+            description: t('pending_tasks.mock.admin.review_pending_courses_description', { count: stats.pending_courses }),
+            priority: 'high',
+            status: 'pending',
+            actionUrl: '/admin/courses',
+            category: 'Courses',
+          })
+        }
+
+        if (refundsRes.count > 0) {
+          tasks.push({
+            id: 'pending-refunds',
+            title: t('pending_tasks.mock.admin.process_refunds_title'),
+            description: t('pending_tasks.mock.admin.process_refunds_description', { count: refundsRes.count }),
+            priority: 'urgent',
+            status: 'pending',
+            dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
+            actionUrl: '/admin/refunds',
+            category: 'Payments',
+          })
+        }
+
+        if (reportsRes.count > 0) {
+          tasks.push({
+            id: 'reported-content',
+            title: t('pending_tasks.mock.admin.review_reported_content_title'),
+            description: t('pending_tasks.mock.admin.review_reported_content_description', { count: reportsRes.count }),
+            priority: 'high',
+            status: 'in_progress',
+            actionUrl: '/admin/reports',
+            category: 'Moderation',
+          })
+        }
+
+        setAdminTasks(tasks)
+      } catch {
+        // fail silently — show empty state
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
 
+    fetchAdminTasks()
+    return () => { cancelled = true }
+  }, [userRole, t])
+
+  const getMockTasks = (): Task[] => {
     if (userRole === 'instructor') {
       return [
         {
@@ -124,7 +140,6 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       ]
     }
 
-
     return [
       {
         id: '11',
@@ -158,7 +173,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
     ]
   }
 
-  const tasks = getMockTasks()
+  const tasks = userRole === 'admin' ? adminTasks : getMockTasks()
 
   const filteredTasks = tasks.filter(task => {
     if (filter === 'pending') return task.status === 'pending'
@@ -233,7 +248,11 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       </div>
 
       <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            {t('common.loading', 'Đang tải...')}
+          </div>
+        ) : filteredTasks.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-50" />
             <p>{t('pending_tasks.empty_title')}</p>
@@ -297,7 +316,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
           variant="outline"
           className="w-full mt-4"
           onClick={() => {
-            if (userRole === 'admin') navigate('/admin')
+            if (userRole === 'admin') navigate('/admin/reports')
             else if (userRole === 'instructor') navigate('/instructor')
             else navigate('/my-learning')
           }}

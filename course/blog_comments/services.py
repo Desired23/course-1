@@ -4,69 +4,64 @@ from .serializers import BlogCommentSerializer
 
 
 def create_blog_comment(data):
+    serializer = BlogCommentSerializer(data=data)
+    if not serializer.is_valid():
+        raise ValidationError(serializer.errors)
+    comment = serializer.save()
     try:
-        serializer = BlogCommentSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return serializer.data
-        else:
-            raise ValidationError(serializer.errors)
-    except Exception as e:
-        raise ValidationError(f"Error creating Blog Comment: {str(e)}")
+        from notifications.services import create_notification
+        if comment.blog_post_id and comment.blog_post.author_id and comment.blog_post.author_id != comment.user_id:
+            create_notification(
+                receiver_id=comment.blog_post.author_id,
+                title="Bài viết của bạn có bình luận mới",
+                message=f"Có người vừa bình luận trên bài \"{comment.blog_post.title}\".",
+                type='other',
+                related_id=comment.id,
+                sender=comment.user_id,
+                notification_code='blog_comment_received',
+            )
+    except Exception:
+        pass
+    return BlogCommentSerializer(comment).data
 
 
 def get_blog_comment_by_id(comment_id):
     try:
-        blog_comment = BlogComment.objects.get(id=comment_id)
-        return BlogCommentSerializer(blog_comment).data
+        return BlogCommentSerializer(BlogComment.objects.get(id=comment_id)).data
     except BlogComment.DoesNotExist:
-        raise ValidationError("Blog Comment not found")
-    except Exception as e:
-        raise ValidationError(f"Error retrieving Blog Comment: {str(e)}")
+        from rest_framework.exceptions import NotFound
+        raise NotFound("Blog Comment not found")
 
 
 def get_blog_comments_by_post_id(post_id):
-    try:
-        return BlogComment.objects.filter(blog_post=post_id, status='active').order_by('-created_at', '-id')
-    except Exception as e:
-        raise ValidationError(f"Error retrieving Blog Comments: {str(e)}")
+    return BlogComment.objects.filter(blog_post=post_id, status='active').order_by('-created_at', '-id')
 
 
 def get_blog_comments_by_user_id(user_id):
-    try:
-        return BlogComment.objects.filter(user=user_id).order_by('-created_at', '-id')
-    except Exception as e:
-        raise ValidationError(f"Error retrieving Blog Comments: {str(e)}")
+    return BlogComment.objects.filter(user=user_id).order_by('-created_at', '-id')
 
 
 def get_all_blog_comments():
-    try:
-        return BlogComment.objects.all().order_by('-created_at', '-id')
-    except Exception as e:
-        raise ValidationError(f"Error retrieving all Blog Comments: {str(e)}")
+    return BlogComment.objects.all().order_by('-created_at', '-id')
 
 
 def update_blog_comment(comment_id, data):
     try:
         blog_comment = BlogComment.objects.get(id=comment_id)
-        serializer = BlogCommentSerializer(blog_comment, data=data, partial=True)
-        if serializer.is_valid():
-            updated = serializer.save()
-            return BlogCommentSerializer(updated).data
-        else:
-            raise ValidationError(serializer.errors)
     except BlogComment.DoesNotExist:
-        raise ValidationError("Blog Comment not found")
-    except Exception as e:
-        raise ValidationError(f"Error updating Blog Comment: {str(e)}")
+        from rest_framework.exceptions import NotFound
+        raise NotFound("Blog Comment not found")
+    serializer = BlogCommentSerializer(blog_comment, data=data, partial=True)
+    if not serializer.is_valid():
+        raise ValidationError(serializer.errors)
+    return BlogCommentSerializer(serializer.save()).data
 
 
 def delete_blog_comment(comment_id):
     try:
         blog_comment = BlogComment.objects.get(id=comment_id)
-        blog_comment.delete()
-        return {"message": "Blog Comment deleted successfully"}
     except BlogComment.DoesNotExist:
-        raise ValidationError("Blog Comment not found")
-    except Exception as e:
-        raise ValidationError(f"Error deleting Blog Comment: {str(e)}")
+        from rest_framework.exceptions import NotFound
+        raise NotFound("Blog Comment not found")
+    blog_comment.delete()
+    return {"message": "Blog Comment deleted successfully"}

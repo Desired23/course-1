@@ -11,14 +11,18 @@ import { ArrowLeft, Upload, X, ImageIcon, Clock, FileText, Save, Send } from 'lu
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { BlogRichEditor } from '../../components/BlogRichEditor'
-import { createBlogPost } from '../../services/blog-posts.api'
+import { createBlogPost, updateBlogPost, getAdminBlogPost } from '../../services/blog-posts.api'
 import { uploadFiles } from '../../services/upload.api'
 import { getActiveCategories, type Category } from '../../services/category.api'
 import { toast } from 'sonner'
+import { getErrorMessage } from '../../lib/apiError'
 
 export function BlogCreatePage() {
-  const { navigate } = useRouter()
+  const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
+
+  const editId = new URLSearchParams(currentRoute.split('?')[1] || '').get('edit')
+  const isEditing = !!editId
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -35,14 +39,32 @@ export function BlogCreatePage() {
   const [publishing, setPublishing] = useState(false)
 
   useEffect(() => {
-    getActiveCategories().then((r) => setCategories(r.results)).catch(() => {})
+    getActiveCategories().then((r) => setCategories(r.results)).catch((e) => toast.error(getErrorMessage(e, 'Không thể tải danh mục.')))
   }, [])
+
+  useEffect(() => {
+    if (!editId) return
+    getAdminBlogPost(Number(editId))
+      .then((p) => {
+        setTitle(p.title)
+        setContent(p.content)
+        setSummary(p.summary || '')
+        setCategoryId(p.category ? String(p.category) : '')
+        setTags(p.tags || [])
+        setSlug(p.slug || '')
+        if (p.featured_image) setCoverPreview(p.featured_image)
+      })
+      .catch(() => toast.error('Không thể tải bài viết'))
+  }, [editId])
 
   useEffect(() => {
     if (!editingSlug) {
       setSlug(
         title
           .toLowerCase()
+          .replace(/đ/g, 'd')
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
           .replace(/-+/g, '-')
@@ -104,7 +126,7 @@ export function BlogCreatePage() {
         imageUrl = await uploadCover()
       }
 
-      await createBlogPost({
+      const payload = {
         title: title.trim(),
         content,
         summary: summary.trim() || undefined,
@@ -113,9 +135,15 @@ export function BlogCreatePage() {
         tags,
         featured_image: imageUrl || undefined,
         status: publishStatus,
-      })
+      }
 
-      toast.success(isSavingDraft ? 'Đã lưu nháp thành công!' : 'Bài viết đã được gửi duyệt!')
+      if (isEditing) {
+        await updateBlogPost(Number(editId), payload)
+        toast.success(isSavingDraft ? 'Đã cập nhật nháp thành công!' : 'Bài viết đã được cập nhật!')
+      } else {
+        await createBlogPost(payload)
+        toast.success(isSavingDraft ? 'Đã lưu nháp thành công!' : 'Bài viết đã được gửi duyệt!')
+      }
       navigate('/blog')
     } catch {
       toast.error('Có lỗi xảy ra, vui lòng thử lại')
@@ -147,7 +175,7 @@ export function BlogCreatePage() {
               disabled={saving || publishing}
             >
               <Save className="mr-2 h-4 w-4" />
-              {saving ? 'Đang lưu...' : 'Lưu nháp'}
+              {saving ? 'Đang lưu...' : isEditing ? 'Cập nhật nháp' : 'Lưu nháp'}
             </Button>
             <Button
               size="sm"
@@ -155,7 +183,7 @@ export function BlogCreatePage() {
               disabled={saving || publishing}
             >
               <Send className="mr-2 h-4 w-4" />
-              {publishing ? 'Đang gửi...' : 'Gửi duyệt'}
+              {publishing ? 'Đang lưu...' : isEditing ? 'Cập nhật bài viết' : 'Gửi duyệt'}
             </Button>
           </div>
         </div>
@@ -376,7 +404,7 @@ export function BlogCreatePage() {
                 disabled={saving || publishing}
               >
                 <Save className="mr-2 h-4 w-4" />
-                {saving ? 'Đang lưu...' : 'Lưu nháp'}
+                {saving ? 'Đang lưu...' : isEditing ? 'Cập nhật nháp' : 'Lưu nháp'}
               </Button>
               <Button
                 className="flex-1"
@@ -384,7 +412,7 @@ export function BlogCreatePage() {
                 disabled={saving || publishing}
               >
                 <Send className="mr-2 h-4 w-4" />
-                {publishing ? 'Đang gửi...' : 'Gửi duyệt'}
+                {publishing ? 'Đang lưu...' : isEditing ? 'Cập nhật bài viết' : 'Gửi duyệt'}
               </Button>
             </div>
           </div>

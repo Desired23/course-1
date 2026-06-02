@@ -16,6 +16,7 @@ from .dashboard_services import get_instructor_dashboard_stats, get_course_analy
 from .student_services import get_instructor_students, export_instructor_students_csv, get_instructor_student_detail
 from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
+from utils.roles import is_active_admin, is_active_instructor
 from utils.pagination import paginate_queryset
 class InstructorListView(APIView):
     throttle_scope = 'search'
@@ -41,9 +42,9 @@ class InstructorDetailView(APIView):
 
     def patch(self, request, instructor_id):
 
-        if not hasattr(request.user, 'admin'):
+        if not is_active_admin(request.user):
             user_instructor = getattr(request.user, 'instructor', None)
-            if not user_instructor or user_instructor.id != instructor_id:
+            if not is_active_instructor(request.user) or user_instructor.id != instructor_id:
                 return Response({"error": "Bạn không có quyền cập nhật hồ sơ giảng viên này."}, status=status.HTTP_403_FORBIDDEN)
         try:
             updated_instructor = update_instructor(instructor_id, request.data)
@@ -53,7 +54,7 @@ class InstructorDetailView(APIView):
 
     def delete(self, request, instructor_id):
 
-        if not hasattr(request.user, 'admin'):
+        if not is_active_admin(request.user):
             return Response({"error": "Chỉ admin mới có quyền xóa giảng viên."}, status=status.HTTP_403_FORBIDDEN)
         try:
             result = delete_instructor(instructor_id)
@@ -84,7 +85,7 @@ class InstructorDashboardStatsView(APIView):
 
     def get(self, request):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         instructor_id = request.query_params.get('instructor_id')
 
         if admin and instructor_id:
@@ -94,7 +95,7 @@ class InstructorDashboardStatsView(APIView):
                 return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             instructor = getattr(user, 'instructor', None)
-            if not instructor:
+            if not is_active_instructor(user):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
@@ -114,7 +115,7 @@ class InstructorCourseAnalyticsView(APIView):
 
     def get(self, request, course_id):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
 
         if admin:
 
@@ -126,7 +127,7 @@ class InstructorCourseAnalyticsView(APIView):
                 return Response({"error": "Course not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             instructor = getattr(user, 'instructor', None)
-            if not instructor:
+            if not is_active_instructor(user):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
@@ -147,7 +148,7 @@ class InstructorAnalyticsTimeseriesView(APIView):
 
     def get(self, request):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         instructor_id = request.query_params.get('instructor_id')
         months = int(request.query_params.get('months', 12))
 
@@ -158,7 +159,7 @@ class InstructorAnalyticsTimeseriesView(APIView):
                 return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             instructor = getattr(user, 'instructor', None)
-            if not instructor:
+            if not is_active_instructor(user):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
@@ -174,7 +175,7 @@ class InstructorStudentsView(APIView):
 
     def get(self, request):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         instructor_id = request.query_params.get('instructor_id')
         course_id = request.query_params.get('course_id')
         search = request.query_params.get('search')
@@ -188,7 +189,7 @@ class InstructorStudentsView(APIView):
                 return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             instructor = getattr(user, 'instructor', None)
-            if not instructor:
+            if not is_active_instructor(user):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         data = get_instructor_students(
@@ -209,7 +210,7 @@ class InstructorStudentsExportView(APIView):
 
     def get(self, request):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         instructor_id = request.query_params.get('instructor_id')
         course_id = request.query_params.get('course_id')
 
@@ -220,7 +221,7 @@ class InstructorStudentsExportView(APIView):
                 return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             instructor = getattr(user, 'instructor', None)
-            if not instructor:
+            if not is_active_instructor(user):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         csv_content = export_instructor_students_csv(instructor, course_id=course_id)
@@ -235,7 +236,7 @@ class InstructorStudentDetailView(APIView):
 
     def get(self, request, student_id):
         user = request.user
-        admin = getattr(user, 'admin', None)
+        admin = is_active_admin(user)
         instructor_id = request.query_params.get('instructor_id')
 
         if admin and instructor_id:
@@ -245,7 +246,7 @@ class InstructorStudentDetailView(APIView):
                 return Response({"error": "Instructor not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
             instructor = getattr(user, 'instructor', None)
-            if not instructor:
+            if not is_active_instructor(user):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:

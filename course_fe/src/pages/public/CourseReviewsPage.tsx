@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
@@ -12,10 +12,42 @@ import { Star, ThumbsUp, ThumbsDown, Search, Edit3, Trash2, AlertCircle, Reply, 
 import { useRouter } from "../../components/Router"
 import { DashboardSidebar } from "../../components/DashboardSidebar"
 import { useAuth } from "../../contexts/AuthContext"
-import { useNotifications } from "../../contexts/NotificationContext"
 import { toast } from "sonner"
 import { motion } from 'motion/react'
 import { listItemTransition } from '../../lib/motion'
+import { getErrorMessage } from '../../lib/apiError'
+import { getReviewsByCourse, getCourseReviewStats, createReview, updateReview, deleteReview, reportReview, type Review, type ReviewSortBy, type CourseReviewStats, formatReviewDate } from '../../services/review.api'
+import { getCourseById } from '../../services/course.api'
+import { UserPagination } from '../../components/UserPagination'
+
+const PAGE_SIZE = 10
+
+type RatingDistribution = Record<1 | 2 | 3 | 4 | 5, number>
+
+function toDistributionPercent(stats: CourseReviewStats): RatingDistribution {
+  const total = stats.total || 1
+  return {
+    5: Math.round((stats.distribution[5] / total) * 100),
+    4: Math.round((stats.distribution[4] / total) * 100),
+    3: Math.round((stats.distribution[3] / total) * 100),
+    2: Math.round((stats.distribution[2] / total) * 100),
+    1: Math.round((stats.distribution[1] / total) * 100),
+  }
+}
+
+function sortByParam(sortBy: string): ReviewSortBy {
+  switch (sortBy) {
+    case 'helpful':
+      return 'likes'
+    case 'rating-high':
+      return 'rating_desc'
+    case 'rating-low':
+      return 'rating_asc'
+    case 'recent':
+    default:
+      return 'newest'
+  }
+}
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -56,12 +88,10 @@ type ReviewRecord = {
   isOwn: boolean
 }
 
-type RatingDistribution = Record<1 | 2 | 3 | 4 | 5, number>
-
 export function CourseReviewsPage() {
   const { params, currentRoute } = useRouter()
   const { user } = useAuth()
-  const { addNotification } = useNotifications()
+
   const { t } = useTranslation()
 
   const courseId = params?.courseId
@@ -78,153 +108,178 @@ export function CourseReviewsPage() {
   })
   const [replyingTo, setReplyingTo] = useState<number | null>(null)
   const [replyText, setReplyText] = useState("")
+  const [editingReviewId, setEditingReviewId] = useState<number | null>(null)
 
-  const reviewsData: ReviewRecord[] = [
-    {
-      id: 1,
-      rating: 5,
-      title: t('course_reviews_page.mock_reviews.review_1.title'),
-      content: t('course_reviews_page.mock_reviews.review_1.content'),
+  const [reviewsData, setReviewsData] = useState<ReviewRecord[]>([])
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [courseInfo, setCourseInfo] = useState({
+    title: '',
+    instructor: '',
+    averageRating: 0,
+    totalReviews: 0,
+    ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as RatingDistribution,
+  })
+
+  const mapReview = (r: Review): ReviewRecord => {
+    const nameParts = (r.user_info.full_name || '').trim().split(' ')
+    const initials = nameParts.map(p => p[0]).join('').substring(0, 2).toUpperCase() || '?'
+    return {
+      id: r.review_id,
+      rating: r.rating,
+      title: r.comment ? r.comment.split('\n')[0].substring(0, 80) : '',
+      content: r.comment || '',
       reviewer: {
-        name: "Sarah Johnson",
-        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b789?w=40&h=40&fit=crop&crop=face",
-        initials: "SJ"
+        name: r.user_info.full_name || t('course_reviews_page.anonymous', 'Anonymous'),
+        avatar: r.user_info.avatar || '',
+        initials,
       },
-      date: t('course_reviews_page.mock_reviews.review_1.date'),
-      helpful: 24,
-      notHelpful: 2,
-      verified: true,
-      isOwn: false
-    },
-    {
-      id: 2,
-      rating: 4,
-      title: t('course_reviews_page.mock_reviews.review_2.title'),
-      content: t('course_reviews_page.mock_reviews.review_2.content'),
-      reviewer: {
-        name: "Mike Chen",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face",
-        initials: "MC"
-      },
-      date: t('course_reviews_page.mock_reviews.review_2.date'),
-      helpful: 18,
-      notHelpful: 3,
-      verified: true,
-      isOwn: false
-    },
-    {
-      id: 3,
-      rating: 5,
-      title: t('course_reviews_page.mock_reviews.review_3.title'),
-      content: t('course_reviews_page.mock_reviews.review_3.content'),
-      reviewer: {
-        name: "Emily Davis",
-        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face",
-        initials: "ED"
-      },
-      date: t('course_reviews_page.mock_reviews.review_3.date'),
-      helpful: 31,
-      notHelpful: 1,
-      verified: true,
-      isOwn: true
-    },
-    {
-      id: 4,
-      rating: 3,
-      title: t('course_reviews_page.mock_reviews.review_4.title'),
-      content: t('course_reviews_page.mock_reviews.review_4.content'),
-      reviewer: {
-        name: "David Wilson",
-        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face",
-        initials: "DW"
-      },
-      date: t('course_reviews_page.mock_reviews.review_4.date'),
-      helpful: 12,
-      notHelpful: 8,
-      verified: true,
-      isOwn: false
+      date: formatReviewDate(r.review_date),
+      helpful: r.likes,
+      notHelpful: 0,
+      verified: r.status === 'approved',
+      isOwn: String(r.user) === user?.id,
     }
-  ]
+  }
 
-  const courseInfo = {
-    title: t('course_reviews_page.course.title'),
-    instructor: t('course_reviews_page.course.instructor'),
-    averageRating: 4.6,
-    totalReviews: 127543,
-    ratingDistribution: {
-      5: 78,
-      4: 15,
-      3: 4,
-      2: 2,
-      1: 1
-    } as RatingDistribution
+  const reloadStats = async (id: number) => {
+    const stats = await getCourseReviewStats(id)
+    setCourseInfo(prev => ({
+      ...prev,
+      totalReviews: stats.total,
+      ratingDistribution: toDistributionPercent(stats),
+    }))
   }
 
   const instructorCourses = [
     { id: 'all', name: t('course_reviews_page.instructor_courses.all') },
-    { id: '1', name: t('course_reviews_page.instructor_courses.course_1') },
-    { id: '2', name: t('course_reviews_page.instructor_courses.course_2') },
-    { id: '3', name: t('course_reviews_page.instructor_courses.course_3') }
   ]
 
-  const newReviewsCount = 5
+  const newReviewsCount = 0
 
-  const filteredReviews = reviewsData.filter((review) => {
-    const matchesSearch =
-      review.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      review.content.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCourse = selectedCourse === 'all' || true
+  // Debounce the search box so each keystroke doesn't hit the server.
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 400)
+    return () => clearTimeout(handle)
+  }, [searchQuery])
 
-    if (filterRating === "all") return matchesSearch && matchesCourse
-    return matchesSearch && matchesCourse && review.rating === parseInt(filterRating, 10)
-  })
+  // Reset to page 1 whenever filters/search/sort change.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, filterRating, sortBy])
 
-  const sortedReviews = [...filteredReviews].sort((a, b) => {
-    switch (sortBy) {
-      case 'helpful':
-        return b.helpful - a.helpful
-      case 'rating-high':
-        return b.rating - a.rating
-      case 'rating-low':
-        return a.rating - b.rating
-      case 'recent':
-      default:
-        return a.id - b.id
-    }
-  })
+  // Load course info + accurate review stats (total + distribution) once per course.
+  useEffect(() => {
+    if (!courseId) return
+    const id = Number(courseId)
+    if (!id) return
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+    Promise.all([
+      getCourseById(id),
+      getCourseReviewStats(id),
+    ]).then(([course, stats]) => {
+      setCourseInfo({
+        title: course.title,
+        instructor: course.instructor?.full_name || '',
+        averageRating: parseFloat(course.rating) || stats.average || 0,
+        totalReviews: stats.total,
+        ratingDistribution: toDistributionPercent(stats),
+      })
+    }).catch((e) => toast.error(getErrorMessage(e, 'Không thể tải đánh giá.')))
+  }, [courseId])
+
+  // Load the current page of reviews with server-side search/filter/sort.
+  useEffect(() => {
+    if (!courseId) return
+    const id = Number(courseId)
+    if (!id) return
+
+    let cancelled = false
+    getReviewsByCourse(id, page, PAGE_SIZE, {
+      search: debouncedSearch || undefined,
+      rating: filterRating !== 'all' ? filterRating : undefined,
+      sort_by: sortByParam(sortBy),
+    }).then((reviewsPage) => {
+      if (cancelled) return
+      setReviewsData(reviewsPage.results.map(mapReview))
+      setTotalPages(reviewsPage.total_pages || 1)
+    }).catch((e) => {
+      if (!cancelled) toast.error(getErrorMessage(e, 'Không thể tải đánh giá.'))
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, page, debouncedSearch, filterRating, sortBy, user?.id])
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Submitting review:', newReview, courseId)
-    setNewReview({ rating: 0, title: '', content: '' })
-    setShowWriteReview(false)
-    toast.success(t('course_reviews_page.toasts.review_submitted'))
+    if (!courseId || !newReview.rating) return
+    try {
+      await createReview({ course: Number(courseId), rating: newReview.rating, comment: newReview.content })
+      setNewReview({ rating: 0, title: '', content: '' })
+      setShowWriteReview(false)
+      toast.success(t('course_reviews_page.toasts.review_submitted'))
+      const id = Number(courseId)
+      const reviewsPage = await getReviewsByCourse(id, 1, PAGE_SIZE, {
+        search: debouncedSearch || undefined,
+        rating: filterRating !== 'all' ? filterRating : undefined,
+        sort_by: sortByParam(sortBy),
+      })
+      setReviewsData(reviewsPage.results.map(mapReview))
+      setTotalPages(reviewsPage.total_pages || 1)
+      setPage(1)
+      await reloadStats(id)
+    } catch {
+      toast.error(t('course_reviews_page.toasts.review_error', 'Failed to submit review'))
+    }
   }
 
-  const handleHelpful = (reviewId: number, helpful: boolean) => {
-    console.log('Rating review:', { reviewId, helpful })
-    toast.success(helpful ? t('course_reviews_page.toasts.marked_helpful') : t('course_reviews_page.toasts.feedback_recorded'))
+  const handleHelpful = async (reviewId: number, helpful: boolean) => {
+    if (!user) { toast.error(t('course_reviews_page.toasts.login_required')); return }
+    const review = reviewsData.find(r => r.id === reviewId)
+    if (!review) return
+    try {
+      if (helpful) {
+        await updateReview(reviewId, { likes: review.helpful + 1 })
+        setReviewsData(prev => prev.map(r => r.id === reviewId ? { ...r, helpful: r.helpful + 1 } : r))
+        toast.success(t('course_reviews_page.toasts.marked_helpful'))
+      } else {
+        setReviewsData(prev => prev.map(r => r.id === reviewId ? { ...r, notHelpful: r.notHelpful + 1 } : r))
+      }
+    } catch { /* silent */ }
   }
 
-  const handleReplyToReview = (reviewId: number) => {
+  const handleReplyToReview = async (reviewId: number) => {
     if (!replyText.trim()) {
       toast.error(t('course_reviews_page.toasts.reply_required'))
       return
     }
+    try {
+      await updateReview(reviewId, { instructor_response: replyText })
+      toast.success(t('course_reviews_page.toasts.reply_posted'))
+      setReplyText("")
+      setReplyingTo(null)
+    } catch {
+      toast.error(t('course_reviews_page.toasts.reply_error', 'Failed to post reply'))
+    }
+  }
 
-    console.log('Replying to review:', reviewId, replyText)
-    addNotification({
-      type: 'review_response',
-      title: t('course_reviews_page.notifications.instructor_responded'),
-      message: t('course_reviews_page.notifications.instructor_replied_message', {
-        instructor: user?.name || t('course_reviews_page.instructor_fallback')
-      }),
-      timestamp: new Date()
-    })
+  const handleDeleteReview = async (reviewId: number) => {
+    try {
+      await deleteReview(reviewId)
+      setReviewsData(prev => prev.filter(r => r.id !== reviewId))
+      if (courseId) await reloadStats(Number(courseId))
+      toast.success(t('course_reviews_page.toasts.review_deleted', 'Review deleted'))
+    } catch {
+      toast.error(t('course_reviews_page.toasts.delete_error', 'Failed to delete review'))
+    }
+  }
 
-    toast.success(t('course_reviews_page.toasts.reply_posted'))
-    setReplyText("")
-    setReplyingTo(null)
+  const handleReportReview = async (reviewId: number) => {
+    try {
+      await reportReview(reviewId, 'inappropriate')
+      toast.success(t('course_reviews_page.toasts.report_submitted', 'Report submitted'))
+    } catch { /* silent */ }
   }
 
   const StarRating = ({
@@ -455,7 +510,7 @@ export function CourseReviewsPage() {
       </motion.div>
 
       <motion.div className="space-y-6" variants={fadeInUp}>
-        {sortedReviews.map((review, index) => (
+        {reviewsData.map((review, index) => (
           <motion.div
             key={review.id}
             initial={{ opacity: 0, y: 10 }}
@@ -494,20 +549,43 @@ export function CourseReviewsPage() {
 
                   {review.isOwn && (
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" aria-label={t('course_reviews_page.actions.edit_review')}>
+                      <Button variant="ghost" size="sm" aria-label={t('course_reviews_page.actions.edit_review')} onClick={() => setEditingReviewId(editingReviewId === review.id ? null : review.id)}>
                         <Edit3 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" aria-label={t('course_reviews_page.actions.delete_review')}>
+                      <Button variant="ghost" size="sm" aria-label={t('course_reviews_page.actions.delete_review')} onClick={() => handleDeleteReview(review.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   )}
                 </div>
 
-                <div>
-                  <h4 className="font-medium mb-2">{review.title}</h4>
-                  <p className="text-muted-foreground">{review.content}</p>
-                </div>
+                {editingReviewId === review.id ? (
+                  <div className="space-y-2">
+                    <StarRating rating={newReview.rating || review.rating} interactive onRatingChange={r => setNewReview(prev => ({ ...prev, rating: r }))} />
+                    <Textarea
+                      defaultValue={review.content}
+                      onChange={e => setNewReview(prev => ({ ...prev, content: e.target.value }))}
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={async () => {
+                        try {
+                          await updateReview(review.id, { rating: newReview.rating || review.rating, comment: newReview.content || review.content })
+                          setReviewsData(prev => prev.map(r => r.id === review.id ? { ...r, rating: newReview.rating || r.rating, content: newReview.content || r.content } : r))
+                          setEditingReviewId(null)
+                          if (courseId) await reloadStats(Number(courseId))
+                          toast.success(t('course_reviews_page.toasts.review_updated', 'Review updated'))
+                        } catch { toast.error(t('course_reviews_page.toasts.review_error', 'Failed to update')) }
+                      }}>{t('course_reviews_page.actions.save', 'Save')}</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingReviewId(null)}>{t('course_reviews_page.actions.cancel', 'Cancel')}</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="font-medium mb-2">{review.title}</h4>
+                    <p className="text-muted-foreground">{review.content}</p>
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between pt-2 border-t">
@@ -544,7 +622,7 @@ export function CourseReviewsPage() {
                           {t('course_reviews_page.actions.reply')}
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleReportReview(review.id)}>
                         {t('course_reviews_page.actions.report')}
                       </Button>
                     </div>
@@ -587,7 +665,7 @@ export function CourseReviewsPage() {
           </motion.div>
         ))}
 
-        {sortedReviews.length === 0 && (
+        {reviewsData.length === 0 && (
           <div className="text-center py-12">
             <Star className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="mb-2">{t('course_reviews_page.empty.title')}</h3>
@@ -599,6 +677,12 @@ export function CourseReviewsPage() {
                 {t('course_reviews_page.empty.write_first_review')}
               </Button>
             )}
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="pt-4">
+            <UserPagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
           </div>
         )}
       </motion.div>

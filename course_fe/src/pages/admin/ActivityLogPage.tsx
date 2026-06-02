@@ -108,7 +108,11 @@ export function ActivityLogPage() {
           description: log.description,
           ip_address: log.ip_address || '',
           user_agent: log.user_agent || '',
-          status: 'success',
+          status: (actionLower.includes('fail') || actionLower.includes('error') || actionLower.includes('denied') || actionLower.includes('từ chối'))
+            ? 'error'
+            : (actionLower.includes('warn') || actionLower.includes('cảnh báo'))
+              ? 'warning'
+              : 'success',
           created_at: new Date(log.created_at),
         }
       })

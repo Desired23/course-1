@@ -41,16 +41,36 @@ interface PaginatedResponse<T> {
   results: T[]
 }
 
+export type ReviewSortBy = 'newest' | 'oldest' | 'rating_desc' | 'rating_asc' | 'likes'
+
+export interface CourseReviewStats {
+  total: number
+  average: number
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>
+}
+
 export async function getReviewsByCourse(
   courseId: number,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  params?: {
+    search?: string
+    rating?: string
+    sort_by?: ReviewSortBy
+  }
 ): Promise<PaginatedResponse<Review>> {
   return http.get<PaginatedResponse<Review>>('/reviews/', {
     course_id: courseId,
     page,
     page_size: pageSize,
+    search: params?.search,
+    rating: params?.rating,
+    sort_by: params?.sort_by,
   })
+}
+
+export async function getCourseReviewStats(courseId: number): Promise<CourseReviewStats> {
+  return http.get<CourseReviewStats>('/reviews/stats/', { course_id: courseId })
 }
 
 export async function getAllReviews(): Promise<Review[]> {

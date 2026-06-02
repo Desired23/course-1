@@ -4,7 +4,7 @@ import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Search, Plus, HelpCircle } from 'lucide-react'
+import { Search, HelpCircle } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { type Question, getQuestions } from '../../services/qa.api'
@@ -74,23 +74,6 @@ export function QuestionsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <HelpCircle className="w-6 h-6 text-blue-600" />
-            Hỏi &amp; Đáp
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">{totalCount} câu hỏi</p>
-        </div>
-        {user && (
-          <Button onClick={() => navigate('/qa/ask')} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Đặt câu hỏi
-          </Button>
-        )}
-      </div>
-
       <div className="flex gap-6">
         {/* Main content */}
         <div className="flex-1 min-w-0">

@@ -44,7 +44,8 @@ import {
   Music,
   Dumbbell,
   Book,
-  Sparkles
+  Sparkles,
+  Users,
 } from 'lucide-react'
 
 const categories = [
@@ -310,6 +311,39 @@ export function MobileMenu() {
               <Separator className="my-4" />
               <div className="px-3 mb-4">
                 <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
+                  Cộng đồng
+                </div>
+                <nav className="space-y-1">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleNavigate('/community')}
+                  >
+                    <Users className="h-4 w-4 mr-3 text-blue-500" />
+                    Cộng đồng
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleNavigate('/blog')}
+                  >
+                    <BookOpen className="h-4 w-4 mr-3 text-purple-500" />
+                    Blog
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => handleNavigate('/qa')}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-3 text-green-500" />
+                    Hỏi &amp; Đáp
+                  </Button>
+                </nav>
+              </div>
+
+              <Separator className="my-4" />
+              <div className="px-3 mb-4">
+                <div className="text-xs font-semibold text-muted-foreground px-3 mb-2">
                   {t('mobile_menu.sections.categories')}
                 </div>
                 <nav className="space-y-1">
@@ -338,14 +372,6 @@ export function MobileMenu() {
                   {t('mobile_menu.sections.business')}
                 </div>
                 <nav className="space-y-1">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start"
-                    onClick={() => handleNavigate('/udemy-business')}
-                  >
-                    <Briefcase className="h-4 w-4 mr-3" />
-                    {t('common.udemy_business')}
-                  </Button>
                   <Button
                     variant="ghost"
                     className="w-full justify-start"

@@ -533,7 +533,7 @@ export function MyLearningPage() {
                       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <BookOpen className="h-4 w-4" />
-                          <span>{course.total_lessons} {t('my_learning.lessons_completed')}</span>
+                          <span>{course.total_lessons} {t('my_learning.total_lessons')}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span>{course.duration ? formatDuration(course.duration) : ''}</span>
@@ -548,7 +548,7 @@ export function MyLearningPage() {
                         </div>
                       )}
                       {enrollment.certificate_issue_date && (
-                        <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/certificate')}>
+                        <Button variant="outline" className="w-full gap-2" onClick={() => navigate('/my-learning')}>
                           <Award className="h-4 w-4" />
                           {t('my_learning.view_certificate')}
                         </Button>

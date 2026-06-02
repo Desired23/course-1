@@ -8,6 +8,7 @@ import { useRouter } from '../../components/Router'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
+import { requestPasswordReset } from '../../services/auth.api'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -53,12 +54,15 @@ export function ForgotPasswordPage() {
     }
 
     setIsSubmitting(true)
-
-    setTimeout(() => {
+    try {
+      await requestPasswordReset(email.trim().toLowerCase())
       setEmailSent(true)
-      setIsSubmitting(false)
       toast.success(t('forgot_password_page.email_sent_toast'))
-    }, 1500)
+    } catch {
+      toast.error(t('forgot_password_page.send_failed'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (emailSent) {

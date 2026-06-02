@@ -140,14 +140,6 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
               variant="ghost"
               size="sm"
               className="hidden md:flex hover:bg-blue-50 dark:hover:bg-blue-900/20 text-foreground font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
-              onClick={() => navigate('/udemy-business')}
-            >
-              {t('common.udemy_business')}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hidden md:flex hover:bg-blue-50 dark:hover:bg-blue-900/20 text-foreground font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
               onClick={() => navigate('/teach')}
             >
               {t('common.teach_on_udemy')}
@@ -169,10 +161,10 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
                   {t('common.community')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/community?focus=blog')}>
+                <DropdownMenuItem onClick={() => navigate('/blog')}>
                   {t('common.blog')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/community?focus=qa')}>
+                <DropdownMenuItem onClick={() => navigate('/qa')}>
                   {t('common.qa')}
                 </DropdownMenuItem>
               </DropdownMenuContent>

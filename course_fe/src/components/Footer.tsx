@@ -68,7 +68,7 @@ export function Footer() {
       links: [
         { name: t('footer.terms'), action: () => navigate('/terms') },
         { name: t('footer.privacy_policy'), action: () => navigate('/privacy') },
-        { name: t('footer.cookie_settings'), action: () => {} },
+        { name: t('footer.cookie_settings'), action: () => {}, hidden: true },
         { name: t('footer.accessibility'), action: () => navigate('/accessibility') }
       ]
     }
@@ -94,7 +94,7 @@ export function Footer() {
             <div key={index}>
               <h3 className="font-semibold mb-4 text-white">{section.title}</h3>
               <ul className="space-y-2">
-                {section.links.map((link, linkIndex) => (
+                {section.links.filter(link => !link.hidden).map((link, linkIndex) => (
                   <li key={linkIndex}>
                     <button
                       onClick={link.action}
@@ -114,6 +114,7 @@ export function Footer() {
               variant="outline"
               size="sm"
               className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800 w-full justify-start"
+              onClick={() => void i18n.changeLanguage(i18n.language === 'vi' ? 'en' : 'vi')}
             >
               <Globe className="w-4 h-4 mr-2" />
               {i18n.language === 'vi' ? t('language_switcher.vietnamese') : t('language_switcher.english')}
@@ -144,7 +145,7 @@ export function Footer() {
         </div>
 
 
-        <div className="border-t border-gray-800 pt-8 pb-8">
+        <div className="hidden border-t border-gray-800 pt-8 pb-8">
           <div className="max-w-2xl">
             <h3 className="font-semibold mb-2 text-white">{t('footer.stay_updated')}</h3>
             <p className="text-gray-400 text-sm mb-4">
@@ -198,7 +199,7 @@ export function Footer() {
               {t('footer.privacy')}
             </button>
             <span>•</span>
-            <button className="hover:text-white dark:hover:text-gray-200 transition-colors">
+            <button className="hidden hover:text-white dark:hover:text-gray-200 transition-colors">
               {t('footer.do_not_sell')}
             </button>
           </div>

@@ -26,6 +26,10 @@ class CartCourseSerializer(serializers.Serializer):
 
 class CartSerializer(serializers.ModelSerializer):
     course_detail = CartCourseSerializer(source='course', read_only=True)
+    in_plan = serializers.SerializerMethodField()
+
+    def get_in_plan(self, obj):
+        return bool(getattr(obj, '_in_plan', False))
 
     class Meta:
         model = Cart
@@ -34,6 +38,7 @@ class CartSerializer(serializers.ModelSerializer):
             'user',
             'course',
             'course_detail',
+            'in_plan',
             'promotion',
             'created_at'
         ]

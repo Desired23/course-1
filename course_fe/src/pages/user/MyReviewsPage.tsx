@@ -206,7 +206,7 @@ export function MyReviewsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t("my_reviews_page.stats.total_reviews")}</p>
-                  <p className="text-2xl">{reviews.length}</p>
+                  <p className="text-2xl">{totalCount}</p>
                 </div>
               </div>
             </CardContent>

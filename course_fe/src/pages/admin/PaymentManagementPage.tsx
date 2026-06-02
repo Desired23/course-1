@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { toast } from 'sonner'
-import { getAdminPayments, fixPayment } from '../../services/admin.api'
+import { getAdminPayments, fixPayment, exportAdminPayments } from '../../services/admin.api'
 import type { AdminPayment } from '../../services/admin.api'
 import { adminRefundAction, adminCreateRefund, getPaymentStatus, getAdminRefunds, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
@@ -873,7 +873,7 @@ export function PaymentManagementPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{formatCurrency(1398000)}</div>
+            <div className="text-2xl">{formatCurrency(payments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + (parseFloat(p.total_amount as any) || 0), 0))}</div>
             <p className="text-xs text-muted-foreground">
               {t('payment_management.stats.revenue_change')}
             </p>
@@ -912,7 +912,7 @@ export function PaymentManagementPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">94.2%</div>
+            <div className="text-2xl">{payments.length > 0 ? `${Math.round(payments.filter(p => p.payment_status === 'completed').length / payments.length * 100)}%` : '—'}</div>
             <p className="text-xs text-muted-foreground">
               {t('payment_management.stats.success_rate_hint')}
             </p>
@@ -975,7 +975,7 @@ export function PaymentManagementPage() {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>{t('payment_management.payments.list_title', { count: filteredPayments.length })}</CardTitle>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" onClick={() => void exportAdminPayments()}>
                   <Download className="h-4 w-4 mr-2" />
                   {t('payment_management.payments.export')}
                 </Button>

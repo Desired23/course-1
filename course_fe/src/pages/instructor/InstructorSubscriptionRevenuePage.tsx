@@ -15,7 +15,7 @@ import {
   Crown
 } from 'lucide-react'
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip"
-import { getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount } from '../../services/instructor-earnings.api'
+import { getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount, exportInstructorEarnings } from '../../services/instructor-earnings.api'
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from '../../services/instructor.api'
 import { useTranslation } from 'react-i18next'
 
@@ -176,7 +176,7 @@ export function InstructorSubscriptionRevenuePage() {
               <SelectItem value="90d">{t('instructor_subscription_revenue.period_90d')}</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => void exportInstructorEarnings()}>
             <Download className="w-4 h-4 mr-2" /> {t('instructor_subscription_revenue.export_report')}
           </Button>
         </div>
