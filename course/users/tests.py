@@ -1,80 +1,74 @@
-from django.conf import settings
-from django.contrib.auth.hashers import make_password
+"""Main-flow tests for authentication and role derivation.
+
+Roles are derived from Admin/Instructor records (no legacy user_type column);
+these tests lock in that contract plus the core auth service flows.
+"""
 from django.test import TestCase
-from rest_framework.test import APIClient
-import jwt
 
 from admins.models import Admin
+from instructors.models import Instructor
 from users.models import User
+from users.services import login, refresh_token, register, get_users
+from utils.test_helpers import make_user
 
 
-class UserManagementViewTests(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.admin_user = User.objects.create(
-            username="adminroot",
-            email="admin@example.com",
-            password_hash=make_password("Password123"),
-            full_name="Admin Root",
-            user_type="admin",
-            status="active",
-        )
-        Admin.objects.create(user=self.admin_user, department="IT", role="super_admin")
+class RoleDerivationTests(TestCase):
+    def test_plain_user_is_student(self):
+        user = make_user("student")
+        self.assertEqual(user.user_type, User.UserTypeChoices.STUDENT)
 
-        payload = {
-            'user_id': self.admin_user.id,
-            'username': self.admin_user.username,
-            'email': self.admin_user.email,
-            'user_type': ['admin'],
-            'token_type': 'access',
-            'exp': 9999999999,
-            'iat': 1,
-        }
-        token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
-        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+    def test_instructor_record_grants_instructor_role(self):
+        user = make_user("student")
+        Instructor.objects.create(user=user)
+        user.refresh_from_db()
+        self.assertEqual(user.user_type, User.UserTypeChoices.INSTRUCTOR)
 
-        self.student = User.objects.create(
-            username="student_search",
-            email="student.search@example.com",
-            password_hash=make_password("Password123"),
-            full_name="Student Search",
-            user_type="student",
-            status="active",
-        )
-        self.instructor = User.objects.create(
-            username="instructor_demo",
-            email="teacher@example.com",
-            password_hash=make_password("Password123"),
-            full_name="Teaching Demo",
-            user_type="instructor",
-            status="banned",
-        )
-        self.deleted_user = User.objects.create(
-            username="deleted_user",
-            email="deleted@example.com",
-            password_hash=make_password("Password123"),
-            full_name="Deleted User",
-            user_type="student",
-            status="inactive",
-            is_deleted=True,
-        )
+    def test_admin_takes_precedence_over_instructor(self):
+        user = make_user("instructor")
+        Admin.objects.create(user=user, department="", role="super_admin")
+        user.refresh_from_db()
+        self.assertEqual(user.user_type, User.UserTypeChoices.ADMIN)
 
-    def test_list_users_supports_search(self):
-        response = self.client.get('/api/users/', {'search': 'student search'})
+    def test_soft_deleted_role_reverts_to_student(self):
+        user = make_user("instructor")
+        instr = user.instructor
+        instr.is_deleted = True
+        instr.save(update_fields=["is_deleted"])
+        user.refresh_from_db()
+        self.assertEqual(user.user_type, User.UserTypeChoices.STUDENT)
 
-        self.assertEqual(response.status_code, 200, response.content)
-        data = response.json()
-        result_ids = [item['id'] for item in data['results']]
 
-        self.assertIn(self.student.id, result_ids)
-        self.assertNotIn(self.instructor.id, result_ids)
-        self.assertNotIn(self.deleted_user.id, result_ids)
+class AuthFlowTests(TestCase):
+    def test_register_creates_inactive_student(self):
+        register({
+            "username": "newbie",
+            "email": "newbie@example.com",
+            "full_name": "New Bie",
+            "password": "Password123",
+        })
+        user = User.objects.get(username="newbie")
+        self.assertEqual(user.status, "inactive")
+        self.assertEqual(user.user_type, User.UserTypeChoices.STUDENT)
 
-    def test_list_users_supports_status_and_user_type_filters(self):
-        response = self.client.get('/api/users/', {'status': 'banned', 'user_type': 'instructor'})
+    def test_login_then_refresh_issues_tokens(self):
+        make_user("student", username="loginer", password="Password123")
+        result = login({"username": "loginer", "password": "Password123"})
+        self.assertIn("access_token", result)
+        self.assertIn("refresh_token", result)
+        self.assertEqual(result["user"]["user_type"], ["student"])
 
-        self.assertEqual(response.status_code, 200, response.content)
-        data = response.json()
+        refreshed = refresh_token(result["refresh_token"])
+        self.assertIn("access_token", refreshed)
+        self.assertIn("refresh_token", refreshed)
 
-        self.assertEqual(data['count'], 1)
-        self.assertEqual(data['results'][0]['id'], self.instructor.id)
+
+class GetUsersFilterTests(TestCase):
+    def test_filter_by_role_uses_role_records(self):
+        make_user("admin", username="a1")
+        make_user("instructor", username="i1")
+        make_user("student", username="s1")
+        make_user("student", username="s2")
+
+        self.assertEqual(get_users({"user_type": "admin"}).count(), 1)
+        self.assertEqual(get_users({"user_type": "instructor"}).count(), 1)
+        self.assertEqual(get_users({"user_type": "student"}).count(), 2)

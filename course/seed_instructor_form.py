@@ -1,17 +1,3 @@
-"""
-Seed an active Instructor Application registration form.
-
-Run with:
-    python manage.py shell < seed_instructor_form.py
-
-Idempotent: if an active instructor_application form already exists, it is
-left untouched and only missing questions are (re)created.
-
-Question labels intentionally contain the keywords that
-applications.services._promote_to_instructor looks for
-(bio / chuyên ngành / bằng cấp / kinh nghiệm) so an approved application
-auto-populates the Instructor profile.
-"""
 from registration_forms.models import RegistrationForm, FormQuestion
 
 QUESTIONS = [

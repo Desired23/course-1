@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Filter, Star, Grid, List, X, BookOpen, Users, Clock, TrendingUp } from 'lucide-react'
+import { getCourses, type CourseListItem, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from '../../services/course.api'
 import { Input } from '../../components/ui/input'
 import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
@@ -40,155 +41,6 @@ const fadeInUp = {
 }
 
 
-const topicCourses: Record<string, any[]> = {
-  'react': [
-    {
-      id: '1',
-      titleKey: 'topic_page.courses.react_complete_guide',
-      instructor: "Maximilian Schwarzmüller",
-      image: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800",
-      rating: 4.6,
-      reviews: 178234,
-      price: "₫1.299.000",
-      originalPrice: "₫3.599.000",
-      duration: "49 hours",
-      students: "650K+",
-      levelKey: 'topic_page.levels.all',
-      bestseller: true,
-      lastUpdated: '10/2024'
-    },
-    {
-      id: '2',
-      titleKey: 'topic_page.courses.modern_react_with_redux',
-      instructor: "Stephen Grider",
-      image: "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=800",
-      rating: 4.7,
-      reviews: 112456,
-      price: "₫1.299.000",
-      originalPrice: "₫3.299.000",
-      duration: "52 hours",
-      students: "420K+",
-      levelKey: 'topic_page.levels.beginner',
-      bestseller: true,
-      lastUpdated: '11/2024'
-    },
-    {
-      id: '3',
-      titleKey: 'topic_page.courses.advanced_react_and_redux',
-      instructor: "Stephen Grider",
-      image: "https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=800",
-      rating: 4.6,
-      reviews: 89234,
-      price: "₫1.299.000",
-      originalPrice: "₫2.999.000",
-      duration: "28 hours",
-      students: "280K+",
-      levelKey: 'topic_page.levels.advanced',
-      bestseller: false,
-      lastUpdated: '09/2024'
-    }
-  ],
-  'python': [
-    {
-      id: '4',
-      titleKey: 'topic_page.courses.hundred_days_python',
-      instructor: "Dr. Angela Yu",
-      image: "https://images.unsplash.com/photo-1526379095098-d400fd0bf935?w=800",
-      rating: 4.7,
-      reviews: 245678,
-      price: "₫1.299.000",
-      originalPrice: "₫3.499.000",
-      duration: "60 hours",
-      students: "780K+",
-      levelKey: 'topic_page.levels.all',
-      bestseller: true,
-      lastUpdated: '11/2024'
-    },
-    {
-      id: '5',
-      titleKey: 'topic_page.courses.python_data_science_bootcamp',
-      instructor: "Jose Portilla",
-      image: "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800",
-      rating: 4.6,
-      reviews: 145678,
-      price: "₫1.299.000",
-      originalPrice: "₫3.199.000",
-      duration: "25 hours",
-      students: "720K+",
-      levelKey: 'topic_page.levels.beginner',
-      bestseller: true,
-      lastUpdated: '10/2024'
-    }
-  ],
-  'javascript': [
-    {
-      id: '6',
-      titleKey: 'topic_page.courses.complete_javascript_2024',
-      instructor: "Jonas Schmedtmann",
-      image: "https://images.unsplash.com/photo-1579468118864-1b9ea3c0db4a?w=800",
-      rating: 4.7,
-      reviews: 198765,
-      price: "₫1.299.000",
-      originalPrice: "₫3.599.000",
-      duration: "69 hours",
-      students: "680K+",
-      levelKey: 'topic_page.levels.all',
-      bestseller: true,
-      lastUpdated: '11/2024'
-    },
-    {
-      id: '7',
-      titleKey: 'topic_page.courses.javascript_advanced_concepts',
-      instructor: "Andrei Neagoie",
-      image: "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=800",
-      rating: 4.7,
-      reviews: 87654,
-      price: "₫1.299.000",
-      originalPrice: "₫2.999.000",
-      duration: "25 hours",
-      students: "320K+",
-      levelKey: 'topic_page.levels.advanced',
-      bestseller: false,
-      lastUpdated: '09/2024'
-    }
-  ],
-  'nodejs': [
-    {
-      id: '8',
-      titleKey: 'topic_page.courses.nodejs_bootcamp',
-      instructor: "Jonas Schmedtmann",
-      image: "https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=800",
-      rating: 4.8,
-      reviews: 125678,
-      price: "₫1.299.000",
-      originalPrice: "₫3.299.000",
-      duration: "42 hours",
-      students: "480K+",
-      levelKey: 'topic_page.levels.all',
-      bestseller: true,
-      lastUpdated: '11/2024'
-    }
-  ],
-  'machine-learning': [
-    {
-      id: '9',
-      titleKey: 'topic_page.courses.machine_learning_a_z',
-      instructor: "Kirill Eremenko, Hadelin de Ponteves",
-      image: "https://images.unsplash.com/photo-1666875753105-c63a6f3bdc86?w=800",
-      rating: 4.5,
-      reviews: 187432,
-      price: "₫1.299.000",
-      originalPrice: "₫3.799.000",
-      duration: "44 hours",
-      students: "1.2M+",
-      levelKey: 'topic_page.levels.beginner',
-      bestseller: true,
-      lastUpdated: '11/2024'
-    }
-  ]
-}
-
-const levels = ['All Levels', 'Beginner', 'Intermediate', 'Advanced']
 const ratings = [4.5, 4.0, 3.5, 3.0]
 
 
@@ -272,11 +124,46 @@ export default function TopicPage() {
     }
   })()
 
-  const courses = (topicCourses[topicSlug] || []).map((course) => ({
-    ...course,
-    title: t(course.titleKey),
-    level: t(course.levelKey),
-  }))
+  const [serverCourses, setServerCourses] = useState<CourseListItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getCourses({ search: formatCategoryName(topicSlug), status: 'published', page_size: 24 })
+      .then(res => { if (!cancelled) setServerCourses(res.results) })
+      .catch(() => { if (!cancelled) setServerCourses([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [topicSlug])
+
+  const courses = serverCourses.map((course) => {
+    const effectivePrice = getEffectivePrice(course)
+    const regularPrice = parseDecimal(course.price)
+    const hasDiscount = effectivePrice < regularPrice
+    return {
+      id: `course-${course.id}`,
+      courseId: `course-${course.id}`,
+      title: course.title,
+      instructor: course.instructor_name || 'Instructor',
+      image: course.thumbnail || '',
+      rating: parseDecimal(course.rating),
+      reviews: course.total_reviews,
+      price: formatPrice(effectivePrice),
+      priceNum: effectivePrice,
+      originalPrice: hasDiscount ? formatPrice(regularPrice) : undefined,
+      duration: formatDuration(course.duration),
+      students: course.total_students >= 1000
+        ? `${Math.floor(course.total_students / 1000)}K+`
+        : `${course.total_students}`,
+      studentsNum: course.total_students,
+      level: getLevelLabel(course.level),
+      category: course.category_name || '',
+      bestseller: course.total_students > 100000,
+      currency: 'VND' as const,
+      discountEndDate: hasDiscount ? course.discount_end_date : undefined,
+    }
+  })
 
 
   const breadcrumbItems: BreadcrumbItem[] = [
@@ -310,15 +197,13 @@ export default function TopicPage() {
   const sortedCourses = [...filteredCourses].sort((a, b) => {
     switch (sortBy) {
       case 'most-popular':
-        return parseInt(b.students) - parseInt(a.students)
+        return b.studentsNum - a.studentsNum
       case 'highest-rated':
         return b.rating - a.rating
-      case 'newest':
-        return b.lastUpdated.localeCompare(a.lastUpdated)
       case 'price-low-high':
-        return parseInt(a.price.replace(/\D/g, '')) - parseInt(b.price.replace(/\D/g, ''))
+        return a.priceNum - b.priceNum
       case 'price-high-low':
-        return parseInt(b.price.replace(/\D/g, '')) - parseInt(a.price.replace(/\D/g, ''))
+        return b.priceNum - a.priceNum
       default:
         return 0
     }
@@ -333,11 +218,7 @@ export default function TopicPage() {
   const hasActiveFilters = searchQuery || selectedLevels.length > 0 || selectedRating !== null
 
 
-  const totalStudents = courses.reduce((sum, c) => {
-    const students = c.students.replace(/[K+M+]/g, '')
-    const multiplier = c.students.includes('M') ? 1000000 : c.students.includes('K') ? 1000 : 1
-    return sum + (parseFloat(students) * multiplier)
-  }, 0)
+  const totalStudents = courses.reduce((sum, c) => sum + c.studentsNum, 0)
 
   const avgRating = courses.length > 0
     ? (courses.reduce((sum, c) => sum + c.rating, 0) / courses.length).toFixed(1)
@@ -598,7 +479,6 @@ export default function TopicPage() {
                     <SelectContent>
                       <SelectItem value="most-popular">{t('topic_page.sort.most_popular')}</SelectItem>
                       <SelectItem value="highest-rated">{t('topic_page.sort.highest_rated')}</SelectItem>
-                      <SelectItem value="newest">{t('topic_page.sort.newest')}</SelectItem>
                       <SelectItem value="price-low-high">{t('topic_page.sort.price_low_high')}</SelectItem>
                       <SelectItem value="price-high-low">{t('topic_page.sort.price_high_low')}</SelectItem>
                     </SelectContent>
@@ -633,7 +513,11 @@ export default function TopicPage() {
             </motion.div>
 
 
-            {sortedCourses.length > 0 ? (
+            {loading ? (
+              <motion.div variants={fadeInUp}>
+                <Card className="p-12 text-center text-muted-foreground">{t('common.loading')}</Card>
+              </motion.div>
+            ) : sortedCourses.length > 0 ? (
               <motion.div variants={fadeInUp} className={
                 viewMode === 'grid'
                   ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'

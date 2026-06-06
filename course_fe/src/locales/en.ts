@@ -8240,6 +8240,8 @@ export const en = {
       answers_count: "{{count}} answers",
       votes_count: "{{count}} votes",
       answered: "Answered",
+      read_time: "{{count}} min read",
+      instructor_fallback: "Instructor",
     },
     toasts: {
       searching_for: "Searching for \"{{query}}\"",

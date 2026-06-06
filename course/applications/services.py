@@ -287,8 +287,13 @@ def _promote_to_instructor(application):
             setattr(instructor, key, val)
         instructor.save()
 
-    user.user_type = 'instructor'
-    user.save(update_fields=['user_type'])
+    # Role is now derived from the Instructor record above; the legacy user_type
+    # column was removed. Ensure a previously soft-deleted record is reactivated.
+    if instructor.is_deleted:
+        instructor.is_deleted = False
+        instructor.deleted_at = None
+        instructor.deleted_by = None
+        instructor.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
 
 
 def resubmit_application(application_id, user, data):

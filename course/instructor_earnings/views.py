@@ -112,11 +112,6 @@ class InstructorEarningsByPayoutView(APIView):
 
 
 class SubscriptionEarningsCalculationView(APIView):
-    """
-    POST /api/instructor-earnings/subscription-calc/
-    Cron job (monthly): calculate and create InstructorEarning from subscription revenue.
-    Body: { year: int, month: int }
-    """
 
     permission_classes = [RolePermissionFactory(["admin"])]
     throttle_scope = 'burst'
@@ -178,10 +173,6 @@ class InstructorEarningsSummaryView(APIView):
 
 
 class InstructorSubscriptionRevenueBreakdownView(APIView):
-    """
-    GET /api/instructor-earnings/subscription-breakdown/
-    Paginated, server-side aggregated subscription revenue by course.
-    """
 
     permission_classes = [RolePermissionFactory(["admin", "instructor"])]
     throttle_scope = 'burst'

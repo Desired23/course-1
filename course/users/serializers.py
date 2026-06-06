@@ -13,6 +13,7 @@ class Userserializers(serializers.ModelSerializer):
     enrollment_count = serializers.SerializerMethodField()
     courses_count = serializers.SerializerMethodField()
     roles = serializers.SerializerMethodField()
+    user_type = serializers.ReadOnlyField()
 
     def get_roles(self, obj):
         roles = ['student']
@@ -63,6 +64,8 @@ class Userserializers(serializers.ModelSerializer):
             'full_name': {'required': True},
         }
 class UserUpdateBySelfSerializer(serializers.ModelSerializer):
+    user_type = serializers.ReadOnlyField()
+
     class Meta:
         model = User
         fields = [
@@ -82,7 +85,7 @@ class UserUpdateBySelfSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password_hash': {'write_only': True},
         }
-        read_only_fields = ['id', 'created_at', 'last_login', 'status', 'user_type']
+        read_only_fields = ['id', 'created_at', 'last_login', 'status']
 
 
 class UserSettingsSerializer(serializers.ModelSerializer):

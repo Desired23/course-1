@@ -2,9 +2,10 @@ import { motion } from 'motion/react'
 import { Quote, Star } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { getHomepageReviews, type Review } from '../services/review.api'
 
 interface Testimonial {
   id: number
@@ -21,8 +22,30 @@ export function TestimonialsSection() {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([])
 
-  const testimonials = t('testimonials.items', { returnObjects: true }) as Testimonial[]
+  useEffect(() => {
+    let cancelled = false
+    getHomepageReviews({ limit: 9 })
+      .then((reviews: Review[]) => {
+        if (cancelled) return
+        setTestimonials(
+          reviews
+            .filter(r => r.comment && r.comment.trim())
+            .map(r => ({
+              id: r.review_id,
+              name: r.user_info?.full_name || '',
+              role: '',
+              avatar: r.user_info?.avatar || '',
+              rating: r.rating,
+              content: r.comment || '',
+              course: r.course_detail?.title || '',
+            }))
+        )
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   const scroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return
@@ -46,6 +69,8 @@ export function TestimonialsSection() {
     setShowLeftArrow(scrollLeft > 10)
     setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10)
   }
+
+  if (testimonials.length === 0) return null
 
   return (
     <section className="py-20 px-4 bg-gray-50 dark:bg-gray-900">

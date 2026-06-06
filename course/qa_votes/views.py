@@ -8,7 +8,6 @@ from .services import vote_question, vote_answer
 
 
 class QuestionVoteView(APIView):
-    """Authenticated: upvote or downvote a question."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
@@ -27,7 +26,6 @@ class QuestionVoteView(APIView):
 
 
 class AnswerVoteView(APIView):
-    """Authenticated: upvote or downvote an answer."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 

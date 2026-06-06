@@ -3,7 +3,6 @@ from .models import Enrollment
 
 
 class CourseSummarySerializer(serializers.Serializer):
-    """Lightweight course info nested inside enrollment list response."""
     course_id = serializers.IntegerField(source='id')
     title = serializers.CharField()
     thumbnail = serializers.CharField(allow_null=True)
@@ -20,7 +19,6 @@ class CourseSummarySerializer(serializers.Serializer):
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
-    """Full enrollment with nested course summary — used in list endpoint."""
     course = CourseSummarySerializer(read_only=True)
     enrollment_id = serializers.IntegerField(source='id', read_only=True)
     completion_date = serializers.DateTimeField(allow_null=True, read_only=True)

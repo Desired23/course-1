@@ -16,10 +16,6 @@ def validate_course_module_data(data):
 
 
 def get_course_modules(filters=None):
-    """
-    Return course modules queryset with optional filters.
-    Empty result is valid and should return an empty list response.
-    """
     course_modules = CourseModule.objects.filter(is_deleted=False)
 
     if filters:
@@ -41,7 +37,6 @@ def get_course_module_by_id(course_module_id):
 
 
 def create_course_module(data):
-    """Create a new course module."""
     serializer = CourseModuleSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
         course_module = serializer.save()

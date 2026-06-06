@@ -94,7 +94,6 @@ class CourseSerializer(serializers.ModelSerializer):
 
 
 class InstructorSummarySerializer(serializers.Serializer):
-    """Lightweight instructor info for course detail"""
     instructor_id = serializers.IntegerField(source='id')
     user_id = serializers.IntegerField(source='user.id')
     full_name = serializers.CharField(source='user.full_name')
@@ -107,13 +106,11 @@ class InstructorSummarySerializer(serializers.Serializer):
 
 
 class CategorySummarySerializer(serializers.Serializer):
-    """Lightweight category info for course detail"""
     category_id = serializers.IntegerField(source='id')
     name = serializers.CharField()
 
 
 class LessonSummarySerializer(serializers.Serializer):
-    """Lesson info nested inside module"""
     lesson_id = serializers.IntegerField(source='id')
     title = serializers.CharField()
     content_type = serializers.CharField()
@@ -174,7 +171,6 @@ class LessonSummarySerializer(serializers.Serializer):
 
 
 class ModuleSummarySerializer(serializers.Serializer):
-    """Module with nested lessons for course detail"""
     module_id = serializers.IntegerField(source='id')
     title = serializers.CharField()
     description = serializers.CharField(allow_null=True)
@@ -188,7 +184,6 @@ class ModuleSummarySerializer(serializers.Serializer):
 
 
 class UserEnrollmentSerializer(serializers.Serializer):
-    """Current user's enrollment info"""
     enrollment_id = serializers.IntegerField(source='id')
     enrollment_date = serializers.DateTimeField()
     progress = serializers.DecimalField(max_digits=5, decimal_places=2)
@@ -198,7 +193,6 @@ class UserEnrollmentSerializer(serializers.Serializer):
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
-    """Full course detail with nested instructor, category, modules, enrollment"""
     instructor = InstructorSummarySerializer(read_only=True)
     category = CategorySummarySerializer(read_only=True)
     subcategory = CategorySummarySerializer(read_only=True)
@@ -272,12 +266,6 @@ class CourseDetailSerializer(serializers.ModelSerializer):
         return round(obj.duration / 60, 2)
 
     def get_access_info(self, obj):
-        """
-        Returns access info for UX:
-        - has_access: bool
-        - access_type: 'admin' | 'instructor' | 'purchase' | 'subscription' | None
-        - in_subscription: bool (whether course is in any active plan)
-        """
         user = self.context.get('user')
         if not user:
 

@@ -6,11 +6,6 @@ from django.conf import settings
 
 
 def role_required(roles, methods=None):
-    """
-    Decorator kiểm tra token và vai trò người dùng.
-    - roles: str hoặc list
-    - methods: list các method HTTP cần áp dụng (optional). VD: ['POST', 'PUT']
-    """
     if isinstance(roles, str):
         roles = [roles]
 

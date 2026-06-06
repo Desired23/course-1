@@ -11,10 +11,6 @@ from courses.models import Course
 from users.models import User
 
 def update_learning_progress(user_id, lesson_id, progress_data):
-    """
-    POST /api/learning-progress/update/
-    Update or create learning progress for a user's lesson
-    """
     try:
         user = User.objects.get(id=user_id)
         lesson = Lesson.objects.select_related('coursemodule__course').get(id=lesson_id)
@@ -219,10 +215,6 @@ def delete_learning_progress(enrollment_id, lesson_id):
 
 
 def get_student_stats(user):
-    """
-    GET /api/students/my-stats/
-    Returns aggregated learning statistics for the authenticated student.
-    """
     from enrollments.models import Enrollment
     from certificates.models import Certificate
     from quiz_results.models import QuizResult

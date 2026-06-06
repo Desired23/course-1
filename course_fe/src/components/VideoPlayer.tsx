@@ -60,7 +60,7 @@ declare global {
 }
 
 export function VideoPlayer({
-  url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  url = '',
   title,
   onProgress,
   onComplete,

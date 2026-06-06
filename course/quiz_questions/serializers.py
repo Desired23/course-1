@@ -7,7 +7,6 @@ from utils.input_validators import (
 )
 
 class QuizTestCaseSerializer(serializers.ModelSerializer):
-    """Serializer for quiz test cases (code questions)"""
     class Meta:
         model = QuizTestCase
         fields = [
@@ -23,7 +22,6 @@ class QuizTestCaseSerializer(serializers.ModelSerializer):
 
 
 class QuizTestCaseForStudentSerializer(serializers.ModelSerializer):
-    """Serializer for test cases visible to students (excludes expected_output for hidden cases)"""
     class Meta:
         model = QuizTestCase
         fields = [
@@ -76,7 +74,6 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
         ]
 
     def validate_lesson(self, value):
-        """Validate lesson exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Lesson is required.")
         if value.is_deleted:
@@ -85,7 +82,6 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
 
 
 class QuizOptionSerializer(serializers.Serializer):
-    """Serializer for quiz question options"""
     option_id = serializers.IntegerField()
     option_text = serializers.CharField()
     order = serializers.IntegerField()
@@ -123,7 +119,6 @@ class QuizQuestionForStudentSerializer(serializers.ModelSerializer):
         ]
 
     def get_options(self, obj):
-        """Parse and return formatted options"""
         if obj.options:
             if isinstance(obj.options, list):
                 return obj.options
@@ -140,20 +135,17 @@ class QuizQuestionForStudentSerializer(serializers.ModelSerializer):
         return []
 
     def get_image_url(self, obj):
-        """Get image URL if stored in options or content"""
         if obj.options and isinstance(obj.options, dict):
             return obj.options.get('image_url')
         return None
 
     def get_code_snippet(self, obj):
-        """Get code snippet if stored in options or content"""
         if obj.options and isinstance(obj.options, dict):
             return obj.options.get('code_snippet')
         return None
 
 
 class LessonQuizSerializer(serializers.Serializer):
-    """Serializer for GET /api/quizzes/lesson/<lesson_id>/"""
     quiz_id = serializers.SerializerMethodField()
     lesson_id = serializers.IntegerField()
     title = serializers.CharField()
@@ -163,20 +155,16 @@ class LessonQuizSerializer(serializers.Serializer):
     questions = QuizQuestionForStudentSerializer(many=True)
 
     def get_quiz_id(self, obj):
-        """Generate quiz_id from lesson_id"""
         return obj.get('lesson_id')
 
     def get_time_limit(self, obj):
-        """Get time limit in seconds, null if unlimited"""
         return obj.get('time_limit', None)
 
     def get_passing_score(self, obj):
-        """Get passing score percentage"""
         return obj.get('passing_score', 70)
 
 
 class QuizAnswerSerializer(serializers.Serializer):
-    """Serializer for individual answer in quiz submission"""
     question_id = serializers.IntegerField()
     selected_option_id = serializers.IntegerField(required=False, allow_null=True)
     text_answer = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -203,21 +191,18 @@ class QuizAnswerSerializer(serializers.Serializer):
 
 
 class QuizSubmitSerializer(serializers.Serializer):
-    """Serializer for POST /api/quizzes/submit/"""
     quiz_id = serializers.IntegerField()
     lesson_id = serializers.IntegerField()
     answers = QuizAnswerSerializer(many=True)
     time_spent = serializers.IntegerField(help_text="Time spent in seconds")
 
     def validate_answers(self, value):
-        """Validate that answers is not empty"""
         if not value:
             raise serializers.ValidationError("Answers cannot be empty")
         return value
 
 
 class QuizAnswerResultSerializer(serializers.Serializer):
-    """Serializer for individual answer result"""
     question_id = serializers.IntegerField()
     selected_option_id = serializers.IntegerField(allow_null=True, required=False)
     text_answer = serializers.CharField(allow_null=True, allow_blank=True, required=False)
@@ -230,7 +215,6 @@ class QuizAnswerResultSerializer(serializers.Serializer):
 
 
 class QuizResultDetailSerializer(serializers.Serializer):
-    """Serializer for quiz result detail response"""
     quiz_result_id = serializers.IntegerField()
     quiz_id = serializers.IntegerField()
     user_id = serializers.IntegerField()
@@ -245,7 +229,6 @@ class QuizResultDetailSerializer(serializers.Serializer):
 
 
 class UserQuizHistorySerializer(serializers.Serializer):
-    """Serializer for user quiz history"""
     quiz_result_id = serializers.IntegerField()
     lesson_id = serializers.IntegerField()
     lesson_title = serializers.CharField()

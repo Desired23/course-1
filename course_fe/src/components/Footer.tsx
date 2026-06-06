@@ -74,12 +74,15 @@ export function Footer() {
     }
   ]
 
+  // Social URLs are not configured for this platform. They previously pointed to
+  // Udemy's accounts (wrong company); left as no-op placeholders until real
+  // UTC social profiles are provided via site settings.
   const socialLinks = [
-    { icon: Facebook, label: t('footer.social.facebook'), url: "https://facebook.com/udemy" },
-    { icon: Twitter, label: t('footer.social.twitter'), url: "https://twitter.com/udemy" },
-    { icon: Youtube, label: t('footer.social.youtube'), url: "https://youtube.com/udemy" },
-    { icon: Linkedin, label: t('footer.social.linkedin'), url: "https://linkedin.com/company/udemy" },
-    { icon: Instagram, label: t('footer.social.instagram'), url: "https://instagram.com/udemy" }
+    { icon: Facebook, label: t('footer.social.facebook'), url: "#" },
+    { icon: Twitter, label: t('footer.social.twitter'), url: "#" },
+    { icon: Youtube, label: t('footer.social.youtube'), url: "#" },
+    { icon: Linkedin, label: t('footer.social.linkedin'), url: "#" },
+    { icon: Instagram, label: t('footer.social.instagram'), url: "#" }
   ]
 
   return (

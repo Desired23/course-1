@@ -13,6 +13,39 @@ import logging
 logger = logging.getLogger(__name__)
 from reportlab.lib import colors
 
+
+def _get_branding_setting(setting_key, fallback):
+    """Read a branding value from systems_settings, falling back safely.
+
+    Avoids hardcoded brand names / support emails in email content. The
+    canonical values live in the systems_settings table (seeded), with a
+    settings/env fallback so emails still render if the row is missing.
+    """
+    try:
+        from systems_settings.models import SystemsSetting
+        value = (
+            SystemsSetting.objects.filter(setting_key=setting_key)
+            .values_list("setting_value", flat=True)
+            .first()
+        )
+        if value and str(value).strip():
+            return str(value).strip()
+    except Exception:
+        pass
+    return fallback
+
+
+def get_site_name():
+    return _get_branding_setting("site_name", getattr(settings, "SITE_NAME", "UTC"))
+
+
+def get_support_email():
+    return _get_branding_setting(
+        "contact_email",
+        getattr(settings, "SUPPORT_EMAIL", None) or settings.DEFAULT_FROM_EMAIL,
+    )
+
+
 def generate_invoice_pdf(payment, payment_details):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
@@ -52,8 +85,8 @@ def generate_invoice_pdf(payment, payment_details):
 
 
     elements.append(Spacer(1, 20))
-    elements.append(Paragraph("Cảm ơn bạn đã mua khóa học tại MyCourse!", styles['Italic']))
-    elements.append(Paragraph("Nếu có thắc mắc, vui lòng liên hệ support@example.com", styles['Italic']))
+    elements.append(Paragraph(f"Cảm ơn bạn đã mua khóa học tại {get_site_name()}!", styles['Italic']))
+    elements.append(Paragraph(f"Nếu có thắc mắc, vui lòng liên hệ {get_support_email()}", styles['Italic']))
 
 
     doc.build(elements)
@@ -70,10 +103,6 @@ def send_email(
     attachments: Optional[list] = None,
     from_email: str = settings.DEFAULT_FROM_EMAIL,
 ) -> bool:
-    """
-    Gửi email HTML (có thể kèm file đính kèm).
-    attachments: List[Tuple[filename, filedata_bytes, mimetype]]
-    """
 
     recipient_list = [to] if isinstance(to, str) else to
 
@@ -113,8 +142,8 @@ def send_payment_invoice(user_email, payment):
     context = {
         "payment": payment,
         "payment_details": payment_details,
-        "site_name": "MyCourse",
-        "support_email": "support@example.com",
+        "site_name": get_site_name(),
+        "support_email": get_support_email(),
     }
     html_content = render_to_string("payment_invoice.html", context)
 
@@ -151,7 +180,7 @@ def send_promotion(user_email, promo_code, discount, expire_date):
         "promo_code": promo_code,
         "discount": discount,
         "expire_date": expire_date.strftime("%d/%m/%Y"),
-        "promo_url": "https://example.com/promo"
+        "promo_url": f"{settings.FRONTEND_URL}/courses"
     }
     return send_email(
         subject="Ưu đãi đặc biệt dành cho bạn!",
@@ -183,10 +212,6 @@ def send_verify_email(user_email, verify_link, expires_in_minutes=30):
     )
 
 
-_SUPPORT_EMAIL = "support@mycourse.vn"
-_SITE_NAME = "MyCourse"
-
-
 def send_enrollment_confirmation(user_email, user_name, course_title, instructor_name=None, course_url=None):
     return send_email(
         subject=f"Đăng ký thành công: {course_title}",
@@ -197,7 +222,7 @@ def send_enrollment_confirmation(user_email, user_name, course_title, instructor
             "course_title": course_title,
             "instructor_name": instructor_name,
             "course_url": course_url,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -214,7 +239,7 @@ def send_payment_failed(user_email, user_name, payment_id, total_amount, gateway
             "gateway": gateway.upper() if gateway else "",
             "error_code": error_code,
             "retry_url": retry_url,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -229,7 +254,7 @@ def send_refund_approved(user_email, user_name, course_title, refund_amount, pay
             "course_title": course_title,
             "refund_amount": f"{refund_amount:,.0f} đ" if refund_amount else "",
             "payment_id": payment_id,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -244,7 +269,7 @@ def send_refund_rejected(user_email, user_name, course_title, refund_amount, not
             "course_title": course_title,
             "refund_amount": f"{refund_amount:,.0f} đ" if refund_amount else "",
             "note": note,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -260,7 +285,7 @@ def send_refund_success(user_email, user_name, course_title, refund_amount, paym
             "course_title": course_title,
             "refund_amount": f"{refund_amount:,.0f} đ" if refund_amount else "",
             "payment_id": payment_id,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -276,7 +301,7 @@ def send_certificate_issued(user_email, user_name, course_title, verification_co
             "instructor_name": instructor_name,
             "verification_code": verification_code,
             "certificate_url": certificate_url,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -294,7 +319,7 @@ def send_course_status_changed(instructor_email, instructor_name, course_title, 
             "new_status": new_status,
             "is_approved": is_approved,
             "reason": reason,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )
 
@@ -315,6 +340,6 @@ def send_application_result(user_email, user_name, action, rejection_reason=None
             "is_rejected": action == 'reject',
             "rejection_reason": rejection_reason,
             "admin_notes": admin_notes,
-            "support_email": _SUPPORT_EMAIL,
+            "support_email": get_support_email(),
         },
     )

@@ -29,7 +29,6 @@ class LearningProgressSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'user', 'last_accessed']
 
     def validate_course(self, value):
-        """Validate course exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Course is required.")
         if value.is_deleted:
@@ -37,7 +36,6 @@ class LearningProgressSerializer(serializers.ModelSerializer):
         return value
 
     def validate_lesson(self, value):
-        """Validate lesson exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Lesson is required.")
         if value.is_deleted:
@@ -45,7 +43,6 @@ class LearningProgressSerializer(serializers.ModelSerializer):
         return value
 
 class CourseLearningProgressSerializer(serializers.Serializer):
-    """Serializer for course-level learning progress summary"""
     course_id = serializers.IntegerField()
     overall_progress = serializers.DecimalField(max_digits=5, decimal_places=2)
     total_lessons = serializers.IntegerField()

@@ -34,11 +34,6 @@ class User(models.Model):
         default=StatusChoices.ACTIVE
     )
 
-    user_type = models.CharField(
-        max_length=10,
-        choices=UserTypeChoices.choices
-    )
-
     class Meta:
         db_table = 'Users'
 
@@ -51,6 +46,22 @@ class User(models.Model):
     @property
     def is_anonymous(self):
         return False
+
+    @property
+    def user_type(self):
+        """Derived role (admin > instructor > student) from related role records.
+
+        The legacy ``user_type`` column was dropped in migration 0008; roles are
+        now canonical on the Admin/Instructor records. This property keeps the
+        many read-only ``user.user_type`` call sites working.
+        """
+        admin = getattr(self, 'admin', None)
+        if admin and not admin.is_deleted:
+            return self.UserTypeChoices.ADMIN
+        instructor = getattr(self, 'instructor', None)
+        if instructor and not instructor.is_deleted:
+            return self.UserTypeChoices.INSTRUCTOR
+        return self.UserTypeChoices.STUDENT
 
     def __str__(self):
         return f"{self.username} ({self.user_type} - User_id = {self.id})"

@@ -1,7 +1,3 @@
-"""
-Seed script — populates the entire DB with realistic fake data.
-Usage:  cd course && py manage.py shell < seed_data.py
-"""
 
 import os, sys, random, hashlib, uuid
 from datetime import timedelta
@@ -130,7 +126,6 @@ admin_user, _ = User.objects.update_or_create(
         'username': "admin",
         'password_hash': pw,
         'full_name': "System Admin",
-        'user_type': "admin",
         'status': "active",
         'phone': "0900000001",
         'address': "Hà Nội",
@@ -155,7 +150,6 @@ for uname, fname, phone in instructor_names:
             'username': uname,
             'password_hash': pw,
             'full_name': fname,
-            'user_type': "instructor",
             'status': "active",
             'phone': phone,
             'address': "TP. Hồ Chí Minh",
@@ -179,7 +173,6 @@ for i, uname in enumerate(student_names, 1):
             'username': uname,
             'password_hash': pw,
             'full_name': f"Học Viên {i:02d}",
-            'user_type': "student",
             'status': "active",
             'phone': f"09222{i:05d}",
             'address': "Đà Nẵng",

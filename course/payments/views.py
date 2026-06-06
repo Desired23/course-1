@@ -112,9 +112,6 @@ class MomoIPNView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class VnpayPaymentReturnView(APIView):
-    """Handle VNPay redirect after user completes payment.
-    No auth required because VNPay redirects the browser here.
-    """
 
     authentication_classes = []
     permission_classes = []
@@ -304,7 +301,6 @@ class AdminRefundUpdateView(APIView):
 
 
 class AdminCreateRefundView(APIView):
-    """Admin tạo hoàn tiền trực tiếp cho bất kỳ payment nào, không cần user request trước."""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'payment'
 

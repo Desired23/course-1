@@ -70,10 +70,6 @@ class QuizQuestionManagementView(APIView):
 
 
 class LessonQuizView(APIView):
-    """
-    GET /api/quizzes/lesson/<lesson_id>/
-    Get all quiz questions for a lesson (for students taking quiz)
-    """
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
     def get(self, request, lesson_id):
@@ -87,14 +83,10 @@ class LessonQuizView(APIView):
 
 
 class QuizTestCaseView(APIView):
-    """
-    Manage test cases for code-type quiz questions
-    """
     permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
     throttle_scope = 'burst'
 
     def post(self, request):
-        """Create a new test case"""
         try:
             test_case = create_test_case(request.data)
             return Response(test_case, status=status.HTTP_201_CREATED)
@@ -102,7 +94,6 @@ class QuizTestCaseView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request):
-        """Get test cases for a question"""
         try:
             question_id = request.query_params.get('question_id')
             if not question_id:
@@ -114,7 +105,6 @@ class QuizTestCaseView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, test_case_id):
-        """Update a test case"""
         try:
             updated_test_case = update_test_case(test_case_id, request.data)
             return Response(updated_test_case, status=status.HTTP_200_OK)
@@ -122,7 +112,6 @@ class QuizTestCaseView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, test_case_id):
-        """Delete a test case"""
         try:
             response = delete_test_case(test_case_id)
             return Response(response, status=status.HTTP_204_NO_CONTENT)

@@ -46,7 +46,6 @@ class LessonSerializer(serializers.ModelSerializer):
         ]
 
     def validate_coursemodule(self, value):
-        """Validate coursemodule exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Coursemodule is required.")
 

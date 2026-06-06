@@ -167,13 +167,6 @@ def update_instructor_earning_with_payout(payout_id):
     except Exception as e:
         raise ValidationError(f"Lỗi khi cập nhật earnings với payout: {str(e)}")
 def update_earnings_available():
-    """
-    Chuyển InstructorEarning từ PENDING → AVAILABLE sau khi hết thời gian refund.
-    Xử lý cả 2 nguồn:
-    - Bán lẻ: earnings có payment, chờ hết refund window
-    - Subscription: earnings có user_subscription, luôn chuyển AVAILABLE ngay
-      (vì subscription revenue không có chính sách refund 1 khóa riêng lẻ)
-    """
     try:
         from django.db.models import Q
         with transaction.atomic():
@@ -214,21 +207,6 @@ def update_earnings_available():
 
 
 def calculate_subscription_earnings_for_month(year: int, month: int):
-    """
-    Tính và tạo InstructorEarning cho tất cả subscription thanh toán trong tháng
-    dựa trên SubscriptionUsage (consumed_minutes).
-
-    Công thức:
-        earning = plan_revenue × (1 - plan_commission_rate/100) × (instructor_minutes / total_plan_minutes)
-
-    - plan_revenue     : effective_price của plan tại thời điểm subscription
-    - plan_commission_rate : lấy từ InstructorLevel.plan_commission_rate của instructor (fallback 30%)
-    - instructor_minutes   : sum(consumed_minutes) cho các course của instructor trong sub đó
-    - total_plan_minutes   : tổng consumed_minutes của toàn bộ sub đó
-
-    Chỉ tạo earning nếu chưa tồn tại (idempotent theo unique_together user_subscription+course+instructor).
-    Trả về danh sách earning được tạo.
-    """
     import calendar
     from django.db.models import Sum
     from subscription_plans.models import UserSubscription, SubscriptionUsage
@@ -332,12 +310,6 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
 
 
 def get_instructor_earnings_summary(instructor_id):
-    """
-    Tổng hợp thu nhập của instructor theo 2 nguồn:
-    - retail: từ bán lẻ khóa học (có payment)
-    - subscription: từ revenue sharing (có user_subscription)
-    Bao gồm breakdown theo status (pending/available/paid/cancelled).
-    """
     from django.db.models import Sum, Count, Q
     from decimal import Decimal
 

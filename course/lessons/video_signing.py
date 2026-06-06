@@ -80,10 +80,6 @@ def build_signed_video_url(
     explicit_public_id: str | None = None,
     ttl_seconds: int | None = None,
 ) -> tuple[str | None, str | None]:
-    """
-    Return (signed_url, expires_at_iso_utc).
-    Falls back to original URL if signing is not possible.
-    """
     if not raw_video_url and not explicit_public_id:
         return None, None
 

@@ -259,20 +259,20 @@ export function FloatingNavigation() {
                     >
                       {t('floating_navigation.logout')}
                     </button>
-                  ) : (
+                  ) : import.meta.env.DEV ? (
                     <button
                       onClick={() => setShowTestLogin(!showTestLogin)}
                       className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
                     >
                       {t('floating_navigation.test_login')}
                     </button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
 
 
-            {showTestLogin && !isAuthenticated && (
+            {import.meta.env.DEV && showTestLogin && !isAuthenticated && (
               <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                   {t('floating_navigation.choose_test_account')}

@@ -197,11 +197,6 @@ def get_plan_courses(plan_id):
 
 
 def subscribe_to_plan(user, plan_id, payment_id=None):
-    """
-    Subscribe user to a plan.
-    If payment_id is provided, links the subscription to that payment.
-    If not, creates a new payment record for the subscription.
-    """
     try:
         plan = SubscriptionPlan.objects.get(
             id=plan_id, status='active', is_deleted=False
@@ -454,10 +449,6 @@ def get_plan_subscribers(plan_id):
 
 
 def expire_overdue_subscriptions():
-    """
-    Legacy cron — đã được thay thế bởi expire_subscriptions_and_suspend_enrollments().
-    Giữ lại để backward-compat, nhưng delegate sang hàm mới.
-    """
     return expire_subscriptions_and_suspend_enrollments()
 
 
@@ -631,7 +622,6 @@ def track_subscription_usage(user, course_id, usage_type='course_access', consum
 
 
 def _create_notification(receiver, title, message, notification_code, related_id=None):
-    """Helper: tạo Notification cho user."""
     create_notification(
         receiver_id=receiver.id,
         title=title,
@@ -643,13 +633,6 @@ def _create_notification(receiver, title, message, notification_code, related_id
 
 
 def send_subscription_expiry_notifications():
-    """
-    Cron job hàng ngày:
-    - Gửi thông báo 7 ngày trước khi subscription hết hạn (notified_7d)
-    - Gửi thông báo 3 ngày trước khi subscription hết hạn (notified_3d)
-    Đánh dấu flag để không gửi trùng.
-    Trả về số lượng thông báo đã gửi.
-    """
     now = timezone.now()
     sent = {'7d': 0, '3d': 0}
 
@@ -714,12 +697,6 @@ def send_subscription_expiry_notifications():
 
 
 def expire_subscriptions_and_suspend_enrollments():
-    """
-    Cron job hàng ngày:
-    - Chuyển các UserSubscription đã quá end_date → status='expired'
-    - Chuyển các Enrollment liên kết với sub đó → status='suspended'
-    Trả về số lượng sub và enrollment đã xử lý.
-    """
     now = timezone.now()
     expired_ids = []
     suspended_count = 0
@@ -764,11 +741,6 @@ def expire_subscriptions_and_suspend_enrollments():
 
 
 def reactivate_subscription_enrollments(new_subscription: UserSubscription):
-    """
-    Sau khi user gia hạn thành công (Payment webhook tạo UserSubscription mới):
-    - Tìm Enrollment 'suspended' của user với các course trong plan mới
-    - Reactivate bằng cách set status='active' + gán subscription mới
-    """
     plan_course_ids = list(
         PlanCourse.objects.filter(
             plan=new_subscription.plan,
@@ -814,10 +786,6 @@ def reactivate_subscription_enrollments(new_subscription: UserSubscription):
 
 
 def schedule_plan_course_removal(plan_course_id: int, admin_actor, reason: str = ''):
-    """
-    Đặt lịch xóa khóa học khỏi plan sau 7 ngày + thông báo cho tất cả user
-    đang sử dụng gói có khóa học này.
-    """
     try:
         plan_course = PlanCourse.objects.select_related('plan', 'course').get(
             id=plan_course_id,
@@ -868,10 +836,6 @@ def schedule_plan_course_removal(plan_course_id: int, admin_actor, reason: str =
 
 
 def process_scheduled_plan_course_removals():
-    """
-    Cron job hàng ngày:
-    Xử lý các PlanCourse có scheduled_removal_at đã qua → set status='removed'.
-    """
     now = timezone.now()
     due = PlanCourse.objects.filter(
         status=PlanCourse.Status.ACTIVE,

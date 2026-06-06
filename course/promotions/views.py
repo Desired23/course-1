@@ -82,7 +82,6 @@ class PromotionManagementView(APIView):
 
 
 class PromotionHomepageView(APIView):
-    """Public endpoint: list active promotions marked for homepage display."""
     permission_classes = [AllowAny]
 
     def get(self, request):
@@ -94,7 +93,6 @@ class PromotionHomepageView(APIView):
 
 
 class PromotionCourseView(APIView):
-    """Public endpoint: list active promotions applicable to a specific course."""
     permission_classes = [AllowAny]
 
     def get(self, request, course_id):
@@ -106,7 +104,6 @@ class PromotionCourseView(APIView):
 
 
 class PromotionValidateView(APIView):
-    """Public endpoint for students to validate a promotion code against their cart."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 

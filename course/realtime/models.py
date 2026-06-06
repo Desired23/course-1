@@ -3,7 +3,6 @@ from users.models import User
 
 
 class ChatRoom(models.Model):
-    """Chat room between two users (e.g., student and instructor)."""
     id = models.AutoField(primary_key=True)
     user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chatrooms_as_user1')
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chatrooms_as_user2')
@@ -19,7 +18,6 @@ class ChatRoom(models.Model):
 
 
 class ChatMessage(models.Model):
-    """A single chat message within a chat room."""
     id = models.AutoField(primary_key=True)
     room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')

@@ -1,13 +1,32 @@
 import { useRouter } from "./Router"
 import { TrendingUp } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useEffect, useState } from "react"
+import { getPublicStats, type PublicStats } from "../services/course.api"
+import { getTopCategories } from "../services/category.api"
 
-const POPULAR_SKILLS = ["Web Development", "Python", "Data Science", "UI/UX Design", "Digital Marketing"]
+function formatLargeNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M+`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K+`
+  return `${n}+`
+}
 
 export function PopularSkillsSection() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
-  const skills = POPULAR_SKILLS
+  const [skills, setSkills] = useState<string[]>([])
+  const [stats, setStats] = useState<PublicStats | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getTopCategories(8)
+      .then(cats => { if (!cancelled) setSkills(cats.map(c => c.name)) })
+      .catch(() => {})
+    getPublicStats()
+      .then(s => { if (!cancelled) setStats(s) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
 
   return (
     <section className="py-16 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
@@ -40,24 +59,26 @@ export function PopularSkillsSection() {
         </div>
 
 
-        <div className="mt-12 text-center">
-          <div className="inline-flex items-center gap-8 bg-white dark:bg-gray-800 px-8 py-4 rounded-lg shadow-md">
-            <div>
-              <div className="text-3xl font-bold text-primary">5,000+</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{t('popular_skills.courses_count')}</div>
-            </div>
-            <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
-            <div>
-              <div className="text-3xl font-bold text-primary">800K+</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{t('popular_skills.students_count')}</div>
-            </div>
-            <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
-            <div>
-              <div className="text-3xl font-bold text-primary">1,200+</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{t('popular_skills.instructors_count')}</div>
+        {stats && (
+          <div className="mt-12 text-center">
+            <div className="inline-flex items-center gap-8 bg-white dark:bg-gray-800 px-8 py-4 rounded-lg shadow-md">
+              <div>
+                <div className="text-3xl font-bold text-primary">{formatLargeNumber(stats.total_courses)}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{t('popular_skills.courses_count')}</div>
+              </div>
+              <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
+              <div>
+                <div className="text-3xl font-bold text-primary">{formatLargeNumber(stats.total_students)}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{t('popular_skills.students_count')}</div>
+              </div>
+              <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
+              <div>
+                <div className="text-3xl font-bold text-primary">{formatLargeNumber(stats.total_instructors)}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">{t('popular_skills.instructors_count')}</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   )

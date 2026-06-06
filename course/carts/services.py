@@ -56,15 +56,6 @@ def get_all_carts():
     return carts
 
 def get_cart_by_user(user_id):
-    """Return the user's cart, removing courses already owned permanently and
-    tagging courses that are already covered by an active subscription/plan.
-
-    - Course owned outright (purchased, or admin/instructor access) -> dropped
-      from the cart on load.
-    - Course included in a plan the user currently owns -> kept, with
-      `_in_plan` set so the UI can show an "already in your plan" tag and let
-      the user decide whether to buy it permanently.
-    """
     carts = list(
         Cart.objects.select_related(
             'course__instructor__user', 'course__category',

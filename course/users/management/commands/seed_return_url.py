@@ -12,7 +12,7 @@ class Command(BaseCommand):
     help = "Seed a few payment records for return-URL testing"
 
     def handle(self, *args, **options):
-        student = User.objects.filter(user_type='student').first()
+        student = User.objects.filter(admin__isnull=True, instructor__isnull=True).first()
         course = Course.objects.first()
         if not (student and course):
             self.stderr.write("Need at least one student and one course")

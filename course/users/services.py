@@ -76,7 +76,7 @@ def create_user(data):
         user = serializer.save()
         user_type = data.get('user_type', 'student')
         if user_type in ('admin', 'instructor'):
-            _sync_role_records(user, user_type)
+            _sync_role_records(user, [user_type])
         return user
     raise ValidationError(serializer.errors)
 
@@ -100,13 +100,6 @@ def update_user_by_selfself(user_id, data):
         return updated_user
     raise ValidationError(serializer.errors)
 def _sync_role_records(user, roles):
-    """Sync Admin/Instructor records to match the desired role set (additive multi-role).
-
-    `roles` is a list such as ['student', 'instructor', 'admin'] ('user' is treated as
-    'student'). A role present -> its record is created/restored; a role absent -> its
-    record is soft-deleted (and elevated admin flags reset). Roles are NOT mutually
-    exclusive: a user can be both admin and instructor at once.
-    """
     from admins.models import Admin
     from instructors.models import Instructor
 
@@ -151,19 +144,11 @@ def update_user_by_admin(user_id, data):
 
     data = dict(data)
     # Accept an additive multi-role list ('roles'); fall back to a single 'user_type'
-    # for backward compatibility. The legacy single user_type field is set to the
-    # highest-privilege role so existing code that reads it still behaves sensibly.
+    # for backward compatibility. Roles are applied via the Admin/Instructor records
+    # in _sync_role_records; the derived User.user_type property reflects them.
     roles = data.pop('roles', None)
     if roles is None and 'user_type' in data:
-        roles = [data['user_type']]
-    if roles is not None:
-        role_set = {('student' if r == 'user' else r) for r in roles}
-        if 'admin' in role_set:
-            data['user_type'] = 'admin'
-        elif 'instructor' in role_set:
-            data['user_type'] = 'instructor'
-        else:
-            data['user_type'] = 'student'
+        roles = [data.pop('user_type')]
 
     serializer = Userserializers(user, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
@@ -230,12 +215,15 @@ def get_users(filters=None):
         users = users.filter(status=status)
 
     user_type = (filters.get('user_type') or '').strip().lower()
-    if user_type in {
-        User.UserTypeChoices.STUDENT,
-        User.UserTypeChoices.INSTRUCTOR,
-        User.UserTypeChoices.ADMIN,
-    }:
-        users = users.filter(user_type=user_type)
+    if user_type == User.UserTypeChoices.ADMIN:
+        users = users.filter(admin__isnull=False, admin__is_deleted=False)
+    elif user_type == User.UserTypeChoices.INSTRUCTOR:
+        users = users.filter(instructor__isnull=False, instructor__is_deleted=False)
+    elif user_type == User.UserTypeChoices.STUDENT:
+        users = users.filter(
+            Q(admin__isnull=True) | Q(admin__is_deleted=True),
+            Q(instructor__isnull=True) | Q(instructor__is_deleted=True),
+        )
 
     return users.order_by('-created_at', '-id')
 
@@ -249,7 +237,6 @@ def get_user_by_id(user_id, viewer_id=None, is_admin=False):
 def register(data):
     with transaction.atomic():
         data['status'] = 'inactive'
-        data['user_type'] = 'student'
         data['password_hash'] = make_password(data['password'])
         data['email'] = data['email'].strip().lower()
         serializer = Userserializers(data=data)
@@ -393,7 +380,6 @@ def google_login(data):
             email=email,
             full_name=full_name,
             password_hash=make_password(None),
-            user_type=User.UserTypeChoices.STUDENT,
             status=User.StatusChoices.ACTIVE,
             avatar=google_profile.get("avatar"),
         )
@@ -549,9 +535,6 @@ def revoke_all_refresh_tokens_for_user(user_id):
 
 
 def logout_user(refresh_token: str):
-    """Decode a refresh token, revoke it in the database.
-    Returns True if token was invalidated or False if token was missing/invalid.
-    """
     if not refresh_token:
         return False
     try:

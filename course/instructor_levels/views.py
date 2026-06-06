@@ -14,10 +14,6 @@ from .services import (
 
 
 class InstructorLevelListCreateView(APIView):
-    """
-    GET  /api/instructor-levels/         — list tất cả level (public / admin)
-    POST /api/instructor-levels/         — tạo level mới (admin)
-    """
     throttle_scope = 'burst'
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -38,11 +34,6 @@ class InstructorLevelListCreateView(APIView):
 
 
 class InstructorLevelDetailView(APIView):
-    """
-    GET    /api/instructor-levels/<id>/  — chi tiết level
-    PATCH  /api/instructor-levels/<id>/  — cập nhật (admin)
-    DELETE /api/instructor-levels/<id>/  — xóa mềm (admin)
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -70,12 +61,6 @@ class InstructorLevelDetailView(APIView):
 
 
 class InstructorLevelUpgradeCheckView(APIView):
-    """
-    POST /api/instructor-levels/upgrade-check/
-    Trigger kiểm tra và nâng level tự động cho tất cả instructor
-    dựa trên tổng số phút học qua subscription plan.
-    (Admin job — gọi thủ công hoặc từ cron)
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 

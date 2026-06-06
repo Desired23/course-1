@@ -224,13 +224,15 @@ def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
 
 
 def get_public_stats():
-    """Return aggregate platform stats for the homepage."""
     from users.models import User
     from instructors.models import Instructor
-    from django.db.models import Avg
+    from django.db.models import Avg, Q
     try:
         total_courses = Course.objects.filter(is_deleted=False, status='published').count()
-        total_students = User.objects.filter(user_type='student', status='active', is_deleted=False).count()
+        total_students = User.objects.filter(status='active', is_deleted=False).filter(
+            Q(admin__isnull=True) | Q(admin__is_deleted=True),
+            Q(instructor__isnull=True) | Q(instructor__is_deleted=True),
+        ).count()
         total_instructors = Instructor.objects.count()
         avg_rating = Course.objects.filter(
             is_deleted=False, status='published', rating__gt=0

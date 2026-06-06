@@ -1,14 +1,4 @@
 
-"""
-Course Access Control - Unified access check for course content.
-
-Logic:
-1. Admin / Instructor (owner of course) → ALLOW
-2. Enrollment active (mua lẻ) → ALLOW
-3. Subscription active chứa course → ALLOW + lazy create enrollment
-4. Lesson is_free → ALLOW
-5. Không có → DENY
-"""
 
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -71,10 +61,6 @@ def check_course_access(user, course):
 
 
 def check_lesson_access(user, lesson):
-    """
-    Check if user has access to a specific lesson.
-    Free lessons are accessible to everyone.
-    """
 
     if lesson.is_free:
         return None
@@ -88,9 +74,6 @@ def check_lesson_access(user, lesson):
 
 
 def has_course_access(user, course):
-    """
-    Non-raising version - returns True/False.
-    """
     try:
         check_course_access(user, course)
         return True
@@ -99,9 +82,6 @@ def has_course_access(user, course):
 
 
 def get_course_access_info(user, course):
-    """
-    Returns access info for a course (used in course detail API for UX).
-    """
 
     if is_active_admin(user):
         return {"has_access": True, "access_type": "admin"}
@@ -145,7 +125,6 @@ def get_course_access_info(user, course):
 
 
 def _has_active_subscription_for_course(user, course):
-    """Check if user has any active subscription that includes this course."""
     now = timezone.now()
     from django.db.models import Q
 
@@ -162,7 +141,6 @@ def _has_active_subscription_for_course(user, course):
 
 
 def _get_active_subscription_for_course(user, course):
-    """Get the active subscription that includes this course."""
     now = timezone.now()
     from django.db.models import Q
 

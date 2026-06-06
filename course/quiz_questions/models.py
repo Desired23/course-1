@@ -48,7 +48,6 @@ class QuizQuestion(models.Model):
 
 
 class QuizTestCase(models.Model):
-    """Test cases for code-type quiz questions"""
     id = models.AutoField(primary_key=True)
     question = models.ForeignKey(QuizQuestion, on_delete=models.CASCADE, related_name='test_cases')
 

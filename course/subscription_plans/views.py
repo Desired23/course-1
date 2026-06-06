@@ -272,11 +272,6 @@ class UserCourseAccessView(APIView):
 
 
 class UserSubscriptionCoursesView(APIView):
-    """
-    GET /subscriptions/me/courses/
-    Returns all courses the user can access via active subscriptions,
-    with enrollment status (enrolled or not).
-    """
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
@@ -385,10 +380,6 @@ class SubscriptionUsageTrackingView(APIView):
 
 
 class SendExpiryNotificationsView(APIView):
-    """
-    POST /api/subscriptions/admin/notify-expiry/
-    Cron job: gửi thông báo 7d và 3d cho subscription sắp hết hạn.
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -398,10 +389,6 @@ class SendExpiryNotificationsView(APIView):
 
 
 class ExpireAndSuspendView(APIView):
-    """
-    POST /api/subscriptions/admin/expire-suspend/
-    Cron job: expire subscription quá hạn + suspend enrollment.
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -411,10 +398,6 @@ class ExpireAndSuspendView(APIView):
 
 
 class ProcessScheduledRemovalsView(APIView):
-    """
-    POST /api/subscriptions/admin/process-removals/
-    Cron job: xử lý các PlanCourse đã đến ngày xóa.
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -424,11 +407,6 @@ class ProcessScheduledRemovalsView(APIView):
 
 
 class SchedulePlanCourseRemovalView(APIView):
-    """
-    POST /api/subscription-plans/admin/courses/<plan_course_id>/schedule-removal/
-    Lên lịch xóa khóa học khỏi plan sau 7 ngày + thông báo user.
-    Body: { reason: str (optional) }
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 

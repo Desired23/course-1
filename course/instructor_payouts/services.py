@@ -158,10 +158,6 @@ def delete_instructor_payout(payout_id, admin_id):
 
 
 def request_instructor_payout(instructor, amount, payout_method_id, notes='', period=None):
-    """
-    Instructor tự yêu cầu payout dựa trên available earnings.
-    Optionally choose a saved payout method.
-    """
     from payment_methods.models import InstructorPayoutMethod
     from decimal import Decimal
 
@@ -233,7 +229,6 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
 
 
 def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=0):
-    """Admin approves a pending payout → marks earnings as paid."""
     from decimal import Decimal
 
     with transaction.atomic():
@@ -265,7 +260,6 @@ def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=
 
 
 def admin_reject_payout(payout_id, admin, notes=None):
-    """Admin rejects a pending payout → releases earnings back to available."""
     with transaction.atomic():
         try:
             payout = InstructorPayout.objects.select_for_update().get(id=payout_id)

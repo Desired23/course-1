@@ -11,10 +11,6 @@ from .services import (
 )
 
 class LearningProgressUpdateView(APIView):
-    """
-    POST /api/learning-progress/update/
-    Update learning progress for a lesson
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -62,10 +58,6 @@ class LearningProgressDetailView(APIView):
 
 
 class CourseProgressView(APIView):
-    """
-    GET /api/learning-progress/course/<course_id>/
-    Get overall progress for a course
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -81,10 +73,6 @@ class CourseProgressView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class StudentStatsView(APIView):
-    """
-    GET /api/students/my-stats/
-    Returns aggregated learning statistics for the authenticated student.
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
 

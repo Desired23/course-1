@@ -27,7 +27,6 @@ _STATUS_MESSAGES = {
 
 
 def _normalize_detail(detail):
-    """Flatten ValidationError detail into a field-keyed dict or list."""
     if isinstance(detail, dict):
         return detail
     if isinstance(detail, list):

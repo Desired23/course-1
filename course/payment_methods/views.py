@@ -28,10 +28,6 @@ from .services import (
 
 
 class UserPaymentMethodListCreateView(APIView):
-    """
-    GET  /api/payment-methods/user/        - list my payment methods
-    POST /api/payment-methods/user/        - add new payment method
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -69,11 +65,6 @@ class UserPaymentMethodListCreateView(APIView):
 
 
 class UserPaymentMethodDetailView(APIView):
-    """
-    PATCH  /api/payment-methods/user/<id>/         - update
-    DELETE /api/payment-methods/user/<id>/         - soft delete
-    POST   /api/payment-methods/user/<id>/default/ - set as default
-    """
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -93,7 +84,6 @@ class UserPaymentMethodDetailView(APIView):
 
 
 class UserPaymentMethodSetDefaultView(APIView):
-    """POST /api/payment-methods/user/<id>/default/"""
     permission_classes = [RolePermissionFactory(['student', 'instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -108,10 +98,6 @@ class UserPaymentMethodSetDefaultView(APIView):
 
 
 class InstructorPayoutMethodListCreateView(APIView):
-    """
-    GET  /api/payment-methods/instructor/         - list my payout methods
-    POST /api/payment-methods/instructor/         - add new payout method
-    """
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -136,10 +122,6 @@ class InstructorPayoutMethodListCreateView(APIView):
 
 
 class InstructorPayoutMethodDetailView(APIView):
-    """
-    PATCH  /api/payment-methods/instructor/<id>/
-    DELETE /api/payment-methods/instructor/<id>/
-    """
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -165,7 +147,6 @@ class InstructorPayoutMethodDetailView(APIView):
 
 
 class InstructorPayoutMethodSetDefaultView(APIView):
-    """POST /api/payment-methods/instructor/<id>/default/"""
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
 

@@ -157,7 +157,7 @@ export function HeroSection() {
                     <div className="w-8 h-8 rounded-full bg-pink-400 border-2 border-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{t('hero.students_joined')}</p>
+                    <p className="text-sm font-semibold">{stats ? formatLargeNumber(stats.total_students) : '...'}</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">{t('hero.join_community')}</p>
                   </div>
                 </div>

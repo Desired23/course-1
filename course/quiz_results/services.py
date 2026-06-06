@@ -151,9 +151,6 @@ def delete_quiz_result(quiz_result_id):
 
 
 def submit_quiz(data, user):
-    """
-    Submit quiz answers and calculate results
-    """
     try:
 
         serializer = QuizSubmitSerializer(data=data)
@@ -375,9 +372,6 @@ def submit_quiz(data, user):
 
 
 def get_user_quiz_history(user_id):
-    """
-    Get all quiz results for a user
-    """
     try:
 
         try:
@@ -427,9 +421,6 @@ def get_user_quiz_history(user_id):
 
 
 def get_quiz_result_detail(quiz_result_id):
-    """
-    Get detailed information about a specific quiz result
-    """
     try:
 
         try:

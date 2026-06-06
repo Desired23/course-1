@@ -1,4 +1,3 @@
-"""Reseed engine for full business-data reset plus deterministic demo seeding."""
 
 from __future__ import annotations
 
@@ -91,12 +90,10 @@ _run_state: dict[str, Any] = {
 
 
 def get_seed_secret() -> str:
-    """Return reseed secret key from environment with safe default."""
     return os.getenv("SEED_SECRET_KEY", "demo-seed-2026")
 
 
 def get_reseed_status() -> dict[str, Any]:
-    """Return a copy of current reseed run status."""
     with _run_state_lock:
         return copy.deepcopy(_run_state)
 
@@ -108,7 +105,6 @@ def start_reseed_run(
     strict_mode: bool = False,
     preserve_home_settings: bool = True,
 ) -> tuple[bool, dict[str, Any]]:
-    """Start reseed run in background thread when no run is active."""
     normalized_profile = (profile or DEFAULT_PROFILE).strip().lower()
     if normalized_profile not in SUPPORTED_PROFILES:
         raise ValueError(

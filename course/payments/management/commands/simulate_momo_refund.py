@@ -54,7 +54,7 @@ class Command(BaseCommand):
         try:
             admin_actor = Admin.objects.select_related("user").get(
                 user_id=admin_user_id,
-                user__user_type="admin",
+                is_deleted=False,
                 user__status="active",
             )
         except Admin.DoesNotExist as exc:

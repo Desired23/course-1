@@ -8241,6 +8241,8 @@
       answers_count: "{{count}} câu trả lời",
       votes_count: "{{count}} lượt bình chọn",
       answered: "Đã trả lời",
+      read_time: "{{count}} phút đọc",
+      instructor_fallback: "Giảng viên",
     },
     toasts: {
       searching_for: "Đang tìm kiếm \"{{query}}\"",

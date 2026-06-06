@@ -1,8 +1,3 @@
-"""
-Django management command to populate the database with realistic fake data.
-Usage:  python manage.py seed_data
-        python manage.py seed_data --clear   (wipe then re-seed)
-"""
 import random
 from decimal import Decimal
 from datetime import timedelta
@@ -127,7 +122,7 @@ class Command(BaseCommand):
             InstructorLevel.objects.all().delete()
             Category.objects.filter(parent_category__isnull=False).delete()
             Category.objects.all().delete()
-            User.objects.exclude(user_type="admin").delete()
+            User.objects.filter(admin__isnull=True).delete()
             self.stdout.write(self.style.SUCCESS("Cleared."))
 
         self._seed()
@@ -199,7 +194,6 @@ class Command(BaseCommand):
                 "email": "admin@example.com",
                 "password_hash": DEFAULT_PASSWORD,
                 "avatar": AVATARS[0],
-                "user_type": "admin",
                 "status": "active",
             },
         )
@@ -221,7 +215,6 @@ class Command(BaseCommand):
                     "email": email,
                     "password_hash": DEFAULT_PASSWORD,
                     "avatar": avatar,
-                    "user_type": "instructor",
                     "status": "active",
                 },
             )
@@ -245,7 +238,6 @@ class Command(BaseCommand):
                     "email": email,
                     "password_hash": DEFAULT_PASSWORD,
                     "avatar": avatar,
-                    "user_type": "student",
                     "status": "active",
                 },
             )

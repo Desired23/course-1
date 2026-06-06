@@ -8,7 +8,7 @@ from courses.models import Course
 from enrollments.serializers import EnrollmentCreateSerializer
 from enrollments.models import Enrollment
 
-student = User.objects.filter(user_type='student').first()
+student = User.objects.filter(admin__isnull=True, instructor__isnull=True).first()
 free_course = Course.objects.filter(price__in=[0, '0', None]).first()
 
 print('student:', getattr(student,'id', None), getattr(student,'username', None))

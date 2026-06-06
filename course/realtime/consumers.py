@@ -46,7 +46,6 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
 
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
-    """WebSocket consumer for real-time chat between two users."""
 
     async def connect(self):
         user = self.scope.get("user")
@@ -123,7 +122,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "pong"})
 
     async def chat_message(self, event):
-        """Handler for chat_message group event."""
         await self.send_json({
             "type": "chat_message",
             "data": event["data"],

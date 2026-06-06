@@ -11,7 +11,6 @@ from .services import create_answer, get_answers_by_question_id, update_answer, 
 
 
 class AnswerListView(APIView):
-    """Public: anyone can read answers."""
     permission_classes = [AllowAny]
     throttle_scope = 'search'
 
@@ -27,7 +26,6 @@ class AnswerListView(APIView):
 
 
 class AnswerMutateView(APIView):
-    """Authenticated: create / update / delete answers."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 

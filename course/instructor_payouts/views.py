@@ -106,11 +106,6 @@ class InstructorPayoutView(APIView):
 
 
 class InstructorPayoutRequestView(APIView):
-    """
-    POST /api/instructor/payouts/request/
-    Instructor requests a payout for their available earnings.
-    Body: { amount, payout_method_id, notes }
-    """
     permission_classes = [RolePermissionFactory(['instructor'])]
     throttle_scope = 'payment'
 
@@ -137,10 +132,6 @@ class InstructorPayoutRequestView(APIView):
 
 
 class AdminPayoutApproveView(APIView):
-    """
-    PUT /api/admin/payouts/<payout_id>/approve/
-    Admin approves a pending payout.
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -162,10 +153,6 @@ class AdminPayoutApproveView(APIView):
 
 
 class AdminPayoutRejectView(APIView):
-    """
-    PUT /api/admin/payouts/<payout_id>/reject/
-    Admin rejects a pending payout.
-    """
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 

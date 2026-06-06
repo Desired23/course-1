@@ -34,6 +34,11 @@ import { toast } from 'sonner'
 import { showNotification, withPermissionCheck, withAuthCheck } from '../../utils/notifications'
 import { EnhancedCommentSystem, type Comment } from '../../components/EnhancedCommentSystem'
 import { useTranslation } from 'react-i18next'
+import {
+  type BlogPost as ApiBlogPost,
+  getPublishedBlogPost,
+} from '../../services/blog-posts.api'
+import { type BlogComment as ApiBlogComment, getBlogComments } from '../../services/blog-comments.api'
 
 interface BlogPost {
   id: string
@@ -108,115 +113,6 @@ interface Reply {
 }
 
 
-const mockBlogPost: BlogPost = {
-  id: '1',
-  title: 'blog_post_page.sample.title',
-  excerpt: 'blog_post_page.sample.excerpt',
-  content: 'blog_post_page.sample.content',
-  author: {
-    id: '2',
-    name: 'Jane Smith',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-    role: 'blog_post_page.sample.author_role',
-    totalPosts: 25,
-    followers: 1250
-  },
-  publishedAt: new Date('2024-01-15T10:00:00'),
-  updatedAt: new Date('2024-01-16T14:30:00'),
-  tags: ['React', 'JavaScript', 'Frontend', 'Hooks', 'Development'],
-  category: 'Frontend Development',
-  featured: true,
-  status: 'published',
-  stats: {
-    views: 12840,
-    likes: 456,
-    dislikes: 12,
-    comments: 89,
-    shares: 156,
-    bookmarks: 234
-  },
-  readTime: 8
-}
-
-const mockComments: Comment[] = [
-  {
-    id: '1',
-    content: 'Excellent article! The examples are very clear and helped me understand hooks much better. I especially appreciated the custom hooks section.',
-    author: {
-      id: '3',
-      name: 'Mike Johnson',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-      role: 'Frontend Developer'
-    },
-    createdAt: new Date('2024-01-15T12:30:00'),
-    likes: 24,
-    dislikes: 0,
-    replies: [
-      {
-        id: '1-1',
-        content: 'Thanks Mike! I\'m glad the examples were helpful. Custom hooks are definitely a game-changer.',
-        author: {
-          id: '2',
-          name: 'Jane Smith',
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-          role: 'Senior React Developer'
-        },
-        createdAt: new Date('2024-01-15T13:15:00'),
-        likes: 12,
-        dislikes: 0,
-        isEdited: false
-      }
-    ],
-    isEdited: false,
-    isPinned: true
-  },
-  {
-    id: '2',
-    content: 'Could you explain more about the dependency array in useEffect? I sometimes get confused about when to include variables.',
-    author: {
-      id: '4',
-      name: 'Sarah Wilson',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-      role: 'Junior Developer'
-    },
-    createdAt: new Date('2024-01-15T14:45:00'),
-    likes: 18,
-    dislikes: 1,
-    replies: [
-      {
-        id: '2-1',
-        content: 'Great question! The dependency array tells React when to re-run the effect. Include any variables from component scope that are used inside the effect.',
-        author: {
-          id: '2',
-          name: 'Jane Smith',
-          avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face',
-          role: 'Senior React Developer'
-        },
-        createdAt: new Date('2024-01-15T15:20:00'),
-        likes: 15,
-        dislikes: 0,
-        isEdited: false
-      },
-      {
-        id: '2-2',
-        content: 'I recommend using the ESLint plugin for hooks - it will warn you when you miss dependencies!',
-        author: {
-          id: '5',
-          name: 'Alex Chen',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-          role: 'Tech Lead'
-        },
-        createdAt: new Date('2024-01-15T16:10:00'),
-        likes: 8,
-        dislikes: 0,
-        isEdited: false
-      }
-    ],
-    isEdited: false,
-    isPinned: false
-  }
-]
-
 const sectionStagger = {
   hidden: { opacity: 0 },
   show: {
@@ -240,10 +136,12 @@ const fadeInUp = {
 }
 
 export function BlogPostPage() {
-  const { navigate } = useRouter()
+  const { navigate, currentRoute } = useRouter()
   const { user, isAuthenticated } = useAuth()
   const { t } = useTranslation()
-  const [comments, setComments] = useState<Comment[]>(mockComments)
+  const [post, setPost] = useState<BlogPost | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState('')
@@ -254,16 +152,92 @@ export function BlogPostPage() {
   const [isDisliked, setIsDisliked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
-  const post: BlogPost = {
-    ...mockBlogPost,
-    title: t('blog_post_page.sample.title'),
-    excerpt: t('blog_post_page.sample.excerpt'),
-    content: t('blog_post_page.sample.content'),
-    author: {
-      ...mockBlogPost.author,
-      role: t('blog_post_page.sample.author_role'),
-    },
+
+  const postId = currentRoute.split('/blog/')[1]
+
+  const mapApiPost = (apiPost: ApiBlogPost): BlogPost => {
+    const wordCount = apiPost.content.split(/\s+/).length
+    const readTime = Math.max(1, Math.ceil(wordCount / 200))
+    return {
+      id: String(apiPost.id),
+      title: apiPost.title,
+      excerpt: apiPost.summary || `${apiPost.content.substring(0, 150)}...`,
+      content: apiPost.content,
+      author: {
+        id: String(apiPost.author ?? ''),
+        name: apiPost.author_name || t('blog_post_detail_page.fallbacks.unknown_author'),
+        avatar: apiPost.author_avatar || '/api/placeholder/60/60',
+        role: t('blog_post_detail_page.fallbacks.author_role'),
+        totalPosts: 0,
+        followers: 0,
+      },
+      publishedAt: apiPost.published_at ? new Date(apiPost.published_at) : new Date(apiPost.created_at),
+      updatedAt: new Date(apiPost.updated_at),
+      tags: apiPost.tags || [],
+      category: apiPost.category_name || t('blog_post_detail_page.fallbacks.general_category'),
+      featured: apiPost.is_featured,
+      status: apiPost.status,
+      stats: {
+        views: apiPost.views,
+        likes: apiPost.likes,
+        dislikes: 0,
+        comments: apiPost.comments_count,
+        shares: 0,
+        bookmarks: 0,
+      },
+      readTime,
+      coverImage: apiPost.featured_image || undefined,
+    }
   }
+
+  const mapApiComment = (apiComment: ApiBlogComment): Comment => ({
+    id: String(apiComment.id),
+    content: apiComment.content,
+    author: {
+      id: String(apiComment.user),
+      name: apiComment.user_name || t('blog_post_detail_page.fallbacks.unknown_author'),
+      avatar: apiComment.user_avatar || '/api/placeholder/60/60',
+      role:
+        apiComment.user_role === 'instructor'
+          ? t('blog_post_page.roles.instructor')
+          : t('blog_post_page.roles.student'),
+    },
+    createdAt: new Date(apiComment.created_at),
+    likes: apiComment.likes,
+    dislikes: 0,
+    replies: [],
+    isEdited: false,
+    isPinned: false,
+  })
+
+  useEffect(() => {
+    if (!postId) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    ;(async () => {
+      try {
+        const apiPost = await getPublishedBlogPost(postId)
+        if (cancelled) return
+        setPost(mapApiPost(apiPost))
+        try {
+          const res = await getBlogComments(apiPost.id)
+          if (!cancelled) setComments(res.results.map(mapApiComment))
+        } catch {
+          if (!cancelled) setComments([])
+        }
+      } catch {
+        if (!cancelled) setPost(null)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [postId])
 
   const handleBack = () => {
     navigate('/blog')
@@ -287,6 +261,7 @@ export function BlogPostPage() {
   }
 
   const handleShare = (platform: string) => {
+    if (!post) return
     const url = window.location.href
     const title = post.title
 
@@ -325,7 +300,7 @@ export function BlogPostPage() {
       author: {
         id: user!.id,
         name: user!.name,
-        avatar: user!.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+        avatar: user!.avatar || '/api/placeholder/60/60',
         role: user!.roles.includes('instructor') ? t('blog_post_page.roles.instructor') : t('blog_post_page.roles.student')
       },
       createdAt: new Date(),
@@ -358,7 +333,7 @@ export function BlogPostPage() {
       author: {
         id: user!.id,
         name: user!.name,
-        avatar: user!.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
+        avatar: user!.avatar || '/api/placeholder/60/60',
         role: user!.roles.includes('instructor') ? t('blog_post_page.roles.instructor') : t('blog_post_page.roles.student')
       },
       createdAt: new Date(),
@@ -447,6 +422,26 @@ export function BlogPostPage() {
     if (days > 0) return t('blog_post_page.relative.days_ago', { count: days })
     if (hours > 0) return t('blog_post_page.relative.hours_ago', { count: hours })
     return t('blog_post_page.relative.just_now')
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+        {t('blog_post_detail_page.loading')}
+      </div>
+    )
+  }
+
+  if (!post) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12 text-center">
+        <h2 className="mb-4 text-2xl">{t('blog_post_detail_page.not_found')}</h2>
+        <Button onClick={handleBack}>
+          <ArrowLeft size={16} className="mr-2" />
+          {t('blog_post_page.back_to_blog')}
+        </Button>
+      </div>
+    )
   }
 
   return (
@@ -651,7 +646,7 @@ export function BlogPostPage() {
                 <div className="mb-6">
                   <div className="flex gap-3">
                     <Avatar className="w-10 h-10">
-                      <img src={user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'} alt={user?.name} />
+                      <img src={user?.avatar || '/api/placeholder/60/60'} alt={user?.name} />
                     </Avatar>
                     <div className="flex-1">
                       <Textarea
@@ -775,7 +770,7 @@ export function BlogPostPage() {
                           >
                             <div className="flex gap-3">
                               <Avatar className="w-8 h-8">
-                                <img src={user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'} alt={user?.name} />
+                                <img src={user?.avatar || '/api/placeholder/60/60'} alt={user?.name} />
                               </Avatar>
                               <div className="flex-1">
                                 <Textarea

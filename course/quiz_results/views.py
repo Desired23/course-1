@@ -71,10 +71,6 @@ class QuizResultListView(APIView):
 
 
 class QuizSubmitView(APIView):
-    """
-    POST /api/quizzes/submit/
-    Submit quiz answers and get results
-    """
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'quiz_submit'
 
@@ -89,10 +85,6 @@ class QuizSubmitView(APIView):
 
 
 class UserQuizHistoryView(APIView):
-    """
-    GET /api/quiz-results/user/<user_id>/
-    Get user's quiz history
-    """
     permission_classes = [IsAuthenticated]
     throttle_scope = 'burst'
 
@@ -111,10 +103,6 @@ class UserQuizHistoryView(APIView):
 
 
 class QuizResultDetailView(APIView):
-    """
-    GET /api/quiz-results/<quiz_result_id>/
-    Get specific quiz result detail
-    """
     permission_classes = [IsAuthenticated]
     throttle_scope = 'burst'
 

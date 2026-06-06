@@ -356,11 +356,6 @@ def create_payment(payment_data):
 
 
 def get_payment_status(payment_id, user, admin_override=False):
-    """Get payment status by payment ID.
-
-    If ``admin_override`` is True the ownership check is skipped so admins
-    can look up any payment.
-    """
     try:
         if admin_override:
             payment = Payment.objects.get(id=payment_id, is_deleted=False)
@@ -448,20 +443,6 @@ def get_payment_status(payment_id, user, admin_override=False):
 
 
 def list_admin_payments(problematic: bool = False):
-    """Return a list of payments with minimal metadata for admin dashboards.
-
-    If ``problematic`` is True the result list is filtered to those payments
-    which are marked completed but have at least one detail missing an
-    enrollment record (i.e. payments that the reconciliation command would
-    report).
-
-    The returned structure is a list of dicts containing keys:
-    - payment_id, user_id, user_email, payment_status, total_amount,
-      created_at
-    - courses: array of objects with course_id, course_title,
-      enrollment_status
-    - has_problem: boolean indicating a missing-enrollment issue
-    """
     from enrollments.models import Enrollment
 
     qs = Payment.objects.filter(is_deleted=False)
@@ -512,11 +493,6 @@ def list_admin_payments(problematic: bool = False):
 
 
 def fix_payment(payment_id):
-    """Idempotently ensure that a completed payment has enrollments and earnings.
-
-    Raises ValidationError if payment is not completed or doesn't exist. Returns
-    a dict summarizing actions taken. Used by admin endpoints and reconciliation.
-    """
     from rest_framework.exceptions import ValidationError
     from instructor_earnings.models import InstructorEarning
 
@@ -571,7 +547,6 @@ def fix_payment(payment_id):
 
 
 def check_enrollment_by_course(course_id, user):
-    """Check if user has paid for and enrolled in a specific course."""
     from payment_details.models import Payment_Details
     from enrollments.models import Enrollment
 

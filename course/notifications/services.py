@@ -54,7 +54,7 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
 
 def notify_admins(title, message, type, notification_code, related_id=None, sender_id=None):
     admin_ids = User.objects.filter(
-        user_type='admin', is_deleted=False, status='active'
+        admin__isnull=False, admin__is_deleted=False, is_deleted=False, status='active'
     ).values_list('id', flat=True)
     for admin_id in admin_ids:
         create_notification(

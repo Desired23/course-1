@@ -21,7 +21,6 @@ from .services import (
 
 
 class QuestionListView(APIView):
-    """Public: anyone can list/read questions."""
     permission_classes = [AllowAny]
     throttle_scope = 'search'
 
@@ -43,7 +42,6 @@ class QuestionListView(APIView):
 
 
 class QuestionMutateView(APIView):
-    """Authenticated: create / update / delete questions."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
@@ -70,7 +68,6 @@ class QuestionMutateView(APIView):
 
 
 class QuestionViewsView(APIView):
-    """Public: increment view count."""
     permission_classes = [AllowAny]
 
     def post(self, request, question_id):
@@ -82,7 +79,6 @@ class QuestionViewsView(APIView):
 
 
 class QuestionReportView(APIView):
-    """Authenticated: report a question."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
@@ -95,7 +91,6 @@ class QuestionReportView(APIView):
 
 
 class QuestionModerationView(APIView):
-    """Admin only: moderate a reported question."""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -112,7 +107,6 @@ class QuestionModerationView(APIView):
 
 
 class QuestionAcceptAnswerView(APIView):
-    """Admin only: mark an answer as accepted."""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 

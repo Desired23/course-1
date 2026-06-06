@@ -23,10 +23,6 @@ def validate_plain_user_text(
     field_label: str = "Nội dung",
     max_length: int = MAX_COMMENT_LENGTH,
 ) -> str:
-    """
-    Validate user-generated text to reduce XSS/payload abuse risks.
-    We intentionally reject HTML and suspicious JS-like payload fragments.
-    """
     if value is None:
         raise serializers.ValidationError(f"{field_label} là bắt buộc.")
     if not isinstance(value, str):

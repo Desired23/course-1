@@ -1,9 +1,3 @@
-"""
-Instructor dashboard analytics services.
-Provides stats for:
-  - Overall dashboard summary
-  - Per-course analytics (enrollment trend, revenue trend, student progress, rating distribution)
-"""
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -86,9 +80,6 @@ def get_instructor_dashboard_stats(instructor):
 
 
 def get_course_analytics(instructor, course_id):
-    """
-    Detailed analytics for a single course owned by the instructor.
-    """
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review
@@ -193,10 +184,6 @@ def get_course_analytics(instructor, course_id):
 
 
 def get_instructor_analytics_timeseries(instructor, months=12):
-    """
-    Returns overall time-series data across all instructor courses.
-    Used by InstructorAnalyticsPage for charts (revenue, enrollments, engagement by month).
-    """
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review

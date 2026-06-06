@@ -122,7 +122,6 @@ def _moderate_reported_message(message_id, action, reason=''):
 
 
 class ChatRoomListView(APIView):
-    """List user's chat rooms or create a new one."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
@@ -162,7 +161,6 @@ class ChatRoomListView(APIView):
 
 
 class ChatMessageListView(APIView):
-    """List messages in a room or send a new message."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 
@@ -174,7 +172,6 @@ class ChatMessageListView(APIView):
         return paginate_queryset(messages, request, ChatMessageSerializer)
 
     def post(self, request, room_id):
-        """REST fallback for sending messages (WebSocket preferred)."""
         try:
             room = ChatRoom.objects.get(pk=room_id)
         except ChatRoom.DoesNotExist:
@@ -210,7 +207,6 @@ class ChatMessageListView(APIView):
 
 
 class ChatMarkReadView(APIView):
-    """Mark all messages in a room as read for a user."""
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 

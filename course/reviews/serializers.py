@@ -5,21 +5,18 @@ from users.models import User
 
 
 class ReviewUserSerializer(serializers.Serializer):
-    """Nested user summary inside review response."""
     user_id = serializers.IntegerField(source='id')
     full_name = serializers.CharField()
     avatar = serializers.CharField(allow_null=True)
 
 
 class ReviewCourseSerializer(serializers.Serializer):
-    """Nested course summary inside review response (for user's reviews page)."""
     course_id = serializers.IntegerField(source='id')
     title = serializers.CharField()
     thumbnail = serializers.CharField(allow_null=True)
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    """Review with nested user info for public list endpoints."""
     review_id = serializers.IntegerField(source='id', read_only=True)
     user_info = ReviewUserSerializer(source='user', read_only=True)
     course_detail = ReviewCourseSerializer(source='course', read_only=True)

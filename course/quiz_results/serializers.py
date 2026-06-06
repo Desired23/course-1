@@ -30,7 +30,6 @@ class QuizResultSerializer(serializers.ModelSerializer):
         ]
 
     def validate_enrollment(self, value):
-        """Validate enrollment exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Enrollment is required.")
         if value.is_deleted:
@@ -38,7 +37,6 @@ class QuizResultSerializer(serializers.ModelSerializer):
         return value
 
     def validate_lesson(self, value):
-        """Validate lesson exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Lesson is required.")
         if value.is_deleted:
@@ -47,7 +45,6 @@ class QuizResultSerializer(serializers.ModelSerializer):
 
 
 class QuizAnswerResultSerializer(serializers.Serializer):
-    """Serializer for individual answer result"""
     question_id = serializers.IntegerField()
     selected_option_id = serializers.IntegerField(allow_null=True)
     text_answer = serializers.CharField(allow_null=True, allow_blank=True)
@@ -57,7 +54,6 @@ class QuizAnswerResultSerializer(serializers.Serializer):
 
 
 class QuizResultDetailSerializer(serializers.Serializer):
-    """Serializer for quiz result detail response"""
     quiz_result_id = serializers.IntegerField()
     quiz_id = serializers.IntegerField()
     user_id = serializers.IntegerField()
@@ -72,7 +68,6 @@ class QuizResultDetailSerializer(serializers.Serializer):
 
 
 class UserQuizHistorySerializer(serializers.Serializer):
-    """Serializer for user quiz history"""
     quiz_result_id = serializers.IntegerField()
     lesson_id = serializers.IntegerField()
     lesson_title = serializers.CharField()

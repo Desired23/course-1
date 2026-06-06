@@ -24,7 +24,6 @@ def get_instructor_by_id(instructor_id):
         raise ValidationError({"error": "Instructor not found."})
 
 def create_instructor(data):
-    """Tạo một giảng viên mới."""
     user_id = data.get('user_id') or data.get('user')
     try:
         user_instance = User.objects.get(pk=user_id)
@@ -35,11 +34,8 @@ def create_instructor(data):
     if user_instance.user_type == User.UserTypeChoices.INSTRUCTOR:
         raise ValidationError({"user_id": "This user is already an instructor."})
 
-
-    user_instance.user_type = User.UserTypeChoices.INSTRUCTOR
-    user_instance.save()
-
-
+    # Role is derived from the Instructor record created by the serializer below;
+    # the legacy user_type column was removed.
     modified_data = data.copy()
     modified_data['user_id'] = user_id
 

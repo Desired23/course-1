@@ -45,12 +45,6 @@ def delete_instructor_level(level_id: int, deleted_by_user):
 
 
 def check_and_upgrade_instructor_levels():
-    """
-    Kiểm tra tất cả instructor và tự động nâng level dựa trên
-    tổng consumed_minutes từ SubscriptionUsage.
-    Chỉ nâng level (không hạ xuống).
-    Trả về danh sách instructor được nâng level.
-    """
     from instructors.models import Instructor
     from subscription_plans.models import SubscriptionUsage
 

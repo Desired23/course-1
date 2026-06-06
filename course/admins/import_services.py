@@ -121,9 +121,8 @@ def import_users_bulk(file_bytes, admin_user):
                 if full_name:
                     existing.full_name = full_name
                     update_fields.append('full_name')
-                existing.user_type = user_type
-                update_fields.append('user_type')
                 existing.save(update_fields=update_fields)
+                # Role is derived from the Instructor record; no legacy user_type column.
                 if user_type == User.UserTypeChoices.INSTRUCTOR:
                     Instructor.objects.get_or_create(user=existing)
                 updated += 1
@@ -146,7 +145,6 @@ def import_users_bulk(file_bytes, admin_user):
                 username=username,
                 full_name=full_name,
                 password_hash=make_password(password_raw),
-                user_type=user_type,
                 status=User.StatusChoices.ACTIVE,
             )
             if user_type == User.UserTypeChoices.INSTRUCTOR:

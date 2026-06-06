@@ -83,10 +83,6 @@ export function InstructorPromo() {
                 <Play className="w-10 h-10 ml-1" />
               </div>
             </div>
-            <div className="absolute -bottom-6 -right-6 bg-white text-gray-900 rounded-lg p-6 shadow-2xl max-w-xs">
-              <div className="text-3xl font-bold text-purple-600 mb-2">$10K+</div>
-              <div className="text-sm">{t('instructor_promo.avg_earnings')}</div>
-            </div>
           </motion.div>
         </div>
       </div>

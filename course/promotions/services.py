@@ -246,10 +246,6 @@ def get_promotions_for_course(course_id):
 
 
 def validate_promotion_code(code, course_ids):
-    """
-    Public endpoint: validate a promotion code against a list of course IDs.
-    Returns promotion info + computed discount per course + order-level discount if admin promo.
-    """
     from decimal import Decimal
     from courses.models import Course
 

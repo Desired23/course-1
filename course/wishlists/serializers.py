@@ -4,7 +4,6 @@ from courses.models import Course
 
 
 class WishlistCourseSerializer(serializers.Serializer):
-    """Lightweight course info nested inside wishlist response."""
     id = serializers.IntegerField()
     title = serializers.CharField()
     thumbnail = serializers.CharField(allow_null=True)
@@ -45,7 +44,6 @@ class WishlistSerializer(serializers.ModelSerializer):
         ]
 
     def validate_course(self, value):
-        """Validate course exists and is not deleted"""
         if value is None:
             raise serializers.ValidationError("Course is required.")
         if value.is_deleted:

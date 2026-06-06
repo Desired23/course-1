@@ -1,9 +1,3 @@
-"""
-API endpoint to reset DB and re-seed with demo data.
-Protected by a secret key passed as query param.
-
-Usage:  GET /api/seed-demo/?key=<SEED_SECRET_KEY>
-"""
 import json
 import threading
 from django.http import JsonResponse
@@ -71,7 +65,6 @@ _seed_running = False
 
 
 def _run_seed():
-    """Delete all data then run seed_data.py"""
     global _seed_running
     print("[SEED] ==== BẮT ĐẦU RESET DỮ LIỆU ====")
     try:
@@ -154,7 +147,6 @@ def _run_seed():
 
 
 def seed_demo_view(request):
-    """GET /api/seed-demo/?key=xxx"""
     global _seed_running
 
 
@@ -180,7 +172,6 @@ def seed_demo_view(request):
 
 
 def seed_status_view(request):
-    """GET /api/seed-demo/status/"""
     return JsonResponse({
         'running': _seed_running,
         'message': 'Seed is running...' if _seed_running else 'No seed in progress.',
@@ -188,7 +179,6 @@ def seed_status_view(request):
 
 
 def _extract_request_key(request, payload):
-    """Read seed key from JSON body, query string, or header."""
     if payload.get('key'):
         return payload.get('key')
 
@@ -208,7 +198,6 @@ def _parse_bool(value, default=False):
 
 
 def reseed_demo_view(request):
-    """GET/POST /api/reseed-demo/ to run full business reset + reseed job."""
     if request.method not in ('GET', 'POST'):
         return JsonResponse({'error': 'Method not allowed. Use GET or POST.'}, status=405)
 
@@ -265,5 +254,4 @@ def reseed_demo_view(request):
 
 
 def reseed_status_view(request):
-    """GET /api/reseed-demo/status/ returns latest reseed run status."""
     return JsonResponse(get_reseed_status())

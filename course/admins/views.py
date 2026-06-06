@@ -94,7 +94,6 @@ class AdminDetailView(APIView):
 
 
 class AdminDashboardStatsView(APIView):
-    """GET /api/admin/dashboard/stats/"""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -107,7 +106,6 @@ class AdminDashboardStatsView(APIView):
 
 
 class AdminRevenueAnalyticsView(APIView):
-    """GET /api/admin/analytics/revenue/?months=6"""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -117,7 +115,6 @@ class AdminRevenueAnalyticsView(APIView):
 
 
 class AdminUserAnalyticsView(APIView):
-    """GET /api/admin/analytics/users/?months=6"""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
@@ -127,7 +124,6 @@ class AdminUserAnalyticsView(APIView):
 
 
 class AdminCourseAnalyticsView(APIView):
-    """GET /api/admin/analytics/courses/"""
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 

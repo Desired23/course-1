@@ -128,14 +128,15 @@ class ReseedApiTests(TestCase):
     @patch("config.seed_view.start_reseed_run")
     def test_reseed_endpoint_accepts_get_with_query_key_only(self, start_mock, strict_default_mock):
         strict_default_mock.return_value = False
-        start_mock.return_value = (True, {"status": "running", "profile": "demo-medium"})
+        start_mock.return_value = (True, {"status": "running", "profile": "demo-full"})
 
         response = self.client.get("/api/reseed-demo/?key=demo-seed-2026")
 
         self.assertEqual(response.status_code, 202, response.content)
         self.assertEqual(start_mock.call_count, 1)
         call_kwargs = start_mock.call_args.kwargs
-        self.assertEqual(call_kwargs["profile"], "demo-medium")
+        # GET with key only falls back to DEFAULT_PROFILE (reseed_engine.DEFAULT_PROFILE).
+        self.assertEqual(call_kwargs["profile"], "demo-full")
         self.assertIsInstance(call_kwargs["random_seed"], int)
         self.assertEqual(call_kwargs["dry_run"], False)
         self.assertEqual(call_kwargs["strict_mode"], False)

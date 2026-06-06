@@ -213,11 +213,6 @@ def create_vnpay_payment(request: HttpRequest):
     return JsonResponse({'payment_url': vn_payment_url})
 
 def create_enrollments_from_payment(payment):
-    """Finalize entitlement for a completed payment.
-
-    - course_purchase: create course enrollments
-    - subscription: create a UserSubscription linked to the payment
-    """
     if payment.payment_type == Payment.PaymentType.SUBSCRIPTION:
         from subscription_plans.models import UserSubscription
         from subscription_plans.services import subscribe_to_plan
@@ -264,7 +259,6 @@ def create_enrollments_from_payment(payment):
 
 
 def payment_return(request):
-    """Handle VNPay browser redirect after payment. Redirects to FE result page."""
     from django.http import HttpResponseRedirect
     result_url = settings.VNPAY_FE_RETURN_URL
 
@@ -308,14 +302,6 @@ def payment_return(request):
 
 
 def payment_ipn(request):
-    """Handle VNPay IPN callback. Always return a JSON response with
-    `RspCode` so VNPay knows whether to retry.
-
-    The entire processing is wrapped in a broad try/except; if anything
-    raises an exception we log the stack trace and return `'99'` so the
-    gateway will retry later.  Transactional updates and enrollment/earning
-    generation are performed inside an atomic block to ensure consistency.
-    """
     try:
         inputData = request.GET
         if not inputData:

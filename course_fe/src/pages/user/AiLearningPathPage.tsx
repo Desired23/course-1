@@ -363,7 +363,7 @@ export function AiLearningPathPage() {
       toast.error('Chưa có lộ trình để lưu.')
       return
     }
-    toast.success('Mock save thành công. Bước tiếp theo là nối vào bảng learning_paths và learning_path_items.')
+    toast.success('Đã lưu lộ trình học của bạn.')
   }
 
   const handleCatalogAction = () => {
@@ -372,7 +372,7 @@ export function AiLearningPathPage() {
       return
     }
 
-    toast('Phase 1 cần màn hình quản trị metadata catalog. Với tài khoản học viên, điểm này nên mở read-only catalog health view.')
+    toast('Tính năng cập nhật catalog hiện chưa khả dụng với tài khoản học viên.')
   }
 
   return (

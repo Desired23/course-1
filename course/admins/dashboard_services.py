@@ -1,6 +1,3 @@
-"""
-Admin system-wide dashboard analytics services.
-"""
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from decimal import Decimal
@@ -22,9 +19,14 @@ def get_admin_dashboard_stats():
 
     total_users = User.objects.filter(is_deleted=False).count()
     new_users_this_month = User.objects.filter(is_deleted=False, created_at__gte=month_start).count()
-    total_instructors = User.objects.filter(is_deleted=False, user_type='instructor').count()
+    total_instructors = User.objects.filter(
+        is_deleted=False, instructor__isnull=False, instructor__is_deleted=False
+    ).count()
     active_students = User.objects.filter(
-        is_deleted=False, user_type='student', status='active'
+        is_deleted=False, status='active'
+    ).filter(
+        Q(admin__isnull=True) | Q(admin__is_deleted=True),
+        Q(instructor__isnull=True) | Q(instructor__is_deleted=True),
     ).count()
 
 
@@ -82,7 +84,6 @@ def get_admin_dashboard_stats():
 
 
 def get_admin_revenue_analytics(months=6):
-    """Monthly revenue breakdown for the last N months."""
     from payments.models import Payment
     from datetime import timedelta
 
@@ -111,7 +112,6 @@ def get_admin_revenue_analytics(months=6):
 
 
 def get_admin_user_analytics(months=6):
-    """Monthly new user registrations."""
     from users.models import User
     from datetime import timedelta
 
@@ -139,7 +139,6 @@ def get_admin_user_analytics(months=6):
 
 
 def get_admin_course_analytics():
-    """Top courses by enrollment + quick status summary."""
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review

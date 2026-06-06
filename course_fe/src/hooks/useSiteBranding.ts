@@ -3,7 +3,7 @@ import { getApiTransportHeaders } from "@/services/http"
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
 
-const DEFAULT_SITE_NAME = "EduCourse"
+const DEFAULT_SITE_NAME = "UTC"
 const DEFAULT_SITE_LOGO = ""
 
 export function useSiteBranding() {

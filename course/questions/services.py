@@ -133,7 +133,6 @@ def moderate_question(question_id, action, reason=''):
 
 
 def accept_answer(question_id, answer_id, actor):
-    """Admin marks an answer as accepted for a question."""
     try:
         from answers.models import Answer
         question = Question.objects.get(id=question_id, is_deleted=False)

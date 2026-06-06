@@ -75,11 +75,6 @@ class InstructorCreateView(APIView):
 
 
 class InstructorDashboardStatsView(APIView):
-    """
-    GET /api/instructor/dashboard/stats/
-    Returns overall stats for the authenticated instructor.
-    Admin can pass ?instructor_id=<id> to view any instructor.
-    """
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -106,10 +101,6 @@ class InstructorDashboardStatsView(APIView):
 
 
 class InstructorCourseAnalyticsView(APIView):
-    """
-    GET /api/instructor/courses/<course_id>/analytics/
-    Detailed analytics for a single course.
-    """
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
 
@@ -138,11 +129,6 @@ class InstructorCourseAnalyticsView(APIView):
 
 
 class InstructorAnalyticsTimeseriesView(APIView):
-    """
-    GET /api/instructor/analytics/timeseries/?months=12
-    Returns time-series analytics data for instructor charts.
-    Admin can pass ?instructor_id=<id> to view any instructor.
-    """
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
 

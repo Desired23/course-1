@@ -100,11 +100,6 @@ class CertificateAdminView(APIView):
 
 
 class CertificateDownloadView(APIView):
-    """
-    GET /api/certificates/<certificate_id>/download/
-    Redirects to the Cloudinary PDF URL for the certificate.
-    Ownership enforced: only the owner or admin can download.
-    """
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
 

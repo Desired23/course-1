@@ -22,7 +22,6 @@ from utils.list_params import get_search_param
 
 
 class CourseStatsView(APIView):
-    """GET /api/courses/stats/ — public platform stats for homepage."""
     throttle_scope = 'search'
     def get(self, request):
         return Response(get_public_stats(), status=status.HTTP_200_OK)

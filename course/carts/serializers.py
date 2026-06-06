@@ -3,7 +3,6 @@ from .models import Cart
 
 
 class CartCourseSerializer(serializers.Serializer):
-    """Lightweight course info nested inside cart response."""
     id = serializers.IntegerField()
     title = serializers.CharField()
     thumbnail = serializers.CharField(allow_null=True)

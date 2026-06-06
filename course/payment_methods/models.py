@@ -3,10 +3,6 @@ from users.models import User
 
 
 class UserPaymentMethod(models.Model):
-    """
-    Lưu phương thức thanh toán của user (student/instructor) để checkout nhanh.
-    Dùng cho: mua course, mua subscription.
-    """
     class MethodType(models.TextChoices):
         VNPAY = 'vnpay', 'VNPay'
         MOMO = 'momo', 'MoMo'
@@ -46,9 +42,6 @@ class UserPaymentMethod(models.Model):
 
 
 class InstructorPayoutMethod(models.Model):
-    """
-    Tài khoản nhận tiền của instructor (dùng khi yêu cầu payout).
-    """
     class MethodType(models.TextChoices):
         BANK_TRANSFER = 'bank_transfer', 'Bank Transfer'
         MOMO = 'momo', 'MoMo'

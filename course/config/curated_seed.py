@@ -1,4 +1,3 @@
-"""Deterministic curated seed for reseed endpoint profiles."""
 
 from __future__ import annotations
 
@@ -136,7 +135,7 @@ class SeedContext:
 
 
 class SeedError(Exception):
-    """Raised when curated seed profile is not supported."""
+    pass
 
 
 SUPPORTED_CURATED_PROFILES = ("demo-small", "demo-medium", "demo-large", "demo-full")
@@ -346,7 +345,6 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, Any]) -> dict[str,
         email="admin@example.com",
         password_hash=password_hash,
         full_name="Platform Admin",
-        user_type=User.UserTypeChoices.ADMIN,
         status=User.StatusChoices.ACTIVE,
         avatar=AVATAR_URLS[0],
         phone="0900000001",
@@ -360,7 +358,6 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, Any]) -> dict[str,
             email=f"admin{i+2}@example.com",
             password_hash=password_hash,
             full_name=f"Admin {i+2}",
-            user_type=User.UserTypeChoices.ADMIN,
             status=User.StatusChoices.ACTIVE,
             avatar=AVATAR_URLS[i % len(AVATAR_URLS)],
             phone=f"09000{i+2:05d}",
@@ -395,7 +392,6 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, Any]) -> dict[str,
             email=f"{username}@example.com",
             password_hash=password_hash,
             full_name=full_name,
-            user_type=User.UserTypeChoices.INSTRUCTOR,
             status=User.StatusChoices.ACTIVE,
             avatar=AVATAR_URLS[(idx + 1) % len(AVATAR_URLS)],
             phone=f"09111{idx:05d}",
@@ -424,7 +420,6 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, Any]) -> dict[str,
                 email=f"{username}@example.com",
                 password_hash=password_hash,
                 full_name=f"Student {idx:02d}",
-                user_type=User.UserTypeChoices.STUDENT,
                 status=User.StatusChoices.ACTIVE,
                 avatar=AVATAR_URLS[(idx + 2) % len(AVATAR_URLS)],
                 phone=f"09222{idx:05d}",
@@ -684,12 +679,6 @@ def _seed_commerce(
     content_data: dict[str, Any],
     profile_settings: dict[str, Any],
 ) -> dict[str, Any]:
-    """
-    Seed commerce config (plans, promos, payment method configs) and direct enrollments.
-    Payments, PaymentDetails, UserSubscriptions, InstructorEarnings, InstructorPayouts
-    are intentionally NOT created — they depend on real gateway callbacks (VNPay/MoMo)
-    and cannot be faked without causing business logic conflicts.
-    """
     admin = users_data["admin"]
     students = users_data["students"]
     published_courses = content_data["published_courses"]
@@ -1324,7 +1313,6 @@ def _seed_default_system_settings(ctx: SeedContext, users_data: dict[str, Any]) 
 
 
 def _recalculate_all_counters() -> dict[str, Any]:
-    """Run Business_Rules.md checklist - recalculate all counter fields."""
     report = {}
 
     # 1. course counters

@@ -1,11 +1,18 @@
-import { ArrowRight, Award, CheckCircle, Star, TrendingUp, Users } from "lucide-react"
+import { ArrowRight, Award, CheckCircle, TrendingUp, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { useTranslation } from "react-i18next"
-import { CourseCard } from "../../components/CourseCard"
+import { useEffect, useState } from "react"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { listItemTransition } from "../../lib/motion"
+import { getPublicStats, type PublicStats } from "../../services/course.api"
+
+function formatLargeNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M+`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K+`
+  return `${n}+`
+}
 
 const features = [
   {
@@ -25,34 +32,6 @@ const features = [
   },
 ]
 
-const stats = [
-  { number: "15,000+", labelKey: "udemy_business_page.stats.companies" },
-  { number: "1M+", labelKey: "udemy_business_page.stats.learners" },
-  { number: "4.5", labelKey: "udemy_business_page.stats.rating" },
-  { number: "24/7", labelKey: "udemy_business_page.stats.support" },
-]
-
-const testimonials = [
-  {
-    name: "Sarah Johnson",
-    roleKey: "udemy_business_page.testimonials.sarah.role",
-    company: "TechCorp",
-    contentKey: "udemy_business_page.testimonials.sarah.content",
-  },
-  {
-    name: "Michael Chen",
-    roleKey: "udemy_business_page.testimonials.michael.role",
-    company: "InnovateInc",
-    contentKey: "udemy_business_page.testimonials.michael.content",
-  },
-  {
-    name: "Emma Davis",
-    roleKey: "udemy_business_page.testimonials.emma.role",
-    company: "GlobalSoft",
-    contentKey: "udemy_business_page.testimonials.emma.content",
-  },
-]
-
 const growthItems = [
   {
     titleKey: "udemy_business_page.growth.learning_paths.title",
@@ -65,37 +44,6 @@ const growthItems = [
   {
     titleKey: "udemy_business_page.growth.integration.title",
     descriptionKey: "udemy_business_page.growth.integration.description",
-  },
-]
-
-const popularCourses = [
-  {
-    titleKey: "udemy_business_page.popular_courses.python",
-    instructor: "Jose Portilla",
-    students: "1.2M+",
-    rating: 4.6,
-    image: "https://images.unsplash.com/photo-1649180556628-9ba704115795?w=300",
-  },
-  {
-    titleKey: "udemy_business_page.popular_courses.aws",
-    instructor: "Stephane Maarek",
-    students: "800K+",
-    rating: 4.7,
-    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=300",
-  },
-  {
-    titleKey: "udemy_business_page.popular_courses.marketing",
-    instructor: "Rob Percival",
-    students: "650K+",
-    rating: 4.5,
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=300",
-  },
-  {
-    titleKey: "udemy_business_page.popular_courses.react",
-    instructor: "Maximilian Schwarzmüller",
-    students: "900K+",
-    rating: 4.6,
-    image: "https://images.unsplash.com/photo-1633356122102-3fe601e05bd2?w=300",
   },
 ]
 
@@ -123,6 +71,22 @@ const fadeInUp = {
 
 export function UdemyBusinessPage() {
   const { t } = useTranslation()
+  const [apiStats, setApiStats] = useState<PublicStats | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getPublicStats()
+      .then(s => { if (!cancelled) setApiStats(s) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const stats = apiStats
+    ? [
+        { number: formatLargeNumber(apiStats.total_students), labelKey: "udemy_business_page.stats.learners" },
+        { number: `${apiStats.avg_rating.toFixed(1)}`, labelKey: "udemy_business_page.stats.rating" },
+      ]
+    : []
 
   return (
     <motion.div className="min-h-screen bg-background" variants={sectionStagger} initial="hidden" animate="show">
@@ -169,7 +133,7 @@ export function UdemyBusinessPage() {
 
       <motion.section className="py-16 bg-muted/50" variants={fadeInUp}>
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 gap-8 max-w-xl mx-auto">
             {stats.map((stat, index) => (
               <motion.div
                 key={index}
@@ -245,81 +209,6 @@ export function UdemyBusinessPage() {
                 className="rounded-lg shadow-lg"
               />
             </div>
-          </div>
-        </div>
-      </motion.section>
-
-      <motion.section className="py-20 bg-muted/50" variants={fadeInUp}>
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('udemy_business_page.popular_title')}</h2>
-            <p className="text-xl text-muted-foreground">{t('udemy_business_page.popular_subtitle')}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {popularCourses.map((course, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={listItemTransition(index)}
-              >
-                <CourseCard
-                  courseId={`course-${index + 100}`}
-                  title={t(course.titleKey)}
-                  instructor={course.instructor}
-                  image={course.image}
-                  rating={course.rating}
-                  reviews={15000}
-                  price={29.99}
-                  originalPrice={199.99}
-                  duration="12.5 hours"
-                  students={course.students}
-                  level="All Levels"
-                  currency="USD"
-                  variant="vertical"
-                  showWishlist={true}
-                  showAddToCart={true}
-                />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      <motion.section className="py-20" variants={fadeInUp}>
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('udemy_business_page.testimonials_title')}</h2>
-            <p className="text-xl text-muted-foreground">{t('udemy_business_page.testimonials_subtitle')}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={listItemTransition(index)}
-              >
-                <Card className="p-6">
-                  <CardContent className="pt-0">
-                    <div className="flex mb-4">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      ))}
-                    </div>
-                    <p className="text-muted-foreground mb-4 italic">{t(testimonial.contentKey)}</p>
-                    <div>
-                      <div className="font-semibold">{testimonial.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {t(testimonial.roleKey)}, {testimonial.company}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
           </div>
         </div>
       </motion.section>

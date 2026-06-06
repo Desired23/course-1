@@ -36,7 +36,9 @@ def issue_certificate(user, course_id):
         return CertificateSerializer(existing).data
 
     total_lessons = Lesson.objects.filter(
-        coursemodule__course=course, is_deleted=False
+        coursemodule__course=course,
+        coursemodule__is_deleted=False,
+        is_deleted=False,
     ).count()
 
     if total_lessons == 0:
@@ -44,7 +46,9 @@ def issue_certificate(user, course_id):
 
     completed_lessons = LearningProgress.objects.filter(
         user=user, course=course,
-        is_completed=True, is_deleted=False
+        is_completed=True, is_deleted=False,
+        lesson__is_deleted=False,
+        lesson__coursemodule__is_deleted=False,
     ).count()
 
     if completed_lessons < total_lessons:
@@ -259,7 +263,6 @@ def revoke_certificate(certificate_id, admin_user):
 
 
 def get_course_certificates(course_id):
-    """Admin/Instructor: Get all certificates issued for a course."""
     certs = Certificate.objects.filter(
         course_id=course_id, is_deleted=False
     ).order_by('-issued_at')

@@ -87,7 +87,6 @@ class UserLoginView(APIView):
 
 
 class UserLogoutView(APIView):
-    """Invalidate a refresh token (client should call on logout)."""
     throttle_scope = 'burst'
 
     def post(self, request):

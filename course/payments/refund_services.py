@@ -688,7 +688,6 @@ def get_refund_details(payment_id, payment_details_ids, user):
 
 
 def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None):
-    """Admin tạo refund thay cho user, bỏ qua kiểm tra ownership và tự approve."""
     settings_value = get_refund_settings()
     actor = f"admin:{admin_user.id}"
     results = []
