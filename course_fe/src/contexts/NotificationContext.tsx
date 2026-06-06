@@ -1,5 +1,6 @@
-import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
+import { useAuthStore } from '../stores/auth.store'
 import { useWebSocket } from '../hooks/useWebSocket'
 import {
   getNotificationsByUser,
@@ -143,6 +144,14 @@ const notificationReducer = (state: NotificationState, action: NotificationActio
 
 
 
+export interface IncomingNotification {
+  type?: string
+  title?: string
+  message?: string
+  related_id?: number | null
+  notification_code?: string | null
+}
+
 interface NotificationContextType {
   state: NotificationState
   addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
@@ -150,6 +159,7 @@ interface NotificationContextType {
   markAllAsRead: () => void
   removeNotification: (id: string) => void
   clearAllNotifications: () => void
+  subscribeToNotifications: (cb: (n: IncomingNotification) => void) => () => void
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
@@ -158,6 +168,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(notificationReducer, initialState)
   const { user, isAuthenticated } = useAuth()
   const userId = user?.id ? Number(user.id) : null
+
+  const subscribersRef = useRef<Set<(n: IncomingNotification) => void>>(new Set())
+  const subscribeToNotifications = useCallback((cb: (n: IncomingNotification) => void) => {
+    subscribersRef.current.add(cb)
+    return () => { subscribersRef.current.delete(cb) }
+  }, [])
 
 
   useEffect(() => {
@@ -181,6 +197,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
 
   const handleWsMessage = useCallback((data: any) => {
+    if (data.type === 'role_updated') {
+      void useAuthStore.getState().fetchProfile()
+      return
+    }
+
     if (data.type === 'notification' && data.data) {
       const d = data.data
       dispatch({
@@ -193,6 +214,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           relatedId: d.related_id,
           notificationCode: d.notification_code,
         },
+      })
+      subscribersRef.current.forEach(cb => {
+        try { cb(d) } catch { }
       })
       return
     }
@@ -284,6 +308,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     markAllAsRead,
     removeNotification,
     clearAllNotifications,
+    subscribeToNotifications,
     refreshNotifications,
   }
 

@@ -11,7 +11,7 @@ const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage')
 const ResetPasswordPage = lazy(() => import('../pages/auth/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })))
 const EmailVerificationPage = lazy(() => import('../pages/auth/EmailVerificationPage').then((module) => ({ default: module.EmailVerificationPage })))
 const GoogleCallbackPage = lazy(() => import('../pages/auth/GoogleCallbackPage').then((module) => ({ default: module.GoogleCallbackPage })))
-const TeachOnUdemyPage = lazy(() => import('../pages/public/TeachOnUdemyPage').then((module) => ({ default: module.TeachOnUdemyPage })))
+const TeachOnUtcPage = lazy(() => import('../pages/public/TeachOnUtcPage').then((module) => ({ default: module.TeachOnUtcPage })))
 const CommunityPage = lazy(() => import('../pages/public/CommunityPage').then((module) => ({ default: module.CommunityPage })))
 const BlogPage = lazy(() => import('../pages/public/BlogPage').then((module) => ({ default: module.BlogPage })))
 const BlogCreatePage = lazy(() => import('../pages/public/BlogCreatePage').then((module) => ({ default: module.BlogCreatePage })))
@@ -65,7 +65,7 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/google-callback', element: <GoogleCallbackPage /> },
 
 
-  { path: '/teach', element: <TeachOnUdemyPage /> },
+  { path: '/teach', element: <TeachOnUtcPage /> },
   { path: '/pricing', element: <SubscriptionPricingPage /> },
 
 

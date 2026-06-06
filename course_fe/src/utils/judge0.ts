@@ -53,6 +53,11 @@ export const SUPPORTED_LANGUAGES = [
   { id: 82, name: 'SQL (SQLite 3.27.2)', value: 'sql', extension: 'sql' },
 ]
 
+// Code lessons only support these languages (JavaScript, Python, TypeScript).
+export const CODE_LESSON_LANGUAGES = [63, 71, 74]
+
+export type ExecutionMode = 'function' | 'stdin'
+
 export interface SubmissionPayload {
   source_code: string
   language_id: number
@@ -339,14 +344,16 @@ export function wrapUserCode(userCode: string, language: string, _testInput: str
       .trim()
   }
 
+  // When an explicit function name is provided (Function mode), use it strictly —
+  // a runtime guard below throws a clear error if it isn't defined, instead of
+  // silently falling back to the first function found. Without an override (legacy
+  // lessons), keep auto-detecting the first defined function.
   const functionMatch =
-    cleanedCode.match(/function\s+([A-Za-z_]\w*)\s*\(/) ||
+    cleanedCode.match(/function\s+([A-Za-z_$][\w$]*)\s*\(/) ||
     cleanedCode.match(/def\s+([A-Za-z_]\w*)\s*\(/) ||
-    cleanedCode.match(new RegExp('([A-Za-z_]\\w*)\\s*=\\s*\\([^)]*\\)\\s*=>'))
+    cleanedCode.match(new RegExp('([A-Za-z_$][\\w$]*)\\s*=\\s*\\([^)]*\\)\\s*=>'))
   const detectedName = functionMatch ? functionMatch[1] : 'solution'
-  const functionName = (overrideFunctionName && cleanedCode.includes(overrideFunctionName))
-    ? overrideFunctionName
-    : detectedName
+  const functionName = overrideFunctionName || detectedName
 
   if (lang === 'javascript' || lang === 'typescript') {
     return `const fs = require('fs');
@@ -411,6 +418,9 @@ console.error = (...args) => { debugLogs.push(args.map((arg) => stringifyAny(arg
 let result;
 let runtimeError = null;
 try {
+  if (typeof ${functionName} !== 'function') {
+    throw new Error('Function "${functionName}" not found. Please define a function named "${functionName}".');
+  }
   result = ${functionName}(...inputs);
 } catch (err) {
   runtimeError = err;
@@ -531,6 +541,8 @@ builtins.print = capture_print
 result = None
 runtime_error = None
 try:
+    if '${functionName}' not in globals() or not callable(globals()['${functionName}']):
+        raise NameError('Function "${functionName}" not found. Please define a function named "${functionName}".')
     result = ${functionName}(*inputs)
 except Exception as e:
     runtime_error = e
@@ -1090,6 +1102,49 @@ SELECT * FROM table_name;`,
   }
 
   return templates[languageValue] || '// Write your code here\n'
+}
+
+
+// Generate starter code for code lessons based on the chosen execution mode.
+// Function mode: an empty function named `functionName` that the student fills in.
+// Stdin mode: boilerplate that reads from standard input.
+export function generateStarterCode(
+  executionMode: ExecutionMode,
+  languageValue: string,
+  functionName?: string
+): string {
+  const lang = languageValue.toLowerCase()
+  const fname = functionName || 'solution'
+
+  if (executionMode === 'function') {
+    const functionTemplates: Record<string, string> = {
+      javascript: `function ${fname}(nums, target) {
+  // Write your solution here
+}`,
+      typescript: `function ${fname}(nums: unknown[], target: number): unknown[] {
+  // Write your solution here
+  return []
+}`,
+      python: `def ${fname}(nums, target):
+    # Write your solution here
+    pass`,
+    }
+    return functionTemplates[lang] || functionTemplates.javascript
+  }
+
+  const stdinTemplates: Record<string, string> = {
+    javascript: `const input = require('fs').readFileSync(0, 'utf-8').trim().split('\\n')
+// Read input from \`input\` and print your answer with console.log
+`,
+    typescript: `const input: string[] = require('fs').readFileSync(0, 'utf-8').trim().split('\\n')
+// Read input from \`input\` and print your answer with console.log
+`,
+    python: `import sys
+data = sys.stdin.read().split()
+# Read input from \`data\` and print your answer
+`,
+  }
+  return stdinTemplates[lang] || stdinTemplates.javascript
 }
 
 

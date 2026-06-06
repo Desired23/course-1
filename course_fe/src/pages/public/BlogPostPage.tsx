@@ -34,11 +34,8 @@ import { toast } from 'sonner'
 import { showNotification, withPermissionCheck, withAuthCheck } from '../../utils/notifications'
 import { EnhancedCommentSystem, type Comment } from '../../components/EnhancedCommentSystem'
 import { useTranslation } from 'react-i18next'
-import {
-  type BlogPost as ApiBlogPost,
-  getPublishedBlogPost,
-} from '../../services/blog-posts.api'
-import { type BlogComment as ApiBlogComment, getBlogComments } from '../../services/blog-comments.api'
+import { getPublishedBlogPost } from '../../services/blog-posts.api'
+import { getBlogComments, type BlogComment as ApiBlogComment } from '../../services/blog-comments.api'
 
 interface BlogPost {
   id: string
@@ -155,85 +152,111 @@ export function BlogPostPage() {
 
   const postId = currentRoute.split('/blog/')[1]
 
-  const mapApiPost = (apiPost: ApiBlogPost): BlogPost => {
-    const wordCount = apiPost.content.split(/\s+/).length
-    const readTime = Math.max(1, Math.ceil(wordCount / 200))
-    return {
-      id: String(apiPost.id),
-      title: apiPost.title,
-      excerpt: apiPost.summary || `${apiPost.content.substring(0, 150)}...`,
-      content: apiPost.content,
-      author: {
-        id: String(apiPost.author ?? ''),
-        name: apiPost.author_name || t('blog_post_detail_page.fallbacks.unknown_author'),
-        avatar: apiPost.author_avatar || '/api/placeholder/60/60',
-        role: t('blog_post_detail_page.fallbacks.author_role'),
-        totalPosts: 0,
-        followers: 0,
-      },
-      publishedAt: apiPost.published_at ? new Date(apiPost.published_at) : new Date(apiPost.created_at),
-      updatedAt: new Date(apiPost.updated_at),
-      tags: apiPost.tags || [],
-      category: apiPost.category_name || t('blog_post_detail_page.fallbacks.general_category'),
-      featured: apiPost.is_featured,
-      status: apiPost.status,
-      stats: {
-        views: apiPost.views,
-        likes: apiPost.likes,
-        dislikes: 0,
-        comments: apiPost.comments_count,
-        shares: 0,
-        bookmarks: 0,
-      },
-      readTime,
-      coverImage: apiPost.featured_image || undefined,
-    }
+  const roleLabel = (role: string | null): string => {
+    if (role === 'instructor') return t('blog_post_page.roles.instructor')
+    return t('blog_post_page.roles.student')
   }
 
-  const mapApiComment = (apiComment: ApiBlogComment): Comment => ({
-    id: String(apiComment.id),
-    content: apiComment.content,
-    author: {
-      id: String(apiComment.user),
-      name: apiComment.user_name || t('blog_post_detail_page.fallbacks.unknown_author'),
-      avatar: apiComment.user_avatar || '/api/placeholder/60/60',
-      role:
-        apiComment.user_role === 'instructor'
-          ? t('blog_post_page.roles.instructor')
-          : t('blog_post_page.roles.student'),
-    },
-    createdAt: new Date(apiComment.created_at),
-    likes: apiComment.likes,
-    dislikes: 0,
-    replies: [],
-    isEdited: false,
-    isPinned: false,
-  })
+  const mapApiComments = (apiComments: ApiBlogComment[]): Comment[] => {
+    const tops = apiComments.filter((c) => c.parent == null)
+    return tops.map((c) => ({
+      id: String(c.id),
+      content: c.content,
+      author: {
+        id: String(c.user),
+        name: c.user_name || '',
+        avatar: c.user_avatar || '',
+        role: roleLabel(c.user_role),
+      },
+      createdAt: new Date(c.created_at),
+      likes: c.likes,
+      dislikes: 0,
+      replies: apiComments
+        .filter((r) => r.parent === c.id)
+        .map((r) => ({
+          id: String(r.id),
+          content: r.content,
+          author: {
+            id: String(r.user),
+            name: r.user_name || '',
+            avatar: r.user_avatar || '',
+            role: roleLabel(r.user_role),
+          },
+          createdAt: new Date(r.created_at),
+          likes: r.likes,
+          dislikes: 0,
+          isEdited: false,
+        })),
+      isEdited: false,
+      isPinned: false,
+    }))
+  }
 
   useEffect(() => {
+    let cancelled = false
+
     if (!postId) {
       setLoading(false)
+      setPost(null)
       return
     }
-    let cancelled = false
+
     setLoading(true)
-    ;(async () => {
-      try {
+    Promise.resolve()
+      .then(async () => {
         const apiPost = await getPublishedBlogPost(postId)
-        if (cancelled) return
-        setPost(mapApiPost(apiPost))
-        try {
-          const res = await getBlogComments(apiPost.id)
-          if (!cancelled) setComments(res.results.map(mapApiComment))
-        } catch {
-          if (!cancelled) setComments([])
+        const wordCount = apiPost.content.split(/\s+/).filter(Boolean).length
+        const readTime = Math.max(1, Math.ceil(wordCount / 200))
+
+        const mappedPost: BlogPost = {
+          id: String(apiPost.id),
+          title: apiPost.title,
+          content: apiPost.content,
+          excerpt: apiPost.summary || '',
+          author: {
+            id: String(apiPost.author ?? ''),
+            name: apiPost.author_name || '',
+            avatar: apiPost.author_avatar || '',
+            role: '',
+            totalPosts: 0,
+            followers: 0,
+          },
+          publishedAt: new Date(apiPost.published_at || apiPost.created_at),
+          updatedAt: new Date(apiPost.updated_at),
+          tags: apiPost.tags || [],
+          category: apiPost.category_name || '',
+          featured: apiPost.is_featured,
+          status: apiPost.status,
+          stats: {
+            views: apiPost.views,
+            likes: apiPost.likes,
+            dislikes: 0,
+            comments: apiPost.comments_count,
+            shares: 0,
+            bookmarks: 0,
+          },
+          readTime,
+          coverImage: apiPost.featured_image || undefined,
         }
-      } catch {
+
+        let mappedComments: Comment[] = []
+        if (apiPost.allow_comments) {
+          const commentsRes = await getBlogComments(apiPost.id)
+          mappedComments = mapApiComments(commentsRes.results)
+        }
+
+        if (!cancelled) {
+          setPost(mappedPost)
+          setComments(mappedComments)
+        }
+      })
+      .catch(() => {
         if (!cancelled) setPost(null)
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false)
-      }
-    })()
+      })
+
     return () => {
       cancelled = true
     }
@@ -261,9 +284,8 @@ export function BlogPostPage() {
   }
 
   const handleShare = (platform: string) => {
-    if (!post) return
     const url = window.location.href
-    const title = post.title
+    const title = post?.title ?? ''
 
     switch (platform) {
       case 'copy':
@@ -300,7 +322,7 @@ export function BlogPostPage() {
       author: {
         id: user!.id,
         name: user!.name,
-        avatar: user!.avatar || '/api/placeholder/60/60',
+        avatar: user!.avatar || '',
         role: user!.roles.includes('instructor') ? t('blog_post_page.roles.instructor') : t('blog_post_page.roles.student')
       },
       createdAt: new Date(),
@@ -333,7 +355,7 @@ export function BlogPostPage() {
       author: {
         id: user!.id,
         name: user!.name,
-        avatar: user!.avatar || '/api/placeholder/60/60',
+        avatar: user!.avatar || '',
         role: user!.roles.includes('instructor') ? t('blog_post_page.roles.instructor') : t('blog_post_page.roles.student')
       },
       createdAt: new Date(),
@@ -434,9 +456,11 @@ export function BlogPostPage() {
 
   if (!post) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-        <h2 className="mb-4 text-2xl">{t('blog_post_detail_page.not_found')}</h2>
-        <Button onClick={handleBack}>
+      <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          {t('blog_post_detail_page.not_found')}
+        </p>
+        <Button variant="ghost" onClick={handleBack}>
           <ArrowLeft size={16} className="mr-2" />
           {t('blog_post_page.back_to_blog')}
         </Button>
@@ -646,7 +670,7 @@ export function BlogPostPage() {
                 <div className="mb-6">
                   <div className="flex gap-3">
                     <Avatar className="w-10 h-10">
-                      <img src={user?.avatar || '/api/placeholder/60/60'} alt={user?.name} />
+                      <img src={user?.avatar || ''} alt={user?.name} />
                     </Avatar>
                     <div className="flex-1">
                       <Textarea
@@ -770,7 +794,7 @@ export function BlogPostPage() {
                           >
                             <div className="flex gap-3">
                               <Avatar className="w-8 h-8">
-                                <img src={user?.avatar || '/api/placeholder/60/60'} alt={user?.name} />
+                                <img src={user?.avatar || ''} alt={user?.name} />
                               </Avatar>
                               <div className="flex-1">
                                 <Textarea

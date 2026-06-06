@@ -64,6 +64,10 @@ const fadeInUp = {
   },
 }
 
+function getAdminUserId(admin: AdminUser): number | null {
+  if (typeof admin.user === 'number') return admin.user
+  return admin.user?.id ?? null
+}
 
 
 export function PermissionsPage() {
@@ -112,12 +116,19 @@ export function PermissionsPage() {
       try {
         const [apiUsers, apiAdmins] = await Promise.all([getAllUsers(), getAdmins()])
         const adminMap = new Map<number, AdminUser>()
-        apiAdmins.forEach(a => adminMap.set(a.user.id, a))
+        apiAdmins.forEach(a => {
+          const userId = getAdminUserId(a)
+          if (userId !== null) adminMap.set(userId, a)
+        })
         setUsers(apiUsers.map(u => {
           const admin = adminMap.get(u.id)
           const roles: UserRole[] = []
-          if (u.user_type === 'student' || u.user_type === 'user') roles.push('user')
-          if (u.user_type === 'instructor') roles.push('user', 'instructor')
+          const userRoles = u.roles || []
+          if (userRoles.includes('student') || userRoles.includes('user')) roles.push('user')
+          if (userRoles.includes('instructor')) {
+            if (!roles.includes('user')) roles.push('user')
+            roles.push('instructor')
+          }
           if (admin) roles.push('admin')
           return {
             id: String(u.id),
@@ -201,7 +212,7 @@ export function PermissionsPage() {
     if (!editingUser) return
     try {
       await adminUpdateUser(Number(editingUser.id), {
-        user_type: editingUser.roles.includes('admin') ? 'admin' : editingUser.roles.includes('instructor') ? 'instructor' : 'student'
+        roles: editingUser.roles.map(r => r === 'user' ? 'student' : r)
       })
       if (editingUser.roles.includes('admin') && editingUser.adminRecordId) {
         await updateAdmin(editingUser.adminRecordId, {

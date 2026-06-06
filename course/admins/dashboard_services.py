@@ -24,10 +24,7 @@ def get_admin_dashboard_stats():
     ).count()
     active_students = User.objects.filter(
         is_deleted=False, status='active'
-    ).filter(
-        Q(admin__isnull=True) | Q(admin__is_deleted=True),
-        Q(instructor__isnull=True) | Q(instructor__is_deleted=True),
-    ).count()
+    ).exclude(instructor__is_deleted=False).exclude(admin__is_deleted=False).count()
 
 
     courses_qs = Course.objects.filter(is_deleted=False)

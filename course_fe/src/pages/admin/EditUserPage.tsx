@@ -57,7 +57,7 @@ export function EditUserPage() {
         // "student" role to the "user" checkbox id used by this form.
         const backendRoles = user.roles && user.roles.length > 0
           ? user.roles
-          : [user.user_type || "student"]
+          : ["student"]
         const roles = backendRoles.map((r) => (r === "student" ? "user" : r))
 
         setFormData({

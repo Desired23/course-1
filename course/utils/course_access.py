@@ -104,24 +104,62 @@ def get_course_access_info(user, course):
 
 
     if _has_active_subscription_for_course(user, course):
-        return {"has_access": True, "access_type": "subscription"}
+        return {
+            "has_access": True,
+            "access_type": "subscription",
+            "subscription_plan": get_relevant_subscription_plan(user, course),
+        }
 
 
-    in_subscription = PlanCourse.objects.filter(
-        course=course,
-        status='active',
-        is_deleted=False,
-        plan__status='active',
-        plan__is_deleted=False,
-    ).exists()
+    relevant_plan = get_relevant_subscription_plan(user, course)
 
     return {
         "has_access": False,
         "access_type": None,
-        "in_subscription": in_subscription,
+        "in_subscription": relevant_plan is not None,
+        "subscription_plan": relevant_plan,
     }
 
 
+
+
+def get_relevant_subscription_plan(user, course):
+    """Trả về plan liên quan nhất chứa khóa học (ưu tiên plan user đang sở hữu,
+    nếu không thì plan rẻ nhất). Trả None nếu khóa học không nằm trong plan nào."""
+    from django.db.models import Q
+
+    plans = [
+        pc.plan for pc in PlanCourse.objects.filter(
+            course=course,
+            status='active',
+            is_deleted=False,
+            plan__status='active',
+            plan__is_deleted=False,
+        ).select_related('plan')
+    ]
+    if not plans:
+        return None
+
+    owned_plan_ids = set()
+    if user:
+        now = timezone.now()
+        owned_plan_ids = set(
+            UserSubscription.objects.filter(
+                user=user, status='active', is_deleted=False,
+            ).filter(
+                Q(end_date__isnull=True) | Q(end_date__gte=now)
+            ).values_list('plan_id', flat=True)
+        )
+
+    owned = [p for p in plans if p.id in owned_plan_ids]
+    chosen = owned[0] if owned else min(plans, key=lambda p: p.effective_price)
+
+    return {
+        "id": chosen.id,
+        "name": chosen.name,
+        "price": str(chosen.effective_price),
+        "owned": chosen.id in owned_plan_ids,
+    }
 
 
 def _has_active_subscription_for_course(user, course):

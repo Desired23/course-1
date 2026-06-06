@@ -35,18 +35,3 @@ class LearningPathItem(models.Model):
 
     def __str__(self):
         return f'LearningPathItem {self.id} path={self.path_id} course={self.course_id}'
-
-
-class PathConversation(models.Model):
-    id = models.AutoField(primary_key=True)
-    path = models.OneToOneField(LearningPath, on_delete=models.CASCADE, related_name='conversation')
-    messages = models.JSONField(default=list, blank=True)
-    advisor_meta = models.JSONField(default=dict, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'PathConversations'
-
-    def __str__(self):
-        return f'PathConversation {self.id} path={self.path_id}'

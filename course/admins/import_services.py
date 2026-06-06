@@ -107,13 +107,13 @@ def import_users_bulk(file_bytes, admin_user):
             email = str(row[0]).strip() if row and row[0] else ''
             full_name = str(row[1]).strip() if len(row) > 1 and row[1] else ''
             username = str(row[2]).strip() if len(row) > 2 and row[2] else ''
-            user_type = str(row[3]).strip().lower() if len(row) > 3 and row[3] else User.UserTypeChoices.STUDENT
+            role = str(row[3]).strip().lower() if len(row) > 3 and row[3] else 'student'
             password_raw = str(row[4]).strip() if len(row) > 4 and row[4] else ''
 
             if not email:
                 continue
-            if user_type not in [User.UserTypeChoices.STUDENT, User.UserTypeChoices.INSTRUCTOR]:
-                user_type = User.UserTypeChoices.STUDENT
+            if role not in ['student', 'instructor']:
+                role = 'student'
 
             existing = User.objects.filter(email=email).first()
             if existing:
@@ -122,8 +122,7 @@ def import_users_bulk(file_bytes, admin_user):
                     existing.full_name = full_name
                     update_fields.append('full_name')
                 existing.save(update_fields=update_fields)
-                # Role is derived from the Instructor record; no legacy user_type column.
-                if user_type == User.UserTypeChoices.INSTRUCTOR:
+                if role == 'instructor':
                     Instructor.objects.get_or_create(user=existing)
                 updated += 1
                 continue
@@ -147,7 +146,7 @@ def import_users_bulk(file_bytes, admin_user):
                 password_hash=make_password(password_raw),
                 status=User.StatusChoices.ACTIVE,
             )
-            if user_type == User.UserTypeChoices.INSTRUCTOR:
+            if role == 'instructor':
                 Instructor.objects.get_or_create(user=user)
             created += 1
 

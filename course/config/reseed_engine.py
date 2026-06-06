@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import copy
@@ -181,9 +180,6 @@ def _run_reseed(
             validation_report: dict[str, Any] | None = None
 
             if not dry_run:
-                # The delete phase may have triggered Django's disable_constraint_checking()
-                # which sets PRAGMA defer_foreign_keys = ON in SQLite, deferring all FK checks
-                # to the outermost COMMIT. Reset it here so seed inserts get immediate checks.
                 if connection.vendor == "sqlite":
                     with connection.cursor() as _cur:
                         _cur.execute("PRAGMA defer_foreign_keys = OFF")
@@ -238,7 +234,7 @@ def _run_reseed(
             finished_at=timezone.now().isoformat(),
         )
 
-    except Exception as exc:  # pragma: no cover - defensive path
+    except Exception as exc:
         _set_run_state(
             status="failed",
             phase="failed",
@@ -325,10 +321,7 @@ def _build_dependency_order(models: list[type]) -> list[type]:
 
 
 _ORPHAN_TABLES: tuple[str, ...] = (
-    # Orphaned SQLite tables whose Django models were removed but migrations to DROP TABLE
-    # were never run. They have DEFERRABLE INITIALLY DEFERRED FKs (Django 5.x default),
-    # so stale rows cause FK violations at commit. Clear them with raw SQL.
-    "QnAAnswers",  # must be before QnA (FK dependency)
+    "QnAAnswers",
     "QnA",
 )
 
@@ -341,7 +334,6 @@ def _reset_business_tables(dry_run: bool) -> dict[str, Any]:
     total_before = 0
     total_deleted = 0
 
-    # Clear orphaned tables first (child tables before parent tables).
     if connection.vendor == "sqlite" and not dry_run:
         with connection.cursor() as cursor:
             for table in _ORPHAN_TABLES:

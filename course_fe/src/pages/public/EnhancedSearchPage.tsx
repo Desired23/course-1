@@ -18,18 +18,26 @@ import {
   Eye,
   CheckCircle,
   Calendar,
+  User,
   FileText,
   ChevronRight,
   X
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { getCourses, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from '../../services/course.api'
+import {
+  getCourses,
+  parseDecimal,
+  getEffectivePrice,
+  formatPrice,
+  getLevelLabel,
+  formatDuration,
+} from '../../services/course.api'
 import { getInstructors } from '../../services/instructor.api'
 import { getPublishedBlogPosts } from '../../services/blog-posts.api'
 
 type SearchTab = 'all' | 'courses' | 'instructors' | 'articles'
 
-interface SearchCourse {
+interface CourseResult {
   id: number
   title: string
   instructor: string
@@ -42,9 +50,10 @@ interface SearchCourse {
   level: string
   bestseller: boolean
   category: string
+  tags: string[]
 }
 
-interface SearchInstructor {
+interface InstructorResult {
   id: number
   name: string
   title: string
@@ -57,20 +66,23 @@ interface SearchInstructor {
   bio: string
 }
 
-interface SearchArticle {
+interface ArticleResult {
   id: number
   slug: string
   title: string
   excerpt: string
   author: string
   publishDate: string
-  readTime: string
+  views: number
   tags: string[]
   image: string
-  views: number
 }
 
-const RESULTS_PAGE_SIZE = 12
+interface SearchResults {
+  courses: CourseResult[]
+  instructors: InstructorResult[]
+  articles: ArticleResult[]
+}
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -108,12 +120,10 @@ export function EnhancedSearchPage() {
     t('enhanced_search_page.recent.default_4')
   ])
 
-  const [filteredResults, setFilteredResults] = useState<{
-    courses: SearchCourse[]
-    instructors: SearchInstructor[]
-    articles: SearchArticle[]
-  }>({ courses: [], instructors: [], articles: [] })
-  const [loading, setLoading] = useState(false)
+  const emptyResults: SearchResults = { courses: [], instructors: [], articles: [] }
+  const [results, setResults] = useState<SearchResults>(emptyResults)
+  const [topInstructorNames, setTopInstructorNames] = useState<string[]>([])
+
 
   const popularSearches = {
     courses: [
@@ -123,6 +133,7 @@ export function EnhancedSearchPage() {
       t('enhanced_search_page.popular.courses_4'),
       t('enhanced_search_page.popular.courses_5')
     ],
+    instructors: topInstructorNames,
     articles: [
       t('enhanced_search_page.popular.articles_1'),
       t('enhanced_search_page.popular.articles_2'),
@@ -130,111 +141,133 @@ export function EnhancedSearchPage() {
     ],
   }
 
+  // Fetch a few real instructor names for the "top instructors" suggestion panel.
   useEffect(() => {
-    if (!searchQuery) {
-      setFilteredResults({ courses: [], instructors: [], articles: [] })
-      setSuggestions([])
-      setShowSuggestions(false)
+    let cancelled = false
+    getInstructors(1, 3)
+      .then((res) => {
+        if (cancelled) return
+        setTopInstructorNames(res.results.map((i) => i.user.full_name).filter(Boolean))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Fetch real search results (debounced) whenever the query changes.
+  useEffect(() => {
+    const query = searchQuery.trim()
+    if (!query) {
+      setResults(emptyResults)
       return
     }
 
     let cancelled = false
-    const query = searchQuery.toLowerCase()
+    const timer = setTimeout(() => {
+      const lower = query.toLowerCase()
 
-    async function fetchResults() {
-      try {
-        setLoading(true)
-        const [coursesRes, instructorsRes, articlesRes] = await Promise.all([
-          getCourses({ search: searchQuery, status: 'published', page_size: RESULTS_PAGE_SIZE }),
-          getInstructors(1, 100),
-          getPublishedBlogPosts({ page: 1, page_size: 100 }),
-        ])
+      const coursesPromise = getCourses({ search: query, status: 'published', page_size: 12 })
+        .then((res) =>
+          res.results.map<CourseResult>((course) => {
+            const effectivePrice = getEffectivePrice(course)
+            const regularPrice = parseDecimal(course.price)
+            const hasDiscount = effectivePrice < regularPrice
+            return {
+              id: course.id,
+              title: course.title,
+              instructor: course.instructor_name || '',
+              image: course.thumbnail || '',
+              price: formatPrice(effectivePrice),
+              originalPrice: hasDiscount ? formatPrice(regularPrice) : undefined,
+              rating: parseDecimal(course.rating),
+              students: course.total_students,
+              duration: formatDuration(course.duration),
+              level: getLevelLabel(course.level),
+              bestseller: course.total_students > 100000,
+              category: course.category_name || '',
+              tags: course.tags || [],
+            }
+          })
+        )
+        .catch(() => [] as CourseResult[])
 
-        const courses: SearchCourse[] = coursesRes.results.map((course) => {
-          const effectivePrice = getEffectivePrice(course)
-          const regularPrice = parseDecimal(course.price)
-          const hasDiscount = effectivePrice < regularPrice
-          return {
-            id: course.id,
-            title: course.title,
-            instructor: course.instructor_name || t('enhanced_search_page.labels.instructor_fallback', 'Instructor'),
-            image: course.thumbnail || '',
-            price: formatPrice(effectivePrice),
-            originalPrice: hasDiscount ? formatPrice(regularPrice) : undefined,
-            rating: parseDecimal(course.rating),
-            students: course.total_students,
-            duration: formatDuration(course.duration),
-            level: getLevelLabel(course.level),
-            bestseller: course.total_students > 100000,
-            category: course.category_name || '',
-          }
-        })
+      const instructorsPromise = getInstructors(1, 50)
+        .then((res) =>
+          res.results
+            .filter(
+              (i) =>
+                (i.user.full_name || '').toLowerCase().includes(lower) ||
+                (i.specialization || '').toLowerCase().includes(lower)
+            )
+            .map<InstructorResult>((i) => ({
+              id: i.id,
+              name: i.user.full_name,
+              title: i.specialization || '',
+              avatar: i.user.avatar || '',
+              rating: parseDecimal(i.rating),
+              students: i.total_students,
+              courses: i.total_courses,
+              expertise: i.specialization
+                ? i.specialization.split(',').map((s) => s.trim()).filter(Boolean)
+                : [],
+              verified: false,
+              bio: i.bio || '',
+            }))
+        )
+        .catch(() => [] as InstructorResult[])
 
-        const instructors: SearchInstructor[] = instructorsRes.results
-          .filter((ins) =>
-            (ins.user.full_name || '').toLowerCase().includes(query) ||
-            (ins.specialization || '').toLowerCase().includes(query)
-          )
-          .slice(0, RESULTS_PAGE_SIZE)
-          .map((ins) => ({
-            id: ins.id,
-            name: ins.user.full_name,
-            title: ins.specialization || '',
-            avatar: ins.user.avatar || '',
-            rating: parseDecimal(ins.rating),
-            students: ins.total_students,
-            courses: ins.total_courses,
-            expertise: ins.specialization ? ins.specialization.split(',').map((s) => s.trim()).filter(Boolean) : [],
-            verified: true,
-            bio: ins.bio || '',
-          }))
+      const articlesPromise = getPublishedBlogPosts({ page_size: 50 })
+        .then((res) =>
+          res.results
+            .filter(
+              (a) =>
+                a.title.toLowerCase().includes(lower) ||
+                (a.summary || '').toLowerCase().includes(lower)
+            )
+            .map<ArticleResult>((a) => ({
+              id: a.id,
+              slug: a.slug,
+              title: a.title,
+              excerpt: a.summary || '',
+              author: a.author_name || '',
+              publishDate: a.published_at || a.created_at,
+              views: a.views,
+              tags: a.tags || [],
+              image: a.featured_image || '',
+            }))
+        )
+        .catch(() => [] as ArticleResult[])
 
-        const articles: SearchArticle[] = articlesRes.results
-          .filter((post) =>
-            post.title.toLowerCase().includes(query) ||
-            (post.summary || '').toLowerCase().includes(query) ||
-            (post.tags || []).some((tag) => tag.toLowerCase().includes(query))
-          )
-          .slice(0, RESULTS_PAGE_SIZE)
-          .map((post) => ({
-            id: post.id,
-            slug: post.slug,
-            title: post.title,
-            excerpt: post.summary || '',
-            author: post.author_name || '',
-            publishDate: post.published_at || post.created_at,
-            readTime: t('enhanced_search_page.labels.read_time', { count: Math.max(1, Math.ceil((post.content?.length || 0) / 1000)) }),
-            tags: post.tags || [],
-            image: post.featured_image || '',
-            views: post.views,
-          }))
-
-        if (!cancelled) {
-          setFilteredResults({ courses, instructors, articles })
+      Promise.all([coursesPromise, instructorsPromise, articlesPromise]).then(
+        ([courses, instructors, articles]) => {
+          if (cancelled) return
+          setResults({ courses, instructors, articles })
         }
-      } catch {
-        if (!cancelled) setFilteredResults({ courses: [], instructors: [], articles: [] })
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+      )
+    }, 300)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
+  }, [searchQuery])
 
-    fetchResults()
-    return () => { cancelled = true }
-  }, [searchQuery, t])
-
+  // Build search suggestions from the live results.
   useEffect(() => {
-    setShowSuggestions(searchQuery.length > 1)
     if (searchQuery.length > 1) {
       const allContent = [
-        ...filteredResults.courses.map((course) => course.title),
-        ...filteredResults.instructors.map((instructor) => instructor.name),
-        ...filteredResults.articles.map((article) => article.title)
+        ...results.courses.map((course) => course.title),
+        ...results.instructors.map((instructor) => instructor.name),
+        ...results.articles.map((article) => article.title)
       ]
       const filtered = allContent.filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5)
       setSuggestions(filtered)
+      setShowSuggestions(filtered.length > 0)
+    } else {
+      setShowSuggestions(false)
     }
-  }, [filteredResults, searchQuery])
+  }, [results, searchQuery])
 
   const handleSearch = (query: string) => {
     if (query.trim()) {
@@ -251,9 +284,10 @@ export function EnhancedSearchPage() {
     setShowSuggestions(false)
   }
 
+  const filteredResults = searchQuery ? results : emptyResults
   const totalResults = Object.values(filteredResults).reduce((sum, arr) => sum + arr.length, 0)
 
-  const renderCourseCard = (course: SearchCourse) => (
+  const renderCourseCard = (course: CourseResult) => (
     <motion.div key={course.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/course/${course.id}`)}>
       <Card className="h-full hover:shadow-lg transition-shadow">
         <div className="relative">
@@ -290,7 +324,7 @@ export function EnhancedSearchPage() {
     </motion.div>
   )
 
-  const renderInstructorCard = (instructor: SearchInstructor) => (
+  const renderInstructorCard = (instructor: InstructorResult) => (
     <motion.div key={instructor.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/instructor/${instructor.id}/profile`)}>
       <Card className="h-full hover:shadow-lg transition-shadow">
         <CardContent className="p-6">
@@ -319,7 +353,7 @@ export function EnhancedSearchPage() {
     </motion.div>
   )
 
-  const renderArticleCard = (article: SearchArticle) => (
+  const renderArticleCard = (article: ArticleResult) => (
     <motion.div key={article.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -2 }} className="cursor-pointer" onClick={() => navigate(`/blog/${article.slug || article.id}`)}>
       <Card className="h-full hover:shadow-lg transition-shadow">
         <div className="flex">
@@ -331,7 +365,6 @@ export function EnhancedSearchPage() {
               <div className="flex items-center gap-3">
                 <span>{t('enhanced_search_page.labels.by_author', { author: article.author })}</span>
                 <div className="flex items-center gap-1"><Calendar className="w-3 h-3" /><span>{new Date(article.publishDate).toLocaleDateString()}</span></div>
-                <div className="flex items-center gap-1"><Clock className="w-3 h-3" /><span>{article.readTime}</span></div>
               </div>
               <div className="flex items-center gap-1"><Eye className="w-3 h-3" /><span>{article.views.toLocaleString()}</span></div>
             </div>
@@ -386,6 +419,7 @@ export function EnhancedSearchPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><BookOpen className="w-5 h-5 text-blue-500" />{t('enhanced_search_page.sections.popular_courses')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.courses.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
+              <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><User className="w-5 h-5 text-green-500" />{t('enhanced_search_page.sections.top_instructors')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.instructors.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
               <Card><CardHeader><CardTitle className="flex items-center gap-2 text-lg"><FileText className="w-5 h-5 text-purple-500" />{t('enhanced_search_page.sections.popular_articles')}</CardTitle></CardHeader><CardContent><div className="space-y-2">{popularSearches.articles.map((term) => <button key={term} onClick={() => handleSearch(term)} className="block w-full text-left px-3 py-2 rounded hover:bg-muted transition-colors">{term}</button>)}</div></CardContent></Card>
             </div>
             {recentSearches.length > 0 && <Card><CardHeader><CardTitle>{t('enhanced_search_page.sections.recent_searches')}</CardTitle></CardHeader><CardContent><div className="flex flex-wrap gap-2">{recentSearches.map((term) => <Badge key={term} variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => handleSearch(term)}>{term}</Badge>)}</div></CardContent></Card>}
@@ -393,10 +427,10 @@ export function EnhancedSearchPage() {
         ) : (
           <motion.div className="space-y-6" variants={fadeInUp}>
             <div className="flex items-center justify-between">
-              <h2>{loading ? t('common.loading') : totalResults > 0 ? t('enhanced_search_page.results.found', { count: totalResults, query: searchQuery }) : t('enhanced_search_page.results.not_found', { query: searchQuery })}</h2>
-              {!loading && totalResults > 0 && <Button variant="outline" onClick={() => toast.info(t('enhanced_search_page.toasts.advanced_filters_coming_soon'))}><Filter className="w-4 h-4 mr-2" />{t('enhanced_search_page.actions.filters')}</Button>}
+              <h2>{totalResults > 0 ? t('enhanced_search_page.results.found', { count: totalResults, query: searchQuery }) : t('enhanced_search_page.results.not_found', { query: searchQuery })}</h2>
+              {totalResults > 0 && <Button variant="outline" onClick={() => toast.info(t('enhanced_search_page.toasts.advanced_filters_coming_soon'))}><Filter className="w-4 h-4 mr-2" />{t('enhanced_search_page.actions.filters')}</Button>}
             </div>
-            {!loading && totalResults > 0 && (
+            {totalResults > 0 && (
               <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as SearchTab)} className="w-full">
                 <TabsList className="relative grid w-full grid-cols-5 p-1">
                   <TabsTrigger value="all" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">{activeTab === 'all' && <motion.span layoutId="enhanced-search-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}<span className="relative z-10">{t('enhanced_search_page.tabs.all', { count: totalResults })}</span></TabsTrigger>

@@ -35,7 +35,6 @@ def _normalize_detail(detail):
 
 
 def custom_exception_handler(exc, context):
-    # Let DRF convert Http404 / Django PermissionDenied first
     if isinstance(exc, Http404):
         exc = NotFound()
     elif isinstance(exc, DjangoPermissionDenied):
@@ -44,7 +43,6 @@ def custom_exception_handler(exc, context):
     response = drf_default_handler(exc, context)
 
     if response is None:
-        # Unhandled exception — log and return 500
         logger.exception(
             "Unhandled exception in view %s",
             context.get("view", "unknown"),
@@ -60,7 +58,6 @@ def custom_exception_handler(exc, context):
 
     if isinstance(exc, ValidationError):
         errors = _normalize_detail(exc.detail)
-        # Build a human-readable message from first error if not already a plain string
         first_error = None
         if isinstance(errors, dict):
             for v in errors.values():

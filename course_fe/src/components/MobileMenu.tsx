@@ -378,7 +378,7 @@ export function MobileMenu() {
                     onClick={() => handleNavigate('/teach')}
                   >
                     <Sparkles className="h-4 w-4 mr-3" />
-                    {t('common.teach_on_udemy')}
+                    {t('common.teach_on_utc')}
                   </Button>
                 </nav>
               </div>

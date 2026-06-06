@@ -4,6 +4,7 @@ from .views import (
     InstructorPayoutRequestView,
     AdminPayoutApproveView,
     AdminPayoutRejectView,
+    AdminMonthlyPayoutRunView,
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
 
     path('admin/payouts/<int:payout_id>/approve/', AdminPayoutApproveView.as_view(), name='admin-payout-approve'),
     path('admin/payouts/<int:payout_id>/reject/', AdminPayoutRejectView.as_view(), name='admin-payout-reject'),
+    path('admin/payouts/run-monthly/', AdminMonthlyPayoutRunView.as_view(), name='admin-payout-run-monthly'),
 ]

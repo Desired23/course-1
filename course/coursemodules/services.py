@@ -127,7 +127,6 @@ def update_course_module(course_module_id, data, requesting_user=None):
                             notification_code='module_status_changed_by_admin',
                         )
                     except Exception:
-
                         pass
 
         return updated_course_module

@@ -42,6 +42,11 @@ COURSE_CONTENT_FIELDS = {
 }
 
 
+def is_course_auto_approve_enabled():
+    from systems_settings.services import get_bool_setting
+    return get_bool_setting('auto_approve', default=True)
+
+
 def mark_course_content_changed(course, *, save=True):
     if course.status not in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
         return False
@@ -79,15 +84,12 @@ def get_course_by_id(course_id, user=None):
         ).prefetch_related(
             'modules__lessons__quiz_question_lesson'
         ).get(id=course_id, is_deleted=False)
-        print(f"get_course_by_id: found course {course_id} titled '{course.title}'")
         return CourseDetailSerializer(course, context={'user': user}).data
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
     except ValidationError:
         raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         raise ValidationError(f"Lỗi khi lấy thông tin khóa học: {e}")
 
 
@@ -226,13 +228,12 @@ def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
 def get_public_stats():
     from users.models import User
     from instructors.models import Instructor
-    from django.db.models import Avg, Q
+    from django.db.models import Avg
     try:
         total_courses = Course.objects.filter(is_deleted=False, status='published').count()
-        total_students = User.objects.filter(status='active', is_deleted=False).filter(
-            Q(admin__isnull=True) | Q(admin__is_deleted=True),
-            Q(instructor__isnull=True) | Q(instructor__is_deleted=True),
-        ).count()
+        total_students = User.objects.filter(
+            status='active', is_deleted=False
+        ).exclude(instructor__is_deleted=False).exclude(admin__is_deleted=False).count()
         total_instructors = Instructor.objects.count()
         avg_rating = Course.objects.filter(
             is_deleted=False, status='published', rating__gt=0
@@ -288,6 +289,8 @@ def update_course(course_id, data, requesting_user=None):
                     raise ValidationError(
                         f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
                     )
+            if normalized_status == Course.Status.PENDING and is_course_auto_approve_enabled():
+                normalized_status = Course.Status.PUBLISHED
             payload['status'] = normalized_status
 
         serializer = CourseSerializer(course, data=payload, partial=True)
@@ -409,4 +412,43 @@ def validate_course_data(data):
     if serializer.is_valid():
         return {"message": "Data is valid."}
     return {"errors": serializer.errors}
+
+
+def moderate_course(course_id, action, reason=''):
+    from rest_framework.exceptions import NotFound
+    try:
+        course = Course.objects.get(id=course_id, is_deleted=False)
+    except Course.DoesNotExist:
+        raise NotFound("Course not found.")
+
+    action = (action or '').strip().lower()
+    if action == 'approve':
+        course.status = Course.Status.PUBLISHED
+    elif action == 'dismiss':
+        pass
+    elif action == 'hide':
+        course.status = Course.Status.ARCHIVED
+    elif action == 'delete':
+        course.is_deleted = True
+        course.deleted_at = timezone.now()
+    else:
+        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
+
+    course.save()
+    try:
+        if action in ('hide', 'delete'):
+            from notifications.services import create_notification
+            instructor_user_id = course.instructor.user_id if course.instructor else None
+            if instructor_user_id:
+                create_notification(
+                    receiver_id=instructor_user_id,
+                    title="Khóa học của bạn đã bị xử lý",
+                    message=f"Khóa học \"{course.title}\" đã bị {'gỡ xuống' if action == 'hide' else 'xóa'} do vi phạm chính sách.",
+                    type='other',
+                    related_id=course.id,
+                    notification_code='course_moderated',
+                )
+    except Exception:
+        pass
+    return course
 

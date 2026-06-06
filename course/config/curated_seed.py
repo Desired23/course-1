@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import random
@@ -283,8 +282,6 @@ def run_curated_seed(profile: str, random_seed: int) -> dict[str, Any]:
     ctx = SeedContext(now=timezone.now(), rng=rng, report={})
 
     with transaction.atomic():
-        # Ensure FK checks are immediate (not deferred) so violations surface at the
-        # specific INSERT/UPDATE rather than as a cryptic commit error.
         if connection.vendor == "sqlite":
             with connection.cursor() as _cur:
                 _cur.execute("PRAGMA defer_foreign_keys = OFF")
@@ -297,7 +294,6 @@ def run_curated_seed(profile: str, random_seed: int) -> dict[str, Any]:
         _seed_platform_metadata(ctx, users_data, profile_settings)
         recalc_report = _recalculate_all_counters()
 
-        # Diagnostic: catch any FK violations before the savepoint is released.
         if connection.vendor == "sqlite":
             with connection.cursor() as _cur:
                 _cur.execute("PRAGMA foreign_key_check")
@@ -683,7 +679,6 @@ def _seed_commerce(
     students = users_data["students"]
     published_courses = content_data["published_courses"]
 
-    # --- Promotion configs (discount codes only, not tied to any transaction) ---
     PROMO_SPECS = [
         ("WELCOME20", "PERCENTAGE", Decimal("20.00"), "Welcome 20% off", Decimal("0.00")),
         ("SUMMER30", "PERCENTAGE", Decimal("30.00"), "Summer sale 30% off", Decimal("300000.00")),
@@ -709,7 +704,6 @@ def _seed_commerce(
         p.applicable_courses.set(published_courses[: profile_settings["promo_course_limit"]])
         promos.append(p)
 
-    # --- Subscription plan configs (plan definitions only) ---
     PLAN_SPECS = [
         ("Basic Monthly", Decimal("199000.00"), SubscriptionPlan.DurationType.MONTHLY, 30, False, None),
         ("Pro Monthly", Decimal("299000.00"), SubscriptionPlan.DurationType.MONTHLY, 30, True, "Most Popular"),
@@ -754,7 +748,6 @@ def _seed_commerce(
         for course in published_courses[: profile_settings["plan_course_limit"]]:
             PlanCourse.objects.create(plan=plan, course=course, status=PlanCourse.Status.ACTIVE, added_by=users_data["admin"])
 
-    # --- Direct enrollments (no payment record — admin-granted for demo purposes) ---
     enrollments: list[Enrollment] = []
     total_to_enroll = profile_settings["purchase_student_count"] + profile_settings["subscription_student_count"]
     enrolled_pairs: set[tuple[int, int]] = set()
@@ -788,7 +781,6 @@ def _seed_commerce(
             )
             enrollments.append(enrollment)
 
-    # --- CourseSubscriptionConsent ---
     consent_course_count = profile_settings.get("consent_course_count", 8)
     for idx, course in enumerate(published_courses[:consent_course_count]):
         CourseSubscriptionConsent.objects.create(
@@ -801,7 +793,6 @@ def _seed_commerce(
             note="Curated consent state",
         )
 
-    # --- User payment method configs (stored preferences, not transactions) ---
     for idx, student in enumerate(students):
         UserPaymentMethod.objects.create(
             user=student,
@@ -812,7 +803,6 @@ def _seed_commerce(
             bank_name="VCB",
         )
 
-    # --- Instructor payout method configs (bank account info, not actual payouts) ---
     for instructor in users_data["instructors"]:
         InstructorPayoutMethod.objects.create(
             instructor=instructor,
@@ -861,7 +851,6 @@ def _seed_learning_outcomes(
             continue
 
         if enrollment.status == Enrollment.Status.Complete:
-            # Create LearningProgress for ALL lessons, all marked completed
             for idx, lesson in enumerate(course_lessons):
                 LearningProgress.objects.create(
                     user=enrollment.user,
@@ -896,7 +885,6 @@ def _seed_learning_outcomes(
                     )
                     quiz_result_count += 1
         else:
-            # Active enrollment: first 4 lessons, first 2 completed, rest IN_PROGRESS
             for idx, lesson in enumerate(course_lessons[:4]):
                 is_completed = idx < 2
                 LearningProgress.objects.create(
@@ -1036,7 +1024,6 @@ def _seed_social_and_support(
         )
         question_list.append(question)
 
-        # First answer is the accepted one (sets question.status="closed")
         instructor_user = courses[idx % len(courses)].instructor.user if courses else student
         Answer.objects.create(
             question=question,
@@ -1046,7 +1033,6 @@ def _seed_social_and_support(
         )
         answer_count += 1
 
-        # Additional answers if answers_per_question > 1
         for extra_idx in range(1, answers_per_question):
             extra_author = students[(idx + extra_idx) % len(students)]
             Answer.objects.create(
@@ -1059,7 +1045,6 @@ def _seed_social_and_support(
 
         Question.objects.filter(id=question.id).update(answer_count=answers_per_question)
 
-        # Close question if we have at least one accepted answer
         if answers_per_question >= 1:
             Question.objects.filter(id=question.id).update(status="closed")
 
@@ -1080,7 +1065,6 @@ def _seed_social_and_support(
         supports_created.append(support)
         support_count += 1
 
-    # Distribute support_reply_count replies across in_progress and resolved supports
     reply_target_statuses = {"in_progress", "resolved"}
     reply_eligible_supports = [s for s in supports_created if s.status in reply_target_statuses]
     total_reply_count = profile_settings.get("support_reply_count", support_count // 2)
@@ -1166,7 +1150,6 @@ def _seed_platform_metadata(ctx: SeedContext, users_data: dict[str, Any], profil
     form_count = profile_settings.get("form_count", 1)
     form_questions_per_form = profile_settings.get("form_questions_per_form", 3)
 
-    # First form: INSTRUCTOR_APPLICATION (always)
     form = RegistrationForm.objects.create(
         type=RegistrationForm.FormType.INSTRUCTOR_APPLICATION,
         title="Instructor Application Form",
@@ -1195,7 +1178,6 @@ def _seed_platform_metadata(ctx: SeedContext, users_data: dict[str, Any], profil
     all_forms = [form]
     all_form_questions_count = len(questions)
 
-    # Second form: USER_REGISTRATION (if form_count >= 2)
     if form_count >= 2:
         USER_FORM_QUESTIONS = [
             ("Full Name", FormQuestion.QuestionType.TEXT, True),
@@ -1283,7 +1265,11 @@ def _seed_default_system_settings(ctx: SeedContext, users_data: dict[str, Any]) 
         ("email", "smtp_host", "smtp.gmail.com", "SMTP host"),
         ("email", "smtp_port", "587", "SMTP port"),
         ("course", "max_upload_size", "524288000", "Maximum upload size in bytes"),
-        ("course", "auto_approve", "false", "Auto approve new courses"),
+        ("course", "auto_approve", "true", "Auto approve new courses"),
+        ("instructor", "auto_approve_instructor_application", "true", "Auto approve instructor applications"),
+        ("course", "auto_approve_review", "true", "Auto approve course reviews"),
+        ("payment", "auto_approve_payout", "true", "Auto approve payout requests"),
+        ("payment", "auto_approve_refund", "true", "Auto process refunds without admin approval"),
         (
             "homepage",
             "homepage_layout",
@@ -1315,7 +1301,6 @@ def _seed_default_system_settings(ctx: SeedContext, users_data: dict[str, Any]) 
 def _recalculate_all_counters() -> dict[str, Any]:
     report = {}
 
-    # 1. course counters
     courses_updated = 0
     for course in Course.objects.filter(is_deleted=False):
         modules_count = CourseModule.objects.filter(course=course, is_deleted=False).count()
@@ -1340,7 +1325,6 @@ def _recalculate_all_counters() -> dict[str, Any]:
         courses_updated += 1
     report['courses_recalculated'] = courses_updated
 
-    # 2. instructor counters
     instructors_updated = 0
     for instructor in Instructor.objects.filter(is_deleted=False):
         total_courses_count = Course.objects.filter(instructor=instructor, is_deleted=False).count()
@@ -1357,7 +1341,6 @@ def _recalculate_all_counters() -> dict[str, Any]:
         instructors_updated += 1
     report['instructors_recalculated'] = instructors_updated
 
-    # 3 & 4. enrollment progress + status from LearningProgress
     enrollments_updated = 0
     for enrollment in Enrollment.objects.filter(is_deleted=False, course__isnull=False):
         total_lessons_count = Lesson.objects.filter(
@@ -1380,7 +1363,6 @@ def _recalculate_all_counters() -> dict[str, Any]:
         enrollments_updated += 1
     report['enrollments_recalculated'] = enrollments_updated
 
-    # 5. Create Certificates for Complete enrollments with certificate-enabled courses
     certs_created = 0
     for enrollment in Enrollment.objects.filter(
         status=Enrollment.Status.Complete, is_deleted=False,
@@ -1404,7 +1386,6 @@ def _recalculate_all_counters() -> dict[str, Any]:
         certs_created += 1
     report['certificates_created'] = certs_created
 
-    # 6. Recalculate Question.answer_count
     questions_updated = 0
     for question in Question.objects.filter(is_deleted=False):
         count = Answer.objects.filter(question=question, status='active', is_deleted=False).count()

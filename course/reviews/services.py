@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Avg, Count, F
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
@@ -34,8 +35,13 @@ def create_review(data):
 
     serializer = ReviewSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
-        Course.objects.filter(id=course_id).update(total_reviews=F('total_reviews') + 1)
-        review = serializer.save()
+        from systems_settings.services import get_bool_setting
+        with transaction.atomic():
+            review = serializer.save()
+            Course.objects.filter(id=course_id).update(total_reviews=F('total_reviews') + 1)
+            if get_bool_setting('auto_approve_review', default=True):
+                review.status = Review.StatusChoices.APPROVED
+                review.save(update_fields=['status', 'updated_at'])
         try:
             from notifications.services import create_notification
             if course.instructor_id and course.instructor.user_id:

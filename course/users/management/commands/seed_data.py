@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 
 from users.models import User
+from admins.models import Admin
 from categories.models import Category
 from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
@@ -122,7 +123,7 @@ class Command(BaseCommand):
             InstructorLevel.objects.all().delete()
             Category.objects.filter(parent_category__isnull=False).delete()
             Category.objects.all().delete()
-            User.objects.filter(admin__isnull=True).delete()
+            User.objects.exclude(admin__isnull=False).delete()
             self.stdout.write(self.style.SUCCESS("Cleared."))
 
         self._seed()
@@ -196,6 +197,10 @@ class Command(BaseCommand):
                 "avatar": AVATARS[0],
                 "status": "active",
             },
+        )
+        Admin.objects.get_or_create(
+            user=admin_user,
+            defaults={"department": "IT", "role": "super_admin", "is_super_admin": True},
         )
         self.stdout.write(f"  Admin user: {admin_user.username}")
 

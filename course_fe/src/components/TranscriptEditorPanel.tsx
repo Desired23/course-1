@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
@@ -34,6 +35,7 @@ function statusTone(status?: string | null): 'default' | 'secondary' | 'destruct
 }
 
 export function TranscriptEditorPanel({ lessonId, videoUrl }: TranscriptEditorPanelProps) {
+  const { t } = useTranslation()
   const [payload, setPayload] = useState<TranscriptEditorPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -68,7 +70,7 @@ export function TranscriptEditorPanel({ lessonId, videoUrl }: TranscriptEditorPa
       })
       setEditedSegments(nextEdited)
     } catch (error: any) {
-      if (!silent) toast.error(error?.message || 'Failed to load transcript state')
+      if (!silent) toast.error(error?.message || t('transcript_editor.load_failed'))
     } finally {
       if (!silent) setLoading(false)
     }
@@ -92,9 +94,9 @@ export function TranscriptEditorPanel({ lessonId, videoUrl }: TranscriptEditorPa
     try {
       const job = await generateLessonTranscript(lessonId)
       setPayload((prev) => prev ? { ...prev, latest_job: job } : { latest: null, published: null, latest_job: job })
-      toast.success('Transcript generation queued')
+      toast.success(t('transcript_editor.generation_queued'))
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to queue transcript generation')
+      toast.error(error?.message || t('transcript_editor.generation_failed'))
     } finally {
       setGenerating(false)
     }
@@ -111,9 +113,9 @@ export function TranscriptEditorPanel({ lessonId, videoUrl }: TranscriptEditorPa
         })),
       })
       setPayload((prev) => prev ? { ...prev, latest: updated } : prev)
-      toast.success('Transcript draft saved')
+      toast.success(t('transcript_editor.draft_saved'))
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to save transcript')
+      toast.error(error?.message || t('transcript_editor.save_failed'))
     } finally {
       setSaving(false)
     }
@@ -125,9 +127,9 @@ export function TranscriptEditorPanel({ lessonId, videoUrl }: TranscriptEditorPa
     try {
       const published = await publishTranscript(editableTranscript.id)
       setPayload((prev) => prev ? { ...prev, latest: published, published } : prev)
-      toast.success('Transcript published')
+      toast.success(t('transcript_editor.published'))
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to publish transcript')
+      toast.error(error?.message || t('transcript_editor.publish_failed'))
     } finally {
       setPublishing(false)
     }

@@ -887,8 +887,19 @@ class MessageReportView(APIView):
             return Response({"error": "You do not have access to this conversation."}, status=status.HTTP_403_FORBIDDEN)
         if message.sender_id == request.user.id:
             return Response({"error": "You cannot report your own message."}, status=status.HTTP_400_BAD_REQUEST)
-        reported = _report_message_for_moderation(message_id, request.data.get('reason', ''))
-        serializer = MessageSerializer(reported, context={'request': request})
+        from reports.services import create_report
+        try:
+            create_report(
+                reporter=request.user,
+                target_type='message',
+                target_id=message_id,
+                reason=request.data.get('reason', 'other'),
+                description=request.data.get('description', ''),
+            )
+        except Exception as exc:
+            detail = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = MessageSerializer(message, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

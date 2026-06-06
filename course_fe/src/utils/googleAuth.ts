@@ -16,6 +16,28 @@ export interface GoogleUser {
   locale: string
 }
 
+interface GoogleCredentialHandler {
+  onSuccess: (credential: any) => void
+  onError?: (error: Error) => void
+}
+
+interface GoogleAuthRuntime {
+  initialized: boolean
+  scriptPromise: Promise<void> | null
+  handlers: Map<string, GoogleCredentialHandler>
+  activeHandlerState: string | null
+}
+
+const runtimeKey = '__courseGoogleAuthRuntime'
+const runtime: GoogleAuthRuntime = (window as any)[runtimeKey] || {
+  initialized: false,
+  scriptPromise: null,
+  handlers: new Map<string, GoogleCredentialHandler>(),
+  activeHandlerState: null,
+}
+
+;(window as any)[runtimeKey] = runtime
+
 
 
 
@@ -72,35 +94,50 @@ export async function verifyGoogleIdToken(idToken: string): Promise<any> {
 
 
 
-export function initializeGoogleSignIn(onSuccess: (credential: any) => void, onError?: (error: any) => void) {
+export function registerGoogleCredentialHandler(
+  state: string,
+  onSuccess: (credential: any) => void,
+  onError?: (error: Error) => void
+) {
+  const handler = { onSuccess, onError }
+  runtime.handlers.set(state, handler)
 
-  if (!(window as any).google) {
-    console.error('Google Identity Services script not loaded')
-    return
+  return () => {
+    if (runtime.handlers.get(state) === handler) {
+      runtime.handlers.delete(state)
+    }
   }
+}
+
+export async function initializeGoogleSignIn() {
+  await loadGoogleScript()
+  if (runtime.initialized) return
 
   const google = (window as any).google
-
-
   google.accounts.id.initialize({
     client_id: GOOGLE_OAUTH_CONFIG.clientId,
     callback: (response: any) => {
+      const state = response.state || runtime.activeHandlerState
+      const handler = state ? runtime.handlers.get(state) : undefined
+      runtime.activeHandlerState = null
+
       if (response.credential) {
-        onSuccess(response)
-      } else if (onError) {
-        onError(new Error('No credential received'))
+        handler?.onSuccess(response)
+      } else {
+        handler?.onError?.(new Error('No credential received'))
       }
     },
     auto_select: false,
     cancel_on_tap_outside: true,
   })
+  runtime.initialized = true
 }
 
 
 
 
 export function renderGoogleButton(
-  elementId: string,
+  element: HTMLElement,
   options?: {
     type?: 'standard' | 'icon'
     theme?: 'outline' | 'filled_blue' | 'filled_black'
@@ -109,6 +146,7 @@ export function renderGoogleButton(
     shape?: 'rectangular' | 'pill' | 'circle' | 'square'
     logo_alignment?: 'left' | 'center'
     width?: number
+    state?: string
   }
 ) {
   if (!(window as any).google) {
@@ -118,8 +156,9 @@ export function renderGoogleButton(
 
   const google = (window as any).google
 
+  element.replaceChildren()
   google.accounts.id.renderButton(
-    document.getElementById(elementId),
+    element,
     {
       type: options?.type || 'standard',
       theme: options?.theme || 'outline',
@@ -128,34 +167,12 @@ export function renderGoogleButton(
       shape: options?.shape || 'rectangular',
       logo_alignment: options?.logo_alignment || 'left',
       width: options?.width || 300,
+      state: options?.state,
+      click_listener: () => {
+        runtime.activeHandlerState = options?.state || null
+      },
     }
   )
-}
-
-
-
-
-export function promptGoogleOneTap(
-  onSuccess: (credential: any) => void,
-  onError?: (error: any) => void
-) {
-  if (!(window as any).google) {
-    console.error('Google Identity Services script not loaded')
-    return
-  }
-
-  const google = (window as any).google
-
-
-  initializeGoogleSignIn(onSuccess, onError)
-
-
-  google.accounts.id.prompt((notification: any) => {
-    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-
-      console.log('One Tap not shown:', notification.getNotDisplayedReason())
-    }
-  })
 }
 
 
@@ -183,13 +200,14 @@ export function decodeGoogleJWT(token: string): any {
 
 
 export function loadGoogleScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
+  if ((window as any).google) {
+    return Promise.resolve()
+  }
+  if (runtime.scriptPromise) {
+    return runtime.scriptPromise
+  }
 
-    if ((window as any).google) {
-      resolve()
-      return
-    }
-
+  runtime.scriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script')
     script.src = 'https://accounts.google.com/gsi/client'
     script.async = true
@@ -200,9 +218,12 @@ export function loadGoogleScript(): Promise<void> {
     }
 
     script.onerror = () => {
+      runtime.scriptPromise = null
       reject(new Error('Failed to load Google Identity Services script'))
     }
 
     document.head.appendChild(script)
   })
+
+  return runtime.scriptPromise
 }

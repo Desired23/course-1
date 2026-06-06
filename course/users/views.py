@@ -21,7 +21,7 @@ class UserManagementView(APIView):
         users = get_users({
             'search': request.query_params.get('search'),
             'status': request.query_params.get('status'),
-            'user_type': request.query_params.get('user_type'),
+            'role': request.query_params.get('role') or request.query_params.get('user_type'),
         })
         return paginate_queryset(users, request, Userserializers)
     def patch(self, request, user_id):

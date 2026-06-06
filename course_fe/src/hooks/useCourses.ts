@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18n from '../utils/i18n'
 import { getErrorMessage } from '../lib/apiError'
 import {
   getCourses,
@@ -93,10 +94,10 @@ export function useCreateCourse() {
 
       queryClient.setQueryData(['course', newCourse.id], newCourse)
 
-      toast.success('Course created successfully!')
+      toast.success(i18n.t('course_hooks.created'))
     },
     onError: (error: any) => {
-      toast.error(getErrorMessage(error, 'Không thể tạo khóa học.'))
+      toast.error(getErrorMessage(error, i18n.t('course_hooks.create_failed')))
     }
   })
 }
@@ -118,11 +119,11 @@ export function useUpdateCourse() {
 
         queryClient.invalidateQueries({ queryKey: ['courses'] })
 
-        toast.success('Course updated successfully!')
+        toast.success(i18n.t('course_hooks.updated'))
       }
     },
     onError: (error: any) => {
-      toast.error(getErrorMessage(error, 'Không thể cập nhật khóa học.'))
+      toast.error(getErrorMessage(error, i18n.t('course_hooks.update_failed')))
     }
   })
 }
@@ -142,10 +143,10 @@ export function useDeleteCourse() {
 
       queryClient.invalidateQueries({ queryKey: ['courses'] })
 
-      toast.success('Course deleted successfully!')
+      toast.success(i18n.t('course_hooks.deleted'))
     },
     onError: (error: any) => {
-      toast.error(getErrorMessage(error, 'Không thể xóa khóa học.'))
+      toast.error(getErrorMessage(error, i18n.t('course_hooks.delete_failed')))
     }
   })
 }
@@ -166,13 +167,13 @@ export function usePublishCourse() {
 
         toast.success(
           variables.publish
-            ? 'Course published successfully!'
-            : 'Course unpublished successfully!'
+            ? i18n.t('course_hooks.published')
+            : i18n.t('course_hooks.unpublished')
         )
       }
     },
     onError: (error: any) => {
-      toast.error(getErrorMessage(error, 'Không thể cập nhật trạng thái khóa học.'))
+      toast.error(getErrorMessage(error, i18n.t('course_hooks.status_update_failed')))
     }
   })
 }

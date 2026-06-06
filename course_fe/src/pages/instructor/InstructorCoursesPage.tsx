@@ -20,6 +20,7 @@ import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDas
 import { toast } from 'sonner'
 import { getErrorMessage } from "../../lib/apiError"
 import { listItemTransition } from '../../lib/motion'
+import { useNotificationRefetch } from '../../hooks/useNotificationRefetch'
 
 const ITEMS_PER_PAGE = 6
 
@@ -140,6 +141,11 @@ export function InstructorCoursesPage() {
       setCurrentPage(Math.max(1, res.total_pages || 1))
     }
   }
+
+  useNotificationRefetch(
+    ['course_status_changed_by_admin'],
+    () => { refreshCourses().catch(() => {}) },
+  )
 
   useEffect(() => {
     setCurrentPage(1)

@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger
 } from "../../components/ui/dropdown-menu"
 import { useTranslation } from "react-i18next"
+import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -99,6 +100,11 @@ export function AdminDashboard() {
 
   useEffect(() => { fetchDashboard() }, [])
 
+  useNotificationRefetch(
+    ['payment_completed', 'enrollment_created', 'new_enrollment_received', 'course_status_changed_by_admin'],
+    () => { fetchDashboard() },
+  )
+
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(async () => {
@@ -110,7 +116,7 @@ export function AdminDashboard() {
           id: u.id,
           name: u.full_name || u.username,
           email: u.email,
-          role: u.user_type || 'student',
+          role: u.roles?.includes('admin') ? 'admin' : u.roles?.includes('instructor') ? 'instructor' : 'student',
           joinDate: u.created_at?.split('T')[0] || '',
           coursesEnrolled: 0,
           status: u.status || 'active',

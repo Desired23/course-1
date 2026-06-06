@@ -4,7 +4,7 @@ from .serializers import EnrollmentSerializer, EnrollmentCreateSerializer
 from .models import Enrollment
 from django.utils import timezone
 from courses.models import Course
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import F
 from activity_logs.services import log_activity
 
@@ -90,19 +90,20 @@ def create_enrollment(data):
         serializer = EnrollmentCreateSerializer(data=dataCopy)
         if serializer.is_valid(raise_exception=True):
             try:
-                enrollment = serializer.save(enrollment_date=dataCopy['enrollment_date'])
+                with transaction.atomic():
+                    enrollment = serializer.save(enrollment_date=dataCopy['enrollment_date'])
+                    course = Course.objects.get(id=dataCopy.get('course'))
+                    Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
+                    log_activity(
+                        user_id=enrollment.user.id,
+                        action="ENROLL",
+                        entity_type="Enrollment",
+                        entity_id=enrollment.id,
+                        description=f"Đăng ký khóa học: {course.title}"
+                    )
             except IntegrityError:
                 raise ValidationError({"error": "User has already enrolled in this course."})
 
-            course = Course.objects.get(id=dataCopy.get('course'))
-            Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
-            log_activity(
-                user_id=enrollment.user.id,
-                action="ENROLL",
-                entity_type="Enrollment",
-                entity_id=enrollment.id,
-                description=f"Đăng ký khóa học: {course.title}"
-            )
             try:
                 from utils.mailer.mailer import send_enrollment_confirmation
                 import threading
@@ -143,8 +144,6 @@ def create_enrollment(data):
         raise
 
 def get_enrollment_by_user(user_id):
-    logger = logging.getLogger(__name__)
-    logger.info(f"service.get_enrollment_by_user called for user_id={user_id}")
     return Enrollment.objects.select_related(
         'course__instructor__user', 'course__category'
     ).filter(user=user_id, is_deleted=False)
@@ -174,8 +173,6 @@ def has_access(user_id, course_id):
         return enrollment.status in [Enrollment.Status.Active, Enrollment.Status.Complete]
     except Enrollment.DoesNotExist:
         return False
-
-
 
 
 

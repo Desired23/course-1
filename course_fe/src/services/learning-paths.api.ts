@@ -7,17 +7,6 @@ export interface AdvisorMessage {
 }
 
 export interface AdvisorMeta {
-  provider_used?: string
-  model?: string
-  attempt_count?: number
-  max_attempts?: number
-  fallback_triggered?: boolean
-  fallback_reason?: string
-  fallback_provider?: string
-  conversation_state?: {
-    mode?: 'clarify' | 'course_search' | 'path' | 'out_of_scope'
-    missing_slots?: string[]
-  }
   suggested_actions?: string[]
 }
 
@@ -45,8 +34,6 @@ export interface LearningPathSummary {
   is_archived?: boolean
   created_at: string
   updated_at: string
-  conversation_count: number
-  advisor_meta?: AdvisorMeta
   items: LearningPathItem[]
 }
 
@@ -60,8 +47,6 @@ export interface LearningPathDetail {
   created_at: string
   updated_at: string
   items: LearningPathItem[]
-  messages: AdvisorMessage[]
-  advisor_meta?: AdvisorMeta
 }
 
 export interface AdvisorChatRequest {
@@ -69,21 +54,17 @@ export interface AdvisorChatRequest {
   weekly_hours?: number
   messages?: AdvisorMessage[]
   known_skills?: string[]
-  path_id?: number
-  persist_conversation?: boolean
 }
 
 export type AdvisorChatResponse =
-  | { type: 'question'; message: string; advisor_meta?: AdvisorMeta; path_id?: number }
-  | { type: 'path'; path: LearningPathItem[]; estimated_weeks: number; summary: string; advisor_meta?: AdvisorMeta; path_id?: number }
+  | { type: 'question'; message: string; advisor_meta?: AdvisorMeta }
+  | { type: 'path'; path: LearningPathItem[]; estimated_weeks: number; summary: string; advisor_meta?: AdvisorMeta }
 
 export interface CreateLearningPathRequest {
   goal_text: string
   summary: string
   estimated_weeks: number
   path: LearningPathItem[]
-  messages: AdvisorMessage[]
-  advisor_meta?: AdvisorMeta
 }
 
 export interface AdvisorStreamCallbacks {
@@ -215,11 +196,6 @@ export async function chatWithLearningAdvisorStream(
       return {
         type: 'question',
         message: fallbackMessage,
-        advisor_meta: {
-          provider_used: 'stream_partial',
-          fallback_triggered: true,
-          fallback_reason: 'stream_missing_final',
-        },
       }
     }
     throw new Error('Advisor stream ended without final result.')

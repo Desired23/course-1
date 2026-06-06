@@ -31,11 +31,10 @@ def create_instructor(data):
         raise ValidationError({"user_id": "User with this ID does not exist."})
 
 
-    if user_instance.user_type == User.UserTypeChoices.INSTRUCTOR:
+    from utils.roles import is_active_instructor
+    if is_active_instructor(user_instance):
         raise ValidationError({"user_id": "This user is already an instructor."})
 
-    # Role is derived from the Instructor record created by the serializer below;
-    # the legacy user_type column was removed.
     modified_data = data.copy()
     modified_data['user_id'] = user_id
 

@@ -24,6 +24,7 @@ import {
   type RegistrationFormQuestion,
 } from "../../services/application.api"
 import { uploadFiles } from "../../services/upload.api"
+import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
 
 type FormValues = Record<number, any>
 
@@ -82,6 +83,12 @@ export function InstructorOnboardingPage() {
 
   const canEdit = !myLatestApplication || myLatestApplication.status === "changes_requested"
 
+  const [refetchTick, setRefetchTick] = useState(0)
+  useNotificationRefetch(
+    ['application_approved', 'application_rejected', 'application_changes_requested'],
+    () => { setRefetchTick(v => v + 1) },
+  )
+
   useEffect(() => {
     let cancelled = false
 
@@ -125,7 +132,7 @@ export function InstructorOnboardingPage() {
     return () => {
       cancelled = true
     }
-  }, [t])
+  }, [t, refetchTick])
 
   const sortedQuestions = useMemo(() => {
     if (!form?.questions) return []

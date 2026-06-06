@@ -5,6 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18n from '../utils/i18n'
 import { getErrorMessage } from '../lib/apiError'
 import {
   login,
@@ -29,10 +30,10 @@ export function useLogin() {
 
       queryClient.setQueryData(['currentUser'], data.user)
 
-      toast.success(`Welcome back, ${data.user.name}!`)
+      toast.success(i18n.t('auth_hooks.welcome_back', { name: data.user.name }))
     },
     onError: (error: any) => {
-      toast.error(getErrorMessage(error, 'Đăng nhập thất bại.'))
+      toast.error(getErrorMessage(error, i18n.t('auth_hooks.login_failed')))
     }
   })
 }
@@ -52,10 +53,10 @@ export function useSignup() {
 
       queryClient.setQueryData(['currentUser'], data.user)
 
-      toast.success(`Welcome, ${data.user.name}! Account created successfully.`)
+      toast.success(i18n.t('auth_hooks.welcome_signup', { name: data.user.name }))
     },
     onError: (error: any) => {
-      toast.error(getErrorMessage(error, 'Đăng ký thất bại.'))
+      toast.error(getErrorMessage(error, i18n.t('auth_hooks.signup_failed')))
     }
   })
 }
@@ -81,7 +82,7 @@ export function useLogout() {
 
       queryClient.clear()
 
-      toast.success('Logged out successfully')
+      toast.success(i18n.t('auth_hooks.logout_success'))
     }
   })
 }

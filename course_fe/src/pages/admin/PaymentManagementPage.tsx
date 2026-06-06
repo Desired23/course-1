@@ -308,7 +308,7 @@ export function PaymentManagementPage() {
       )
       setAdminRefundReason('')
     } catch {
-      toast.error('Không thể tải chi tiết giao dịch')
+      toast.error(t('payment_management.detail_load_failed'))
     } finally {
       setAdminRefundFetchingId(null)
     }
@@ -316,8 +316,8 @@ export function PaymentManagementPage() {
 
   const submitAdminRefund = async () => {
     if (!adminRefundPayment) return
-    if (!adminRefundReason.trim()) { toast.error('Vui lòng nhập lý do hoàn tiền'); return }
-    if (adminRefundSelectedIds.length === 0) { toast.error('Chọn ít nhất một khóa học'); return }
+    if (!adminRefundReason.trim()) { toast.error(t('payment_management.refund_reason_required')); return }
+    if (adminRefundSelectedIds.length === 0) { toast.error(t('payment_management.select_course_required')); return }
     setAdminRefundSubmitting(true)
     try {
       const res = await adminCreateRefund({
@@ -328,17 +328,17 @@ export function PaymentManagementPage() {
       const failed = res.results.filter(r => r.status === 'failed')
       const succeeded = res.results.filter(r => r.status === 'success')
       if (failed.length === res.results.length) {
-        toast.error(`Hoàn tiền thất bại: ${failed[0]?.last_gateway_error || 'Cổng thanh toán từ chối'}`)
+        toast.error(t('payment_management.refund_failed_gateway', { error: failed[0]?.last_gateway_error || t('payment_management.refund_gateway_rejected') }))
       } else if (failed.length > 0) {
-        toast.warning(`${succeeded.length}/${res.results.length} khóa hoàn tiền thành công, ${failed.length} thất bại`)
+        toast.warning(t('payment_management.refund_partial', { succeeded: succeeded.length, total: res.results.length, failed: failed.length }))
       } else {
-        toast.success('Đã gửi yêu cầu hoàn tiền đến cổng thanh toán')
+        toast.success(t('payment_management.refund_request_sent'))
       }
       setAdminRefundPayment(null)
       await loadRefundQueue()
       setActiveTab('refunds')
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tạo hoàn tiền')
+      toast.error(err?.message || t('payment_management.refund_create_failed'))
     } finally {
       setAdminRefundSubmitting(false)
     }
@@ -360,9 +360,9 @@ export function PaymentManagementPage() {
       })
       setInstructorLevels(prev => prev.map(l => l.id === levelId ? updated : l))
       setEditingLevelId(null)
-      toast.success('Đã cập nhật tỷ lệ hoa hồng')
+      toast.success(t('payment_management.commission_update_success'))
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể lưu tỷ lệ hoa hồng')
+      toast.error(err?.message || t('payment_management.commission_update_failed'))
     } finally {
       setSavingLevelId(null)
     }

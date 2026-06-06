@@ -68,6 +68,7 @@ export interface LessonQuizQuestion {
   allowed_languages: number[] | null
   starter_code: string | null
   function_name: string | null
+  execution_mode?: 'function' | 'stdin'
   require_completion: boolean
   test_cases: Array<{
     id: number

@@ -53,8 +53,9 @@ export function NewsletterSection() {
               />
               <Button
                 type="submit"
+                variant="secondary"
                 size="lg"
-                className="bg-white !text-gray-900 hover:bg-gray-100 border-none"
+                className="bg-white text-black hover:bg-gray-100 border-none"
               >
                 {t('newsletter.subscribe')}
               </Button>

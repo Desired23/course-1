@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -12,6 +12,7 @@ import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
+import { useWebSocket } from '../../hooks/useWebSocket'
 import {
   getSupportTickets,
   createSupportTicket,
@@ -67,6 +68,19 @@ export function SupportPage() {
     category: '',
     priority: '',
     description: ''
+  })
+
+  useWebSocket({
+    path: `/ws/support/${selectedTicketId ?? 0}/`,
+    enabled: !!selectedTicketId,
+    onMessage: useCallback((data: any) => {
+      if (data?.action === 'reply_created' && data.reply && selectedTicketId) {
+        setTicketReplies(prev => ({
+          ...prev,
+          [selectedTicketId]: [...(prev[selectedTicketId] ?? []), data.reply],
+        }))
+      }
+    }, [selectedTicketId]),
   })
 
   const fetchTickets = async () => {

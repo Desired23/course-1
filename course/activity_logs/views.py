@@ -20,7 +20,8 @@ class ActivityLogView(APIView):
         action = request.query_params.get('action')
         entity_type = request.query_params.get('entity_type')
         entity_id = request.query_params.get('entity_id')
-        if not request.user.user_type == 'admin':
+        from utils.roles import is_active_admin
+        if not is_active_admin(request.user):
             user_id = request.user.id
         if user_id:
             filters['user_id'] = user_id

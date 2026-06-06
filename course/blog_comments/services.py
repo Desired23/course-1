@@ -65,3 +65,43 @@ def delete_blog_comment(comment_id):
         raise NotFound("Blog Comment not found")
     blog_comment.delete()
     return {"message": "Blog Comment deleted successfully"}
+
+
+def moderate_blog_comment(comment_id, action, reason=''):
+    from rest_framework.exceptions import NotFound
+    from django.utils import timezone
+    try:
+        comment = BlogComment.objects.get(id=comment_id, is_deleted=False)
+    except BlogComment.DoesNotExist:
+        raise NotFound("Blog comment not found.")
+
+    action = (action or '').strip().lower()
+    if action == 'approve':
+        comment.status = 'active'
+    elif action == 'dismiss':
+        pass
+    elif action == 'hide':
+        comment.status = 'deleted'
+    elif action == 'delete':
+        comment.status = 'deleted'
+        comment.is_deleted = True
+        comment.deleted_at = timezone.now()
+        comment.deleted_by = None
+    else:
+        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
+
+    comment.save()
+    try:
+        if action in ('hide', 'delete'):
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=comment.user_id,
+                title="Bình luận của bạn đã bị xử lý",
+                message="Bình luận của bạn đã bị gỡ do vi phạm chính sách.",
+                type='other',
+                related_id=comment.id,
+                notification_code='blog_comment_moderated',
+            )
+    except Exception:
+        pass
+    return comment

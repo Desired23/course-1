@@ -2,10 +2,22 @@ from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 from django.db.models import Sum, Count, Q, Avg
 from decimal import Decimal
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 from .models import LearningProgress
 from .serializers import LearningProgressSerializer, CourseLearningProgressSerializer
 from enrollments.models import Enrollment
 from lessons.models import Lesson
+
+
+def _broadcast_progress(user_id, data):
+    channel_layer = get_channel_layer()
+    if not channel_layer or not user_id:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f"user_progress_{user_id}",
+        {"type": "send_progress_update", "data": data},
+    )
 
 from courses.models import Course
 from users.models import User
@@ -102,7 +114,15 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
                 learning_progress.completion_date = timezone.now()
             learning_progress.last_accessed = timezone.now()
             learning_progress.save()
-        return LearningProgressSerializer(learning_progress).data
+        data = LearningProgressSerializer(learning_progress).data
+        _broadcast_progress(user_id, {
+            'lesson_id': lesson_id,
+            'course_id': learning_progress.course_id,
+            'progress_percentage': float(learning_progress.progress_percentage),
+            'is_completed': learning_progress.is_completed,
+            'last_position': learning_progress.last_position,
+        })
+        return data
     except User.DoesNotExist:
         raise ValidationError({"user_id": "User not found."})
     except Lesson.DoesNotExist:

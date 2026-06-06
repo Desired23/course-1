@@ -1,5 +1,8 @@
 from django.urls import re_path, path
-from .consumers import NotificationConsumer, ChatConsumer, LessonCommentConsumer
+from .consumers import (
+    NotificationConsumer, ChatConsumer, LessonCommentConsumer,
+    QAConsumer, ProgressConsumer, PaymentConsumer, SupportConsumer,
+)
 from . import views
 
 
@@ -7,6 +10,10 @@ websocket_urlpatterns = [
     re_path(r'ws/notifications/$', NotificationConsumer.as_asgi()),
     re_path(r'ws/chat/(?P<room_id>\d+)/$', ChatConsumer.as_asgi()),
     re_path(r'ws/lessons/(?P<lesson_id>\d+)/comments/$', LessonCommentConsumer.as_asgi()),
+    re_path(r'ws/questions/(?P<question_id>\d+)/$', QAConsumer.as_asgi()),
+    re_path(r'ws/progress/$', ProgressConsumer.as_asgi()),
+    re_path(r'ws/payment/(?P<payment_id>\d+)/$', PaymentConsumer.as_asgi()),
+    re_path(r'ws/support/(?P<ticket_id>\d+)/$', SupportConsumer.as_asgi()),
 ]
 
 

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next"
 import { getAdminDashboardStats } from '../services/admin.api'
 import { getAdminRefunds } from '../services/payment.api'
 import { getAdminReports } from '../services/report.api'
+import { useNotificationRefetch } from '../hooks/useNotificationRefetch'
 
 interface Task {
   id: string
@@ -32,6 +33,17 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
   const [filter, setFilter] = useState<'all' | 'pending' | 'urgent'>('all')
   const [adminTasks, setAdminTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(userRole === 'admin')
+  const [refetchTick, setRefetchTick] = useState(0)
+
+  useNotificationRefetch(
+    [
+      'refund_requested', 'refund_processed', 'refund_rejected',
+      'question_reported', 'review_reported', 'review_moderated',
+      'application_submitted', 'application_resubmitted',
+      'course_status_changed_by_admin',
+    ],
+    () => { if (userRole === 'admin') setRefetchTick(v => v + 1) },
+  )
 
   useEffect(() => {
     if (userRole !== 'admin') return
@@ -95,7 +107,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
 
     fetchAdminTasks()
     return () => { cancelled = true }
-  }, [userRole, t])
+  }, [userRole, t, refetchTick])
 
   const tasks = userRole === 'admin' ? adminTasks : []
 

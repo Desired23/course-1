@@ -45,6 +45,7 @@ import {
   wrapUserCode,
   shouldWrapUserCode,
   STATUS_DESCRIPTIONS,
+  type ExecutionMode,
   type TestCase,
   type TestResult
 } from '../utils/judge0'
@@ -58,6 +59,7 @@ export interface CodeQuestion {
   allowedLanguages?: number[]
   starterCode?: string
   functionName?: string
+  executionMode?: ExecutionMode
   testCases: TestCase[]
   timeLimit?: number
   memoryLimit?: number
@@ -268,12 +270,16 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     try {
       const lang = getLanguageById(selectedLanguage)
       const languageValue = lang?.value || 'javascript'
-      const shouldWrap = shouldWrapUserCode(code, languageValue)
-      const executableCode = shouldWrap
+      // Lesson code questions carry an explicit executionMode; legacy quiz code
+      // questions don't, so fall back to auto-detection for them.
+      const isFunctionMode = question.executionMode
+        ? question.executionMode === 'function'
+        : shouldWrapUserCode(code, languageValue)
+      const executableCode = isFunctionMode
         ? wrapUserCode(code, languageValue, '', question.functionName || undefined)
         : code
 
-      console.log('Execution mode:', shouldWrap ? 'function-wrapper' : 'raw-stdin')
+      console.log('Execution mode:', isFunctionMode ? 'function-wrapper' : 'raw-stdin')
 
       const results = await runTestCases(
         executableCode,

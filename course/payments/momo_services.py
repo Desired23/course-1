@@ -3,6 +3,18 @@ import hashlib
 import hmac
 import json
 import logging
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+
+def _broadcast_payment(payment_id, payment_status):
+    channel_layer = get_channel_layer()
+    if not channel_layer or not payment_id:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f"payment_{payment_id}",
+        {"type": "send_payment_update", "data": {"payment_id": payment_id, "payment_status": payment_status}},
+    )
 import time
 import urllib.parse
 import uuid
@@ -313,15 +325,11 @@ def map_momo_refund_result(response_data: dict) -> dict:
     if result_code in MOMO_PENDING_CODES:
         return {"status": "processing", "message": message, "response_code": str(result_code), "retryable": False}
     if result_code in MOMO_REFUND_RETRYABLE_CODES:
-        # 1080: MoMo cho phép retry
         return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": True}
     if result_code in MOMO_REFUND_FINAL_FAILED_CODES:
-        # 1081: đang xử lý phía MoMo, không retry; 1088: thất bại cuối cùng
         return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": False}
     if result_code in MOMO_FINAL_FAILED_CODES:
-        # Lỗi dữ liệu / cấu hình — retry không có tác dụng
         return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": False}
-    # Unknown code — mặc định không retry cho an toàn
     return {"status": "failed", "message": message, "response_code": str(result_code), "retryable": False}
 
 
@@ -407,6 +415,11 @@ def _finalize_momo_success(payment: Payment, payload: dict):
     except Exception:
         pass
 
+    try:
+        _broadcast_payment(payment.id, 'completed')
+    except Exception:
+        pass
+
     return payment
 
 
@@ -441,6 +454,12 @@ def _finalize_momo_failure(payment: Payment, payload: dict):
         ).start()
     except Exception:
         pass
+
+    try:
+        _broadcast_payment(payment.id, 'failed')
+    except Exception:
+        pass
+
     return payment
 
 

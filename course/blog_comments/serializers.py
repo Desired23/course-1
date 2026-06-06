@@ -35,7 +35,14 @@ class BlogCommentSerializer(serializers.ModelSerializer):
         return obj.user.avatar if obj.user else None
 
     def get_user_role(self, obj):
-        return obj.user.user_type if obj.user else None
+        if not obj.user:
+            return None
+        from utils.roles import is_active_admin, is_active_instructor
+        if is_active_admin(obj.user):
+            return 'admin'
+        if is_active_instructor(obj.user):
+            return 'instructor'
+        return 'student'
 
     def get_replies_count(self, obj):
         return obj.replies.filter(status='active').count()

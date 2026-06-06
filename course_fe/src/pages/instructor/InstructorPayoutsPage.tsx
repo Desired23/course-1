@@ -33,6 +33,7 @@ import { motion } from 'motion/react'
 import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Info, Crown, Loader2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { listItemTransition } from '../../lib/motion'
+import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
 
 const EARNINGS_PER_PAGE = 10
 const PAYOUTS_PER_PAGE = 10
@@ -130,6 +131,12 @@ export function InstructorPayoutsPage() {
     setHistoryPage(1)
   }, [payoutStatusFilter])
 
+  const [payoutRefetchTick, setPayoutRefetchTick] = useState(0)
+  useNotificationRefetch(
+    ['payout_processed', 'payout_rejected'],
+    () => { setPayoutRefetchTick(v => v + 1) },
+  )
+
   useEffect(() => {
     if (!instructorId) return
     let cancelled = false
@@ -154,7 +161,7 @@ export function InstructorPayoutsPage() {
     }
     fetchEarningsPage()
     return () => { cancelled = true }
-  }, [instructorId, earningsPage, earningsStatusFilter])
+  }, [instructorId, earningsPage, earningsStatusFilter, payoutRefetchTick])
 
   useEffect(() => {
     if (!instructorId) return
@@ -180,7 +187,7 @@ export function InstructorPayoutsPage() {
     }
     fetchPayoutsPage()
     return () => { cancelled = true }
-  }, [instructorId, historyPage, payoutStatusFilter])
+  }, [instructorId, historyPage, payoutStatusFilter, payoutRefetchTick])
 
   const availableBalance = useMemo(() => {
     if (!summary) return 0

@@ -39,7 +39,7 @@ export interface LoginResponse {
     id: number
     username: string
     email: string
-    user_type: UserType[]
+    roles: UserType[]
   }
 }
 
@@ -54,7 +54,6 @@ export interface UserProfile {
   created_at: string
   last_login: string | null
   status: 'active' | 'inactive' | 'banned'
-  user_type: string
   roles?: UserType[]
 }
 

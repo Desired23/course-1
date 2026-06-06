@@ -180,7 +180,7 @@ export function NotificationsPage() {
       await markNotificationAsRead(id)
     } catch (e) {
       setNotifications(prev)
-      toast.error(getErrorMessage(e, 'Không thể đánh dấu đã đọc.'))
+      toast.error(getErrorMessage(e, t('notifications_page.mark_read_failed')))
     }
   }
 
@@ -192,7 +192,7 @@ export function NotificationsPage() {
       await markAllNotificationsAsRead(user.id)
     } catch (e) {
       setNotifications(prev)
-      toast.error(getErrorMessage(e, 'Không thể đánh dấu tất cả đã đọc.'))
+      toast.error(getErrorMessage(e, t('notifications_page.mark_all_read_failed')))
     }
   }
 
@@ -200,9 +200,9 @@ export function NotificationsPage() {
     setSavingSettings(true)
     try {
       await updateMyUserSettings({ notification_preferences: notificationSettings })
-      toast.success('Đã lưu cài đặt thông báo.')
+      toast.success(t('notifications_page.settings_saved'))
     } catch (e) {
-      toast.error(getErrorMessage(e, 'Không thể lưu cài đặt.'))
+      toast.error(getErrorMessage(e, t('notifications_page.save_settings_failed')))
     } finally {
       setSavingSettings(false)
     }

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bot } from 'lucide-react'
 
 import { AiLearningPathDialog } from './AiLearningPathDialog'
+import { useAuth } from '../contexts/AuthContext'
+import { useModal } from '../stores/modal.store'
 import type { LearningPathDetail } from '../services/learning-paths.api'
 
 const OPEN_EVENT = 'ai-learning-path:open'
@@ -54,6 +56,8 @@ export function onAiLearningPathSaved(callback: (path: LearningPathDetail) => vo
 }
 
 export function AiLearningPathLauncher() {
+  const { isAuthenticated } = useAuth()
+  const { open: openLogin } = useModal('login')
   const [open, setOpen] = useState(false)
   const [selectedPathId, setSelectedPathId] = useState<number | null>(null)
   const [contrastMode, setContrastMode] = useState<LauncherContrastMode>('dark-surface')
@@ -86,16 +90,30 @@ export function AiLearningPathLauncher() {
     setContrastMode(luminance >= 0.45 ? 'light-surface' : 'dark-surface')
   }, [])
 
+  const openAdvisor = useCallback((pathId?: number | null) => {
+    if (!isAuthenticated) {
+      openLogin({
+        onSuccess: () => {
+          setSelectedPathId(pathId ?? null)
+          setOpen(true)
+        },
+      })
+      return
+    }
+
+    setSelectedPathId(pathId ?? null)
+    setOpen(true)
+  }, [isAuthenticated, openLogin])
+
   useEffect(() => {
     const handler = (event: Event) => {
       const custom = event as CustomEvent<OpenAiLearningPathEventDetail>
-      setSelectedPathId(custom.detail?.pathId ?? null)
-      setOpen(true)
+      openAdvisor(custom.detail?.pathId)
     }
 
     window.addEventListener(OPEN_EVENT, handler)
     return () => window.removeEventListener(OPEN_EVENT, handler)
-  }, [])
+  }, [openAdvisor])
 
   useEffect(() => {
     let frameId = 0
@@ -127,10 +145,7 @@ export function AiLearningPathLauncher() {
         ref={buttonRef}
         type="button"
         aria-label="Mở AI tư vấn lộ trình"
-        onClick={() => {
-          setSelectedPathId(null)
-          setOpen(true)
-        }}
+        onClick={() => openAdvisor()}
         style={{
           left: 'calc(env(safe-area-inset-left, 0px) + 1rem)',
           bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5rem)',

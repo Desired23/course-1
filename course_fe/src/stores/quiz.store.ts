@@ -116,7 +116,7 @@ export const useQuizStore = create<QuizState>()(
         },
       }),
       {
-        name: 'udemy-quiz-storage',
+        name: 'utc-quiz-storage',
 
         partialize: (state) => ({ quizAnswers: state.quizAnswers }),
       }

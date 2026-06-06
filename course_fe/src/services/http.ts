@@ -77,6 +77,16 @@ export function onSessionExpired(handler: SessionExpiredHandler): () => void {
 }
 
 
+type RoleMismatchHandler = () => void
+let _onRoleMismatch: RoleMismatchHandler | null = null
+
+
+export function onRoleMismatch(handler: RoleMismatchHandler): () => void {
+  _onRoleMismatch = handler
+  return () => { _onRoleMismatch = null }
+}
+
+
 
 let isRefreshing = false
 let refreshQueue: Array<{
@@ -192,6 +202,11 @@ class HttpService {
             false
           )
         }
+      }
+
+
+      if (response.status === 403) {
+        _onRoleMismatch?.()
       }
 
 
@@ -328,6 +343,10 @@ class HttpService {
         if (newToken) {
           return this.upload<T>(endpoint, formData, false)
         }
+      }
+
+      if (response.status === 403) {
+        _onRoleMismatch?.()
       }
 
       if (!response.ok) {

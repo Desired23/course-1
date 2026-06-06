@@ -41,6 +41,7 @@ import { CommentItem } from './CommentItem'
 import { useTranslation } from 'react-i18next'
 import { getLessonComments, getAllReplies, createLessonComment, formatCommentDate } from '../services/lesson-comments.api'
 import { useAuthStore } from '../stores/auth.store'
+import { runTestCases, wrapUserCode } from '../utils/judge0'
 
 interface Lesson {
   id: number
@@ -178,71 +179,17 @@ export function LessonPreviewModal({
     setConsoleOpen(true)
     setConsoleOutput(null)
 
-
-    await new Promise(resolve => setTimeout(resolve, 800))
-
     try {
+      // Preview runs JavaScript through the same Judge0 pipeline + wrapper as the
+      // real Course Player, so results match. Honor the lesson's executionMode.
       const userCode = codeRef.current
-      const fnMatch = (userCode || '').match(/function\s+([A-Za-z_]\w*)\s*\(/) ||
-                      (userCode || '').match(/([A-Za-z_]\w*)\s*=\s*\([^)]*\)\s*=>/)
-      const fnName = quizData.functionName || (fnMatch ? fnMatch[1] : 'solution')
-      const results = (quizData.testCases ?? []).map((tc: any) => {
-        try {
-          const run = new Function(`
-            ${userCode}
-            try {
-              function __parseScalar(t) {
-                var v = t.trim();
-                try { return JSON.parse(v); } catch(e) {}
-                if (/^-?\\d+$/.test(v)) return parseInt(v, 10);
-                if (/^-?[\\d.]+$/.test(v)) return parseFloat(v);
-                if ((v[0]==='"'&&v[v.length-1]==='"')||(v[0]==="'"&&v[v.length-1]==="'")) return v.slice(1,-1);
-                return v;
-              }
-              function __parseArg(line) {
-                var v = line.trim();
-                try { return JSON.parse(v); } catch(e) {}
-                if (v.indexOf(',') !== -1) return v.split(',').map(__parseScalar);
-                return __parseScalar(v);
-              }
-              var __lines = ${JSON.stringify(String(tc.input))}.trim().split(/\\n/).filter(Boolean);
-              var __args = [];
-              __lines.forEach(function(line) {
-                var v = line.trim();
-                var isJsonArr = false;
-                try { if (Array.isArray(JSON.parse(v))) isJsonArr = true; } catch(e) {}
-                var parsed = __parseArg(line);
-                if (Array.isArray(parsed) && !isJsonArr) { __args = __args.concat(parsed); }
-                else { __args.push(parsed); }
-              });
-              return ${fnName}.apply(null, __args);
-            } catch (e) {
-              return "Error: " + e.message
-            }
-          `)
+      const languageId = 63
+      const executionMode = quizData.executionMode || (quizData.functionName ? 'function' : 'stdin')
+      const executableCode = executionMode === 'function'
+        ? wrapUserCode(userCode, 'javascript', '', quizData.functionName || undefined)
+        : userCode
 
-          const result = run()
-          const passed = String(result) === tc.expectedOutput
-
-          return {
-            id: tc.id,
-            input: tc.input,
-            expectedOutput: tc.expectedOutput,
-            actualOutput: String(result),
-            passed,
-            isHidden: tc.isHidden
-          }
-        } catch (e: any) {
-          return {
-            id: tc.id,
-            input: tc.input,
-            expectedOutput: tc.expectedOutput,
-            actualOutput: "Runtime Error: " + e.message,
-            passed: false,
-            isHidden: tc.isHidden
-          }
-        }
-      })
+      const results = await runTestCases(executableCode, languageId, quizData.testCases ?? [])
 
       setConsoleOutput({
         type: 'test-results',
@@ -489,6 +436,9 @@ export function LessonPreviewModal({
              <div className="p-2 px-4 bg-[#252526] flex justify-between items-center text-xs text-gray-400 border-b border-[#333]">
                 <div className="flex items-center gap-2">
                   <span className="bg-[#1e1e1e] px-2 py-1 rounded text-yellow-500">{t('lesson_preview_modal.language_javascript')}</span>
+                  <span className="bg-[#1e1e1e] px-2 py-1 rounded text-blue-400">
+                    {t(`enhanced_code_quiz_creator.execution_mode_${quizData.executionMode || (quizData.functionName ? 'function' : 'stdin')}`)}
+                  </span>
                 </div>
                 <span>solution.js</span>
              </div>

@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework.exceptions import ValidationError
 from .models import RegistrationForm, FormQuestion
 from .serializers import (
@@ -21,11 +22,12 @@ def create_registration_form(data, admin_actor=None):
             save_kwargs = {}
             if admin_actor:
                 save_kwargs['created_by'] = resolve_admin_actor(admin_actor)
-            form = serializer.save(**save_kwargs)
+            with transaction.atomic():
+                form = serializer.save(**save_kwargs)
 
-            questions_data = data.get('questions', [])
-            for q_data in questions_data:
-                FormQuestion.objects.create(form=form, **q_data)
+                questions_data = data.get('questions', [])
+                for q_data in questions_data:
+                    FormQuestion.objects.create(form=form, **q_data)
 
             return RegistrationFormSerializer(form).data
 
@@ -129,11 +131,12 @@ def delete_question(question_id):
 def batch_update_questions(form_id, questions_data):
     try:
         form = RegistrationForm.objects.get(id=form_id, is_deleted=False)
-        FormQuestion.objects.filter(form=form, is_deleted=False).update(is_deleted=True)
-        for q_data in questions_data:
-            FormQuestion.objects.create(form=form, **q_data)
-        form.version += 1
-        form.save()
+        with transaction.atomic():
+            FormQuestion.objects.filter(form=form, is_deleted=False).update(is_deleted=True)
+            for q_data in questions_data:
+                FormQuestion.objects.create(form=form, **q_data)
+            form.version += 1
+            form.save()
         return RegistrationFormSerializer(form).data
     except RegistrationForm.DoesNotExist:
         raise ValidationError({"error": "Form not found."})

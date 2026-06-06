@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 import {
   AlertTriangle,
@@ -200,6 +201,7 @@ function BulkEditPanel({
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export function AdminCourseMetadataPage() {
+  const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
 
   const [courses, setCourses] = useState<CourseListItem[]>([])
@@ -253,7 +255,7 @@ export function AdminCourseMetadataPage() {
       } catch (error) {
         if (!cancelled) {
           console.error('Failed to load metadata courses', error)
-          toast.error('Không thể tải catalog metadata.')
+          toast.error(t('admin_course_metadata.load_failed'))
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -338,13 +340,13 @@ export function AdminCourseMetadataPage() {
         ...prev,
         [courseId]: buildDraft(updated),
       }))
-      toast.success('Đã cập nhật metadata khóa học.')
+      toast.success(t('admin_course_metadata.update_success'))
       if (options?.returnToAdvisor && returnToRoute) {
         navigateBackToAdvisorReview(courseId)
       }
     } catch (error) {
       console.error('Failed to save course metadata', error)
-      toast.error('Không thể cập nhật metadata khóa học.')
+      toast.error(t('admin_course_metadata.update_failed'))
     } finally {
       setSavingIds((prev) => prev.filter((id) => id !== courseId))
     }
@@ -399,7 +401,11 @@ export function AdminCourseMetadataPage() {
         })
 
         const failCount = results.filter((r) => r.status === 'rejected').length
-        toast.success(`Đã cập nhật ${updated.length} khóa học.${failCount > 0 ? ` ${failCount} lỗi.` : ''}`)
+        toast.success(
+          failCount > 0
+            ? t('admin_course_metadata.bulk_update_with_errors', { count: updated.length, errors: failCount })
+            : t('admin_course_metadata.bulk_update_success', { count: updated.length })
+        )
       } else {
         // Replace mode — use bulk API
         const fields: AIMetadataFields = { [field]: finalValues }
@@ -419,7 +425,9 @@ export function AdminCourseMetadataPage() {
 
         const errCount = result.errors.length + result.not_found_ids.length
         toast.success(
-          `Đã cập nhật ${result.updated_count} khóa học.${errCount > 0 ? ` ${errCount} lỗi.` : ''}`
+          errCount > 0
+            ? t('admin_course_metadata.bulk_update_with_errors', { count: result.updated_count, errors: errCount })
+            : t('admin_course_metadata.bulk_update_success', { count: result.updated_count })
         )
       }
 
@@ -427,7 +435,7 @@ export function AdminCourseMetadataPage() {
       setShowBulkPanel(false)
     } catch (error) {
       console.error('Bulk update failed', error)
-      toast.error('Không thể bulk update metadata.')
+      toast.error(t('admin_course_metadata.bulk_update_failed'))
     } finally {
       setApplyingBulk(false)
     }

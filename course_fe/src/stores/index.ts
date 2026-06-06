@@ -36,16 +36,6 @@ export {
 
 
 export {
-  useToastStore,
-  useToast,
-  selectToasts,
-  selectLatestToast,
-  type Toast,
-  type ToastType
-} from './toast.store'
-
-
-export {
   useCartUIStore,
   selectDropdownOpen,
   selectMiniCartOpen,

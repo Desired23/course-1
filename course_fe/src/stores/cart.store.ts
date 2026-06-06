@@ -280,7 +280,7 @@ export const useCartStore = create<CartState>()(
             return true
           } catch (err: any) {
 
-            const msg = err?.error?.error || err?.message || 'Mã giảm giá không hợp lệ'
+            const msg = err?.error?.error || err?.message || i18n.t('cart_store.invalid_coupon')
             toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg))
             return false
           }

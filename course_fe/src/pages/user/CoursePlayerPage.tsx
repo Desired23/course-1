@@ -45,6 +45,7 @@ import {
 } from "../../services/lesson-comments.api"
 import { getUserById, type UserProfile } from "../../services/auth.api"
 import { useAuth } from "../../contexts/AuthContext"
+import { useWebSocket } from "../../hooks/useWebSocket"
 import { getLessonTranscript, type LessonTranscriptDTO } from "../../services/transcript.api"
 import {
   formatFileSize,
@@ -211,6 +212,7 @@ function mapLessonQuizQuestion(question: LessonQuizQuestion): QuizQuestion {
         allowedLanguages: question.allowed_languages || undefined,
         starterCode: question.starter_code || undefined,
         functionName: question.function_name || undefined,
+        executionMode: question.execution_mode || (question.function_name ? 'function' : 'stdin'),
         timeLimit: question.time_limit || undefined,
         memoryLimit: question.memory_limit || undefined,
         difficulty: question.difficulty,
@@ -605,6 +607,39 @@ export function CoursePlayerPage() {
   useEffect(() => {
     if (currentLessonId) loadComments(currentLessonId)
   }, [currentLessonId])
+
+  useWebSocket({
+    path: `/ws/lessons/${currentLessonId ?? 0}/comments/`,
+    enabled: !!currentLessonId,
+    onMessage: (data) => {
+      if (data?.action && currentLessonId) {
+        loadComments(currentLessonId)
+      }
+    },
+  })
+
+  useWebSocket({
+    path: '/ws/progress/',
+    enabled: !!user,
+    onMessage: (data) => {
+      if (!data?.lesson_id || data.course_id !== course?.id) return
+      setCourseProgress(prev => {
+        if (!prev) return prev
+        const lessons = prev.lessons.map((l: any) =>
+          l.lesson_id === data.lesson_id
+            ? { ...l, is_completed: data.is_completed, progress_percentage: data.progress_percentage }
+            : l
+        )
+        const completedCount = lessons.filter((l: any) => l.is_completed).length
+        return {
+          ...prev,
+          lessons,
+          completed_lessons: completedCount,
+          overall_progress: prev.total_lessons > 0 ? (completedCount / prev.total_lessons) * 100 : 0,
+        }
+      })
+    },
+  })
 
   useEffect(() => {
     let cancelled = false

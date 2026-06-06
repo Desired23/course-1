@@ -140,9 +140,18 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
               variant="ghost"
               size="sm"
               className="hidden md:flex hover:bg-blue-50 dark:hover:bg-blue-900/20 text-foreground font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
+              onClick={() => navigate('/pricing')}
+            >
+              {t('common.plans')}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden md:flex hover:bg-blue-50 dark:hover:bg-blue-900/20 text-foreground font-medium hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
               onClick={() => navigate('/teach')}
             >
-              {t('common.teach_on_udemy')}
+              {t('common.teach_on_utc')}
             </Button>
 
             <DropdownMenu>

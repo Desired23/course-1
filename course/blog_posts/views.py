@@ -10,7 +10,6 @@ get_blog_post_published,
 increase_blog_post_views,
 like_blog_post,
 toggle_blog_bookmark,
-report_blog_post,
 )
 from utils.permissions import RolePermissionFactory
 from utils.roles import is_active_admin
@@ -76,5 +75,17 @@ class ClientBlogPostReportView(APIView):
     throttle_scope = 'burst'
 
     def post(self, request, blog_post_id):
-        return Response(report_blog_post(blog_post_id, request.data.get('reason', '')), status=status.HTTP_200_OK)
+        from reports.services import create_report
+        try:
+            create_report(
+                reporter=request.user,
+                target_type='blog_post',
+                target_id=blog_post_id,
+                reason=request.data.get('reason', 'other'),
+                description=request.data.get('description', ''),
+            )
+        except Exception as exc:
+            detail = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Báo cáo đã được ghi nhận.'}, status=status.HTTP_200_OK)
 

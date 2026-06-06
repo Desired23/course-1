@@ -56,7 +56,9 @@ class PayoutRequestTests(TestCase):
 
         payout = InstructorPayout.objects.get(instructor=self.instructor)
         self.assertEqual(payout.amount, Decimal("150.00"))
-        self.assertEqual(payout.status, InstructorPayout.PayoutStatusChoices.PENDING)
+        # Merged payout flow auto-approves on request (auto_approve_payout defaults True),
+        # so a valid request is immediately PROCESSED.
+        self.assertEqual(payout.status, InstructorPayout.PayoutStatusChoices.PROCESSED)
 
         # Both earnings are now bound to this payout -> cannot be requested again.
         assigned = InstructorEarning.objects.filter(instructor_payout=payout)

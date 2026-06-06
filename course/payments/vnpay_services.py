@@ -1,6 +1,18 @@
 from rest_framework.exceptions import ValidationError
 from .serializers import PaymentSerializer
 from .models import Payment
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+
+def _broadcast_payment(payment_id, payment_status):
+    channel_layer = get_channel_layer()
+    if not channel_layer or not payment_id:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f"payment_{payment_id}",
+        {"type": "send_payment_update", "data": {"payment_id": payment_id, "payment_status": payment_status}},
+    )
 from payment_details.models import Payment_Details
 from datetime import datetime
 from courses.models import Course
@@ -373,6 +385,11 @@ def payment_ipn(request):
             except Exception:
                 pass
 
+            try:
+                _broadcast_payment(payment.id, 'completed')
+            except Exception:
+                pass
+
         else:
             payment.payment_status = Payment.PaymentStatus.FAILED
             payment.transaction_id = vnp_TransactionNo
@@ -399,6 +416,11 @@ def payment_ipn(request):
                     kwargs={"error_code": vnp_ResponseCode},
                     daemon=True,
                 ).start()
+            except Exception:
+                pass
+
+            try:
+                _broadcast_payment(payment.id, 'failed')
             except Exception:
                 pass
 

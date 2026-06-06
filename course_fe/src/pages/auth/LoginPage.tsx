@@ -276,8 +276,6 @@ export function LoginPage() {
 
         <motion.div className="grid grid-cols-1 gap-4" variants={fadeInUp}>
           <GoogleLoginButton
-            useCustomButton
-            buttonText={t('auth.google')}
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
             className="w-full"

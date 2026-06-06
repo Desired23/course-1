@@ -6,9 +6,6 @@ from decimal import Decimal
 
 def get_instructor_dashboard_stats(instructor):
     print(f"Calculating dashboard stats for instructor {instructor.id}...")
-    """
-    Returns overall dashboard stats for an instructor.
-    """
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review

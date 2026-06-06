@@ -34,7 +34,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Alert, AlertDescription } from './ui/alert'
 import { CodeExecutionDebugPanel, type DebugExecutionResult } from './CodeExecutionDebugPanel'
-import { SUPPORTED_LANGUAGES, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, shouldWrapUserCode, type TestResult } from '../utils/judge0'
+import { SUPPORTED_LANGUAGES, CODE_LESSON_LANGUAGES, generateStarterCode, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, type ExecutionMode, type TestResult } from '../utils/judge0'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { toast } from 'sonner'
@@ -108,6 +108,7 @@ export interface EnhancedCodeQuizData {
   starterCode?: Record<number, string>
   functionSignature?: Record<number, string>
   functionName?: string
+  executionMode: ExecutionMode
 
 
   testCases: TestCase[]
@@ -172,12 +173,26 @@ function createDefaultEnhancedCodeQuizData(): EnhancedCodeQuizData {
     allowedLanguages: [63],
     starterCode: {},
     functionSignature: {},
+    functionName: '',
+    executionMode: 'function',
     testCases: [],
     timeLimit: 2,
     memoryLimit: 128000,
     points: 100,
     hints: [],
     tags: []
+  }
+}
+
+// Normalize data loaded from a saved lesson: legacy lessons have no executionMode
+// and may allow languages that code lessons no longer support.
+function normalizeQuizData(data: EnhancedCodeQuizData): EnhancedCodeQuizData {
+  const executionMode: ExecutionMode = data.executionMode || (data.functionName ? 'function' : 'stdin')
+  const filteredLanguages = (data.allowedLanguages || []).filter((id) => CODE_LESSON_LANGUAGES.includes(id))
+  return {
+    ...data,
+    executionMode,
+    allowedLanguages: filteredLanguages.length > 0 ? filteredLanguages : [63],
   }
 }
 
@@ -325,7 +340,7 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
   function EnhancedCodeQuizCreator({ initialData, onSave, onChange, onCancel }, ref) {
   const { t } = useTranslation()
   const RUN_ACTION_DEBOUNCE_MS = 1000
-  const [formData, setFormData] = useState<EnhancedCodeQuizData>(initialData || createDefaultEnhancedCodeQuizData())
+  const [formData, setFormData] = useState<EnhancedCodeQuizData>(initialData ? normalizeQuizData(initialData) : createDefaultEnhancedCodeQuizData())
   const [activeTab, setActiveTab] = useState('overview')
 
   useImperativeHandle(ref, () => ({
@@ -357,6 +372,7 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
   const [isRunningCustomInput, setIsRunningCustomInput] = useState(false)
   const [customRunResult, setCustomRunResult] = useState<DebugExecutionResult | null>(null)
   const [customRunError, setCustomRunError] = useState<string | null>(null)
+  const [starterEdited, setStarterEdited] = useState<Record<number, boolean>>({})
   const isSyncingFromPropsRef = useRef(false)
   const lastEmittedRef = useRef<EnhancedCodeQuizData | null>(null)
   const lastSolutionRunAtRef = useRef(0)
@@ -365,7 +381,7 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
   useEffect(() => {
     if (initialData && initialData !== formData) {
       isSyncingFromPropsRef.current = true
-      setFormData(initialData)
+      setFormData(normalizeQuizData(initialData))
     }
   }, [initialData])
 
@@ -389,6 +405,52 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
     setFormData((prev) => (typeof updater === 'function' ? updater(prev) : updater))
   }
 
+  // Build per-language starter code from the current mode + function name,
+  // skipping languages the user has manually edited.
+  const buildStarterCode = (
+    mode: ExecutionMode,
+    languages: number[],
+    functionName: string | undefined,
+    prevStarter: Record<number, string>,
+    edited: Record<number, boolean>
+  ): Record<number, string> => {
+    const next = { ...prevStarter }
+    languages.forEach((langId) => {
+      if (edited[langId]) return
+      const langValue = SUPPORTED_LANGUAGES.find((l) => l.id === langId)?.value || 'javascript'
+      next[langId] = generateStarterCode(mode, langValue, functionName)
+    })
+    return next
+  }
+
+  const handleExecutionModeChange = (mode: ExecutionMode) => {
+    if (mode === formData.executionMode) return
+    const hasStarter = Object.values(formData.starterCode || {}).some((v) => (v || '').trim())
+    if (hasStarter && !window.confirm(t('enhanced_code_quiz_creator.confirm_mode_change'))) return
+    setStarterEdited({})
+    updateFormData((prev) => ({
+      ...prev,
+      executionMode: mode,
+      starterCode: buildStarterCode(mode, prev.allowedLanguages, prev.functionName, {}, {}),
+    }))
+  }
+
+  const handleFunctionNameChange = (value: string) => {
+    updateFormData((prev) => ({
+      ...prev,
+      functionName: value,
+      starterCode: buildStarterCode('function', prev.allowedLanguages, value, prev.starterCode || {}, starterEdited),
+    }))
+  }
+
+  const handleRegenerateStarter = () => {
+    setStarterEdited({})
+    updateFormData((prev) => ({
+      ...prev,
+      starterCode: buildStarterCode(prev.executionMode, prev.allowedLanguages, prev.functionName, {}, {}),
+    }))
+  }
+
 
 
   const validate = (): boolean => {
@@ -404,6 +466,15 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
 
     if (formData.allowedLanguages.length === 0) {
       newErrors.languages = t('enhanced_code_quiz_creator.errors.languages_required')
+    }
+
+    if (formData.executionMode === 'function') {
+      const fname = (formData.functionName || '').trim()
+      if (!fname) {
+        newErrors.functionName = t('enhanced_code_quiz_creator.errors.function_name_required')
+      } else if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(fname)) {
+        newErrors.functionName = t('enhanced_code_quiz_creator.errors.function_name_invalid')
+      }
     }
 
     if (formData.testCases.length === 0) {
@@ -622,8 +693,8 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
     try {
       const languageId = formData.solution?.codeLanguage || formData.allowedLanguages[0] || 63
       const languageValue = SUPPORTED_LANGUAGES.find((lang) => lang.id === languageId)?.value || 'javascript'
-      const executableCode = shouldWrapUserCode(code, languageValue)
-        ? wrapUserCode(code, languageValue, '')
+      const executableCode = formData.executionMode === 'function'
+        ? wrapUserCode(code, languageValue, '', formData.functionName || undefined)
         : code
 
       const results = await runTestCases(
@@ -674,8 +745,8 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
     try {
       const languageId = formData.solution?.codeLanguage || formData.allowedLanguages[0] || 63
       const languageValue = SUPPORTED_LANGUAGES.find((lang) => lang.id === languageId)?.value || 'javascript'
-      const executableCode = shouldWrapUserCode(code, languageValue)
-        ? wrapUserCode(code, languageValue, '')
+      const executableCode = formData.executionMode === 'function'
+        ? wrapUserCode(code, languageValue, '', formData.functionName || undefined)
         : code
 
       const result = await submitAndWait({
@@ -1450,7 +1521,7 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {SUPPORTED_LANGUAGES.map((lang) => (
+                          {SUPPORTED_LANGUAGES.filter((lang) => CODE_LESSON_LANGUAGES.includes(lang.id)).map((lang) => (
                             <SelectItem key={lang.id} value={lang.id.toString()}>
                               {lang.value}
                             </SelectItem>
@@ -1543,7 +1614,7 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {SUPPORTED_LANGUAGES.map((lang) => (
+                  {SUPPORTED_LANGUAGES.filter((lang) => CODE_LESSON_LANGUAGES.includes(lang.id)).map((lang) => (
                     <div
                       key={lang.id}
                       onClick={() => toggleLanguage(lang.id)}
@@ -1605,6 +1676,92 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
                     <p className="text-xs text-muted-foreground mt-1">
                       {t('enhanced_code_quiz_creator.memory_limit_help')}
                     </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">{t('enhanced_code_quiz_creator.execution_mode')}</CardTitle>
+                <CardDescription>{t('enhanced_code_quiz_creator.execution_mode_help')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {(['function', 'stdin'] as ExecutionMode[]).map((mode) => (
+                    <div
+                      key={mode}
+                      onClick={() => handleExecutionModeChange(mode)}
+                      className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                        formData.executionMode === mode
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          {t(`enhanced_code_quiz_creator.execution_mode_${mode}`)}
+                        </span>
+                        {formData.executionMode === mode && (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t(`enhanced_code_quiz_creator.execution_mode_${mode}_desc`)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {formData.executionMode === 'function' && (
+                  <div>
+                    <Label>{t('enhanced_code_quiz_creator.function_name')}</Label>
+                    <Input
+                      value={formData.functionName || ''}
+                      onChange={(e) => handleFunctionNameChange(e.target.value)}
+                      placeholder={t('enhanced_code_quiz_creator.function_name_placeholder')}
+                      className="mt-1 font-mono text-sm"
+                    />
+                    {errors.functionName ? (
+                      <p className="text-xs text-destructive mt-1">{errors.functionName}</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('enhanced_code_quiz_creator.function_name_help')}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <Label>{t('enhanced_code_quiz_creator.starter_code')}</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={handleRegenerateStarter}>
+                      {t('enhanced_code_quiz_creator.regenerate_starter_code')}
+                    </Button>
+                  </div>
+                  <div className="space-y-3 mt-2">
+                    {formData.allowedLanguages.map((langId) => {
+                      const lang = SUPPORTED_LANGUAGES.find((l) => l.id === langId)
+                      if (!lang) return null
+                      return (
+                        <div key={langId}>
+                          <Label className="text-xs text-muted-foreground">{lang.value}</Label>
+                          <Textarea
+                            value={formData.starterCode?.[langId] || ''}
+                            onChange={(e) => {
+                              setStarterEdited((prev) => ({ ...prev, [langId]: true }))
+                              updateFormData((prev) => ({
+                                ...prev,
+                                starterCode: { ...prev.starterCode, [langId]: e.target.value },
+                              }))
+                            }}
+                            className="mt-1 font-mono text-sm"
+                            rows={4}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               </CardContent>

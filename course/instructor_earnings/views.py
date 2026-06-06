@@ -112,7 +112,6 @@ class InstructorEarningsByPayoutView(APIView):
 
 
 class SubscriptionEarningsCalculationView(APIView):
-
     permission_classes = [RolePermissionFactory(["admin"])]
     throttle_scope = 'burst'
 
@@ -173,7 +172,6 @@ class InstructorEarningsSummaryView(APIView):
 
 
 class InstructorSubscriptionRevenueBreakdownView(APIView):
-
     permission_classes = [RolePermissionFactory(["admin", "instructor"])]
     throttle_scope = 'burst'
 

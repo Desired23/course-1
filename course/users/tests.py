@@ -55,7 +55,7 @@ class AuthFlowTests(TestCase):
         result = login({"username": "loginer", "password": "Password123"})
         self.assertIn("access_token", result)
         self.assertIn("refresh_token", result)
-        self.assertEqual(result["user"]["user_type"], ["student"])
+        self.assertEqual(result["user"]["roles"], ["student"])
 
         refreshed = refresh_token(result["refresh_token"])
         self.assertIn("access_token", refreshed)

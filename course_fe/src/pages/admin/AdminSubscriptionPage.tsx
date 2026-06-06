@@ -166,6 +166,7 @@ export function AdminSubscriptionPage() {
     status: 'active',
     is_featured: false,
     yearly_discount_percent: '0',
+    yearly_price: '',
     features: '',
   })
 
@@ -308,6 +309,7 @@ export function AdminSubscriptionPage() {
         status: planForm.status,
         is_featured: planForm.is_featured,
         yearly_discount_percent: Number(planForm.yearly_discount_percent || 0),
+        yearly_price: planForm.yearly_price ? Number(planForm.yearly_price) : undefined,
         features: planForm.features.split('\n').map(item => item.trim()).filter(Boolean),
       })
       toast.success(t('subscriptions_page.admin.create_success'))
@@ -324,6 +326,7 @@ export function AdminSubscriptionPage() {
         status: 'active',
         is_featured: false,
         yearly_discount_percent: '0',
+        yearly_price: '',
         features: '',
       })
     } catch { toast.error(t('subscriptions_page.admin.create_failed')) }
@@ -666,6 +669,17 @@ export function AdminSubscriptionPage() {
                         onChange={(e) => setPlanForm(prev => ({ ...prev, yearly_discount_percent: e.target.value }))}
                       />
                     </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>{t('subscriptions_page.admin.form.yearly_price')}</Label>
+                    <Input
+                      type="number"
+                      placeholder={t('subscriptions_page.admin.form.yearly_price_placeholder')}
+                      value={planForm.yearly_price}
+                      onChange={(e) => setPlanForm(prev => ({ ...prev, yearly_price: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.form.yearly_price_hint')}</p>
                 </div>
 
                 <div className="flex items-center justify-between rounded-md border px-3 py-3">

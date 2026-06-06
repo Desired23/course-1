@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useAuthStore, User, UserRole, Permission, PERMISSIONS } from '../stores/auth.store'
-import { onSessionExpired } from '../services/http'
+import { onSessionExpired, onRoleMismatch } from '../services/http'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 
@@ -13,8 +13,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user, logout, updateProfile, fetchProfile } = useAuthStore()
   const { t } = useTranslation()
 
-  // On app start, re-sync the signed-in user's profile (incl. roles) from the
-  // server so role changes made by an admin are reflected without re-login.
   useEffect(() => {
     if (useAuthStore.getState().user) {
       void fetchProfile()
@@ -33,6 +31,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
     return unsubscribe
   }, [logout])
+
+
+  useEffect(() => {
+    const unsubscribe = onRoleMismatch(() => {
+      void fetchProfile()
+    })
+    return unsubscribe
+  }, [fetchProfile])
 
 
   useEffect(() => {

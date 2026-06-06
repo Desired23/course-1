@@ -73,7 +73,7 @@ const fadeInUp = {
   },
 }
 
-export function TeachOnUdemyPage() {
+export function TeachOnUtcPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
   const [apiStats, setApiStats] = useState<PublicStats | null>(null)
@@ -81,18 +81,20 @@ export function TeachOnUdemyPage() {
   useEffect(() => {
     let cancelled = false
     getPublicStats()
-      .then(s => { if (!cancelled) setApiStats(s) })
+      .then((data) => {
+        if (!cancelled) setApiStats(data)
+      })
       .catch(() => {})
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const stats = apiStats
-    ? [
-        { number: formatLargeNumber(apiStats.total_students), labelKey: "teach_page.stats.students" },
-        { number: formatLargeNumber(apiStats.total_courses), labelKey: "teach_page.stats.courses" },
-        { number: formatLargeNumber(apiStats.total_instructors), labelKey: "teach_page.stats.instructors" },
-      ]
-    : []
+  const stats = [
+    { number: apiStats ? formatLargeNumber(apiStats.total_students) : "...", labelKey: "teach_page.stats.students" },
+    { number: apiStats ? formatLargeNumber(apiStats.total_courses) : "...", labelKey: "teach_page.stats.courses" },
+    { number: apiStats ? formatLargeNumber(apiStats.total_instructors) : "...", labelKey: "teach_page.stats.instructors" },
+  ]
 
   return (
     <motion.div className="min-h-screen bg-background" variants={sectionStagger} initial="hidden" animate="show">

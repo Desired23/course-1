@@ -71,13 +71,9 @@ def get_cart_by_user(user_id):
             continue
         info = get_course_access_info(cart.user, cart.course)
         access_type = info.get('access_type')
-        # Course bought outright -> remove from cart. (Admin/instructor "access"
-        # is not a purchase, so their cart items are left untouched.)
         if access_type == 'purchase':
             owned_ids.append(cart.id)
             continue
-        # Covered by an active subscription/plan -> keep, but tag so the UI can
-        # offer buying it permanently.
         cart._in_plan = access_type == 'subscription'
         remaining.append(cart)
 

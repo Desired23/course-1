@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '../../components/ui/button'
 import { Textarea } from '../../components/ui/textarea'
@@ -22,6 +22,7 @@ import {
   formatQADate,
 } from '../../services/qa.api'
 import { VoteButtons } from '../../components/qa/VoteButtons'
+import { useWebSocket } from '../../hooks/useWebSocket'
 
 interface QuestionDetailPageProps {
   questionId?: string
@@ -66,6 +67,31 @@ export function QuestionDetailPage({ questionId }: QuestionDetailPageProps) {
     }
     load()
   }, [id])
+
+  useWebSocket({
+    path: `/ws/questions/${id}/`,
+    enabled: !!id,
+    onMessage: useCallback((data: any) => {
+      if (!data?.action) return
+      if (data.action === 'answer_created') {
+        setAnswers(prev => {
+          if (prev.some(a => a.id === data.answer?.id)) return prev
+          return [...prev, data.answer]
+        })
+        setAnswerScores(prev => ({ ...prev, [data.answer?.id]: data.answer?.score ?? 0 }))
+        setQuestion(prev => prev ? { ...prev, answer_count: prev.answer_count + 1 } : prev)
+      } else if (data.action === 'answer_updated') {
+        setAnswers(prev => prev.map(a => a.id === data.answer?.id ? { ...a, ...data.answer } : a))
+      } else if (data.action === 'answer_deleted') {
+        setAnswers(prev => prev.filter(a => a.id !== data.answer_id))
+        setQuestion(prev => prev ? { ...prev, answer_count: Math.max(0, prev.answer_count - 1) } : prev)
+      } else if (data.action === 'question_voted') {
+        setQuestionScore(data.score)
+      } else if (data.action === 'answer_voted') {
+        setAnswerScores(prev => ({ ...prev, [data.answer_id]: data.score }))
+      }
+    }, []),
+  })
 
   const handleQuestionVote = async (voteType: 'up' | 'down') => {
     if (!user) { navigate('/login'); return }

@@ -41,6 +41,20 @@ def get_refund_settings():
             settings_value.update(stored["value"])
     except Exception:
         pass
+
+    try:
+        from systems_settings.models import SystemsSetting
+        row = SystemsSetting.objects.filter(
+            setting_key='auto_approve_refund', is_deleted=False
+        ).first()
+        if row is not None:
+            truthy = str(row.setting_value).strip().lower() in ('1', 'true', 'yes', 'on')
+            settings_value["refund_mode"] = (
+                REFUND_MODE_DIRECT_SYSTEM if truthy else REFUND_MODE_ADMIN_APPROVAL
+            )
+    except Exception:
+        pass
+
     return settings_value
 
 
@@ -682,7 +696,8 @@ def user_cancel_refund_request(payment_id, payment_details_ids, user):
 
 def get_refund_details(payment_id, payment_details_ids, user):
     payment, details = _get_details_for_payment(payment_id, payment_details_ids, include_deleted=True)
-    if payment.user != user and getattr(user, "user_type", None) != "admin":
+    from utils.roles import is_active_admin
+    if payment.user != user and not is_active_admin(user):
         raise PermissionDenied("Bạn không có quyền xem chi tiết hoàn tiền này.")
     return [_serialize_refund_detail(detail) for detail in details]
 
@@ -695,7 +710,6 @@ def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None
     with transaction.atomic():
         payment, details = _get_details_for_payment(payment_id, payment_details_ids)
         for detail in details:
-            # Validate business rules (không check user ownership)
             if payment.payment_type != Payment.PaymentType.COURSE_PURCHASE:
                 raise ValidationError("Chỉ hỗ trợ hoàn tiền cho giao dịch mua khóa học.")
             if payment.payment_status not in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]:
@@ -721,7 +735,6 @@ def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None
             detail.refund_status = Payment_Details.RefundStatus.APPROVED
             detail.save()
 
-            # Kích hoạt cổng thanh toán ngay lập tức
             _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
 
             _log_refund_activity(

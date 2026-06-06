@@ -17,62 +17,70 @@ from .models import InstructorPayout
 from instructor_earnings.models import InstructorEarning
 from .serializers import InstructorPayoutSerializer
 
-def auto_create_instructor_payouts(processed_by, notes='', period=None):
+def auto_create_instructor_payouts(processed_by=None, notes='', settle_first=True):
+    from payment_methods.models import InstructorPayoutMethod
+
+    period = timezone.now().strftime("%Y-%m-%d %H:%M")
+
     try:
+        settled_count = 0
+        created = []
         with transaction.atomic():
+            if settle_first:
+                from instructor_earnings.services import update_earnings_available
+                settled_count = update_earnings_available().count()
 
             earnings_qs = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.AVAILABLE,
-                instructor_payout_id__isnull=True
-            ).select_related('instructor')
-
-            if not earnings_qs.exists():
-                raise ValidationError("No available earnings for payout.")
-
+                instructor_payout__isnull=True,
+                is_deleted=False,
+            ).select_related('instructor__user')
 
             earnings_map = defaultdict(list)
             for earning in earnings_qs:
                 earnings_map[earning.instructor].append(earning)
 
-
-            payouts_to_create = []
-            instructor_earning_ids_map = {}
-
             for instructor, earnings in earnings_map.items():
-                total_amount = sum(e.net_amount for e in earnings)
-                payout = InstructorPayout(
+                total_amount = sum((e.net_amount for e in earnings), Decimal('0'))
+
+                default_method = (
+                    InstructorPayoutMethod.objects
+                    .filter(instructor=instructor, is_deleted=False)
+                    .order_by('-is_default', '-created_at')
+                    .first()
+                )
+                payment_method = default_method.method_type if default_method else ''
+
+                payout = InstructorPayout.objects.create(
                     instructor=instructor,
                     amount=total_amount,
-                    period=period or timezone.now().strftime("%Y-%m"),
+                    payment_method=payment_method,
+                    period=period,
                     processed_by=processed_by,
                     notes=notes,
                     status=InstructorPayout.PayoutStatusChoices.PENDING,
-                    request_date=timezone.now(),
                 )
-                payouts_to_create.append(payout)
-                instructor_earning_ids_map[instructor] = [e.id for e in earnings]
+                InstructorEarning.objects.filter(
+                    id__in=[e.id for e in earnings]
+                ).update(instructor_payout=payout)
 
+                created.append({
+                    'payout_id': payout.id,
+                    'instructor_id': instructor.id,
+                    'instructor_name': instructor.user.full_name,
+                    'amount': str(total_amount),
+                    'earnings_count': len(earnings),
+                    'payment_method': payment_method or None,
+                    'has_payout_method': default_method is not None,
+                })
 
-            InstructorPayout.objects.bulk_create(payouts_to_create)
-            created_payouts = InstructorPayout.objects.filter(
-                status=InstructorPayout.PayoutStatusChoices.PENDING,
-                processed_by=processed_by,
-                period=period or timezone.now().strftime("%Y-%m"),
-            ).order_by('-request_date')
-
-            payout_map = {payout.instructor: payout for payout in created_payouts}
-
-
-            for instructor, earning_ids in instructor_earning_ids_map.items():
-                InstructorEarning.objects.filter(id__in=earning_ids).update(
-                    instructor_payout=payout_map[instructor]
-                )
-
-            return InstructorPayout.objects.filter(
-                status=InstructorPayout.PayoutStatusChoices.PENDING,
-                processed_by=processed_by,
-                period=period or timezone.now().strftime("%Y-%m"),
-            ).order_by('-request_date')
+        return {
+            'period': period,
+            'settled_to_available': settled_count,
+            'payouts_created': len(created),
+            'total_amount': str(sum((Decimal(c['amount']) for c in created), Decimal('0'))),
+            'detail': created,
+        }
 
     except Exception as e:
         raise ValidationError(f"Error creating payouts: {str(e)}")
@@ -223,9 +231,35 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
             instructor_payout=payout
         )
 
+        from systems_settings.services import get_bool_setting
+        auto_processed = get_bool_setting('auto_approve_payout', default=True)
+        if auto_processed:
+            payout.status = InstructorPayout.PayoutStatusChoices.PROCESSED
+            payout.net_amount = payout.amount
+            payout.processed_date = timezone.now()
+            payout.save(update_fields=['status', 'net_amount', 'processed_date', 'updated_at'])
+            InstructorEarning.objects.filter(instructor_payout=payout).update(
+                status=InstructorEarning.StatusChoices.PAID
+            )
+
         serialized = InstructorPayoutSerializer(payout).data
         serialized['bank_details'] = bank_details
-        return serialized
+
+    if auto_processed:
+        try:
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=payout.instructor.user_id,
+                title="Yêu cầu rút tiền đã được duyệt",
+                message=f"Yêu cầu rút tiền #{payout.id} đã được xử lý.",
+                type='payment',
+                related_id=payout.id,
+                notification_code='payout_processed',
+            )
+        except Exception:
+            pass
+
+    return serialized
 
 
 def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=0):
@@ -256,7 +290,21 @@ def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=
             instructor_payout=payout
         ).update(status=InstructorEarning.StatusChoices.PAID)
 
-        return InstructorPayoutSerializer(payout).data
+        result = InstructorPayoutSerializer(payout).data
+
+    try:
+        from notifications.services import create_notification
+        create_notification(
+            receiver_id=payout.instructor.user_id,
+            title="Yêu cầu rút tiền đã được duyệt",
+            message=f"Yêu cầu rút tiền #{payout.id} đã được xử lý.",
+            type='payment',
+            related_id=payout.id,
+            notification_code='payout_processed',
+        )
+    except Exception:
+        pass
+    return result
 
 
 def admin_reject_payout(payout_id, admin, notes=None):
@@ -281,128 +329,18 @@ def admin_reject_payout(payout_id, admin, notes=None):
             instructor_payout=payout
         ).update(instructor_payout=None)
 
-        return InstructorPayoutSerializer(payout).data
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        result = InstructorPayoutSerializer(payout).data
+
+    try:
+        from notifications.services import create_notification
+        create_notification(
+            receiver_id=payout.instructor.user_id,
+            title="Yêu cầu rút tiền bị từ chối",
+            message=f"Yêu cầu rút tiền #{payout.id} đã bị từ chối. Số dư đã được hoàn lại.",
+            type='payment',
+            related_id=payout.id,
+            notification_code='payout_rejected',
+        )
+    except Exception:
+        pass
+    return result

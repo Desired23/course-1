@@ -14,7 +14,6 @@ from .services import (
     update_question,
     delete_question,
     increase_question_views,
-    report_question,
     moderate_question,
     accept_answer,
 )
@@ -83,11 +82,19 @@ class QuestionReportView(APIView):
     throttle_scope = 'burst'
 
     def post(self, request, question_id):
+        from reports.services import create_report
         try:
-            result = report_question(question_id, request.data.get('reason', ''))
-            return Response(result, status=status.HTTP_200_OK)
-        except ValidationError as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            create_report(
+                reporter=request.user,
+                target_type='question',
+                target_id=question_id,
+                reason=request.data.get('reason', 'other'),
+                description=request.data.get('description', ''),
+            )
+            return Response({'message': 'Báo cáo đã được ghi nhận.'}, status=status.HTTP_200_OK)
+        except Exception as exc:
+            detail = getattr(exc, 'detail', str(exc))
+            return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class QuestionModerationView(APIView):

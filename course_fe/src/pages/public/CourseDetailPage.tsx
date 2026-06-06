@@ -125,6 +125,7 @@ export function CourseDetailPage() {
   const canAccessCourse = accessInfo?.has_access || false
   const accessType = accessInfo?.access_type || null
   const isCourseInSubscription = accessInfo?.in_subscription || false
+  const subscriptionPlan = accessInfo?.subscription_plan || null
 
 
   const courseId = courseData?.id || 0
@@ -440,11 +441,22 @@ export function CourseDetailPage() {
               ]} />
 
 
-              {isCourseInSubscription && !canAccessCourse && (
-                 <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 animate-pulse">
-                   <Crown className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                   {t('course_detail.included_in_pro_plan')}
-                 </div>
+              {subscriptionPlan && (
+                subscriptionPlan.owned ? (
+                  <div className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-green-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
+                    <Crown className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    {t('course_detail.in_owned_plan', { plan: subscriptionPlan.name })}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/pricing')}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2 animate-pulse hover:opacity-90 transition-opacity"
+                  >
+                    <Crown className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    {t('course_detail.in_plan_cta', { plan: subscriptionPlan.name })}
+                  </button>
+                )
               )}
 
               <h1 className="text-2xl font-bold sm:text-3xl lg:text-4xl">{courseData.title}</h1>
@@ -631,10 +643,16 @@ export function CourseDetailPage() {
                      <div className="space-y-2 pt-2">
                         <h4 className="font-semibold text-sm">{t('course_detail.course_includes_title')}</h4>
                         <ul className="text-sm space-y-2 text-muted-foreground">
-                           <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><Clock className="w-4 h-4" /></div> {t('course_detail.on_demand_video')}</li>
-                           <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><FileText className="w-4 h-4" /></div> {t('course_detail.downloadable_resources')}</li>
+                           {courseData.duration_hours != null && (
+                              <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><Clock className="w-4 h-4" /></div> {t('course_detail.on_demand_video', { hours: courseData.duration_hours })}</li>
+                           )}
+                           {courseData.total_resources != null && courseData.total_resources > 0 && (
+                              <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><FileText className="w-4 h-4" /></div> {t('course_detail.downloadable_resources', { total: courseData.total_resources })}</li>
+                           )}
                            <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><Globe className="w-4 h-4" /></div> {t('course_detail.access_mobile_tv')}</li>
-                           <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><Crown className="w-4 h-4" /></div> {t('course_detail.certificate')}</li>
+                           {courseData.certificate && (
+                              <li className="flex items-center gap-2"><div className="w-4 flex justify-center"><Crown className="w-4 h-4" /></div> {t('course_detail.certificate')}</li>
+                           )}
                         </ul>
                      </div>
                   </CardContent>
@@ -846,6 +864,7 @@ export function CourseDetailPage() {
             </Card>
 
 
+            {courseData.promotional_video && (
             <Card className="overflow-hidden relative">
                <CardHeader><CardTitle>{t('course_detail.sample_lecture')}</CardTitle></CardHeader>
                <div className="relative aspect-video bg-slate-900 w-full">
@@ -866,6 +885,7 @@ export function CourseDetailPage() {
                   )}
                </div>
             </Card>
+            )}
 
 
             {courseData.instructor && (

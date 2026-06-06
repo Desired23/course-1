@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import LearningPath, LearningPathItem, PathConversation
+from .models import LearningPath, LearningPathItem
 
 
 class LearningPathItemSerializer(serializers.ModelSerializer):
@@ -37,16 +37,8 @@ class LearningPathItemSerializer(serializers.ModelSerializer):
         return round(obj.course.duration / 60, 2)
 
 
-class PathConversationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PathConversation
-        fields = ['messages', 'advisor_meta', 'created_at', 'updated_at']
-
-
 class LearningPathListSerializer(serializers.ModelSerializer):
     items = LearningPathItemSerializer(many=True, read_only=True)
-    conversation_count = serializers.SerializerMethodField()
-    advisor_meta = serializers.SerializerMethodField()
 
     class Meta:
         model = LearningPath
@@ -58,26 +50,12 @@ class LearningPathListSerializer(serializers.ModelSerializer):
             'is_archived',
             'created_at',
             'updated_at',
-            'conversation_count',
-            'advisor_meta',
             'items',
         ]
-
-    def get_conversation_count(self, obj):
-        if not hasattr(obj, 'conversation') or not obj.conversation:
-            return 0
-        return len(obj.conversation.messages or [])
-
-    def get_advisor_meta(self, obj):
-        if not hasattr(obj, 'conversation') or not obj.conversation:
-            return {}
-        return obj.conversation.advisor_meta or {}
 
 
 class LearningPathDetailSerializer(serializers.ModelSerializer):
     items = LearningPathItemSerializer(many=True, read_only=True)
-    messages = serializers.SerializerMethodField()
-    advisor_meta = serializers.SerializerMethodField()
 
     class Meta:
         model = LearningPath
@@ -90,19 +68,7 @@ class LearningPathDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
             'items',
-            'messages',
-            'advisor_meta',
         ]
-
-    def get_messages(self, obj):
-        if not hasattr(obj, 'conversation') or not obj.conversation:
-            return []
-        return obj.conversation.messages or []
-
-    def get_advisor_meta(self, obj):
-        if not hasattr(obj, 'conversation') or not obj.conversation:
-            return {}
-        return obj.conversation.advisor_meta or {}
 
 
 class LearningPathCreateItemInputSerializer(serializers.Serializer):
@@ -118,8 +84,6 @@ class LearningPathCreateSerializer(serializers.Serializer):
     summary = serializers.CharField()
     estimated_weeks = serializers.IntegerField(min_value=0)
     path = LearningPathCreateItemInputSerializer(many=True)
-    messages = serializers.ListField(child=serializers.DictField(), required=False)
-    advisor_meta = serializers.DictField(required=False)
 
 
 class LearningPathAdvisorMessageSerializer(serializers.Serializer):
@@ -132,5 +96,3 @@ class LearningPathAdvisorRequestSerializer(serializers.Serializer):
     weekly_hours = serializers.IntegerField(required=False, min_value=1, max_value=80)
     messages = LearningPathAdvisorMessageSerializer(many=True, required=False)
     known_skills = serializers.ListField(child=serializers.CharField(), required=False)
-    path_id = serializers.IntegerField(required=False)
-    persist_conversation = serializers.BooleanField(required=False, default=False)

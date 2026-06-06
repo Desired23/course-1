@@ -181,6 +181,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
     learningObjectives: { difficulty: 'medium' },
     solution: { approach: '', timeComplexity: '', spaceComplexity: '', code: '', codeLanguage: 63, explanation: '' },
     allowedLanguages: [63],
+    executionMode: 'function',
     testCases: [],
     hints: [],
     points: 10
@@ -230,6 +231,7 @@ export function QuestionWizard({ isOpen, onClose, onSave, initialQuestion, quest
         learningObjectives: { difficulty: 'medium' },
         solution: { approach: '', timeComplexity: '', spaceComplexity: '', code: '', codeLanguage: 63, explanation: '' },
         allowedLanguages: [63],
+        executionMode: 'function',
         testCases: [],
         hints: [],
         points: 10

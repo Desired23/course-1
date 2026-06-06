@@ -1,13 +1,10 @@
 import logging
-import jwt
-from django.conf import settings
 from django.http import StreamingHttpResponse
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from users.models import User
 from utils.pagination import paginate_queryset
 from utils.permissions import RolePermissionFactory
 
@@ -22,12 +19,9 @@ from .services import (
     AdvisorUpstreamError,
     advisor_chat,
     advisor_chat_stream,
-    create_advisor_draft_path,
     create_learning_path,
     get_learning_path_for_user,
     get_learning_paths_for_user,
-    merge_advisor_messages,
-    upsert_path_conversation,
     update_learning_path_from_advisor,
 )
 
@@ -41,81 +35,27 @@ def advisor_response(data, status_code, contract_version):
     return response
 
 
-def get_optional_user(request):
-    auth_header = request.headers.get('Authorization', '')
-    if not auth_header.startswith('Bearer '):
-        return None
-
-    token = auth_header.split(' ', 1)[1]
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-        return User.objects.select_related('instructor', 'admin').get(id=payload['user_id'])
-    except Exception:
-        return None
-
-
 class LearningPathAdvisorChatView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def post(self, request):
         contract_version = resolve_advisor_contract_version(request)
         serializer = LearningPathAdvisorRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
 
-        optional_user = get_optional_user(request)
-        path_id = payload.get('path_id')
-        persist_conversation = bool(payload.get('persist_conversation'))
-        if path_id and not optional_user:
-            return advisor_response(
-                wrap_http_error(contract_version, code='unauthorized', message='Authentication required for path recalculation context.'),
-                status.HTTP_401_UNAUTHORIZED,
-                contract_version,
-            )
-
         try:
-            path = None
-            merged_messages = payload.get('messages') or []
-            if path_id:
-                path = get_learning_path_for_user(path_id, optional_user)
-                existing_messages = []
-                if hasattr(path, 'conversation') and path.conversation:
-                    existing_messages = path.conversation.messages or []
-                merged_messages = merge_advisor_messages(existing_messages, merged_messages)
-
             result = advisor_chat(
                 goal_text=payload['goal_text'],
                 weekly_hours=payload.get('weekly_hours'),
-                messages=merged_messages,
+                messages=payload.get('messages') or [],
                 known_skills=payload.get('known_skills') or [],
             )
-
-            assistant_message = (result.get('message') or '').strip() if result.get('type') == 'question' else (result.get('summary') or '').strip()
-            should_persist = bool(path) or (persist_conversation and optional_user)
-            if should_persist:
-                updated_messages = merge_advisor_messages(
-                    merged_messages,
-                    [{'role': 'assistant', 'content': assistant_message}] if assistant_message else [],
-                )
-                if not path:
-                    path = create_advisor_draft_path(
-                        user=optional_user,
-                        goal_text=payload['goal_text'],
-                        summary=result.get('summary') if result.get('type') == 'path' else '',
-                        estimated_weeks=result.get('estimated_weeks') if result.get('type') == 'path' else 0,
-                        messages=updated_messages,
-                        advisor_meta=result.get('advisor_meta') or {},
-                    )
-                else:
-                    upsert_path_conversation(path, updated_messages, result.get('advisor_meta') or {})
-
-            if path:
-                result = {**result, 'path_id': path.id}
-
             return advisor_response(wrap_http_success(contract_version, result), status.HTTP_200_OK, contract_version)
         except AdvisorUpstreamError as exc:
             logger.warning(
-                'advisor_chat_upstream_error contract=%s path_id=%s error=%s',
+                'advisor_chat_upstream_error contract=%s error=%s',
                 contract_version,
-                path_id,
                 str(exc),
             )
             return advisor_response(
@@ -132,45 +72,20 @@ class LearningPathAdvisorChatView(APIView):
 
 
 class LearningPathAdvisorChatStreamView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+
     def post(self, request):
         contract_version = resolve_advisor_contract_version(request)
         serializer = LearningPathAdvisorRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         payload = serializer.validated_data
 
-        optional_user = get_optional_user(request)
-        path_id = payload.get('path_id')
-        persist_conversation = bool(payload.get('persist_conversation'))
-        if path_id and not optional_user:
-            return advisor_response(
-                wrap_http_error(contract_version, code='unauthorized', message='Authentication required for path recalculation context.'),
-                status.HTTP_401_UNAUTHORIZED,
-                contract_version,
-            )
-
-        try:
-            path = None
-            merged_messages = payload.get('messages') or []
-            if path_id:
-                path = get_learning_path_for_user(path_id, optional_user)
-                existing_messages = []
-                if hasattr(path, 'conversation') and path.conversation:
-                    existing_messages = path.conversation.messages or []
-                merged_messages = merge_advisor_messages(existing_messages, merged_messages)
-        except ValidationError as exc:
-            return advisor_response(
-                wrap_http_error(contract_version, code='invalid_request', message=str(exc)),
-                status.HTTP_400_BAD_REQUEST,
-                contract_version,
-            )
-
         def stream():
-            nonlocal path
             try:
                 for event in advisor_chat_stream(
                     goal_text=payload['goal_text'],
                     weekly_hours=payload.get('weekly_hours'),
-                    messages=merged_messages,
+                    messages=payload.get('messages') or [],
                     known_skills=payload.get('known_skills') or [],
                 ):
                     event_type = event.get('event')
@@ -184,42 +99,20 @@ class LearningPathAdvisorChatStreamView(APIView):
 
                     if event_type == 'final':
                         result = event.get('result') or {}
-                        assistant_message = (result.get('message') or '').strip() if result.get('type') == 'question' else (result.get('summary') or '').strip()
-                        should_persist = bool(path) or (persist_conversation and optional_user)
-                        if should_persist:
-                            updated_messages = merge_advisor_messages(
-                                merged_messages,
-                                [{'role': 'assistant', 'content': assistant_message}] if assistant_message else [],
-                            )
-                            if not path:
-                                path = create_advisor_draft_path(
-                                    user=optional_user,
-                                    goal_text=payload['goal_text'],
-                                    summary=result.get('summary') if result.get('type') == 'path' else '',
-                                    estimated_weeks=result.get('estimated_weeks') if result.get('type') == 'path' else 0,
-                                    messages=updated_messages,
-                                    advisor_meta=result.get('advisor_meta') or {},
-                                )
-                            else:
-                                upsert_path_conversation(path, updated_messages, result.get('advisor_meta') or {})
-
-                        if path:
-                            result = {**result, 'path_id': path.id}
                         yield sse_event('final', {'result': result}, contract_version)
                         return
             except ValidationError as exc:
-                logger.info('advisor_stream_validation_error contract=%s path_id=%s', contract_version, path_id)
+                logger.info('advisor_stream_validation_error contract=%s', contract_version)
                 yield sse_event('error', {'message': str(exc), 'code': 'invalid_request'}, contract_version)
             except AdvisorUpstreamError as exc:
                 logger.warning(
-                    'advisor_stream_upstream_error contract=%s path_id=%s error=%s',
+                    'advisor_stream_upstream_error contract=%s error=%s',
                     contract_version,
-                    path_id,
                     str(exc),
                 )
                 yield sse_event('error', {'message': str(exc), 'code': 'upstream_unavailable'}, contract_version)
             except Exception as exc:
-                logger.exception('advisor_stream_internal_error contract=%s path_id=%s', contract_version, path_id)
+                logger.exception('advisor_stream_internal_error contract=%s', contract_version)
                 yield sse_event('error', {'message': str(exc), 'code': 'internal_error'}, contract_version)
 
         response = StreamingHttpResponse(stream(), content_type='text/event-stream')
@@ -247,8 +140,6 @@ class LearningPathListCreateView(APIView):
                 summary=payload['summary'],
                 estimated_weeks=payload['estimated_weeks'],
                 path_items=payload['path'],
-                messages=payload.get('messages') or [],
-                advisor_meta=payload.get('advisor_meta') or {},
             )
             return Response(LearningPathDetailSerializer(path).data, status=status.HTTP_201_CREATED)
         except ValidationError as exc:
@@ -285,26 +176,16 @@ class LearningPathRecalculateView(APIView):
 
         try:
             path = get_learning_path_for_user(path_id, request.user)
-            existing_messages = []
-            if hasattr(path, 'conversation') and path.conversation:
-                existing_messages = path.conversation.messages or []
-            merged_messages = merge_advisor_messages(existing_messages, payload.get('messages') or [])
 
             result = advisor_chat(
                 goal_text=payload['goal_text'],
                 weekly_hours=payload.get('weekly_hours'),
-                messages=merged_messages,
+                messages=payload.get('messages') or [],
                 known_skills=payload.get('known_skills') or [],
             )
             if result.get('type') != 'path':
-                question_message = result.get('message') or ''
-                updated_messages = merge_advisor_messages(
-                    merged_messages,
-                    [{'role': 'assistant', 'content': question_message}] if question_message else [],
-                )
-                upsert_path_conversation(path, updated_messages, result.get('advisor_meta') or {})
                 return advisor_response(wrap_http_success(contract_version, result), status.HTTP_200_OK, contract_version)
-            updated_path = update_learning_path_from_advisor(path, result, merged_messages)
+            updated_path = update_learning_path_from_advisor(path, result)
             return advisor_response(
                 wrap_http_success(contract_version, LearningPathDetailSerializer(updated_path).data),
                 status.HTTP_200_OK,
@@ -328,5 +209,3 @@ class LearningPathRecalculateView(APIView):
                 status.HTTP_400_BAD_REQUEST,
                 contract_version,
             )
-
-

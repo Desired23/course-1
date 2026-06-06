@@ -1085,7 +1085,11 @@ settings_data = [
     ("email", "smtp_host", "smtp.gmail.com", "SMTP Host"),
     ("email", "smtp_port", "587", "SMTP Port"),
     ("course", "max_upload_size", "524288000", "Dung lượng upload tối đa (bytes)"),
-    ("course", "auto_approve", "false", "Tự động duyệt khóa học"),
+    ("course", "auto_approve", "true", "Tự động duyệt khóa học"),
+    ("instructor", "auto_approve_instructor_application", "true", "Tự động duyệt đơn ứng tuyển instructor"),
+    ("course", "auto_approve_review", "true", "Tự động duyệt đánh giá"),
+    ("payment", "auto_approve_payout", "true", "Tự động duyệt yêu cầu rút tiền"),
+    ("payment", "auto_approve_refund", "true", "Tự động xử lý hoàn tiền (không cần admin duyệt)"),
 ]
 for group, key, val, desc in settings_data:
     SystemsSetting.objects.update_or_create(

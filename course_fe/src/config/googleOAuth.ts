@@ -10,9 +10,7 @@ export const GOOGLE_OAUTH_CONFIG = {
     '769246063466-q50orj7aqn9rshcdaiu2m03d1lc8fq46.apps.googleusercontent.com',
 
 
-  redirectUri: window.location.hostname === 'localhost'
-    ? 'http://localhost:5173/auth/google/callback'
-    : `${window.location.origin}/auth/google/callback`,
+  redirectUri: `${window.location.origin}/auth/google/callback`,
 
 
   scope: [

@@ -116,7 +116,7 @@ def moderate_question(question_id, action, reason=''):
         question.report_count = 0
     elif action == 'dismiss':
         question.report_count = 0
-    elif action == 'close':
+    elif action in ('hide', 'close'):
         question.status = 'closed'
         question.report_count = 0
     elif action == 'delete':
@@ -124,7 +124,7 @@ def moderate_question(question_id, action, reason=''):
         question.deleted_at = timezone.now()
         question.report_count = 0
     else:
-        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, close, delete'})
+        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
 
     if reason:
         question.last_report_reason = reason.strip()
@@ -136,9 +136,7 @@ def accept_answer(question_id, answer_id, actor):
     try:
         from answers.models import Answer
         question = Question.objects.get(id=question_id, is_deleted=False)
-        # Unset any previously accepted answer for this question
         Answer.objects.filter(question=question, is_accepted=True).update(is_accepted=False)
-        # Set the new accepted answer
         answer = Answer.objects.get(id=answer_id, question=question, is_deleted=False)
         answer.is_accepted = True
         answer.save(update_fields=['is_accepted'])

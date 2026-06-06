@@ -18,6 +18,7 @@ import {
 } from "../../services/subscription.api"
 import { useTranslation } from "react-i18next"
 import { motion } from "motion/react"
+import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -80,6 +81,11 @@ export function UserSubscriptionsPage() {
       setLoading(false)
     }
   }
+
+  useNotificationRefetch(
+    ['subscription_cancelled', 'subscription_expired', 'subscription_renewed'],
+    () => { fetchSubscriptions() },
+  )
 
   useEffect(() => {
     fetchSubscriptions()

@@ -67,23 +67,23 @@ export function AdminWebsiteSettingsPage() {
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const [pendingUploadTarget, setPendingUploadTarget] = useState<string | null>(null)
   const [uploadingField, setUploadingField] = useState<string | null>(null)
-  const [siteName, setSiteName] = useState('Udemy Clone')
+  const [siteName, setSiteName] = useState('UTC')
   const [siteDescription, setSiteDescription] = useState('Learn anything, anytime, anywhere')
   const [siteLogo, setSiteLogo] = useState('/logo.png')
   const [favicon, setFavicon] = useState('/favicon.ico')
   const [primaryColor, setPrimaryColor] = useState('#A435F0')
   const [secondaryColor, setSecondaryColor] = useState('#5624D0')
 
-  const [contactEmail, setContactEmail] = useState('support@udemy.com')
+  const [contactEmail, setContactEmail] = useState('support@utc.com')
   const [contactPhone, setContactPhone] = useState('+84 123 456 789')
   const [contactAddress, setContactAddress] = useState('123 Learning Street, Education City')
 
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({
-    facebook: 'https://facebook.com/udemy',
-    twitter: 'https://twitter.com/udemy',
-    instagram: 'https://instagram.com/udemy',
-    youtube: 'https://youtube.com/udemy',
-    linkedin: 'https://linkedin.com/company/udemy'
+    facebook: 'https://facebook.com/utc',
+    twitter: 'https://twitter.com/utc',
+    instagram: 'https://instagram.com/utc',
+    youtube: 'https://youtube.com/utc',
+    linkedin: 'https://linkedin.com/company/utc'
   })
 
   const [banners, setBanners] = useState<BannerConfig[]>([])

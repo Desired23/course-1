@@ -20,12 +20,13 @@ import {
   Play,
   Save,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from 'lucide-react'
 import { EnhancedCodeQuizData } from './EnhancedCodeQuizCreator'
 import Editor from '@monaco-editor/react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { SUPPORTED_LANGUAGES, runTestCases, wrapUserCode, shouldWrapUserCode, type TestResult } from '../utils/judge0'
+import { SUPPORTED_LANGUAGES, runTestCases, wrapUserCode, generateStarterCode, type TestResult } from '../utils/judge0'
 import { useQuizStore } from '../stores/quiz.store'
 import { getQuizResultByEnrollmentAndLesson, upsertQuizResultDraft } from '../services/quiz-results.api'
 import { toast } from 'sonner'
@@ -87,9 +88,10 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
         }
       } else {
 
+        const langValue = SUPPORTED_LANGUAGES.find(l => l.id === selectedLanguage)?.value || 'javascript'
         const starterCode = quiz.starterCode?.[selectedLanguage] ||
                            quiz.functionSignature?.[selectedLanguage] ||
-                           getDefaultStarterCode(selectedLanguage)
+                           generateStarterCode(quiz.executionMode, langValue, quiz.functionName)
         setCode(starterCode)
       }
     }
@@ -175,25 +177,6 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
     return () => clearTimeout(timer)
   }, [code, selectedLanguage, quiz.id, lessonId, enrollmentId, isSubmitted])
-
-
-  const getDefaultStarterCode = (languageId: number): string => {
-    const lang = SUPPORTED_LANGUAGES.find(l => l.id === languageId)
-    if (!lang) return ''
-
-    switch (lang.value) {
-      case 'javascript':
-        return `${t('enhanced_code_quiz_player.starter_comment_js')}\nfunction solution() {\n  \n}\n`
-      case 'python':
-        return `${t('enhanced_code_quiz_player.starter_comment_py')}\ndef solution():\n    pass\n`
-      case 'java':
-        return `${t('enhanced_code_quiz_player.starter_comment_js')}\npublic class Solution {\n    public void solution() {\n        \n    }\n}\n`
-      case 'cpp':
-        return `${t('enhanced_code_quiz_player.starter_comment_js')}\n#include <iostream>\nusing namespace std;\n\nvoid solution() {\n    \n}\n`
-      default:
-        return `${t('enhanced_code_quiz_player.starter_comment_js')}\n`
-    }
-  }
 
 
   const handleRun = async () => {
@@ -301,7 +284,7 @@ export function EnhancedCodeQuizPlayer({ quiz, lessonId, enrollmentId, onComplet
 
   const getExecutableCode = (): string => {
     const langValue = SUPPORTED_LANGUAGES.find(l => l.id === selectedLanguage)?.value || 'javascript'
-    return shouldWrapUserCode(code, langValue) ? wrapUserCode(code, langValue, '', quiz.functionName || undefined) : code
+    return quiz.executionMode === 'function' ? wrapUserCode(code, langValue, '', quiz.functionName || undefined) : code
   }
 
   return (

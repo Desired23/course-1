@@ -50,7 +50,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'price', 'discount_price',
             'duration_type', 'duration_days', 'status',
             'is_featured', 'max_subscribers', 'instructor_share_percent',
-            'yearly_discount_percent',
+            'yearly_discount_percent', 'yearly_price',
             'thumbnail', 'features', 'not_included', 'badge_text',
             'icon', 'highlight_color',
             'created_by', 'created_by_admin_id', 'created_at', 'updated_at',
@@ -81,7 +81,7 @@ class SubscriptionPlanListSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'price', 'discount_price',
             'duration_type', 'duration_days', 'status',
             'is_featured', 'thumbnail', 'features', 'not_included',
-            'yearly_discount_percent',
+            'yearly_discount_percent', 'yearly_price',
             'badge_text', 'icon', 'highlight_color',
             'effective_price', 'course_count',
         ]

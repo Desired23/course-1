@@ -52,6 +52,20 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
     except Exception as e:
         raise ValidationError(f"Error creating notification: {str(e)}")
 
+def notify_role_updated(user_id):
+    if not user_id:
+        return
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f"user_{user_id}",
+            {
+                "type": "send_role_updated",
+                "data": {"user_id": int(user_id)},
+            },
+        )
+
+
 def notify_admins(title, message, type, notification_code, related_id=None, sender_id=None):
     admin_ids = User.objects.filter(
         admin__isnull=False, admin__is_deleted=False, is_deleted=False, status='active'

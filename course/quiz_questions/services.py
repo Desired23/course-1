@@ -157,13 +157,6 @@ def get_lesson_quiz(lesson_id):
         raise ValidationError({"error": str(e)})
 
 
-# Judge0 language IDs the code runner can execute / auto-wrap for function mode
-# (JavaScript=63, Python=71, TypeScript=74). Other languages the frontend lists
-# (Java, C++, ...) cannot be wrapped, so they are filtered out here.
-_SUPPORTED_LANGUAGE_IDS = [63, 71, 74]
-_DEFAULT_LANGUAGE_ID = 63  # JavaScript
-
-
 def _get_code_lesson_quiz(lesson):
     import json
     try:
@@ -174,19 +167,16 @@ def _get_code_lesson_quiz(lesson):
     problem = code_data.get('problemStatement') or {}
     learning = code_data.get('learningObjectives') or {}
     starter_code = code_data.get('starterCode') or {}
+    allowed_langs = code_data.get('allowedLanguages') or []
 
-    raw_languages = code_data.get('allowedLanguages') or []
-    allowed_langs = [lang for lang in raw_languages if lang in _SUPPORTED_LANGUAGE_IDS]
-    if not allowed_langs:
-        allowed_langs = [_DEFAULT_LANGUAGE_ID]
+    # Code lessons only support JavaScript (63), Python (71), TypeScript (74).
+    CODE_LESSON_LANGUAGES = {63, 71, 74}
+    allowed_langs = [lang for lang in allowed_langs if lang in CODE_LESSON_LANGUAGES] or [63]
 
     function_name = code_data.get('functionName')
-    execution_mode = code_data.get('executionMode')
-    if not execution_mode:
-        execution_mode = 'function' if function_name else 'stdin'
-    if execution_mode == 'function' and not function_name:
-        raise ValidationError({"error": "functionName is required for function execution mode."})
-
+    execution_mode = code_data.get('executionMode') or ('function' if function_name else 'stdin')
+    if execution_mode == 'function' and not (function_name and str(function_name).strip()):
+        raise ValidationError({"error": "Function mode requires a functionName."})
     hints_raw = code_data.get('hints') or []
     hints = [h.get('content', '') for h in hints_raw if isinstance(h, dict) and h.get('content')]
 

@@ -164,3 +164,42 @@ def report_blog_post(blog_post_id, reason=''):
         return {"message": "Report submitted successfully"}
     except BlogPost.DoesNotExist:
         raise ValidationError({"error": "Blog post not found"})
+
+
+def moderate_blog_post(blog_post_id, action, reason=''):
+    from django.utils import timezone
+    from rest_framework.exceptions import NotFound
+    try:
+        blog_post = BlogPost.objects.get(id=blog_post_id, is_deleted=False)
+    except BlogPost.DoesNotExist:
+        raise NotFound("Blog post not found.")
+
+    action = (action or '').strip().lower()
+    if action == 'approve':
+        blog_post.status = BlogPost.StatusChoices.PUBLISHED
+    elif action == 'dismiss':
+        pass
+    elif action == 'hide':
+        blog_post.status = BlogPost.StatusChoices.ARCHIVED
+    elif action == 'delete':
+        blog_post.is_deleted = True
+        blog_post.deleted_at = timezone.now()
+        blog_post.deleted_by = None
+    else:
+        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
+
+    blog_post.save()
+    try:
+        if action in ('hide', 'delete') and blog_post.author_id:
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=blog_post.author_id,
+                title="Bài viết của bạn đã bị xử lý",
+                message=f"Bài viết \"{blog_post.title}\" đã bị {'ẩn' if action == 'hide' else 'xóa'} do vi phạm chính sách.",
+                type='other',
+                related_id=blog_post.id,
+                notification_code='blog_post_moderated',
+            )
+    except Exception:
+        pass
+    return blog_post

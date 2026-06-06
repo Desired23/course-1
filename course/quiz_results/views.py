@@ -90,10 +90,6 @@ class UserQuizHistoryView(APIView):
 
     def get(self, request, user_id):
         try:
-
-
-
-
             history = get_user_quiz_history(user_id)
             return Response(history, status=status.HTTP_200_OK)
         except ValidationError as e:

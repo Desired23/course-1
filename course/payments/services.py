@@ -157,10 +157,14 @@ def create_payment(payment_data):
 
                 base_monthly_price = Decimal(plan.discount_price if plan.discount_price else plan.price)
                 if billing_cycle == "yearly":
-                    yearly_discount_percent = Decimal(plan.yearly_discount_percent or Decimal("0.00"))
                     total_original = base_monthly_price * Decimal("12")
-                    total_discount = (total_original * yearly_discount_percent / Decimal("100")).quantize(Decimal("0.00"))
-                    total_amount = total_original - total_discount
+                    if plan.yearly_price and Decimal(plan.yearly_price) > 0:
+                        total_amount = Decimal(plan.yearly_price)
+                        total_discount = (total_original - total_amount).quantize(Decimal("0.00"))
+                    else:
+                        yearly_discount_percent = Decimal(plan.yearly_discount_percent or Decimal("0.00"))
+                        total_discount = (total_original * yearly_discount_percent / Decimal("100")).quantize(Decimal("0.00"))
+                        total_amount = total_original - total_discount
                 else:
                     total_original = base_monthly_price
                     total_discount = Decimal("0.00")

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -33,8 +33,6 @@ import {
 } from 'lucide-react'
 import { uploadFiles } from '../services/upload.api'
 import './blog-editor.css'
-
-// ── Resizable image node view ──────────────────────────────────────────────
 
 function ResizableImageView({
   node,
@@ -106,8 +104,6 @@ const ResizableImage = Image.extend({
   },
 })
 
-// ──────────────────────────────────────────────────────────────────────────
-
 interface BlogRichEditorProps {
   content: string
   onChange: (html: string) => void
@@ -166,6 +162,15 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
   })
 
+  useEffect(() => {
+    if (!editor) return
+
+    const nextContent = content || ''
+    if (nextContent !== editor.getHTML()) {
+      editor.commands.setContent(nextContent, { emitUpdate: false })
+    }
+  }, [content, editor])
+
   if (!editor) return null
 
   const wordCount = editor.storage.characterCount.words() as number
@@ -178,7 +183,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
       const [uploaded] = await uploadFiles([file], { folder: 'blog', resource_type: 'image' })
       editor.chain().focus().setImage({ src: uploaded.url }).run()
     } catch {
-      /* upload errors are non-fatal — the image simply won't insert */
     }
   }
 
@@ -195,9 +199,7 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
   return (
     <div className="overflow-hidden rounded-lg border">
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 border-b bg-muted/30 p-2">
-        {/* History */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
@@ -215,7 +217,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        {/* Headings */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
           isActive={editor.isActive('heading', { level: 1 })}
@@ -240,7 +241,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        {/* Inline formatting */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive('bold')}
@@ -272,7 +272,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        {/* Lists */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           isActive={editor.isActive('bulletList')}
@@ -290,7 +289,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        {/* Block elements */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
           isActive={editor.isActive('blockquote')}
@@ -314,7 +312,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        {/* Alignment */}
         <ToolbarBtn
           onClick={() => editor.chain().focus().setTextAlign('left').run()}
           isActive={editor.isActive({ textAlign: 'left' })}
@@ -339,7 +336,6 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
 
         <Separator orientation="vertical" className="mx-1 h-5" />
 
-        {/* Media & links */}
         <ToolbarBtn
           onClick={handleSetLink}
           isActive={editor.isActive('link')}
@@ -366,14 +362,12 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
         />
       </div>
 
-      {/* Editor area */}
       <EditorContent
         editor={editor}
         className="blog-editor-content"
         style={{ minHeight }}
       />
 
-      {/* Footer */}
       <div className="flex items-center justify-between border-t bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
         <span>{wordCount.toLocaleString()} từ · {charCount.toLocaleString()} ký tự</span>
         <span>Đọc khoảng {readingTime} phút</span>

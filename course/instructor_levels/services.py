@@ -48,14 +48,12 @@ def check_and_upgrade_instructor_levels():
     from instructors.models import Instructor
     from subscription_plans.models import SubscriptionUsage
 
-
     levels = list(
         InstructorLevel.objects.filter(is_deleted=False, min_plan_minutes__gt=0)
         .order_by('-min_plan_minutes')
     )
     if not levels:
         return {"upgraded": [], "detail": "Không có level nào có ngưỡng min_plan_minutes > 0."}
-
 
     usage_agg = (
         SubscriptionUsage.objects
@@ -76,7 +74,6 @@ def check_and_upgrade_instructor_levels():
             except Instructor.DoesNotExist:
                 continue
 
-
             target_level = None
             for lvl in levels:
                 if total_minutes >= lvl.min_plan_minutes:
@@ -85,7 +82,6 @@ def check_and_upgrade_instructor_levels():
 
             if target_level is None:
                 continue
-
 
             current_min = instructor.level.min_plan_minutes if instructor.level else -1
             if target_level.min_plan_minutes > current_min:

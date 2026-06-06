@@ -154,17 +154,17 @@ export function AuthModal() {
                 <span className="bg-background px-2 text-muted-foreground">{t('auth.or', 'Hoặc')}</span>
               </div>
             </div>
-            <GoogleLoginButton
-              useCustomButton
-              buttonText={t('auth.google', 'Đăng nhập với Google')}
-              onSuccess={() => {
-                resetForms()
-                close()
-                data?.onSuccess?.()
-              }}
-              onError={(error) => toast.error(getErrorMessage(error, 'Đăng nhập Google thất bại.'))}
-              redirectTo={typeof window !== 'undefined' ? window.location.pathname : '/'}
-            />
+            {isOpen && activeTab === 'login' && (
+              <GoogleLoginButton
+                onSuccess={() => {
+                  resetForms()
+                  close()
+                  data?.onSuccess?.()
+                }}
+                onError={(error) => toast.error(getErrorMessage(error, 'Đăng nhập Google thất bại.'))}
+                redirectTo={typeof window !== 'undefined' ? window.location.pathname : '/'}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="signup">

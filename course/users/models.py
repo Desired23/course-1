@@ -64,7 +64,7 @@ class User(models.Model):
         return self.UserTypeChoices.STUDENT
 
     def __str__(self):
-        return f"{self.username} ({self.user_type} - User_id = {self.id})"
+        return f"{self.username} (User_id = {self.id})"
 
 
 

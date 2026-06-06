@@ -170,12 +170,12 @@ export function WebsiteManagementPage() {
 
   const defaultConfig: WebsiteConfig = {
     general: {
-      siteName: 'UdemyClone',
+      siteName: 'UTC',
       tagline: 'Learn Without Limits',
       description: t('website_management.default_site_description'),
       logo: '',
       favicon: '',
-      metaKeywords: 'online learning, courses, education, skills, udemy'
+      metaKeywords: 'online learning, courses, education, skills'
     },
     contact: {
       email: '',

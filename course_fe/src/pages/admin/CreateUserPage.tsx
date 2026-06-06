@@ -99,11 +99,7 @@ export function CreateUserPage() {
         full_name: formData.name,
         email: formData.email,
         password: formData.password,
-        user_type: formData.roles.includes("admin")
-          ? "admin"
-          : formData.roles.includes("instructor")
-            ? "instructor"
-            : "student",
+        roles: formData.roles.map(r => r === "user" ? "student" : r),
       })
       toast.success(t("admin_user_form.toasts.create_success"))
       navigate("/admin/users")

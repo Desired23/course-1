@@ -1,8 +1,7 @@
 import type { ComponentType } from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, Check, Crown, HelpCircle, Minus, Shield, Star, X, Zap } from 'lucide-react'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
+import { AlertCircle, ArrowRight, Check, Crown, HelpCircle, Loader2, RefreshCw, Shield, Star, X, Zap } from 'lucide-react'
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../components/ui/card"
@@ -29,18 +28,6 @@ interface DisplayPlan {
   saveText?: string | null
   highlightColor?: HighlightColor
   icon?: string
-}
-
-interface ComparisonRow {
-  name: string
-  basic: boolean | string
-  pro: boolean | string
-  premium: boolean | string
-}
-
-interface ComparisonSection {
-  category: string
-  rows: ComparisonRow[]
 }
 
 const sectionStagger = {
@@ -71,6 +58,9 @@ export function SubscriptionPricingPage() {
   const { user } = useAuth()
   const [isAnnual, setIsAnnual] = useState(true)
   const [apiPlans, setApiPlans] = useState<SubscriptionPlanListItem[]>([])
+  const [plansLoaded, setPlansLoaded] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -80,19 +70,24 @@ export function SubscriptionPricingPage() {
         const plans = await getSubscriptionPlans()
         if (!cancelled) {
           setApiPlans(Array.isArray(plans) ? plans : [])
+          setLoadError(false)
+          setPlansLoaded(true)
         }
       } catch {
         if (!cancelled) {
           setApiPlans([])
+          setLoadError(true)
+          setPlansLoaded(true)
         }
       }
     }
 
+    setPlansLoaded(false)
     loadPlans()
     return () => {
       cancelled = true
     }
-  }, [currentRoute])
+  }, [currentRoute, reloadKey])
 
   useEffect(() => {
 
@@ -109,89 +104,7 @@ export function SubscriptionPricingPage() {
 
   const formatCurrency = (amount: number) => `${new Intl.NumberFormat('vi-VN').format(amount)} VND`
 
-  const defaultPlans: DisplayPlan[] = [
-    {
-      id: 'basic',
-      name: t('subscription_pricing_page.plans.basic.name'),
-      description: t('subscription_pricing_page.plans.basic.description'),
-      price: 0,
-      period: t('subscription_pricing_page.forever'),
-      features: [
-        t('subscription_pricing_page.plans.basic.features.0'),
-        t('subscription_pricing_page.plans.basic.features.1'),
-        t('subscription_pricing_page.plans.basic.features.2'),
-        t('subscription_pricing_page.plans.basic.features.3'),
-      ],
-      notIncluded: [
-        t('subscription_pricing_page.plans.basic.not_included.0'),
-        t('subscription_pricing_page.plans.basic.not_included.1'),
-        t('subscription_pricing_page.plans.basic.not_included.2'),
-        t('subscription_pricing_page.plans.basic.not_included.3'),
-        t('subscription_pricing_page.plans.basic.not_included.4'),
-        t('subscription_pricing_page.plans.basic.not_included.5'),
-      ],
-      buttonText: user
-        ? t('subscription_pricing_page.plan_actions.current_plan')
-        : t('subscription_pricing_page.plan_actions.free_signup'),
-      buttonVariant: 'outline',
-      popular: false,
-      disabled: !!user,
-    },
-    {
-      id: 'pro',
-      name: t('subscription_pricing_page.plans.pro.name'),
-      description: t('subscription_pricing_page.plans.pro.description'),
-      price: isAnnual ? 199000 : 249000,
-      period: t('subscription_pricing_page.per_month'),
-      billingText: isAnnual
-        ? t('subscription_pricing_page.billing.annual', { amount: formatCurrency(2388000) })
-        : t('subscription_pricing_page.billing.monthly'),
-      features: [
-        t('subscription_pricing_page.plans.pro.features.0'),
-        t('subscription_pricing_page.plans.pro.features.1'),
-        t('subscription_pricing_page.plans.pro.features.2'),
-        t('subscription_pricing_page.plans.pro.features.3'),
-        t('subscription_pricing_page.plans.pro.features.4'),
-        t('subscription_pricing_page.plans.pro.features.5'),
-      ],
-      notIncluded: [
-        t('subscription_pricing_page.plans.pro.not_included.0'),
-        t('subscription_pricing_page.plans.pro.not_included.1'),
-      ],
-      buttonText: t('subscription_pricing_page.plan_actions.upgrade_pro'),
-      buttonVariant: 'default',
-      popular: true,
-      saveText: isAnnual ? t('subscription_pricing_page.savings', { percent: 20 }) : null,
-      highlightColor: 'blue',
-    },
-    {
-      id: 'premium',
-      name: t('subscription_pricing_page.plans.premium.name'),
-      description: t('subscription_pricing_page.plans.premium.description'),
-      price: isAnnual ? 499000 : 599000,
-      period: t('subscription_pricing_page.per_month'),
-      billingText: isAnnual
-        ? t('subscription_pricing_page.billing.annual', { amount: formatCurrency(5988000) })
-        : t('subscription_pricing_page.billing.monthly'),
-      features: [
-        t('subscription_pricing_page.plans.premium.features.0'),
-        t('subscription_pricing_page.plans.premium.features.1'),
-        t('subscription_pricing_page.plans.premium.features.2'),
-        t('subscription_pricing_page.plans.premium.features.3'),
-        t('subscription_pricing_page.plans.premium.features.4'),
-        t('subscription_pricing_page.plans.premium.features.5'),
-      ],
-      notIncluded: [],
-      buttonText: t('subscription_pricing_page.plan_actions.become_premium'),
-      buttonVariant: 'outline',
-      popular: false,
-      highlightColor: 'yellow',
-    },
-  ]
-
-  const plans: DisplayPlan[] =
-    apiPlans.length > 0
-      ? apiPlans.map((plan) => {
+  const plans: DisplayPlan[] = apiPlans.map((plan) => {
           const price = Number(plan.price)
           const discountPrice = plan.discount_price ? Number(plan.discount_price) : null
           const isFree = price === 0 && !discountPrice
@@ -233,102 +146,6 @@ export function SubscriptionPricingPage() {
             icon: plan.icon || undefined,
           }
         })
-      : defaultPlans
-
-  const comparisonData: ComparisonSection[] = [
-    {
-      category: t('subscription_pricing_page.comparison.content.category'),
-      rows: [
-        {
-          name: t('subscription_pricing_page.comparison.content.rows.course_access.name'),
-          basic: t('subscription_pricing_page.comparison.content.rows.course_access.basic'),
-          pro: t('subscription_pricing_page.comparison.content.rows.course_access.pro'),
-          premium: t('subscription_pricing_page.comparison.content.rows.course_access.premium'),
-        },
-        {
-          name: t('subscription_pricing_page.comparison.content.rows.video_quality.name'),
-          basic: t('subscription_pricing_page.comparison.content.rows.video_quality.basic'),
-          pro: t('subscription_pricing_page.comparison.content.rows.video_quality.pro'),
-          premium: t('subscription_pricing_page.comparison.content.rows.video_quality.premium'),
-        },
-        {
-          name: t('subscription_pricing_page.comparison.content.rows.downloads.name'),
-          basic: false,
-          pro: true,
-          premium: true,
-        },
-        {
-          name: t('subscription_pricing_page.comparison.content.rows.offline.name'),
-          basic: false,
-          pro: true,
-          premium: true,
-        },
-        {
-          name: t('subscription_pricing_page.comparison.content.rows.quizzes.name'),
-          basic: t('subscription_pricing_page.comparison.content.rows.quizzes.basic'),
-          pro: t('subscription_pricing_page.comparison.content.rows.quizzes.pro'),
-          premium: t('subscription_pricing_page.comparison.content.rows.quizzes.premium'),
-        },
-      ],
-    },
-    {
-      category: t('subscription_pricing_page.comparison.tools.category'),
-      rows: [
-        {
-          name: t('subscription_pricing_page.comparison.tools.rows.certificate.name'),
-          basic: false,
-          pro: true,
-          premium: true,
-        },
-        {
-          name: t('subscription_pricing_page.comparison.tools.rows.ai_assistant.name'),
-          basic: false,
-          pro: true,
-          premium: true,
-        },
-        {
-          name: t('subscription_pricing_page.comparison.tools.rows.notes.name'),
-          basic: true,
-          pro: true,
-          premium: true,
-        },
-        {
-          name: t('subscription_pricing_page.comparison.tools.rows.no_ads.name'),
-          basic: false,
-          pro: true,
-          premium: true,
-        },
-      ],
-    },
-    {
-      category: t('subscription_pricing_page.comparison.support.category'),
-      rows: [
-        {
-          name: t('subscription_pricing_page.comparison.support.rows.mentor.name'),
-          basic: false,
-          pro: false,
-          premium: t('subscription_pricing_page.comparison.support.rows.mentor.premium'),
-        },
-        {
-          name: t('subscription_pricing_page.comparison.support.rows.cv_review.name'),
-          basic: false,
-          pro: false,
-          premium: true,
-        },
-        {
-          name: t('subscription_pricing_page.comparison.support.rows.career_support.name'),
-          basic: false,
-          pro: false,
-          premium: t('subscription_pricing_page.comparison.support.rows.career_support.premium'),
-        },
-      ],
-    },
-  ]
-
-  const faqs = [0, 1, 2, 3].map((index) => ({
-    question: t(`subscription_pricing_page.faq.${index}.q`),
-    answer: t(`subscription_pricing_page.faq.${index}.a`),
-  }))
 
   const handleSubscribe = (planId: string) => {
     const plan = plans.find((item) => item.id === planId)
@@ -343,12 +160,6 @@ export function SubscriptionPricingPage() {
     }
 
     navigate(`/checkout/subscription?plan=${planId}&interval=${isAnnual ? 'year' : 'month'}`)
-  }
-
-  const renderCheck = (value: boolean | string) => {
-    if (typeof value === 'string') return <span className="text-sm font-medium">{value}</span>
-    if (value === true) return <Check className="mx-auto h-5 w-5 text-green-500" />
-    return <Minus className="mx-auto h-5 w-5 text-slate-300" />
   }
 
   const getPlanIcon = (plan: DisplayPlan) => {
@@ -452,6 +263,30 @@ export function SubscriptionPricingPage() {
       </div>
 
       <div className="container mx-auto relative z-20 mb-12 -mt-32 flex-1 px-4 pb-24">
+        {!plansLoaded ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-24 text-white">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-slate-300">{t('subscription_pricing_page.states.loading', 'Đang tải gói đăng ký...')}</p>
+          </div>
+        ) : loadError ? (
+          <div className="mx-auto flex max-w-md flex-col items-center justify-center gap-4 rounded-2xl border border-red-500/30 bg-slate-900/60 px-6 py-16 text-center backdrop-blur">
+            <AlertCircle className="h-10 w-10 text-red-400" />
+            <div>
+              <p className="text-lg font-semibold text-white">{t('subscription_pricing_page.states.error_title', 'Không tải được danh sách gói')}</p>
+              <p className="mt-1 text-sm text-slate-400">{t('subscription_pricing_page.states.error_description', 'Đã xảy ra lỗi khi tải gói đăng ký. Vui lòng thử lại.')}</p>
+            </div>
+            <Button onClick={() => setReloadKey((k) => k + 1)} className="bg-blue-600 text-white hover:bg-blue-700">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {t('subscription_pricing_page.states.retry', 'Thử lại')}
+            </Button>
+          </div>
+        ) : plans.length === 0 ? (
+          <div className="mx-auto flex max-w-md flex-col items-center justify-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-900/60 px-6 py-16 text-center backdrop-blur">
+            <AlertCircle className="h-10 w-10 text-slate-400" />
+            <p className="text-lg font-semibold text-white">{t('subscription_pricing_page.states.empty_title', 'Chưa có gói đăng ký')}</p>
+            <p className="text-sm text-slate-400">{t('subscription_pricing_page.states.empty_description', 'Hiện chưa có gói đăng ký nào khả dụng.')}</p>
+          </div>
+        ) : (
         <motion.div
           className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-8 md:grid-cols-3"
           variants={sectionStagger}
@@ -564,110 +399,11 @@ export function SubscriptionPricingPage() {
             </motion.div>
           ))}
         </motion.div>
-      </div>
-
-      <div className="container mx-auto max-w-6xl px-4 pb-24">
-        <motion.div className="mb-12 text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
-          <h2 className="mb-4 text-3xl font-bold">{t('subscription_pricing_page.comparison.title')}</h2>
-          <p className="text-muted-foreground">{t('subscription_pricing_page.comparison.description')}</p>
-        </motion.div>
-
-        <motion.div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm dark:border-slate-800" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.1 }}>
-          <table className="min-w-[760px] w-full border-collapse bg-white text-left dark:bg-slate-900">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
-                <th className="w-1/3 p-4 text-lg font-semibold md:p-6">
-                  {t('subscription_pricing_page.comparison.headers.feature')}
-                </th>
-                <th className="p-4 text-center font-semibold text-slate-600 dark:text-slate-400 md:p-6">
-                  {t('subscription_pricing_page.plans.basic.name')}
-                </th>
-                <th className="bg-blue-50/50 p-4 text-center font-bold text-blue-600 dark:bg-blue-900/10 dark:text-blue-400 md:p-6">
-                  {t('subscription_pricing_page.plans.pro.name')}
-                </th>
-                <th className="p-4 text-center font-bold text-yellow-600 dark:text-yellow-400 md:p-6">
-                  {t('subscription_pricing_page.plans.premium.name')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {comparisonData.flatMap((section, sectionIndex) => [
-                <tr key={`category-${sectionIndex}`} className="bg-slate-50/50 dark:bg-slate-900/50">
-                  <td
-                    colSpan={4}
-                    className="p-3 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:px-6"
-                  >
-                    {section.category}
-                  </td>
-                </tr>,
-                ...section.rows.map((row, rowIndex) => (
-                  <tr
-                    key={`row-${sectionIndex}-${rowIndex}`}
-                    className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30"
-                  >
-                    <td className="border-r border-dashed border-slate-100 p-4 font-medium text-slate-700 dark:border-slate-800 dark:text-slate-300 md:px-6">
-                      {row.name}
-                    </td>
-                    <td className="border-r border-dashed border-slate-100 p-4 text-center text-slate-500 dark:border-slate-800">
-                      {renderCheck(row.basic)}
-                    </td>
-                    <td className="border-r border-dashed border-blue-100 bg-blue-50/10 p-4 text-center font-medium dark:border-blue-900/30 dark:bg-blue-900/5">
-                      {renderCheck(row.pro)}
-                    </td>
-                    <td className="p-4 text-center font-medium">{renderCheck(row.premium)}</td>
-                  </tr>
-                )),
-              ])}
-            </tbody>
-          </table>
-        </motion.div>
-      </div>
-
-      <div className="border-y bg-slate-50 py-20 dark:border-slate-800 dark:bg-slate-900/50">
-        <div className="container mx-auto px-4 text-center">
-          <p className="mb-10 text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            {t('subscription_pricing_page.trust.title')}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-12 opacity-40 grayscale transition-all duration-700 hover:grayscale-0 md:gap-20">
-            <h3 className="text-2xl font-black tracking-tighter text-slate-800 dark:text-slate-200">
-              ACME<span className="text-blue-600">.corp</span>
-            </h3>
-            <h3 className="flex items-center gap-1 text-2xl font-bold tracking-tight text-slate-700 dark:text-slate-300">
-              <div className="h-6 w-6 rounded-md bg-slate-700 dark:bg-slate-300" />
-              StarkInd
-            </h3>
-            <h3 className="text-2xl italic font-light text-slate-800 dark:text-slate-200">
-              Wayne<span className="font-bold not-italic">Tech</span>
-            </h3>
-            <h3 className="text-2xl font-bold tracking-tighter text-slate-800 dark:text-slate-200">
-              Cyber<span className="text-green-500">Dyne</span>
-            </h3>
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="container mx-auto max-w-3xl px-4 py-24">
-        <motion.div className="mb-16 text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
-          <h2 className="mb-4 text-3xl font-bold md:text-4xl">{t('subscription_pricing_page.faq_title')}</h2>
-          <p className="mx-auto max-w-xl text-lg text-muted-foreground">
-            {t('subscription_pricing_page.faq_description')}
-          </p>
-        </motion.div>
-
-        <Accordion type="single" collapsible className="w-full space-y-4">
-          {faqs.map((faq, index) => (
-            <AccordionItem key={index} value={`item-${index}`} className="rounded-lg border bg-card px-4 shadow-sm">
-              <AccordionTrigger className="py-4 text-left font-medium transition-colors hover:text-blue-600">
-                {faq.question}
-              </AccordionTrigger>
-              <AccordionContent className="pb-4 leading-relaxed text-muted-foreground">
-                {faq.answer}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-
-        <motion.div className="mt-16 text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
+        <motion.div className="text-center" variants={fadeInUp} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
           <div className="inline-flex flex-col items-center justify-center rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-8 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:to-slate-800">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md dark:bg-slate-700">
               <HelpCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />

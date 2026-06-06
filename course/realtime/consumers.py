@@ -1,5 +1,3 @@
-
-
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
@@ -44,9 +42,14 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             "data": event["data"],
         })
 
+    async def send_role_updated(self, event):
+        await self.send_json({
+            "type": "role_updated",
+            "data": event["data"],
+        })
+
 
 class ChatConsumer(AsyncJsonWebsocketConsumer):
-
     async def connect(self):
         user = self.scope.get("user")
         if not user or not user.is_authenticated:
@@ -307,3 +310,99 @@ class LessonCommentConsumer(AsyncJsonWebsocketConsumer):
 
     async def send_comment(self, event):
         await self.send_json(event["data"])
+
+
+class QAConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+        self.question_id = self.scope["url_route"]["kwargs"]["question_id"]
+        self.group_name = f"question_{self.question_id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def send_qa_update(self, event):
+        await self.send_json(event["data"])
+
+
+class ProgressConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+        self.group_name = f"user_progress_{user.id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def send_progress_update(self, event):
+        await self.send_json(event["data"])
+
+
+class PaymentConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+        self.payment_id = self.scope["url_route"]["kwargs"]["payment_id"]
+        owns = await self.check_payment_ownership(self.payment_id, user.id)
+        if not owns:
+            await self.close()
+            return
+        self.group_name = f"payment_{self.payment_id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def send_payment_update(self, event):
+        await self.send_json(event["data"])
+
+    @database_sync_to_async
+    def check_payment_ownership(self, payment_id, user_id):
+        from payments.models import Payment
+        return Payment.objects.filter(id=payment_id, user_id=user_id, is_deleted=False).exists()
+
+
+class SupportConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+        self.ticket_id = self.scope["url_route"]["kwargs"]["ticket_id"]
+        can_access = await self.check_ticket_access(self.ticket_id, user)
+        if not can_access:
+            await self.close()
+            return
+        self.group_name = f"support_{self.ticket_id}"
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def send_support_reply(self, event):
+        await self.send_json(event["data"])
+
+    @database_sync_to_async
+    def check_ticket_access(self, ticket_id, user):
+        from supports.models import Support
+        from utils.roles import is_active_admin
+        if is_active_admin(user):
+            return Support.objects.filter(id=ticket_id).exists()
+        return Support.objects.filter(id=ticket_id, user=user).exists()

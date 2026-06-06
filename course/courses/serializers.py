@@ -200,6 +200,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     user_enrollment = serializers.SerializerMethodField()
     access_info = serializers.SerializerMethodField()
     duration_hours = serializers.SerializerMethodField()
+    total_resources = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -241,6 +242,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'user_enrollment',
             'access_info',
             'duration_hours',
+            'total_resources',
         ]
 
     def get_modules(self, obj):
@@ -265,19 +267,26 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             return None
         return round(obj.duration / 60, 2)
 
+    def get_total_resources(self, obj):
+        from lesson_attachments.models import LessonAttachment
+        return LessonAttachment.objects.filter(
+            lesson__coursemodule__course=obj,
+            is_deleted=False,
+            lesson__is_deleted=False,
+            lesson__coursemodule__is_deleted=False,
+        ).count()
+
     def get_access_info(self, obj):
         user = self.context.get('user')
         if not user:
 
-            from subscription_plans.models import PlanCourse
-            in_sub = PlanCourse.objects.filter(
-                course=obj, status='active', is_deleted=False,
-                plan__status='active', plan__is_deleted=False,
-            ).exists()
+            from utils.course_access import get_relevant_subscription_plan
+            plan = get_relevant_subscription_plan(None, obj)
             return {
                 "has_access": False,
                 "access_type": None,
-                "in_subscription": in_sub,
+                "in_subscription": plan is not None,
+                "subscription_plan": plan,
             }
         try:
             from utils.course_access import get_course_access_info

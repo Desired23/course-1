@@ -25,7 +25,6 @@ def generate_instructor_earnings_from_payment(payment_id):
                 if not instructor:
                     continue
 
-
                 if not instructor or not instructor.level:
                     commission_rate = Decimal("30.00")
                 else:
@@ -35,7 +34,6 @@ def generate_instructor_earnings_from_payment(payment_id):
                 net_amount = amount * (Decimal(100) - commission_rate) / Decimal(100)
 
                 try:
-
                     earning, created = InstructorEarning.objects.get_or_create(
                         payment=payment,
                         course=detail.course,
@@ -50,11 +48,9 @@ def generate_instructor_earnings_from_payment(payment_id):
 
                     results.append(InstructorEarningSerializer(earning).data)
                 except Exception as ie:
-
                     try:
                         from django.db import IntegrityError
                         if isinstance(ie, IntegrityError):
-
                             existing = InstructorEarning.objects.filter(payment=payment, course=detail.course, instructor=instructor).first()
                             if existing:
                                 results.append(InstructorEarningSerializer(existing).data)
@@ -82,7 +78,6 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None, source=
 
         if status:
             earnings = earnings.filter(status=status)
-
 
         if source == 'retail':
             earnings = earnings.filter(payment__isnull=False, user_subscription__isnull=True)
@@ -134,8 +129,6 @@ def update_instructor_earning_status(earning_id, new_status):
     except Exception as e:
         raise ValidationError(f"Lỗi khi cập nhật trạng thái earnings: {str(e)}")
 def update_instructor_earning_with_payout(payout_id):
-
-
     try:
         with transaction.atomic():
             payout = InstructorPayout.objects.prefetch_related(
@@ -174,7 +167,6 @@ def update_earnings_available():
             refund_days = settings.REFUND_DAYS
             refund_time = timezone.now() - timedelta(days=refund_days)
 
-
             retail_earnings = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.PENDING,
                 payment__isnull=False,
@@ -212,7 +204,6 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
     from subscription_plans.models import UserSubscription, SubscriptionUsage
     from instructors.models import Instructor
 
-
     first_day = timezone.datetime(year, month, 1, tzinfo=timezone.utc)
     last_day = timezone.datetime(
         year, month, calendar.monthrange(year, month)[1],
@@ -232,7 +223,6 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
         for sub in subscriptions:
             plan_revenue = sub.plan.effective_price
 
-
             total_minutes_row = SubscriptionUsage.objects.filter(
                 user_subscription=sub
             ).aggregate(total=Sum('consumed_minutes'))
@@ -240,7 +230,6 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
 
             if total_minutes == 0:
                 continue
-
 
             instructor_usage = (
                 SubscriptionUsage.objects
@@ -260,17 +249,14 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
                 except Instructor.DoesNotExist:
                     continue
 
-
                 if instructor.level and instructor.level.plan_commission_rate is not None:
                     commission_rate = instructor.level.plan_commission_rate
                 else:
                     commission_rate = Decimal('30.00')
 
-
                 share_ratio = Decimal(str(instructor_minutes)) / Decimal(str(total_minutes))
                 instructor_pool = plan_revenue * (Decimal('100') - commission_rate) / Decimal('100')
                 net_amount = (instructor_pool * share_ratio).quantize(Decimal('0.01'))
-
 
                 earning, created = InstructorEarning.objects.get_or_create(
                     user_subscription=sub,

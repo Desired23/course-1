@@ -81,10 +81,17 @@ export function SubscriptionCheckoutPage() {
     getSubscriptionPlans()
       .then((plans) => {
         const match = plans.find((plan) => String(plan.id) === p)
-        if (match) setApiPlan(match)
-        else if (p) toast.error('Không tìm thấy gói đăng ký.')
+        if (match) {
+          setApiPlan(match)
+        } else {
+          toast.error(t('subscription_checkout_page.plan_not_found'))
+          navigate('/pricing')
+        }
       })
-      .catch((e) => toast.error(getErrorMessage(e, 'Không thể tải thông tin gói đăng ký.')))
+      .catch((e) => {
+        toast.error(getErrorMessage(e, t('subscription_checkout_page.load_plan_failed')))
+        navigate('/pricing')
+      })
   }, [])
 
   const paymentMethods = [
@@ -150,9 +157,12 @@ export function SubscriptionCheckoutPage() {
       const monthlyPrice = isAnnualPlan
         ? Math.round(effectivePrice / (apiPlan.duration_type === 'semi_annual' ? 6 : apiPlan.duration_type === 'quarterly' ? 3 : 12))
         : effectivePrice
+      const explicitYearlyPrice = Number(apiPlan.yearly_price || 0)
       const annualPrice = isAnnualPlan
         ? effectivePrice
-        : Math.round(effectivePrice * 12 * (1 - yearlyDiscountPercent / 100))
+        : explicitYearlyPrice > 0
+          ? explicitYearlyPrice
+          : Math.round(effectivePrice * 12 * (1 - yearlyDiscountPercent / 100))
       const colors = colorMap[apiPlan.highlight_color || ""] || colorMap.blue
       const IconComp = apiPlan.icon ? iconMap[apiPlan.icon] : Zap
       return {

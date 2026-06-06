@@ -52,8 +52,8 @@ class Userserializers(serializers.ModelSerializer):
             'created_at',
             'last_login',
             'status',
-            'user_type',
             'roles',
+            'user_type',
             'enrollment_count',
             'courses_count',
         ]
@@ -80,7 +80,7 @@ class UserUpdateBySelfSerializer(serializers.ModelSerializer):
             'created_at',
             'last_login',
             'status',
-            'user_type'
+            'user_type',
         ]
         extra_kwargs = {
             'password_hash': {'write_only': True},

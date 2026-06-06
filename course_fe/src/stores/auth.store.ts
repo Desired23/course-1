@@ -174,6 +174,9 @@ function getAuthErrorMessage(err: any, fallback: string): string {
 
 
 
+// Cờ chống chạy chồng fetchProfile (vd nhiều request 403 đồng thời).
+let _fetchProfileInFlight = false
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -192,7 +195,7 @@ export const useAuthStore = create<AuthState>()(
           setTokens(res.access_token, res.refresh_token)
 
 
-          const roles = mapUserTypes(res.user.user_type)
+          const roles = mapUserTypes(res.user.roles)
           const permissions = derivePermissions(roles)
 
           const user: User = {
@@ -234,7 +237,7 @@ export const useAuthStore = create<AuthState>()(
 
           setTokens(res.access_token, res.refresh_token)
 
-          const roles = mapUserTypes(res.user.user_type)
+          const roles = mapUserTypes(res.user.roles)
           const permissions = derivePermissions(roles)
 
           const user: User = {
@@ -307,10 +310,11 @@ export const useAuthStore = create<AuthState>()(
       fetchProfile: async () => {
         const user = get().user
         if (!user) return
+        // Chống lặp/spam: nhiều 403 đồng thời chỉ chạy 1 lần re-sync.
+        if (_fetchProfileInFlight) return
+        _fetchProfileInFlight = true
         try {
-          console.log('auth.store: fetchProfile starting for', user.id)
           const profile = await getUserById(Number(user.id))
-          console.log('auth.store: fetchProfile result', profile)
           // Re-sync roles from the server (the backend is the source of truth);
           // this lets admin role changes take effect on the next load without
           // forcing the user to log in again.
@@ -335,6 +339,8 @@ export const useAuthStore = create<AuthState>()(
         } catch (err) {
           console.error('auth.store: fetchProfile failed', err)
 
+        } finally {
+          _fetchProfileInFlight = false
         }
       },
 

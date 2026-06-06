@@ -26,6 +26,7 @@ import { Calendar, CheckCircle2, CreditCard, ExternalLink, Info, PackageOpen, Re
 import { ScrollArea } from "../../components/ui/scroll-area"
 import { toast } from "sonner"
 import { listItemTransition } from '../../lib/motion'
+import { useNotificationRefetch } from '../../hooks/useNotificationRefetch'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -304,6 +305,11 @@ export function TransactionHistoryPage() {
     setRefundsTotalPages(refundsRes.total_pages || 1)
     setRefundsCount(refundsRes.count || 0)
   }
+
+  useNotificationRefetch(
+    ['refund_processed', 'refund_failed', 'refund_rejected', 'payment_completed', 'payment_failed'],
+    () => { loadCurrentData().catch(() => {}) },
+  )
 
   const submitRefundRequest = async () => {
     if (!refundDialogData) return

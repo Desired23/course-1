@@ -106,9 +106,9 @@ function mapStatusToApi(status: string): 'active' | 'inactive' | 'banned' | unde
 
 function mapApiUser(u: UserItem): User {
   const roles: ('user' | 'instructor' | 'admin')[] = []
-  const ut = (u.user_type || '').toLowerCase()
-  if (ut === 'admin') roles.push('admin')
-  else if (ut === 'instructor') roles.push('instructor')
+  const userRoles = u.roles || []
+  if (userRoles.includes('admin')) roles.push('admin')
+  else if (userRoles.includes('instructor')) roles.push('instructor')
   else roles.push('user')
 
   return {
@@ -198,7 +198,7 @@ export function AdminUsersPage() {
     page_size: PAGE_SIZE,
     search: debouncedSearch || undefined,
     status: mapStatusToApi(selectedStatus),
-    user_type: mapRoleToApi(selectedRole),
+    role: mapRoleToApi(selectedRole),
   }), [currentPage, debouncedSearch, selectedStatus, selectedRole])
 
   async function loadCounts() {
@@ -207,8 +207,8 @@ export function AdminUsersPage() {
         getUsers({ page: 1, page_size: 1 }),
         getUsers({ page: 1, page_size: 1, status: 'active' }),
         getUsers({ page: 1, page_size: 1, status: 'banned' }),
-        getUsers({ page: 1, page_size: 1, user_type: 'instructor' }),
-        getUsers({ page: 1, page_size: 1, user_type: 'admin' }),
+        getUsers({ page: 1, page_size: 1, role: 'instructor' }),
+        getUsers({ page: 1, page_size: 1, role: 'admin' }),
       ])
       setCounts({
         total: allRes.count || 0,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
@@ -43,6 +44,7 @@ export function TranscriptVideoPlayer({
   seekToleranceSeconds = 2,
   externalSeekRequest = null,
 }: TranscriptVideoPlayerProps) {
+  const { t } = useTranslation()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const completionTriggeredRef = useRef(false)
   const maxWatchedTimeRef = useRef(0)
@@ -111,7 +113,7 @@ export function TranscriptVideoPlayer({
     element.currentTime = maxWatchedTimeRef.current
     const now = Date.now()
     if (now - lastBlockedToastAtRef.current > 3000) {
-      toast.warning('You can only seek within the watched portion of this lesson.')
+      toast.warning(t('video_player.seek_within_watched'))
       lastBlockedToastAtRef.current = now
     }
   }

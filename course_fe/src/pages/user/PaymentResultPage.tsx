@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Loader2, XCircle } from "lucide-react"
 import { Button } from "../../components/ui/button"
@@ -8,6 +8,7 @@ import { formatCurrency, getPaymentStatus, Payment } from "../../services/paymen
 import { motion } from "motion/react"
 import { useCart } from "../../contexts/CartContext"
 import { useAuth } from "../../contexts/AuthContext"
+import { useWebSocket } from "../../hooks/useWebSocket"
 
 type PaymentPageStatus = "success" | "failed" | "error" | "loading"
 
@@ -60,6 +61,20 @@ export function PaymentResultPage() {
   const [responseCode, setResponseCode] = useState<string | null>(null)
   const [paymentData, setPaymentData] = useState<Payment | null>(null)
   const [requiresAuthForDetails, setRequiresAuthForDetails] = useState(false)
+
+  useWebSocket({
+    path: `/ws/payment/${paymentId ?? 0}/`,
+    enabled: !!paymentId && status === 'loading',
+    onMessage: useCallback((data: any) => {
+      if (data?.payment_status === 'completed') {
+        setStatus('success')
+        clearCart()
+        if (user?.id) loadCart(Number(user.id))
+      } else if (data?.payment_status === 'failed') {
+        setStatus('failed')
+      }
+    }, [clearCart, loadCart, user?.id]),
+  })
 
   useEffect(() => {
     let cancelled = false

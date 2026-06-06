@@ -24,7 +24,6 @@ import { Badge } from './ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import {
-  chatWithLearningAdvisor,
   chatWithLearningAdvisorStream,
   createLearningPath,
   deleteLearningPath,
@@ -234,14 +233,15 @@ export function AiLearningPathDialog({
 
   const applyPathDetail = (detail: LearningPathDetail) => {
     setGoalText(detail.goal_text)
-    setMessages(detail.messages || [])
+    setMessages(detail.items.length > 0
+      ? [{ role: 'assistant', content: buildPathAssistantSummary(detail.summary, detail.items, tr) }]
+      : [])
     setAdvisorState({
       path: detail.items,
       estimated_weeks: detail.estimated_weeks,
       summary: detail.summary,
-      advisor_meta: detail.advisor_meta,
     })
-    setQuickReplyActions((detail.advisor_meta?.suggested_actions || []).slice(0, 2))
+    setQuickReplyActions([])
     setSavedPathId(detail.id)
     setActiveHistoryPathId(detail.id)
   }
@@ -425,9 +425,6 @@ export function AiLearningPathDialog({
 
   const normalizeAdvisorResult = (result: AdvisorChatResponse | LearningPathDetail, nextMessages: AdvisorMessage[]) => {
     if (isQuestionResponse(result)) {
-      if (typeof result.path_id === 'number') {
-        setSavedPathId(result.path_id)
-      }
       setMessages([...nextMessages, { role: 'assistant', content: result.message }])
       const suggested = (result.advisor_meta?.suggested_actions || []).slice(0, 2)
       setQuickReplyActions(suggested)
@@ -436,9 +433,6 @@ export function AiLearningPathDialog({
     }
 
     if (isPathResponse(result)) {
-      if (typeof result.path_id === 'number') {
-        setSavedPathId(result.path_id)
-      }
       const assistantSummary = buildPathAssistantSummary(result.summary, result.path, tr)
       const snapshot: AdvisorState = {
         path: result.path,
@@ -458,9 +452,8 @@ export function AiLearningPathDialog({
 
     setSavedPathId(result.id)
     setGoalText(result.goal_text)
-    const detailMessages = (result.messages || []).slice()
-    const lastMessage = detailMessages[detailMessages.length - 1]
-    if ((result.items || []).length > 0 && (!lastMessage || lastMessage.role !== 'assistant')) {
+    const detailMessages: AdvisorMessage[] = []
+    if ((result.items || []).length > 0) {
       detailMessages.push({
         role: 'assistant',
         content: buildPathAssistantSummary(result.summary, result.items, tr),
@@ -471,16 +464,23 @@ export function AiLearningPathDialog({
       path: result.items,
       estimated_weeks: result.estimated_weeks,
       summary: result.summary,
-      advisor_meta: result.advisor_meta,
     })
-    const suggested = (result.advisor_meta?.suggested_actions || []).slice(0, 2)
-    setQuickReplyActions(suggested)
-    setShowQuickReplies(suggested.length > 0)
+    setQuickReplyActions([])
+    setShowQuickReplies(false)
     onSaved?.(result)
   }
 
   const callAdvisor = async (nextMessages: AdvisorMessage[], goalOverride?: string) => {
     if (advisorRequestInFlightRef.current) return
+    if (!isAuthenticated) {
+      openLogin({
+        onSuccess: () => {
+          void callAdvisor(nextMessages, goalOverride)
+        },
+      })
+      return
+    }
+
     const resolvedGoal = (goalOverride ?? goalText).trim()
     if (!resolvedGoal) {
       toast.error(tr('ai_learning_path.toast_goal_required', 'Bạn cần nhập mục tiêu học tập trước.'))
@@ -495,15 +495,11 @@ export function AiLearningPathDialog({
           ? await recalculateLearningPath(savedPathId, {
               goal_text: resolvedGoal,
               messages: nextMessages,
-              path_id: savedPathId,
-              persist_conversation: true,
             })
           : await chatWithLearningAdvisorStream(
               {
                 goal_text: resolvedGoal,
                 messages: nextMessages,
-                path_id: savedPathId || undefined,
-                persist_conversation: true,
               },
               {
                 onDelta: (delta) => {
@@ -570,8 +566,6 @@ export function AiLearningPathDialog({
         summary: advisorState.summary,
         estimated_weeks: advisorState.estimated_weeks,
         path: advisorState.path,
-        messages,
-        advisor_meta: advisorState.advisor_meta,
       })
       setSavedPathId(saved.id)
       setActiveHistoryPathId(saved.id)
@@ -583,8 +577,6 @@ export function AiLearningPathDialog({
           estimated_weeks: saved.estimated_weeks,
           created_at: saved.created_at,
           updated_at: saved.updated_at,
-          conversation_count: saved.messages.length,
-          advisor_meta: saved.advisor_meta,
           items: saved.items,
         }
         const filtered = prev.filter((item) => item.id !== saved.id)
@@ -615,8 +607,6 @@ export function AiLearningPathDialog({
         summary: snapshot.summary,
         estimated_weeks: snapshot.estimated_weeks,
         path: snapshot.path,
-        messages: messages.slice(0, messageIndex + 1),
-        advisor_meta: snapshot.advisor_meta,
       })
       setSavedMessagePaths((prev) => ({ ...prev, [messageIndex]: saved.id }))
       setHistoryPaths((prev) => {
@@ -627,8 +617,6 @@ export function AiLearningPathDialog({
           estimated_weeks: saved.estimated_weeks,
           created_at: saved.created_at,
           updated_at: saved.updated_at,
-          conversation_count: saved.messages.length,
-          advisor_meta: saved.advisor_meta,
           items: saved.items,
         }
         return [nextItem, ...prev.filter((p) => p.id !== saved.id)]
@@ -1035,7 +1023,7 @@ export function AiLearningPathDialog({
                       <p className="line-clamp-2 break-words text-xs font-medium text-slate-100">{path.goal_text}</p>
                       <p className="mt-1 line-clamp-2 break-words text-[11px] text-slate-400">{path.summary || 'Không có tóm tắt.'}</p>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        {path.conversation_count} tin nhắn • {new Date(path.updated_at).toLocaleString('vi-VN')}
+                        {new Date(path.updated_at).toLocaleString('vi-VN')}
                       </p>
                     </button>
                     <button

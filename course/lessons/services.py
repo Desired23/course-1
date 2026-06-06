@@ -80,10 +80,7 @@ def get_lessons(filters=None):
 def get_lesson_by_id(lesson_id):
     try:
         lesson = Lesson.objects.get(id=lesson_id)
-        
         serializer = LessonSerializer(lesson)
-        s = "asss" 
-        
         return serializer.data
     except Lesson.DoesNotExist:
         raise ValidationError({"error": "Lesson not found."})
@@ -97,7 +94,8 @@ def create_lesson(data, user):
     except User.DoesNotExist:
         raise ValidationError({"user_id": "User with this ID does not exist."})
 
-    if user_instance.user_type == User.UserTypeChoices.STUDENT:
+    from utils.roles import is_active_admin, is_active_instructor
+    if not is_active_instructor(user_instance) and not is_active_admin(user_instance):
         raise ValidationError({"user_id": "User does not have permission."})
 
     coursemodule_id = data.get('coursemodule')

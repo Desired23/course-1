@@ -34,6 +34,14 @@ def create_systems_setting(data, admin_actor=None):
     except Exception as e:
         raise ValidationError({"error": str(e)})
 
+def get_bool_setting(setting_key, default=False):
+    setting = SystemsSetting.objects.filter(
+        setting_key=setting_key, is_deleted=False
+    ).first()
+    if setting is None:
+        return default
+    return str(setting.setting_value).strip().lower() in ('1', 'true', 'yes', 'on')
+
 def get_systems_setting_by_key(setting_key):
     try:
         systems_setting = SystemsSetting.objects.get(setting_key=setting_key)

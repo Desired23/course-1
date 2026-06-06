@@ -51,8 +51,6 @@ export interface PaginatedResponse<T> {
   results: T[]
 }
 
-// ── Questions ────────────────────────────────────────────────────────────────
-
 export async function getQuestions(params?: {
   search?: string
   tag?: string
@@ -111,8 +109,6 @@ export async function acceptAnswer(questionId: number, answerId: number): Promis
   return http.patch<Question>(`/questions/${questionId}/accept-answer/`, { answer_id: answerId })
 }
 
-// ── Answers ──────────────────────────────────────────────────────────────────
-
 export async function getAnswers(questionId: number): Promise<PaginatedResponse<Answer>> {
   return http.get<PaginatedResponse<Answer>>('/answers/', { question_id: questionId })
 }
@@ -132,8 +128,6 @@ export async function deleteAnswer(answerId: number): Promise<{ message: string 
   return http.delete<{ message: string }>(`/answers/${answerId}/delete/`)
 }
 
-// ── Votes ─────────────────────────────────────────────────────────────────────
-
 export async function voteQuestion(questionId: number, voteType: 'up' | 'down'): Promise<VoteResponse> {
   return http.post<VoteResponse>(`/qa-votes/question/${questionId}/`, { vote_type: voteType })
 }
@@ -141,8 +135,6 @@ export async function voteQuestion(questionId: number, voteType: 'up' | 'down'):
 export async function voteAnswer(answerId: number, voteType: 'up' | 'down'): Promise<VoteResponse> {
   return http.post<VoteResponse>(`/qa-votes/answer/${answerId}/`, { vote_type: voteType })
 }
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 export function formatQADate(dateString: string): string {
   const date = new Date(dateString)

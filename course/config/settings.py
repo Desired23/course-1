@@ -1,6 +1,3 @@
-
-
-
 import dj_database_url
 from pathlib import Path
 import os
@@ -17,9 +14,6 @@ def load_local_env_file(env_file_path):
 
 
     force_override_keys = {
-        'LEARNING_PATH_PROVIDER',
-        'LEARNING_PATH_FORCE_GEMINI',
-        'LEARNING_PATH_GEMINI_MAX_ATTEMPTS',
         'LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD',
         'LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS',
         'GEMINI_API_KEY',
@@ -195,14 +189,11 @@ MOMO_IPN_URL = os.getenv(
 )
 MOMO_STORE_ID = os.getenv("MOMO_STORE_ID", "MoMoTestStore")
 MOMO_PARTNER_NAME = os.getenv("MOMO_PARTNER_NAME", "Course Platform Test")
-LEARNING_PATH_PROVIDER = os.getenv("LEARNING_PATH_PROVIDER", "auto")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "45"))
-LEARNING_PATH_GEMINI_MAX_ATTEMPTS = max(1, int(os.getenv("LEARNING_PATH_GEMINI_MAX_ATTEMPTS", "1")))
 LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD = max(1, int(os.getenv("LEARNING_PATH_GEMINI_CIRCUIT_THRESHOLD", "2")))
 LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS = max(5, int(os.getenv("LEARNING_PATH_GEMINI_CIRCUIT_COOLDOWN_SECONDS", "60")))
-LEARNING_PATH_FORCE_GEMINI = os.getenv("LEARNING_PATH_FORCE_GEMINI", "False") == "True"
 INSTALLED_APPS = [
     'django_extensions',
     'daphne',
@@ -261,6 +252,7 @@ INSTALLED_APPS = [
     'search',
     'transcripts',
     'knowledge',
+    'reports',
 ]
 
 MIDDLEWARE = [

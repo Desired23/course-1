@@ -57,6 +57,7 @@ export interface SubscriptionPlan {
   max_subscribers: number | null
   instructor_share_percent: string
   yearly_discount_percent: string
+  yearly_price: string | null
   thumbnail: string | null
   features: string[]
   not_included: string[]
@@ -83,6 +84,7 @@ export interface SubscriptionPlanListItem {
   status: string
   is_featured: boolean
   yearly_discount_percent?: string
+  yearly_price?: string | null
   thumbnail: string | null
   features: string[]
   not_included: string[]

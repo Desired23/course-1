@@ -13,7 +13,7 @@ from lessons.models import Lesson
 from systems_settings.models import SystemsSetting
 
 from .errors import AdvisorUpstreamError
-from .models import LearningPath, LearningPathItem, PathConversation
+from .models import LearningPath, LearningPathItem
 from .provider import (
     GeminiAdvisorProvider,
     extract_json_object,
@@ -242,73 +242,6 @@ def sanitize_advisor_messages(messages):
     return normalized
 
 
-def merge_advisor_messages(existing_messages, incoming_messages):
-    existing = sanitize_advisor_messages(existing_messages)
-    incoming = sanitize_advisor_messages(incoming_messages)
-
-    if not existing:
-        return incoming
-    if not incoming:
-        return existing
-
-    max_overlap = min(len(existing), len(incoming))
-    for overlap in range(max_overlap, 0, -1):
-        if existing[-overlap:] == incoming[:overlap]:
-            return existing + incoming[overlap:]
-
-    if incoming[: len(existing)] == existing:
-        return incoming
-    if existing[: len(incoming)] == incoming:
-        return existing
-
-    merged = list(existing)
-    for message in incoming:
-        if merged and merged[-1] == message:
-            continue
-        merged.append(message)
-    return merged
-
-
-def build_path_assistant_message(advisor_result):
-    summary = (advisor_result.get('summary') or '').strip()
-    if summary:
-        return summary
-
-    if advisor_result.get('path'):
-        return 'Mình đã cập nhật lộ trình theo thông tin mới nhất từ hội thoại của bạn.'
-    return ''
-
-
-def upsert_path_conversation(path, messages, advisor_meta=None):
-    conversation, _ = PathConversation.objects.get_or_create(
-        path=path,
-        defaults={'messages': sanitize_advisor_messages(messages), 'advisor_meta': advisor_meta or {}},
-    )
-    conversation.messages = sanitize_advisor_messages(messages)
-    if advisor_meta is not None:
-        conversation.advisor_meta = advisor_meta
-        conversation.save(update_fields=['messages', 'advisor_meta', 'updated_at'])
-    else:
-        conversation.save(update_fields=['messages', 'updated_at'])
-    return conversation
-
-
-@transaction.atomic
-def create_advisor_draft_path(*, user, goal_text, summary='', estimated_weeks=0, messages=None, advisor_meta=None):
-    path = LearningPath.objects.create(
-        user=user,
-        goal_text=goal_text,
-        summary=summary or '',
-        estimated_weeks=max(0, int(estimated_weeks or 0)),
-    )
-    PathConversation.objects.create(
-        path=path,
-        messages=sanitize_advisor_messages(messages),
-        advisor_meta=advisor_meta or {},
-    )
-    return path
-
-
 def _extract_preview_text(partial_json_text):
     for pattern in (MESSAGE_FIELD_PATTERN, SUMMARY_FIELD_PATTERN):
         match = pattern.search(partial_json_text)
@@ -414,7 +347,7 @@ def get_learning_paths_for_user(user):
     return (
         LearningPath.objects
         .filter(user=user, is_archived=False)
-        .prefetch_related('items__course', 'conversation')
+        .prefetch_related('items__course')
         .order_by('-updated_at', '-created_at')
     )
 
@@ -424,7 +357,7 @@ def get_learning_path_for_user(path_id, user):
         return (
             LearningPath.objects
             .filter(user=user, id=path_id, is_archived=False)
-            .prefetch_related('items__course', 'conversation')
+            .prefetch_related('items__course')
             .get()
         )
     except LearningPath.DoesNotExist as exc:
@@ -433,7 +366,7 @@ def get_learning_path_for_user(path_id, user):
 
 
 @transaction.atomic
-def create_learning_path(*, user, goal_text, summary, estimated_weeks, path_items, messages=None, advisor_meta=None):
+def create_learning_path(*, user, goal_text, summary, estimated_weeks, path_items):
     course_ids = [item['course_id'] for item in path_items]
     courses = Course.objects.filter(
         id__in=course_ids,
@@ -465,12 +398,11 @@ def create_learning_path(*, user, goal_text, summary, estimated_weeks, path_item
             skippable_reason=item.get('skippable_reason') or '',
         )
 
-    PathConversation.objects.create(path=path, messages=messages or [], advisor_meta=advisor_meta or {})
     return path
 
 
 @transaction.atomic
-def update_learning_path_from_advisor(path, advisor_result, messages):
+def update_learning_path_from_advisor(path, advisor_result):
     path.summary = advisor_result['summary']
     path.estimated_weeks = advisor_result['estimated_weeks']
     path.save(update_fields=['summary', 'estimated_weeks', 'updated_at'])
@@ -488,20 +420,5 @@ def update_learning_path_from_advisor(path, advisor_result, messages):
             skippable_reason=item.get('skippable_reason') or '',
         )
 
-    updated_messages = sanitize_advisor_messages(messages)
-    assistant_message = build_path_assistant_message(advisor_result)
-    if assistant_message:
-        updated_messages = merge_advisor_messages(
-            updated_messages,
-            [{'role': 'assistant', 'content': assistant_message}],
-        )
-
-    conversation, _ = PathConversation.objects.get_or_create(
-        path=path,
-        defaults={'messages': updated_messages, 'advisor_meta': advisor_result.get('advisor_meta') or {}},
-    )
-    conversation.messages = updated_messages
-    conversation.advisor_meta = advisor_result.get('advisor_meta') or {}
-    conversation.save(update_fields=['messages', 'advisor_meta', 'updated_at'])
     path.refresh_from_db()
     return path

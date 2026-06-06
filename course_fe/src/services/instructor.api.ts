@@ -14,7 +14,7 @@ export interface InstructorUser {
   created_at: string
   last_login: string | null
   status: string
-  user_type: string[]
+  roles: string[]
 }
 
 export interface Instructor {

@@ -112,7 +112,6 @@ class MomoIPNView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class VnpayPaymentReturnView(APIView):
-
     authentication_classes = []
     permission_classes = []
 
@@ -343,7 +342,8 @@ class PaymentStatusView(APIView):
 
     def get(self, request, payment_id):
         try:
-            is_admin = getattr(request.user, 'user_type', None) == 'admin'
+            from utils.roles import is_active_admin
+            is_admin = is_active_admin(request.user)
             data = get_payment_status(payment_id, request.user, admin_override=is_admin)
             return Response(data, status=status.HTTP_200_OK)
         except (ValidationError, PermissionDenied) as e:

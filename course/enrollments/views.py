@@ -30,10 +30,11 @@ class EnrollmentManageByUserView(APIView):
         user = request.user.id
 
         try:
-            user_type = getattr(request.user, 'user_type', None)
-            logger.info(f"Enrollment request for user_id={user} (caller id={request.user.id}, type={user_type})")
-            if user_type != 'student':
-                logger.warning(f"Non-student user_type {user_type} asked for enrollments")
+            from utils.roles import get_roles
+            roles = get_roles(request.user)
+            logger.info(f"Enrollment request for user_id={user} (caller id={request.user.id}, roles={roles})")
+            if roles != ['student']:
+                logger.warning(f"Non-student user roles {roles} asked for enrollments")
         except Exception:
             pass
         try:
@@ -105,13 +106,14 @@ class EnrollmentManageByUserView(APIView):
 
             return paginate_queryset(enrollments, request, EnrollmentSerializer)
         except ValidationError as e:
-            user_type = getattr(request.user, 'user_type', None)
+            from utils.roles import get_roles
+            roles = get_roles(request.user)
             logger.warning(
-                f"Enrollment error for user_id={user} caller={request.user.id} type={user_type} -> {e.detail}"
+                f"Enrollment error for user_id={user} caller={request.user.id} roles={roles} -> {e.detail}"
             )
             return Response({
                 "errors": e.detail,
-                "caller": {"id": request.user.id, "type": user_type},
+                "caller": {"id": request.user.id, "roles": roles},
             }, status=status.HTTP_400_BAD_REQUEST)
         except DatabaseError as e:
 

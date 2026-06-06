@@ -648,6 +648,7 @@ export function InstructorLessonsPageNew() {
             ...lesson,
             quizData: {
               functionName: codeQuestion.function_name || undefined,
+              executionMode: codeQuestion.execution_mode || (codeQuestion.function_name ? 'function' : 'stdin'),
               starterCode: codeQuestion.starter_code
                 ? { javascript: codeQuestion.starter_code, 63: codeQuestion.starter_code }
                 : undefined,
@@ -697,12 +698,12 @@ export function InstructorLessonsPageNew() {
       )
       toast.success(
         lesson.has_published_transcript
-          ? 'Transcript regenerate queued'
-          : 'Transcript generation queued'
+          ? t('instructor_lessons_page_new.toasts.transcript_regenerate_queued')
+          : t('instructor_lessons_page_new.toasts.transcript_generation_queued')
       )
     } catch (err: any) {
       console.error(err)
-      toast.error(err?.message || 'Failed to queue transcript generation')
+      toast.error(err?.message || t('instructor_lessons_page_new.toasts.transcript_queue_failed'))
     } finally {
       setTranscriptActionLessonId(null)
     }

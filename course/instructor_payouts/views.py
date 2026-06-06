@@ -13,6 +13,7 @@ from instructor_payouts.services import (
     request_instructor_payout,
     admin_approve_payout,
     admin_reject_payout,
+    auto_create_instructor_payouts,
 )
 from instructor_payouts.serializers import InstructorPayoutSerializer
 from utils.pagination import paginate_queryset
@@ -148,6 +149,28 @@ class AdminPayoutApproveView(APIView):
                 fee=request.data.get('fee', 0),
             )
             return Response(result)
+        except ValidationError as e:
+            return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminMonthlyPayoutRunView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        admin = getattr(request.user, 'admin', None)
+        if not is_active_admin(request.user):
+            return Response({"error": "Admin profile not found."}, status=status.HTTP_403_FORBIDDEN)
+
+        settle_first = str(request.data.get('settle_first', 'true')).lower() not in ('false', '0', 'no')
+
+        try:
+            result = auto_create_instructor_payouts(
+                processed_by=admin,
+                notes=request.data.get('notes', ''),
+                settle_first=settle_first,
+            )
+            return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 

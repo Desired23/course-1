@@ -70,7 +70,7 @@ export function CodeEditor({
         monacoRef.current = monaco
 
 
-        monaco.editor.defineTheme('udemy-dark', {
+        monaco.editor.defineTheme('utc-dark', {
           base: 'vs-dark',
           inherit: true,
           rules: [
@@ -90,7 +90,7 @@ export function CodeEditor({
           },
         })
 
-        monaco.editor.defineTheme('udemy-light', {
+        monaco.editor.defineTheme('utc-light', {
           base: 'vs',
           inherit: true,
           rules: [
@@ -114,7 +114,7 @@ export function CodeEditor({
           const editorInstance = monaco.editor.create(containerRef.current, {
             value: value,
             language: monacoLanguage,
-            theme: darkMode ? 'udemy-dark' : 'udemy-light',
+            theme: darkMode ? 'utc-dark' : 'utc-light',
             readOnly,
             fontSize,
             fontFamily: "'Fira Code', 'Monaco', 'Courier New', monospace",
@@ -186,7 +186,7 @@ export function CodeEditor({
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.updateOptions({
-        theme: darkMode ? 'udemy-dark' : 'udemy-light',
+        theme: darkMode ? 'utc-dark' : 'utc-light',
         readOnly,
         fontSize,
         minimap: { enabled: showMinimap }

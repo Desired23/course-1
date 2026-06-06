@@ -357,7 +357,7 @@ export async function downloadCourseGrantsTemplate(): Promise<void> {
 
 export interface AdminUser {
   id: number
-  user: {
+  user: number | {
     id: number
     username: string
     email: string
@@ -509,7 +509,6 @@ export interface UserItem {
   phone: string | null
   avatar: string | null
   status: 'active' | 'inactive' | 'banned'
-  user_type: string
   roles?: string[]
   created_at: string
   last_login: string | null
@@ -522,7 +521,7 @@ export interface AdminUserListParams {
   page_size?: number
   search?: string
   status?: 'active' | 'inactive' | 'banned'
-  user_type?: 'student' | 'instructor' | 'admin'
+  role?: 'student' | 'instructor' | 'admin'
 }
 
 export interface AdminPaginatedResponse<T> {

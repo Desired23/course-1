@@ -1,11 +1,24 @@
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from utils.roles import is_active_admin
 
 from .models import Answer
 from .serializers import AnswerSerializer
+
+
+def _broadcast_qa(question_id, action, payload):
+    channel_layer = get_channel_layer()
+    if not channel_layer or not question_id:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f"question_{question_id}",
+        {"type": "send_qa_update", "data": {"action": action, **payload}},
+    )
 
 
 def _is_admin(user):
@@ -24,8 +37,9 @@ def create_answer(data, author):
     serializer = AnswerSerializer(data=payload)
     if not serializer.is_valid():
         raise ValidationError(serializer.errors)
-    answer = serializer.save(author=author)
-    Question.objects.filter(id=question_id).update(answer_count=F('answer_count') + 1)
+    with transaction.atomic():
+        answer = serializer.save(author=author)
+        Question.objects.filter(id=question_id).update(answer_count=F('answer_count') + 1)
     try:
         from notifications.services import create_notification
         q = Question.objects.filter(id=question_id).values('author_id').first()
@@ -41,7 +55,9 @@ def create_answer(data, author):
             )
     except Exception:
         pass
-    return AnswerSerializer(answer).data
+    data = AnswerSerializer(answer).data
+    _broadcast_qa(question_id, 'answer_created', {'answer': dict(data)})
+    return data
 
 
 def get_answers_by_question_id(question_id):
@@ -64,7 +80,47 @@ def update_answer(answer_id, data, actor):
     serializer = AnswerSerializer(answer, data=payload, partial=True)
     if not serializer.is_valid():
         raise ValidationError(serializer.errors)
-    return AnswerSerializer(serializer.save()).data
+    result = AnswerSerializer(serializer.save()).data
+    _broadcast_qa(answer.question_id, 'answer_updated', {'answer': dict(result)})
+    return result
+
+
+def moderate_answer(answer_id, action, reason=''):
+    try:
+        answer = Answer.objects.get(id=answer_id, is_deleted=False)
+    except Answer.DoesNotExist:
+        raise NotFound("Answer not found.")
+
+    action = (action or '').strip().lower()
+    if action == 'approve':
+        answer.status = 'active'
+    elif action == 'dismiss':
+        pass
+    elif action == 'hide':
+        answer.status = 'deleted'
+    elif action == 'delete':
+        answer.is_deleted = True
+        answer.deleted_at = timezone.now()
+        answer.deleted_by = None
+        answer.status = 'deleted'
+    else:
+        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
+
+    answer.save()
+    try:
+        if action in ('hide', 'delete'):
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=answer.author_id,
+                title="Câu trả lời của bạn đã bị xử lý",
+                message="Câu trả lời của bạn đã bị gỡ do vi phạm chính sách.",
+                type='other',
+                related_id=answer.id,
+                notification_code='answer_moderated',
+            )
+    except Exception:
+        pass
+    return answer
 
 
 def delete_answer(answer_id, actor):
@@ -75,9 +131,12 @@ def delete_answer(answer_id, actor):
         raise NotFound("Answer not found.")
     if answer.author_id != actor.id and not _is_admin(actor):
         raise PermissionDenied("Bạn không có quyền xóa câu trả lời này.")
-    answer.is_deleted = True
-    answer.deleted_at = timezone.now()
-    answer.deleted_by = actor
-    answer.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
-    Question.objects.filter(id=answer.question_id).update(answer_count=F('answer_count') - 1)
+    question_id = answer.question_id
+    with transaction.atomic():
+        answer.is_deleted = True
+        answer.deleted_at = timezone.now()
+        answer.deleted_by = actor
+        answer.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+        Question.objects.filter(id=question_id).update(answer_count=F('answer_count') - 1)
+    _broadcast_qa(question_id, 'answer_deleted', {'answer_id': answer_id})
     return {'message': 'Answer deleted successfully'}

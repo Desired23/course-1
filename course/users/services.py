@@ -71,12 +71,14 @@ def create_user(data):
         data['password_hash'] = make_password(data.pop('password'))
     if 'username' not in data or not data['username']:
         data['username'] = _generate_username_from_email(data.get('email', ''))
+    roles = data.pop('roles', None)
+    if roles is None and 'user_type' in data:
+        roles = [data.pop('user_type')]
     serializer = Userserializers(data=data)
     if serializer.is_valid(raise_exception=True):
         user = serializer.save()
-        user_type = data.get('user_type', 'student')
-        if user_type in ('admin', 'instructor'):
-            _sync_role_records(user, [user_type])
+        if roles:
+            _sync_role_records(user, roles)
         return user
     raise ValidationError(serializer.errors)
 
@@ -107,33 +109,37 @@ def _sync_role_records(user, roles):
     want_admin = 'admin' in role_set
     want_instructor = 'instructor' in role_set
 
-    admin = getattr(user, 'admin', None)
-    if want_admin:
-        if admin is None:
-            Admin.objects.create(user=user, department='', role='none')
-        elif admin.is_deleted:
-            admin.is_deleted = False
-            admin.deleted_at = None
-            admin.deleted_by = None
-            admin.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
-    elif admin and not admin.is_deleted:
-        admin.is_deleted = True
-        admin.is_super_admin = False
-        admin.permissions = []
-        admin.save(update_fields=['is_deleted', 'is_super_admin', 'permissions'])
+    with transaction.atomic():
+        admin = getattr(user, 'admin', None)
+        if want_admin:
+            if admin is None:
+                Admin.objects.create(user=user, department='', role='none')
+            elif admin.is_deleted:
+                admin.is_deleted = False
+                admin.deleted_at = None
+                admin.deleted_by = None
+                admin.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+        elif admin and not admin.is_deleted:
+            admin.is_deleted = True
+            admin.is_super_admin = False
+            admin.permissions = []
+            admin.save(update_fields=['is_deleted', 'is_super_admin', 'permissions'])
 
-    instructor = getattr(user, 'instructor', None)
-    if want_instructor:
-        if instructor is None:
-            Instructor.objects.create(user=user)
-        elif instructor.is_deleted:
-            instructor.is_deleted = False
-            instructor.deleted_at = None
-            instructor.deleted_by = None
-            instructor.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
-    elif instructor and not instructor.is_deleted:
-        instructor.is_deleted = True
-        instructor.save(update_fields=['is_deleted'])
+        instructor = getattr(user, 'instructor', None)
+        if want_instructor:
+            if instructor is None:
+                Instructor.objects.create(user=user)
+            elif instructor.is_deleted:
+                instructor.is_deleted = False
+                instructor.deleted_at = None
+                instructor.deleted_by = None
+                instructor.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+        elif instructor and not instructor.is_deleted:
+            instructor.is_deleted = True
+            instructor.save(update_fields=['is_deleted'])
+
+    from notifications.services import notify_role_updated
+    notify_role_updated(user.id)
 
 
 def update_user_by_admin(user_id, data):
@@ -144,8 +150,7 @@ def update_user_by_admin(user_id, data):
 
     data = dict(data)
     # Accept an additive multi-role list ('roles'); fall back to a single 'user_type'
-    # for backward compatibility. Roles are applied via the Admin/Instructor records
-    # in _sync_role_records; the derived User.user_type property reflects them.
+    # for backward compatibility. Roles are applied via the Admin/Instructor records.
     roles = data.pop('roles', None)
     if roles is None and 'user_type' in data:
         roles = [data.pop('user_type')]
@@ -214,12 +219,14 @@ def get_users(filters=None):
     }:
         users = users.filter(status=status)
 
-    user_type = (filters.get('user_type') or '').strip().lower()
-    if user_type == User.UserTypeChoices.ADMIN:
+    # Accept both 'role' (roles system) and 'user_type' (legacy) params; filter by
+    # the derived Admin/Instructor records rather than a stored user_type column.
+    role = (filters.get('role') or filters.get('user_type') or '').strip().lower()
+    if role == 'admin':
         users = users.filter(admin__isnull=False, admin__is_deleted=False)
-    elif user_type == User.UserTypeChoices.INSTRUCTOR:
+    elif role == 'instructor':
         users = users.filter(instructor__isnull=False, instructor__is_deleted=False)
-    elif user_type == User.UserTypeChoices.STUDENT:
+    elif role == 'student':
         users = users.filter(
             Q(admin__isnull=True) | Q(admin__is_deleted=True),
             Q(instructor__isnull=True) | Q(instructor__is_deleted=True),
@@ -266,12 +273,12 @@ def _build_user_types(user):
 
 
 def _issue_auth_tokens(user, remember_me=False):
-    user_type = _build_user_types(user)
+    roles = _build_user_types(user)
     payload = {
         'user_id': user.id,
         'username': user.username,
         'email': user.email,
-        'user_type': user_type,
+        'roles': roles,
         'token_type': 'access',
         'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         "iat": datetime.now(dt_timezone.utc)
@@ -286,7 +293,7 @@ def _issue_auth_tokens(user, remember_me=False):
         'user_id': user.id,
         'username': user.username,
         'email': user.email,
-        'user_type': user_type,
+        'roles': roles,
         'token_type': 'refresh',
         'remember_me': remember_me,
         'exp': expires,
@@ -301,7 +308,7 @@ def _issue_auth_tokens(user, remember_me=False):
             'id': user.id,
             'username': user.username,
             'email': user.email,
-            'user_type': user_type,
+            'roles': roles,
         }
     }
 
@@ -462,12 +469,7 @@ def refresh_token(token):
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
 
-    user_type = ["student"]
-    if hasattr(user, 'admin') and user.admin and not user.admin.is_deleted:
-        user_type.append("admin")
-    if hasattr(user, 'instructor') and user.instructor and not user.instructor.is_deleted:
-        user_type.append("instructor")
-
+    roles = _build_user_types(user)
 
     remember_me = bool(payload.get('remember_me', False))
 
@@ -482,7 +484,7 @@ def refresh_token(token):
         'user_id': user.id,
         'username': user.username,
         'email': user.email,
-        'user_type': user_type,
+        'roles': roles,
         'token_type': 'access',
         'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         "iat": datetime.now(dt_timezone.utc)
@@ -493,7 +495,7 @@ def refresh_token(token):
         'user_id': user.id,
         'username': user.username,
         'email': user.email,
-        'user_type': user_type,
+        'roles': roles,
         'token_type': 'refresh',
         'remember_me': remember_me,
         'exp': new_expires,

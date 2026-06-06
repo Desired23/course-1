@@ -1,14 +1,13 @@
 from datetime import datetime, time
 
+from django.db import models as django_models
+from django.db.models import Count, Max
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
+from rest_framework.exceptions import ValidationError
 
-from questions.models import Question
-from questions.services import moderate_question
-from realtime.models import Message
-from realtime.views import _moderate_reported_message
-from reviews.models import Review
-from reviews.services import moderate_review
+from .adapters import get_adapter
+from .models import Report
 
 
 def _derive_priority(report_count):
@@ -19,69 +18,6 @@ def _derive_priority(report_count):
     if report_count >= 2:
         return 'medium'
     return 'low'
-
-
-def _normalize_question(question):
-    return {
-        'id': f'question-{question.id}',
-        'reported_type': 'question',
-        'reported_id': question.id,
-        'report_count': question.report_count,
-        'reporter_name': None,
-        'reporter_email': None,
-        'reported_user_name': question.author.full_name if question.author else None,
-        'reported_content_title': question.title,
-        'reason': question.last_report_reason or 'question_report',
-        'description': question.content,
-        'status': 'pending',
-        'priority': _derive_priority(question.report_count),
-        'created_at': question.last_reported_at or question.updated_at,
-        'updated_at': question.updated_at,
-        'resolution': None,
-        'action_taken': None,
-    }
-
-
-def _normalize_review(review):
-    return {
-        'id': f'review-{review.id}',
-        'reported_type': 'review',
-        'reported_id': review.id,
-        'report_count': review.report_count,
-        'reporter_name': None,
-        'reporter_email': None,
-        'reported_user_name': review.user.full_name if review.user else None,
-        'reported_content_title': review.course.title if review.course else None,
-        'reason': review.last_report_reason or 'review_report',
-        'description': review.comment or '',
-        'status': 'pending',
-        'priority': _derive_priority(review.report_count),
-        'created_at': review.last_reported_at or review.updated_at,
-        'updated_at': review.updated_at,
-        'resolution': None,
-        'action_taken': None,
-    }
-
-
-def _normalize_message(message):
-    return {
-        'id': f'message-{message.id}',
-        'reported_type': 'message',
-        'reported_id': message.id,
-        'report_count': message.report_count,
-        'reporter_name': None,
-        'reporter_email': None,
-        'reported_user_name': message.sender.full_name if message.sender else None,
-        'reported_content_title': f'Conversation #{message.conversation_id}',
-        'reason': message.last_report_reason or 'message_report',
-        'description': message.text_content or '[attachment-only message]',
-        'status': 'pending',
-        'priority': _derive_priority(message.report_count),
-        'created_at': message.last_reported_at or message.updated_at,
-        'updated_at': message.updated_at,
-        'resolution': None,
-        'action_taken': None,
-    }
 
 
 def _to_datetime_range(date_from=None, date_to=None):
@@ -104,68 +40,307 @@ def _to_datetime_range(date_from=None, date_to=None):
     return parsed_from, parsed_to
 
 
-def get_admin_reports(filters=None):
+def create_report(reporter, target_type, target_id, reason, description=''):
+    adapter = get_adapter(target_type)
+    if not adapter:
+        raise ValidationError({'target_type': 'Loại nội dung không hợp lệ.'})
+
+    obj = adapter['get_object'](target_id)
+    if obj is None:
+        raise ValidationError({'target_id': 'Không tìm thấy nội dung.'})
+
+    owner_id = adapter['get_owner_id'](obj)
+    if reporter and owner_id and reporter.id == owner_id:
+        raise ValidationError({'detail': 'Bạn không thể báo cáo nội dung của chính mình.'})
+
+    existing = None
+    if reporter:
+        existing = Report.objects.filter(
+            reporter=reporter,
+            target_type=target_type,
+            target_id=target_id,
+            status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
+        ).first()
+
+    if existing:
+        if reason and reason != existing.reason:
+            existing.reason = reason
+        if description:
+            existing.description = description
+        existing.save(update_fields=['reason', 'description', 'updated_at'])
+        report = existing
+    else:
+        report = Report.objects.create(
+            reporter=reporter,
+            target_type=target_type,
+            target_id=target_id,
+            reason=reason,
+            description=description,
+        )
+
+    _sync_counter(target_type, target_id, reason, description)
+
+    try:
+        from notifications.services import notify_admins
+        report_count = Report.objects.filter(
+            target_type=target_type, target_id=target_id,
+            status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
+        ).count()
+        title = adapter['get_title'](obj)
+        notify_admins(
+            title=f"{_target_type_label(target_type)} bị báo cáo",
+            message=f'"{title}" đã bị báo cáo ({report_count} lần). Lý do: {_reason_label(reason)}',
+            type='other',
+            notification_code=f'{target_type}_reported',
+            related_id=target_id,
+        )
+    except Exception:
+        pass
+
+    return report
+
+
+def _target_type_label(target_type):
+    labels = {
+        'review': 'Đánh giá',
+        'question': 'Câu hỏi',
+        'answer': 'Câu trả lời',
+        'blog_post': 'Bài viết blog',
+        'blog_comment': 'Bình luận blog',
+        'lesson_comment': 'Bình luận bài học',
+        'course': 'Khóa học',
+        'message': 'Tin nhắn',
+    }
+    return labels.get(target_type, target_type)
+
+
+def _reason_label(reason):
+    labels = {
+        'spam': 'Spam',
+        'offensive': 'Nội dung phản cảm',
+        'harassment': 'Quấy rối / bắt nạt',
+        'copyright': 'Vi phạm bản quyền',
+        'misinformation': 'Thông tin sai lệch',
+        'other': 'Khác',
+    }
+    return labels.get(reason, reason)
+
+
+def _sync_counter(target_type, target_id, reason, description):
+    try:
+        count = Report.objects.filter(
+            target_type=target_type,
+            target_id=target_id,
+            status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
+        ).count()
+        now = timezone.now()
+
+        if target_type == 'review':
+            from reviews.models import Review
+            Review.objects.filter(id=target_id).update(
+                report_count=count, last_report_reason=reason or description, last_reported_at=now
+            )
+        elif target_type == 'question':
+            from questions.models import Question
+            Question.objects.filter(id=target_id).update(
+                report_count=count, last_report_reason=reason or description, last_reported_at=now
+            )
+        elif target_type == 'blog_post':
+            from blog_posts.models import BlogPost
+            BlogPost.objects.filter(id=target_id).update(
+                report_count=count, last_report_reason=reason or description, last_reported_at=now
+            )
+        elif target_type == 'message':
+            from realtime.models import Message
+            Message.objects.filter(id=target_id).update(
+                report_count=count, last_report_reason=reason or description, last_reported_at=now
+            )
+    except Exception:
+        pass
+
+
+def get_report_cases(filters=None):
     filters = filters or {}
-    reported_type = filters.get('type')
-    status = filters.get('status')
-    priority = filters.get('priority')
+    target_type_filter = filters.get('type')
+    status_filter = filters.get('status', 'pending')
+    priority_filter = filters.get('priority')
     search = (filters.get('search') or '').strip().lower()
     date_from, date_to = _to_datetime_range(filters.get('date_from'), filters.get('date_to'))
 
-    if status and status != 'pending':
-        return []
+    report_status_map = {
+        'pending': [Report.Status.PENDING],
+        'reviewing': [Report.Status.REVIEWING],
+        'resolved': [Report.Status.RESOLVED],
+        'dismissed': [Report.Status.DISMISSED],
+        'open': [Report.Status.PENDING, Report.Status.REVIEWING],
+    }
+    statuses = report_status_map.get(status_filter, [Report.Status.PENDING])
+
+    qs = Report.objects.filter(status__in=statuses)
+    if target_type_filter:
+        qs = qs.filter(target_type=target_type_filter)
+    if date_from:
+        qs = qs.filter(created_at__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__lte=date_to)
+
+    cases_qs = (
+        qs
+        .values('target_type', 'target_id')
+        .annotate(
+            report_count=Count('id'),
+            last_reported_at=Max('created_at'),
+        )
+        .order_by('-last_reported_at')
+    )
 
     items = []
+    for case in cases_qs:
+        tt = case['target_type']
+        tid = case['target_id']
+        report_count = case['report_count']
+        priority = _derive_priority(report_count)
 
-    if reported_type in (None, '', 'question'):
-        questions = Question.objects.filter(
-            is_deleted=False,
-            report_count__gt=0,
-        ).select_related('author')
-        items.extend(_normalize_question(q) for q in questions)
+        if priority_filter and priority != priority_filter:
+            continue
 
-    if reported_type in (None, '', 'review'):
-        reviews = Review.objects.filter(
-            is_deleted=False,
-            report_count__gt=0,
-        ).select_related('user', 'course')
-        items.extend(_normalize_review(review) for review in reviews)
+        adapter = get_adapter(tt)
+        if not adapter:
+            continue
+        obj = adapter['get_object'](tid)
 
-    if reported_type in (None, '', 'message'):
-        messages = Message.objects.filter(
-            report_count__gt=0,
-        ).select_related('sender', 'conversation')
-        items.extend(_normalize_message(message) for message in messages)
+        title = adapter['get_title'](obj) if obj else f'{tt} #{tid}'
+        owner_name = _get_owner_name(adapter, obj)
+        snippet = adapter['get_snippet'](obj) if obj else ''
 
-    if search:
-        def matches(item):
-            haystacks = [
-                item.get('reported_user_name') or '',
-                item.get('reported_content_title') or '',
-                item.get('reason') or '',
-                item.get('description') or '',
-            ]
-            return any(search in value.lower() for value in haystacks)
+        if search:
+            haystacks = [title, owner_name or '', snippet]
+            if not any(search in h.lower() for h in haystacks):
+                continue
 
-        items = [item for item in items if matches(item)]
+        reason_qs = (
+            qs.filter(target_type=tt, target_id=tid)
+            .values('reason')
+            .annotate(count=Count('id'))
+        )
+        reason_breakdown = {r['reason']: r['count'] for r in reason_qs}
+        top_reason = max(reason_breakdown, key=reason_breakdown.get) if reason_breakdown else 'other'
 
-    if priority:
-        items = [item for item in items if item['priority'] == priority]
+        response_status = status_filter if status_filter not in (None, '', 'open') else 'pending'
 
-    if date_from:
-        items = [item for item in items if item['created_at'] and item['created_at'] >= date_from]
-    if date_to:
-        items = [item for item in items if item['created_at'] and item['created_at'] <= date_to]
+        items.append({
+            'id': f'{tt}-{tid}',
+            'target_type': tt,
+            'target_id': tid,
+            'report_count': report_count,
+            'priority': priority,
+            'status': response_status,
+            'title': title,
+            'owner_name': owner_name,
+            'snippet': snippet,
+            'top_reason': top_reason,
+            'reason_breakdown': reason_breakdown,
+            'last_reported_at': case['last_reported_at'],
+        })
 
-    items.sort(key=lambda item: item['created_at'] or timezone.now(), reverse=True)
     return items
 
 
-def resolve_admin_report(reported_type, reported_id, action, reason=''):
-    if reported_type == 'question':
-        return moderate_question(reported_id, action, reason)
-    if reported_type == 'review':
-        return moderate_review(reported_id, action, reason)
-    if reported_type == 'message':
-        return _moderate_reported_message(reported_id, action, reason)
-    raise ValueError('Unsupported reported_type')
+def _get_owner_name(adapter, obj):
+    if obj is None:
+        return None
+    try:
+        owner_id = adapter['get_owner_id'](obj)
+        if owner_id is None:
+            return None
+        from users.models import User
+        user = User.objects.filter(id=owner_id).values('full_name').first()
+        return user['full_name'] if user else None
+    except Exception:
+        return None
+
+
+def get_report_case_detail(target_type, target_id):
+    adapter = get_adapter(target_type)
+    if not adapter:
+        raise ValidationError({'target_type': 'Loại nội dung không hợp lệ.'})
+
+    obj = adapter['get_object'](target_id)
+    reports = Report.objects.filter(
+        target_type=target_type, target_id=target_id
+    ).select_related('reporter').order_by('-created_at')
+
+    items = []
+    for r in reports:
+        items.append({
+            'report_id': r.id,
+            'reporter_name': r.reporter.full_name if r.reporter else None,
+            'reporter_email': r.reporter.email if r.reporter else None,
+            'reason': r.reason,
+            'reason_label': _reason_label(r.reason),
+            'description': r.description,
+            'status': r.status,
+            'created_at': r.created_at,
+        })
+
+    return {
+        'target_type': target_type,
+        'target_id': target_id,
+        'title': adapter['get_title'](obj) if obj else f'{target_type} #{target_id}',
+        'owner_name': _get_owner_name(adapter, obj),
+        'snippet': adapter['get_snippet'](obj) if obj else '',
+        'reports': items,
+    }
+
+
+def resolve_report_case(target_type, target_id, action, notes='', admin=None):
+    adapter = get_adapter(target_type)
+    if not adapter:
+        raise ValidationError({'target_type': 'Loại nội dung không hợp lệ.'})
+
+    valid_actions = adapter.get('actions', set())
+    if action not in valid_actions:
+        raise ValidationError({
+            'action': f"Hành động '{action}' không hợp lệ cho loại '{target_type}'. "
+                      f"Hành động hợp lệ: {', '.join(sorted(valid_actions))}."
+        })
+
+    result = adapter['moderate'](target_id, action, notes)
+
+    final_status = Report.Status.DISMISSED if action == 'dismiss' else Report.Status.RESOLVED
+
+    now = timezone.now()
+    Report.objects.filter(
+        target_type=target_type,
+        target_id=target_id,
+        status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
+    ).update(
+        status=final_status,
+        resolved_by=admin,
+        action_taken=action,
+        resolution_notes=notes,
+        resolved_at=now,
+        updated_at=now,
+    )
+
+    _reset_counter(target_type, target_id)
+
+    return result
+
+
+def _reset_counter(target_type, target_id):
+    try:
+        if target_type == 'review':
+            from reviews.models import Review
+            Review.objects.filter(id=target_id).update(report_count=0)
+        elif target_type == 'question':
+            from questions.models import Question
+            Question.objects.filter(id=target_id).update(report_count=0)
+        elif target_type == 'blog_post':
+            from blog_posts.models import BlogPost
+            BlogPost.objects.filter(id=target_id).update(report_count=0)
+        elif target_type == 'message':
+            from realtime.models import Message
+            Message.objects.filter(id=target_id).update(report_count=0)
+    except Exception:
+        pass

@@ -66,18 +66,44 @@ def submit_application(user, data):
         ]
         ApplicationResponse.objects.bulk_create(response_objects)
 
-    try:
-        from notifications.services import notify_admins
-        notify_admins(
-            title="Đơn đăng ký instructor mới",
-            message=f"{user.full_name} vừa nộp đơn đăng ký trở thành instructor.",
-            type='other',
-            notification_code='application_submitted',
-            related_id=application.id,
-            sender_id=user.id,
-        )
-    except Exception:
-        pass
+    from systems_settings.services import get_bool_setting
+    auto_approved = (
+        form.type == 'instructor_application'
+        and get_bool_setting('auto_approve_instructor_application', default=True)
+    )
+
+    if auto_approved:
+        with transaction.atomic():
+            application.status = Application.Status.APPROVED
+            application.reviewed_at = timezone.now()
+            application.save(update_fields=['status', 'reviewed_at', 'updated_at'])
+            _promote_to_instructor(application)
+
+        try:
+            from notifications.services import create_notification
+            create_notification(
+                receiver_id=user.id,
+                title="Đơn đăng ký được chấp thuận",
+                message="Chúc mừng! Đơn đăng ký instructor của bạn đã được chấp thuận.",
+                type='other',
+                related_id=application.id,
+                notification_code='application_approved',
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            from notifications.services import notify_admins
+            notify_admins(
+                title="Đơn đăng ký instructor mới",
+                message=f"{user.full_name} vừa nộp đơn đăng ký trở thành instructor.",
+                type='other',
+                notification_code='application_submitted',
+                related_id=application.id,
+                sender_id=user.id,
+            )
+        except Exception:
+            pass
 
     return ApplicationSerializer(application).data
 
@@ -287,13 +313,8 @@ def _promote_to_instructor(application):
             setattr(instructor, key, val)
         instructor.save()
 
-    # Role is now derived from the Instructor record above; the legacy user_type
-    # column was removed. Ensure a previously soft-deleted record is reactivated.
-    if instructor.is_deleted:
-        instructor.is_deleted = False
-        instructor.deleted_at = None
-        instructor.deleted_by = None
-        instructor.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
+    from notifications.services import notify_role_updated
+    notify_role_updated(user.id)
 
 
 def resubmit_application(application_id, user, data):

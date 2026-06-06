@@ -16,7 +16,6 @@ from .services import (
     get_reviews_by_instructor,
     get_reviews_by_user,
     moderate_review,
-    report_review,
     update_review,
 )
 from utils.pagination import paginate_queryset
@@ -156,7 +155,22 @@ class ReviewReportView(APIView):
     throttle_scope = 'burst'
 
     def post(self, request, review_id):
-        review = report_review(review_id, request.data.get('reason', ''))
+        from reports.services import create_report
+        try:
+            create_report(
+                reporter=request.user,
+                target_type='review',
+                target_id=review_id,
+                reason=request.data.get('reason', 'other'),
+                description=request.data.get('description', ''),
+            )
+        except Exception as exc:
+            detail = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            review = Review.objects.get(id=review_id, is_deleted=False)
+        except Review.DoesNotExist:
+            return Response({'errors': 'Không tìm thấy đánh giá.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(ReviewSerializer(review).data, status=status.HTTP_200_OK)
 
 

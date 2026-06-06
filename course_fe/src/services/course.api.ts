@@ -129,10 +129,18 @@ export interface UserEnrollment {
 }
 
 
+export interface SubscriptionPlanRef {
+  id: number
+  name: string
+  price: string
+  owned: boolean
+}
+
 export interface AccessInfo {
   has_access: boolean
   access_type: 'admin' | 'instructor' | 'purchase' | 'subscription' | null
   in_subscription: boolean
+  subscription_plan?: SubscriptionPlanRef | null
 }
 
 
@@ -160,6 +168,7 @@ export interface CourseDetail {
   tags: string[]
   promotional_video: string | null
   duration_hours?: number | null
+  total_resources?: number | null
   status: string
   is_featured: boolean
   is_public: boolean
@@ -326,9 +335,6 @@ export interface BulkAIMetadataResult {
   not_found_ids: number[]
 }
 
-// Apply the same AI-metadata fields to several courses at once. There is no
-// dedicated bulk endpoint, so this fans out per-course PATCH calls and reports
-// which succeeded.
 export async function bulkUpdateAIMetadata(
   courseIds: number[],
   fields: AIMetadataFields

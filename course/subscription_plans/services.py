@@ -43,6 +43,7 @@ def create_subscription_plan(data, admin_actor=None):
             'max_subscribers': data.get('max_subscribers'),
             'instructor_share_percent': data.get('instructor_share_percent', 60),
             'yearly_discount_percent': data.get('yearly_discount_percent', 0),
+            'yearly_price': data.get('yearly_price'),
             'thumbnail': data.get('thumbnail'),
         }
         serializer = SubscriptionPlanSerializer(data=plan_data)
@@ -50,18 +51,19 @@ def create_subscription_plan(data, admin_actor=None):
             save_kwargs = {}
             if admin:
                 save_kwargs['created_by'] = admin
-            plan = serializer.save(**save_kwargs)
+            with transaction.atomic():
+                plan = serializer.save(**save_kwargs)
 
-            course_ids = data.get('course_ids', [])
-            for cid in course_ids:
-                try:
-                    course = Course.objects.get(id=cid, is_deleted=False)
-                    PlanCourse.objects.create(
-                        plan=plan, course=course,
-                        added_by=admin
-                    )
-                except Course.DoesNotExist:
-                    pass
+                course_ids = data.get('course_ids', [])
+                for cid in course_ids:
+                    try:
+                        course = Course.objects.get(id=cid, is_deleted=False)
+                        PlanCourse.objects.create(
+                            plan=plan, course=course,
+                            added_by=admin
+                        )
+                    except Course.DoesNotExist:
+                        pass
 
             return SubscriptionPlanSerializer(plan).data
 
@@ -234,23 +236,23 @@ def subscribe_to_plan(user, plan_id, payment_id=None):
         except Payment.DoesNotExist:
             raise ValidationError({"error": "Payment not found."})
 
-    subscription = UserSubscription.objects.create(
-        user=user,
-        plan=plan,
-        payment=payment,
-        start_date=now,
-        end_date=end_date,
-        status='active',
-    )
+    with transaction.atomic():
+        subscription = UserSubscription.objects.create(
+            user=user,
+            plan=plan,
+            payment=payment,
+            start_date=now,
+            end_date=end_date,
+            status='active',
+        )
 
-    log_activity(
-        user_id=user.id,
-        action="SUBSCRIPTION_CREATED",
-        entity_type="UserSubscription",
-        entity_id=subscription.id,
-        description=f"Đăng ký gói: {plan.name}"
-    )
-
+        log_activity(
+            user_id=user.id,
+            action="SUBSCRIPTION_CREATED",
+            entity_type="UserSubscription",
+            entity_id=subscription.id,
+            description=f"Đăng ký gói: {plan.name}"
+        )
 
     reactivate_subscription_enrollments(subscription)
 
@@ -285,24 +287,24 @@ def cancel_subscription(subscription_id, user):
     except UserSubscription.DoesNotExist:
         raise ValidationError({"error": "Active subscription not found."})
 
-    sub.status = 'cancelled'
-    sub.cancelled_at = timezone.now()
-    sub.save(update_fields=['status', 'cancelled_at', 'updated_at'])
+    with transaction.atomic():
+        sub.status = 'cancelled'
+        sub.cancelled_at = timezone.now()
+        sub.save(update_fields=['status', 'cancelled_at', 'updated_at'])
 
+        Enrollment.objects.filter(
+            subscription=sub,
+            status=Enrollment.Status.Active,
+            is_deleted=False,
+        ).update(status=Enrollment.Status.SUSPENDED)
 
-    Enrollment.objects.filter(
-        subscription=sub,
-        status=Enrollment.Status.Active,
-        is_deleted=False,
-    ).update(status=Enrollment.Status.SUSPENDED)
-
-    log_activity(
-        user_id=user.id,
-        action="SUBSCRIPTION_CANCELLED",
-        entity_type="UserSubscription",
-        entity_id=sub.id,
-        description=f"Hủy đăng ký gói: {sub.plan.name}"
-    )
+        log_activity(
+            user_id=user.id,
+            action="SUBSCRIPTION_CANCELLED",
+            entity_type="UserSubscription",
+            entity_id=sub.id,
+            description=f"Hủy đăng ký gói: {sub.plan.name}"
+        )
 
     _create_notification(
         receiver=user,

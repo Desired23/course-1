@@ -3,10 +3,22 @@ from .models import SupportReply
 from .serializers import SupportReplySerializer
 from supports.models import Support
 from utils.roles import is_active_admin
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+def _broadcast_support_reply(ticket_id, reply_data):
+    channel_layer = get_channel_layer()
+    if not channel_layer or not ticket_id:
+        return
+    async_to_sync(channel_layer.group_send)(
+        f"support_{ticket_id}",
+        {"type": "send_support_reply", "data": {"action": "reply_created", "reply": reply_data}},
+    )
 
 
 def _is_admin(user):
@@ -42,7 +54,12 @@ def create_support_reply(data, actor):
                 save_kwargs['admin'] = actor.admin
             support_reply = serializer.save(**save_kwargs)
             _send_admin_reply_notification(support_reply)
-            return SupportReplySerializer(support_reply).data
+            reply_data = SupportReplySerializer(support_reply).data
+            try:
+                _broadcast_support_reply(support_reply.support_id, dict(reply_data))
+            except Exception:
+                pass
+            return reply_data
     except Support.DoesNotExist:
         raise ValidationError({"error": "Support request not found."})
     except ValidationError as e:
