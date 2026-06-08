@@ -30,6 +30,11 @@ export interface ApiError {
   errors?: Record<string, string[]>
 }
 
+// Backend has empty DEFAULT_AUTHENTICATION_CLASSES, so auth failures raised in
+// permissions get downgraded 401 -> 403 by DRF while keeping this 401 message.
+// Detect that case to run the session-expired flow instead of role-mismatch.
+const SESSION_EXPIRED_MESSAGE = 'Bạn chưa đăng nhập hoặc phiên đã hết hạn.'
+
 
 
 const TOKEN_KEYS = {
@@ -206,7 +211,28 @@ class HttpService {
 
 
       if (response.status === 403) {
-        _onRoleMismatch?.()
+        const peek = await response.clone().json().catch(() => null)
+        if (peek?.message === SESSION_EXPIRED_MESSAGE) {
+          if (retry) {
+            const newToken = await this.handleTokenRefresh()
+            if (newToken) {
+              return this.request<T>(
+                endpoint,
+                {
+                  ...options,
+                  headers: {
+                    ...defaultHeaders,
+                    Authorization: `Bearer ${newToken}`,
+                    ...options.headers,
+                  },
+                },
+                false
+              )
+            }
+          }
+        } else {
+          _onRoleMismatch?.()
+        }
       }
 
 
@@ -346,7 +372,17 @@ class HttpService {
       }
 
       if (response.status === 403) {
-        _onRoleMismatch?.()
+        const peek = await response.clone().json().catch(() => null)
+        if (peek?.message === SESSION_EXPIRED_MESSAGE) {
+          if (retry) {
+            const newToken = await this.handleTokenRefresh()
+            if (newToken) {
+              return this.upload<T>(endpoint, formData, false)
+            }
+          }
+        } else {
+          _onRoleMismatch?.()
+        }
       }
 
       if (!response.ok) {

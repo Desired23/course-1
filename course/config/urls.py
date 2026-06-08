@@ -58,4 +58,5 @@ urlpatterns = [
     path('api/', include('realtime.urls')),
     path('api/', include('search.urls')),
     path('api/', include('transcripts.urls')),
+    path('api/', include('newsletter.urls')),
 ]

@@ -99,6 +99,15 @@ class CertificateAdminView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
 
+def _pdf_response(cert):
+    from django.http import HttpResponse
+    from .services import render_certificate_pdf
+    pdf = render_certificate_pdf(cert)
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="certificate_{cert.verification_code}.pdf"'
+    return response
+
+
 class CertificateDownloadView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
     throttle_scope = 'burst'
@@ -110,22 +119,29 @@ class CertificateDownloadView(APIView):
         except Certificate.DoesNotExist:
             return Response({"error": "Certificate not found."}, status=status.HTTP_404_NOT_FOUND)
 
-
         is_admin = getattr(request.user, 'admin', None)
         is_active_admin = is_admin and not getattr(is_admin, 'is_deleted', True)
         if cert.user_id != request.user.id and not is_active_admin:
             return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
-        if not cert.certificate_url:
-            return Response(
-                {"error": "Certificate PDF not yet generated. Call POST /certificates/<id>/generate/ first."},
-                status=status.HTTP_400_BAD_REQUEST,
+        return _pdf_response(cert)
+
+
+class CertificatePublicDownloadView(APIView):
+    """Stream the certificate PDF by its (unguessable) verification code.
+
+    No auth: the UUID code acts as a capability token so the link works from
+    the certificate email. The PDF is generated on the fly each request.
+    """
+    throttle_scope = 'search'
+
+    def get(self, request, verification_code):
+        from .models import Certificate
+        try:
+            cert = Certificate.objects.get(
+                verification_code=verification_code, is_deleted=False, revoked=False
             )
-
-
-        return Response({
-            "certificate_id": cert.id,
-            "download_url": cert.certificate_url,
-            "verification_code": cert.verification_code,
-        })
+        except Certificate.DoesNotExist:
+            return Response({"error": "Certificate not found."}, status=status.HTTP_404_NOT_FOUND)
+        return _pdf_response(cert)
 

@@ -133,8 +133,12 @@ export function NotificationSidebar({
   const getNotificationLink = (notification: any): string | null => {
     const code = notification.notification_code ?? notification.notificationCode
     const relatedId = notification.related_id ?? notification.relatedId
+    const type = notification.type
 
+    // Route by notification_code. related_id is NOT always a course id (it can be a
+    // certificate / review / answer / payment id), so we never blindly link to /course/:id.
     switch (code) {
+      // Instructor application
       case 'application_approved':
       case 'application_rejected':
       case 'application_changes_requested':
@@ -142,11 +146,77 @@ export function NotificationSidebar({
       case 'application_submitted':
       case 'application_resubmitted':
         return '/admin/instructor-applications'
+
+      // Payouts (instructor)
+      case 'payout_processed':
+      case 'payout_rejected':
+        return '/instructor/payouts'
+
+      // Refund request -> admin queue
+      case 'refund_requested':
+        return '/admin/refunds'
+
+      // Payments & refund results (student)
+      case 'payment_completed':
+      case 'payment_failed':
+      case 'refund_processed':
+      case 'refund_failed':
+      case 'refund_rejected':
+        return '/user/transactions'
+
+      // Subscriptions (student)
+      case 'subscription_renewed':
+      case 'subscription_expired':
+      case 'subscription_cancelled':
+      case 'plan_course_removal_scheduled':
+        return '/user/subscriptions'
+
+      // Certificates & enrollment (student) -> shown on My Learning
+      case 'certificate_issued':
+      case 'certificate_revoked':
+      case 'enrollment_created':
+        return '/my-learning'
+
+      // New enrollment (instructor)
+      case 'new_enrollment_received':
+        return '/instructor/students'
+
+      // Course moderation (instructor) -> deep link to the course (related_id = course id)
+      case 'course_moderated':
+      case 'course_status_changed_by_admin':
+        return relatedId ? `/instructor/courses/${relatedId}` : '/instructor/courses'
+
+      // Lesson/module moderation (instructor) -> no deep id available
+      case 'lesson_status_changed_by_admin':
+      case 'module_status_changed_by_admin':
+        return '/instructor/courses'
+
+      // Reviews
+      case 'review_received':       // instructor
+        return '/instructor/courses'
+      case 'review_moderated':      // review owner (student)
+        return '/user/my-reviews'
+      case 'review_reported':       // admin
+        return '/admin/reviews'
+
+      // Q&A
+      case 'answer_received':
+      case 'answer_accepted':
+      case 'answer_moderated':
+        return '/qa'
+      case 'question_reported':     // admin
+        return '/admin/qa'
+
+      // Blog
+      case 'blog_comment_received':
+      case 'blog_comment_moderated':
+      case 'blog_post_moderated':
+        return '/blog'
     }
 
-    if (relatedId) {
-      return `/course/${relatedId}`
-    }
+    // Safety net for any future payment-type code; otherwise no navigation
+    // (better than navigating to a wrong page).
+    if (type === 'payment') return '/user/transactions'
     return null
   }
 

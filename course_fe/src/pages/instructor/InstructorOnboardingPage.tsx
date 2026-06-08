@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Loader2, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 
+import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
@@ -72,6 +73,7 @@ const fadeInUp = {
 export function InstructorOnboardingPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
+  const { fetchProfile } = useAuth()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [uploadingQuestionId, setUploadingQuestionId] = useState<number | null>(null)
@@ -191,14 +193,34 @@ export function InstructorOnboardingPage() {
 
     setSubmitting(true)
     try {
+      let savedApplication: Application
       if (myLatestApplication?.status === "changes_requested") {
-        await resubmitApplication(myLatestApplication.id, payload)
+        savedApplication = await resubmitApplication(myLatestApplication.id, payload)
         toast.success(t("instructor_onboarding_page.resubmit_success"))
       } else {
-        await submitApplication(payload)
-        toast.success(t("instructor_onboarding_page.submit_success"))
+        savedApplication = await submitApplication(payload)
+        toast.success(t(
+          savedApplication.status === "approved"
+            ? "instructor_onboarding_page.approved_success"
+            : "instructor_onboarding_page.submit_success"
+        ))
       }
-      navigate("/instructor")
+      setMyLatestApplication({
+        id: savedApplication.id,
+        user: savedApplication.user,
+        form: savedApplication.form,
+        status: savedApplication.status,
+        submitted_at: savedApplication.submitted_at,
+        reviewed_at: savedApplication.reviewed_at,
+        user_email: savedApplication.user_email,
+        user_full_name: savedApplication.user_full_name,
+        form_title: savedApplication.form_title,
+      })
+      setMyLatestApplicationDetail(savedApplication)
+      if (savedApplication.status === "approved") {
+        await fetchProfile()
+        navigate("/instructor")
+      }
     } catch (err: any) {
       toast.error(err?.message || t("instructor_onboarding_page.submit_failed"))
     } finally {

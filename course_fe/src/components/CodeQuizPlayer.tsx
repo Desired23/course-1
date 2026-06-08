@@ -252,7 +252,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     const newLang = parseInt(languageId)
     if (confirm(t('code_quiz_player.confirm_change_language'))) {
       setSelectedLanguage(newLang)
-      setCode(question.starterCode || '')
+      setCode(resolveStarterCode(question.starterCode, newLang))
     }
   }
 
@@ -263,6 +263,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
       return
     }
 
+    setIsSubmitted(false)
     setIsRunning(true)
     setRunProgress({ current: 0, total: question.testCases.length })
     setTestResults([])
@@ -336,9 +337,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
       onComplete(passed === total, percentage)
     }
 
-    if (passed === total) {
-      toast.success(t('code_quiz_player.submit_success'))
-    } else {
+    if (passed !== total) {
       toast.info(t('code_quiz_player.submit_info'))
     }
   }
@@ -346,7 +345,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
 
   const handleReset = () => {
     if (confirm(t('code_quiz_player.reset_confirm'))) {
-      setCode(question.starterCode || '')
+      setCode(resolveStarterCode(question.starterCode, selectedLanguage))
       setTestResults([])
       setIsSubmitted(false)
     }

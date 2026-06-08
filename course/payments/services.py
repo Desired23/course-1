@@ -102,10 +102,18 @@ def _find_course_purchase_blocker(user_id, course):
         .first()
     )
     if retryable_detail and can_retry_payment(retryable_detail.payment):
-        return (
-            f"Khóa học '{course.title}' đang có payment chưa hoàn tất "
-            f"#{retryable_detail.payment_id}. Vui lòng tiếp tục hoặc đợi giao dịch hết hạn."
-        )
+        # Structured so the checkout can offer "tiếp tục thanh toán" directly instead of
+        # only surfacing a dead-end message. Keep "message" first so the generic exception
+        # handler picks it as the human-facing toast text.
+        return {
+            "message": (
+                f"Khóa học '{course.title}' đang có payment chưa hoàn tất "
+                f"#{retryable_detail.payment_id}. Vui lòng tiếp tục hoặc đợi giao dịch hết hạn."
+            ),
+            "code": "pending_payment",
+            "payment_id": retryable_detail.payment_id,
+            "payment_method": retryable_detail.payment.payment_method,
+        }
 
     return None
 
@@ -357,6 +365,28 @@ def create_payment(payment_data):
         raise
     except Exception as e:
         raise ValidationError(f"Lỗi khi tạo thanh toán: {str(e)}")
+
+
+def cancel_payment(payment_id, user):
+    try:
+        payment = Payment.objects.get(id=payment_id, user=user, is_deleted=False)
+    except Payment.DoesNotExist:
+        raise ValidationError("Payment không tồn tại hoặc không thuộc về bạn.")
+
+    if payment.payment_status not in [Payment.PaymentStatus.PENDING, Payment.PaymentStatus.FAILED]:
+        raise ValidationError("Chỉ có thể hủy giao dịch đang chờ hoặc thất bại.")
+
+    payment.payment_status = Payment.PaymentStatus.CANCELLED
+    payment.save(update_fields=["payment_status", "updated_at"])
+
+    log_activity(
+        user_id=user.id,
+        action="PAYMENT_CANCELLED",
+        entity_type="Payment",
+        entity_id=payment.id,
+        description=f"Người dùng hủy giao dịch dở dang #{payment.id}",
+    )
+    return payment
 
 
 def get_payment_status(payment_id, user, admin_override=False):

@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     CreateVnpayPaymentView, VnpayPaymentReturnView, RefundDetailView,
-    CreatePaymentRecordView, VnpayIPNView, PaymentStatusView,
+    CreatePaymentRecordView, VnpayIPNView, PaymentStatusView, CancelPaymentView,
     CheckEnrollmentView, AdminRefundUpdateView, UserRefundListView,
     UserPaymentListView, AdminPaymentFixView, AdminPaymentListView, AdminPaymentConfigView,
     AdminRefundActionView, AdminCreateRefundView,
@@ -17,6 +17,7 @@ urlpatterns = [
     path('momo/ipn/', MomoIPNView.as_view(), name='momo-ipn'),
     path('momo/payment-return/', MomoPaymentReturnView.as_view(), name='momo-payment-return'),
     path('payment/create/', CreatePaymentRecordView.as_view(), name='payment-create'),
+    path('payment/cancel/', CancelPaymentView.as_view(), name='payment-cancel'),
     path('payments/status/<int:payment_id>/', PaymentStatusView.as_view(), name='payment-status'),
     path('payments/', AdminPaymentListView.as_view(), name='payment-list'),
     path('payments/export/', AdminPaymentExportView.as_view(), name='payment-export'),

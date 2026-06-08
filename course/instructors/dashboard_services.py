@@ -82,6 +82,7 @@ def get_course_analytics(instructor, course_id):
     from reviews.models import Review
     from learning_progress.models import LearningProgress
     from payments.models import Payment
+    from instructor_earnings.models import InstructorEarning as _IE
 
     try:
         course = Course.objects.get(id=course_id, instructor=instructor, is_deleted=False)
@@ -164,6 +165,65 @@ def get_course_analytics(instructor, course_id):
         key = f"{int(row['rating'])}_star"
         if key in rating_dist:
             rating_dist[key] = row['cnt']
+    avg_rating = reviews_qs.aggregate(avg=Avg('rating'))['avg'] or 0
+    total_reviews = reviews_qs.count()
+
+
+    total_students = enrollments.count()
+    completion_rate = round(completed / total_students * 100, 1) if total_students else 0
+
+    last_30_start = now - timedelta(days=30)
+    earnings_qs = InstructorEarning.objects.filter(
+        course=course, instructor=instructor, is_deleted=False
+    )
+    total_revenue = earnings_qs.aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    last_30_revenue = earnings_qs.filter(
+        created_at__gte=last_30_start
+    ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    last_30_enrollments = enrollments.filter(enrollment_date__gte=last_30_start).count()
+
+    from payment_details.models import Payment_Details
+    payment_ids = list(enrollments.exclude(payment=None).values_list('payment_id', flat=True))
+    refunded = (
+        Payment_Details.objects.filter(
+            payment_id__in=payment_ids,
+            refund_status=Payment_Details.RefundStatus.SUCCESS,
+            is_deleted=False,
+        ).values('payment_id').distinct().count()
+        if payment_ids else 0
+    )
+    refund_rate = round(refunded / total_students * 100, 1) if total_students else 0
+
+
+    lesson_stats = {
+        row['lesson_id']: {
+            'views': row['views'],
+            'completion_rate': round(float(row['avg_completion'] or 0), 1),
+        }
+        for row in (
+            LearningProgress.objects
+            .filter(course=course, is_deleted=False)
+            .values('lesson_id')
+            .annotate(views=Count('id'), avg_completion=Avg('progress_percentage'))
+        )
+    }
+
+    # real aggregations for instructor tab
+    inst_course_ids = list(
+        Course.objects.filter(instructor=instructor, is_deleted=False).values_list('id', flat=True)
+    )
+    inst_total_courses = len(inst_course_ids)
+    inst_total_students = (
+        Enrollment.objects.filter(course_id__in=inst_course_ids, is_deleted=False).values('user_id').distinct().count()
+    )
+    inst_avg_rating_val = (
+        Review.objects.filter(course_id__in=inst_course_ids, is_deleted=False, status='approved')
+        .aggregate(avg=Avg('rating'))['avg'] or 0
+    )
+    inst_total_revenue = float(
+        _IE.objects.filter(instructor=instructor, is_deleted=False)
+        .aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    )
 
     return {
         'course_id': course.id,
@@ -177,6 +237,25 @@ def get_course_analytics(instructor, course_id):
         },
         'popular_lessons': popular_lessons_data,
         'rating_distribution': rating_dist,
+        'lesson_stats': lesson_stats,
+        'summary': {
+            'total_students': total_students,
+            'total_revenue': float(total_revenue),
+            'completion_rate': completion_rate,
+            'average_rating': round(float(avg_rating), 2),
+            'total_reviews': total_reviews,
+            'refund_rate': refund_rate,
+            'last_30_days': {
+                'enrollments': last_30_enrollments,
+                'revenue': float(last_30_revenue),
+            },
+        },
+        'instructor_stats': {
+            'total_courses': inst_total_courses,
+            'total_students': inst_total_students,
+            'average_rating': round(float(inst_avg_rating_val), 2),
+            'total_revenue': inst_total_revenue,
+        },
     }
 
 

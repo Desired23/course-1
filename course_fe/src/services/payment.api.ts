@@ -107,6 +107,7 @@ export interface CreatePaymentResponse {
 export async function createPaymentRecord(data: {
   user_id: number
   payment_method: string
+  momo_request_type?: string
   return_url?: string
   payment_type?: string
   billing_cycle?: 'monthly' | 'yearly'
@@ -143,6 +144,10 @@ export async function createMomoPayment(data: {
   order_id?: number | string
 }): Promise<MomoCreateResponse> {
   return http.post<MomoCreateResponse>('/momo/create/', data)
+}
+
+export async function cancelPayment(paymentId: number | string): Promise<{ message: string }> {
+  return http.post<{ message: string }>('/payment/cancel/', { payment_id: paymentId })
 }
 
 export interface MyPaymentItem {

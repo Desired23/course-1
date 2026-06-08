@@ -25,6 +25,7 @@ from .refund_services import (
 )
 from .services import (
     can_retry_payment,
+    cancel_payment,
     create_payment,
     get_payment_retry_deadline,
     get_payment_status,
@@ -170,6 +171,11 @@ class CreatePaymentRecordView(APIView):
                     user=request.user,
                     is_deleted=False,
                 )
+                from .momo_services import MOMO_REQUEST_TYPES
+                momo_request_type = data.get('momo_request_type')
+                if momo_request_type in MOMO_REQUEST_TYPES:
+                    payment_obj.momo_request_type = momo_request_type
+                    payment_obj.save(update_fields=['momo_request_type'])
                 momo_payment = create_momo_payment(payment_obj)
                 payment_result['gateway_payment'] = {
                     'provider': 'momo',
@@ -197,6 +203,22 @@ class CreatePaymentRecordView(APIView):
         except Exception:
             logger.exception("CreatePaymentRecord error")
             return Response({"message": "Không thể tạo đơn thanh toán. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CancelPaymentView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
+
+    def post(self, request):
+        try:
+            payment_id = request.data.get('payment_id') or request.data.get('order_id')
+            cancel_payment(payment_id, request.user)
+            return Response({"message": "Đã hủy giao dịch."}, status=status.HTTP_200_OK)
+        except (ValidationError, PermissionDenied):
+            raise
+        except Exception:
+            logger.exception("CancelPayment error")
+            return Response({"message": "Không thể hủy giao dịch. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RefundDetailView(APIView):

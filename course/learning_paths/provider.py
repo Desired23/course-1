@@ -17,9 +17,17 @@ Rules:
 - Output one of:
   {"type":"question","message":"..."}
   {"type":"path","path":[...],"estimated_weeks":number,"summary":"..."}
-- Ask at most 2 clarifying questions total. If enough information is available, return a path.
-- After 2 user answers, make safe assumptions and explain them in summary instead of asking another question.
+- Ask clarifying questions when key information is missing, up to 4 questions total. Prioritize understanding: the specific goal/topic, the user's current level, weekly time available, and any focus area or constraint (budget, language, certificate).
+- Ask only one question at a time, and never re-ask something the user already answered.
+- As soon as you have enough information to build a focused path, stop asking and return the path.
+- After 4 user answers, make safe assumptions and explain them in summary instead of asking another question.
 - Recommend only courses that exist in the catalog.
+- Recommend only courses directly relevant to the user's stated goal. Do NOT include every course in the catalog.
+- Keep the path focused: typically 3-6 courses. Exclude courses on unrelated topics (for a "learn Python basics" goal, do not add UX, design, DevOps, or unrelated language courses unless the user explicitly asked for them).
+- Only mark a course is_skippable when it is a genuinely optional enhancement to the core goal. Do not pad the path with skippable, tangential courses.
+- A shorter, on-target path is better than a long, padded one.
+- Be honest: never invent or force a course that does not match the request. If the catalog has no course matching what the user asked (a specific topic, instructor, level, or language), say so plainly, then suggest the closest available alternatives and explain why they are close.
+- If only some of the requested topics are covered, build the path from what exists and clearly state in summary which requested topics are not available.
 - Each path item must include:
   course_id, order, reason, is_skippable, skippable_reason
 - order must start at 1 and be continuous.
@@ -37,8 +45,11 @@ Catalog fields reference:
 - discount_price: sale price in VND (null = no active discount); use this as effective price when non-null
 - language: language the course is taught in
 - rating: average rating from 0.00 to 5.00
+- total_students: number of enrolled students; a higher count means a more popular / "hot" / standout course
 - instructor: instructor's full name
 - has_certificate: whether the course awards a certificate on completion
+- tags, category, subcategory: topic labels; use them (together with title) to match the user's goal, including abbreviations and synonyms (e.g. "js" -> JavaScript, "ML" -> Machine Learning, "data analytics" -> data analysis)
+- When the user asks for popular / hot / standout courses, rank primarily by total_students, then by rating.
 
 Budget handling:
 - If the user states a budget (e.g. "tôi có 500.000đ"), use discount_price (if non-null) or price as the effective price.
@@ -66,32 +77,6 @@ MAX_GEMINI_MESSAGE_CHARS = 500
 MAX_GEMINI_CATALOG_ITEMS = 60
 
 
-def tokenize_text(value):
-    return {token for token in re.findall(r"[a-zA-Z0-9+#]+", (value or "").lower()) if len(token) > 1}
-
-
-def build_combined_text(goal_text, messages):
-    seen = set()
-    merged_parts = []
-
-    def add_part(raw_text):
-        text = (raw_text or "").strip()
-        if not text:
-            return
-        normalized = re.sub(r"\s+", " ", text).lower()
-        if normalized in seen:
-            return
-        seen.add(normalized)
-        merged_parts.append(text)
-
-    add_part(goal_text)
-    for message in (messages or []):
-        if isinstance(message, dict):
-            add_part(message.get("content", ""))
-
-    return " ".join(merged_parts).lower()
-
-
 def _trim_history_messages(messages, max_messages=MAX_GEMINI_HISTORY_MESSAGES):
     normalized = []
     for message in (messages or []):
@@ -110,26 +95,19 @@ def _trim_history_messages(messages, max_messages=MAX_GEMINI_HISTORY_MESSAGES):
     return normalized[-max_messages:]
 
 
-def _compact_catalog_snapshot(catalog_snapshot, goal_text, messages, limit=MAX_GEMINI_CATALOG_ITEMS):
-    query_tokens = tokenize_text(build_combined_text(goal_text, messages))
+def _course_popularity_key(course):
+    try:
+        rating = float(course.get("rating") or 0)
+    except (TypeError, ValueError):
+        rating = 0.0
+    return (course.get("total_students") or 0, rating)
 
-    ranked = []
-    for course in (catalog_snapshot or []):
-        searchable = " ".join(
-            [
-                course.get("title") or "",
-                course.get("description") or "",
-                " ".join(course.get("tags") or []),
-                course.get("category_name") or "",
-                course.get("subcategory_name") or "",
-            ]
-        )
-        course_tokens = tokenize_text(searchable)
-        overlap_score = len(query_tokens.intersection(course_tokens)) if query_tokens else 0
-        ranked.append((overlap_score, course))
 
-    ranked.sort(key=lambda item: (-item[0], (item[1].get("title") or "").lower()))
-    selected = [course for _, course in ranked[:limit]]
+def _compact_catalog_snapshot(catalog_snapshot, limit=MAX_GEMINI_CATALOG_ITEMS):
+    # No keyword relevance filter: Gemini selects relevant courses itself.
+    # The only server-side narrowing is a safety cap that, when the catalog
+    # exceeds `limit`, keeps the most popular courses (by enrollment, then rating).
+    selected = sorted(catalog_snapshot or [], key=_course_popularity_key, reverse=True)[:limit]
 
     compact = []
     for course in selected:
@@ -138,11 +116,15 @@ def _compact_catalog_snapshot(catalog_snapshot, goal_text, messages, limit=MAX_G
                 "course_id": course.get("course_id"),
                 "title": course.get("title") or "",
                 "level": course.get("level") or "",
+                "category": course.get("category_name") or "",
+                "subcategory": course.get("subcategory_name") or "",
+                "tags": course.get("tags") or [],
                 "duration_hours": course.get("duration_hours"),
                 "price": course.get("course_price"),
                 "discount_price": course.get("course_discount_price"),
                 "language": course.get("language") or "",
                 "rating": course.get("rating"),
+                "total_students": course.get("total_students"),
                 "instructor": course.get("instructor_name") or "",
                 "has_certificate": course.get("has_certificate", False),
             }
@@ -184,7 +166,7 @@ class GeminiAdvisorProvider:
 
     def _build_payload(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot):
         trimmed_messages = _trim_history_messages(messages)
-        compact_catalog = _compact_catalog_snapshot(catalog_snapshot, goal_text, trimmed_messages)
+        compact_catalog = _compact_catalog_snapshot(catalog_snapshot)
         user_messages = [message for message in trimmed_messages if message.get("role") == "user"]
         context_body = {
             "goal_text": goal_text,

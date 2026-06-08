@@ -69,6 +69,7 @@ def custom_exception_handler(exc, context):
         }
     elif isinstance(exc, (NotAuthenticated, AuthenticationFailed)):
         payload = {"message": _STATUS_MESSAGES[status.HTTP_401_UNAUTHORIZED]}
+        response.status_code = status.HTTP_401_UNAUTHORIZED
     elif isinstance(exc, PermissionDenied):
         payload = {"message": str(exc.detail) if exc.detail else _STATUS_MESSAGES[status.HTTP_403_FORBIDDEN]}
     elif isinstance(exc, NotFound):

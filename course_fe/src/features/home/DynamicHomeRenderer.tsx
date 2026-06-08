@@ -835,16 +835,30 @@ function renderSectionByType(section: HomeSection): JSX.Element | null {
   }
 }
 
-export function DynamicHomeSections({ sections, previewMode = false }: { sections: HomeSection[]; previewMode?: boolean }) {
+export function DynamicHomeSections({
+  sections,
+  previewMode = false,
+  showAll = false,
+  onSelectSection,
+  selectedSectionId,
+}: {
+  sections: HomeSection[]
+  previewMode?: boolean
+  showAll?: boolean
+  onSelectSection?: (id: string) => void
+  selectedSectionId?: string | null
+}) {
   const isMobile = useIsMobile()
   const { isAuthenticated } = useAuth()
 
   const visibleSections = useMemo(
     () =>
       [...sections]
-        .filter((section) => (previewMode ? section.enabled : shouldShowSection(section, isMobile, isAuthenticated)))
+        .filter((section) =>
+          showAll ? true : previewMode ? section.enabled : shouldShowSection(section, isMobile, isAuthenticated),
+        )
         .sort((a, b) => a.order - b.order),
-    [sections, isMobile, isAuthenticated, previewMode],
+    [sections, isMobile, isAuthenticated, previewMode, showAll],
   )
 
   return (
@@ -861,9 +875,29 @@ export function DynamicHomeSections({ sections, previewMode = false }: { section
           .filter(Boolean)
           .join(" ")
 
+        const interactive = typeof onSelectSection === "function"
+        const isSelected = selectedSectionId === section.id
+
         return (
-          <section key={section.id} className={wrapperClass} data-home-section-type={section.type}>
+          <section
+            key={section.id}
+            className={`${wrapperClass} ${interactive ? "relative" : ""}`}
+            data-home-section-type={section.type}
+            data-home-section-id={section.id}
+          >
             {isFullBleedHero ? renderSectionByType(section) : <div className={getContainerClass(layout.container)}>{renderSectionByType(section)}</div>}
+            {interactive ? (
+              <button
+                type="button"
+                onClick={() => onSelectSection?.(section.id)}
+                aria-label={`Edit ${section.type}`}
+                className={`absolute inset-0 z-10 h-full w-full cursor-pointer ring-inset transition ${
+                  isSelected
+                    ? "bg-primary/5 ring-2 ring-primary"
+                    : "ring-0 hover:bg-primary/5 hover:ring-2 hover:ring-primary/40"
+                }`}
+              />
+            ) : null}
           </section>
         )
       })}

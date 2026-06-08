@@ -39,6 +39,7 @@ from notifications.services import create_notification
 
 logger = logging.getLogger(__name__)
 
+MOMO_REQUEST_TYPES = {"payWithATM", "captureWallet", "payWithCC", "payWithMethod"}
 MOMO_PENDING_CODES = {1000, 7000, 7002}
 MOMO_SUCCESS_CODES = {0}
 MOMO_FINAL_FAILED_CODES = {
@@ -136,22 +137,32 @@ def _parse_momo_response(response):
         return {"raw": response.text}
 
 
+def _payment_id_from_momo_order_id(order_id):
+    # MoMo orderId must be unique per create request (it rejects duplicates), so it is
+    # built as "{payment_id}-{nonce}". The payment id is always the prefix; legacy
+    # orders sent as the bare id have no dash and still parse correctly.
+    if order_id is None:
+        return None
+    return str(order_id).split("-", 1)[0]
+
+
 def create_momo_payment(payment: Payment) -> dict:
     if payment.payment_method != Payment.PaymentMethod.MOMO:
         raise ValidationError("Payment method must be MoMo.")
     ensure_payment_retryable(payment)
 
     request_id = f"momo-{payment.id}-{uuid.uuid4().hex[:12]}"
-    order_id = str(payment.id)
+    order_id = f"{payment.id}-{uuid.uuid4().hex[:12]}"
+    request_type = payment.momo_request_type if payment.momo_request_type in MOMO_REQUEST_TYPES else "payWithATM"
     payload = {
         "partnerCode": settings.MOMO_PARTNER_CODE,
-        "requestType": "payWithATM",
+        "requestType": request_type,
         "ipnUrl": settings.MOMO_IPN_URL,
         "redirectUrl": settings.MOMO_REDIRECT_URL,
         "orderId": order_id,
         "amount": int(payment.total_amount),
         "lang": "vi",
-        "orderInfo": f"Thanh toán đơn hàng {order_id}",
+        "orderInfo": f"Thanh toán đơn hàng {payment.id}",
         "requestId": request_id,
         "extraData": _encode_extra_data(payment),
     }
@@ -465,7 +476,7 @@ def _finalize_momo_failure(payment: Payment, payload: dict):
 
 def momo_payment_return(request):
     params = request.GET
-    order_id = params.get("orderId")
+    order_id = _payment_id_from_momo_order_id(params.get("orderId"))
     try:
         result_code = int(params.get("resultCode", "-1"))
     except (ValueError, TypeError):
@@ -515,7 +526,7 @@ def momo_ipn(request):
         return JsonResponse({"resultCode": 13, "message": "Invalid signature"})
 
     try:
-        payment = Payment.objects.get(id=payload.get("orderId"))
+        payment = Payment.objects.get(id=_payment_id_from_momo_order_id(payload.get("orderId")))
     except Payment.DoesNotExist:
         return JsonResponse({"resultCode": 42, "message": "OrderId not found"})
 

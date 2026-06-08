@@ -10,11 +10,30 @@ from users.models import User
 from django.utils import timezone
 from dateutil.parser import parse
 
-def create_promotion(data):
-    try:
+def _get_actor_ids_from_user(user):
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None, None
 
-        admin_id = data.get('admin_id')
-        instructor_id = data.get('instructor_id')
+    admin = getattr(user, 'admin', None)
+    if admin and not admin.is_deleted:
+        return admin.id, None
+
+    instructor = getattr(user, 'instructor', None)
+    if instructor and not instructor.is_deleted:
+        return None, instructor.id
+
+    return None, None
+
+
+def create_promotion(data, user=None):
+    try:
+        data = data.copy()
+
+        admin_id = data.get('admin_id') or data.get('admin')
+        instructor_id = data.get('instructor_id') or data.get('instructor')
+
+        if not admin_id and not instructor_id:
+            admin_id, instructor_id = _get_actor_ids_from_user(user)
 
 
         if not admin_id and not instructor_id:
@@ -33,6 +52,12 @@ def create_promotion(data):
                 Instructor.objects.get(id=instructor_id)
             except Instructor.DoesNotExist:
                 raise ValidationError({"error": "Instructor not found."})
+
+        if admin_id:
+            data['admin'] = admin_id
+
+        if instructor_id:
+            data['instructor'] = instructor_id
 
 
         end_date_str = data.get('end_date')

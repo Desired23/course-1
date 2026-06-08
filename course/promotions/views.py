@@ -23,7 +23,7 @@ class PromotionManagementView(APIView):
     throttle_scope = 'burst'
     def post(self, request):
         try:
-            promotion = create_promotion(request.data)
+            promotion = create_promotion(request.data, request.user)
             return Response(promotion, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)

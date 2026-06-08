@@ -29,6 +29,7 @@ const AdminWebsiteSettingsPage = lazy(() => import('../pages/admin/AdminWebsiteS
 const AdminHomeLayoutPage = lazy(() => import('../pages/admin/AdminHomeLayoutPage').then((module) => ({ default: module.AdminHomeLayoutPage })))
 const AdminDataBackupPage = lazy(() => import('../pages/admin/AdminDataBackupPage').then((module) => ({ default: module.AdminDataBackupPage })))
 const AdminImportPage = lazy(() => import('../pages/admin/AdminImportPage').then((module) => ({ default: module.AdminImportPage })))
+const AdminNewsletterPage = lazy(() => import('../pages/admin/AdminNewsletterPage').then((module) => ({ default: module.AdminNewsletterPage })))
 
 interface AdminRouteDefinition {
   path: string
@@ -64,6 +65,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/settings', page: <PlatformSettingsPage /> },
   { path: '/admin/blog', page: <AdminBlogPostsPage /> },
   { path: '/admin/qa', page: <AdminQAPage /> },
+  { path: '/admin/newsletter', page: <AdminNewsletterPage /> },
   { path: '/admin/reviews', page: <ReviewManagementPage /> },
   { path: '/admin/reports', page: <ReportManagementPage /> },
   { path: '/admin/refunds', page: <PaymentManagementPage /> },

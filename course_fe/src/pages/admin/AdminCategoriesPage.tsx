@@ -733,7 +733,7 @@ export function AdminCategoriesPage() {
                 <SelectTrigger>
                   <SelectValue placeholder={t('admin_categories.subcategory_dialog.parent_category_placeholder')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[100]">
                   {categories.map(cat => {
                     const ParentIcon = ICON_MAP[cat.icon] || BookOpen
                     return (

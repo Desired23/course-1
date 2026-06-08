@@ -172,6 +172,22 @@ export interface CourseAnalytics {
     avg_completion_rate: number
   }>
   rating_distribution: Record<string, number>
+  lesson_stats: Record<string, { views: number; completion_rate: number }>
+  summary: {
+    total_students: number
+    total_revenue: number
+    completion_rate: number
+    average_rating: number
+    total_reviews: number
+    refund_rate: number
+    last_30_days: { enrollments: number; revenue: number }
+  }
+  instructor_stats: {
+    total_courses: number
+    total_students: number
+    average_rating: number
+    total_revenue: number
+  }
 }
 
 

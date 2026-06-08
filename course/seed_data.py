@@ -1,5 +1,5 @@
 
-import os, sys, random, hashlib, uuid
+import os, sys, random, hashlib, uuid, json
 from datetime import timedelta
 from decimal import Decimal
 
@@ -404,6 +404,180 @@ for idx, (title, pcat, subcat, level, lang, price, cert) in enumerate(course_tem
     courses.append(c)
 
 
+
+
+print("  → Demo Course (Nguyễn Văn A: Code Quiz + Quiz + Video)...")
+# Khóa học cố định để demo: slot 1 = bài quiz code (tính tổng mảng),
+# slot 2 = bài quiz trắc nghiệm, sau đó là các bài video.
+# Tạo riêng, KHÔNG thêm vào list `courses` để vòng tạo module/lesson ngẫu nhiên bỏ qua.
+inst_a = Instructor.objects.get(user__username="nguyenvana")
+demo_course, _ = Course.objects.update_or_create(
+    title="[DEMO] Lập trình Python - Code Quiz & Trắc nghiệm",
+    defaults={
+        'shortdescription': "Khóa demo: bài quiz code, bài quiz trắc nghiệm và các bài video.",
+        'description': "Khóa học demo dùng để kiểm thử tính năng quiz code, quiz trắc nghiệm và video.",
+        'instructor': inst_a,
+        'category': categories["Lập trình"],
+        'subcategory': subcategories["Python"],
+        'price': Decimal("0"),
+        'level': "beginner",
+        'language': "Tiếng Việt",
+        'duration': 60,
+        'total_lessons': 5,
+        'total_modules': 1,
+        'requirements': "Không yêu cầu kiến thức trước.",
+        'learning_objectives': ["Làm quen bài quiz code", "Làm bài quiz trắc nghiệm", "Xem bài giảng video"],
+        'target_audience': ["Người mới bắt đầu"],
+        'tags': ["python", "demo", "quiz"],
+        'status': "published",
+        'published_date': past(10),
+        'is_featured': True,
+        'rating': Decimal("5.0"),
+        'total_reviews': 0,
+        'total_students': 0,
+        'certificate': True,
+        'thumbnail': "https://picsum.photos/seed/democodequiz/640/360",
+    }
+)
+
+demo_module = CourseModule.objects.create(
+    course=demo_course,
+    title="Module 1: Bài giảng Demo",
+    description="Module demo gồm bài quiz code, bài quiz trắc nghiệm và video.",
+    order_number=1,
+    duration=60,
+    status="Published",
+)
+
+# --- Slot 1: Bài quiz CODE - tính tổng mảng ---
+demo_code_lesson = Lesson.objects.create(
+    coursemodule=demo_module,
+    title="Bài 1: Code Quiz - Tính tổng mảng",
+    description="Cài đặt hàm solve(arr) trả về tổng các phần tử trong mảng.",
+    content_type="quiz",
+    duration=15,
+    is_free=True,
+    order=1,
+    status="published",
+)
+code_q = QuizQuestion.objects.create(
+    lesson=demo_code_lesson,
+    difficulty="easy",
+    question_text="Tính tổng mảng",
+    question_type="code",
+    options=None,
+    correct_answer="def solve(arr):\n    return sum(arr)",
+    points=100,
+    explanation="Dùng sum(arr) (Python) hoặc reduce (JS) để cộng dồn các phần tử.",
+    order_number=1,
+    description=(
+        "Cho một mảng số nguyên, hãy cài đặt hàm `solve(arr)` trả về tổng "
+        "các phần tử của mảng. Input là mảng JSON trên một dòng, ví dụ: [1, 2, 3]."
+    ),
+    starter_code=json.dumps({
+        "71": "def solve(arr):\n    # Trả về tổng các phần tử trong mảng\n    pass",
+        "63": "function solve(arr) {\n  // Trả về tổng các phần tử trong mảng\n}",
+    }),
+    time_limit=120,
+    memory_limit=65536,
+    allowed_languages=[71, 63],
+    function_name="solve",
+    require_completion=True,
+)
+demo_code_testcases = [
+    ("[1, 2, 3, 4, 5]", "15", False),
+    ("[10, -4, 6]", "12", False),
+    ("[0, 0, 0]", "0", False),
+    ("[-5, -2, -9]", "-16", True),
+    ("[100]", "100", True),
+]
+for tc_idx, (inp, out, hidden) in enumerate(demo_code_testcases, 1):
+    QuizTestCase.objects.create(
+        question=code_q,
+        input_data=inp,
+        expected_output=out,
+        is_hidden=hidden,
+        points=1,
+        order_number=tc_idx,
+    )
+
+# --- Slot 2: Bài quiz TRẮC NGHIỆM ---
+demo_quiz_lesson = Lesson.objects.create(
+    coursemodule=demo_module,
+    title="Bài 2: Quiz trắc nghiệm Python",
+    description="Bài kiểm tra trắc nghiệm kiến thức Python cơ bản.",
+    content_type="quiz",
+    duration=10,
+    is_free=True,
+    order=2,
+    status="published",
+)
+demo_quiz_questions = [
+    {
+        "question_text": "Hàm nào trả về độ dài của một list trong Python?",
+        "question_type": "multiple",
+        "options": [
+            {"text": "len()", "is_correct": True},
+            {"text": "size()", "is_correct": False},
+            {"text": "count()", "is_correct": False},
+            {"text": "length()", "is_correct": False},
+        ],
+        "correct_answer": "len()",
+        "explanation": "len() trả về số phần tử của list.",
+    },
+    {
+        "question_text": "Python là ngôn ngữ phân biệt chữ hoa/chữ thường (case-sensitive).",
+        "question_type": "truefalse",
+        "options": [{"text": "True", "is_correct": True}, {"text": "False", "is_correct": False}],
+        "correct_answer": "True",
+        "explanation": "Biến `a` và `A` là hai biến khác nhau.",
+    },
+    {
+        "question_text": "Cú pháp nào tạo một dictionary rỗng?",
+        "question_type": "multiple",
+        "options": [
+            {"text": "{}", "is_correct": True},
+            {"text": "[]", "is_correct": False},
+            {"text": "()", "is_correct": False},
+            {"text": "set()", "is_correct": False},
+        ],
+        "correct_answer": "{}",
+        "explanation": "{} tạo dict rỗng, [] tạo list rỗng, () tạo tuple rỗng.",
+    },
+]
+for q_idx, q in enumerate(demo_quiz_questions, 1):
+    QuizQuestion.objects.create(
+        lesson=demo_quiz_lesson,
+        difficulty="easy",
+        question_text=q["question_text"],
+        question_type=q["question_type"],
+        options=q["options"],
+        correct_answer=q["correct_answer"],
+        points=1,
+        explanation=q["explanation"],
+        order_number=q_idx,
+    )
+
+# --- Slot 3+: Bài VIDEO ---
+demo_video_titles = [
+    "Bài 3: Giới thiệu khóa học",
+    "Bài 4: Cài đặt môi trường Python",
+    "Bài 5: Viết chương trình đầu tiên",
+]
+for v_idx, v_title in enumerate(demo_video_titles, 3):
+    Lesson.objects.create(
+        coursemodule=demo_module,
+        title=v_title,
+        description=f"Nội dung video: {v_title}",
+        content_type="video",
+        video_url="https://res.cloudinary.com/dqzopvk2t/video/upload/v1780068574/course_lessons/course_sample_lesson.mp4",
+        duration=12,
+        is_free=(v_idx == 3),
+        order=v_idx,
+        status="published",
+    )
+
+
 for inst in instructors:
     inst.total_courses = Course.objects.filter(instructor=inst, is_deleted=False).count()
     inst.save(update_fields=['total_courses'])
@@ -610,10 +784,18 @@ for code, dtype, val, min_p, max_d in promo_data:
 
 
 print("  → Payments & Enrollments...")
+# Tài khoản sạch hoàn toàn để demo luồng chính: không gắn sẵn bất kỳ dữ liệu nào
+# (enrollment/thanh toán/subscription/giỏ hàng/wishlist/đơn giảng viên/phương thức
+# thanh toán/thông báo/Q&A/comment/support/chat).
+DEMO_CLEAN_USERNAMES = {"student01"}
+clean_students = [s for s in student_users if s.username not in DEMO_CLEAN_USERNAMES]
+clean_all_users = [u for u in all_users if u.username not in DEMO_CLEAN_USERNAMES]
 payments_list = []
 enrollments_list = []
 
 for student in student_users:
+    if student.username in DEMO_CLEAN_USERNAMES:
+        continue
 
 
 
@@ -702,6 +884,8 @@ for student in student_users:
 print("  → User Subscriptions...")
 user_subs = []
 for student in student_users[:10]:
+    if student.username in DEMO_CLEAN_USERNAMES:
+        continue
     plan = random.choice(sub_plans)
     start = past(60)
     us = UserSubscription.objects.create(
@@ -872,7 +1056,7 @@ for i, title in enumerate(blog_titles):
                 "Mình muốn biết thêm về chủ đề này.", "Share cho bạn bè ngay!",
                 "Nội dung chi tiết và dễ hiểu.", "Mong có thêm bài viết tương tự.",
             ]),
-            user=random.choice(student_users) if student_users else None,
+            user=random.choice(clean_students) if clean_students else None,
             status="active",
             likes=random.randint(0, 20),
         )
@@ -895,7 +1079,7 @@ question_titles = [
     "Migrations trong Django, best practices?",
 ]
 for q_idx in range(min(30, len(student_users) * 2)):
-    student = random.choice(student_users)
+    student = random.choice(clean_students)
     q = Question.objects.create(
         title=question_titles[q_idx % len(question_titles)],
         content=f"Mình đang gặp vấn đề số {q_idx + 1}. Bạn nào giúp mình với?",
@@ -916,7 +1100,7 @@ for q_idx in range(min(30, len(student_users) * 2)):
                 "Đây là approach mình hay dùng:",
                 "Hãy kiểm tra lại phần import và dependencies.",
             ]),
-            author=random.choice(all_users[:20]),
+            author=random.choice(clean_all_users[:20]),
             score=random.randint(0, 15),
         )
     Question.objects.filter(id=q.id).update(answer_count=num_answers)
@@ -929,7 +1113,7 @@ for lesson in all_lessons[:100]:
     if random.random() < 0.4:
         for _ in range(random.randint(1, 3)):
             LessonComment.objects.create(
-                user=random.choice(student_users),
+                user=random.choice(clean_students),
                 lesson=lesson,
                 content=random.choice([
                     "Phần này hay quá!", "Mình chưa hiểu chỗ này.",
@@ -944,6 +1128,8 @@ for lesson in all_lessons[:100]:
 
 print("  → Carts & Wishlists...")
 for student in student_users:
+    if student.username in DEMO_CLEAN_USERNAMES:
+        continue
     enrolled_ids = set(Enrollment.objects.filter(user=student).values_list('course_id', flat=True))
     available = [c for c in courses if c.id not in enrolled_ids]
     if available:
@@ -964,7 +1150,7 @@ for student in student_users:
 
 
 print("  → Payment Methods...")
-for student in student_users[:15]:
+for student in clean_students[:15]:
     UserPaymentMethod.objects.create(
         user=student,
         method_type=random.choice(["vnpay", "momo", "bank_transfer"]),
@@ -1032,7 +1218,7 @@ notif_templates = [
     ("Khuyến mãi", "promotion", "Giảm giá 30% cho tất cả khóa học!"),
     ("Nhắc học", "course", "Đã lâu bạn chưa quay lại học, hãy tiếp tục!"),
 ]
-for student in student_users:
+for student in clean_students:
     for title, ntype, msg in random.sample(notif_templates, k=random.randint(2, 5)):
         Notification.objects.create(
             title=title, sender=admin_user, receiver=student,
@@ -1054,7 +1240,7 @@ support_subjects = [
 ]
 supports = []
 for i in range(15):
-    student = random.choice(student_users)
+    student = random.choice(clean_students)
     s = Support.objects.create(
         user=student, name=student.full_name, email=student.email,
         subject=random.choice(support_subjects),
@@ -1074,7 +1260,45 @@ for i in range(15):
 
 
 print("  → System Settings...")
+
+# UI trang chủ gốc: tái tạo đúng giá trị mà nút "Khôi phục UI gốc" ghi vào DB
+# (HARDCODED_BACKUP_HOME_SCHEMA ở FE), gồm 12 section kiểu legacy_component.
+# Loader FE ưu tiên key "homepage_schema_v2" đầu tiên nên seed phải ghi key này
+# để giao diện không bị lỗi sau mỗi lần reset.
+HOMEPAGE_LEGACY_COMPONENTS = [
+    ("legacy_component_1774691118511_ik8o9y", "HeroSection"),
+    ("legacy_component_1774691118511_bkmygl", "TrustedCompanies"),
+    ("legacy_component_1774691118511_5w88hy", "FeaturesSection"),
+    ("legacy_component_1774691118511_7ek1pl", "Categories"),
+    ("legacy_component_1774691118511_a0vyrj", "FeaturedCourses"),
+    ("legacy_component_1774691118511_kmgekg", "LearningGoals"),
+    ("legacy_component_1774691118511_nbubal", "TrendingCourses"),
+    ("legacy_component_1774691118511_qzuag5", "PopularSkills"),
+    ("legacy_component_1774691118511_2chfas", "TestimonialsSection"),
+    ("legacy_component_1774691118511_tnogbs", "StatsSection"),
+    ("legacy_component_1774691118511_0o1qwk", "InstructorPromo"),
+    ("legacy_component_1774691118511_jxcp1w", "NewsletterSection"),
+]
+homepage_schema_v2 = {
+    "version": 2,
+    "meta": {"updated_at": now.isoformat(), "updated_by": 0},
+    "sections": [
+        {
+            "id": section_id,
+            "type": "legacy_component",
+            "enabled": True,
+            "order": idx,
+            "layout": {"container": "default", "spacing_top": "md", "spacing_bottom": "md", "background": "none"},
+            "content": {},
+            "data_source": {"component": component},
+            "display_rules": {"devices": ["mobile", "desktop"], "audience": "all"},
+        }
+        for idx, (section_id, component) in enumerate(HOMEPAGE_LEGACY_COMPONENTS, 1)
+    ],
+}
+
 settings_data = [
+    ("homepage", "homepage_schema_v2", json.dumps(homepage_schema_v2, ensure_ascii=False), "Dynamic homepage schema v2"),
     ("general", "site_name", "EduPlatform", "Tên website"),
     ("general", "site_description", "Nền tảng học trực tuyến hàng đầu Việt Nam", "Mô tả website"),
     ("general", "contact_email", "support@eduplatform.vn", "Email liên hệ"),
@@ -1108,7 +1332,7 @@ for group, key, val, desc in settings_data:
 print("  → Activity Logs...")
 log_actions = ["LOGIN", "LOGOUT", "ENROLL", "VIEW_LESSON", "PAYMENT_SUCCESS", "PROFILE_UPDATED", "COMMENT"]
 for _ in range(100):
-    user = random.choice(all_users)
+    user = random.choice(clean_all_users)
     ActivityLog.objects.create(
         user=user,
         action=random.choice(log_actions),
@@ -1125,7 +1349,7 @@ print("  → Realtime chat...")
 from realtime.models import ChatRoom, ChatMessage
 
 for _ in range(10):
-    stud = random.choice(student_users)
+    stud = random.choice(clean_students)
     instr = random.choice(instructor_users)
 
     u1, u2 = (stud, instr) if stud.id < instr.id else (instr, stud)
@@ -1208,7 +1432,7 @@ for u in instructor_users[:5]:
     ApplicationResponse.objects.update_or_create(application=app, question=q4, defaults={'value': "Có"})
 
 
-for u in student_users[:3]:
+for u in clean_students[:3]:
     app, _ = Application.objects.update_or_create(
         user=u, form=form,
         defaults={'status': "pending"}

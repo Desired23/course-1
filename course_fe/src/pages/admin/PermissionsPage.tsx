@@ -15,8 +15,9 @@ import { Separator } from '../../components/ui/separator'
 import { Search, Plus, Edit, Trash2, Shield, Users, UserCheck, Settings, Eye, Save } from 'lucide-react'
 import { useAuth, UserRole, Permission, PERMISSIONS } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
-import { getAllUsers, adminUpdateUser, getAdmins, updateAdmin } from '../../services/admin.api'
-import type { UserItem, AdminUser } from '../../services/admin.api'
+import { getUsers, adminUpdateUser, getAdmins, updateAdmin } from '../../services/admin.api'
+import type { UserItem, AdminUser, AdminUserListParams } from '../../services/admin.api'
+import { UserPagination } from '../../components/UserPagination'
 import { useTranslation } from 'react-i18next'
 
 
@@ -64,9 +65,36 @@ const fadeInUp = {
   },
 }
 
+const PAGE_SIZE = 10
+
 function getAdminUserId(admin: AdminUser): number | null {
   if (typeof admin.user === 'number') return admin.user
   return admin.user?.id ?? null
+}
+
+function mapUserItem(u: UserItem, adminMap: Map<number, AdminUser>): UserWithPermissions {
+  const admin = adminMap.get(u.id)
+  const roles: UserRole[] = []
+  const userRoles = u.roles || []
+  if (userRoles.includes('student') || userRoles.includes('user')) roles.push('user')
+  if (userRoles.includes('instructor')) {
+    if (!roles.includes('user')) roles.push('user')
+    roles.push('instructor')
+  }
+  if (admin) roles.push('admin')
+  return {
+    id: String(u.id),
+    name: u.full_name || u.username,
+    email: u.email,
+    avatar: u.avatar || undefined,
+    roles,
+    permissions: admin ? admin.permissions : [],
+    createdAt: new Date(u.created_at),
+    lastLogin: u.last_login ? new Date(u.last_login) : new Date(),
+    status: u.status as UserWithPermissions['status'],
+    adminLevel: admin ? (admin.is_super_admin ? 'super' : 'sub') : undefined,
+    adminRecordId: admin ? admin.id : undefined,
+  }
 }
 
 
@@ -82,6 +110,13 @@ export function PermissionsPage() {
   const [editingUser, setEditingUser] = useState<UserWithPermissions | null>(null)
   const [users, setUsers] = useState<UserWithPermissions[]>([])
   const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([])
+  const [instructorCount, setInstructorCount] = useState(0)
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const getRoleLabel = (role: UserRole) => t(`permissions_page.roles.${role}`)
   const getAdminLevelLabel = (level: 'super' | 'sub') =>
@@ -112,46 +147,58 @@ export function PermissionsPage() {
   ])
 
   useEffect(() => {
-    const load = async () => {
+    const id = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350)
+    return () => clearTimeout(id)
+  }, [searchQuery])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, roleFilter])
+
+  useEffect(() => {
+    const loadMeta = async () => {
       try {
-        const [apiUsers, apiAdmins] = await Promise.all([getAllUsers(), getAdmins()])
-        const adminMap = new Map<number, AdminUser>()
-        apiAdmins.forEach(a => {
-          const userId = getAdminUserId(a)
-          if (userId !== null) adminMap.set(userId, a)
-        })
-        setUsers(apiUsers.map(u => {
-          const admin = adminMap.get(u.id)
-          const roles: UserRole[] = []
-          const userRoles = u.roles || []
-          if (userRoles.includes('student') || userRoles.includes('user')) roles.push('user')
-          if (userRoles.includes('instructor')) {
-            if (!roles.includes('user')) roles.push('user')
-            roles.push('instructor')
-          }
-          if (admin) roles.push('admin')
-          return {
-            id: String(u.id),
-            name: u.full_name || u.username,
-            email: u.email,
-            avatar: u.avatar || undefined,
-            roles,
-            permissions: admin ? admin.permissions : [],
-            createdAt: new Date(u.created_at),
-            lastLogin: u.last_login ? new Date(u.last_login) : new Date(),
-            status: u.status as any,
-            adminLevel: admin ? (admin.is_super_admin ? 'super' : 'sub') : undefined,
-            adminRecordId: admin ? admin.id : undefined
-          }
-        }))
+        const [apiAdmins, instructorsRes] = await Promise.all([
+          getAdmins(),
+          getUsers({ page: 1, page_size: 1, role: 'instructor' }),
+        ])
+        setAdminUsers(apiAdmins)
+        setInstructorCount(instructorsRes.count)
         const uniqueAdminPermissions = Array.from(new Set(apiAdmins.flatMap(admin => admin.permissions || [])))
         setRoleTemplates(buildRoleTemplates(uniqueAdminPermissions))
       } catch {
         toast.error(t('permissions_page.load_failed'))
       }
     }
-    load()
+    loadMeta()
   }, [t])
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      setIsLoadingUsers(true)
+      try {
+        const params: AdminUserListParams = { page: currentPage, page_size: PAGE_SIZE }
+        if (debouncedSearch) params.search = debouncedSearch
+        if (roleFilter !== 'all') {
+          params.role = (roleFilter === 'user' ? 'student' : roleFilter) as AdminUserListParams['role']
+        }
+        const res = await getUsers(params)
+        const adminMap = new Map<number, AdminUser>()
+        adminUsers.forEach(a => {
+          const userId = getAdminUserId(a)
+          if (userId !== null) adminMap.set(userId, a)
+        })
+        setUsers(res.results.map(u => mapUserItem(u, adminMap)))
+        setTotalPages(res.total_pages || 1)
+        setTotalCount(res.count || 0)
+      } catch {
+        toast.error(t('permissions_page.load_failed'))
+      } finally {
+        setIsLoadingUsers(false)
+      }
+    }
+    loadUsers()
+  }, [currentPage, debouncedSearch, roleFilter, adminUsers, t])
 
   if (!canAccess(['admin'], ['admin.permissions.manage'])) {
     return (
@@ -165,20 +212,12 @@ export function PermissionsPage() {
     )
   }
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesRole = roleFilter === 'all' || user.roles.includes(roleFilter)
-    return matchesSearch && matchesRole
-  })
-
   const auditEntries = [
     {
       id: 'admins',
       title: t('permissions_page.audit_entries.admins_title'),
       description: t('permissions_page.audit_entries.admins_description', {
-        count: users.filter((user) => user.roles.includes('admin')).length,
+        count: adminUsers.length,
       }),
       badge: t('permissions_page.audit_entries.admins_badge'),
       variant: 'destructive' as const,
@@ -187,7 +226,7 @@ export function PermissionsPage() {
       id: 'instructors',
       title: t('permissions_page.audit_entries.instructors_title'),
       description: t('permissions_page.audit_entries.instructors_description', {
-        count: users.filter((user) => user.roles.includes('instructor')).length,
+        count: instructorCount,
       }),
       badge: t('permissions_page.audit_entries.instructors_badge'),
       variant: 'default' as const,
@@ -196,7 +235,7 @@ export function PermissionsPage() {
       id: 'permissions',
       title: t('permissions_page.audit_entries.permissions_title'),
       description: t('permissions_page.audit_entries.permissions_description', {
-        count: users.reduce((total, user) => total + user.permissions.length, 0),
+        count: adminUsers.reduce((total, admin) => total + (admin.permissions?.length || 0), 0),
       }),
       badge: t('permissions_page.audit_entries.permissions_badge'),
       variant: 'secondary' as const,
@@ -335,7 +374,14 @@ export function PermissionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center text-sm text-muted-foreground">
+                        {isLoadingUsers ? t('common.loading') : t('permissions_page.no_users')}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {users.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -389,6 +435,23 @@ export function PermissionsPage() {
               </Table>
             </CardContent>
           </Card>
+
+          {totalCount > 0 ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                {t('permissions_page.showing_range', {
+                  from: (currentPage - 1) * PAGE_SIZE + 1,
+                  to: Math.min(currentPage * PAGE_SIZE, totalCount),
+                  total: totalCount,
+                })}
+              </p>
+              <UserPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          ) : null}
         </TabsContent>
 
         <TabsContent value="roles" className="space-y-4">

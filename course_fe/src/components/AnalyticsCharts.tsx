@@ -22,6 +22,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { TrendingUp, TrendingDown, DollarSign, Users, BookOpen, Star } from "lucide-react"
 import { cn } from "./ui/utils"
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from "../services/instructor.api"
+import { getAdminDashboardStats, getAdminRevenueAnalytics, getAdminUserAnalytics } from "../services/admin.api"
+import { getAllCategories } from "../services/category.api"
 import { formatCurrency } from "../utils/formatters"
 import { useTranslation } from "react-i18next"
 
@@ -49,11 +51,76 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
   ])
 
   useEffect(() => {
+    const monthsMap: Record<string, number> = { '7d': 1, '30d': 3, '90d': 6, '1y': 12 }
+    const months = monthsMap[timeRange] || 12
+    const monthLabel = (d: string) =>
+      new Intl.DateTimeFormat(i18n.language || 'en', { month: 'short' }).format(new Date(d + '-01'))
+    const toArray = <T,>(payload: unknown): T[] =>
+      Array.isArray(payload) ? (payload as T[]) : ((payload as any)?.results ?? [])
+
+    async function fetchPlatform() {
+      const [dashStats, revenue, users, categories] = await Promise.all([
+        getAdminDashboardStats(),
+        getAdminRevenueAnalytics(months),
+        getAdminUserAnalytics(months),
+        getAllCategories(),
+      ])
+
+      const revenueRows = toArray<{ date: string; revenue: number }>(revenue)
+      const userRows = toArray<{ date: string; new_users: number }>(users)
+      setRevenueData(revenueRows.map((r, i) => ({
+        name: monthLabel(r.date),
+        revenue: r.revenue,
+        students: userRows[i]?.new_users ?? 0,
+        courses: dashStats.total_courses,
+      })))
+
+      setCategoryData(toArray<any>(categories).slice(0, 6).map((c, i) => ({
+        name: c.name,
+        value: c.course_count || 0,
+        color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+      })))
+
+      setEngagementData([])
+
+      setStats([
+        {
+          label: t('analytics_charts.stats.total_revenue'),
+          value: formatCurrency(dashStats.total_revenue),
+          change: t('analytics_charts.changes.this_month_currency', { value: formatCurrency(dashStats.this_month_revenue) }),
+          trend: 'up',
+          icon: DollarSign,
+          color: 'text-green-600 dark:text-green-400',
+        },
+        {
+          label: t('analytics_charts.stats.total_students'),
+          value: dashStats.active_students.toLocaleString(),
+          change: t('analytics_charts.changes.this_month_count', { count: dashStats.new_users_this_month }),
+          trend: 'up',
+          icon: Users,
+          color: 'text-blue-600 dark:text-blue-400',
+        },
+        {
+          label: t('analytics_charts.stats.active_courses'),
+          value: dashStats.published_courses.toLocaleString(),
+          change: t('analytics_charts.changes.pending', { count: dashStats.pending_courses }),
+          trend: 'up',
+          icon: BookOpen,
+          color: 'text-purple-600 dark:text-purple-400',
+        },
+        {
+          label: t('analytics_charts.stats.avg_rating'),
+          value: String(dashStats.platform_rating),
+          change: '',
+          trend: dashStats.platform_rating >= 4 ? 'up' : 'down',
+          icon: Star,
+          color: 'text-yellow-600 dark:text-yellow-400',
+        },
+      ])
+    }
+
     async function fetchAnalytics() {
       try {
-        const monthsMap: Record<string, number> = { '7d': 1, '30d': 3, '90d': 6, '1y': 12 }
-        const months = monthsMap[timeRange] || 12
-
         const [dashStats, timeseries] = await Promise.all([
           getInstructorDashboardStats(),
           getInstructorAnalyticsTimeseries(months),
@@ -131,8 +198,10 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         console.error('Failed to fetch analytics:', err)
       }
     }
-    fetchAnalytics()
-  }, [i18n.language, t, timeRange])
+
+    const run = type === 'platform' ? fetchPlatform : fetchAnalytics
+    run().catch((err) => console.error('Failed to fetch analytics:', err))
+  }, [i18n.language, t, timeRange, type])
 
   const renderChart = (data: any[], dataKey: string, color: string) => {
     const commonProps = {
@@ -360,6 +429,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
       </div>
 
 
+      {engagementData.length > 0 && (
       <Card className="p-6">
         <h3 className="font-medium mb-1">{t('analytics_charts.engagement.title')}</h3>
         <p className="text-sm text-muted-foreground mb-6">
@@ -386,6 +456,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
           </BarChart>
         </ResponsiveContainer>
       </Card>
+      )}
     </div>
   )
 }

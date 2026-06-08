@@ -56,7 +56,7 @@ export function CourseCard({
   variant = "vertical",
   bestseller = false,
   isNew = false,
-  currency = "USD",
+  currency = "VND",
   showWishlist = true,
   showAddToCart = true,
   discountEndDate,

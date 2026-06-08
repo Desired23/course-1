@@ -253,6 +253,7 @@ INSTALLED_APPS = [
     'transcripts',
     'knowledge',
     'reports',
+    'newsletter',
 ]
 
 MIDDLEWARE = [
@@ -395,6 +396,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'utils.exception_handler.custom_exception_handler',
+    # Don't treat ?format=... as a DRF renderer suffix. Export endpoints use
+    # ?format=csv|excel as a normal query param; otherwise DRF content
+    # negotiation raises Http404 ("Not found.") for the unknown renderer.
+    'URL_FORMAT_OVERRIDE': None,
     'DEFAULT_AUTHENTICATION_CLASSES': (
 
 

@@ -18,7 +18,7 @@ import { UserPagination } from '../../components/UserPagination'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Checkbox } from "../../components/ui/checkbox"
-import { getCourses, updateCourse, deleteCourse as deleteCourseApi, type CourseListItem, parseDecimal } from '../../services/course.api'
+import { getCourses, updateCourse, deleteCourse as deleteCourseApi, type CourseListItem, parseDecimal, formatPrice } from '../../services/course.api'
 import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 10
@@ -633,13 +633,13 @@ export function AdminCoursesPage() {
                             <div className="text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                <p className="font-semibold text-sm md:text-base">${parseDecimal(course.price)}</p>
+                                <p className="font-semibold text-sm md:text-base">{formatPrice(parseDecimal(course.price))}</p>
                               </div>
                               <p className="text-xs md:text-sm text-muted-foreground">{t('admin_courses.metrics.price')}</p>
                             </div>
 
                             <div className="text-center">
-                              <p className="font-semibold text-sm md:text-base">${Math.round((course.total_students || 0) * parseDecimal(course.price) * 0.7).toLocaleString()}</p>
+                              <p className="font-semibold text-sm md:text-base">{Math.round((course.total_students || 0) * parseDecimal(course.price) * 0.7).toLocaleString('vi-VN')}₫</p>
                               <p className="text-xs md:text-sm text-muted-foreground">{t('admin_courses.metrics.estimated_revenue')}</p>
                             </div>
                           </div>

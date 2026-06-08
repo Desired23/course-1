@@ -31,6 +31,9 @@ interface StatDetailDialogProps {
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"]
 
+const compact = (n: number) =>
+  new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 }).format(n)
+
 export function StatDetailDialog({ open, onOpenChange, title, type, currentValue }: StatDetailDialogProps) {
   const { t } = useTranslation()
   const [period, setPeriod] = useState<"7d" | "30d" | "90d" | "1y">("30d")
@@ -124,37 +127,43 @@ export function StatDetailDialog({ open, onOpenChange, title, type, currentValue
           <DialogDescription>{t("stat_detail_dialog.description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Card className="min-w-0 gap-2 py-4">
+            <CardHeader className="px-4 pt-0">
               <CardDescription className="text-xs">{t("stat_detail_dialog.current")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{currentValue.toLocaleString()}</div>
+            <CardContent className="px-4">
+              <div className="text-lg font-bold tabular-nums" title={currentValue.toLocaleString()}>
+                {compact(currentValue)}
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="min-w-0 gap-2 py-4">
+            <CardHeader className="px-4 pt-0">
               <CardDescription className="text-xs">{t("stat_detail_dialog.average")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{Math.round(avg).toLocaleString()}</div>
+            <CardContent className="px-4">
+              <div className="text-lg font-bold tabular-nums" title={Math.round(avg).toLocaleString()}>
+                {compact(Math.round(avg))}
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="min-w-0 gap-2 py-4">
+            <CardHeader className="px-4 pt-0">
               <CardDescription className="text-xs">{t("stat_detail_dialog.highest")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold text-green-600">{max.toLocaleString()}</div>
+            <CardContent className="px-4">
+              <div className="text-lg font-bold tabular-nums text-green-600" title={max.toLocaleString()}>
+                {compact(max)}
+              </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="min-w-0 gap-2 py-4">
+            <CardHeader className="px-4 pt-0">
               <CardDescription className="text-xs">{t("stat_detail_dialog.growth")}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className={`text-xl font-bold ${parseFloat(growth) >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <CardContent className="px-4">
+              <div className={`text-lg font-bold tabular-nums ${parseFloat(growth) >= 0 ? "text-green-600" : "text-red-600"}`}>
                 {growth}%
               </div>
             </CardContent>

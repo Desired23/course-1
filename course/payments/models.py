@@ -45,6 +45,7 @@ class Payment(models.Model):
         choices=PaymentMethod.choices,
         default=PaymentMethod.VNPAY
     )
+    momo_request_type = models.CharField(max_length=20, null=True, blank=True)
     promotion = models.ForeignKey(
         Promotion,
         on_delete=models.SET_NULL,

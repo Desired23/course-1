@@ -6,7 +6,7 @@
 
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { getAccessToken, refreshAccessToken } from '../services/http'
+import { getAccessToken } from '../services/http'
 
 
 
@@ -108,14 +108,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     cleanup()
 
 
-    let token = getAccessToken()
-    if (token) {
-      try {
-        token = await refreshAccessToken()
-      } catch {
-        token = getAccessToken()
-      }
-    }
+    const token = getAccessToken()
     if (!token) return
 
     const url = `${getWsBase()}${path}${path.includes('?') ? '&' : '?'}token=${token}`

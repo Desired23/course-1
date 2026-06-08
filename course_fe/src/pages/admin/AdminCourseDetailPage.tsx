@@ -53,6 +53,7 @@ import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import { getCourseStudents, type CourseStudentRow } from '../../services/course.api'
+import { getInstructorCourseAnalytics } from '../../services/instructor.api'
 
 interface CourseDetail {
   id: string
@@ -67,6 +68,7 @@ interface CourseDetail {
     total_courses: number
     total_students: number
     rating: number
+    total_revenue: number
   }
   category: string
   subcategory: string
@@ -135,7 +137,7 @@ interface CourseDetail {
 
 
   progress_data: Array<{
-    completion_percentage: number
+    label: string
     student_count: number
   }>
 }
@@ -204,10 +206,14 @@ export function AdminCourseDetailPage() {
       try {
         const numId = Number(courseId)
         if (!numId) return
-        const [courseData, reviewsData] = await Promise.all([
+        const [courseData, reviewsData, analytics] = await Promise.all([
           getCourseByIdApi(numId),
-          getAllReviewsByCourse(numId).catch(() => [] as any[])
+          getAllReviewsByCourse(numId).catch(() => [] as any[]),
+          getInstructorCourseAnalytics(numId).catch(() => null)
         ])
+        const allLessons = (courseData.modules || []).flatMap(m => m.lessons || [])
+        const realLessonCount = allLessons.length
+        const realDuration = allLessons.reduce((sum, l) => sum + (l.duration || 0), 0)
         const mapped: CourseDetail = {
           id: String(courseData.id),
           title: courseData.title,
@@ -218,9 +224,10 @@ export function AdminCourseDetailPage() {
             avatar: courseData.instructor?.avatar || '',
             email: '',
             bio: courseData.instructor?.bio || '',
-            total_courses: courseData.instructor?.total_courses || 0,
-            total_students: courseData.instructor?.total_students || 0,
-            rating: Number(courseData.instructor?.rating || 0)
+            total_courses: analytics?.instructor_stats.total_courses ?? 0,
+            total_students: analytics?.instructor_stats.total_students ?? 0,
+            rating: analytics?.instructor_stats.average_rating ?? 0,
+            total_revenue: analytics?.instructor_stats.total_revenue ?? 0,
           },
           category: courseData.category?.name || '',
           subcategory: courseData.subcategory?.name || '',
@@ -236,28 +243,36 @@ export function AdminCourseDetailPage() {
           published_at: courseData.published_date ? new Date(courseData.published_date) : undefined,
           last_activity: new Date(courseData.updated_at),
           stats: {
-            total_students: courseData.total_students,
-            total_revenue: Number(courseData.price || 0) * courseData.total_students,
-            total_lessons: courseData.total_lessons,
-            total_duration: courseData.duration || 0,
-            completion_rate: 0,
-            average_rating: Number(courseData.rating || 0),
-            total_reviews: courseData.total_reviews,
-            refund_rate: 0,
-            last_30_days: { enrollments: 0, revenue: 0, completion_rate: 0, avg_rating: Number(courseData.rating || 0) }
+            total_students: analytics?.summary.total_students ?? 0,
+            total_revenue: analytics?.summary.total_revenue ?? 0,
+            total_lessons: realLessonCount,
+            total_duration: realDuration,
+            completion_rate: analytics?.summary.completion_rate ?? 0,
+            average_rating: analytics?.summary.average_rating ?? 0,
+            total_reviews: analytics?.summary.total_reviews ?? 0,
+            refund_rate: analytics?.summary.refund_rate ?? 0,
+            last_30_days: {
+              enrollments: analytics?.summary.last_30_days.enrollments ?? 0,
+              revenue: analytics?.summary.last_30_days.revenue ?? 0,
+              completion_rate: 0,
+              avg_rating: analytics?.summary.average_rating ?? 0,
+            }
           },
           sections: (courseData.modules || []).map(m => ({
             id: String(m.module_id),
             title: m.title,
-            lessons: (m.lessons || []).map(l => ({
-              id: String(l.lesson_id),
-              title: l.title,
-              type: (l.content_type === 'quiz' ? 'quiz' : l.content_type === 'text' ? 'text' : 'video') as 'video' | 'text' | 'quiz',
-              duration: l.duration || 0,
-              is_preview: l.is_free,
-              views: 0,
-              completion_rate: 0
-            }))
+            lessons: (m.lessons || []).map(l => {
+              const ls = analytics?.lesson_stats?.[String(l.lesson_id)]
+              return {
+                id: String(l.lesson_id),
+                title: l.title,
+                type: (l.content_type === 'quiz' ? 'quiz' : l.content_type === 'text' ? 'text' : 'video') as 'video' | 'text' | 'quiz',
+                duration: l.duration || 0,
+                is_preview: l.is_free,
+                views: ls?.views ?? 0,
+                completion_rate: ls?.completion_rate ?? 0
+              }
+            })
           })),
           reviews: reviewsData.map(r => ({
             id: String(r.review_id),
@@ -268,8 +283,16 @@ export function AdminCourseDetailPage() {
             created_at: new Date(r.review_date),
             is_featured: false
           })),
-          enrollment_data: [],
-          progress_data: []
+          enrollment_data: (analytics?.enrollment_trend || []).map((e, i) => ({
+            date: e.date,
+            enrollments: e.enrollments,
+            revenue: analytics?.revenue_trend?.[i]?.revenue ?? 0,
+          })),
+          progress_data: analytics ? [
+            { label: t('admin_course_detail.overview.progress_not_started'), student_count: analytics.student_progress.not_started },
+            { label: t('admin_course_detail.overview.progress_in_progress'), student_count: analytics.student_progress.in_progress },
+            { label: t('admin_course_detail.overview.progress_completed'), student_count: analytics.student_progress.completed },
+          ] : []
         }
         setCourse(mapped)
       } catch (err) {
@@ -724,7 +747,7 @@ export function AdminCourseDetailPage() {
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={course.progress_data}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="completion_percentage" />
+                    <XAxis dataKey="label" />
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="student_count" fill="#8884d8" />
@@ -933,7 +956,7 @@ export function AdminCourseDetailPage() {
                     <p className="text-muted-foreground mb-4">{course.instructor.email}</p>
                     <p className="text-sm mb-4">{course.instructor.bio}</p>
 
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-4 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">{t('admin_course_detail.instructor.total_courses')}:</span>
                         <p className="font-medium">{course.instructor.total_courses}</p>
@@ -945,6 +968,10 @@ export function AdminCourseDetailPage() {
                       <div>
                         <span className="text-muted-foreground">{t('admin_course_detail.instructor.rating')}:</span>
                         <p className="font-medium">{course.instructor.rating}/5</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{t('admin_course_detail.instructor.total_revenue')}:</span>
+                        <p className="font-medium">{formatCurrency(course.instructor.total_revenue)}</p>
                       </div>
                     </div>
                   </div>
@@ -992,10 +1019,12 @@ export function AdminCourseDetailPage() {
                     <span>{t('admin_course_detail.analytics.average_rating')}:</span>
                     <span className="font-medium">{course.stats.average_rating}/5</span>
                   </div>
-                  <Separator />
-                  <div className="text-sm text-muted-foreground">
-                    <p>{t('admin_course_detail.analytics.summary')}</p>
-                  </div>
+                  {t('admin_course_detail.analytics.summary') && (
+                    <>
+                      <Separator />
+                      <p className="text-sm text-muted-foreground">{t('admin_course_detail.analytics.summary')}</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>

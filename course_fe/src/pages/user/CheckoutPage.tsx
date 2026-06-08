@@ -1,21 +1,39 @@
 import { useMemo, useState } from "react"
-import { ArrowLeft, CreditCard, Landmark, Loader2, Lock, ShieldCheck, Smartphone } from "lucide-react"
+import { ArrowLeft, CreditCard, Landmark, Loader2, Lock, QrCode, ShieldCheck, Smartphone } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Separator } from "../../components/ui/separator"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog"
 import { useRouter } from "../../components/Router"
 import { useCart } from "../../contexts/CartContext"
 import { useAuth } from "../../contexts/AuthContext"
 import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { useTranslation } from "react-i18next"
-import { createPaymentRecord, createVnpayPayment, type CreatePaymentResponse } from "../../services/payment.api"
+import { createPaymentRecord, createVnpayPayment, createMomoPayment, cancelPayment, type CreatePaymentResponse } from "../../services/payment.api"
 import { formatCartPrice } from "../../services/cart.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
 import { listItemTransition } from "../../lib/motion"
 import { toast } from "sonner"
 
-type GatewayMethod = "momo" | "vnpay"
+type GatewayMethod = "momo" | "momo_wallet" | "momo_cc" | "vnpay"
+
+// MoMo keeps payment_method='momo'; the chosen MoMo flow is sent separately as requestType.
+const MOMO_REQUEST_TYPE: Partial<Record<GatewayMethod, string>> = {
+  momo_wallet: "captureWallet",
+  momo_cc: "payWithCC",
+}
+
+function toBackendMethod(method: GatewayMethod): "momo" | "vnpay" {
+  return method === "vnpay" ? "vnpay" : "momo"
+}
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -85,6 +103,20 @@ export function CheckoutPage() {
       accent: "text-pink-600",
     },
     {
+      id: "momo_wallet",
+      title: t("checkout.gateway_options.momo_wallet.title"),
+      description: t("checkout.gateway_options.momo_wallet.description"),
+      icon: QrCode,
+      accent: "text-pink-600",
+    },
+    {
+      id: "momo_cc",
+      title: t("checkout.gateway_options.momo_cc.title"),
+      description: t("checkout.gateway_options.momo_cc.description"),
+      icon: CreditCard,
+      accent: "text-pink-600",
+    },
+    {
       id: "vnpay",
       title: t("checkout.gateway_options.vnpay.title"),
       description: t("checkout.gateway_options.vnpay.description"),
@@ -97,6 +129,7 @@ export function CheckoutPage() {
   const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null)
   const [confirmedPaymentId, setConfirmedPaymentId] = useState<string | null>(null)
   const [confirmedGatewayUrl, setConfirmedGatewayUrl] = useState<string | null>(null)
+  const [pendingOrder, setPendingOrder] = useState<{ paymentId: string; method?: string } | null>(null)
 
   const selectedCartItemIds = useMemo(() => {
     const queryPart = currentRoute.includes('?') ? currentRoute.split('?')[1] : ''
@@ -148,7 +181,8 @@ export function CheckoutPage() {
 
       const result = await createPaymentRecord({
         user_id: Number(user.id),
-        payment_method: paymentMethod,
+        payment_method: toBackendMethod(paymentMethod),
+        momo_request_type: MOMO_REQUEST_TYPE[paymentMethod],
         return_url: `${window.location.origin}/payment/result`,
         payment_type: "course_purchase",
         payment_details: paymentDetails,
@@ -172,9 +206,54 @@ export function CheckoutPage() {
 
       await proceedToGateway(result, String(result.payment.id), beTotal)
     } catch (err: any) {
+      // Course already has an unfinished payment: let the user choose between
+      // continuing it or cancelling to start over, instead of dead-ending.
+      if (err?.errors?.code === "pending_payment" && err?.errors?.payment_id) {
+        setPendingOrder({ paymentId: String(err.errors.payment_id), method: err.errors.payment_method })
+        setIsProcessing(false)
+        return
+      }
       console.error("Checkout failed:", err)
       const msg = err?.error || err?.message || t("checkout.checkout_failed")
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg))
+      setIsProcessing(false)
+    }
+  }
+
+  const handleCancelAndRecreate = async () => {
+    if (!pendingOrder) return
+    setIsProcessing(true)
+    try {
+      await cancelPayment(pendingOrder.paymentId)
+      setPendingOrder(null)
+      toast.info(t("checkout.pending_order_cancelled"))
+      await handleCheckout()
+    } catch (err: any) {
+      toast.error(err?.message || t("checkout.pending_order_cancel_failed"))
+      setIsProcessing(false)
+    }
+  }
+
+  const resumePendingPayment = async (paymentId: string, method?: string) => {
+    try {
+      if (method === "momo") {
+        const response = await createMomoPayment({ payment_id: paymentId })
+        if (!response.payUrl) throw new Error(t("checkout.create_payment_url_failed"))
+        window.location.href = response.payUrl
+        return
+      }
+      const response = await createVnpayPayment({
+        order_id: paymentId,
+        amount: Math.round(checkoutTotals.totalPrice),
+        order_desc: t("checkout.order_description", { count: checkoutItems.length }),
+      })
+      if (!response.payment_url) throw new Error(t("checkout.create_payment_url_failed"))
+      window.location.href = response.payment_url
+    } catch (err: any) {
+      // Pending payment is no longer resumable (completed/expired) — send the user to
+      // their transaction history where the current status is shown.
+      toast.error(err?.message || t("checkout.checkout_failed"))
+      navigate("/user/transactions")
       setIsProcessing(false)
     }
   }
@@ -197,7 +276,7 @@ export function CheckoutPage() {
   }
 
   const proceedToGateway = async (result: CreatePaymentResponse | null, paymentId: string, amount: number) => {
-    if (paymentMethod === "momo") {
+    if (toBackendMethod(paymentMethod) === "momo") {
       const gatewayUrl = result?.gateway_payment?.url
       if (gatewayUrl) {
         window.location.href = gatewayUrl
@@ -476,6 +555,34 @@ export function CheckoutPage() {
           </motion.div>
         </div>
       </div>
+
+      <AlertDialog open={pendingOrder !== null} onOpenChange={(open) => { if (!open) setPendingOrder(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("checkout.pending_order_title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("checkout.pending_order_description", { id: pendingOrder?.paymentId })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" disabled={isProcessing} onClick={() => void handleCancelAndRecreate()}>
+              {t("checkout.pending_order_cancel_create")}
+            </Button>
+            <Button
+              disabled={isProcessing}
+              onClick={() => {
+                if (!pendingOrder) return
+                setIsProcessing(true)
+                const order = pendingOrder
+                setPendingOrder(null)
+                void resumePendingPayment(order.paymentId, order.method)
+              }}
+            >
+              {t("checkout.pending_order_continue")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   )
 }

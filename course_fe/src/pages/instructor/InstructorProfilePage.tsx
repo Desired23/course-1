@@ -526,7 +526,7 @@ export function InstructorProfilePage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">{t('instructor_profile_page.preview.students_count', { count: course.students.toLocaleString() })}</span>
-                          <span className="font-bold">${course.price}</span>
+                          <span className="font-bold">{course.price.toLocaleString('vi-VN')}₫</span>
                         </div>
                       </div>
                     </div>

@@ -31,13 +31,15 @@ import {
   PanelRightOpen,
   PanelRightClose,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Award
 } from "lucide-react"
 import { toast } from "sonner"
 import { getErrorMessage } from "../../lib/apiError"
 import { CommentItem } from "../../components/CommentItem"
 import { getCourseById, type CourseDetail, type ModuleSummary, formatDuration } from "../../services/course.api"
 import { getCourseProgress, updateLessonProgress, type CourseProgress, type LessonProgress } from "../../services/enrollment.api"
+import { issueCertificate, getCertificateDownloadUrl } from "../../services/certificate.api"
 import {
   getAllLessonComments, getAllReplies, createLessonComment,
   updateLessonComment, deleteLessonComment,
@@ -450,6 +452,23 @@ export function CoursePlayerPage() {
   const overallProgress = courseProgress?.overall_progress ?? 0
   const completedLessons = courseProgress?.completed_lessons ?? 0
   const totalLessons = courseProgress?.total_lessons ?? course?.total_lessons ?? 0
+
+  const [issuingCert, setIssuingCert] = useState(false)
+  const [certCode, setCertCode] = useState<string | null>(null)
+
+  async function handleIssueCertificate() {
+    try {
+      setIssuingCert(true)
+      const cert = await issueCertificate(courseId)
+      setCertCode(cert.verification_code)
+      toast.success(t('course_player.certificate_issued', 'Chứng chỉ đã được cấp — kiểm tra email của bạn.'))
+      window.open(getCertificateDownloadUrl(cert.verification_code), '_blank')
+    } catch (err: any) {
+      toast.error(getErrorMessage(err, t('course_player.certificate_failed', 'Không thể cấp chứng chỉ.')))
+    } finally {
+      setIssuingCert(false)
+    }
+  }
 
 
   useEffect(() => {
@@ -919,12 +938,12 @@ export function CoursePlayerPage() {
     else toast.info(t('course_player.first_lesson'))
   }
 
-  const handleLessonComplete = async (lessonId: number = currentLessonId || 0) => {
+  const handleLessonComplete = async (lessonId: number = currentLessonId || 0, silent: boolean = false) => {
     if (!lessonId || completedLessonIds.has(lessonId) || completionInFlightRef.current.has(lessonId)) return
     if (isInstructorPreview) return
     completionInFlightRef.current.add(lessonId)
     setLocallyCompletedLessons(prev => ({ ...prev, [lessonId]: true }))
-    toast.success(t('course_player.lesson_completed'))
+    if (!silent) toast.success(t('course_player.lesson_completed'))
     try {
       await updateLessonProgress({ lesson_id: lessonId, progress_percentage: 100, is_completed: true })
       try { const updated = await getCourseProgress(courseId); setCourseProgress(updated) } catch {}
@@ -1186,7 +1205,7 @@ export function CoursePlayerPage() {
                           ...prev,
                           [currentLessonId!]: { ...prev[currentLessonId!], score, passed, completedAt: new Date().toISOString(), lessonId: currentLessonId }
                         }))
-                        if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete() }
+                        if (passed) { toast.success(t('course_player.quiz_passed')); handleLessonComplete(currentLessonId || 0, true) }
                       }}
                       onNext={() => goToNextLesson()}
                     />
@@ -1303,6 +1322,21 @@ export function CoursePlayerPage() {
                         <div className="flex justify-between text-sm text-muted-foreground">
                           <span>{t('course_player.lessons_completed', { completed: completedLessons, total: totalLessons })}</span>
                         </div>
+                        {course.certificate && overallProgress >= 100 && (
+                          certCode ? (
+                            <Button asChild className="w-full gap-2 bg-green-600 hover:bg-green-700">
+                              <a href={getCertificateDownloadUrl(certCode)} target="_blank" rel="noreferrer">
+                                <Award className="h-4 w-4" />
+                                {t('course_player.download_certificate', 'Tải chứng chỉ PDF')}
+                              </a>
+                            </Button>
+                          ) : (
+                            <Button onClick={handleIssueCertificate} disabled={issuingCert} className="w-full gap-2">
+                              {issuingCert ? <Loader2 className="h-4 w-4 animate-spin" /> : <Award className="h-4 w-4" />}
+                              {t('course_player.get_certificate', 'Nhận chứng chỉ')}
+                            </Button>
+                          )
+                        )}
                       </div>
                     </div>
                     {course.description && (

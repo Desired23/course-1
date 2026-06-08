@@ -4,13 +4,15 @@ import { Input } from "./ui/input"
 import { Mail, Check } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslation } from "react-i18next"
+import { subscribeNewsletter } from "../services/newsletter.api"
 
 export function NewsletterSection() {
   const { t } = useTranslation()
   const [email, setEmail] = useState("")
   const [isSubscribed, setIsSubscribed] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!email || !email.includes("@")) {
@@ -18,11 +20,18 @@ export function NewsletterSection() {
       return
     }
 
-    setIsSubscribed(true)
-    toast.success(t('newsletter.subscribed_success'))
-    setEmail("")
-
-    setTimeout(() => setIsSubscribed(false), 3000)
+    setIsSubmitting(true)
+    try {
+      await subscribeNewsletter(email)
+      setIsSubscribed(true)
+      toast.success(t('newsletter.subscribed_success'))
+      setEmail("")
+      setTimeout(() => setIsSubscribed(false), 3000)
+    } catch {
+      toast.error(t('newsletter.subscribe_failed'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -55,6 +64,7 @@ export function NewsletterSection() {
                 type="submit"
                 variant="secondary"
                 size="lg"
+                disabled={isSubmitting}
                 className="bg-white text-black hover:bg-gray-100 border-none"
               >
                 {t('newsletter.subscribe')}

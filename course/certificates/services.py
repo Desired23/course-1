@@ -1,5 +1,6 @@
 import io
 import uuid
+from django.conf import settings
 from django.utils import timezone
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
@@ -65,12 +66,16 @@ def issue_certificate(user, course_id):
 
     now = timezone.now()
 
+    verification_code = str(uuid.uuid4())
+    download_url = certificate_download_url(verification_code)
+
     with transaction.atomic():
         certificate = Certificate.objects.create(
             user=user,
             course=course,
             enrollment=enrollment,
-            verification_code=str(uuid.uuid4()),
+            verification_code=verification_code,
+            certificate_url=download_url,
             student_name=user.full_name,
             course_title=course.title,
             instructor_name=instructor_name,
@@ -110,7 +115,7 @@ def issue_certificate(user, course_id):
         threading.Thread(
             target=send_certificate_issued,
             args=(user.email, user.full_name, course.title, certificate.verification_code),
-            kwargs={"instructor_name": instructor_name},
+            kwargs={"instructor_name": instructor_name, "certificate_url": download_url},
             daemon=True,
         ).start()
     except Exception:
@@ -119,81 +124,75 @@ def issue_certificate(user, course_id):
     return CertificateSerializer(certificate).data
 
 
+def certificate_download_url(verification_code):
+    """Public URL that streams the certificate PDF (generated on the fly)."""
+    base = "http://localhost:8000" if settings.DEBUG else settings.BACKEND_PUBLIC_URL
+    return f"{base}/api/certificates/public/{verification_code}/download/"
+
+
+def render_certificate_pdf(cert):
+    """Render the certificate as a PDF and return the raw bytes.
+
+    Generated on demand each time it is downloaded — no file is stored/uploaded.
+    """
+    from reportlab.lib.pagesizes import landscape, A4
+    from reportlab.lib.colors import HexColor
+    from reportlab.pdfgen import canvas
+
+    buffer = io.BytesIO()
+    width, height = landscape(A4)
+    c = canvas.Canvas(buffer, pagesize=landscape(A4))
+
+    c.setFillColor(HexColor('#f8f9fa'))
+    c.rect(0, 0, width, height, fill=True, stroke=False)
+
+    c.setStrokeColor(HexColor('#2563eb'))
+    c.setLineWidth(3)
+    c.rect(30, 30, width - 60, height - 60, fill=False, stroke=True)
+
+    c.setFillColor(HexColor('#1e3a5f'))
+    c.setFont("Helvetica-Bold", 36)
+    c.drawCentredString(width / 2, height - 100, "CERTIFICATE OF COMPLETION")
+
+    c.setStrokeColor(HexColor('#2563eb'))
+    c.setLineWidth(1)
+    c.line(width / 4, height - 120, 3 * width / 4, height - 120)
+
+    c.setFont("Helvetica-Bold", 28)
+    c.setFillColor(HexColor('#111827'))
+    c.drawCentredString(width / 2, height - 180, cert.student_name)
+
+    c.setFont("Helvetica", 18)
+    c.setFillColor(HexColor('#374151'))
+    c.drawCentredString(width / 2, height - 230, "has successfully completed the course")
+    c.setFont("Helvetica-Bold", 22)
+    c.setFillColor(HexColor('#2563eb'))
+    c.drawCentredString(width / 2, height - 265, cert.course_title)
+
+    if cert.instructor_name:
+        c.setFont("Helvetica", 14)
+        c.setFillColor(HexColor('#6b7280'))
+        c.drawCentredString(width / 2, height - 310, f"Instructor: {cert.instructor_name}")
+
+    c.setFont("Helvetica", 12)
+    c.setFillColor(HexColor('#6b7280'))
+    date_str = cert.completion_date.strftime("%B %d, %Y")
+    c.drawCentredString(width / 2, height - 350, f"Issued on: {date_str}")
+    c.drawCentredString(width / 2, height - 375, f"Verification Code: {cert.verification_code}")
+
+    c.save()
+    return buffer.getvalue()
+
+
 def generate_certificate_image(certificate_id):
     try:
         cert = Certificate.objects.get(id=certificate_id, is_deleted=False)
     except Certificate.DoesNotExist:
         raise ValidationError({"error": "Certificate not found."})
 
-    try:
-        from reportlab.lib.pagesizes import landscape, A4
-        from reportlab.lib.units import inch, cm
-        from reportlab.lib.colors import HexColor
-        from reportlab.pdfgen import canvas
-
-        buffer = io.BytesIO()
-        width, height = landscape(A4)
-        c = canvas.Canvas(buffer, pagesize=landscape(A4))
-
-        c.setFillColor(HexColor('#f8f9fa'))
-        c.rect(0, 0, width, height, fill=True, stroke=False)
-
-        c.setStrokeColor(HexColor('#2563eb'))
-        c.setLineWidth(3)
-        c.rect(30, 30, width - 60, height - 60, fill=False, stroke=True)
-
-        c.setFillColor(HexColor('#1e3a5f'))
-        c.setFont("Helvetica-Bold", 36)
-        c.drawCentredString(width / 2, height - 100, "CERTIFICATE OF COMPLETION")
-
-        c.setStrokeColor(HexColor('#2563eb'))
-        c.setLineWidth(1)
-        c.line(width / 4, height - 120, 3 * width / 4, height - 120)
-
-        c.setFont("Helvetica-Bold", 28)
-        c.setFillColor(HexColor('#111827'))
-        c.drawCentredString(width / 2, height - 180, cert.student_name)
-
-        c.setFont("Helvetica", 18)
-        c.setFillColor(HexColor('#374151'))
-        c.drawCentredString(width / 2, height - 230, "has successfully completed the course")
-        c.setFont("Helvetica-Bold", 22)
-        c.setFillColor(HexColor('#2563eb'))
-        c.drawCentredString(width / 2, height - 265, cert.course_title)
-
-        if cert.instructor_name:
-            c.setFont("Helvetica", 14)
-            c.setFillColor(HexColor('#6b7280'))
-            c.drawCentredString(width / 2, height - 310, f"Instructor: {cert.instructor_name}")
-
-        c.setFont("Helvetica", 12)
-        c.setFillColor(HexColor('#6b7280'))
-        date_str = cert.completion_date.strftime("%B %d, %Y")
-        c.drawCentredString(width / 2, height - 350, f"Issued on: {date_str}")
-        c.drawCentredString(width / 2, height - 375, f"Verification Code: {cert.verification_code}")
-
-        c.save()
-        buffer.seek(0)
-
-        from config import cloudinary_config
-        import cloudinary.uploader
-
-        upload_result = cloudinary.uploader.upload(
-            buffer,
-            folder="certificates",
-            resource_type="raw",
-            public_id=f"cert_{cert.verification_code}",
-            format="pdf",
-        )
-        cert.certificate_url = upload_result.get("secure_url")
-        cert.save()
-
-        return CertificateSerializer(cert).data
-
-    except ImportError:
-        return CertificateSerializer(cert).data
-    except Exception as e:
-        raise ValidationError({"error": f"Failed to generate certificate: {str(e)}"})
+    cert.certificate_url = certificate_download_url(cert.verification_code)
+    cert.save(update_fields=["certificate_url"])
+    return CertificateSerializer(cert).data
 
 
 def verify_certificate(verification_code):

@@ -188,6 +188,17 @@ def send_promotion(user_email, promo_code, discount, expire_date):
         template_name="promotion.html",
         context=context
     )
+def send_newsletter(user_email, subject, content):
+    return send_email(
+        subject=subject,
+        to=user_email,
+        template_name="newsletter.html",
+        context={
+            "subject": subject,
+            "content": content,
+            "site_name": get_site_name(),
+        },
+    )
 def send_reset_password(user_email, reset_link):
     context = {
         "reset_link": reset_link

@@ -22,6 +22,7 @@ import {
   Heart,
   HelpCircle,
   LayoutDashboard,
+  Mail,
   MessageSquare,
   Package,
   Settings,
@@ -120,6 +121,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       items: [
         { label: t("dashboard_sidebar.items.blog_posts"), icon: <FileText className="h-5 w-5" />, href: "/admin/blog" },
         { label: t("dashboard_sidebar.items.qa"), icon: <MessageSquare className="h-5 w-5" />, href: "/admin/qa" },
+        { label: t("dashboard_sidebar.items.newsletter"), icon: <Mail className="h-5 w-5" />, href: "/admin/newsletter" },
       ],
     },
     {

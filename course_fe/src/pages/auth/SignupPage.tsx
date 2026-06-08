@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { useAuth } from '../../contexts/AuthContext'
+import { useAuthStore } from '../../stores/auth.store'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -94,7 +95,7 @@ export function SignupPage() {
         toast.success(t('auth.signup_success_verify'), { duration: 6000 })
         navigate('/login')
       } else {
-        toast.error(authError || t('auth.signup_failed'))
+        toast.error(useAuthStore.getState().error || t('auth.signup_failed'))
       }
     } catch {
       toast.error(t('auth.error_occurred'))

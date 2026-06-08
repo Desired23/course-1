@@ -152,10 +152,10 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
   }
 
 
-  const calculateScore = () => {
+  const calculateScore = (answersToScore: Record<number, number | number[]> = answers) => {
     let correctCount = 0
     quiz.questions.forEach(question => {
-      const userAnswer = answers[question.id]
+      const userAnswer = answersToScore[question.id]
       const correctAnswer = question.correctAnswer
 
       if (question.type === 'code') {
@@ -441,18 +441,23 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
               enrollmentId={enrollmentId}
               onComplete={(passed, score) => {
                 handleAnswerChange(currentQuestion.id, score)
-                if (passed) {
+                if (!passed) return
+
+                if (currentQuestionIndex < totalQuestions - 1) {
                   toast.success(t('quiz_player.code_solution_accepted'))
+                  setTimeout(() => goToNextQuestion(), 2000)
+                  return
+                }
 
-
-                  setTimeout(() => {
-                    if (currentQuestionIndex < totalQuestions - 1) {
-                      goToNextQuestion()
-                    } else if (onNext) {
-
-                      onNext()
-                    }
-                  }, 2000)
+                // Câu cuối đã pass: finalize cả quiz để lesson được đánh dấu
+                // hoàn thành. Nếu không, goToNextLesson() ở trang player sẽ
+                // chặn và hiện toast "hoàn thành tối thiểu ...% bài hiện tại".
+                const mergedAnswers = { ...answers, [currentQuestion.id]: score }
+                const finalScore = calculateScore(mergedAnswers)
+                setIsSubmitted(true)
+                setShowResults(true)
+                if (onComplete) {
+                  onComplete(finalScore, finalScore >= quiz.passingScore)
                 }
               }}
               onSubmit={(code, languageId) => {
@@ -656,7 +661,7 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
             })()}
           </div>
 
-          {currentQuestionIndex === totalQuestions - 1 ? (
+          {currentQuestion.type === 'code' ? null : currentQuestionIndex === totalQuestions - 1 ? (
             <Button
               onClick={handleSubmit}
               disabled={isSubmitted}

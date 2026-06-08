@@ -730,7 +730,7 @@ export function SubscriptionsPage() {
                     <TableHead>{t('subscriptions_page.admin.amount')}</TableHead>
                     <TableHead>{t('subscriptions_page.admin.next_billing')}</TableHead>
                     <TableHead>{t('subscriptions_page.admin.payment_method')}</TableHead>
-                    <TableHead>{t('subscriptions_page.admin.actions')}</TableHead>
+                    <TableHead>{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
