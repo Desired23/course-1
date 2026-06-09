@@ -357,11 +357,8 @@ export const en = {
     type: "Type",
     lesson_types: {
       video: "Video",
-      article: "Article",
       quiz: "Quiz",
-      assignment: "Assignment",
-      file: "File",
-      link: "Link",
+      code: "Code Exercise",
     },
     lesson_description_placeholder: "Brief description...",
     add_lesson: "Add lesson",
@@ -1859,6 +1856,7 @@ export const en = {
     explanation: "Explanation:",
     answered_progress: "{{answered}} of {{total}} answered",
     submit_quiz: "Submit Quiz",
+    skip: "Skip",
   },
   bulk_actions: {
     selected_lessons: "{{count}} lessons selected",
@@ -4179,7 +4177,7 @@ export const en = {
     learning_content: {
       description: "Describe in detail what students will gain",
       objectives_label: "What will students learn? *",
-      objectives_hint: "Add at least 4 key learning outcomes",
+      objectives_hint: "Describe what students will achieve",
       objectives_placeholder: "Example: Build web applications with React",
       add_objective: "+ Add objective",
       requirements_label: "Requirements",
@@ -4270,7 +4268,7 @@ export const en = {
     },
     target: {
       objectives_title: "What will students learn?",
-      objectives_description: "List the concrete skills or knowledge students will gain. Minimum 4 objectives.",
+      objectives_description: "List the concrete skills or knowledge students will gain.",
       objectives_placeholder: "Example: Build real web applications with React",
       objectives_remaining: "{{count}} more objectives required",
       requirements_title: "Requirements",

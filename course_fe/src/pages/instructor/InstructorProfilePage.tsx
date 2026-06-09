@@ -161,9 +161,9 @@ export function InstructorProfilePage() {
           const reviews = await getAllReviewsByInstructor(profile.id)
           if (cancelled) return
       setTestimonials(reviews.slice(0, 5).map(r => ({
-        id: r.id,
-        student: r.user_detail?.full_name || t('instructor_profile_page.fallbacks.student'),
-        avatar: r.user_detail?.avatar || '/api/placeholder/40/40',
+        id: r.review_id,
+        student: r.user_info?.full_name || t('instructor_profile_page.fallbacks.student'),
+        avatar: r.user_info?.avatar || '/api/placeholder/40/40',
         content: r.comment || '',
         rating: r.rating,
         course: r.course_detail?.title || t('instructor_profile_page.fallbacks.course'),

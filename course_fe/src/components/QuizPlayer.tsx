@@ -661,7 +661,18 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
             })()}
           </div>
 
-          {currentQuestion.type === 'code' ? null : currentQuestionIndex === totalQuestions - 1 ? (
+          {currentQuestion.type === 'code' ? (
+            currentQuestionIndex < totalQuestions - 1 ? (
+              <Button
+                variant="outline"
+                onClick={goToNextQuestion}
+                disabled={isSubmitted}
+              >
+                {t('quiz_player.skip')}
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
+            ) : null
+          ) : currentQuestionIndex === totalQuestions - 1 ? (
             <Button
               onClick={handleSubmit}
               disabled={isSubmitted}

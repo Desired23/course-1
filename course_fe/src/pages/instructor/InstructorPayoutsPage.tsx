@@ -9,6 +9,7 @@ import {
   formatPayoutAmount,
   type InstructorPayout,
 } from "../../services/instructor-payouts.api"
+import { exportInstructorPayouts } from "../../services/admin.api"
 import {
   getInstructorEarnings,
   getInstructorEarningsSummary,
@@ -30,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert"
 import { UserPagination } from "../../components/UserPagination"
 import { motion } from 'motion/react'
-import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Info, Crown, Loader2 } from "lucide-react"
+import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Info, Crown, Loader2, Download } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { listItemTransition } from '../../lib/motion'
 import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
@@ -86,6 +87,9 @@ export function InstructorPayoutsPage() {
   const [payoutsLoading, setPayoutsLoading] = useState(false)
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'earnings' | 'history' | 'methods'>('earnings')
+  const [payoutExportDateFrom, setPayoutExportDateFrom] = useState('')
+  const [payoutExportDateTo, setPayoutExportDateTo] = useState('')
+  const [isPayoutExporting, setIsPayoutExporting] = useState(false)
   const [selectedMethod, setSelectedMethod] = useState('')
   const [payoutAmount, setPayoutAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -524,7 +528,67 @@ export function InstructorPayoutsPage() {
               <CardDescription>{t('instructor_payouts.history_desc')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 flex justify-end">
+              <div className="mb-4 flex flex-wrap gap-2 justify-end items-center">
+                <Input
+                  type="date"
+                  value={payoutExportDateFrom}
+                  onChange={(e) => setPayoutExportDateFrom(e.target.value)}
+                  className="w-36"
+                  title="From date"
+                />
+                <Input
+                  type="date"
+                  value={payoutExportDateTo}
+                  onChange={(e) => setPayoutExportDateTo(e.target.value)}
+                  className="w-36"
+                  title="To date"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPayoutExporting}
+                  onClick={async () => {
+                    try {
+                      setIsPayoutExporting(true)
+                      await exportInstructorPayouts('csv', {
+                        dateFrom: payoutExportDateFrom || undefined,
+                        dateTo: payoutExportDateTo || undefined,
+                        status: payoutStatusFilter !== 'all' ? payoutStatusFilter.toUpperCase() : undefined,
+                      })
+                    } catch {
+                      toast.error(t('instructor_payouts.export_failed') || 'Export failed')
+                    } finally {
+                      setIsPayoutExporting(false)
+                    }
+                  }}
+                  className="gap-1"
+                >
+                  {isPayoutExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPayoutExporting}
+                  onClick={async () => {
+                    try {
+                      setIsPayoutExporting(true)
+                      await exportInstructorPayouts('excel', {
+                        dateFrom: payoutExportDateFrom || undefined,
+                        dateTo: payoutExportDateTo || undefined,
+                        status: payoutStatusFilter !== 'all' ? payoutStatusFilter.toUpperCase() : undefined,
+                      })
+                    } catch {
+                      toast.error(t('instructor_payouts.export_failed') || 'Export failed')
+                    } finally {
+                      setIsPayoutExporting(false)
+                    }
+                  }}
+                  className="gap-1"
+                >
+                  {isPayoutExporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  Excel
+                </Button>
                 <Select value={payoutStatusFilter} onValueChange={setPayoutStatusFilter}>
                   <SelectTrigger className="w-44"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
                   <SelectContent>

@@ -163,7 +163,7 @@ export function DraggableLessonCard({
   drag(drop(ref))
   const transcriptStatus = lesson.transcript_status || (lesson.has_published_transcript ? 'published' : null)
   const isTranscriptLoading = transcriptActionLessonId === lesson.id
-  const canGenerateTranscript = lesson.type === 'video' || lesson.content_type === 'video'
+  const canGenerateTranscript = lesson.type === 'video'
 
   const renderTranscriptBadge = () => {
     if (!transcriptStatus || transcriptStatus === 'queued') return null

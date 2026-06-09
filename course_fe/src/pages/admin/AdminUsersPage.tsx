@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { adminUpdateUser, deleteUser as deleteUserApi, getUsers } from '../../services/admin.api'
+import { adminUpdateUser, deleteUser as deleteUserApi, getUsers, exportAdminUsers, exportAdminInstructors } from '../../services/admin.api'
 import type { UserItem } from '../../services/admin.api'
 
 import { FilterComponents } from "../../components/FilterComponents"
@@ -40,7 +40,8 @@ import {
   Mail,
   Shield,
   Users,
-  Loader2
+  Loader2,
+  Download,
 } from "lucide-react"
 import { motion } from 'motion/react'
 import { cn } from "../../components/ui/utils"
@@ -162,6 +163,9 @@ export function AdminUsersPage() {
     instructors: 0,
     admins: 0,
   })
+  const [exportDateFrom, setExportDateFrom] = useState('')
+  const [exportDateTo, setExportDateTo] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
 
   const renderUsersTableSkeleton = () => (
     <div className="space-y-3 p-4">
@@ -356,7 +360,7 @@ export function AdminUsersPage() {
 
   const bulkUpdateUsers = async (
     ids: string[],
-    updater: (userId: string) => Promise<void>,
+    updater: (userId: string) => Promise<any>,
     successMessage: string
   ) => {
     try {
@@ -368,6 +372,27 @@ export function AdminUsersPage() {
       await refreshAfterMutation()
     } catch {
       toast.error(t('admin_users.toasts.bulk_failed'))
+    }
+  }
+
+  async function handleExport(format: 'csv' | 'excel') {
+    try {
+      setIsExporting(true)
+      const opts = {
+        status: mapStatusToApi(selectedStatus),
+        role: mapRoleToApi(selectedRole),
+        dateFrom: exportDateFrom || undefined,
+        dateTo: exportDateTo || undefined,
+      }
+      if (selectedRole === 'instructor') {
+        await exportAdminInstructors(format, opts)
+      } else {
+        await exportAdminUsers(format, opts)
+      }
+    } catch {
+      toast.error(t('admin_users.toasts.action_failed'))
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -431,6 +456,28 @@ export function AdminUsersPage() {
             onChange={setSelectedStatus}
             className="w-full md:w-48"
           />
+          <Input
+            type="date"
+            value={exportDateFrom}
+            onChange={(e) => setExportDateFrom(e.target.value)}
+            className="w-full md:w-36"
+            title="From date"
+          />
+          <Input
+            type="date"
+            value={exportDateTo}
+            onChange={(e) => setExportDateTo(e.target.value)}
+            className="w-full md:w-36"
+            title="To date"
+          />
+          <Button variant="outline" onClick={() => handleExport('csv')} disabled={isExporting} className="gap-2 shrink-0">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            CSV
+          </Button>
+          <Button variant="outline" onClick={() => handleExport('excel')} disabled={isExporting} className="gap-2 shrink-0">
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Excel
+          </Button>
         </div>
       </motion.div>
 

@@ -228,7 +228,6 @@ export function CourseOutlineSidebar({
                   showCheckboxes={showCheckboxes}
                   selectedLessonIds={selectedLessonIds}
                   onCheckLesson={onCheckLesson}
-                  onToggleCheckboxMode={onToggleBulkMode}
                 />
               ))}
 

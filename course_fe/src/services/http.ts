@@ -27,12 +27,59 @@ const CACHE_TTL = 30 * 1000
 export interface ApiError {
   message: string
   status: number
-  errors?: Record<string, string[]>
+  errors?: Record<string, string[] | string>
+  data?: unknown
+  raw?: unknown
 }
 
-// Backend has empty DEFAULT_AUTHENTICATION_CLASSES, so auth failures raised in
-// permissions get downgraded 401 -> 403 by DRF while keeping this 401 message.
-// Detect that case to run the session-expired flow instead of role-mismatch.
+function firstString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const message = firstString(item)
+      if (message) return message
+    }
+    return undefined
+  }
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      const message = firstString(item)
+      if (message) return message
+    }
+  }
+  return undefined
+}
+
+function getBackendErrorMessage(error: any, fallback: string): string {
+  const raw = (() => {
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return undefined
+    }
+  })()
+  return (
+    firstString(error?.message) ||
+    firstString(error?.error) ||
+    firstString(error?.detail) ||
+    firstString(error?.errors?.error) ||
+    firstString(error?.errors) ||
+    raw ||
+    fallback
+  )
+}
+
+async function readErrorBody(response: Response): Promise<any> {
+  const body = await response.text().catch(() => '')
+  if (!body) return { message: response.statusText, raw: null }
+  try {
+    return JSON.parse(body)
+  } catch {
+    return { message: body, raw: body }
+  }
+}
+
+
 const SESSION_EXPIRED_MESSAGE = 'Bạn chưa đăng nhập hoặc phiên đã hết hạn.'
 
 
@@ -237,14 +284,14 @@ class HttpService {
 
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          message: response.statusText,
-        }))
+        const error = await readErrorBody(response)
 
         throw {
-          message: error.message || error.errors?.error || 'An error occurred',
+          message: getBackendErrorMessage(error, 'An error occurred'),
           status: response.status,
           errors: error.errors,
+          data: error,
+          raw: error,
         } as ApiError
       }
 
@@ -386,13 +433,13 @@ class HttpService {
       }
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          message: response.statusText,
-        }))
+        const error = await readErrorBody(response)
         throw {
-          message: error.message || 'Upload failed',
+          message: getBackendErrorMessage(error, 'Upload failed'),
           status: response.status,
           errors: error.errors,
+          data: error,
+          raw: error,
         } as ApiError
       }
 

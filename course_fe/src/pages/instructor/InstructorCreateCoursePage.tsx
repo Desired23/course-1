@@ -10,7 +10,7 @@ import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
 import { ArrowLeft, ArrowRight, Save, Image as ImageIcon, Check, BookOpen, Settings, DollarSign, Users } from 'lucide-react'
 import { useRouter } from "../../components/Router"
-import { toast } from 'sonner@2.0.3'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'motion/react'
 import { useAuth } from "../../contexts/AuthContext"
 import { createCourse } from "../../services/course.api"

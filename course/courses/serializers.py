@@ -179,7 +179,7 @@ class ModuleSummarySerializer(serializers.Serializer):
     lessons = serializers.SerializerMethodField()
 
     def get_lessons(self, obj):
-        lessons = obj.lessons.filter(is_deleted=False).order_by('order')
+        lessons = obj.lessons.filter(is_deleted=False, status='published').order_by('order')
         return LessonSummarySerializer(lessons, many=True, context=self.context).data
 
 

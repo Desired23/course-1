@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { useAuth } from '../../contexts/AuthContext'
+import { getErrorMessage } from '../../lib/apiError'
 import { useAuthStore } from '../../stores/auth.store'
 import { debugGoogleOAuthConfig } from '../../utils/debugGoogleOAuth'
 
@@ -106,10 +107,10 @@ export function LoginPage() {
         toast.success(t('auth.login_success'))
         navigate(redirectTarget)
       } else {
-        toast.error(useAuthStore.getState().error || t('auth.error_occurred'))
+        toast.error(useAuthStore.getState().error || 'Không nhận được chi tiết lỗi từ máy chủ.')
       }
-    } catch {
-      toast.error(t('auth.error_occurred'))
+    } catch (error) {
+      toast.error(useAuthStore.getState().error || getErrorMessage(error, t('auth.error_occurred')))
     } finally {
       setIsSubmitting(false)
     }

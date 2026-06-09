@@ -669,10 +669,10 @@ function StatsDynamicSection({ section }: { section: HomeSection }) {
   const configuredItems = Array.isArray(content.items) ? content.items : []
 
   const fallbackItems = [
-    { label: locale.startsWith("en") ? "Students" : "Hoc vien", value: apiStats ? formatLargeNumber(apiStats.total_students) : "...", icon: "Users" },
-    { label: locale.startsWith("en") ? "Courses" : "Khoa hoc", value: apiStats ? formatLargeNumber(apiStats.total_courses) : "...", icon: "BookOpen" },
-    { label: locale.startsWith("en") ? "Instructors" : "Giang vien", value: apiStats ? formatLargeNumber(apiStats.total_instructors) : "...", icon: "Award" },
-    { label: locale.startsWith("en") ? "Rating" : "Danh gia", value: apiStats ? `${apiStats.avg_rating.toFixed(1)}/5` : "...", icon: "Star" },
+    { label: locale.startsWith("en") ? "Students" : "Hoc vien", value: apiStats ? formatLargeNumber(apiStats.total_students) : "...", sublabel: undefined, icon: "Users" },
+    { label: locale.startsWith("en") ? "Courses" : "Khoa hoc", value: apiStats ? formatLargeNumber(apiStats.total_courses) : "...", sublabel: undefined, icon: "BookOpen" },
+    { label: locale.startsWith("en") ? "Instructors" : "Giang vien", value: apiStats ? formatLargeNumber(apiStats.total_instructors) : "...", sublabel: undefined, icon: "Award" },
+    { label: locale.startsWith("en") ? "Rating" : "Danh gia", value: apiStats ? `${apiStats.avg_rating.toFixed(1)}/5` : "...", sublabel: undefined, icon: "Star" },
   ]
 
   const items = configuredItems.length > 0

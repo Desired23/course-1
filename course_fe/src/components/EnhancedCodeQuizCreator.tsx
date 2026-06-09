@@ -34,6 +34,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Alert, AlertDescription } from './ui/alert'
 import { CodeExecutionDebugPanel, type DebugExecutionResult } from './CodeExecutionDebugPanel'
+import { CodeEditor } from './CodeEditor'
 import { SUPPORTED_LANGUAGES, CODE_LESSON_LANGUAGES, generateStarterCode, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, type ExecutionMode, type TestResult } from '../utils/judge0'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -780,34 +781,6 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
     <DndProvider backend={HTML5Backend}>
       <div className="space-y-6 pb-20">
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Code2 className="h-5 w-5" />
-                  {initialData ? t('enhanced_code_quiz_creator.edit_title') : t('enhanced_code_quiz_creator.create_title')}
-                </CardTitle>
-                <CardDescription>
-                  {t('enhanced_code_quiz_creator.description')}
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                {onCancel && (
-                  <Button variant="outline" onClick={onCancel}>
-                    {t('enhanced_code_quiz_creator.cancel')}
-                  </Button>
-                )}
-                <Button onClick={handleSave}>
-                  <Save className="h-4 w-4 mr-2" />
-                  {t('enhanced_code_quiz_creator.save_quiz')}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-
-
         {Object.keys(errors).length > 0 && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -1121,66 +1094,6 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
             </Card>
 
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{t('enhanced_code_quiz_creator.constraints')}</CardTitle>
-                    <CardDescription>
-                      {t('enhanced_code_quiz_creator.constraints_help')}
-                    </CardDescription>
-                  </div>
-                  <Button onClick={addConstraint} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    {t('enhanced_code_quiz_creator.add_constraint')}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {formData.constraints.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>{t('enhanced_code_quiz_creator.no_constraints')}</p>
-                    <p className="text-sm">{t('enhanced_code_quiz_creator.add_constraint_prompt')}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {formData.constraints.map((constraint, index) => (
-                      <div key={constraint.id} className="flex items-center gap-3">
-                        <Badge variant="outline">{index + 1}</Badge>
-                        <Input
-                          value={constraint.description}
-                          onChange={(e) => updateConstraint(index, e.target.value)}
-                          placeholder={t('enhanced_code_quiz_creator.constraint_placeholder')}
-                          className="flex-1 font-mono text-sm"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteConstraint(index)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <Alert className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    <p className="font-medium mb-2">{t('enhanced_code_quiz_creator.constraint_examples_title')}</p>
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li>{t('enhanced_code_quiz_creator.constraint_examples.array_size')}</li>
-                      <li>{t('enhanced_code_quiz_creator.constraint_examples.value_range')}</li>
-                      <li>{t('enhanced_code_quiz_creator.constraint_examples.target_range')}</li>
-                      <li>{t('enhanced_code_quiz_creator.constraint_examples.assumptions')}</li>
-                    </ul>
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
           </TabsContent>
 
 
@@ -1547,15 +1460,15 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
                       </Button>
                     </div>
                   </div>
-                  <Textarea
-                    value={formData.solution?.code}
-                    onChange={(e) => updateFormData({
+                  <CodeEditor
+                    value={formData.solution?.code || ''}
+                    onChange={(value) => updateFormData({
                       ...formData,
-                      solution: { ...formData.solution!, code: e.target.value }
+                      solution: { ...formData.solution!, code: value }
                     })}
-                    placeholder={t('enhanced_code_quiz_creator.solution_code_placeholder')}
-                    className="font-mono text-sm"
-                    rows={15}
+                    language={SUPPORTED_LANGUAGES.find(l => l.id === formData.solution?.codeLanguage)?.value || 'javascript'}
+                    height="350px"
+                    showMinimap={false}
                   />
                   {isRunningSolutionTests && runProgress.total > 0 && (
                     <p className="text-sm text-muted-foreground mt-2">
@@ -1747,18 +1660,21 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
                       return (
                         <div key={langId}>
                           <Label className="text-xs text-muted-foreground">{lang.value}</Label>
-                          <Textarea
-                            value={formData.starterCode?.[langId] || ''}
-                            onChange={(e) => {
-                              setStarterEdited((prev) => ({ ...prev, [langId]: true }))
-                              updateFormData((prev) => ({
-                                ...prev,
-                                starterCode: { ...prev.starterCode, [langId]: e.target.value },
-                              }))
-                            }}
-                            className="mt-1 font-mono text-sm"
-                            rows={4}
-                          />
+                          <div className="mt-1">
+                            <CodeEditor
+                              value={formData.starterCode?.[langId] || ''}
+                              onChange={(value) => {
+                                setStarterEdited((prev) => ({ ...prev, [langId]: true }))
+                                updateFormData((prev) => ({
+                                  ...prev,
+                                  starterCode: { ...prev.starterCode, [langId]: value },
+                                }))
+                              }}
+                              language={lang.value}
+                              height="150px"
+                              showMinimap={false}
+                            />
+                          </div>
                         </div>
                       )
                     })}
@@ -1767,48 +1683,6 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
               </CardContent>
             </Card>
 
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">{t('enhanced_code_quiz_creator.function_signature')}</CardTitle>
-                <CardDescription>
-                  {t('enhanced_code_quiz_creator.function_signature_help')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {formData.allowedLanguages.map((langId) => {
-                  const lang = SUPPORTED_LANGUAGES.find(l => l.id === langId)
-                  if (!lang) return null
-
-                  return (
-                    <div key={langId}>
-                      <Label>{lang.value}</Label>
-                      <Textarea
-                        value={formData.functionSignature?.[langId] || ''}
-                        onChange={(e) => updateFormData({
-                          ...formData,
-                          functionSignature: {
-                            ...formData.functionSignature,
-                            [langId]: e.target.value
-                          }
-                        })}
-                        placeholder={
-                          lang.value === 'javascript' ? 'function twoSum(nums, target) { }' :
-                          lang.value === 'python' ? 'def two_sum(nums: List[int], target: int) -> List[int]:' :
-                          lang.value === 'java' ? 'public int[] twoSum(int[] nums, int target) { }' :
-                          t('enhanced_code_quiz_creator.function_signature_placeholder')
-                        }
-                        className="mt-1 font-mono text-sm"
-                        rows={2}
-                      />
-                    </div>
-                  )
-                })}
-                <p className="text-xs text-muted-foreground">
-                  {t('enhanced_code_quiz_creator.function_signature_note')}
-                </p>
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </div>

@@ -23,6 +23,7 @@ export interface BlogPost {
   author: number | null
   author_name: string | null
   author_avatar: string | null
+  author_title?: string | null
   created_at: string
   updated_at: string
   status: 'draft' | 'published' | 'archived'

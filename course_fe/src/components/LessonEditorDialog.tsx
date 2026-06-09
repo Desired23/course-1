@@ -13,7 +13,6 @@ import {
   Save,
   X,
   FileText,
-  Settings,
   Paperclip,
   HelpCircle,
   Loader2,
@@ -31,7 +30,6 @@ import { BasicTab } from './BasicTab'
 import { ContentTab } from './ContentTab'
 import { ResourcesTab } from './ResourcesTab'
 import { QuizTab } from './QuizTab'
-import { SettingsTab } from './SettingsTab'
 import { LessonPreviewModal } from './LessonPreviewModal'
 import { EnhancedCodeQuizCreator, EnhancedCodeQuizData } from './EnhancedCodeQuizCreator'
 import { useTranslation } from 'react-i18next'
@@ -149,7 +147,7 @@ export function LessonEditorDialog({
   }
 
   const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
+    if (currentStep < steps.length - 1) {
 
       if (currentStep === 0 && !editedLesson?.title.trim()) {
         toast.error(t('lesson_editor_dialog.enter_lesson_title'))
@@ -186,12 +184,6 @@ export function LessonEditorDialog({
       title: t('lesson_editor_dialog.steps.resources.title'),
       icon: Paperclip,
       description: t('lesson_editor_dialog.steps.resources.description'),
-    },
-    {
-      id: 'settings',
-      title: t('lesson_editor_dialog.steps.settings.title'),
-      icon: Settings,
-      description: t('lesson_editor_dialog.steps.settings.description'),
     },
   ]
 
@@ -247,8 +239,6 @@ export function LessonEditorDialog({
         return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} />
       case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 3:
-        return <SettingsTab lesson={editedLesson} onUpdate={handleUpdate} />
       default:
         return null
     }

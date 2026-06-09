@@ -17,11 +17,24 @@ import { getMySubscriptionCourses, type PlanCourse, formatPrice as formatSubscri
 import { getLearningPaths } from '../../services/learning-paths.api'
 import type { LearningPathSummary } from '../../services/learning-paths.api'
 import { LearningPathTrackingCard } from '../../components/LearningPathTrackingCard'
-import { openAiLearningPath } from '../../components/AiLearningPathLauncher'
+import { onAiLearningPathSaved, openAiLearningPath } from '../../components/AiLearningPathLauncher'
 import { listItemTransition } from '../../lib/motion'
+import { useAuth } from '../../contexts/AuthContext'
 
 type SortBy = 'recent_access' | 'newest_enrollment' | 'oldest_enrollment' | 'title_asc' | 'progress_desc'
 type LearningTab = 'all' | 'in-progress' | 'completed' | 'plan-courses' | 'bookmarks' | 'learning-paths'
+
+let learningPathsCache: { userId: string; paths: LearningPathSummary[]; loaded: boolean } | null = null
+
+function getCachedLearningPaths(userId: string | null) {
+  if (!userId || learningPathsCache?.userId !== userId) return null
+  return learningPathsCache
+}
+
+function setCachedLearningPaths(userId: string | null, paths: LearningPathSummary[], loaded = true) {
+  if (!userId) return
+  learningPathsCache = { userId, paths, loaded }
+}
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -48,6 +61,9 @@ const fadeInUp = {
 export function MyLearningPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
+  const { user } = useAuth()
+  const userCacheKey = user?.id == null ? null : String(user.id)
+  const cachedLearningPaths = getCachedLearningPaths(userCacheKey)
 
   const [selectedTab, setSelectedTab] = useState<LearningTab>('all')
   const [enrollments, setEnrollments] = useState<Enrollment[]>([])
@@ -81,9 +97,9 @@ export function MyLearningPage() {
   const [recentCourses, setRecentCourses] = useState<Enrollment[]>([])
   const [recentCoursesLoading, setRecentCoursesLoading] = useState(true)
 
-  const [learningPaths, setLearningPaths] = useState<LearningPathSummary[]>([])
+  const [learningPaths, setLearningPaths] = useState<LearningPathSummary[]>(() => cachedLearningPaths?.paths ?? [])
   const [learningPathsLoading, setLearningPathsLoading] = useState(false)
-  const [learningPathsLoaded, setLearningPathsLoaded] = useState(false)
+  const [learningPathsLoaded, setLearningPathsLoaded] = useState(() => cachedLearningPaths?.loaded ?? false)
 
   const isCourseTab = selectedTab === 'all' || selectedTab === 'in-progress' || selectedTab === 'completed'
   const isPlanCoursesTab = selectedTab === 'plan-courses'
@@ -252,7 +268,14 @@ export function MyLearningPage() {
   }, [isPlanCoursesTab, planCurrentPage, planPageSize, debouncedPlanSearch, t])
 
   useEffect(() => {
-    if (!isLearningPathsTab || learningPathsLoaded) return
+    const cached = getCachedLearningPaths(userCacheKey)
+    setLearningPaths(cached?.paths ?? [])
+    setLearningPathsLoaded(cached?.loaded ?? false)
+    setLearningPathsLoading(false)
+  }, [userCacheKey])
+
+  useEffect(() => {
+    if (!isLearningPathsTab || learningPathsLoaded || !userCacheKey) return
 
     let cancelled = false
     setLearningPathsLoading(true)
@@ -263,12 +286,14 @@ export function MyLearningPage() {
         const active = (res.results || []).filter((p) => !p.is_archived)
         setLearningPaths(active)
         setLearningPathsLoaded(true)
+        setCachedLearningPaths(userCacheKey, active)
         if (active.length === 0) openAiLearningPath()
       })
       .catch(() => {
         if (cancelled) return
         setLearningPaths([])
         setLearningPathsLoaded(true)
+        setCachedLearningPaths(userCacheKey, [])
         openAiLearningPath()
       })
       .finally(() => {
@@ -278,7 +303,22 @@ export function MyLearningPage() {
     return () => {
       cancelled = true
     }
-  }, [isLearningPathsTab, learningPathsLoaded])
+  }, [isLearningPathsTab, learningPathsLoaded, userCacheKey])
+
+  useEffect(() => {
+    if (!userCacheKey) return
+
+    return onAiLearningPathSaved((path) => {
+      if (path.is_archived) return
+
+      setLearningPaths((prev) => {
+        const next = [path, ...prev.filter((item) => item.id !== path.id)]
+        setCachedLearningPaths(userCacheKey, next)
+        return next
+      })
+      setLearningPathsLoaded(true)
+    })
+  }, [userCacheKey])
 
   useEffect(() => {
     setCurrentPage(1)

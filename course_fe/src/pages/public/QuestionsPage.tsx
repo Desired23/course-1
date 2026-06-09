@@ -15,10 +15,10 @@ type SortOption = 'newest' | 'votes' | 'unanswered'
 const POPULAR_TAGS = ['python', 'django', 'javascript', 'react', 'css', 'sql', 'api', 'html', 'git', 'testing']
 
 export function QuestionsPage() {
-  const { navigate, location } = useRouter()
+  const { navigate } = useRouter()
   const { user } = useAuth()
 
-  const params = new URLSearchParams(location?.search ?? '')
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
   const initialTag = params.get('tag') ?? ''
   const initialSearch = params.get('search') ?? ''
 

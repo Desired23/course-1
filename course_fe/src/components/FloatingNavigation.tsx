@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useRouter } from './Router'
 import { useAuth } from '../contexts/AuthContext'
+import { getErrorMessage } from '../lib/apiError'
 import {
   Home,
   BookOpen,
@@ -135,7 +137,6 @@ const navigationItems: NavigationItem[] = [
   { id: 'admin-website', labelKey: 'floating_navigation.items.admin_website', path: '/admin/website-management', icon: <Monitor size={20} />, category: 'admin' },
   { id: 'admin-home-layout', labelKey: 'floating_navigation.items.admin_home_layout', path: '/admin/home-layout', icon: <LayoutTemplate size={20} />, category: 'admin' },
   { id: 'admin-settings', labelKey: 'floating_navigation.items.admin_settings', path: '/admin/settings', icon: <Settings size={20} />, category: 'admin' },
-  { id: 'admin-website-settings', labelKey: 'floating_navigation.items.admin_website_settings', path: '/admin/website-settings', icon: <Globe size={20} />, category: 'admin' },
   { id: 'admin-permissions', labelKey: 'floating_navigation.items.admin_permissions', path: '/admin/permissions', icon: <Shield size={20} />, category: 'admin' },
   { id: 'admin-reports', labelKey: 'floating_navigation.items.admin_reports', path: '/admin/reports', icon: <Shield size={20} />, category: 'admin' },
   { id: 'admin-activity', labelKey: 'floating_navigation.items.admin_activity', path: '/admin/activity-log', icon: <Activity size={20} />, category: 'admin' },
@@ -165,8 +166,12 @@ export function FloatingNavigation() {
   ]
 
   const handleTestLogin = async (email: string) => {
-    await login(email, 'password')
-    setShowTestLogin(false)
+    try {
+      await login(email, 'password')
+      setShowTestLogin(false)
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Test login failed.'))
+    }
   }
 
   const handleNavigate = (path: string) => {

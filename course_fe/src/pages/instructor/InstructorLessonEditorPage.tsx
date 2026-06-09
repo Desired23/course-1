@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import {
   Save,
   FileText,
-  Settings,
   Paperclip,
   Code,
   Loader2,
@@ -26,7 +25,6 @@ import { BasicTab } from '../../components/BasicTab'
 import { ContentTab } from '../../components/ContentTab'
 import { ResourcesTab } from '../../components/ResourcesTab'
 import { QuizTab } from '../../components/QuizTab'
-import { SettingsTab } from '../../components/SettingsTab'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { EnhancedCodeQuizCreator, type EnhancedCodeQuizCreatorHandle } from '../../components/EnhancedCodeQuizCreator'
 import { TranscriptEditorPanel } from '../../components/TranscriptEditorPanel'
@@ -62,7 +60,6 @@ const BASE_STEPS = [
   { id: 'basic', icon: FileText },
   { id: 'content', icon: Code },
   { id: 'resources', icon: Paperclip },
-  { id: 'settings', icon: Settings },
 ]
 
 const sectionStagger = {
@@ -323,11 +320,11 @@ export function InstructorLessonEditorPage() {
       await updateLessonApi(editedLesson.id, {
         title: editedLesson.title,
         description: editedLesson.description,
-        content_type: editedLesson.content_type || editedLesson.type,
+        content_type: (editedLesson.content_type || editedLesson.type) as any,
         video_url: videoData.videoUrl,
         video_public_id: videoData.videoPublicId || undefined,
         is_free: editedLesson.is_free,
-        status: editedLesson.status,
+        status: editedLesson.status as any,
         ...(videoData.duration != null ? { duration: Math.round(videoData.duration) } : {}),
       })
       setIsDirty(false)
@@ -418,8 +415,6 @@ export function InstructorLessonEditorPage() {
       case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
       case 3:
-        return <SettingsTab lesson={editedLesson} onUpdate={handleUpdate} />
-      case 4:
         return (
           <TranscriptEditorPanel
             lessonId={editedLesson.id}

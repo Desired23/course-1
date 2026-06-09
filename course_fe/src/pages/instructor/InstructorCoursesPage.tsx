@@ -162,7 +162,7 @@ export function InstructorCoursesPage() {
       case 'students': return '-total_students'
       case 'rating': return '-rating'
       case 'revenue': return '-price'
-      default: return '-updated_at'
+      default: return '-created_at'
     }
   }, [sortBy])
 

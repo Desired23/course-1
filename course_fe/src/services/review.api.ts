@@ -29,6 +29,7 @@ export interface Review {
   last_reported_at: string | null
   instructor_response: string | null
   response_date: string | null
+  is_verified_purchase?: boolean
 }
 
 interface PaginatedResponse<T> {

@@ -42,7 +42,7 @@ if ($publicUrl -ne $fixedNgrokUrl) {
     Write-Host "Dang bat ngrok cho cong 8000 voi URL co dinh: $fixedNgrokUrl"
     Start-Process -FilePath $ngrokExe -ArgumentList "http", "8000", "--url=$fixedNgrokUrl", "--log=stdout" -WindowStyle Hidden
 
-    $deadline = (Get-Date).AddSeconds(15)
+    $deadline = (Get-Date).AddSeconds(30)
     do {
         Start-Sleep -Milliseconds 750
         $publicUrl = Get-NgrokPublicUrl -ExpectedUrl $fixedNgrokUrl

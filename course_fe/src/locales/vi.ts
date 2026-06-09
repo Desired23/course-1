@@ -357,11 +357,8 @@
     type: "Loại",
     lesson_types: {
       video: "Video",
-      article: "Bài viết",
       quiz: "Trắc nghiệm",
-      assignment: "Bài tập",
-      file: "Tập tin",
-      link: "Liên kết",
+      code: "Bài tập code",
     },
     lesson_description_placeholder: "Mô tả ngắn...",
     add_lesson: "Thêm bài học",
@@ -1868,6 +1865,7 @@
     explanation: "Giải thích:",
     answered_progress: "Đã trả lời {{answered}} / {{total}}",
     submit_quiz: "Nộp quiz",
+    skip: "Bỏ qua",
   },
   settings_tab: {
     access_control: "Kiểm soát truy cập",
@@ -4180,7 +4178,7 @@
     learning_content: {
       description: "Mô tả chi tiết những gì học viên sẽ đạt được",
       objectives_label: "Học viên sẽ học được gì? *",
-      objectives_hint: "Thêm ít nhất 4 mục học tập chính",
+      objectives_hint: "Mô tả chi tiết những gì học viên sẽ đạt được",
       objectives_placeholder: "VD: Xây dựng ứng dụng web với React",
       add_objective: "+ Thêm mục",
       requirements_label: "Yêu cầu",
@@ -4271,7 +4269,7 @@
     },
     target: {
       objectives_title: "Học viên sẽ học được gì?",
-      objectives_description: "Liệt kê các kỹ năng hoặc kiến thức cụ thể mà học viên sẽ đạt được. Tối thiểu 4 mục tiêu.",
+      objectives_description: "Liệt kê các kỹ năng hoặc kiến thức cụ thể mà học viên sẽ đạt được.",
       objectives_placeholder: "VD: Xây dựng ứng dụng web thực tế với React",
       objectives_remaining: "Cần thêm {{count}} mục tiêu nữa",
       requirements_title: "Yêu cầu đầu vào",

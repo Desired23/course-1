@@ -465,7 +465,7 @@ export function AdminCourseMetadataPage() {
           {returnToRoute && (
             <Button
               variant="outline"
-              onClick={navigateBackToAdvisorReview}
+              onClick={() => navigateBackToAdvisorReview()}
             >
               Quay lại AI Paths
             </Button>
@@ -489,7 +489,7 @@ export function AdminCourseMetadataPage() {
             <Button
               variant="outline"
               className="border-blue-300 bg-white text-blue-900 hover:bg-blue-100"
-              onClick={navigateBackToAdvisorReview}
+              onClick={() => navigateBackToAdvisorReview()}
             >
               Quay lại đúng path đang review
             </Button>
@@ -698,7 +698,7 @@ export function AdminCourseMetadataPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={navigateBackToAdvisorReview}
+                          onClick={() => navigateBackToAdvisorReview()}
                         >
                           Quay lại AI Paths
                         </Button>

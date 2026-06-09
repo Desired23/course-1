@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 import uuid
 from django.conf import settings
 from django.utils import timezone
@@ -14,6 +15,73 @@ from learning_progress.models import LearningProgress
 from lessons.models import Lesson
 from courses.models import Course
 from activity_logs.services import log_activity
+
+
+_CERTIFICATE_FONT_REGULAR = "CertificateUnicode"
+_CERTIFICATE_FONT_BOLD = "CertificateUnicodeBold"
+
+
+def _certificate_font_candidates():
+    base_dir = Path(getattr(settings, "BASE_DIR", "") or "")
+    yield (
+        base_dir / "static" / "fonts" / "NotoSans-Regular.ttf",
+        base_dir / "static" / "fonts" / "NotoSans-Bold.ttf",
+    )
+    yield (
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+    )
+    yield (
+        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
+    )
+    yield (
+        Path("C:/Windows/Fonts/arial.ttf"),
+        Path("C:/Windows/Fonts/arialbd.ttf"),
+    )
+    yield (
+        Path("C:/Windows/Fonts/segoeui.ttf"),
+        Path("C:/Windows/Fonts/segoeuib.ttf"),
+    )
+
+
+def _font_supports_text(font_path, text):
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font = TTFont("CertificateProbe", str(font_path))
+    supported = set(font.face.charToGlyph.keys())
+    return all(ord(char) in supported for char in text)
+
+
+def _certificate_fonts_for_text(text):
+    from reportlab import rl_config
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    if _CERTIFICATE_FONT_REGULAR in pdfmetrics.getRegisteredFontNames():
+        return _CERTIFICATE_FONT_REGULAR, _CERTIFICATE_FONT_BOLD
+
+    fallback_dir = Path(rl_config.TTFSearchPath[0]) if rl_config.TTFSearchPath else None
+    if fallback_dir:
+        yield_candidates = list(_certificate_font_candidates())
+        yield_candidates.append((fallback_dir / "Vera.ttf", fallback_dir / "VeraBd.ttf"))
+    else:
+        yield_candidates = list(_certificate_font_candidates())
+
+    for regular_path, bold_path in yield_candidates:
+        if not regular_path.exists():
+            continue
+        try:
+            if not _font_supports_text(regular_path, text):
+                continue
+            pdfmetrics.registerFont(TTFont(_CERTIFICATE_FONT_REGULAR, str(regular_path)))
+            bold_source = bold_path if bold_path.exists() and _font_supports_text(bold_path, text) else regular_path
+            pdfmetrics.registerFont(TTFont(_CERTIFICATE_FONT_BOLD, str(bold_source)))
+            return _CERTIFICATE_FONT_REGULAR, _CERTIFICATE_FONT_BOLD
+        except Exception:
+            continue
+
+    return "Helvetica", "Helvetica-Bold"
 
 
 def issue_certificate(user, course_id):
@@ -142,6 +210,17 @@ def render_certificate_pdf(cert):
     buffer = io.BytesIO()
     width, height = landscape(A4)
     c = canvas.Canvas(buffer, pagesize=landscape(A4))
+    font_text = " ".join([
+        "CERTIFICATE OF COMPLETION",
+        cert.student_name or "",
+        cert.course_title or "",
+        cert.instructor_name or "",
+        "has successfully completed the course",
+        "Instructor:",
+        "Issued on:",
+        "Verification Code:",
+    ])
+    regular_font, bold_font = _certificate_fonts_for_text(font_text)
 
     c.setFillColor(HexColor('#f8f9fa'))
     c.rect(0, 0, width, height, fill=True, stroke=False)
@@ -151,30 +230,30 @@ def render_certificate_pdf(cert):
     c.rect(30, 30, width - 60, height - 60, fill=False, stroke=True)
 
     c.setFillColor(HexColor('#1e3a5f'))
-    c.setFont("Helvetica-Bold", 36)
+    c.setFont(bold_font, 36)
     c.drawCentredString(width / 2, height - 100, "CERTIFICATE OF COMPLETION")
 
     c.setStrokeColor(HexColor('#2563eb'))
     c.setLineWidth(1)
     c.line(width / 4, height - 120, 3 * width / 4, height - 120)
 
-    c.setFont("Helvetica-Bold", 28)
+    c.setFont(bold_font, 28)
     c.setFillColor(HexColor('#111827'))
     c.drawCentredString(width / 2, height - 180, cert.student_name)
 
-    c.setFont("Helvetica", 18)
+    c.setFont(regular_font, 18)
     c.setFillColor(HexColor('#374151'))
     c.drawCentredString(width / 2, height - 230, "has successfully completed the course")
-    c.setFont("Helvetica-Bold", 22)
+    c.setFont(bold_font, 22)
     c.setFillColor(HexColor('#2563eb'))
     c.drawCentredString(width / 2, height - 265, cert.course_title)
 
     if cert.instructor_name:
-        c.setFont("Helvetica", 14)
+        c.setFont(regular_font, 14)
         c.setFillColor(HexColor('#6b7280'))
         c.drawCentredString(width / 2, height - 310, f"Instructor: {cert.instructor_name}")
 
-    c.setFont("Helvetica", 12)
+    c.setFont(regular_font, 12)
     c.setFillColor(HexColor('#6b7280'))
     date_str = cert.completion_date.strftime("%B %d, %Y")
     c.drawCentredString(width / 2, height - 350, f"Issued on: {date_str}")

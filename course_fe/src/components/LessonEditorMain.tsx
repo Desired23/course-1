@@ -221,11 +221,8 @@ export function LessonEditorMain({
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="video">{t('lesson_editor_main.lesson_types.video')}</SelectItem>
-                              <SelectItem value="text">{t('lesson_editor_main.lesson_types.article')}</SelectItem>
                               <SelectItem value="quiz">{t('lesson_editor_main.lesson_types.quiz')}</SelectItem>
-                              <SelectItem value="assignment">{t('lesson_editor_main.lesson_types.assignment')}</SelectItem>
-                              <SelectItem value="file">{t('lesson_editor_main.lesson_types.file')}</SelectItem>
-                              <SelectItem value="link">{t('lesson_editor_main.lesson_types.link')}</SelectItem>
+                              <SelectItem value="code">{t('lesson_editor_main.lesson_types.code')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

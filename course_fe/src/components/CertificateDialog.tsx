@@ -77,7 +77,7 @@ export function CertificateDialog({
             </div>
 
             <div className="py-4 border-b-2 border-primary/30">
-              <p className="text-4xl font-serif text-primary">{user?.full_name || user?.username}</p>
+              <p className="text-4xl font-serif text-primary">{user?.username}</p>
             </div>
 
             <div className="space-y-2">

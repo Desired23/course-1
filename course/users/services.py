@@ -10,7 +10,6 @@ from jwt.exceptions import DecodeError
 import jwt
 from utils.mailer.mailer import send_reset_password, send_verify_email
 from django.db import transaction
-import threading
 import re
 from activity_logs.services import log_activity
 from urllib.parse import urlencode
@@ -45,11 +44,8 @@ def _issue_email_verification_token(user_id):
 def _send_email_verification(user):
     token = _issue_email_verification_token(user.id)
     verify_link = _build_email_verification_link(token)
-    threading.Thread(
-        target=send_verify_email,
-        args=(user.email, verify_link, EMAIL_VERIFICATION_TOKEN_MINUTES),
-        daemon=True,
-    ).start()
+    if not send_verify_email(user.email, verify_link, EMAIL_VERIFICATION_TOKEN_MINUTES):
+        raise ValidationError({"email": ["Failed to send verification email. Please try again later."]})
 
 def _generate_username_from_email(email):
     base = re.sub(r"[^a-z0-9_]", "", email.split("@")[0].lower())
@@ -242,6 +238,7 @@ def get_user_by_id(user_id, viewer_id=None, is_admin=False):
         except User.DoesNotExist:
             raise ValidationError({"error": "User not found."})
 def register(data):
+    data = dict(data)
     with transaction.atomic():
         data['status'] = 'inactive'
         data['password_hash'] = make_password(data['password'])
@@ -251,7 +248,6 @@ def register(data):
         user  = serializer.save()
         assert isinstance(user, User)
 
-        _send_email_verification(user)
         log_activity(
             user_id=user.id,
             action="REGISTER",
@@ -259,8 +255,9 @@ def register(data):
             entity_id=user.id,
             description="Người dùng đăng ký tài khoản mới"
         )
+        _send_email_verification(user)
 
-    return serializer.data
+    return user
 
 
 def _build_user_types(user):

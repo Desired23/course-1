@@ -80,7 +80,7 @@ export function QuizPreview({
     const correctAnswer = question.correctAnswer
 
     if (Array.isArray(correctAnswer)) {
-      return JSON.stringify(userAnswer?.sort()) === JSON.stringify(correctAnswer.sort())
+      return JSON.stringify(Array.isArray(userAnswer) ? [...userAnswer].sort() : userAnswer) === JSON.stringify([...correctAnswer].sort())
     }
     return userAnswer === correctAnswer
   }

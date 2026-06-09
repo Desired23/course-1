@@ -58,6 +58,8 @@ export interface CourseListItem {
   instructor_avatar: string | null
   category_name: string | null
   subcategory_name: string | null
+  original_price?: string | null
+  enrollment_count?: number | null
 }
 
 export interface CourseUpdateData extends Partial<CourseListItem> {

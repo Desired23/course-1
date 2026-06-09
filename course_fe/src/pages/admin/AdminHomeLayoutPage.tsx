@@ -1788,7 +1788,7 @@ export function AdminHomeLayoutPage() {
                                           ...section.display_rules,
                                           devices: next.length > 0 ? next : ["mobile", "desktop"],
                                         },
-                                      }
+                                      } as HomeSection
                                     })
                                   }
                                 />
@@ -1809,7 +1809,7 @@ export function AdminHomeLayoutPage() {
                                           ...section.display_rules,
                                           devices: next.length > 0 ? next : ["mobile", "desktop"],
                                         },
-                                      }
+                                      } as HomeSection
                                     })
                                   }
                                 />

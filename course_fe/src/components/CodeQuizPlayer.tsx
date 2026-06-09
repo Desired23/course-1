@@ -245,7 +245,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     }, 2000)
 
     return () => clearTimeout(timer)
-  }, [code, selectedLanguage, lessonId, enrollmentId, question.id, isSubmitted, score])
+  }, [code, selectedLanguage, lessonId, enrollmentId, question.id, isSubmitted])
 
 
   const handleLanguageChange = (languageId: string) => {

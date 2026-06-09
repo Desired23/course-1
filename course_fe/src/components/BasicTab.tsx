@@ -10,12 +10,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Video,
-  FileText,
   Code,
   HelpCircle,
-  ClipboardList,
-  File,
-  Link,
   Clock,
   Eye,
   EyeOff,
@@ -45,12 +41,8 @@ interface BasicTabProps {
 
 const CONTENT_TYPES = [
   { value: 'video', labelKey: 'lesson_editor.content_types.video', icon: Video, color: 'text-purple-600 dark:text-purple-400' },
-  { value: 'text', labelKey: 'lesson_editor.content_types.text', icon: FileText, color: 'text-blue-600 dark:text-blue-400' },
   { value: 'quiz', labelKey: 'lesson_editor.content_types.quiz', icon: HelpCircle, color: 'text-orange-600 dark:text-orange-400' },
   { value: 'code', labelKey: 'lesson_editor.content_types.code', icon: Code, color: 'text-red-600 dark:text-red-400' },
-  { value: 'assignment', labelKey: 'lesson_editor.content_types.assignment', icon: ClipboardList, color: 'text-green-600 dark:text-green-400' },
-  { value: 'file', labelKey: 'lesson_editor.content_types.file', icon: File, color: 'text-gray-600 dark:text-gray-400' },
-  { value: 'link', labelKey: 'lesson_editor.content_types.link', icon: Link, color: 'text-cyan-600 dark:text-cyan-400' }
 ]
 
 export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
@@ -170,28 +162,6 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
       </div>
 
 
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="free-preview" className="text-base cursor-pointer flex items-center gap-2">
-              {lesson.is_free ? (
-                <Eye className="h-4 w-4 text-blue-600" />
-              ) : (
-                <EyeOff className="h-4 w-4 text-muted-foreground" />
-              )}
-              {t('lesson_editor.free_preview')}
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              {t('lesson_editor.free_preview_hint')}
-            </p>
-          </div>
-          <Switch
-            id="free-preview"
-            checked={lesson.is_free || false}
-            onCheckedChange={(checked) => onUpdate({ is_free: checked })}
-          />
-        </div>
-      </Card>
 
 
       {contentType === 'quiz' && (

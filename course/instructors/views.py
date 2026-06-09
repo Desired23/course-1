@@ -18,6 +18,7 @@ from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
 from utils.roles import is_active_admin, is_active_instructor
 from utils.pagination import paginate_queryset
+from utils.export_helpers import export_to_csv, export_to_excel
 class InstructorListView(APIView):
     throttle_scope = 'search'
     def get(self, request):
@@ -240,3 +241,50 @@ class InstructorStudentDetailView(APIView):
             return Response(data)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
+
+
+class InstructorListExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        fmt = request.query_params.get('format', 'csv')
+        if fmt not in {'csv', 'excel'}:
+            return Response({'error': 'format must be csv or excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = Instructor.objects.filter(is_deleted=False).select_related('user', 'level')
+
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
+        qs = qs.order_by('-created_at')
+
+        headers = [
+            'ID', 'Full Name', 'Email', 'Specialization', 'Qualification',
+            'Experience (years)', 'Rating', 'Total Students', 'Total Courses',
+            'Level', 'Created At',
+        ]
+        rows = [
+            [
+                i.id,
+                i.user.full_name if i.user else '',
+                i.user.email if i.user else '',
+                i.specialization or '',
+                i.qualification or '',
+                i.experience or 0,
+                float(i.rating or 0),
+                i.total_students,
+                i.total_courses,
+                i.level.name if i.level else '',
+                i.created_at.strftime('%Y-%m-%d') if i.created_at else '',
+            ]
+            for i in qs
+        ]
+
+        if fmt == 'excel':
+            return export_to_excel(headers, rows, 'instructors_export', 'Instructors')
+        return export_to_csv(headers, rows, 'instructors_export')

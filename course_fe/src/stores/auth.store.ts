@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { login as apiLogin, googleLogin as apiGoogleLogin, register as apiRegister, getUserById, updateProfile as apiUpdateProfile } from '../services/auth.api'
 import { setTokens, getAccessToken, getRefreshToken, API_BASE_URL, getApiTransportHeaders } from '../services/http'
 import { clearSessionData } from '../services/sessionCleanup'
+import { getErrorMessage } from '../lib/apiError'
 import type { UserType } from '../services/auth.api'
 
 
@@ -50,6 +51,8 @@ export interface User {
       title: string
       content: string
       visible: boolean
+      order?: number
+      type?: string
     }>
   }
 }
@@ -157,19 +160,25 @@ interface AuthState {
 }
 
 function getAuthErrorMessage(err: any, fallback: string): string {
+  const message = getErrorMessage(err, fallback)
+
+  if (message.toLowerCase().includes('not active')) {
+    return 'Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email xác minh trước khi đăng nhập.'
+  }
+
   if (err?.status === 0) {
     return 'Khong the ket noi toi may chu. Vui long thu lai.'
   }
 
   if (err?.status === 401) {
-    return err?.errors?.error || err?.message || 'Ten dang nhap hoac mat khau khong dung.'
+    return message || 'Ten dang nhap hoac mat khau khong dung.'
   }
 
   if (err?.status >= 500) {
     return 'May chu dang gap loi. Vui long thu lai sau.'
   }
 
-  return err?.errors?.error || err?.message || fallback
+  return message || fallback
 }
 
 
@@ -226,7 +235,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (err: any) {
           const msg = getAuthErrorMessage(err, 'Dang nhap that bai.')
           set({ isLoading: false, error: msg })
-          return false
+          throw err
         }
       },
 
@@ -265,7 +274,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (err: any) {
           const msg = getAuthErrorMessage(err, 'Google login failed')
           set({ isLoading: false, error: msg })
-          return false
+          throw err
         }
       },
 
@@ -284,9 +293,9 @@ export const useAuthStore = create<AuthState>()(
 
           return true
         } catch (err: any) {
-          const msg = err?.errors?.error || err?.errors?.email?.[0] || err?.errors?.username?.[0] || err?.message || 'Registration failed'
+          const msg = getAuthErrorMessage(err, 'Registration failed')
           set({ isLoading: false, error: msg })
-          return false
+          throw err
         }
       },
 

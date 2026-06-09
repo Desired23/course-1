@@ -335,9 +335,9 @@ export function InstructorQuizzesPage() {
 
       let savedQuestion: any
       if (isExisting && question.id) {
-        savedQuestion = await updateQuizQuestion(Number(question.id), apiData)
+        savedQuestion = await updateQuizQuestion(Number(question.id), apiData as any)
       } else {
-        savedQuestion = await createQuizQuestion(apiData)
+        savedQuestion = await createQuizQuestion(apiData as any)
       }
 
       const feQuestion = apiQuestionToFE(savedQuestion)
@@ -578,7 +578,7 @@ export function InstructorQuizzesPage() {
                       {selectedQuiz.questions.map((question, index) => (
                         <DraggableQuestionCard
                           key={question.id}
-                          question={question}
+                          question={question as any}
                           index={index}
                           moveQuestion={moveQuestion}
                           onEdit={handleEditQuestion}

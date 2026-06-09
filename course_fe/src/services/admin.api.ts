@@ -89,6 +89,10 @@ export interface AdminPayment {
   created_at: string
   has_problem: boolean
   courses: AdminPaymentCourse[]
+  user_name?: string
+  course_title?: string
+  instructor_name?: string
+  payment_method?: string
 }
 
 
@@ -318,6 +322,49 @@ export async function exportAdminPayments(format: 'csv' | 'excel' = 'csv'): Prom
   await downloadBlob(
     `/payments/export/?${params.toString()}`,
     `payments_export.${format === 'excel' ? 'xlsx' : 'csv'}`
+  )
+}
+
+export async function exportInstructorPayouts(
+  format: 'csv' | 'excel' = 'csv',
+  options?: { instructorId?: number; dateFrom?: string; dateTo?: string; status?: string }
+): Promise<void> {
+  const params = new URLSearchParams({ format })
+  if (options?.instructorId) params.set('instructor_id', String(options.instructorId))
+  if (options?.dateFrom) params.set('date_from', options.dateFrom)
+  if (options?.dateTo) params.set('date_to', options.dateTo)
+  if (options?.status) params.set('status', options.status)
+  await downloadBlob(
+    `/instructor-payouts/export/?${params.toString()}`,
+    `instructor_payouts.${format === 'excel' ? 'xlsx' : 'csv'}`
+  )
+}
+
+export async function exportAdminUsers(
+  format: 'csv' | 'excel' = 'csv',
+  options?: { dateFrom?: string; dateTo?: string; status?: string; role?: string }
+): Promise<void> {
+  const params = new URLSearchParams({ format })
+  if (options?.dateFrom) params.set('date_from', options.dateFrom)
+  if (options?.dateTo) params.set('date_to', options.dateTo)
+  if (options?.status) params.set('status', options.status)
+  if (options?.role) params.set('role', options.role)
+  await downloadBlob(
+    `/admin/export/users/?${params.toString()}`,
+    `users_export.${format === 'excel' ? 'xlsx' : 'csv'}`
+  )
+}
+
+export async function exportAdminInstructors(
+  format: 'csv' | 'excel' = 'csv',
+  options?: { dateFrom?: string; dateTo?: string }
+): Promise<void> {
+  const params = new URLSearchParams({ format })
+  if (options?.dateFrom) params.set('date_from', options.dateFrom)
+  if (options?.dateTo) params.set('date_to', options.dateTo)
+  await downloadBlob(
+    `/instructors/export/?${params.toString()}`,
+    `instructors_export.${format === 'excel' ? 'xlsx' : 'csv'}`
   )
 }
 

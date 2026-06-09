@@ -101,10 +101,11 @@ def send_email(
     template_name: str,
     context: dict,
     attachments: Optional[list] = None,
-    from_email: str = settings.DEFAULT_FROM_EMAIL,
+    from_email: Optional[str] = None,
 ) -> bool:
 
     recipient_list = [to] if isinstance(to, str) else to
+    from_email = from_email or settings.DEFAULT_FROM_EMAIL
 
 
     html_content = render_to_string(template_name, context)
@@ -127,7 +128,7 @@ def send_email(
         email.send(fail_silently=False)
         return True
     except Exception as e:
-        logger.error(f"[Email Error] {e}")
+        logger.exception("[Email Error] Failed to send email: %s", e)
         return False
 
 def send_payment_invoice(user_email, payment):

@@ -252,6 +252,67 @@ class AdminRevenueExportView(APIView):
         return export_to_csv(headers, rows, 'revenue_report')
 
 
+class AdminUserExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        from users.models import User
+
+        fmt = request.query_params.get('format', 'csv')
+        if fmt not in {'csv', 'excel'}:
+            return Response({'error': 'format must be csv or excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        qs = User.objects.select_related('instructor', 'admin').filter(is_deleted=False)
+
+        user_status = request.query_params.get('status')
+        role = request.query_params.get('role')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+
+        if user_status:
+            qs = qs.filter(status=user_status)
+        if role == 'admin':
+            qs = qs.filter(admin__isnull=False, admin__is_deleted=False)
+        elif role == 'instructor':
+            qs = qs.filter(instructor__isnull=False, instructor__is_deleted=False)
+        elif role == 'student':
+            qs = qs.filter(admin__isnull=True, instructor__isnull=True)
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
+
+        qs = qs.order_by('-created_at')
+
+        headers = ['ID', 'Username', 'Email', 'Full Name', 'Phone', 'Status', 'Role', 'Created At', 'Last Login']
+        rows = []
+        for u in qs:
+            admin_obj = getattr(u, 'admin', None)
+            instructor_obj = getattr(u, 'instructor', None)
+            if admin_obj and not admin_obj.is_deleted:
+                user_role = 'admin'
+            elif instructor_obj and not instructor_obj.is_deleted:
+                user_role = 'instructor'
+            else:
+                user_role = 'student'
+            rows.append([
+                u.id,
+                u.username,
+                u.email,
+                u.full_name or '',
+                u.phone or '',
+                u.status,
+                user_role,
+                u.created_at.strftime('%Y-%m-%d') if u.created_at else '',
+                u.last_login.strftime('%Y-%m-%d') if u.last_login else '',
+            ])
+
+        if fmt == 'excel':
+            return export_to_excel(headers, rows, 'users_export', 'Users')
+        return export_to_csv(headers, rows, 'users_export')
+
+
 class AdminImportSubscriptionView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'

@@ -53,6 +53,9 @@ interface PaymentMethod {
     walletId?: string
     accountNumber?: string
     bankName?: string
+    apiKey?: string
+    secretKey?: string
+    webhookUrl?: string
   }
   isDefault: boolean
   isActive: boolean

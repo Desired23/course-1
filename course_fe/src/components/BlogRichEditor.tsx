@@ -100,7 +100,7 @@ const ResizableImage = Image.extend({
     }
   },
   addNodeView() {
-    return ReactNodeViewRenderer(ResizableImageView)
+    return ReactNodeViewRenderer(ResizableImageView as any)
   },
 })
 

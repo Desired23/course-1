@@ -358,7 +358,7 @@ export function InstructorCourseDetailPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">{t("instructor_course_detail_page.price")}</p>
-              <p className="text-2xl font-bold">{formatPrice(course.price)}</p>
+              <p className="text-2xl font-bold">{formatPrice(Number(course.price))}</p>
             </div>
           </div>
         </Card>

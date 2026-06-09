@@ -138,8 +138,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       key: "website",
       label: t("dashboard_sidebar.groups.website"),
       items: [
-        { label: t("dashboard_sidebar.items.website_settings"), icon: <Globe className="h-5 w-5" />, href: "/admin/website-settings" },
-        { label: t("dashboard_sidebar.items.website_management"), icon: <Package className="h-5 w-5" />, href: "/admin/website-management" },
+        { label: t("dashboard_sidebar.items.website_management"), icon: <Globe className="h-5 w-5" />, href: "/admin/website-management" },
         { label: t("dashboard_sidebar.items.home_layout"), icon: <Package className="h-5 w-5" />, href: "/admin/home-layout" },
       ],
     },

@@ -4,6 +4,10 @@ Roles are derived from Admin/Instructor records (no legacy user_type column);
 these tests lock in that contract plus the core auth service flows.
 """
 from django.test import TestCase
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIClient
+from unittest.mock import patch
 
 from admins.models import Admin
 from instructors.models import Instructor
@@ -50,6 +54,33 @@ class AuthFlowTests(TestCase):
         self.assertEqual(user.status, "inactive")
         self.assertEqual(user.user_type, User.UserTypeChoices.STUDENT)
 
+    @patch("users.services.send_verify_email", return_value=False)
+    def test_register_rolls_back_when_verification_email_fails(self, _send_verify_email):
+        with self.assertRaises(ValidationError):
+            register({
+                "username": "mail_fail_user",
+                "email": "mail_fail_user@example.com",
+                "full_name": "Mail Fail",
+                "password": "Password123",
+            })
+
+        self.assertFalse(User.objects.filter(username="mail_fail_user").exists())
+
+    @patch("users.services._send_email_verification")
+    def test_register_endpoint_returns_created_user(self, _send_email_verification):
+        client = APIClient()
+        response = client.post("/api/users/register", {
+            "username": "api_newbie",
+            "email": "Api_Newbie@Example.com",
+            "full_name": "API Newbie",
+            "password": "Password123",
+        }, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["username"], "api_newbie")
+        self.assertEqual(response.data["email"], "api_newbie@example.com")
+        self.assertEqual(User.objects.filter(username="api_newbie").count(), 1)
+
     def test_login_then_refresh_issues_tokens(self):
         make_user("student", username="loginer", password="Password123")
         result = login({"username": "loginer", "password": "Password123"})
@@ -60,7 +91,6 @@ class AuthFlowTests(TestCase):
         refreshed = refresh_token(result["refresh_token"])
         self.assertIn("access_token", refreshed)
         self.assertIn("refresh_token", refreshed)
-
 
 class GetUsersFilterTests(TestCase):
     def test_filter_by_role_uses_role_records(self):

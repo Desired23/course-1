@@ -240,7 +240,7 @@ export function CourseReviewsPage() {
     if (!review) return
     try {
       if (helpful) {
-        await updateReview(reviewId, { likes: review.helpful + 1 })
+        await updateReview(reviewId, { likes: review.helpful + 1 } as any)
         setReviewsData(prev => prev.map(r => r.id === reviewId ? { ...r, helpful: r.helpful + 1 } : r))
         toast.success(t('course_reviews_page.toasts.marked_helpful'))
       } else {

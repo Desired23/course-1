@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react'
 import { Link } from '../components/Router'
 import { useTranslation } from 'react-i18next'

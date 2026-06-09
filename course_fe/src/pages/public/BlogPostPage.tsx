@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { showNotification, withPermissionCheck, withAuthCheck } from '../../utils/notifications'
-import { EnhancedCommentSystem, type Comment } from '../../components/EnhancedCommentSystem'
+import { EnhancedCommentSystem } from '../../components/EnhancedCommentSystem'
 import { useTranslation } from 'react-i18next'
 import { getPublishedBlogPost } from '../../services/blog-posts.api'
 import { getBlogComments, type BlogComment as ApiBlogComment } from '../../services/blog-comments.api'
@@ -186,9 +186,13 @@ export function BlogPostPage() {
           likes: r.likes,
           dislikes: 0,
           isEdited: false,
+          status: 'approved' as const,
+          reports: 0,
         })),
       isEdited: false,
       isPinned: false,
+      status: 'approved' as const,
+      reports: 0,
     }))
   }
 
@@ -330,7 +334,9 @@ export function BlogPostPage() {
       dislikes: 0,
       replies: [],
       isEdited: false,
-      isPinned: false
+      isPinned: false,
+      status: 'approved' as const,
+      reports: 0,
     }
 
     setComments([...comments, comment])
@@ -361,7 +367,9 @@ export function BlogPostPage() {
       createdAt: new Date(),
       likes: 0,
       dislikes: 0,
-      isEdited: false
+      isEdited: false,
+      status: 'approved' as const,
+      reports: 0,
     }
 
     setComments(comments.map(comment =>

@@ -343,7 +343,7 @@ export function AdminCoursesPage() {
 
   const bulkUpdateCourses = async (
     ids: number[],
-    updater: (courseId: number) => Promise<void>,
+    updater: (courseId: number) => Promise<any>,
     successMessage: string
   ) => {
     try {

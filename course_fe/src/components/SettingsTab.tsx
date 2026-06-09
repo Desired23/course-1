@@ -217,17 +217,17 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
         </div>
       </Card>
 
-      <Separator />
+      {showSeoKeywords && (
+        <>
+          <Separator />
 
-      <Card className="p-4">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <SettingsIcon className="h-4 w-4 text-muted-foreground" />
-            <h4 className="font-semibold">{t('settings_tab.additional_settings')}</h4>
-          </div>
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <SettingsIcon className="h-4 w-4 text-muted-foreground" />
+                <h4 className="font-semibold">{t('settings_tab.additional_settings')}</h4>
+              </div>
 
-          <div className="space-y-3">
-            {showSeoKeywords && (
               <div className="space-y-2">
                 <Label htmlFor="seo-keywords">{t('settings_tab.seo_keywords')}</Label>
                 <Input
@@ -238,22 +238,10 @@ export function SettingsTab({ lesson, onUpdate }: SettingsTabProps) {
                   {t('settings_tab.seo_keywords_hint')}
                 </p>
               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="instructor-notes">{t('settings_tab.instructor_notes')}</Label>
-              <Textarea
-                id="instructor-notes"
-                placeholder={t('settings_tab.instructor_notes_placeholder')}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('settings_tab.instructor_notes_hint')}
-              </p>
             </div>
-          </div>
-        </div>
-      </Card>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

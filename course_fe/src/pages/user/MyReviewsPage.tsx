@@ -92,7 +92,7 @@ export function MyReviewsPage() {
     if (!user?.id) return
     let cancelled = false
     setLoading(true)
-    getReviewsByUser(user.id, currentPage, pageSize, {
+    getReviewsByUser(Number(user.id), currentPage, pageSize, {
       search: searchTerm || undefined,
       rating: ratingFilter !== "all" ? ratingFilter : undefined,
       sort_by: sortBy,

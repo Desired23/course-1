@@ -44,7 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { toast } from 'sonner'
-import { getAdminPayments, fixPayment, exportAdminPayments } from '../../services/admin.api'
+import { getAdminPayments, fixPayment, exportAdminPayments, exportInstructorPayouts } from '../../services/admin.api'
 import type { AdminPayment } from '../../services/admin.api'
 import { adminRefundAction, adminCreateRefund, getPaymentStatus, getAdminRefunds, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
@@ -227,7 +227,12 @@ export function PaymentManagementPage() {
     }
     return currentRoute.startsWith('/admin/refunds') ? 'refunds' : 'payments'
   })()
-  const [activeTab, setActiveTab] = useState<'payments' | 'refunds' | 'policies' | 'instructor-rates' | 'discounts'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'payments' | 'refunds' | 'policies' | 'instructor-rates' | 'discounts' | 'payouts'>(initialTab)
+  const [payoutExportDateFrom, setPayoutExportDateFrom] = useState('')
+  const [payoutExportDateTo, setPayoutExportDateTo] = useState('')
+  const [payoutExportStatus, setPayoutExportStatus] = useState('')
+  const [payoutExportInstructorId, setPayoutExportInstructorId] = useState('')
+  const [isPayoutExporting, setIsPayoutExporting] = useState(false)
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
@@ -943,6 +948,10 @@ export function PaymentManagementPage() {
             {activeTab === 'discounts' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('payment_management.tabs.discounts')}</span>
           </TabsTrigger>
+          <TabsTrigger value="payouts" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'payouts' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">Payout Export</span>
+          </TabsTrigger>
         </TabsList>
 
 
@@ -1554,6 +1563,109 @@ export function PaymentManagementPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="payouts" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Xuất dữ liệu Instructor Payout
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Instructor ID (tùy chọn)</label>
+                  <Input
+                    type="number"
+                    placeholder="Để trống = tất cả"
+                    value={payoutExportInstructorId}
+                    onChange={(e) => setPayoutExportInstructorId(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Từ ngày</label>
+                  <Input
+                    type="date"
+                    value={payoutExportDateFrom}
+                    onChange={(e) => setPayoutExportDateFrom(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Đến ngày</label>
+                  <Input
+                    type="date"
+                    value={payoutExportDateTo}
+                    onChange={(e) => setPayoutExportDateTo(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Trạng thái</label>
+                  <Select value={payoutExportStatus || 'all'} onValueChange={(v) => setPayoutExportStatus(v === 'all' ? '' : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tất cả" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="PENDING">Pending</SelectItem>
+                      <SelectItem value="PROCESSED">Processed</SelectItem>
+                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                      <SelectItem value="FAILED">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  disabled={isPayoutExporting}
+                  onClick={async () => {
+                    try {
+                      setIsPayoutExporting(true)
+                      await exportInstructorPayouts('csv', {
+                        instructorId: payoutExportInstructorId ? Number(payoutExportInstructorId) : undefined,
+                        dateFrom: payoutExportDateFrom || undefined,
+                        dateTo: payoutExportDateTo || undefined,
+                        status: payoutExportStatus || undefined,
+                      })
+                    } catch {
+                      toast.error('Export failed')
+                    } finally {
+                      setIsPayoutExporting(false)
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={isPayoutExporting}
+                  onClick={async () => {
+                    try {
+                      setIsPayoutExporting(true)
+                      await exportInstructorPayouts('excel', {
+                        instructorId: payoutExportInstructorId ? Number(payoutExportInstructorId) : undefined,
+                        dateFrom: payoutExportDateFrom || undefined,
+                        dateTo: payoutExportDateTo || undefined,
+                        status: payoutExportStatus || undefined,
+                      })
+                    } catch {
+                      toast.error('Export failed')
+                    } finally {
+                      setIsPayoutExporting(false)
+                    }
+                  }}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Excel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
       </motion.div>
       </motion.div>
@@ -1784,7 +1896,7 @@ export function PaymentManagementPage() {
                 </div>
                 <div>
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.amount')}</Label>
-                  <p className="text-lg font-medium">{formatCurrency(selectedPayment.total_amount)}</p>
+                  <p className="text-lg font-medium">{formatCurrency(parseFloat(selectedPayment.total_amount))}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.method')}</Label>

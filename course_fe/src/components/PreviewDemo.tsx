@@ -77,7 +77,7 @@ export function PreviewDemo() {
   ]
 
   const [previewMode, setPreviewMode] = useState<PreviewMode | null>(null)
-  const [selectedLesson, setSelectedLesson] = useState(mockLesson)
+  const [selectedLesson, setSelectedLesson] = useState<any>(mockLesson)
   const [currentLessonId, setCurrentLessonId] = useState(3)
   const [showLessonPreview, setShowLessonPreview] = useState(false)
 

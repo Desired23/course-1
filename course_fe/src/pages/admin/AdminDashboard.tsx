@@ -558,7 +558,7 @@ export function AdminDashboard() {
                     <Button onClick={() => navigate('/admin/settings')}>
                       {t('admin_dashboard.platform_settings')}
                     </Button>
-                    <Button variant="outline" onClick={() => navigate('/admin/website-settings')}>
+                    <Button variant="outline" onClick={() => navigate('/admin/website-management')}>
                       {t('admin_dashboard.website_settings')}
                     </Button>
                     <Button variant="outline" onClick={() => navigate('/admin/payments/methods')}>

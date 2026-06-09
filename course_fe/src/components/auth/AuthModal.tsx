@@ -54,8 +54,8 @@ export function AuthModal() {
       } else {
         toast.error(useAuthStore.getState().error || t('auth_modal.login_failed_fallback'))
       }
-    } catch {
-      toast.error(t('auth.error_occurred'))
+    } catch (error) {
+      toast.error(useAuthStore.getState().error || getErrorMessage(error, t('auth.error_occurred')))
     } finally {
       setIsLoading(false)
     }
@@ -80,8 +80,8 @@ export function AuthModal() {
       } else {
         toast.error(useAuthStore.getState().error || t('auth_modal.signup_failed_fallback'))
       }
-    } catch {
-      toast.error(t('auth.error_occurred'))
+    } catch (error) {
+      toast.error(useAuthStore.getState().error || getErrorMessage(error, t('auth.error_occurred')))
     } finally {
       setIsLoading(false)
     }

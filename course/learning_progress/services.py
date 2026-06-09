@@ -1,6 +1,6 @@
 from rest_framework.exceptions import ValidationError
 from django.utils import timezone
-from django.db.models import Sum, Count, Q, Avg
+from django.db.models import Sum
 from decimal import Decimal
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -22,6 +22,85 @@ def _broadcast_progress(user_id, data):
 from courses.models import Course
 from users.models import User
 
+
+def _active_course_lessons(course):
+    return Lesson.objects.filter(
+        coursemodule__course=course,
+        coursemodule__is_deleted=False,
+        is_deleted=False
+    )
+
+
+def _course_progress_stats(user, course):
+    total_lessons = _active_course_lessons(course).count()
+    completed_lessons = LearningProgress.objects.filter(
+        user=user,
+        course=course,
+        is_completed=True,
+        is_deleted=False,
+        lesson__is_deleted=False,
+        lesson__coursemodule__is_deleted=False,
+    ).count()
+    total_time_spent = LearningProgress.objects.filter(
+        user=user,
+        course=course,
+        is_deleted=False,
+    ).aggregate(total_time=Sum('time_spent', default=0))['total_time'] or 0
+    overall_progress = Decimal('0.00')
+    if total_lessons > 0:
+        overall_progress = (
+            Decimal(completed_lessons) * Decimal('100') / Decimal(total_lessons)
+        ).quantize(Decimal('0.01'))
+    return {
+        'total_lessons': total_lessons,
+        'completed_lessons': completed_lessons,
+        'total_time_spent': int(total_time_spent),
+        'overall_progress': overall_progress,
+    }
+
+
+def _sync_enrollment_progress(enrollment, user, course):
+    stats = _course_progress_stats(user, course)
+    now = timezone.now()
+    enrollment.progress = stats['overall_progress']
+    enrollment.last_access_date = now
+    is_fully_complete = stats['total_lessons'] > 0 and stats['completed_lessons'] >= stats['total_lessons']
+    if is_fully_complete and (not course.certificate or enrollment.status == Enrollment.Status.Complete):
+        enrollment.status = Enrollment.Status.Complete
+        if not enrollment.completion_date:
+            enrollment.completion_date = now
+    elif not is_fully_complete and enrollment.status == Enrollment.Status.Complete and not course.certificate:
+        enrollment.status = Enrollment.Status.Active
+        enrollment.completion_date = None
+    enrollment.save(update_fields=['progress', 'last_access_date', 'status', 'completion_date', 'updated_at'])
+    return stats
+
+
+def _apply_progress_data(learning_progress, progress_data):
+    if 'progress_percentage' in progress_data:
+        learning_progress.progress_percentage = Decimal(str(progress_data.get('progress_percentage')))
+    if 'time_spent' in progress_data:
+        learning_progress.time_spent = progress_data.get('time_spent')
+    if 'is_completed' in progress_data:
+        learning_progress.is_completed = progress_data.get('is_completed')
+    if 'last_position' in progress_data:
+        learning_progress.last_position = progress_data.get('last_position')
+    if 'notes' in progress_data:
+        learning_progress.notes = progress_data.get('notes')
+
+    if learning_progress.is_completed:
+        learning_progress.progress_percentage = Decimal('100.00')
+        learning_progress.status = LearningProgress.StatusChoices.COMPLETED
+        if not learning_progress.completion_date:
+            learning_progress.completion_date = timezone.now()
+    else:
+        if learning_progress.progress_percentage > 0:
+            learning_progress.status = LearningProgress.StatusChoices.IN_PROGRESS
+        else:
+            learning_progress.status = LearningProgress.StatusChoices.PENDING
+        learning_progress.completion_date = None
+    learning_progress.last_accessed = timezone.now()
+
 def update_learning_progress(user_id, lesson_id, progress_data):
     try:
         user = User.objects.get(id=user_id)
@@ -35,38 +114,21 @@ def update_learning_progress(user_id, lesson_id, progress_data):
         if not enrollment:
             raise ValidationError({"enrollment": "User is not enrolled in the course."})
 
-        learning_progress, created = LearningProgress.objects.get_or_create(
+        learning_progress, _created = LearningProgress.objects.get_or_create(
             user=user,
             lesson=lesson,
             defaults={
                 'enrollment': enrollment,
                 'course': course,
-                'progress_percentage': Decimal(str(progress_data.get('progress_percentage', 0))),
-                'time_spent': progress_data.get('time_spent', 0),
-                'is_completed': progress_data.get('is_completed', False),
-                'last_position': progress_data.get('last_position'),
-                'notes': progress_data.get('notes'),
                 'start_time': timezone.now()
             }
         )
 
-        if not created:
-            learning_progress.enrollment = enrollment
-            learning_progress.course = course
-
-            learning_progress.progress_percentage = Decimal(str(progress_data.get('progress_percentage', learning_progress.progress_percentage)))
-            learning_progress.time_spent = progress_data.get('time_spent', learning_progress.time_spent)
-            learning_progress.is_completed = progress_data.get('is_completed', learning_progress.is_completed)
-            learning_progress.last_position = progress_data.get('last_position', learning_progress.last_position)
-            if 'notes' in progress_data:
-                learning_progress.notes = progress_data.get('notes')
-
-
-            if learning_progress.is_completed and not learning_progress.completion_date:
-                learning_progress.completion_date = timezone.now()
-
-            learning_progress.last_accessed = timezone.now()
-            learning_progress.save()
+        learning_progress.enrollment = enrollment
+        learning_progress.course = course
+        _apply_progress_data(learning_progress, progress_data)
+        learning_progress.save()
+        _sync_enrollment_progress(enrollment, user, course)
 
         return LearningProgressSerializer(learning_progress).data
 
@@ -87,33 +149,20 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
             raise ValidationError({"enrollment": "User is not enrolled in the course."})
         if not course:
             raise ValidationError({"lesson_id": "Lesson does not belong to any course."})
-        learning_progress, created = LearningProgress.objects.get_or_create(
+        learning_progress, _created = LearningProgress.objects.get_or_create(
             user=user,
             lesson=lesson,
             defaults={
                 'enrollment': enrollment,
                 'course': course,
-                'progress_percentage': Decimal(str(progress_data.get('progress_percentage', 0))),
-                'time_spent': progress_data.get('time_spent', 0),
-                'is_completed': progress_data.get('is_completed', False),
-                'last_position': progress_data.get('last_position'),
-                'notes': progress_data.get('notes'),
                 'start_time': timezone.now()
             }
         )
-        if not created:
-            learning_progress.enrollment = enrollment
-            learning_progress.course = course
-            learning_progress.progress_percentage = Decimal(str(progress_data.get('progress_percentage', learning_progress.progress_percentage)))
-            learning_progress.time_spent = progress_data.get('time_spent', learning_progress.time_spent)
-            learning_progress.is_completed = progress_data.get('is_completed', learning_progress.is_completed)
-            learning_progress.last_position = progress_data.get('last_position', learning_progress.last_position)
-            if 'notes' in progress_data:
-                learning_progress.notes = progress_data.get('notes')
-            if learning_progress.is_completed and not learning_progress.completion_date:
-                learning_progress.completion_date = timezone.now()
-            learning_progress.last_accessed = timezone.now()
-            learning_progress.save()
+        learning_progress.enrollment = enrollment
+        learning_progress.course = course
+        _apply_progress_data(learning_progress, progress_data)
+        learning_progress.save()
+        progress_stats = _sync_enrollment_progress(enrollment, user, course)
         data = LearningProgressSerializer(learning_progress).data
         _broadcast_progress(user_id, {
             'lesson_id': lesson_id,
@@ -121,6 +170,9 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
             'progress_percentage': float(learning_progress.progress_percentage),
             'is_completed': learning_progress.is_completed,
             'last_position': learning_progress.last_position,
+            'overall_progress': float(progress_stats['overall_progress']),
+            'completed_lessons': progress_stats['completed_lessons'],
+            'total_lessons': progress_stats['total_lessons'],
         })
         return data
     except User.DoesNotExist:
@@ -135,33 +187,19 @@ def get_course_progress(user_id, course_id):
         course = Course.objects.get(id=course_id)
 
 
-        from coursemodules.models import CourseModule
-        from django.db.models import Count as CountFunc
-        total_lessons = Lesson.objects.filter(
-            coursemodule__course=course,
-            coursemodule__is_deleted=False,
-            is_deleted=False
-        ).count()
+        stats = _course_progress_stats(user, course)
+        total_lessons = stats['total_lessons']
 
         if total_lessons == 0:
             raise ValidationError({"course_id": "Course has no lessons."})
 
 
-        stats = LearningProgress.objects.filter(
-            user=user,
-            course=course,
-            is_deleted=False
-        ).aggregate(
-            total_time=Sum('time_spent', default=0),
-            avg_progress=Avg('progress_percentage', default=Decimal('0.00')),
-            completed_count=CountFunc('id', filter=Q(is_completed=True))
-        )
-
-
         progresses = list(LearningProgress.objects.filter(
             user=user,
             course=course,
-            is_deleted=False
+            is_deleted=False,
+            lesson__is_deleted=False,
+            lesson__coursemodule__is_deleted=False,
         ).values(
             'lesson_id',
             'progress_percentage',
@@ -186,10 +224,10 @@ def get_course_progress(user_id, course_id):
 
         result = {
             'course_id': course_id,
-            'overall_progress': float(stats['avg_progress'] or Decimal('0.00')),
+            'overall_progress': float(stats['overall_progress']),
             'total_lessons': total_lessons,
-            'completed_lessons': stats['completed_count'] or 0,
-            'total_time_spent': int(stats['total_time'] or 0),
+            'completed_lessons': stats['completed_lessons'],
+            'total_time_spent': stats['total_time_spent'],
             'lessons': lesson_data
         }
 

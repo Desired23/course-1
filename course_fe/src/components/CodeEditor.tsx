@@ -205,7 +205,7 @@ export function CodeEditor({
   }, [value])
 
   return (
-    <div className="relative rounded-lg overflow-hidden border h-full bg-background">
+    <div className="relative rounded-lg overflow-hidden border bg-background" style={{ height }}>
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />

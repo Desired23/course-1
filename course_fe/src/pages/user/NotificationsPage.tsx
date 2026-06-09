@@ -126,13 +126,13 @@ export function NotificationsPage() {
     let cancelled = false
     setLoading(true)
     Promise.all([
-      getNotificationsByUser(user.id, currentPage, pageSize, {
+      getNotificationsByUser(Number(user.id), currentPage, pageSize, {
         type: typeFilter,
         is_read: selectedTab === "unread" ? false : undefined,
         search: searchTerm || undefined,
         sort_by: "newest",
       }),
-      getNotificationsByUser(user.id, 1, 1, { is_read: false }),
+      getNotificationsByUser(Number(user.id), 1, 1, { is_read: false }),
     ])
       .then(([listRes, unreadRes]) => {
         if (cancelled) return
@@ -189,7 +189,7 @@ export function NotificationsPage() {
     const prev = [...notifications]
     setNotifications((ns) => ns.map((n) => ({ ...n, is_read: true })))
     try {
-      await markAllNotificationsAsRead(user.id)
+      await markAllNotificationsAsRead(Number(user.id))
     } catch (e) {
       setNotifications(prev)
       toast.error(getErrorMessage(e, t('notifications_page.mark_all_read_failed')))

@@ -10,6 +10,8 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { useAuth } from '../../contexts/AuthContext'
+import { getErrorMessage } from '../../lib/apiError'
+import { subscribeNewsletter } from '../../services/newsletter.api'
 import { useAuthStore } from '../../stores/auth.store'
 
 const sectionStagger = {
@@ -42,6 +44,7 @@ export function SignupPage() {
     fullName: '',
     email: '',
     password: '',
+    promotionalEmails: false,
   })
   const [errors, setErrors] = useState<{ username?: string; fullName?: string; email?: string; password?: string }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -92,13 +95,20 @@ export function SignupPage() {
         formData.password
       )
       if (success) {
+        if (formData.promotionalEmails) {
+          try {
+            await subscribeNewsletter(formData.email.trim())
+          } catch {
+            toast.error(t('newsletter.subscribe_failed'))
+          }
+        }
         toast.success(t('auth.signup_success_verify'), { duration: 6000 })
         navigate('/login')
       } else {
-        toast.error(useAuthStore.getState().error || t('auth.signup_failed'))
+        toast.error(useAuthStore.getState().error || 'Không nhận được chi tiết lỗi từ máy chủ.')
       }
-    } catch {
-      toast.error(t('auth.error_occurred'))
+    } catch (error) {
+      toast.error(useAuthStore.getState().error || getErrorMessage(error, t('auth.error_occurred')))
     } finally {
       setIsSubmitting(false)
     }
@@ -115,6 +125,13 @@ export function SignupPage() {
         [event.target.name]: undefined,
       })
     }
+  }
+
+  const handlePromotionalEmailsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      promotionalEmails: event.target.checked,
+    })
   }
 
   return (
@@ -258,6 +275,8 @@ export function SignupPage() {
                 id="promotional-emails"
                 name="promotional-emails"
                 type="checkbox"
+                checked={formData.promotionalEmails}
+                onChange={handlePromotionalEmailsChange}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-0.5 cursor-pointer"
               />
               <label htmlFor="promotional-emails" className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-600 dark:text-gray-400 cursor-pointer">

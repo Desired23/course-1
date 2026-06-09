@@ -80,10 +80,11 @@ export async function getSupportTickets(params?: {
 export async function createSupportTicket(data: {
   user?: number
   name?: string
-  email: string
+  email?: string
   subject: string
   message: string
   priority?: string
+  category?: string
 }): Promise<SupportTicket> {
   return http.post<SupportTicket>('/supports/create/', data)
 }

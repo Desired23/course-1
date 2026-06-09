@@ -17,6 +17,7 @@ from instructor_payouts.services import (
 )
 from instructor_payouts.serializers import InstructorPayoutSerializer
 from utils.pagination import paginate_queryset
+from utils.export_helpers import export_to_csv, export_to_excel
 class InstructorPayoutView(APIView):
     permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
     throttle_scope = 'burst'
@@ -173,6 +174,70 @@ class AdminMonthlyPayoutRunView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class InstructorPayoutExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        from instructor_payouts.models import InstructorPayout
+
+        fmt = request.query_params.get('format', 'csv')
+        if fmt not in {'csv', 'excel'}:
+            return Response({'error': 'format must be csv or excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_active_admin(request.user):
+            instructor_id = request.query_params.get('instructor_id')
+            qs = InstructorPayout.objects.filter(is_deleted=False)
+            if instructor_id:
+                qs = qs.filter(instructor_id=instructor_id)
+        elif is_active_instructor(request.user):
+            qs = InstructorPayout.objects.filter(
+                instructor=request.user.instructor, is_deleted=False
+            )
+        else:
+            return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(request_date__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(request_date__date__lte=date_to)
+
+        payout_status = request.query_params.get('status')
+        if payout_status:
+            qs = qs.filter(status=payout_status)
+
+        qs = qs.select_related('instructor__user', 'processed_by__user').order_by('-request_date')
+
+        headers = [
+            'ID', 'Instructor', 'Email', 'Amount (VND)', 'Fee (VND)',
+            'Net Amount (VND)', 'Payment Method', 'Transaction ID',
+            'Status', 'Period', 'Request Date', 'Processed Date',
+        ]
+        rows = [
+            [
+                p.id,
+                p.instructor.user.full_name if p.instructor and p.instructor.user else '',
+                p.instructor.user.email if p.instructor and p.instructor.user else '',
+                float(p.amount),
+                float(p.fee or 0),
+                float(p.net_amount or 0),
+                p.payment_method or '',
+                p.transaction_id or '',
+                p.status,
+                p.period or '',
+                p.request_date.strftime('%Y-%m-%d') if p.request_date else '',
+                p.processed_date.strftime('%Y-%m-%d') if p.processed_date else '',
+            ]
+            for p in qs
+        ]
+
+        if fmt == 'excel':
+            return export_to_excel(headers, rows, 'instructor_payouts', 'Payouts')
+        return export_to_csv(headers, rows, 'instructor_payouts')
 
 
 class AdminPayoutRejectView(APIView):

@@ -62,6 +62,7 @@ interface BlogPost {
     name: string
     avatar: string
     role: string
+    id?: number
   }
   category: string
   tags: string[]
@@ -72,6 +73,7 @@ interface BlogPost {
   likes: number
   comments: number
   featured: boolean
+  slug?: string
 }
 
 interface Comment {
@@ -230,7 +232,7 @@ export function BlogPage() {
     if (!user || !selectedPost || !newComment.trim()) return
     setSubmittingComment(true)
     try {
-      await createBlogComment({ post: Number(selectedPost.id), content: newComment.trim() })
+      await createBlogComment({ blog_post: Number(selectedPost.id), content: newComment.trim(), user: Number(user.id) })
       setNewComment('')
       const updated = await getAllBlogComments(Number(selectedPost.id))
       setComments(prev => [...prev.filter(c => c.postId !== selectedPost.id), ...updated.map(c => mapApiCommentToUi(c, updated))])

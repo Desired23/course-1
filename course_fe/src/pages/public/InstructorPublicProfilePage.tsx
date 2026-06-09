@@ -209,7 +209,9 @@ export function InstructorPublicProfilePage() {
     if (courseSort === 'students') return (b.total_students || 0) - (a.total_students || 0)
     if (courseSort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     if (Boolean(b.is_featured) !== Boolean(a.is_featured)) return Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured))
-    return Number(b.rating || 0) - Number(a.rating || 0)
+    const ratingDiff = Number(b.rating || 0) - Number(a.rating || 0)
+    if (ratingDiff !== 0) return ratingDiff
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   })
 
   const filteredReviews = reviews.filter((review) => {
@@ -366,7 +368,7 @@ export function InstructorPublicProfilePage() {
                     </>
                   )}
                 </Button>
-                {user?.id !== instructor.user.id && (
+                {Number(user?.id) !== instructor.user.id && (
                   <Button variant="outline" onClick={() => void handleMessageInstructor()} className="w-full sm:w-auto">
                     <MessageCircle className="mr-2 h-4 w-4" />
                     {t('instructor_public_profile.message')}

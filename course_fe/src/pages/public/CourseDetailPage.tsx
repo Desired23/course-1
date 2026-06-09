@@ -8,7 +8,7 @@ import { CourseCategoryTags } from "../../components/CourseCategoryTags"
 import { CourseBreadcrumb } from "../../components/CourseBreadcrumb"
 import { CourseStickyNav } from "../../components/CourseStickyNav"
 import { LearningGoals } from "../../components/LearningGoals"
-import { toast } from "sonner@2.0.3"
+import { toast } from "sonner"
 import { getErrorMessage } from "../../lib/apiError"
 import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from "../../services/course.api"
 import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
@@ -916,7 +916,7 @@ export function CourseDetailPage() {
                         </button>
                         <p className="text-muted-foreground">{courseData.instructor.specialization || ''}</p>
                         <p className="mt-2 text-sm">{courseData.instructor.bio || ''}</p>
-                        {user?.id !== courseData.instructor.user_id && (
+                        {Number(user?.id) !== courseData.instructor.user_id && (
                           <Button className="mt-3" variant="outline" onClick={() => void handleMessageInstructor()}>
                             <MessageSquare className="h-4 w-4 mr-2" />
                             {t('course_detail.message_instructor')}
