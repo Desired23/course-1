@@ -283,8 +283,6 @@ class AdminUserExportView(APIView):
         if date_to:
             qs = qs.filter(created_at__date__lte=date_to)
 
-        qs = qs.order_by('-created_at')
-
         headers = ['ID', 'Username', 'Email', 'Full Name', 'Phone', 'Status', 'Role', 'Created At', 'Last Login']
         rows = []
         for u in qs:

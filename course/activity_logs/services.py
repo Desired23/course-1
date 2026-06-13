@@ -38,7 +38,7 @@ def log_activity(request = None, action = None, description = None, entity_type 
 def get_activity_logs(filters=None):
     if filters is None:
         filters = {}
-    logs = ActivityLog.objects.filter(**filters).order_by('-created_at')
+    logs = ActivityLog.objects.select_related('user').filter(**filters).order_by('-created_at')
     return logs
 def delete_old_logs(cutoff_date):
     deleted_count, _ = ActivityLog.objects.filter(created_at__lt=cutoff_date).delete()

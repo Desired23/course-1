@@ -16,6 +16,7 @@ class Admin(models.Model):
 
     class Meta:
         db_table = 'Admin'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.user.username} - {self.role} ({self.id})"

@@ -182,7 +182,7 @@ def get_promotions_by_instructor(instructor_id, status=None, search=None, course
             except (TypeError, ValueError):
                 raise ValidationError({"error": "course_id must be a valid integer"})
 
-        promotions = promotions.distinct().order_by('-created_at')
+        promotions = promotions.distinct()
         return promotions
 
     except ValidationError:
@@ -248,7 +248,6 @@ def get_homepage_promotions():
             end_date__gte=now,
             is_deleted=False,
         )
-        .order_by('-created_at')
         .values('id', 'code', 'description', 'discount_type', 'discount_value', 'max_discount', 'end_date')
     )
 

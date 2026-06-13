@@ -13,7 +13,6 @@ from payment_details.models import Payment_Details
 from payments.models import Payment
 
 from .momo_services import query_momo_refund_status, send_momo_refund_request
-from .services import get_payment_admin_config
 from .vnpay_services import send_vnpay_refund_request
 from utils.admin_actors import resolve_admin_actor, actor_user_id
 
@@ -34,28 +33,7 @@ DEFAULT_REFUND_SETTINGS = {
 
 
 def get_refund_settings():
-    settings_value = dict(DEFAULT_REFUND_SETTINGS)
-    try:
-        stored = get_payment_admin_config("refund-settings")
-        if isinstance(stored.get("value"), dict):
-            settings_value.update(stored["value"])
-    except Exception:
-        pass
-
-    try:
-        from systems_settings.models import SystemsSetting
-        row = SystemsSetting.objects.filter(
-            setting_key='auto_approve_refund', is_deleted=False
-        ).first()
-        if row is not None:
-            truthy = str(row.setting_value).strip().lower() in ('1', 'true', 'yes', 'on')
-            settings_value["refund_mode"] = (
-                REFUND_MODE_DIRECT_SYSTEM if truthy else REFUND_MODE_ADMIN_APPROVAL
-            )
-    except Exception:
-        pass
-
-    return settings_value
+    return dict(DEFAULT_REFUND_SETTINGS)
 
 
 def _display_refund_status(detail):
@@ -147,6 +125,26 @@ def _get_enrollment(payment, detail):
     ).first()
 
 
+def _ensure_earning_not_paid_out(payment, course_id):
+    from instructor_payouts.models import InstructorPayout
+    earning = InstructorEarning.objects.select_for_update().filter(
+        payment=payment, course_id=course_id, is_deleted=False,
+    ).first()
+    if not earning:
+        return
+    if earning.status == InstructorEarning.StatusChoices.PAID:
+        raise ValidationError("Khoản doanh thu của giảng viên đã được chi trả; không thể hoàn tiền.")
+    if earning.instructor_payout_id:
+        payout = InstructorPayout.objects.filter(id=earning.instructor_payout_id).first()
+        if payout and payout.status == InstructorPayout.PayoutStatusChoices.PROCESSED:
+            raise ValidationError("Khoản doanh thu đã nằm trong đợt chi trả đã xử lý; không thể hoàn tiền.")
+        if payout and payout.status == InstructorPayout.PayoutStatusChoices.PENDING:
+            raise ValidationError(
+                "Khoản doanh thu đang nằm trong đợt chi trả chờ xử lý. "
+                "Vui lòng hủy/từ chối payout đó trước khi hoàn tiền."
+            )
+
+
 def _validate_refundable_detail(payment, detail, user):
     if payment.user != user:
         raise PermissionDenied("Bạn không có quyền hoàn tiền đơn hàng này.")
@@ -170,10 +168,11 @@ def _validate_refundable_detail(payment, detail, user):
         raise ValidationError("No enrollment found for the selected course.")
     if enrollment.status != Enrollment.Status.Active:
         raise ValidationError("Only active enrollments can be refunded.")
-    if enrollment.progress > REFUND_PROGRESS_LIMIT:
+    if (enrollment.progress or 0) > REFUND_PROGRESS_LIMIT:
         raise ValidationError("Refund is not allowed if more than 50% of the course has been completed.")
     if enrollment.expiry_date and enrollment.expiry_date < timezone.now():
         raise ValidationError("Refund is not allowed for expired courses.")
+    _ensure_earning_not_paid_out(payment, detail.course_id)
 
 
 def _apply_success_side_effects(detail):
@@ -199,6 +198,52 @@ def _apply_success_side_effects(detail):
         earning.status = InstructorEarning.StatusChoices.CANCELLED
         earning.save(update_fields=["status", "updated_at"])
 
+    _revoke_certificate_for_refund(detail)
+    _hide_review_for_refund(detail)
+
+    from courses.services import recalc_course_students
+    recalc_course_students(detail.course_id)
+
+
+def _revoke_certificate_for_refund(detail):
+    from certificates.models import Certificate
+    cert = Certificate.objects.filter(
+        user=detail.payment.user, course_id=detail.course_id,
+        is_deleted=False, revoked=False,
+    ).first()
+    if not cert:
+        return
+    cert.revoked = True
+    cert.revoked_at = timezone.now()
+    cert.revoked_by = detail.processed_by.user if detail.processed_by and detail.processed_by.user else None
+    cert.save(update_fields=["revoked", "revoked_at", "revoked_by", "updated_at"])
+    try:
+        from notifications.services import create_notification
+        create_notification(
+            receiver_id=cert.user_id,
+            title="Chứng chỉ đã bị thu hồi",
+            message=f"Chứng chỉ cho khóa học \"{cert.course_title}\" đã bị thu hồi do giao dịch đã được hoàn tiền.",
+            type='course',
+            related_id=cert.id,
+            notification_code='certificate_revoked',
+        )
+    except Exception:
+        pass
+
+
+def _hide_review_for_refund(detail):
+    from reviews.models import Review
+    from courses.services import recalc_course_rating
+    review = Review.objects.filter(
+        user=detail.payment.user, course_id=detail.course_id, is_deleted=False,
+    ).first()
+    if not review:
+        return
+    review.is_deleted = True
+    review.deleted_at = timezone.now()
+    review.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+    recalc_course_rating(detail.course_id)
+
 
 def _revert_success_side_effects(detail):
     payment = detail.payment
@@ -220,6 +265,17 @@ def _revert_success_side_effects(detail):
     if earning and earning.status == InstructorEarning.StatusChoices.CANCELLED:
         earning.status = InstructorEarning.StatusChoices.PENDING
         earning.save(update_fields=["status", "updated_at"])
+
+    from certificates.models import Certificate
+    cert = Certificate.objects.filter(
+        user=payment.user, course_id=detail.course_id,
+        is_deleted=False, revoked=True,
+    ).first()
+    if cert:
+        cert.revoked = False
+        cert.revoked_at = None
+        cert.revoked_by = None
+        cert.save(update_fields=["revoked", "revoked_at", "revoked_by", "updated_at"])
 
 
 def _mark_processing(detail, actor, message, settings_value):
@@ -724,6 +780,7 @@ def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None
                 Payment_Details.RefundStatus.CANCELLED,
             ]:
                 raise ValidationError("Khóa học này đã có yêu cầu hoàn tiền.")
+            _ensure_earning_not_paid_out(payment, detail.course_id)
 
             detail.refund_reason = reason or "Hoàn tiền do admin khởi tạo"
             detail.refund_request_time = timezone.now()

@@ -1,12 +1,11 @@
 from unittest.mock import Mock, patch
-import json
 
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from config import reseed_engine
 from config.curated_seed import SeedError, run_curated_seed
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PlatformSetting
 
 
 class ReseedEngineTests(TestCase):
@@ -57,13 +56,11 @@ class ReseedEngineTests(TestCase):
     def test_curated_seed_restores_default_homepage_settings(self):
         run_curated_seed(profile="demo-small", random_seed=20260413)
 
-        layout_setting = SystemsSetting.objects.filter(setting_key="homepage_layout").first()
-        config_setting = SystemsSetting.objects.filter(setting_key="homepage_config").first()
+        platform_setting = PlatformSetting.objects.filter(singleton_key=1).first()
 
-        self.assertIsNotNone(layout_setting)
-        self.assertIsNotNone(config_setting)
+        self.assertIsNotNone(platform_setting)
 
-        layout_value = json.loads(layout_setting.setting_value)
+        layout_value = platform_setting.homepage_layout
         self.assertIsInstance(layout_value, list)
         self.assertGreater(len(layout_value), 0)
         self.assertEqual(layout_value[0].get("component"), "HeroSection")

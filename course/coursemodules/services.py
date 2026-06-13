@@ -109,12 +109,14 @@ def update_course_module(course_module_id, data, requesting_user=None):
                     else None
                 )
                 if instructor_user_id:
-                    title = status_meta['notify_title'] or f"Module '{updated_course_module.title}' status changed"
+                    module_labels = {'Draft': 'Bản nháp', 'Published': 'Đã xuất bản'}
+                    new_label = module_labels.get(updated_course_module.status, updated_course_module.status)
+                    title = status_meta['notify_title'] or f"Cập nhật chương \"{updated_course_module.title}\""
                     default_message = (
-                        f"Admin changed module status from '{old_status}' to '{updated_course_module.status}'."
+                        f"Chương \"{updated_course_module.title}\" đã được cập nhật trạng thái thành \"{new_label}\"."
                     )
                     if status_meta['status_reason']:
-                        default_message += f" Reason: {status_meta['status_reason']}"
+                        default_message += f" Lý do: {status_meta['status_reason']}"
                     message = status_meta['notify_message'] or default_message
                     try:
                         create_notification(
@@ -143,9 +145,26 @@ def delete_course_module(course_module_id, requesting_user=None):
             if not is_active_instructor(requesting_user) or owner_instructor_id != instructor.id:
                 raise PermissionDenied("Bạn không có quyền xóa module này.")
         related_course = getattr(course_module, 'course', None)
-        course_module.delete()
-        if related_course and not is_admin:
-            mark_course_content_changed(related_course)
+        from learning_progress.models import LearningProgress
+        has_learner_data = LearningProgress.objects.filter(
+            lesson__coursemodule=course_module
+        ).exists()
+        if has_learner_data:
+            from django.utils import timezone as _tz
+            course_module.is_deleted = True
+            course_module.deleted_at = _tz.now()
+            course_module.save(update_fields=['is_deleted', 'deleted_at'])
+            from lessons.models import Lesson
+            Lesson.objects.filter(coursemodule=course_module, is_deleted=False).update(
+                is_deleted=True, deleted_at=_tz.now()
+            )
+        else:
+            course_module.delete()
+        if related_course:
+            from courses.services import recalc_course_structure
+            recalc_course_structure(related_course.id)
+            if not is_admin:
+                mark_course_content_changed(related_course)
         return {"message": "Course module deleted successfully."}
     except CourseModule.DoesNotExist:
         raise NotFound("Course module not found.")

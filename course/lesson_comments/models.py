@@ -24,5 +24,9 @@ class LessonComment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        db_table = 'LessonComments'
+        ordering = ['-created_at']
+
     def __str__(self):
         return f"Comment {self.id} by User {self.user.id} on Lesson {self.lesson.id}"

@@ -11,7 +11,7 @@ from .serializers import (
     ReportCaseDetailSerializer,
     ResolveReportSerializer,
 )
-from .services import create_report, get_report_cases, get_report_case_detail, resolve_report_case
+from .services import create_report, get_report_cases, get_report_case_detail, resolve_report_case, reopen_report_case
 
 
 class ReportCreateView(APIView):
@@ -94,3 +94,16 @@ class AdminReportResolveView(APIView):
             return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'message': 'Đã xử lý báo cáo thành công.'}, status=status.HTTP_200_OK)
+
+
+class AdminReportReopenView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, target_type, target_id):
+        try:
+            result = reopen_report_case(target_type=target_type, target_id=target_id, admin=request.user)
+        except Exception as exc:
+            detail = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_200_OK)

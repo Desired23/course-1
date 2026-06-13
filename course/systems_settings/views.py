@@ -4,19 +4,24 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from utils.permissions import RolePermissionFactory
-from .models import SystemsSetting
 from .services import (
-    get_systems_settings,
     get_systems_setting_by_key,
-    get_systems_setting_by_admin_id,
     update_systems_setting,
     create_systems_setting,
     delete_systems_setting,
+    get_public_branding_payload,
+    get_public_home_settings_payload,
+    list_systems_settings_payload,
 )
-from utils.pagination import paginate_queryset
-from .serializers import SystemsSettingSerializer
+from utils.pagination import StandardPagination
 
-class SystemsSettingsView(APIView):
+
+def paginate_payload(payload, request):
+    paginator = StandardPagination()
+    result_page = paginator.paginate_queryset(payload, request)
+    return paginator.get_paginated_response(result_page)
+
+class PlatformSettingsView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
     def get(self, request):
@@ -27,23 +32,23 @@ class SystemsSettingsView(APIView):
                 return Response(settings, status=status.HTTP_200_OK)
             elif 'admin_id' in request.query_params:
                 admin_id = request.query_params.get('admin_id')
-                settings = get_systems_setting_by_admin_id(admin_id)
-                return paginate_queryset(settings, request, SystemsSettingSerializer)
+                settings = list_systems_settings_payload(admin_id=admin_id)
+                return paginate_payload(settings, request)
             else:
-                settings = get_systems_settings()
-                return paginate_queryset(settings, request, SystemsSettingSerializer)
+                settings = list_systems_settings_payload()
+                return paginate_payload(settings, request)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
     def post(self, request):
         try:
-            settings = create_systems_setting(request.data, admin_actor=request.user.admin)
+            settings = create_systems_setting(request.data, admin_actor=request.user)
             return Response(settings, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, setting_id):
         try:
-            updated_settings = update_systems_setting(setting_id, request.data, admin_actor=request.user.admin)
+            updated_settings = update_systems_setting(setting_id, request.data, admin_actor=request.user)
             return Response(updated_settings, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -56,20 +61,27 @@ class SystemsSettingsView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 
+class PayoutSettingsView(APIView):
+    # Exposes the non-sensitive payout threshold so the instructor UI can validate
+    # against the live value instead of a hardcoded mirror. Backend remains the
+    # authoritative enforcer in request_instructor_payout.
+    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        from .services import get_decimal_setting
+        from decimal import Decimal
+        min_payout = get_decimal_setting('min_payout', default=Decimal('500000'))
+        return Response({'min_payout': str(min_payout)}, status=status.HTTP_200_OK)
+
+
 class PublicHomeSettingsView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = 'burst'
 
     def get(self, request):
         try:
-            keys = ['homepage_schema_v2', 'homepage_layout', 'homepage_config']
-            rows = (
-                SystemsSetting.objects
-                .filter(setting_key__in=keys, is_deleted=False)
-                .values('setting_key', 'setting_value')
-            )
-            payload = {row['setting_key']: row['setting_value'] for row in rows}
-            return Response(payload, status=status.HTTP_200_OK)
+            return Response(get_public_home_settings_payload(), status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"errors": {"error": str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -80,13 +92,6 @@ class PublicBrandingView(APIView):
 
     def get(self, request):
         try:
-            keys = ['site_name', 'site_logo']
-            rows = (
-                SystemsSetting.objects
-                .filter(setting_key__in=keys, is_deleted=False)
-                .values('setting_key', 'setting_value')
-            )
-            payload = {row['setting_key']: row['setting_value'] for row in rows}
-            return Response(payload, status=status.HTTP_200_OK)
+            return Response(get_public_branding_payload(), status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"errors": {"error": str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

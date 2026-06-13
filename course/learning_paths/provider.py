@@ -8,63 +8,68 @@ except Exception:
     genai = None
 
 
-GEMINI_SYSTEM_PROMPT = """
-You are an AI course-path advisor for an online course platform.
-You must use only real course_id values from the provided catalog.
+GEMINI_FILTER_PROMPT = """
+Bạn là bộ phân tích yêu cầu cho chatbot khóa học.
+Nhiệm vụ duy nhất: đọc hội thoại và trả JSON filter plan để backend truy vấn database.
+Không gọi SQL, không tự bịa khóa học, không trả lời người dùng ở bước này.
 
-Rules:
-- Return JSON only. No markdown, no code fences, no commentary.
-- Output one of:
-  {"type":"question","message":"..."}
-  {"type":"path","path":[...],"estimated_weeks":number,"summary":"..."}
-- Ask clarifying questions when key information is missing, up to 4 questions total. Prioritize understanding: the specific goal/topic, the user's current level, weekly time available, and any focus area or constraint (budget, language, certificate).
-- Ask only one question at a time, and never re-ask something the user already answered.
-- As soon as you have enough information to build a focused path, stop asking and return the path.
-- After 4 user answers, make safe assumptions and explain them in summary instead of asking another question.
-- Recommend only courses that exist in the catalog.
-- Recommend only courses directly relevant to the user's stated goal. Do NOT include every course in the catalog.
-- Keep the path focused: typically 3-6 courses. Exclude courses on unrelated topics (for a "learn Python basics" goal, do not add UX, design, DevOps, or unrelated language courses unless the user explicitly asked for them).
-- Only mark a course is_skippable when it is a genuinely optional enhancement to the core goal. Do not pad the path with skippable, tangential courses.
-- A shorter, on-target path is better than a long, padded one.
-- Be honest: never invent or force a course that does not match the request. If the catalog has no course matching what the user asked (a specific topic, instructor, level, or language), say so plainly, then suggest the closest available alternatives and explain why they are close.
-- If only some of the requested topics are covered, build the path from what exists and clearly state in summary which requested topics are not available.
-- Each path item must include:
-  course_id, order, reason, is_skippable, skippable_reason
-- order must start at 1 and be continuous.
-- If is_skippable is true, skippable_reason must be non-empty.
-- Prefer prerequisite-safe ordering and explain why each course is included.
-- If the user already knows a skill, avoid recommending an obvious beginner course that only covers that skill unless it still has strong value.
-- estimated_weeks must be a realistic positive integer.
-- If the user asks something outside learning/course scope, do not answer that topic directly.
-- In that case, return type=question and redirect politely to supported scope (course recommendations and learning paths).
-- Answering questions about a course's price, instructor, language, rating, or certificate is within scope when the user is choosing courses for their path.
-- If the user asks to compare courses (price, rating, instructor, language, certificate, etc.), answer using type=question with a concise formatted comparison in `message`. Always tie the comparison back to the user's learning goal at the end.
+Schema hợp lệ:
+{
+  "action": "retrieve_courses" | "ask_clarification" | "unsupported",
+  "response_type": "course_list" | "path" | "comparison" | "answer",
+  "query": "từ khóa tìm kiếm ngắn",
+  "topics": ["topic hoặc synonym cần tìm"],
+  "filters": {
+    "levels": ["beginner" | "intermediate" | "advanced" | "all_levels"],
+    "language": "ngôn ngữ khóa học hoặc null",
+    "max_effective_price": number | null,
+    "min_rating": number | null,
+    "has_certificate": true | false | null,
+    "free_only": true | false
+  },
+  "sort": "relevance" | "popular" | "rating" | "price_asc" | "price_desc",
+  "limit": number,
+  "source_course_ids": [number],
+  "message": "câu hỏi làm rõ hoặc lý do unsupported, ngược lại để rỗng"
+}
 
-Catalog fields reference:
-- price: original price in VND (0 = free course)
-- discount_price: sale price in VND (null = no active discount); use this as effective price when non-null
-- language: language the course is taught in
-- rating: average rating from 0.00 to 5.00
-- total_students: number of enrolled students; a higher count means a more popular / "hot" / standout course
-- instructor: instructor's full name
-- has_certificate: whether the course awards a certificate on completion
-- tags, category, subcategory: topic labels; use them (together with title) to match the user's goal, including abbreviations and synonyms (e.g. "js" -> JavaScript, "ML" -> Machine Learning, "data analytics" -> data analysis)
-- When the user asks for popular / hot / standout courses, rank primarily by total_students, then by rating.
+Luật:
+- Return JSON only.
+- Nếu người dùng muốn tìm/list/xem khóa học, trả action=retrieve_courses và response_type=course_list.
+- Nếu người dùng muốn lộ trình/roadmap/kế hoạch học, trả action=retrieve_courses và response_type=path.
+- Nếu người dùng hỏi giá, ngôn ngữ, rating, chứng chỉ, hoặc muốn so sánh khóa học, trả action=retrieve_courses và response_type=comparison hoặc answer.
+- Chỉ hỏi làm rõ khi không có topic/query đủ để retrieve. Nếu user nói "tất cả level" hoặc "level nào cũng được" thì không hỏi level nữa.
+- `topics` nên chứa cả synonym phổ biến: nodejs -> node.js, node, express, javascript, backend; toeic -> toeic, english; ml -> machine learning, ai, data, python.
+- Nếu user muốn tiếp tục từ danh sách/lộ trình đã trả trước đó, dùng artifact trong hội thoại và trả source_course_ids từ artifact đó.
+- `limit` trong khoảng 5-40, mặc định 20.
+- Không bao giờ tạo field ngoài schema.
+""".strip()
 
-Budget handling:
-- If the user states a budget (e.g. "tôi có 500.000đ"), use discount_price (if non-null) or price as the effective price.
-- Prefer recommending courses whose effective price is within the stated budget.
-- If a critical prerequisite course exceeds budget, still include it but note the cost and mark is_skippable=false with a clear reason.
-- If no courses fit within budget, say so in summary and suggest the most affordable relevant options.
-- Free courses (price=0) should always be considered budget-friendly.
 
-Formatting requirements for `type=path` (apply only when user explicitly asks for roadmap/learning path output):
-- Keep response language aligned with user language (Vietnamese if user writes Vietnamese).
-- `summary` must be structured and concise, and include a markdown roadmap table.
-- The table must contain at least these columns:
-    | Bước | course_id | Khóa học | Mục tiêu chính | Ước tính (tuần) | Có thể bỏ qua |
-- Each table row must map exactly to one item in `path` (same order and course_id).
-- Do not output markdown outside JSON fields; put all human-readable formatting only inside `summary` string.
+GEMINI_ANSWER_PROMPT = """
+Bạn là trợ lý tư vấn khóa học cho nền tảng học trực tuyến.
+Backend đã retrieve danh sách khóa học liên quan từ database. Bạn chỉ được dùng course_id có trong catalog_snapshot.
+
+Output JSON only, một trong các dạng:
+{"type":"question","message":"..."}
+{"type":"course_list","courses":[...],"summary":"..."}
+{"type":"path","path":[...],"estimated_weeks":number,"summary":"..."}
+
+Luật trả lời:
+- Nếu retrieval_plan.response_type là course_list: trả type=course_list, liệt kê các khóa phù hợp nhất.
+- Nếu response_type là path: trả type=path với 3-6 khóa theo thứ tự học hợp lý.
+- Nếu retrieval_plan có source_course_ids, hãy tạo lộ trình từ chính các khóa đó; không thêm khóa ngoài danh sách trừ khi catalog_snapshot có khóa cần thiết rõ ràng.
+- Nếu response_type là comparison hoặc answer: trả type=question, đặt nội dung trả lời trong message.
+- Nếu catalog_snapshot rỗng hoặc không đủ khóa để tạo path, trả type=question; nói rõ chưa tìm thấy khóa phù hợp và gợi ý user đổi từ khóa/tiêu chí.
+- Không bịa khóa học, giá, instructor, language, rating, certificate.
+- Mỗi item trong courses/path phải có: course_id, order, reason, is_skippable, skippable_reason.
+- order bắt đầu từ 1 và liên tục.
+- is_skippable=true chỉ khi khóa là bổ sung tùy chọn; khi true phải có skippable_reason.
+- Với path, summary phải ngắn gọn và có bảng markdown:
+  | Bước | course_id | Khóa học | Mục tiêu chính | Ước tính (tuần) | Có thể bỏ qua |
+- Không bao giờ trả type=path với path rỗng.
+- Với course_list, summary ngắn gọn; không tạo bảng roadmap, không dùng cột "Bước", "Ước tính", "Có thể bỏ qua" nếu user chỉ muốn tìm khóa học.
+- Giữ ngôn ngữ theo người dùng; nếu user dùng tiếng Việt thì trả tiếng Việt.
 """.strip()
 
 
@@ -72,64 +77,57 @@ class GeminiProviderError(Exception):
     pass
 
 
-MAX_GEMINI_HISTORY_MESSAGES = 8
-MAX_GEMINI_MESSAGE_CHARS = 500
-MAX_GEMINI_CATALOG_ITEMS = 60
+MAX_GEMINI_HISTORY_MESSAGES = 10
+MAX_GEMINI_MESSAGE_CHARS = 700
+MAX_GEMINI_CATALOG_ITEMS = 40
 
 
 def _trim_history_messages(messages, max_messages=MAX_GEMINI_HISTORY_MESSAGES):
     normalized = []
-    for message in (messages or []):
+    for message in messages or []:
         if not isinstance(message, dict):
             continue
         role = message.get("role")
         content = (message.get("content") or "").strip()
         if role not in {"user", "assistant"} or not content:
             continue
-        normalized.append({
+        next_message = {
             "role": role,
             "content": content[:MAX_GEMINI_MESSAGE_CHARS],
-        })
+        }
+        artifact = message.get("artifact")
+        if isinstance(artifact, dict):
+            next_message["artifact"] = artifact
+        normalized.append(next_message)
     if len(normalized) <= max_messages:
         return normalized
     return normalized[-max_messages:]
 
 
-def _course_popularity_key(course):
-    try:
-        rating = float(course.get("rating") or 0)
-    except (TypeError, ValueError):
-        rating = 0.0
-    return (course.get("total_students") or 0, rating)
-
-
 def _compact_catalog_snapshot(catalog_snapshot, limit=MAX_GEMINI_CATALOG_ITEMS):
-    # No keyword relevance filter: Gemini selects relevant courses itself.
-    # The only server-side narrowing is a safety cap that, when the catalog
-    # exceeds `limit`, keeps the most popular courses (by enrollment, then rating).
-    selected = sorted(catalog_snapshot or [], key=_course_popularity_key, reverse=True)[:limit]
-
     compact = []
-    for course in selected:
-        compact.append(
-            {
-                "course_id": course.get("course_id"),
-                "title": course.get("title") or "",
-                "level": course.get("level") or "",
-                "category": course.get("category_name") or "",
-                "subcategory": course.get("subcategory_name") or "",
-                "tags": course.get("tags") or [],
-                "duration_hours": course.get("duration_hours"),
-                "price": course.get("course_price"),
-                "discount_price": course.get("course_discount_price"),
-                "language": course.get("language") or "",
-                "rating": course.get("rating"),
-                "total_students": course.get("total_students"),
-                "instructor": course.get("instructor_name") or "",
-                "has_certificate": course.get("has_certificate", False),
-            }
-        )
-
+    for course in (catalog_snapshot or [])[:limit]:
+        compact.append({
+            "course_id": course.get("course_id"),
+            "title": course.get("title") or "",
+            "shortdescription": course.get("shortdescription") or "",
+            "level": course.get("level") or "",
+            "category": course.get("category_name") or "",
+            "subcategory": course.get("subcategory_name") or "",
+            "tags": course.get("tags") or [],
+            "duration_hours": course.get("duration_hours"),
+            "price": course.get("course_price"),
+            "discount_price": course.get("course_discount_price"),
+            "language": course.get("language") or "",
+            "rating": course.get("rating"),
+            "total_students": course.get("total_students"),
+            "instructor": course.get("instructor_name") or "",
+            "has_certificate": course.get("has_certificate", False),
+            "total_modules": course.get("total_modules"),
+            "total_lessons": course.get("total_lessons"),
+            "total_quizzes": course.get("total_quizzes"),
+            "has_coding_exercises": course.get("has_coding_exercises", False),
+        })
     return compact
 
 
@@ -153,77 +151,110 @@ class GeminiAdvisorProvider:
         self.model = model
         self.timeout = timeout
 
-    def chat(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot):
-        payload = self._build_payload(
+    def plan_retrieval(self, *, goal_text, weekly_hours, messages, known_skills):
+        payload = self._build_filter_payload(
+            goal_text=goal_text,
+            weekly_hours=weekly_hours,
+            messages=messages,
+            known_skills=known_skills,
+        )
+        text = self._generate_content_text(payload)
+        return extract_json_object(text)
+
+    def chat(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot, retrieval_plan):
+        payload = self._build_answer_payload(
             goal_text=goal_text,
             weekly_hours=weekly_hours,
             messages=messages,
             known_skills=known_skills,
             catalog_snapshot=catalog_snapshot,
+            retrieval_plan=retrieval_plan,
         )
         text = self._generate_content_text(payload)
         return extract_json_object(text)
 
-    def _build_payload(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot):
-        trimmed_messages = _trim_history_messages(messages)
-        compact_catalog = _compact_catalog_snapshot(catalog_snapshot)
-        user_messages = [message for message in trimmed_messages if message.get("role") == "user"]
-        context_body = {
-            "goal_text": goal_text,
-            "weekly_hours": weekly_hours,
-            "known_skills": known_skills or [],
-            "user_message_count": len(user_messages),
-            "catalog_total_count": len(catalog_snapshot or []),
-            "catalog_snapshot": compact_catalog,
-        }
+    def stream_chunks(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot, retrieval_plan):
+        payload = self._build_answer_payload(
+            goal_text=goal_text,
+            weekly_hours=weekly_hours,
+            messages=messages,
+            known_skills=known_skills,
+            catalog_snapshot=catalog_snapshot,
+            retrieval_plan=retrieval_plan,
+        )
+        yield from self._iter_stream_text_parts(payload)
 
-        history_contents = []
-        for message in trimmed_messages:
-            if not isinstance(message, dict):
-                continue
+    def _history_contents(self, messages):
+        contents = []
+        for message in _trim_history_messages(messages):
             role = message.get("role")
             content = (message.get("content") or "").strip()
             if role not in {"user", "assistant"} or not content:
                 continue
-            history_contents.append(
-                {
-                    "role": "model" if role == "assistant" else "user",
-                    "parts": [{"text": content}],
-                }
-            )
+            artifact = message.get("artifact")
+            if isinstance(artifact, dict):
+                content = f"{content}\nARTIFACT_JSON:\n{json.dumps(artifact, ensure_ascii=False)}"
+            contents.append({
+                "role": "model" if role == "assistant" else "user",
+                "parts": [{"text": content}],
+            })
+        return contents
 
+    def _build_filter_payload(self, *, goal_text, weekly_hours, messages, known_skills):
+        context_body = {
+            "goal_text": goal_text,
+            "weekly_hours": weekly_hours,
+            "known_skills": known_skills or [],
+        }
         contents = [
             {
                 "role": "user",
                 "parts": [{"text": f"CONTEXT_JSON:\n{json.dumps(context_body, ensure_ascii=False)}"}],
             }
         ]
-        contents.extend(history_contents)
-        if not history_contents and (goal_text or "").strip():
-            contents.append({"role": "user", "parts": [{"text": f"Muc tieu hien tai: {(goal_text or '').strip()}"}]})
-        contents.append(
-            {
-                "role": "user",
-                "parts": [{"text": "Dua tren context va lich su chat tren, hay tra ve JSON hop le theo schema da yeu cau."}],
-            }
-        )
-
+        contents.extend(self._history_contents(messages))
+        if not messages and (goal_text or "").strip():
+            contents.append({"role": "user", "parts": [{"text": (goal_text or "").strip()}]})
+        contents.append({
+            "role": "user",
+            "parts": [{"text": "Hãy trả JSON filter plan theo schema đã định nghĩa."}],
+        })
         return {
             "contents": contents,
-            "system_instruction": GEMINI_SYSTEM_PROMPT,
-            "temperature": 0.2,
+            "system_instruction": GEMINI_FILTER_PROMPT,
+            "temperature": 0.1,
             "response_mime_type": "application/json",
         }
 
-    def stream_chunks(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot):
-        payload = self._build_payload(
-            goal_text=goal_text,
-            weekly_hours=weekly_hours,
-            messages=messages,
-            known_skills=known_skills,
-            catalog_snapshot=catalog_snapshot,
-        )
-        yield from self._iter_stream_text_parts(payload)
+    def _build_answer_payload(self, *, goal_text, weekly_hours, messages, known_skills, catalog_snapshot, retrieval_plan):
+        compact_catalog = _compact_catalog_snapshot(catalog_snapshot)
+        context_body = {
+            "goal_text": goal_text,
+            "weekly_hours": weekly_hours,
+            "known_skills": known_skills or [],
+            "retrieval_plan": retrieval_plan or {},
+            "retrieved_count": len(catalog_snapshot or []),
+            "catalog_snapshot": compact_catalog,
+        }
+        contents = [
+            {
+                "role": "user",
+                "parts": [{"text": f"CONTEXT_JSON:\n{json.dumps(context_body, ensure_ascii=False)}"}],
+            }
+        ]
+        contents.extend(self._history_contents(messages))
+        if not messages and (goal_text or "").strip():
+            contents.append({"role": "user", "parts": [{"text": (goal_text or "").strip()}]})
+        contents.append({
+            "role": "user",
+            "parts": [{"text": "Hãy trả JSON cuối cùng cho UI dựa trên catalog_snapshot đã retrieve."}],
+        })
+        return {
+            "contents": contents,
+            "system_instruction": GEMINI_ANSWER_PROMPT,
+            "temperature": 0.2,
+            "response_mime_type": "application/json",
+        }
 
     def _generate_content_text(self, payload):
         if genai is None:

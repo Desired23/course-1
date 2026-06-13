@@ -1,4 +1,4 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from .models import QuizQuestion, QuizTestCase
 from .serializers import (
     QuizQuestionSerializer,
@@ -7,6 +7,7 @@ from .serializers import (
     QuizTestCaseSerializer
 )
 from lessons.models import Lesson
+from utils.course_access import check_lesson_access
 from django.db.models import Q
 from django.db import transaction
 
@@ -116,13 +117,16 @@ def get_all_quiz_questions():
 
 
 
-def get_lesson_quiz(lesson_id):
+def get_lesson_quiz(lesson_id, user=None):
     try:
 
         try:
             lesson = Lesson.objects.get(id=lesson_id, is_deleted=False)
         except Lesson.DoesNotExist:
             raise ValidationError({"error": "Lesson not found."})
+
+        if user is not None:
+            check_lesson_access(user, lesson)
 
         if lesson.content_type == 'code' and lesson.content:
             return _get_code_lesson_quiz(lesson)
@@ -151,7 +155,7 @@ def get_lesson_quiz(lesson_id):
         serializer = LessonQuizSerializer(quiz_data)
         return serializer.data
 
-    except ValidationError:
+    except (ValidationError, PermissionDenied):
         raise
     except Exception as e:
         raise ValidationError({"error": str(e)})

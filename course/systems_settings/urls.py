@@ -1,10 +1,11 @@
 from django.urls import path
-from .views import SystemsSettingsView, PublicHomeSettingsView, PublicBrandingView
+from .views import PlatformSettingsView, PublicHomeSettingsView, PublicBrandingView, PayoutSettingsView
 urlpatterns = [
-    path('systems_settings/', SystemsSettingsView.as_view(), name='system-settings-list'),
-    path('systems_settings/create/', SystemsSettingsView.as_view(), name='system-settings-create'),
-    path('systems_settings/<int:setting_id>/update/', SystemsSettingsView.as_view(), name='system-settings-update'),
-    path('systems_settings/<int:setting_id>/delete/', SystemsSettingsView.as_view(), name='system-settings-delete'),
-    path('systems_settings/public/homepage/', PublicHomeSettingsView.as_view(), name='system-settings-public-homepage'),
-    path('systems_settings/public/branding/', PublicBrandingView.as_view(), name='system-settings-public-branding'),
+    path('platform-settings/', PlatformSettingsView.as_view(), name='platform-settings-list'),
+    path('platform-settings/payout/', PayoutSettingsView.as_view(), name='platform-settings-payout'),
+    path('platform-settings/create/', PlatformSettingsView.as_view(), name='platform-settings-create'),
+    path('platform-settings/<int:setting_id>/update/', PlatformSettingsView.as_view(), name='platform-settings-update'),
+    path('platform-settings/<int:setting_id>/delete/', PlatformSettingsView.as_view(), name='platform-settings-delete'),
+    path('platform-settings/public/homepage/', PublicHomeSettingsView.as_view(), name='platform-settings-public-homepage'),
+    path('platform-settings/public/branding/', PublicBrandingView.as_view(), name='platform-settings-public-branding'),
 ]

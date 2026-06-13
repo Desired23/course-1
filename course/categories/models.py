@@ -22,6 +22,7 @@ class Category(models.Model):
 
     class Meta:
         db_table = 'Categories'
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.name

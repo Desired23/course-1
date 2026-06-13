@@ -50,6 +50,7 @@ class Payment_Details(models.Model):
 
     class Meta:
         db_table = 'payment_details'
+        ordering = ['-created_at']
         unique_together = ('payment', 'course')
 
     def __str__(self):

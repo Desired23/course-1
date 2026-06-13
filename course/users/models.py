@@ -36,6 +36,7 @@ class User(models.Model):
 
     class Meta:
         db_table = 'Users'
+        ordering = ['-created_at']
 
 
 
@@ -82,6 +83,7 @@ class RefreshToken(models.Model):
 
     class Meta:
         db_table = 'RefreshTokens'
+        ordering = ['-created_at']
         indexes = [models.Index(fields=['jti']), models.Index(fields=['user'])]
 
     def is_active(self):
@@ -105,6 +107,7 @@ class UserSettings(models.Model):
 
     class Meta:
         db_table = 'UserSettings'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Settings(user={self.user_id})"

@@ -27,7 +27,8 @@ def _active_course_lessons(course):
     return Lesson.objects.filter(
         coursemodule__course=course,
         coursemodule__is_deleted=False,
-        is_deleted=False
+        is_deleted=False,
+        status=Lesson.Status.PUBLISHED,
     )
 
 
@@ -40,6 +41,7 @@ def _course_progress_stats(user, course):
         is_deleted=False,
         lesson__is_deleted=False,
         lesson__coursemodule__is_deleted=False,
+        lesson__status=Lesson.Status.PUBLISHED,
     ).count()
     total_time_spent = LearningProgress.objects.filter(
         user=user,
@@ -59,21 +61,68 @@ def _course_progress_stats(user, course):
     }
 
 
+def get_course_progress_stats(user, course):
+    return _course_progress_stats(user, course)
+
+
+def _enrollment_denominator(enrollment, course):
+    if enrollment.progress_denominator and enrollment.progress_denominator > 0:
+        return enrollment.progress_denominator
+    denom = _active_course_lessons(course).count()
+    enrollment.progress_denominator = denom
+    return denom
+
+
+def _completed_lessons_count(enrollment):
+    return LearningProgress.objects.filter(
+        enrollment=enrollment,
+        is_completed=True,
+        is_deleted=False,
+    ).count()
+
+
 def _sync_enrollment_progress(enrollment, user, course):
     stats = _course_progress_stats(user, course)
     now = timezone.now()
-    enrollment.progress = stats['overall_progress']
+    if enrollment.status == Enrollment.Status.Complete:
+        enrollment.last_access_date = now
+        enrollment.save(update_fields=['last_access_date', 'updated_at'])
+        return stats
+
+    denom = _enrollment_denominator(enrollment, course)
+    completed = _completed_lessons_count(enrollment)
+    if denom and denom > 0:
+        snapshot_progress = min(
+            Decimal('100.00'),
+            (Decimal(completed) * Decimal('100') / Decimal(denom)).quantize(Decimal('0.01')),
+        )
+    else:
+        snapshot_progress = Decimal('0.00')
+    enrollment.progress = snapshot_progress
     enrollment.last_access_date = now
-    is_fully_complete = stats['total_lessons'] > 0 and stats['completed_lessons'] >= stats['total_lessons']
-    if is_fully_complete and (not course.certificate or enrollment.status == Enrollment.Status.Complete):
+    is_fully_complete = denom > 0 and completed >= denom
+    if is_fully_complete and not course.certificate:
         enrollment.status = Enrollment.Status.Complete
         if not enrollment.completion_date:
             enrollment.completion_date = now
-    elif not is_fully_complete and enrollment.status == Enrollment.Status.Complete and not course.certificate:
-        enrollment.status = Enrollment.Status.Active
-        enrollment.completion_date = None
-    enrollment.save(update_fields=['progress', 'last_access_date', 'status', 'completion_date', 'updated_at'])
+    enrollment.save(update_fields=[
+        'progress', 'progress_denominator', 'last_access_date',
+        'status', 'completion_date', 'updated_at',
+    ])
+    if is_fully_complete and course.certificate:
+        _try_auto_issue_certificate(user, course)
     return stats
+
+
+def _try_auto_issue_certificate(user, course):
+    try:
+        from certificates.services import issue_certificate
+        issue_certificate(user, course.id)
+    except Exception:
+        pass
+
+
+_MAX_DELTA_WITHOUT_DURATION = 300
 
 
 def _apply_progress_data(learning_progress, progress_data):
@@ -100,6 +149,58 @@ def _apply_progress_data(learning_progress, progress_data):
             learning_progress.status = LearningProgress.StatusChoices.PENDING
         learning_progress.completion_date = None
     learning_progress.last_accessed = timezone.now()
+
+
+def _maybe_record_subscription_usage(user, enrollment, course, lesson, previous_position, progress_data):
+    try:
+        from subscription_plans.services import record_subscription_usage_event_from_progress
+
+        new_position = int(progress_data.get('last_position') or previous_position)
+
+        video_duration = progress_data.get('duration_seconds')
+        lesson_duration = (lesson.duration * 60) if lesson and lesson.duration else None
+        cap = video_duration or lesson_duration
+
+        if cap:
+            new_position = min(new_position, int(cap))
+
+        delta_seconds = max(new_position - previous_position, 0)
+        if not delta_seconds:
+            return
+
+        if cap is None:
+            delta_seconds = min(delta_seconds, _MAX_DELTA_WITHOUT_DURATION)
+
+        record_subscription_usage_event_from_progress(
+            user=user,
+            enrollment=enrollment,
+            course=course,
+            lesson=lesson,
+            delta_seconds=delta_seconds,
+        )
+    except Exception:
+        pass
+
+def complete_quiz_lesson(user_id, lesson_id):
+    user = User.objects.get(id=user_id)
+    lesson = Lesson.objects.select_related('coursemodule__course').get(id=lesson_id)
+    course = lesson.coursemodule.course if lesson.coursemodule else None
+    if not course:
+        return
+    enrollment = Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
+    if not enrollment:
+        return
+    learning_progress, _created = LearningProgress.objects.get_or_create(
+        user=user,
+        lesson=lesson,
+        defaults={'enrollment': enrollment, 'course': course, 'start_time': timezone.now()},
+    )
+    learning_progress.enrollment = enrollment
+    learning_progress.course = course
+    _apply_progress_data(learning_progress, {'is_completed': True, 'progress_percentage': 100})
+    learning_progress.save()
+    _sync_enrollment_progress(enrollment, user, course)
+
 
 def update_learning_progress(user_id, lesson_id, progress_data):
     try:
@@ -158,10 +259,12 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
                 'start_time': timezone.now()
             }
         )
+        previous_position = learning_progress.last_position or 0
         learning_progress.enrollment = enrollment
         learning_progress.course = course
         _apply_progress_data(learning_progress, progress_data)
         learning_progress.save()
+        _maybe_record_subscription_usage(user, enrollment, course, lesson, previous_position, progress_data)
         progress_stats = _sync_enrollment_progress(enrollment, user, course)
         data = LearningProgressSerializer(learning_progress).data
         _broadcast_progress(user_id, {

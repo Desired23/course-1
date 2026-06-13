@@ -22,6 +22,7 @@ class CourseModule(models.Model):
 
     class Meta:
         db_table = 'CourseModules'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.title} (Module {self.id})"

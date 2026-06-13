@@ -16,6 +16,7 @@ from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
 from instructor_payouts.models import InstructorPayout
 from instructor_payouts.services import request_instructor_payout
+from systems_settings.models import PlatformSetting
 from users.models import User
 
 
@@ -32,6 +33,12 @@ class PayoutRequestTests(TestCase):
             full_name="Payout Teacher", status="active",
         )
         self.instructor = Instructor.objects.create(user=instr_user, level=level)
+        # Keep the threshold low so the balance-based assertions below stay valid;
+        # a dedicated test exercises the min_payout rejection.
+        PlatformSetting.objects.update_or_create(
+            singleton_key=1,
+            defaults={"min_payout": Decimal("50")},
+        )
         self.course = Course.objects.create(
             title="Payout Course", shortdescription="x", description="x",
             instructor=self.instructor, category_id=None, subcategory_id=None,
@@ -49,6 +56,16 @@ class PayoutRequestTests(TestCase):
     def test_request_exceeding_available_balance_is_rejected(self):
         with self.assertRaises(ValidationError):
             request_instructor_payout(self.instructor, Decimal("200.00"), payout_method_id=None)
+        self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 0)
+
+    def test_request_below_min_payout_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            request_instructor_payout(self.instructor, Decimal("40.00"), payout_method_id=None)
+        self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 0)
+
+    def test_non_positive_amount_is_rejected(self):
+        with self.assertRaises(ValidationError):
+            request_instructor_payout(self.instructor, Decimal("-10.00"), payout_method_id=None)
         self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 0)
 
     def test_valid_request_assigns_available_earnings(self):

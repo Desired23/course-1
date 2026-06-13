@@ -44,6 +44,7 @@ class BlogPost(models.Model):
 
     class Meta:
         db_table = "blog_posts"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"BlogPost {self.title} - {self.status}"
@@ -57,5 +58,6 @@ class BlogBookmark(models.Model):
     class Meta:
         db_table = 'blog_bookmarks'
         unique_together = ('user', 'blog_post')
+        ordering = ['-created_at']
 
 

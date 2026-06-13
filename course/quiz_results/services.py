@@ -1,4 +1,4 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from .models import QuizResult
 from .serializers import (
     QuizResultSerializer,
@@ -13,6 +13,7 @@ from users.models import User
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
+from utils.course_access import check_lesson_access
 
 def calculate_quiz_evaluation(quiz_result_id):
     try:
@@ -168,6 +169,7 @@ def submit_quiz(data, user):
         except Lesson.DoesNotExist:
             raise ValidationError({"error": "Lesson not found."})
 
+        check_lesson_access(user, lesson)
 
         try:
             enrollment = Enrollment.objects.get(
@@ -176,7 +178,7 @@ def submit_quiz(data, user):
                 is_deleted=False
             )
         except Enrollment.DoesNotExist:
-            raise ValidationError({"error": "User is not enrolled in this course."})
+            enrollment = None
 
 
         questions = QuizQuestion.objects.filter(
@@ -322,34 +324,46 @@ def submit_quiz(data, user):
         passed = score >= passing_score
 
 
-        existing_result = QuizResult.objects.filter(
-            enrollment=enrollment,
-            lesson=lesson,
-        ).first()
-        attempt = (existing_result.attempt + 1) if existing_result else 1
+        if enrollment is not None:
+            existing_result = QuizResult.objects.filter(
+                enrollment=enrollment,
+                lesson=lesson,
+            ).first()
+            attempt = (existing_result.attempt + 1) if existing_result else 1
 
+            quiz_result, created = QuizResult.objects.update_or_create(
+                enrollment=enrollment,
+                lesson=lesson,
+                defaults={
+                    'start_time': timezone.now() - timedelta(seconds=time_spent),
+                    'submit_time': timezone.now(),
+                    'time_taken': time_spent,
+                    'total_questions': questions.count(),
+                    'correct_answers': sum(1 for ar in answer_results if ar['is_correct']),
+                    'total_points': int(total_points),
+                    'score': score,
+                    'answers': answers_dict,
+                    'passed': passed,
+                    'attempt': attempt,
+                    'is_deleted': False,
+                }
+            )
+            quiz_result_id = quiz_result.id
+            submitted_at = quiz_result.submit_time
 
-        quiz_result, created = QuizResult.objects.update_or_create(
-            enrollment=enrollment,
-            lesson=lesson,
-            defaults={
-                'start_time': timezone.now() - timedelta(seconds=time_spent),
-                'submit_time': timezone.now(),
-                'time_taken': time_spent,
-                'total_questions': questions.count(),
-                'correct_answers': sum(1 for ar in answer_results if ar['is_correct']),
-                'total_points': int(total_points),
-                'score': score,
-                'answers': answers_dict,
-                'passed': passed,
-                'attempt': attempt,
-                'is_deleted': False,
-            }
-        )
-
+            if passed:
+                try:
+                    from learning_progress.services import complete_quiz_lesson
+                    complete_quiz_lesson(user.id, lesson.id)
+                except Exception:
+                    pass
+        else:
+            # Free lesson preview — compute result but don't persist
+            quiz_result_id = None
+            submitted_at = timezone.now()
 
         result_data = {
-            'quiz_result_id': quiz_result.id,
+            'quiz_result_id': quiz_result_id,
             'quiz_id': lesson.id,
             'user_id': user.id,
             'score': float(score),
@@ -358,7 +372,7 @@ def submit_quiz(data, user):
             'passing_score': passing_score,
             'passed': passed,
             'time_spent': time_spent,
-            'submitted_at': quiz_result.submit_time,
+            'submitted_at': submitted_at,
             'answers': answer_results
         }
 

@@ -306,10 +306,7 @@ class Command(BaseCommand):
                     "total_students": data["total_students"],
                     "total_courses": data["total_courses"],
                     "level": level,
-                    "social_links": {
-                        "website": "https://example.com",
-                        "youtube": "https://youtube.com/@example",
-                    },
+                    "social_links": {},
                 },
             )
             instructors.append(inst)

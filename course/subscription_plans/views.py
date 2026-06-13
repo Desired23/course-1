@@ -21,6 +21,7 @@ from .services import (
     admin_extend_subscription,
     admin_cancel_subscription,
     user_has_plan_access,
+    user_has_active_subscription_enrollment,
     get_user_accessible_courses,
     get_plan_subscribers,
     expire_overdue_subscriptions,
@@ -263,7 +264,11 @@ class UserCourseAccessView(APIView):
         try:
             course_id = request.query_params.get('course_id')
             if course_id:
-                has_access = user_has_plan_access(request.user.id, int(course_id))
+                cid = int(course_id)
+                has_access = (
+                    user_has_plan_access(request.user.id, cid)
+                    or user_has_active_subscription_enrollment(request.user.id, cid)
+                )
                 return Response({"has_access": has_access}, status=status.HTTP_200_OK)
             course_ids = get_user_accessible_courses(request.user)
             return Response({"accessible_course_ids": course_ids}, status=status.HTTP_200_OK)

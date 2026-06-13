@@ -17,6 +17,7 @@ class LessonAttachment(models.Model):
 
     class Meta:
         db_table = 'LessonAttachments'
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.title or f'Attachment {self.id}'

@@ -48,6 +48,7 @@ class Report(models.Model):
 
     class Meta:
         db_table = 'Reports'
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['target_type', 'target_id', 'status']),
             models.Index(fields=['reporter', 'target_type', 'target_id']),

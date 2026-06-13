@@ -3,6 +3,8 @@ from .models import Certificate
 
 
 class CertificateSerializer(serializers.ModelSerializer):
+    certificate_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Certificate
         fields = [
@@ -14,8 +16,15 @@ class CertificateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+    def get_certificate_url(self, obj):
+        if obj.revoked or obj.is_deleted:
+            return None
+        return obj.certificate_url
+
 
 class CertificateListSerializer(serializers.ModelSerializer):
+    certificate_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Certificate
         fields = [
@@ -23,6 +32,11 @@ class CertificateListSerializer(serializers.ModelSerializer):
             'student_name', 'course_title', 'issued_at', 'revoked',
         ]
         read_only_fields = fields
+
+    def get_certificate_url(self, obj):
+        if obj.revoked or obj.is_deleted:
+            return None
+        return obj.certificate_url
 
 
 class CertificateVerifySerializer(serializers.ModelSerializer):

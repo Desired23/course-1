@@ -2,7 +2,7 @@ from rest_framework.exceptions import ValidationError
 from .serializers import InstructorEarningSerializer
 from .models import InstructorEarning
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, F
 from django.utils import timezone
 from datetime import datetime, timedelta, timezone as dt_timezone
 from instructor_payouts.models import InstructorPayout
@@ -11,11 +11,42 @@ from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
 from payments.models import Payment
 
+def exclude_open_refund_earnings(qs):
+    from payment_details.models import Payment_Details
+    open_refund_statuses = [
+        Payment_Details.RefundStatus.PENDING,
+        Payment_Details.RefundStatus.PROCESSING,
+        Payment_Details.RefundStatus.APPROVED,
+        Payment_Details.RefundStatus.SUCCESS,
+    ]
+    return qs.exclude(
+        payment__payment_details__course=F('course'),
+        payment__payment_details__refund_status__in=open_refund_statuses,
+        payment__payment_details__is_deleted=False,
+    )
+
+
+def resolve_instructor_rate_snapshot(instructor, source="retail"):
+    if source == "subscription":
+        raw_rate = instructor.level.plan_commission_rate if instructor.level else Decimal("30.00")
+    else:
+        raw_rate = instructor.level.commission_rate if instructor.level else Decimal("30.00")
+
+    platform_rate = Decimal(str(raw_rate)).quantize(Decimal("0.01"))
+    share_rate = (Decimal("100.00") - platform_rate).quantize(Decimal("0.01"))
+    return {
+        "platform_commission_rate": platform_rate,
+        "instructor_share_rate": share_rate,
+        "instructor_level_id_snapshot": instructor.level_id if instructor.level else None,
+        "instructor_level_name_snapshot": instructor.level.name if instructor.level else None,
+    }
+
+
 def generate_instructor_earnings_from_payment(payment_id):
     try:
         with transaction.atomic():
             payment = Payment.objects.prefetch_related(
-                'payment_details__course__instructor'
+                'payment_details__course__instructor__level'
             ).get(id=payment_id)
             results = []
 
@@ -25,13 +56,9 @@ def generate_instructor_earnings_from_payment(payment_id):
                 if not instructor:
                     continue
 
-                if not instructor or not instructor.level:
-                    commission_rate = Decimal("30.00")
-                else:
-                    commission_rate = instructor.level.commission_rate
-
+                snapshot = resolve_instructor_rate_snapshot(instructor, "retail")
                 amount = detail.final_price
-                net_amount = amount * (Decimal(100) - commission_rate) / Decimal(100)
+                net_amount = (amount * snapshot["instructor_share_rate"] / Decimal("100.00")).quantize(Decimal("0.01"))
 
                 try:
                     earning, created = InstructorEarning.objects.get_or_create(
@@ -41,6 +68,10 @@ def generate_instructor_earnings_from_payment(payment_id):
                         defaults={
                             'amount': amount,
                             'net_amount': net_amount,
+                            'platform_commission_rate': snapshot["platform_commission_rate"],
+                            'instructor_share_rate': snapshot["instructor_share_rate"],
+                            'instructor_level_id_snapshot': snapshot["instructor_level_id_snapshot"],
+                            'instructor_level_name_snapshot': snapshot["instructor_level_name_snapshot"],
                             'status': InstructorEarning.StatusChoices.PENDING,
                             'earning_date': timezone.now(),
                         }
@@ -167,12 +198,23 @@ def update_earnings_available():
             refund_days = settings.REFUND_DAYS
             refund_time = timezone.now() - timedelta(days=refund_days)
 
+            from payment_details.models import Payment_Details
+            open_refund_statuses = [
+                Payment_Details.RefundStatus.PENDING,
+                Payment_Details.RefundStatus.PROCESSING,
+                Payment_Details.RefundStatus.APPROVED,
+                Payment_Details.RefundStatus.SUCCESS,
+            ]
             retail_earnings = InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.PENDING,
                 payment__isnull=False,
                 payment__payment_date__lt=refund_time,
                 user_subscription__isnull=True,
-            )
+            ).exclude(
+                payment__payment_details__course=F('course'),
+                payment__payment_details__refund_status__in=open_refund_statuses,
+                payment__payment_details__is_deleted=False,
+            ).select_for_update()
 
             sub_settle_time = timezone.now() - timedelta(days=1)
             subscription_earnings = InstructorEarning.objects.filter(
@@ -180,7 +222,7 @@ def update_earnings_available():
                 payment__isnull=True,
                 user_subscription__isnull=False,
                 earning_date__lt=sub_settle_time,
-            )
+            ).select_for_update()
 
             all_pending = list(retail_earnings) + list(subscription_earnings)
             for earning in all_pending:
@@ -200,14 +242,13 @@ def update_earnings_available():
 
 def calculate_subscription_earnings_for_month(year: int, month: int):
     import calendar
-    from django.db.models import Sum
-    from subscription_plans.models import UserSubscription, SubscriptionUsage
-    from instructors.models import Instructor
+    from collections import defaultdict
+    from subscription_plans.models import UserSubscription, SubscriptionUsageEvent
 
-    first_day = timezone.datetime(year, month, 1, tzinfo=timezone.utc)
+    first_day = timezone.datetime(year, month, 1, tzinfo=timezone.UTC)
     last_day = timezone.datetime(
         year, month, calendar.monthrange(year, month)[1],
-        23, 59, 59, tzinfo=timezone.utc
+        23, 59, 59, tzinfo=timezone.UTC
     )
 
     subscriptions = UserSubscription.objects.filter(
@@ -218,68 +259,104 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
     ).select_related('plan', 'payment')
 
     created_earnings = []
+    updated_earnings = []
 
     with transaction.atomic():
         for sub in subscriptions:
             plan_revenue = sub.plan.effective_price
 
-            total_minutes_row = SubscriptionUsage.objects.filter(
-                user_subscription=sub
-            ).aggregate(total=Sum('consumed_minutes'))
-            total_minutes = total_minutes_row['total'] or 0
+            events = list(SubscriptionUsageEvent.objects.filter(
+                user_subscription=sub,
+                occurred_at__gte=first_day,
+                occurred_at__lte=last_day,
+                delta_seconds__gt=0,
+            ))
 
-            if total_minutes == 0:
+            if not events:
                 continue
 
-            instructor_usage = (
-                SubscriptionUsage.objects
-                .filter(user_subscription=sub)
-                .values('course__instructor__id', 'course__id')
-                .annotate(instructor_minutes=Sum('consumed_minutes'))
-                .filter(course__instructor__isnull=False, instructor_minutes__gt=0)
-            )
+            total_seconds = sum(e.delta_seconds for e in events)
+            if total_seconds == 0:
+                continue
 
-            for row in instructor_usage:
-                instructor_id = row['course__instructor__id']
-                course_id = row['course__id']
-                instructor_minutes = row['instructor_minutes']
+            groups = defaultdict(list)
+            for event in events:
+                if event.instructor_id and event.course_id:
+                    groups[(event.course_id, event.instructor_id)].append(event)
 
-                try:
-                    instructor = Instructor.objects.select_related('level').get(id=instructor_id)
-                except Instructor.DoesNotExist:
-                    continue
+            for (course_id, instructor_id), group_events in groups.items():
+                group_seconds = sum(e.delta_seconds for e in group_events)
 
-                if instructor.level and instructor.level.plan_commission_rate is not None:
-                    commission_rate = instructor.level.plan_commission_rate
-                else:
-                    commission_rate = Decimal('30.00')
+                gross_allocated = (plan_revenue * Decimal(group_seconds) / Decimal(total_seconds)).quantize(Decimal('0.01'))
 
-                share_ratio = Decimal(str(instructor_minutes)) / Decimal(str(total_minutes))
-                instructor_pool = plan_revenue * (Decimal('100') - commission_rate) / Decimal('100')
-                net_amount = (instructor_pool * share_ratio).quantize(Decimal('0.01'))
+                net_amount = sum(
+                    plan_revenue * Decimal(e.delta_seconds) / Decimal(total_seconds)
+                    * e.instructor_share_rate_snapshot / Decimal('100')
+                    for e in group_events
+                ).quantize(Decimal('0.01'))
+
+                weighted_platform_rate = (
+                    sum(e.platform_commission_rate_snapshot * e.delta_seconds for e in group_events)
+                    / Decimal(group_seconds)
+                ).quantize(Decimal('0.01'))
+
+                weighted_share_rate = (
+                    sum(e.instructor_share_rate_snapshot * e.delta_seconds for e in group_events)
+                    / Decimal(group_seconds)
+                ).quantize(Decimal('0.01'))
+
+                usage_share_rate = (Decimal(group_seconds) / Decimal(total_seconds) * Decimal('100')).quantize(Decimal('0.0001'))
+
+                level_id_snapshot = group_events[0].instructor_level_id_snapshot
+                level_name_snapshot = group_events[0].instructor_level_name_snapshot
 
                 earning, created = InstructorEarning.objects.get_or_create(
                     user_subscription=sub,
                     course_id=course_id,
-                    instructor=instructor,
+                    instructor_id=instructor_id,
+                    earning_period_start=first_day.date(),
                     defaults={
                         'payment': None,
-                        'amount': plan_revenue,
+                        'amount': gross_allocated,
                         'net_amount': net_amount,
+                        'platform_commission_rate': weighted_platform_rate,
+                        'instructor_share_rate': weighted_share_rate,
+                        'instructor_level_id_snapshot': level_id_snapshot,
+                        'instructor_level_name_snapshot': level_name_snapshot,
+                        'usage_share_rate': usage_share_rate,
+                        'usage_seconds': group_seconds,
+                        'earning_period_end': last_day.date(),
                         'status': InstructorEarning.StatusChoices.PENDING,
                     }
                 )
 
+                if not created and earning.status in [
+                    InstructorEarning.StatusChoices.PENDING,
+                    InstructorEarning.StatusChoices.AVAILABLE,
+                ]:
+                    earning.amount = gross_allocated
+                    earning.net_amount = net_amount
+                    earning.platform_commission_rate = weighted_platform_rate
+                    earning.instructor_share_rate = weighted_share_rate
+                    earning.instructor_level_id_snapshot = level_id_snapshot
+                    earning.instructor_level_name_snapshot = level_name_snapshot
+                    earning.usage_share_rate = usage_share_rate
+                    earning.usage_seconds = group_seconds
+                    earning.earning_period_end = last_day.date()
+                    earning.save()
+                    updated_earnings.append(earning.id)
+
                 if created:
                     created_earnings.append({
                         'earning_id': earning.id,
-                        'instructor': instructor.user.full_name,
                         'course_id': course_id,
+                        'instructor_id': instructor_id,
                         'subscription_id': sub.id,
+                        'gross_allocated': str(gross_allocated),
                         'net_amount': str(net_amount),
-                        'instructor_minutes': instructor_minutes,
-                        'total_minutes': total_minutes,
-                        'commission_rate': str(commission_rate),
+                        'usage_seconds': group_seconds,
+                        'total_seconds': total_seconds,
+                        'usage_share_rate': str(usage_share_rate),
                     })
 
     return {
@@ -287,6 +364,7 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
         'month': month,
         'subscriptions_processed': subscriptions.count(),
         'earnings_created': len(created_earnings),
+        'earnings_updated': len(updated_earnings),
         'detail': created_earnings,
     }
 

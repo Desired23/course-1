@@ -266,9 +266,14 @@ def get_report_case_detail(target_type, target_id):
         raise ValidationError({'target_type': 'Loại nội dung không hợp lệ.'})
 
     obj = adapter['get_object'](target_id)
+
+    Report.objects.filter(
+        target_type=target_type, target_id=target_id, status=Report.Status.PENDING
+    ).update(status=Report.Status.REVIEWING)
+
     reports = Report.objects.filter(
         target_type=target_type, target_id=target_id
-    ).select_related('reporter').order_by('-created_at')
+    ).select_related('reporter')
 
     items = []
     for r in reports:
@@ -326,6 +331,25 @@ def resolve_report_case(target_type, target_id, action, notes='', admin=None):
     _reset_counter(target_type, target_id)
 
     return result
+
+
+def reopen_report_case(target_type, target_id, admin=None):
+    """Mở lại report đã RESOLVED/DISMISSED về REVIEWING để admin có thể xử lý lại."""
+    updated = Report.objects.filter(
+        target_type=target_type,
+        target_id=target_id,
+        status__in=[Report.Status.RESOLVED, Report.Status.DISMISSED],
+    ).update(
+        status=Report.Status.REVIEWING,
+        resolved_by=None,
+        action_taken='',
+        resolution_notes='',
+        resolved_at=None,
+        updated_at=timezone.now(),
+    )
+    if updated == 0:
+        raise ValidationError({'error': 'Không tìm thấy report đã xử lý cho nội dung này.'})
+    return {'message': 'Đã mở lại report. Chuyển về trạng thái đang xem xét.'}
 
 
 def _reset_counter(target_type, target_id):

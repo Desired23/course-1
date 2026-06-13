@@ -13,7 +13,7 @@ from quiz_questions.models import QuizQuestion
 from quiz_results.models import QuizResult
 from questions.models import Question
 from answers.models import Answer
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PaymentSetting, PlatformSetting
 from supports.models import Support
 
 from payments.models import Payment
@@ -52,7 +52,8 @@ admin.site.register(QuizQuestion)
 admin.site.register(QuizResult)
 admin.site.register(Question)
 admin.site.register(Answer)
-admin.site.register(SystemsSetting)
+admin.site.register(PlatformSetting)
+admin.site.register(PaymentSetting)
 admin.site.register(Support)
 admin.site.register(InstructorEarning)
 admin.site.register(InstructorPayout)

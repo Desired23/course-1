@@ -124,24 +124,33 @@ class CertificateDownloadView(APIView):
         if cert.user_id != request.user.id and not is_active_admin:
             return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
+        if cert.revoked:
+            return Response({"error": "Certificate has been revoked."}, status=status.HTTP_403_FORBIDDEN)
+
+        if not is_active_admin:
+            from enrollments.models import Enrollment
+            has_valid_enrollment = Enrollment.objects.filter(
+                user_id=cert.user_id,
+                course_id=cert.course_id,
+                is_deleted=False,
+            ).exclude(status=Enrollment.Status.Cancelled).exists()
+            if not has_valid_enrollment:
+                return Response(
+                    {"error": "No valid enrollment for this certificate."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         return _pdf_response(cert)
 
 
 class CertificatePublicDownloadView(APIView):
-    """Stream the certificate PDF by its (unguessable) verification code.
-
-    No auth: the UUID code acts as a capability token so the link works from
-    the certificate email. The PDF is generated on the fly each request.
-    """
+    """Public download is disabled — only the owner/admin may download the PDF
+    via the authenticated endpoint. Public verification stays status-only."""
     throttle_scope = 'search'
 
     def get(self, request, verification_code):
-        from .models import Certificate
-        try:
-            cert = Certificate.objects.get(
-                verification_code=verification_code, is_deleted=False, revoked=False
-            )
-        except Certificate.DoesNotExist:
-            return Response({"error": "Certificate not found."}, status=status.HTTP_404_NOT_FOUND)
-        return _pdf_response(cert)
+        return Response(
+            {"error": "Vui lòng đăng nhập để tải chứng chỉ.", "login_required": True},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 

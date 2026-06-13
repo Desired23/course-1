@@ -25,7 +25,7 @@ from registration_forms.models import FormQuestion, RegistrationForm
 from activity_logs.models import ActivityLog
 from support_replies.models import SupportReply
 from supports.models import Support
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PlatformSetting
 from notifications.models import Notification
 from instructor_payouts.models import InstructorPayout
 from instructor_earnings.models import InstructorEarning
@@ -85,7 +85,7 @@ def _run_seed():
         ActivityLog.objects.all().delete()
         SupportReply.objects.all().delete()
         Support.objects.all().delete()
-        SystemsSetting.objects.all().delete()
+        PlatformSetting.objects.all().delete()
         Notification.objects.all().delete()
         InstructorPayout.objects.all().delete()
         InstructorEarning.objects.all().delete()

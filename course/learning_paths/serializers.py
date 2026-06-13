@@ -89,6 +89,7 @@ class LearningPathCreateSerializer(serializers.Serializer):
 class LearningPathAdvisorMessageSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=['user', 'assistant'])
     content = serializers.CharField()
+    artifact = serializers.JSONField(required=False)
 
 
 class LearningPathAdvisorRequestSerializer(serializers.Serializer):

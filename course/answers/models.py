@@ -30,6 +30,7 @@ class Answer(models.Model):
 
     class Meta:
         db_table = 'Answers'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Answer {self.id} on Question {self.question_id}"

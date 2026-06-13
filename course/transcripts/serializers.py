@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import LessonTranscript, TranscriptChunk, TranscriptJob, TranscriptSegment, TranscriptWord
+from .models import LessonTranscript, TranscriptJob, TranscriptSegment, TranscriptWord
 
 
 class TranscriptWordSerializer(serializers.ModelSerializer):
@@ -31,25 +31,9 @@ class TranscriptSegmentSerializer(serializers.ModelSerializer):
         return TranscriptWordSerializer(obj.words.all().order_by("word_index"), many=True).data
 
 
-class TranscriptChunkSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TranscriptChunk
-        fields = [
-            "id",
-            "chunk_index",
-            "start_ms",
-            "end_ms",
-            "text",
-            "token_count",
-            "source_segment_start",
-            "source_segment_end",
-        ]
-
-
 class LessonTranscriptSerializer(serializers.ModelSerializer):
     lesson_id = serializers.IntegerField(source="lesson_id", read_only=True)
     segments = serializers.SerializerMethodField()
-    chunks = serializers.SerializerMethodField()
 
     class Meta:
         model = LessonTranscript
@@ -66,7 +50,6 @@ class LessonTranscriptSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "segments",
-            "chunks",
         ]
 
     def get_segments(self, obj):
@@ -75,11 +58,6 @@ class LessonTranscriptSerializer(serializers.ModelSerializer):
             many=True,
             context={"include_words": bool(self.context.get("include_words"))},
         ).data
-
-    def get_chunks(self, obj):
-        if not self.context.get("include_chunks"):
-            return None
-        return TranscriptChunkSerializer(obj.chunks.all().order_by("chunk_index"), many=True).data
 
 
 class TranscriptJobSerializer(serializers.ModelSerializer):

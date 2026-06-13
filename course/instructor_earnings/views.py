@@ -293,12 +293,20 @@ class InstructorEarningsExportView(APIView):
             qs = qs.filter(earning_date__date__lte=date_to)
 
         qs = qs.order_by('-earning_date').select_related('course', 'instructor__user')
-        headers = ['ID', 'Date', 'Course', 'Source', 'Gross (VND)', 'Net (VND)', 'Commission Rate', 'Status']
+        headers = ['ID', 'Date', 'Course', 'Source', 'Gross (VND)', 'Net (VND)', 'Platform Fee Rate', 'Instructor Share Rate', 'Usage Share Rate', 'Status']
         rows = []
         for earning in qs:
-            commission = '0.00'
-            if earning.amount:
-                commission = f"{((earning.amount - earning.net_amount) / earning.amount * 100):.2f}"
+            if earning.platform_commission_rate is not None:
+                platform_fee = str(earning.platform_commission_rate)
+                share_rate = str(earning.instructor_share_rate) if earning.instructor_share_rate is not None else 'Legacy'
+            elif earning.payment_id and earning.amount:
+                from decimal import Decimal as _D
+                amt = _D(str(earning.amount))
+                platform_fee = f"{((amt - _D(str(earning.net_amount or 0))) / amt * 100):.2f}" if amt else 'Legacy'
+                share_rate = 'Legacy'
+            else:
+                platform_fee = 'Legacy'
+                share_rate = 'Legacy'
             rows.append([
                 earning.id,
                 earning.earning_date.strftime('%Y-%m-%d') if earning.earning_date else '',
@@ -306,7 +314,9 @@ class InstructorEarningsExportView(APIView):
                 'subscription' if earning.user_subscription_id else 'retail',
                 float(earning.amount or 0),
                 float(earning.net_amount or 0),
-                commission,
+                platform_fee,
+                share_rate,
+                str(earning.usage_share_rate) if earning.usage_share_rate is not None else '',
                 earning.status,
             ])
 

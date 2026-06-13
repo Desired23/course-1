@@ -21,6 +21,7 @@ class Cart(models.Model):
 
     class Meta:
         db_table = 'Cart'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(fields=['user', 'course'], name='unique_cart')
         ]

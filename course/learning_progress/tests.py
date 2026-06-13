@@ -60,6 +60,35 @@ class LearningProgressSyncTests(TestCase):
         self.assertEqual(course_progress["completed_lessons"], 1)
         self.assertEqual(course_progress["total_lessons"], 2)
 
+    def test_progress_denominator_snapshot_ignores_new_lessons(self):
+        update_learning_progress(
+            self.student.id,
+            self.lessons[0].id,
+            {"progress_percentage": 100, "is_completed": True},
+        )
+        self.enrollment.refresh_from_db()
+        self.assertEqual(self.enrollment.progress, Decimal("50.00"))
+
+        module = self.lessons[0].coursemodule
+        for index in range(3, 5):
+            Lesson.objects.create(
+                coursemodule=module,
+                title=f"Lesson {index}",
+                content_type=Lesson.ContentType.TEXT,
+                order=index,
+                status=Lesson.Status.PUBLISHED,
+            )
+
+        update_learning_progress(
+            self.student.id,
+            self.lessons[1].id,
+            {"progress_percentage": 100, "is_completed": True},
+        )
+        self.enrollment.refresh_from_db()
+
+        self.assertEqual(self.enrollment.progress, Decimal("100.00"))
+        self.assertEqual(self.enrollment.status, Enrollment.Status.Complete)
+
     def test_full_completion_syncs_enrollment_to_complete_for_non_certificate_course(self):
         for lesson in self.lessons:
             update_learning_progress(
@@ -77,7 +106,7 @@ class LearningProgressSyncTests(TestCase):
         self.assertEqual(course_progress["overall_progress"], 100.0)
         self.assertEqual(course_progress["completed_lessons"], 2)
 
-    def test_marking_lesson_incomplete_recalculates_enrollment_progress(self):
+    def test_completed_enrollment_progress_is_locked(self):
         for lesson in self.lessons:
             update_learning_progress(
                 self.student.id,
@@ -92,26 +121,7 @@ class LearningProgressSyncTests(TestCase):
         )
 
         self.enrollment.refresh_from_db()
-        course_progress = get_course_progress(self.student.id, self.course.id)
 
-        self.assertEqual(self.enrollment.progress, Decimal("50.00"))
-        self.assertEqual(self.enrollment.status, Enrollment.Status.Active)
-        self.assertIsNone(self.enrollment.completion_date)
-        self.assertEqual(course_progress["overall_progress"], 50.0)
-        self.assertEqual(course_progress["completed_lessons"], 1)
-
-    def test_certificate_course_stays_active_until_certificate_is_issued(self):
-        self.course.certificate = True
-        self.course.save(update_fields=["certificate"])
-
-        for lesson in self.lessons:
-            update_learning_progress(
-                self.student.id,
-                lesson.id,
-                {"progress_percentage": 100, "is_completed": True},
-            )
-
-        self.enrollment.refresh_from_db()
         self.assertEqual(self.enrollment.progress, Decimal("100.00"))
-        self.assertEqual(self.enrollment.status, Enrollment.Status.Active)
-        self.assertIsNone(self.enrollment.completion_date)
+        self.assertEqual(self.enrollment.status, Enrollment.Status.Complete)
+        self.assertIsNotNone(self.enrollment.completion_date)

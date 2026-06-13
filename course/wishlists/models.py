@@ -15,6 +15,7 @@ class Wishlist(models.Model):
 
     class Meta:
         db_table = 'Wishlist'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(fields=['user', 'course'], name='unique_wishlist')
         ]

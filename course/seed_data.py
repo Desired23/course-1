@@ -44,7 +44,7 @@ from instructor_payouts.models import InstructorPayout
 from notifications.models import Notification
 from supports.models import Support
 from support_replies.models import SupportReply
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PlatformSetting
 from activity_logs.models import ActivityLog
 from registration_forms.models import RegistrationForm, FormQuestion
 from applications.models import Application, ApplicationResponse
@@ -285,7 +285,7 @@ for i, u in enumerate(instructor_users):
             'total_students': random.randint(100, 5000),
             'total_courses': 0,
             'level': random.choice(inst_levels),
-            'social_links': {"linkedin": f"https://linkedin.com/in/{u.username}", "youtube": f"https://youtube.com/@{u.username}"},
+            'social_links': {},
         }
     )
     instructors.append(inst)
@@ -1297,38 +1297,52 @@ homepage_schema_v2 = {
     ],
 }
 
-settings_data = [
+PlatformSetting.objects.update_or_create(
+    singleton_key=1,
+    defaults={
+        "site_name": "coursePlatform",
+        "min_payout": Decimal("500000"),
+        "auto_approve_instructor_application": True,
+        "auto_approve_payout": True,
+        "site_description": "Nen tang hoc truc tuyen hang dau Viet Nam",
+        "contact_email": "support@eduplatform.vn",
+        "contact_phone": "",
+        "homepage_layout": [
+            {"component": component, "enabled": True, "order": idx}
+            for idx, (_, component) in enumerate(HOMEPAGE_LEGACY_COMPONENTS, 1)
+        ],
+        "homepage_config": {},
+        "homepage_schema_v2": homepage_schema_v2,
+        "updated_by": admin_obj,
+    },
+)
+
+settings_data = []
+legacy_settings_data = [
     ("homepage", "homepage_schema_v2", json.dumps(homepage_schema_v2, ensure_ascii=False), "Dynamic homepage schema v2"),
-    ("general", "site_name", "EduPlatform", "Tên website"),
+    ("general", "site_name", "coursePlatform", "Tên website"),
     ("general", "site_description", "Nền tảng học trực tuyến hàng đầu Việt Nam", "Mô tả website"),
     ("general", "contact_email", "support@eduplatform.vn", "Email liên hệ"),
-    ("general", "contact_phone", "1900-xxxx", "Số điện thoại"),
+    ("general", "contact_phone", "", "Số điện thoại"),
     ("payment", "vnpay_enabled", "true", "Bật thanh toán VNPay"),
     ("payment", "momo_enabled", "true", "Bật thanh toán MoMo"),
     ("payment", "min_payout", "500000", "Số tiền rút tối thiểu"),
     ("email", "smtp_host", "smtp.gmail.com", "SMTP Host"),
     ("email", "smtp_port", "587", "SMTP Port"),
     ("course", "max_upload_size", "524288000", "Dung lượng upload tối đa (bytes)"),
-    ("course", "auto_approve", "true", "Tự động duyệt khóa học"),
     ("instructor", "auto_approve_instructor_application", "true", "Tự động duyệt đơn ứng tuyển instructor"),
     ("course", "auto_approve_review", "true", "Tự động duyệt đánh giá"),
     ("payment", "auto_approve_payout", "true", "Tự động duyệt yêu cầu rút tiền"),
-    ("payment", "auto_approve_refund", "true", "Tự động xử lý hoàn tiền (không cần admin duyệt)"),
 ]
-for group, key, val, desc in settings_data:
-    SystemsSetting.objects.update_or_create(
-        setting_key=key,
-        defaults={
-            'setting_group': group,
-            'setting_value': val,
-            'description': desc,
-            'admin': admin_obj,
-        }
-    )
-
-
-
-
+settings_data = [
+    row for row in settings_data
+    if row[1] not in {
+        "site_name",
+        "min_payout",
+        "auto_approve_instructor_application",
+        "auto_approve_payout",
+    }
+]
 print("  → Activity Logs...")
 log_actions = ["LOGIN", "LOGOUT", "ENROLL", "VIEW_LESSON", "PAYMENT_SUCCESS", "PROFILE_UPDATED", "COMMENT"]
 for _ in range(100):

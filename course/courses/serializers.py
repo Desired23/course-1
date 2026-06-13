@@ -47,6 +47,8 @@ class CourseSerializer(serializers.ModelSerializer):
             'status',
             'is_featured',
             'is_public',
+            'admin_hidden',
+            'is_hard_blocked',
             'created_at',
             'updated_at',
             'published_date',
@@ -114,8 +116,8 @@ class LessonSummarySerializer(serializers.Serializer):
     lesson_id = serializers.IntegerField(source='id')
     title = serializers.CharField()
     content_type = serializers.CharField()
-    video_url = serializers.CharField(allow_null=True)
-    video_public_id = serializers.CharField(allow_null=True)
+    video_url = serializers.SerializerMethodField()
+    video_public_id = serializers.SerializerMethodField()
     signed_video_url = serializers.SerializerMethodField()
     signed_video_expires_at = serializers.SerializerMethodField()
     duration = serializers.IntegerField(allow_null=True)
@@ -123,6 +125,15 @@ class LessonSummarySerializer(serializers.Serializer):
     order = serializers.IntegerField()
     has_quiz = serializers.SerializerMethodField()
     quiz_count = serializers.SerializerMethodField()
+
+    def _media_allowed(self, obj):
+        return bool(self.context.get('media_allowed')) or bool(obj.is_free)
+
+    def get_video_url(self, obj):
+        return obj.video_url if self._media_allowed(obj) else None
+
+    def get_video_public_id(self, obj):
+        return obj.video_public_id if self._media_allowed(obj) else None
     transcript_status = serializers.SerializerMethodField()
     has_published_transcript = serializers.SerializerMethodField()
     transcript_language_codes = serializers.SerializerMethodField()
@@ -147,10 +158,14 @@ class LessonSummarySerializer(serializers.Serializer):
         return cache[obj.id]
 
     def get_signed_video_url(self, obj):
+        if not self._media_allowed(obj):
+            return None
         signed, _ = self._get_signed_tuple(obj)
         return signed
 
     def get_signed_video_expires_at(self, obj):
+        if not self._media_allowed(obj):
+            return None
         _, expires_at = self._get_signed_tuple(obj)
         return expires_at
 
@@ -230,6 +245,8 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'status',
             'is_featured',
             'is_public',
+            'admin_hidden',
+            'is_hard_blocked',
             'created_at',
             'updated_at',
             'published_date',
@@ -247,7 +264,14 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_modules(self, obj):
         modules = obj.modules.filter(is_deleted=False).order_by('order_number')
-        return ModuleSummarySerializer(modules, many=True).data
+        user = self.context.get('user')
+        media_allowed = False
+        if user:
+            from utils.course_access import has_existing_course_access
+            media_allowed = has_existing_course_access(user, obj)
+        context = dict(self.context)
+        context['media_allowed'] = media_allowed
+        return ModuleSummarySerializer(modules, many=True, context=context).data
 
     def get_user_enrollment(self, obj):
         user = self.context.get('user')

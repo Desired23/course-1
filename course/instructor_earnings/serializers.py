@@ -25,13 +25,26 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
             'plan_name',
             'earning_source',
             'commission_rate_applied',
+            'platform_commission_rate',
+            'instructor_share_rate',
+            'instructor_level_id_snapshot',
+            'instructor_level_name_snapshot',
+            'usage_share_rate',
+            'usage_seconds',
+            'earning_period_start',
+            'earning_period_end',
             'amount',
             'net_amount',
             'status',
             'earning_date',
             'instructor_payout',
         ]
-        read_only_fields = ['id', 'earning_date', 'net_amount', 'earning_source', 'commission_rate_applied']
+        read_only_fields = [
+            'id', 'earning_date', 'net_amount', 'earning_source', 'commission_rate_applied',
+            'platform_commission_rate', 'instructor_share_rate',
+            'instructor_level_id_snapshot', 'instructor_level_name_snapshot',
+            'usage_share_rate', 'usage_seconds', 'earning_period_start', 'earning_period_end',
+        ]
 
     def get_earning_source(self, obj):
         if obj.user_subscription_id:
@@ -39,11 +52,15 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
         return 'retail'
 
     def get_commission_rate_applied(self, obj):
-        amount = obj.amount or Decimal('0')
-        if not amount:
-            return '0.00'
-        commission = (Decimal(amount) - Decimal(obj.net_amount or 0)) / Decimal(amount) * Decimal('100')
-        return f"{commission.quantize(Decimal('0.01'))}"
+        if obj.platform_commission_rate is not None:
+            return str(obj.platform_commission_rate)
+        # Fallback only for retail legacy earnings
+        if obj.payment_id and obj.amount:
+            amount = Decimal(str(obj.amount))
+            if amount:
+                commission = (amount - Decimal(str(obj.net_amount or 0))) / amount * Decimal('100')
+                return str(commission.quantize(Decimal('0.01')))
+        return None
 
 
 class SubscriptionRevenueBreakdownSerializer(serializers.Serializer):

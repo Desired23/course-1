@@ -22,7 +22,7 @@ from enrollments.models import Enrollment
 from learning_progress.models import LearningProgress
 from lessons.models import Lesson
 from quiz_results.models import QuizResult
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PlatformSetting
 
 
 DEFAULT_PROFILE = "demo-full"
@@ -372,31 +372,33 @@ def _reset_business_tables(dry_run: bool) -> dict[str, Any]:
     }
 
 
-def _snapshot_home_settings() -> dict[str, dict[str, str | None]]:
-    rows = SystemsSetting.objects.filter(setting_key__in=HOME_SETTING_KEYS, is_deleted=False)
-    snapshot: dict[str, dict[str, str | None]] = {}
-    for row in rows:
-        snapshot[row.setting_key] = {
-            "setting_group": row.setting_group,
-            "setting_value": row.setting_value,
-            "description": row.description,
+def _snapshot_home_settings() -> dict[str, dict[str, Any]]:
+    snapshot: dict[str, dict[str, Any]] = {}
+    platform_setting = PlatformSetting.objects.filter(singleton_key=1).first()
+    if platform_setting:
+        snapshot["homepage_layout"] = {"typed_value": copy.deepcopy(platform_setting.homepage_layout)}
+        snapshot["homepage_config"] = {"typed_value": copy.deepcopy(platform_setting.homepage_config)}
+        snapshot["homepage_schema_v2"] = {"typed_value": copy.deepcopy(platform_setting.homepage_schema_v2)}
+        snapshot["homepage_schema_v2_initial_backup"] = {
+            "typed_value": copy.deepcopy(platform_setting.homepage_schema_v2_initial_backup)
         }
     return snapshot
 
 
-def _restore_home_settings(snapshot: dict[str, dict[str, str | None]]) -> int:
+def _restore_home_settings(snapshot: dict[str, dict[str, Any]]) -> int:
     restored = 0
     for setting_key, payload in snapshot.items():
-        SystemsSetting.objects.update_or_create(
-            setting_key=setting_key,
-            defaults={
-                "setting_group": payload.get("setting_group") or "homepage",
-                "setting_value": payload.get("setting_value") or "",
-                "description": payload.get("description") or setting_key,
-                "admin": None,
-            },
-        )
-        restored += 1
+        if setting_key in {
+            "homepage_layout",
+            "homepage_config",
+            "homepage_schema_v2",
+            "homepage_schema_v2_initial_backup",
+        }:
+            platform_setting, _ = PlatformSetting.objects.get_or_create(singleton_key=1)
+            setattr(platform_setting, setting_key, payload.get("typed_value"))
+            platform_setting.save(update_fields=[setting_key, "updated_at"])
+            restored += 1
+            continue
     return restored
 
 

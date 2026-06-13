@@ -104,11 +104,9 @@ class CertificateIssuanceTests(TestCase):
         self.assertEqual(self.enrollment.status, "complete")
         self.assertIsNotNone(self.enrollment.completion_date)
 
-        # Re-issuing must not create a duplicate certificate. Issuance flips the
-        # enrollment to 'complete', so a second attempt is rejected (no active
-        # enrollment) rather than silently producing another certificate.
-        with self.assertRaises(ValidationError):
-            issue_certificate(self.student, self.course.id)
+        # Re-issuing is idempotent: it returns the existing certificate instead
+        # of producing a duplicate (SOL-001 allows a completed enrollment).
+        issue_certificate(self.student, self.course.id)
 
         certs = Certificate.objects.filter(
             user=self.student, course=self.course, revoked=False, is_deleted=False

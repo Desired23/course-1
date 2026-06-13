@@ -7,6 +7,7 @@ class Question(models.Model):
         ('open', 'open'),
         ('closed', 'closed'),
         ('duplicate', 'duplicate'),
+        ('hidden', 'hidden'),
     ]
 
     id = models.AutoField(primary_key=True)
@@ -34,6 +35,7 @@ class Question(models.Model):
 
     class Meta:
         db_table = 'Questions'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Question {self.id}: {self.title}"

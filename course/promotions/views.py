@@ -50,6 +50,10 @@ class PromotionManagementView(APIView):
                 )
                 return paginate_queryset(promotions, request, PromotionSerializer)
             else:
+                admin = getattr(request.user, 'admin', None)
+                if admin:
+                    promotions = get_promotions_by_admin(admin.id)
+                    return paginate_queryset(promotions, request, PromotionSerializer)
                 return Response({"error": "promotion_id or admin_id is required"}, status=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)

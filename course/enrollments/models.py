@@ -35,6 +35,7 @@ class Enrollment(models.Model):
     expiry_date = models.DateTimeField(blank=True, null = True)
     completion_date = models.DateTimeField(blank=True, null = True)
     progress = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.00'))
+    progress_denominator = models.IntegerField(blank=True, null=True)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -50,6 +51,7 @@ class Enrollment(models.Model):
     is_deleted = models.BooleanField(default=False)
     class Meta:
         db_table = 'Enrollments'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(fields=['user', 'course'], name='unique_enrollment')
         ]

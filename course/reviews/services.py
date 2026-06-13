@@ -30,18 +30,30 @@ def create_review(data):
     except Course.DoesNotExist:
         raise ValidationError({"course": "Khoa hoc khong ton tai."})
 
-    if not Enrollment.objects.filter(user=user, course=course).exists():
+    enrollment = Enrollment.objects.filter(
+        user=user, course=course, is_deleted=False,
+    ).exclude(status=Enrollment.Status.Cancelled).first()
+    if not enrollment:
         raise ValidationError({"error": "Nguoi dung chua dang ky khoa hoc nay."})
+
+    if (enrollment.progress or 0) <= 50:
+        raise ValidationError({"error": "Bạn cần học hơn 50% khóa học trước khi đánh giá."})
+
+    existing = Review.objects.filter(user=user, course=course, is_deleted=False).first()
+    if existing:
+        review = update_review(existing.id, data, requesting_user=user)
+        from courses.services import recalc_course_rating
+        recalc_course_rating(course_id)
+        return review
 
     serializer = ReviewSerializer(data=data)
     if serializer.is_valid(raise_exception=True):
-        from systems_settings.services import get_bool_setting
         with transaction.atomic():
             review = serializer.save()
-            Course.objects.filter(id=course_id).update(total_reviews=F('total_reviews') + 1)
-            if get_bool_setting('auto_approve_review', default=True):
-                review.status = Review.StatusChoices.APPROVED
-                review.save(update_fields=['status', 'updated_at'])
+            review.status = Review.StatusChoices.APPROVED
+            review.save(update_fields=['status', 'updated_at'])
+            from courses.services import recalc_course_rating
+            recalc_course_rating(course_id)
         try:
             from notifications.services import create_notification
             if course.instructor_id and course.instructor.user_id:
@@ -61,9 +73,12 @@ def create_review(data):
 
 
 def get_reviews_by_course(course_id):
+    qs = Review.objects.filter(is_deleted=False).exclude(
+        status=Review.StatusChoices.REJECTED
+    ).select_related('user', 'course')
     if course_id:
-        return Review.objects.filter(course=course_id, is_deleted=False).select_related('user', 'course')
-    return Review.objects.filter(is_deleted=False).select_related('user', 'course')
+        qs = qs.filter(course=course_id)
+    return qs
 
 
 def get_reviews_by_user(user_id):
@@ -79,11 +94,15 @@ def get_review_by_id(review_id):
 
 
 def count_reviews_by_course(course_id):
-    return Review.objects.filter(course=course_id, is_deleted=False).count()
+    return Review.objects.filter(course=course_id, is_deleted=False).exclude(
+        status=Review.StatusChoices.REJECTED
+    ).count()
 
 
 def get_course_review_stats(course_id):
-    qs = Review.objects.filter(course=course_id, is_deleted=False)
+    qs = Review.objects.filter(course=course_id, is_deleted=False).exclude(
+        status=Review.StatusChoices.REJECTED
+    )
     agg = qs.aggregate(total=Count('id'), average=Avg('rating'))
     distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     for row in qs.values('rating').annotate(count=Count('id')):
@@ -202,6 +221,9 @@ def moderate_review(review_id, action, reason=''):
         'deleted_at',
         'deleted_by',
     ])
+    if action in {'approve', 'hide', 'delete'}:
+        from courses.services import recalc_course_rating
+        recalc_course_rating(review.course_id)
     if action in {'hide', 'delete'}:
         try:
             from notifications.services import create_notification
@@ -234,4 +256,6 @@ def delete_review(review_id, requesting_user=None):
     review.deleted_at = timezone.now()
     review.deleted_by = requesting_user
     review.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'updated_at'])
+    from courses.services import recalc_course_rating
+    recalc_course_rating(review.course_id)
     return {"message": "Đánh giá đã được xóa thành công."}

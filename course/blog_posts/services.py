@@ -13,8 +13,6 @@ def _is_admin(user):
 
 
 def _check_blog_post_access(blog_post, actor):
-    if _is_admin(actor):
-        return
     if blog_post.author_id != actor.id:
         raise PermissionDenied("Bạn không có quyền thao tác bài viết này.")
 

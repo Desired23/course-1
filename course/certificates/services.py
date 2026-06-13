@@ -85,13 +85,16 @@ def _certificate_fonts_for_text(text):
 
 
 def issue_certificate(user, course_id):
-    try:
-        enrollment = Enrollment.objects.select_related('course').get(
-            user=user, course_id=course_id,
-            status='active', is_deleted=False
-        )
-    except Enrollment.DoesNotExist:
-        raise ValidationError({"error": "Active enrollment not found for this course."})
+    enrollment = Enrollment.objects.select_related('course').filter(
+        user=user, course_id=course_id, is_deleted=False,
+        status__in=[
+            Enrollment.Status.Active,
+            Enrollment.Status.SUSPENDED,
+            Enrollment.Status.Complete,
+        ],
+    ).first()
+    if not enrollment:
+        raise ValidationError({"error": "No eligible enrollment found for this course."})
 
     course = enrollment.course
 
@@ -108,6 +111,7 @@ def issue_certificate(user, course_id):
         coursemodule__course=course,
         coursemodule__is_deleted=False,
         is_deleted=False,
+        status=Lesson.Status.PUBLISHED,
     ).count()
 
     if total_lessons == 0:
@@ -118,6 +122,7 @@ def issue_certificate(user, course_id):
         is_completed=True, is_deleted=False,
         lesson__is_deleted=False,
         lesson__coursemodule__is_deleted=False,
+        lesson__status=Lesson.Status.PUBLISHED,
     ).count()
 
     if completed_lessons < total_lessons:
@@ -193,9 +198,8 @@ def issue_certificate(user, course_id):
 
 
 def certificate_download_url(verification_code):
-    """Public URL that streams the certificate PDF (generated on the fly)."""
-    base = "http://localhost:8000" if settings.DEBUG else settings.BACKEND_PUBLIC_URL
-    return f"{base}/api/certificates/public/{verification_code}/download/"
+    """Frontend My Certificates page (login required) — not a public PDF link."""
+    return f"{settings.FRONTEND_URL}/user/my-certificates"
 
 
 def render_certificate_pdf(cert):

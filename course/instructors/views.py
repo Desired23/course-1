@@ -261,8 +261,6 @@ class InstructorListExportView(APIView):
         if date_to:
             qs = qs.filter(created_at__date__lte=date_to)
 
-        qs = qs.order_by('-created_at')
-
         headers = [
             'ID', 'Full Name', 'Email', 'Specialization', 'Qualification',
             'Experience (years)', 'Rating', 'Total Students', 'Total Courses',

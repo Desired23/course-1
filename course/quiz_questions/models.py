@@ -42,6 +42,7 @@ class QuizQuestion(models.Model):
 
     class Meta:
         db_table = "QuizQuestions"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Question {self.id}: {self.question_text[:50]}"

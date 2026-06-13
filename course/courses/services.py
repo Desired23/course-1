@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import Course
@@ -42,11 +43,6 @@ COURSE_CONTENT_FIELDS = {
 }
 
 
-def is_course_auto_approve_enabled():
-    from systems_settings.services import get_bool_setting
-    return get_bool_setting('auto_approve', default=True)
-
-
 def mark_course_content_changed(course, *, save=True):
     if course.status not in {Course.Status.PUBLISHED, Course.Status.ARCHIVED}:
         return False
@@ -56,6 +52,42 @@ def mark_course_content_changed(course, *, save=True):
     if save:
         course.save(update_fields=['content_changed_since_publish', 'updated_at'])
     return True
+
+
+def recalc_course_rating(course_id):
+    from reviews.models import Review
+    from django.db.models import Avg, Count
+    agg = Review.objects.filter(course_id=course_id, is_deleted=False).exclude(
+        status=Review.StatusChoices.REJECTED
+    ).aggregate(avg=Avg('rating'), total=Count('id'))
+    Course.objects.filter(id=course_id).update(
+        rating=round(float(agg['avg']), 2) if agg['avg'] is not None else Decimal('0.00'),
+        total_reviews=agg['total'] or 0,
+    )
+
+
+def recalc_course_students(course_id):
+    from django.db.models import Count
+    total = Enrollment.objects.filter(
+        course_id=course_id,
+        is_deleted=False,
+        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete, Enrollment.Status.SUSPENDED],
+    ).count()
+    Course.objects.filter(id=course_id).update(total_students=total)
+
+
+def recalc_course_structure(course_id):
+    from coursemodules.models import CourseModule
+    from lessons.models import Lesson
+    total_modules = CourseModule.objects.filter(course_id=course_id, is_deleted=False).count()
+    total_lessons = Lesson.objects.filter(
+        coursemodule__course_id=course_id,
+        coursemodule__is_deleted=False,
+        is_deleted=False,
+    ).count()
+    Course.objects.filter(id=course_id).update(
+        total_modules=total_modules, total_lessons=total_lessons
+    )
 
 
 def create_course(data):
@@ -78,16 +110,37 @@ def create_course(data):
         raise ValidationError("Lỗi khi tạo khóa học.")
 
 def get_course_by_id(course_id, user=None):
+    from rest_framework.exceptions import NotFound
     try:
         course = Course.objects.select_related(
             'instructor__user', 'category', 'subcategory'
         ).prefetch_related(
             'modules__lessons__quiz_question_lesson'
         ).get(id=course_id, is_deleted=False)
+
+        is_admin = is_active_admin(user)
+        is_owner = bool(
+            user and is_active_instructor(user)
+            and getattr(user, 'instructor', None)
+            and course.instructor_id == user.instructor.id
+        )
+        if not (is_admin or is_owner):
+            if course.is_hard_blocked:
+                raise NotFound("Course not found")
+            publicly_visible = (
+                course.status == Course.Status.PUBLISHED
+                and course.is_public
+                and not course.admin_hidden
+            )
+            if not publicly_visible:
+                from utils.course_access import has_existing_course_access
+                if not has_existing_course_access(user, course):
+                    raise NotFound("Course not found")
+
         return CourseDetailSerializer(course, context={'user': user}).data
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
-    except ValidationError:
+    except (ValidationError, NotFound):
         raise
     except Exception as e:
         raise ValidationError(f"Lỗi khi lấy thông tin khóa học: {e}")
@@ -154,12 +207,23 @@ def get_all_courses(instructor_id=None, category_id=None, subcategory_id=None,
                     ordering=None, rating_min=None, language=None,
                     price_min=None, price_max=None, subcategory_ids=None,
                     levels=None, languages=None, duration_buckets=None,
-                    certificate=None):
+                    certificate=None, public_only=False, hide_drafts=False):
     try:
         from django.db.models import Q
         courses = Course.objects.filter(is_deleted=False).select_related(
             'instructor__user', 'category', 'subcategory'
         )
+        if hide_drafts and not public_only:
+            courses = courses.exclude(status=Course.Status.DRAFT)
+        if public_only:
+            courses = courses.filter(
+                status=Course.Status.PUBLISHED,
+                is_public=True,
+                admin_hidden=False,
+                is_hard_blocked=False,
+                instructor__is_deleted=False,
+                instructor__user__status='active',
+            )
         if instructor_id:
             courses = courses.filter(instructor_id=instructor_id)
         if category_id:
@@ -289,8 +353,6 @@ def update_course(course_id, data, requesting_user=None):
                     raise ValidationError(
                         f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
                     )
-            if normalized_status == Course.Status.PENDING and is_course_auto_approve_enabled():
-                normalized_status = Course.Status.PUBLISHED
             payload['status'] = normalized_status
 
         serializer = CourseSerializer(course, data=payload, partial=True)
@@ -337,12 +399,25 @@ def update_course(course_id, data, requesting_user=None):
                 if is_admin and send_notification:
                     instructor_user_id = updated_course.instructor.user.id if updated_course.instructor else None
                     if instructor_user_id:
-                        title = (notify_title or '').strip() or f"Course '{updated_course.title}' status changed"
-                        default_message = (
-                            f"Admin changed the course status from '{old_status}' to '{updated_course.status}'."
-                        )
+                        status_labels = {
+                            Course.Status.DRAFT: 'Bản nháp',
+                            Course.Status.PENDING: 'Chờ duyệt',
+                            Course.Status.PUBLISHED: 'Đã xuất bản',
+                            Course.Status.REJECTED: 'Bị từ chối',
+                            Course.Status.ARCHIVED: 'Đã lưu trữ',
+                        }
+                        new_label = status_labels.get(updated_course.status, updated_course.status)
+                        title = (notify_title or '').strip() or f"Cập nhật khóa học \"{updated_course.title}\""
+                        if updated_course.status == Course.Status.PUBLISHED:
+                            default_message = f"Khóa học \"{updated_course.title}\" của bạn đã được duyệt và xuất bản."
+                        elif updated_course.status == Course.Status.REJECTED:
+                            default_message = f"Khóa học \"{updated_course.title}\" của bạn chưa được duyệt."
+                        elif updated_course.status == Course.Status.ARCHIVED:
+                            default_message = f"Khóa học \"{updated_course.title}\" đã được lưu trữ."
+                        else:
+                            default_message = f"Trạng thái khóa học \"{updated_course.title}\" đã được cập nhật thành \"{new_label}\"."
                         if reason_text:
-                            default_message += f" Reason: {reason_text}"
+                            default_message += f" Lý do: {reason_text}"
                         message = (notify_message or '').strip() or default_message
                         try:
                             from notifications.services import create_notification
@@ -383,6 +458,25 @@ def update_course(course_id, data, requesting_user=None):
     except Course.DoesNotExist:
         raise ValidationError("Course not found")
 
+def _course_has_bound_data(course):
+    from enrollments.models import Enrollment
+    from payment_details.models import Payment_Details
+    from certificates.models import Certificate
+    from reviews.models import Review
+    from instructor_earnings.models import InstructorEarning
+    from subscription_plans.models import PlanCourse
+
+    checks = [
+        Enrollment.objects.filter(course=course, is_deleted=False),
+        Payment_Details.objects.filter(course=course, is_deleted=False),
+        Certificate.objects.filter(course=course, is_deleted=False),
+        Review.objects.filter(course=course, is_deleted=False),
+        InstructorEarning.objects.filter(course=course, is_deleted=False),
+        PlanCourse.objects.filter(course=course, status=PlanCourse.Status.ACTIVE, is_deleted=False),
+    ]
+    return any(qs.exists() for qs in checks)
+
+
 def delete_course(course_id, requesting_user=None):
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
@@ -391,6 +485,11 @@ def delete_course(course_id, requesting_user=None):
             instructor = getattr(requesting_user, 'instructor', None)
             if not is_active_instructor(requesting_user) or course.instructor_id != instructor.id:
                 raise ValidationError("Bạn không có quyền xóa khóa học này.")
+            if _course_has_bound_data(course):
+                raise ValidationError(
+                    "Không thể xóa khóa học đã có học viên hoặc giao dịch. "
+                    "Vui lòng lưu trữ (archive/unpublish) khóa học thay vì xóa."
+                )
         course_title = course.title
         instructor_id = course.instructor.user.id if course.instructor else None
         course.is_deleted = True
@@ -424,22 +523,45 @@ def moderate_course(course_id, action, reason=''):
     action = (action or '').strip().lower()
     if action == 'approve':
         course.status = Course.Status.PUBLISHED
+        course.admin_hidden = False
+        course.is_hard_blocked = False
+    elif action == 'reject':
+        course.status = Course.Status.REJECTED
+    elif action == 'archive':
+        course.status = Course.Status.ARCHIVED
+        course.admin_hidden = True
     elif action == 'dismiss':
         pass
     elif action == 'hide':
-        course.status = Course.Status.ARCHIVED
+        course.admin_hidden = True
+    elif action == 'hard_block':
+        course.is_hard_blocked = True
+        course.admin_hidden = True
+    elif action == 'unblock':
+        course.is_hard_blocked = False
+        course.admin_hidden = False
+        if course.status == Course.Status.ARCHIVED:
+            course.status = Course.Status.PUBLISHED
     elif action == 'delete':
+        if _course_has_bound_data(course):
+            raise ValidationError({
+                'error': 'Khóa học đã có dữ liệu học tập/giao dịch. Dùng hide hoặc hard_block thay vì xóa.'
+            })
         course.is_deleted = True
         course.deleted_at = timezone.now()
     else:
-        raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
+        raise ValidationError({'error': 'Invalid action. Use: approve, reject, archive, dismiss, hide, hard_block, unblock, delete'})
 
     course.save()
     try:
-        if action in ('hide', 'delete'):
+        if action in ('reject', 'archive', 'hide', 'hard_block', 'unblock', 'delete'):
             from notifications.services import create_notification
             instructor_user_id = course.instructor.user_id if course.instructor else None
             if instructor_user_id:
+                if action in ('reject', 'archive', 'unblock'):
+                    return course
+                if action == 'hard_block':
+                    action = 'hide'
                 create_notification(
                     receiver_id=instructor_user_id,
                     title="Khóa học của bạn đã bị xử lý",

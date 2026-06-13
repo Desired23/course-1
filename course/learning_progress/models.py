@@ -35,6 +35,7 @@ class LearningProgress(models.Model):
 
     class Meta:
         db_table = 'LearningProgress'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(fields=['user', 'lesson'], name='unique_user_lesson_progress')
         ]

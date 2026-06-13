@@ -11,6 +11,7 @@ from .models import (
     UserSubscription,
     CourseSubscriptionConsent,
     SubscriptionUsage,
+    SubscriptionUsageEvent,
 )
 from utils.roles import is_active_instructor
 from .serializers import (
@@ -398,10 +399,10 @@ def admin_cancel_subscription(subscription_id, admin_user):
 
     _create_notification(
         receiver=sub.user,
-        title=f"Goi {sub.plan.name} da bi huy boi quan tri vien",
+        title=f"Gói {sub.plan.name} đã bị hủy bởi quản trị viên",
         message=(
-            f"Goi '{sub.plan.name}' cua ban da bi huy ngay lap tuc boi quan tri vien. "
-            "Ban co the lien he ho tro neu can them thong tin."
+            f"Gói '{sub.plan.name}' của bạn đã bị hủy ngay lập tức bởi quản trị viên. "
+            "Bạn có thể liên hệ hỗ trợ nếu cần thêm thông tin."
         ),
         notification_code='subscription_cancelled',
         related_id=sub.id,
@@ -421,6 +422,21 @@ def user_has_plan_access(user_id, course_id):
         plan__plan_courses__is_deleted=False,
     ).filter(
         Q(end_date__isnull=True) | Q(end_date__gte=now)
+    ).exists()
+
+
+def user_has_active_subscription_enrollment(user_id, course_id):
+    now = timezone.now()
+    return Enrollment.objects.filter(
+        user_id=user_id,
+        course_id=course_id,
+        source=Enrollment.Source.SUBSCRIPTION,
+        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
+        is_deleted=False,
+        subscription__status='active',
+        subscription__is_deleted=False,
+    ).filter(
+        Q(subscription__end_date__isnull=True) | Q(subscription__end_date__gte=now)
     ).exists()
 
 
@@ -621,6 +637,82 @@ def track_subscription_usage(user, course_id, usage_type='course_access', consum
 
 
 
+
+
+def record_subscription_usage_event_from_progress(
+    user, enrollment, course, lesson, delta_seconds, occurred_at=None
+):
+    """Record a SubscriptionUsageEvent and update SubscriptionUsage aggregate."""
+    import math
+    from decimal import Decimal
+
+    if delta_seconds <= 0:
+        return None
+
+    now = timezone.now()
+    active_subscription = UserSubscription.objects.filter(
+        user=user,
+        status='active',
+        is_deleted=False,
+        plan__plan_courses__course=course,
+        plan__plan_courses__status='active',
+        plan__plan_courses__is_deleted=False,
+    ).filter(
+        Q(end_date__isnull=True) | Q(end_date__gte=now)
+    ).first()
+
+    if not active_subscription:
+        return None
+
+    instructor = getattr(course, 'instructor', None)
+    if not instructor:
+        return None
+
+    if instructor.level and instructor.level.plan_commission_rate is not None:
+        platform_rate = Decimal(str(instructor.level.plan_commission_rate)).quantize(Decimal('0.01'))
+    else:
+        platform_rate = Decimal('30.00')
+    share_rate = (Decimal('100.00') - platform_rate).quantize(Decimal('0.01'))
+
+    event = SubscriptionUsageEvent.objects.create(
+        user_subscription=active_subscription,
+        user=user,
+        course=course,
+        lesson=lesson,
+        enrollment=enrollment,
+        instructor=instructor,
+        usage_type=SubscriptionUsageEvent.UsageType.VIDEO_PROGRESS,
+        delta_seconds=delta_seconds,
+        occurred_at=occurred_at or now,
+        platform_commission_rate_snapshot=platform_rate,
+        instructor_share_rate_snapshot=share_rate,
+        instructor_level_id_snapshot=instructor.level_id if instructor.level else None,
+        instructor_level_name_snapshot=instructor.level.name if instructor.level else None,
+    )
+
+    usage_date = (occurred_at or now).date()
+    usage, created = SubscriptionUsage.objects.get_or_create(
+        user_subscription=active_subscription,
+        user=user,
+        course=course,
+        usage_type=SubscriptionUsage.UsageType.LESSON_ACCESS,
+        usage_date=usage_date,
+        defaults={
+            'enrollment': enrollment,
+            'consumed_seconds': delta_seconds,
+            'consumed_minutes': math.ceil(delta_seconds / 60),
+            'access_count': 1,
+        }
+    )
+    if not created:
+        usage.consumed_seconds += delta_seconds
+        usage.consumed_minutes = math.ceil(usage.consumed_seconds / 60)
+        usage.access_count += 1
+        if usage.enrollment_id is None and enrollment:
+            usage.enrollment = enrollment
+        usage.save(update_fields=['consumed_seconds', 'consumed_minutes', 'access_count', 'enrollment', 'last_accessed_at'])
+
+    return event
 
 
 def _create_notification(receiver, title, message, notification_code, related_id=None):

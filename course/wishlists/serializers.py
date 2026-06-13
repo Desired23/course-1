@@ -18,12 +18,17 @@ class WishlistCourseSerializer(serializers.Serializer):
     level = serializers.CharField()
     short_description = serializers.CharField(allow_null=True)
     status = serializers.CharField()
+    not_buyable_reason = serializers.SerializerMethodField()
 
     def get_instructor_name(self, obj):
         try:
             return obj.instructor.user.full_name
         except Exception:
             return None
+
+    def get_not_buyable_reason(self, obj):
+        from utils.course_access import course_not_buyable_reason
+        return course_not_buyable_reason(obj)
 
 
 class WishlistSerializer(serializers.ModelSerializer):

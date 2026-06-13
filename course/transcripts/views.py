@@ -53,7 +53,7 @@ class LessonTranscriptPublicView(APIView):
             return Response(
                 LessonTranscriptSerializer(
                     transcript,
-                    context={"include_words": include_words, "include_chunks": False},
+                    context={"include_words": include_words},
                 ).data,
                 status=status.HTTP_200_OK,
             )
@@ -74,11 +74,11 @@ class LessonTranscriptEditorView(APIView):
                 {
                     "latest": LessonTranscriptSerializer(
                         data["latest"],
-                        context={"include_words": True, "include_chunks": True},
+                        context={"include_words": True},
                     ).data if data["latest"] else None,
                     "published": LessonTranscriptSerializer(
                         data["published"],
-                        context={"include_words": True, "include_chunks": True},
+                        context={"include_words": True},
                     ).data if data["published"] else None,
                     "latest_job": TranscriptJobSerializer(data["latest_job"]).data if data["latest_job"] else None,
                 },
@@ -97,7 +97,7 @@ class TranscriptDetailView(APIView):
     def patch(self, request, transcript_id):
         try:
             transcript = LessonTranscript.objects.select_related("lesson__coursemodule__course").prefetch_related(
-                "segments", "chunks", "segments__words"
+                "segments", "segments__words"
             ).get(id=transcript_id)
             assert_transcript_management_access(request.user, transcript.lesson)
             serializer = TranscriptUpdateSerializer(data=request.data, partial=True)
@@ -106,7 +106,7 @@ class TranscriptDetailView(APIView):
             return Response(
                 LessonTranscriptSerializer(
                     updated,
-                    context={"include_words": True, "include_chunks": True},
+                    context={"include_words": True},
                 ).data,
                 status=status.HTTP_200_OK,
             )
@@ -123,14 +123,14 @@ class TranscriptPublishView(APIView):
     def post(self, request, transcript_id):
         try:
             transcript = LessonTranscript.objects.select_related("lesson__coursemodule__course").prefetch_related(
-                "segments__words", "chunks"
+                "segments__words"
             ).get(id=transcript_id)
             assert_transcript_management_access(request.user, transcript.lesson)
             published = publish_transcript(transcript, request.user)
             return Response(
                 LessonTranscriptSerializer(
                     published,
-                    context={"include_words": True, "include_chunks": True},
+                    context={"include_words": True},
                 ).data,
                 status=status.HTTP_200_OK,
             )

@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from decimal import Decimal
 from admins.models import Admin
 from users.models import User
@@ -155,8 +156,8 @@ class UserSubscription(models.Model):
         related_name='subscriptions'
     )
     plan = models.ForeignKey(
-        SubscriptionPlan, on_delete=models.CASCADE,
-        related_name='subscriptions'
+        SubscriptionPlan, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='subscriptions'
     )
     payment = models.ForeignKey(
         Payment, on_delete=models.SET_NULL, null=True, blank=True,
@@ -255,6 +256,7 @@ class SubscriptionUsage(models.Model):
     usage_date = models.DateField(auto_now_add=True)
     access_count = models.IntegerField(default=1)
     consumed_minutes = models.IntegerField(default=0)
+    consumed_seconds = models.IntegerField(default=0)
     last_accessed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -265,3 +267,59 @@ class SubscriptionUsage(models.Model):
 
     def __str__(self):
         return f"Usage {self.user_id} - {self.course_id} ({self.usage_type})"
+
+
+class SubscriptionUsageEvent(models.Model):
+    class UsageType(models.TextChoices):
+        VIDEO_PROGRESS = "video_progress", "Video Progress"
+        LESSON_COMPLETE = "lesson_complete", "Lesson Complete"
+        MANUAL = "manual", "Manual"
+
+    id = models.AutoField(primary_key=True)
+    user_subscription = models.ForeignKey(
+        UserSubscription, on_delete=models.CASCADE, related_name="usage_events",
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="subscription_usage_events",
+    )
+    course = models.ForeignKey(
+        Course, on_delete=models.CASCADE, related_name="subscription_usage_events",
+    )
+    lesson = models.ForeignKey(
+        "lessons.Lesson", on_delete=models.CASCADE,
+        related_name="subscription_usage_events", null=True, blank=True,
+    )
+    enrollment = models.ForeignKey(
+        Enrollment, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="subscription_usage_events",
+    )
+    instructor = models.ForeignKey(
+        "instructors.Instructor", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="subscription_usage_events",
+    )
+
+    usage_type = models.CharField(
+        max_length=32, choices=UsageType.choices, default=UsageType.VIDEO_PROGRESS,
+    )
+
+    delta_seconds = models.IntegerField(default=0)
+    occurred_at = models.DateTimeField(default=timezone.now)
+
+    platform_commission_rate_snapshot = models.DecimalField(max_digits=5, decimal_places=2)
+    instructor_share_rate_snapshot = models.DecimalField(max_digits=5, decimal_places=2)
+    instructor_level_id_snapshot = models.IntegerField(null=True, blank=True)
+    instructor_level_name_snapshot = models.CharField(max_length=100, null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "subscription_usage_events"
+        indexes = [
+            models.Index(fields=["user_subscription", "occurred_at"]),
+            models.Index(fields=["course", "occurred_at"]),
+            models.Index(fields=["instructor", "occurred_at"]),
+            models.Index(fields=["lesson", "user", "occurred_at"]),
+        ]
+
+    def __str__(self):
+        return f"UsageEvent sub={self.user_subscription_id} course={self.course_id} delta={self.delta_seconds}s"

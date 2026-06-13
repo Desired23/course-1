@@ -5,18 +5,46 @@
 // Only includes intra-group relationships
 
 // Primary tables
-Table SystemsSettings {
+Table PlatformSettings {
   id integer [pk, not null]
-  setting_group varchar [not null]
-  setting_key varchar [not null]
-  setting_value varchar [not null]
-  description varchar [not null]
-  admin_id integer
+  singleton_key integer [not null, unique]
+  site_name varchar [not null]
+  site_description text [not null]
+  site_logo varchar [not null]
+  favicon varchar [not null]
+  primary_color varchar [not null]
+  secondary_color varchar [not null]
+  contact_email varchar [not null]
+  contact_phone varchar [not null]
+  contact_address varchar [not null]
+  social_links json [not null]
+  banners json [not null]
+  min_payout decimal [not null]
+  auto_approve_instructor_application boolean [not null]
+  auto_approve_payout boolean [not null]
+  homepage_layout json [not null]
+  homepage_config json [not null]
+  homepage_schema_v2 json
+  homepage_schema_v2_initial_backup json
+  website_management json [not null]
+  learning_path_gemini_model varchar [not null]
+  updated_by_id integer
   created_at datetime [not null]
   updated_at datetime [not null]
-  deleted_at datetime
-  deleted_by_id integer
-  is_deleted boolean [not null]
+}
+
+Table PaymentSettings {
+  id integer [pk, not null]
+  singleton_key integer [not null, unique]
+  payment_policies json [not null]
+  instructor_rates json [not null]
+  discount_rules json [not null]
+  payment_methods_config json [not null]
+  payment_settings_config json [not null]
+  payment_gateways json [not null]
+  updated_by_id integer
+  created_at datetime [not null]
+  updated_at datetime [not null]
 }
 
 Table registration_forms {

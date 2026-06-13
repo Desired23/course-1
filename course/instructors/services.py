@@ -41,6 +41,10 @@ def create_instructor(data):
     serializer = InstructorSerializers(data=modified_data, context={'request': None})
     if serializer.is_valid(raise_exception=True):
         instructor = serializer.save()
+        if instructor.level is None:
+            from instructor_levels.services import get_default_instructor_level
+            instructor.level = get_default_instructor_level()
+            instructor.save(update_fields=['level'])
         return instructor
     raise ValidationError(serializer.errors)
 

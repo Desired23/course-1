@@ -1,4 +1,4 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -74,8 +74,10 @@ class LessonQuizView(APIView):
     throttle_scope = 'burst'
     def get(self, request, lesson_id):
         try:
-            quiz_data = get_lesson_quiz(lesson_id)
+            quiz_data = get_lesson_quiz(lesson_id, user=request.user)
             return Response(quiz_data, status=status.HTTP_200_OK)
+        except PermissionDenied as e:
+            return Response({"error": e.detail}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

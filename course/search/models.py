@@ -23,6 +23,7 @@ class SearchEvent(models.Model):
 
     class Meta:
         db_table = 'SearchEvents'
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['user', '-created_at']),
             models.Index(fields=['normalized_query', '-created_at']),

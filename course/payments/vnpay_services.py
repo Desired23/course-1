@@ -257,6 +257,13 @@ def create_enrollments_from_payment(payment):
             logger.warning("PaymentDetail %s has no course, skipping enrollment", detail.id)
             continue
 
+        if course_obj.is_deleted:
+            logger.warning(
+                "Course %s for payment %s is deleted; skipping auto-enrollment (needs manual review)",
+                course_obj.id, payment.id,
+            )
+            continue
+
         try:
             create_enrollment({
                 'user_id': payment.user.id,
@@ -363,6 +370,9 @@ def payment_ipn(request):
                 from instructor_earnings.models import InstructorEarning
                 if not InstructorEarning.objects.filter(payment=payment).exists():
                     generate_instructor_earnings_from_payment(payment.id)
+
+                from .services import consume_payment_promotions
+                consume_payment_promotions(payment)
 
                 create_enrollments_from_payment(payment)
 

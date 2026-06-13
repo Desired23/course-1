@@ -17,8 +17,15 @@ def get_instructor_dashboard_stats(instructor):
     courses_qs = Course.objects.filter(instructor=instructor, is_deleted=False)
     course_ids = list(courses_qs.values_list('id', flat=True))
 
-    published_count = courses_qs.filter(status='published').count()
-    draft_count = courses_qs.exclude(status='published').count()
+    status_counts = courses_qs.aggregate(
+        published=Count('id', filter=Q(status='published')),
+        pending=Count('id', filter=Q(status='pending')),
+        draft=Count('id', filter=Q(status='draft')),
+        rejected=Count('id', filter=Q(status='rejected')),
+        archived=Count('id', filter=Q(status='archived')),
+    )
+    published_count = status_counts['published']
+    draft_count = status_counts['draft']
 
     enrollments_qs = Enrollment.objects.filter(
         course_id__in=course_ids, is_deleted=False, status='active'
@@ -66,6 +73,9 @@ def get_instructor_dashboard_stats(instructor):
         'total_courses': courses_qs.count(),
         'published_courses': published_count,
         'draft_courses': draft_count,
+        'pending_courses': status_counts['pending'],
+        'rejected_courses': status_counts['rejected'],
+        'archived_courses': status_counts['archived'],
         'total_students': total_students,
         'new_students_this_month': new_students_this_month,
         'total_earnings': float(total_earnings),

@@ -124,7 +124,8 @@ def _sync_role_records(user, roles):
         instructor = getattr(user, 'instructor', None)
         if want_instructor:
             if instructor is None:
-                Instructor.objects.create(user=user)
+                from instructor_levels.services import get_default_instructor_level
+                Instructor.objects.create(user=user, level=get_default_instructor_level())
             elif instructor.is_deleted:
                 instructor.is_deleted = False
                 instructor.deleted_at = None

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime
 from typing import Any, Dict
 
 from django.utils import timezone
@@ -11,7 +11,6 @@ from .models import UserSettings
 
 DEFAULT_ACCOUNT_PREFERENCES: Dict[str, str] = {
     "language": "en",
-    "timezone": "UTC+7",
     "currency": "VND",
 }
 
@@ -35,9 +34,8 @@ DEFAULT_PRIVACY_PREFERENCES: Dict[str, bool] = {
     "showOnlineStatus": True,
 }
 
-KNOWN_TIMEZONES = {"UTC+7", "UTC", "UTC-5", "UTC-8", "UTC+1", "UTC+9"}
 KNOWN_LANGUAGES = {"en", "vi", "es", "fr", "de", "ja"}
-KNOWN_CURRENCIES = {"VND", "USD", "EUR", "GBP", "JPY"}
+KNOWN_CURRENCIES = {"VND"}
 
 
 @dataclass(frozen=True)
@@ -120,21 +118,6 @@ def apply_privacy_to_user_payload(payload: Dict[str, Any], owner_id: int, viewer
 
 
 def format_datetime_for_user(user_id: int, value: datetime) -> str:
-    prefs = load_user_preferences(user_id).account
-    tz_name = prefs.get("timezone", "UTC+7")
     if not value.tzinfo:
         value = timezone.make_aware(value, timezone.get_current_timezone())
-    if tz_name == "UTC":
-        dt_local = value.astimezone(dt_timezone.utc)
-        return f"{dt_local.strftime('%d/%m/%Y %H:%M')} (UTC)"
-    if tz_name.startswith("UTC+") or tz_name.startswith("UTC-"):
-        sign = 1 if "+" in tz_name else -1
-        offset_str = tz_name.replace("UTC+", "").replace("UTC-", "")
-        try:
-            offset_hours = int(offset_str)
-            tz_obj = dt_timezone(sign * timedelta(hours=offset_hours))
-            dt_local = value.astimezone(tz_obj)
-            return f"{dt_local.strftime('%d/%m/%Y %H:%M')} ({tz_name})"
-        except ValueError:
-            pass
-    return f"{timezone.localtime(value).strftime('%d/%m/%Y %H:%M')} ({tz_name})"
+    return timezone.localtime(value).strftime('%d/%m/%Y %H:%M')

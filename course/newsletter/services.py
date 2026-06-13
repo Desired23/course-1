@@ -31,11 +31,11 @@ def subscribe_email(email):
 
 
 def get_subscribers():
-    return Subscriber.objects.filter(is_deleted=False).order_by('-created_at')
+    return Subscriber.objects.filter(is_deleted=False)
 
 
 def get_campaigns():
-    return NewsletterCampaign.objects.select_related('sent_by').order_by('-created_at')
+    return NewsletterCampaign.objects.select_related('sent_by')
 
 
 def _send_bulk(recipients, subject, content):
@@ -53,12 +53,19 @@ def _send_bulk(recipients, subject, content):
 
 def send_campaign(subject, content, audience, admin_user):
     """Record the campaign and dispatch emails in a background thread (non-blocking)."""
+    active_users = User.objects.filter(is_deleted=False, status=User.StatusChoices.ACTIVE).exclude(email='')
+
     if audience == NewsletterCampaign.Audience.ALL_USERS:
+        recipients = list(active_users.values_list('email', flat=True))
+    elif audience == NewsletterCampaign.Audience.INSTRUCTORS:
         recipients = list(
-            User.objects.filter(
-                is_deleted=False,
-                status=User.StatusChoices.ACTIVE,
-            ).exclude(email='').values_list('email', flat=True)
+            active_users.filter(instructor__isnull=False, instructor__is_deleted=False)
+            .values_list('email', flat=True)
+        )
+    elif audience == NewsletterCampaign.Audience.STUDENTS:
+        recipients = list(
+            active_users.filter(instructor__isnull=True, admin__isnull=True)
+            .values_list('email', flat=True)
         )
     else:
         recipients = list(

@@ -2,7 +2,8 @@ from rest_framework.exceptions import ValidationError
 from .models import Cart
 from .serializers import CartSerializer
 from enrollments.models import Enrollment
-from utils.course_access import get_course_access_info
+from courses.models import Course
+from utils.course_access import get_course_access_info, course_not_buyable_reason
 
 def create_cart(data):
     try:
@@ -17,6 +18,11 @@ def create_cart(data):
             ).exists()
             if already_in_cart:
                 raise ValidationError("Khóa học này đã có trong giỏ hàng.")
+
+            course = Course.objects.filter(id=course_id, is_deleted=False).first()
+            reason = course_not_buyable_reason(course)
+            if reason:
+                raise ValidationError(reason)
 
 
             already_enrolled = Enrollment.objects.filter(
@@ -60,7 +66,7 @@ def get_cart_by_user(user_id):
         Cart.objects.select_related(
             'course__instructor__user', 'course__category',
             'user__admin', 'user__instructor',
-        ).filter(user=user_id).order_by('-created_at')
+        ).filter(user=user_id)
     )
 
     owned_ids = []
@@ -75,6 +81,7 @@ def get_cart_by_user(user_id):
             owned_ids.append(cart.id)
             continue
         cart._in_plan = access_type == 'subscription'
+        cart._not_buyable_reason = None if cart._in_plan else course_not_buyable_reason(cart.course)
         remaining.append(cart)
 
     if owned_ids:

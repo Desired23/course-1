@@ -26,9 +26,13 @@ class CartCourseSerializer(serializers.Serializer):
 class CartSerializer(serializers.ModelSerializer):
     course_detail = CartCourseSerializer(source='course', read_only=True)
     in_plan = serializers.SerializerMethodField()
+    not_buyable_reason = serializers.SerializerMethodField()
 
     def get_in_plan(self, obj):
         return bool(getattr(obj, '_in_plan', False))
+
+    def get_not_buyable_reason(self, obj):
+        return getattr(obj, '_not_buyable_reason', None)
 
     class Meta:
         model = Cart
@@ -38,6 +42,7 @@ class CartSerializer(serializers.ModelSerializer):
             'course',
             'course_detail',
             'in_plan',
+            'not_buyable_reason',
             'promotion',
             'created_at'
         ]

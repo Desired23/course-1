@@ -1,5 +1,6 @@
 import json
 from django.db import transaction
+from django.db.models import F
 from rest_framework.exceptions import ValidationError
 from .serializers import PaymentSerializer, PaymentCreateSerializer
 from .models import Payment
@@ -13,37 +14,25 @@ from .utils import generate_unique_transaction_id
 from activity_logs.services import log_activity
 from instructor_earnings.services import generate_instructor_earnings_from_payment
 from payment_details.models import Payment_Details
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PaymentSetting
 from datetime import timedelta
 
 
 PAYMENT_ADMIN_CONFIGS = {
     'policies': {
-        'setting_key': 'payment_policies',
+        'field': 'payment_policies',
         'description': 'Payment management policies configuration',
         'default_value': [],
     },
     'instructor-rates': {
-        'setting_key': 'instructor_rates',
+        'field': 'instructor_rates',
         'description': 'Payment management instructor rates configuration',
         'default_value': [],
     },
     'discounts': {
-        'setting_key': 'discount_rules',
+        'field': 'discount_rules',
         'description': 'Payment management discount rules configuration',
         'default_value': [],
-    },
-    'refund-settings': {
-        'setting_key': 'refund_settings',
-        'description': 'Refund workflow settings',
-        'default_value': {
-            'refund_mode': 'admin_approval',
-            'refund_retry_cooldown_minutes': 30,
-            'refund_max_retry_count': 3,
-            'refund_timeout_seconds': 15,
-            'allow_admin_override_refund_status': True,
-            'allow_admin_soft_delete_refund': True,
-        },
     },
 }
 
@@ -56,6 +45,11 @@ BLOCKING_ENROLLMENT_STATUSES = [
 
 
 def _find_course_purchase_blocker(user_id, course):
+    from utils.course_access import course_not_buyable_reason
+    not_buyable = course_not_buyable_reason(course)
+    if not_buyable:
+        return not_buyable
+
     enrollment = Enrollment.objects.filter(
         user_id=user_id,
         course=course,
@@ -179,6 +173,26 @@ def create_payment(payment_data):
                     total_amount = total_original
             else:
 
+                not_buyable_items = []
+                for item in payment_detail_input:
+                    cid = item.get("course_id")
+                    if not cid:
+                        raise ValidationError("Thiếu course_id trong chi tiết thanh toán.")
+                    pre_course = Course.objects.filter(id=cid).first()
+                    if not pre_course:
+                        raise ValidationError(f"Course ID {cid} không tồn tại.")
+                    blocker = _find_course_purchase_blocker(user_id, pre_course)
+                    if isinstance(blocker, dict):
+                        raise ValidationError(blocker)
+                    if blocker:
+                        not_buyable_items.append({
+                            "course_id": pre_course.id,
+                            "title": pre_course.title,
+                            "reason": blocker,
+                        })
+                if not_buyable_items:
+                    raise ValidationError({"code": "course_not_buyable", "items": not_buyable_items})
+
                 for item in payment_detail_input:
                     course_id = item.get("course_id")
                     detail_promotion_id = item.get("promotion_id")
@@ -188,8 +202,12 @@ def create_payment(payment_data):
                     try:
                         course = Course.objects.get(id=course_id)
                         blocker = _find_course_purchase_blocker(user_id, course)
-                        if blocker:
+                        if isinstance(blocker, dict):
                             raise ValidationError(blocker)
+                        if blocker:
+                            raise ValidationError({"code": "course_not_buyable", "items": [
+                                {"course_id": course.id, "title": course.title, "reason": blocker}
+                            ]})
                     except Course.DoesNotExist:
                         raise ValidationError(f"Course ID {course_id} không tồn tại.")
 
@@ -210,6 +228,10 @@ def create_payment(payment_data):
                         price = original_price
                     discount = Decimal("0.0")
 
+                    if price <= 0:
+                        raise ValidationError(
+                            "Khóa học miễn phí không cần thanh toán; hãy dùng luồng đăng ký học."
+                        )
 
                     if detail_promotion_id:
                         try:
@@ -329,25 +351,6 @@ def create_payment(payment_data):
 
                 payment_detail_serializer.save()
                 payment_details_data = payment_detail_serializer.data
-            used_promotions = set()
-
-
-            for detail in payment_detail_arr:
-                if detail.get("promotion"):
-                    used_promotions.add(detail["promotion"])
-
-
-            if promotion_id:
-                used_promotions.add(promotion_id)
-
-
-            for promo_id in used_promotions:
-                try:
-                    promo = Promotion.objects.select_for_update().get(id=promo_id)
-                    promo.used_count = (promo.used_count or 0) + 1
-                    promo.save()
-                except Promotion.DoesNotExist:
-                    raise ValidationError(f"Khuyến mãi ID {promo_id} không tồn tại khi cập nhật lượt dùng.")
 
             log_activity(
                 user_id=user_id,
@@ -365,6 +368,17 @@ def create_payment(payment_data):
         raise
     except Exception as e:
         raise ValidationError(f"Lỗi khi tạo thanh toán: {str(e)}")
+
+
+def consume_payment_promotions(payment):
+    used_promotions = set()
+    if payment.promotion_id:
+        used_promotions.add(payment.promotion_id)
+    for detail in payment.payment_details.all():
+        if detail.promotion_id:
+            used_promotions.add(detail.promotion_id)
+    for promo_id in used_promotions:
+        Promotion.objects.filter(id=promo_id).update(used_count=F('used_count') + 1)
 
 
 def cancel_payment(payment_id, user):
@@ -636,19 +650,10 @@ def get_payment_admin_config(config_key):
     if not config_meta:
         raise ValidationError("Unsupported payment admin config key.")
 
-    setting, _ = SystemsSetting.objects.get_or_create(
-        setting_key=config_meta['setting_key'],
-        defaults={
-            'setting_group': 'payments',
-            'setting_value': json.dumps(config_meta.get('default_value', []), ensure_ascii=False),
-            'description': config_meta['description'],
-        }
-    )
-
-    try:
-        parsed_value = json.loads(setting.setting_value or json.dumps(config_meta.get('default_value', []), ensure_ascii=False))
-    except json.JSONDecodeError as exc:
-        raise ValidationError(f"Stored payment config is invalid JSON: {exc}") from exc
+    setting, _ = PaymentSetting.objects.get_or_create(singleton_key=1)
+    parsed_value = getattr(setting, config_meta['field'])
+    if parsed_value is None:
+        parsed_value = config_meta.get('default_value', [])
 
     return {
         'config_key': config_key,
@@ -669,21 +674,10 @@ def update_payment_admin_config(config_key, value, admin=None):
         raise ValidationError("Payment admin config value must be a JSON object.")
 
     serialized_value = json.dumps(value, ensure_ascii=False)
-    setting, _ = SystemsSetting.objects.get_or_create(
-        setting_key=config_meta['setting_key'],
-        defaults={
-            'setting_group': 'payments',
-            'setting_value': serialized_value,
-            'description': config_meta['description'],
-            'admin': admin,
-        }
-    )
-
-    setting.setting_group = 'payments'
-    setting.setting_value = serialized_value
-    setting.description = config_meta['description']
-    setting.admin = admin
-    setting.save(update_fields=['setting_group', 'setting_value', 'description', 'admin', 'updated_at'])
+    setting, _ = PaymentSetting.objects.get_or_create(singleton_key=1)
+    setattr(setting, config_meta['field'], json.loads(serialized_value))
+    setting.updated_by = admin
+    setting.save(update_fields=[config_meta['field'], 'updated_by', 'updated_at'])
 
     return {
         'config_key': config_key,

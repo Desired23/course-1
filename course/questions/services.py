@@ -50,7 +50,7 @@ def update_question(question_id, data, actor):
         question = Question.objects.get(id=question_id, is_deleted=False)
     except Question.DoesNotExist:
         raise NotFound("Question not found.")
-    if question.author_id != actor.id and not _is_admin(actor):
+    if question.author_id != actor.id:
         raise PermissionDenied("Bạn không có quyền chỉnh sửa câu hỏi này.")
     payload = dict(data)
     payload.pop('author', None)
@@ -116,7 +116,10 @@ def moderate_question(question_id, action, reason=''):
         question.report_count = 0
     elif action == 'dismiss':
         question.report_count = 0
-    elif action in ('hide', 'close'):
+    elif action == 'hide':
+        question.status = 'hidden'
+        question.report_count = 0
+    elif action == 'close':
         question.status = 'closed'
         question.report_count = 0
     elif action == 'delete':

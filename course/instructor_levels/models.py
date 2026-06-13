@@ -25,6 +25,7 @@ class InstructorLevel(models.Model):
 
     class Meta:
         db_table = 'InstructorLevels'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.name} ({self.commission_rate}%)"

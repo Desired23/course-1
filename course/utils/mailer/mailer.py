@@ -15,19 +15,15 @@ from reportlab.lib import colors
 
 
 def _get_branding_setting(setting_key, fallback):
-    """Read a branding value from systems_settings, falling back safely.
+    """Read a branding value from platform/system settings, falling back safely.
 
     Avoids hardcoded brand names / support emails in email content. The
-    canonical values live in the systems_settings table (seeded), with a
-    settings/env fallback so emails still render if the row is missing.
+    canonical platform values are typed fields, with legacy dynamic settings
+    and env fallbacks so emails still render if data is missing.
     """
     try:
-        from systems_settings.models import SystemsSetting
-        value = (
-            SystemsSetting.objects.filter(setting_key=setting_key)
-            .values_list("setting_value", flat=True)
-            .first()
-        )
+        from systems_settings.services import get_text_setting
+        value = get_text_setting(setting_key)
         if value and str(value).strip():
             return str(value).strip()
     except Exception:
@@ -36,7 +32,7 @@ def _get_branding_setting(setting_key, fallback):
 
 
 def get_site_name():
-    return _get_branding_setting("site_name", getattr(settings, "SITE_NAME", "UTC"))
+    return _get_branding_setting("site_name", getattr(settings, "SITE_NAME", "Platform"))
 
 
 def get_support_email():

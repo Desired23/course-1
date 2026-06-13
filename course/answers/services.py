@@ -86,12 +86,14 @@ def update_answer(answer_id, data, actor):
 
 
 def moderate_answer(answer_id, action, reason=''):
+    from questions.models import Question
     try:
         answer = Answer.objects.get(id=answer_id, is_deleted=False)
     except Answer.DoesNotExist:
         raise NotFound("Answer not found.")
 
     action = (action or '').strip().lower()
+    was_visible = not answer.is_deleted and answer.status == 'active'
     if action == 'approve':
         answer.status = 'active'
     elif action == 'dismiss':
@@ -105,6 +107,13 @@ def moderate_answer(answer_id, action, reason=''):
         answer.status = 'deleted'
     else:
         raise ValidationError({'error': 'Invalid action. Use: approve, dismiss, hide, delete'})
+
+    if action in ('hide', 'delete') and was_visible:
+        if answer.is_accepted:
+            answer.is_accepted = False
+        Question.objects.filter(id=answer.question_id, answer_count__gt=0).update(
+            answer_count=F('answer_count') - 1
+        )
 
     answer.save()
     try:

@@ -304,6 +304,9 @@ def _promote_to_instructor(application):
             except (ValueError, TypeError):
                 pass
 
+    from instructor_levels.services import get_default_instructor_level
+    instructor_data.setdefault('level', get_default_instructor_level())
+
     instructor, created = Instructor.objects.get_or_create(
         user=user,
         defaults=instructor_data,

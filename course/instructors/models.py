@@ -27,6 +27,7 @@ class Instructor(models.Model):
 
     class Meta:
         db_table = 'Instructors'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Instructor {self.id} - {self.user.full_name} - {self.level.name if self.level else 'No Level'}"

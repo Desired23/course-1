@@ -14,6 +14,7 @@ class QuestionVote(models.Model):
 
     class Meta:
         db_table = 'QuestionVotes'
+        ordering = ['-created_at']
         unique_together = ('user', 'question')
 
     def __str__(self):
@@ -32,6 +33,7 @@ class AnswerVote(models.Model):
 
     class Meta:
         db_table = 'AnswerVotes'
+        ordering = ['-created_at']
         unique_together = ('user', 'answer')
 
     def __str__(self):

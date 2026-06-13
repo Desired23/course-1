@@ -97,10 +97,12 @@ def _unique_username(base):
 
 
 def import_users_bulk(file_bytes, admin_user):
+    from instructor_levels.services import get_default_instructor_level
     rows = parse_excel_bytes(file_bytes)
     created = 0
     updated = 0
     errors = []
+    default_level = get_default_instructor_level()
 
     with transaction.atomic():
         for idx, row in enumerate(rows, start=2):
@@ -123,7 +125,7 @@ def import_users_bulk(file_bytes, admin_user):
                     update_fields.append('full_name')
                 existing.save(update_fields=update_fields)
                 if role == 'instructor':
-                    Instructor.objects.get_or_create(user=existing)
+                    Instructor.objects.get_or_create(user=existing, defaults={'level': default_level})
                 updated += 1
                 continue
 
@@ -147,7 +149,7 @@ def import_users_bulk(file_bytes, admin_user):
                 status=User.StatusChoices.ACTIVE,
             )
             if role == 'instructor':
-                Instructor.objects.get_or_create(user=user)
+                Instructor.objects.get_or_create(user=user, defaults={'level': default_level})
             created += 1
 
     return {'created': created, 'updated': updated, 'errors': errors}

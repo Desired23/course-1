@@ -24,6 +24,7 @@ class QuizResult(models.Model):
 
     class Meta:
         db_table = 'QuizResult'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(fields=['enrollment', 'lesson'], name='unique_quiz_result')
         ]

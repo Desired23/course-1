@@ -23,7 +23,7 @@ from utils.roles import is_active_admin, is_active_instructor
 from lessons.models import Lesson
 from lessons.video_signing import build_signed_video_url
 
-from .models import LessonTranscript, TranscriptChunk, TranscriptJob, TranscriptSegment, TranscriptWord
+from .models import LessonTranscript, TranscriptJob, TranscriptSegment, TranscriptWord
 
 logger = logging.getLogger(__name__)
 PUNCTUATION_END_RE = re.compile(r"[.!?…]$")
@@ -56,11 +56,6 @@ def build_lesson_source_url(lesson: Lesson, snapshot: str | None = None) -> str:
 
 def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip())
-
-
-def _token_count(text: str) -> int:
-    normalized = _normalize_text(text)
-    return len(normalized.split()) if normalized else 0
 
 
 def _group_words_into_segments(words: list[dict], max_words: int = 18, max_duration_ms: int = 5000) -> list[dict]:
@@ -108,39 +103,6 @@ def _group_words_into_segments(words: list[dict], max_words: int = 18, max_durat
 
     flush_segment()
     return segments
-
-
-def _build_chunks_from_segments(segments: list[dict], max_segments: int = 5, max_tokens: int = 120) -> list[dict]:
-    chunks: list[dict] = []
-    current: list[dict] = []
-    current_tokens = 0
-
-    def flush_chunk() -> None:
-        nonlocal current, current_tokens
-        if not current:
-            return
-        text = _normalize_text(" ".join(segment["text"] for segment in current))
-        chunks.append(
-            {
-                "start_ms": current[0]["start_ms"],
-                "end_ms": current[-1]["end_ms"],
-                "text": text,
-                "token_count": _token_count(text),
-                "source_segment_start": current[0]["segment_index"],
-                "source_segment_end": current[-1]["segment_index"],
-            }
-        )
-        current = []
-        current_tokens = 0
-
-    for segment in segments:
-        segment_tokens = _token_count(segment["text"])
-        if current and (len(current) >= max_segments or current_tokens + segment_tokens > max_tokens):
-            flush_chunk()
-        current.append(segment)
-        current_tokens += segment_tokens
-    flush_chunk()
-    return chunks
 
 
 def _build_segments_from_provider_segments(provider_segments: Iterable[dict]) -> list[dict]:
@@ -367,7 +329,7 @@ def get_published_transcript_for_lesson(lesson_id: int, language_code: str | Non
     queryset = LessonTranscript.objects.filter(
         lesson_id=lesson_id,
         status=LessonTranscript.Status.PUBLISHED,
-    ).prefetch_related("segments__words", "chunks")
+    ).prefetch_related("segments__words")
     if language_code:
         queryset = queryset.filter(language_code=language_code)
     transcript = queryset.order_by("-version", "-created_at").first()
@@ -379,7 +341,7 @@ def get_published_transcript_for_lesson(lesson_id: int, language_code: str | Non
 def get_editor_transcripts_for_lesson(lesson_id: int) -> dict:
     transcripts = (
         LessonTranscript.objects.filter(lesson_id=lesson_id)
-        .prefetch_related("segments__words", "chunks")
+        .prefetch_related("segments__words")
         .order_by("-created_at")
     )
     latest = transcripts.first()
@@ -395,34 +357,6 @@ def get_editor_transcripts_for_lesson(lesson_id: int) -> dict:
 def _assert_transcript_editable(transcript: LessonTranscript) -> None:
     if transcript.status in [LessonTranscript.Status.PUBLISHED, LessonTranscript.Status.STALE]:
         raise ValidationError({"transcript": "Only draft or reviewed transcripts can be edited."})
-
-
-def rebuild_transcript_chunks(transcript: LessonTranscript) -> None:
-    segment_rows = list(
-        transcript.segments.all().order_by("segment_index").values(
-            "segment_index",
-            "start_ms",
-            "end_ms",
-            "text",
-        )
-    )
-    TranscriptChunk.objects.filter(transcript=transcript).delete()
-    chunks = _build_chunks_from_segments(segment_rows)
-    TranscriptChunk.objects.bulk_create(
-        [
-            TranscriptChunk(
-                transcript=transcript,
-                chunk_index=index,
-                start_ms=chunk["start_ms"],
-                end_ms=chunk["end_ms"],
-                text=chunk["text"],
-                token_count=chunk["token_count"],
-                source_segment_start=chunk["source_segment_start"],
-                source_segment_end=chunk["source_segment_end"],
-            )
-            for index, chunk in enumerate(chunks)
-        ]
-    )
 
 
 def update_transcript(transcript: LessonTranscript, payload: dict) -> LessonTranscript:
@@ -452,10 +386,9 @@ def update_transcript(transcript: LessonTranscript, payload: dict) -> LessonTran
             if transcript.status == LessonTranscript.Status.DRAFT:
                 transcript.status = LessonTranscript.Status.REVIEWED
                 transcript.save(update_fields=["status", "updated_at"])
-            rebuild_transcript_chunks(transcript)
             should_enqueue_preview = True
 
-    updated = LessonTranscript.objects.prefetch_related("segments__words", "chunks").get(pk=transcript.pk)
+    updated = LessonTranscript.objects.prefetch_related("segments__words").get(pk=transcript.pk)
     return updated
 
 
@@ -580,8 +513,7 @@ def persist_transcription_result(job: TranscriptJob, result: ProviderTranscripti
     if word_rows:
         TranscriptWord.objects.bulk_create(word_rows)
 
-    rebuild_transcript_chunks(transcript)
-    return LessonTranscript.objects.prefetch_related("segments__words", "chunks").get(pk=transcript.pk)
+    return LessonTranscript.objects.prefetch_related("segments__words").get(pk=transcript.pk)
 
 
 def process_transcript_job(job: TranscriptJob) -> LessonTranscript:

@@ -15,5 +15,9 @@ class SupportReply(models.Model):
     deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_support_replies')
     is_deleted = models.BooleanField(default=False)
 
+    class Meta:
+        db_table = 'SupportReplies'
+        ordering = ['-created_at']
+
     def __str__(self):
         return f'Reply by {self.id} to {self.message} at {self.created_at}'

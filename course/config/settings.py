@@ -251,7 +251,6 @@ INSTALLED_APPS = [
     'blog_comments',
     'search',
     'transcripts',
-    'knowledge',
     'reports',
     'newsletter',
 ]

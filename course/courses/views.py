@@ -10,6 +10,7 @@ from .services import (
     get_course_by_id,
     get_public_stats,
     get_course_students,
+    moderate_course,
 )
 from utils.permissions import RolePermissionFactory
 from utils.roles import is_active_instructor
@@ -88,6 +89,30 @@ class CourseListView(APIView):
                     kwargs['certificate'] = str(certificate).lower() in ('true', '1', 'yes')
             except (ValueError, TypeError) as e:
                 return Response({"message": f"Tham số không hợp lệ: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+
+            from utils.roles import is_active_admin
+            requester = None
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1]
+                try:
+                    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+                    requester = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
+                except Exception:
+                    requester = None
+            is_owner_view = False
+            if requester and is_active_instructor(requester):
+                owner_instructor = getattr(requester, 'instructor', None)
+                if owner_instructor and instructor_id and int(instructor_id) == owner_instructor.id:
+                    is_owner_view = True
+            if is_owner_view:
+                pass
+            elif is_active_admin(requester):
+                # Admin reviews pending and moderates published courses, but
+                # instructor drafts are private pre-publication work.
+                kwargs['hide_drafts'] = True
+            else:
+                kwargs['public_only'] = True
 
             courses = get_all_courses(**kwargs)
             return paginate_queryset(courses, request, CourseSerializer)
@@ -171,3 +196,15 @@ class CourseStudentsExportView(APIView):
             return export_to_csv(headers, rows, f'course_{course_id}_students')
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CourseModerationView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+
+    def post(self, request, course_id):
+        course = moderate_course(
+            course_id,
+            request.data.get('action'),
+            request.data.get('reason', ''),
+        )
+        return Response(CourseSerializer(course).data, status=status.HTTP_200_OK)

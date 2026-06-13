@@ -42,6 +42,7 @@ class Promotion(models.Model):
 
     class Meta:
         db_table = 'Promotions'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.code} ({self.discount_type} - {self.id})"

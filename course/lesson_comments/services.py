@@ -68,8 +68,7 @@ def get_root_comments(lesson_id):
             parent_comment__isnull=True,
             is_deleted=False,
             status='active',
-        ).select_related('user')\
-         .order_by('-created_at')
+        ).select_related('user')
         return root_comments
     except Exception as e:
         raise ValidationError(f"Error retrieving root comments: {str(e)}")

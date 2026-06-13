@@ -116,8 +116,33 @@ def create_lesson(data, user):
         course = getattr(getattr(lesson, 'coursemodule', None), 'course', None)
         if course:
             mark_course_content_changed(course)
+            from courses.services import recalc_course_structure
+            recalc_course_structure(course.id)
+            _notify_completed_learners_new_lesson(course)
         return lesson
     raise ValidationError(serializer.errors)
+
+
+def _notify_completed_learners_new_lesson(course):
+    try:
+        from enrollments.models import Enrollment
+        from notifications.services import create_notification
+        learner_ids = Enrollment.objects.filter(
+            course=course,
+            status=Enrollment.Status.Complete,
+            is_deleted=False,
+        ).values_list('user_id', flat=True)
+        for user_id in learner_ids:
+            create_notification(
+                receiver_id=user_id,
+                title="Khóa học có bài học mới",
+                message=f"Khóa học \"{course.title}\" vừa có bài học mới.",
+                type='course',
+                related_id=course.id,
+                notification_code='course_new_lesson',
+            )
+    except Exception:
+        pass
 
 
 def _pop_status_update_meta(data):
@@ -185,9 +210,14 @@ def update_lesson(lesson_id, data, requesting_user=None):
                 instructor = getattr(course, 'instructor', None) if course else None
                 instructor_user_id = getattr(instructor, 'user_id', None)
                 if instructor_user_id:
-                    title = status_meta['notify_title'] or f"Bài học '{updated_lesson.title}' đã đổi trạng thái"
+                    lesson_labels = {
+                        Lesson.Status.DRAFT: 'Bản nháp',
+                        Lesson.Status.PUBLISHED: 'Đã xuất bản',
+                    }
+                    new_label = lesson_labels.get(updated_lesson.status, updated_lesson.status)
+                    title = status_meta['notify_title'] or f"Cập nhật bài học \"{updated_lesson.title}\""
                     default_message = (
-                        f"Admin đã đổi trạng thái bài học từ '{old_status}' sang '{updated_lesson.status}'."
+                        f"Bài học \"{updated_lesson.title}\" đã được cập nhật trạng thái thành \"{new_label}\"."
                     )
                     if status_meta['status_reason']:
                         default_message += f" Lý do: {status_meta['status_reason']}"
@@ -213,9 +243,19 @@ def delete_lesson(lesson_id):
     try:
         lesson = Lesson.objects.get(id=lesson_id)
         course = getattr(getattr(lesson, 'coursemodule', None), 'course', None)
-        lesson.delete()
+        from learning_progress.models import LearningProgress
+        has_learner_data = LearningProgress.objects.filter(lesson=lesson).exists()
+        if has_learner_data:
+            from django.utils import timezone as _tz
+            lesson.is_deleted = True
+            lesson.deleted_at = _tz.now()
+            lesson.save(update_fields=['is_deleted', 'deleted_at'])
+        else:
+            lesson.delete()
         if course:
             mark_course_content_changed(course)
+            from courses.services import recalc_course_structure
+            recalc_course_structure(course.id)
         return {"message": "Lesson deleted successfully."}
     except Lesson.DoesNotExist:
         raise ValidationError({"error": "Lesson not found."})

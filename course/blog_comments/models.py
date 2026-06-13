@@ -24,6 +24,7 @@ class BlogComment(models.Model):
 
     class Meta:
         db_table = 'BlogComments'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Comment {self.id} on BlogPost {self.blog_post.id} by User {self.user.id}"

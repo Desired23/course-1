@@ -1,4 +1,4 @@
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
@@ -78,6 +78,8 @@ class QuizSubmitView(APIView):
         try:
             result = submit_quiz(request.data, request.user)
             return Response(result, status=status.HTTP_201_CREATED)
+        except PermissionDenied as e:
+            return Response({"error": e.detail}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:

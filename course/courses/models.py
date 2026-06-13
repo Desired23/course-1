@@ -69,6 +69,8 @@ class Course(models.Model):
     )
     is_featured = models.BooleanField(default=False)
     is_public = models.BooleanField(default=True)
+    admin_hidden = models.BooleanField(default=False)
+    is_hard_blocked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -89,6 +91,7 @@ class Course(models.Model):
 
     class Meta:
         db_table = 'Courses'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f'Course {self.id} - {self.title}'

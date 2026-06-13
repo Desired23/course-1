@@ -30,6 +30,26 @@ class InstructorEarning(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     net_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
+    platform_commission_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="% nền tảng giữ lại tại thời điểm earning được tạo"
+    )
+    instructor_share_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text="% giảng viên nhận tại thời điểm earning được tạo"
+    )
+    instructor_level_id_snapshot = models.IntegerField(null=True, blank=True)
+    instructor_level_name_snapshot = models.CharField(max_length=100, null=True, blank=True)
+
+    usage_share_rate = models.DecimalField(
+        max_digits=7, decimal_places=4, null=True, blank=True,
+        help_text="% usage của course/instructor trong kỳ subscription"
+    )
+    usage_seconds = models.IntegerField(default=0)
+
+    earning_period_start = models.DateField(null=True, blank=True)
+    earning_period_end = models.DateField(null=True, blank=True)
+
     status = models.CharField(
         max_length=10,
         choices=StatusChoices.choices,
@@ -49,6 +69,7 @@ class InstructorEarning(models.Model):
 
     class Meta:
         db_table = 'InstructorEarnings'
+        ordering = ['-created_at']
         verbose_name = 'Instructor Earning'
         verbose_name_plural = 'Instructor Earnings'
         indexes = [
@@ -66,9 +87,9 @@ class InstructorEarning(models.Model):
                 name='unique_earning_per_payment_course_instructor',
             ),
             models.UniqueConstraint(
-                fields=['user_subscription', 'course', 'instructor'],
+                fields=['user_subscription', 'course', 'instructor', 'earning_period_start'],
                 condition=models.Q(user_subscription__isnull=False),
-                name='unique_earning_per_subscription_course_instructor',
+                name='unique_subscription_earning_per_period_course_instructor',
             ),
         ]
 

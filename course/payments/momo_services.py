@@ -405,6 +405,8 @@ def _finalize_momo_success(payment: Payment, payload: dict):
         from instructor_earnings.models import InstructorEarning
         if not InstructorEarning.objects.filter(payment=payment).exists():
             generate_instructor_earnings_from_payment(payment.id)
+        from .services import consume_payment_promotions
+        consume_payment_promotions(payment)
         create_enrollments_from_payment(payment)
 
     try:

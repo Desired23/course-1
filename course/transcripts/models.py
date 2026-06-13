@@ -157,29 +157,4 @@ class TranscriptWord(models.Model):
         return f"TranscriptWord<{self.id}> segment={self.segment_id} idx={self.word_index}"
 
 
-class TranscriptChunk(models.Model):
-    transcript = models.ForeignKey(
-        LessonTranscript,
-        on_delete=models.CASCADE,
-        related_name="chunks",
-    )
-    chunk_index = models.PositiveIntegerField()
-    start_ms = models.PositiveIntegerField()
-    end_ms = models.PositiveIntegerField()
-    text = models.TextField()
-    token_count = models.PositiveIntegerField(default=0)
-    source_segment_start = models.PositiveIntegerField(default=0)
-    source_segment_end = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        ordering = ["chunk_index", "id"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["transcript", "chunk_index"],
-                name="unique_transcript_chunk_index",
-            )
-        ]
-
-    def __str__(self):
-        return f"TranscriptChunk<{self.id}> transcript={self.transcript_id} idx={self.chunk_index}"
 

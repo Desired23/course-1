@@ -6,7 +6,6 @@ from .preferences import (
     DEFAULT_PRIVACY_PREFERENCES,
     KNOWN_CURRENCIES,
     KNOWN_LANGUAGES,
-    KNOWN_TIMEZONES,
 )
 
 class Userserializers(serializers.ModelSerializer):
@@ -97,8 +96,6 @@ class UserSettingsSerializer(serializers.ModelSerializer):
 
         if merged.get("language") not in KNOWN_LANGUAGES:
             raise serializers.ValidationError({"language": f"Unsupported language. Allowed: {sorted(KNOWN_LANGUAGES)}"})
-        if merged.get("timezone") not in KNOWN_TIMEZONES:
-            raise serializers.ValidationError({"timezone": f"Unsupported timezone. Allowed: {sorted(KNOWN_TIMEZONES)}"})
         if merged.get("currency") not in KNOWN_CURRENCIES:
             raise serializers.ValidationError({"currency": f"Unsupported currency. Allowed: {sorted(KNOWN_CURRENCIES)}"})
         return merged

@@ -269,7 +269,7 @@ def update_notification_batch(notification_code, actor, title=None, message=None
 
         notifications.update(**updates, updated_at=timezone.now())
 
-        sample = notifications.order_by('-created_at').first()
+        sample = notifications.first()
         receiver_ids = list(notifications.values_list('receiver_id', flat=True).distinct())
 
         channel_layer = get_channel_layer()

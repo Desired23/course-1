@@ -13,6 +13,7 @@ class Subscriber(models.Model):
 
     class Meta:
         db_table = 'NewsletterSubscribers'
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.email
@@ -22,6 +23,8 @@ class NewsletterCampaign(models.Model):
     class Audience(models.TextChoices):
         SUBSCRIBERS = 'subscribers', 'Subscribers'
         ALL_USERS = 'all_users', 'All users'
+        INSTRUCTORS = 'instructors', 'Instructors'
+        STUDENTS = 'students', 'Students'
 
     subject = models.CharField(max_length=255)
     content = models.TextField()
@@ -36,6 +39,7 @@ class NewsletterCampaign(models.Model):
 
     class Meta:
         db_table = 'NewsletterCampaigns'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.subject} ({self.audience})"

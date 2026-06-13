@@ -66,6 +66,7 @@ class Payment(models.Model):
 
     class Meta:
         db_table = "payments"
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Payment {self.transaction_id} - {self.payment_status} - {self.id} - {self.payment_date} DATE"

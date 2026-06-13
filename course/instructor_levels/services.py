@@ -11,6 +11,17 @@ def list_instructor_levels():
     return InstructorLevel.objects.filter(is_deleted=False).order_by('min_plan_minutes', 'min_revenue')
 
 
+def get_default_instructor_level():
+    """Level khởi điểm để gán mặc định khi tạo instructor: sàn lấy phí cao nhất
+    (commission_rate lớn nhất) vì instructor mới chưa tạo doanh thu."""
+    return (
+        InstructorLevel.objects
+        .filter(is_deleted=False)
+        .order_by('-commission_rate', 'min_plan_minutes', 'min_revenue')
+        .first()
+    )
+
+
 def create_instructor_level(data: dict):
     serializer = InstructorLevelSerializer(data=data)
     if not serializer.is_valid():

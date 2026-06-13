@@ -46,7 +46,7 @@ from subscription_plans.models import (
 )
 from support_replies.models import SupportReply
 from supports.models import Support
-from systems_settings.models import SystemsSetting
+from systems_settings.models import PlatformSetting
 from users.models import User
 from wishlists.models import Wishlist
 
@@ -403,7 +403,7 @@ def _seed_users(ctx: SeedContext, profile_settings: dict[str, Any]) -> dict[str,
                 total_students=200 + idx * 100,
                 total_courses=0,
                 level=levels[min(idx, len(levels) - 1)],
-                social_links={"linkedin": f"https://linkedin.com/in/{username}"},
+                social_links={},
             )
         )
 
@@ -926,7 +926,7 @@ def _seed_learning_outcomes(
                 user=enrollment.user,
                 course=enrollment.course,
                 enrollment=enrollment,
-                certificate_url=f"https://example.com/certificates/{enrollment.id}.pdf",
+                certificate_url="",
                 student_name=enrollment.user.full_name,
                 course_title=enrollment.course.title,
                 instructor_name=enrollment.course.instructor.user.full_name if enrollment.course.instructor else None,
@@ -1249,8 +1249,24 @@ def _seed_default_system_settings(ctx: SeedContext, users_data: dict[str, Any]) 
         }
     }
 
-    settings_data = [
-        ("general", "site_name", "EduPlatform", "Site display name"),
+    PlatformSetting.objects.update_or_create(
+        singleton_key=1,
+        defaults={
+            "site_name": "coursePlatform",
+            "site_description": "Nen tang hoc truc tuyen hang dau Viet Nam",
+            "contact_email": "support@eduplatform.vn",
+            "contact_phone": "",
+            "min_payout": Decimal("500000"),
+            "auto_approve_instructor_application": True,
+            "auto_approve_payout": True,
+            "homepage_layout": homepage_layout,
+            "homepage_config": homepage_config,
+            "updated_by": users_data.get("admin"),
+        },
+    )
+
+    settings_data = []
+    legacy_settings_data = [
         (
             "general",
             "site_description",
@@ -1258,43 +1274,16 @@ def _seed_default_system_settings(ctx: SeedContext, users_data: dict[str, Any]) 
             "Site description",
         ),
         ("general", "contact_email", "support@eduplatform.vn", "Support contact email"),
-        ("general", "contact_phone", "1900-xxxx", "Support contact phone"),
+        ("general", "contact_phone", "", "Support contact phone"),
         ("payment", "vnpay_enabled", "true", "Enable VNPay payment method"),
         ("payment", "momo_enabled", "true", "Enable MoMo payment method"),
-        ("payment", "min_payout", "500000", "Minimum instructor payout amount"),
         ("email", "smtp_host", "smtp.gmail.com", "SMTP host"),
         ("email", "smtp_port", "587", "SMTP port"),
         ("course", "max_upload_size", "524288000", "Maximum upload size in bytes"),
-        ("course", "auto_approve", "true", "Auto approve new courses"),
-        ("instructor", "auto_approve_instructor_application", "true", "Auto approve instructor applications"),
         ("course", "auto_approve_review", "true", "Auto approve course reviews"),
-        ("payment", "auto_approve_payout", "true", "Auto approve payout requests"),
-        ("payment", "auto_approve_refund", "true", "Auto process refunds without admin approval"),
-        (
-            "homepage",
-            "homepage_layout",
-            json.dumps(homepage_layout, ensure_ascii=False),
-            "Default homepage layout components",
-        ),
-        (
-            "homepage",
-            "homepage_config",
-            json.dumps(homepage_config, ensure_ascii=False),
-            "Default homepage content configuration",
-        ),
     ]
 
-    for group, key, value, description in settings_data:
-        SystemsSetting.objects.update_or_create(
-            setting_key=key,
-            defaults={
-                "setting_group": group,
-                "setting_value": value,
-                "description": description,
-                "admin": users_data.get("admin"),
-            },
-        )
-
+    _count(ctx, "platform_settings", 1)
     _count(ctx, "system_settings", len(settings_data))
 
 
@@ -1377,7 +1366,7 @@ def _recalculate_all_counters() -> dict[str, Any]:
             user=enrollment.user,
             course=enrollment.course,
             enrollment=enrollment,
-            certificate_url=f"https://example.com/certs/{enrollment.id}.pdf",
+            certificate_url="",
             student_name=enrollment.user.full_name,
             course_title=enrollment.course.title,
             instructor_name=instructor_name,
