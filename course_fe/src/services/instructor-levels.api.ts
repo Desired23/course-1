@@ -38,11 +38,23 @@ export async function getInstructorLevelById(levelId: number): Promise<Instructo
   return http.get<InstructorLevel>(`/instructor-levels/${levelId}/`)
 }
 
+export type InstructorLevelInput = Partial<
+  Pick<InstructorLevel, 'name' | 'description' | 'min_students' | 'min_revenue' | 'commission_rate' | 'plan_commission_rate' | 'min_plan_minutes'>
+>
+
+export async function createInstructorLevel(data: InstructorLevelInput): Promise<InstructorLevel> {
+  return http.post<InstructorLevel>('/instructor-levels/', data)
+}
+
 export async function updateInstructorLevel(
   levelId: number,
-  data: Partial<Pick<InstructorLevel, 'name' | 'description' | 'min_students' | 'min_revenue' | 'commission_rate' | 'plan_commission_rate' | 'min_plan_minutes'>>
+  data: InstructorLevelInput
 ): Promise<InstructorLevel> {
   return http.patch<InstructorLevel>(`/instructor-levels/${levelId}/`, data)
+}
+
+export async function deleteInstructorLevel(levelId: number): Promise<{ message?: string }> {
+  return http.delete<{ message?: string }>(`/instructor-levels/${levelId}/`)
 }
 
 

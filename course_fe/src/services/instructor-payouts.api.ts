@@ -137,6 +137,30 @@ export async function requestPayout(data: PayoutRequestData): Promise<Instructor
 }
 
 
+// Live minimum-payout threshold (VND). Backend is the authoritative enforcer;
+// the UI fetches this so client-side validation tracks admin changes.
+export async function getMinPayout(): Promise<number> {
+  const res = await http.get<{ min_payout: string }>('/platform-settings/payout/')
+  return parseDecimal(res?.min_payout) || 0
+}
+
+
+export async function approvePayout(
+  payoutId: number,
+  data: { transaction_id?: string; fee?: number; notes?: string } = {},
+): Promise<InstructorPayout> {
+  return http.put<InstructorPayout>(`/admin/payouts/${payoutId}/approve/`, data)
+}
+
+
+export async function rejectPayout(
+  payoutId: number,
+  data: { notes?: string } = {},
+): Promise<InstructorPayout> {
+  return http.put<InstructorPayout>(`/admin/payouts/${payoutId}/reject/`, data)
+}
+
+
 export async function deletePayout(payoutId: number): Promise<void> {
   return http.delete(`/instructor-payouts/delete/${payoutId}/`)
 }

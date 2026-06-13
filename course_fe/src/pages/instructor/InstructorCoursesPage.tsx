@@ -152,8 +152,7 @@ export function InstructorCoursesPage() {
   }, [selectedTab, statusFilter, sortBy, debouncedSearch])
 
   const effectiveStatus = useMemo(() => {
-    if (selectedTab === 'published') return 'published'
-    if (selectedTab === 'draft') return 'draft'
+    if (selectedTab !== 'all') return selectedTab
     return statusFilter !== 'all' ? statusFilter : undefined
   }, [selectedTab, statusFilter])
 
@@ -422,18 +421,30 @@ export function InstructorCoursesPage() {
 
       <motion.div variants={fadeInUp}>
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="relative grid w-full grid-cols-3 h-auto p-1">
+        <TabsList className="relative grid w-full grid-cols-3 sm:grid-cols-6 h-auto p-1">
           <TabsTrigger value="all" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {selectedTab === 'all' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10"><span className="hidden sm:inline">{t('instructor_courses.all_courses_tab')} </span><span className="sm:hidden">{t('common.all')} </span>({stats?.total_courses ?? totalCount})</span>
+            <span className="relative z-10">{t('instructor_courses.all_courses_tab', 'Tất cả')} ({stats?.total_courses ?? totalCount})</span>
           </TabsTrigger>
           <TabsTrigger value="published" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {selectedTab === 'published' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10"><span className="hidden sm:inline">{t('instructor_courses.published_tab')} </span><span className="sm:hidden">{t('instructor_courses.published_short')} </span>({stats?.published_courses ?? 0})</span>
+            <span className="relative z-10">{t('instructor_courses.published_tab', 'Đã xuất bản')} ({stats?.published_courses ?? 0})</span>
+          </TabsTrigger>
+          <TabsTrigger value="pending" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'pending' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_courses.pending_tab', 'Chờ duyệt')} ({stats?.pending_courses ?? 0})</span>
           </TabsTrigger>
           <TabsTrigger value="draft" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {selectedTab === 'draft' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10"><span className="hidden sm:inline">{t('instructor_courses.drafts_tab')} </span><span className="sm:hidden">{t('instructor_courses.draft_short')} </span>({stats?.draft_courses ?? 0})</span>
+            <span className="relative z-10">{t('instructor_courses.drafts_tab', 'Bản nháp')} ({stats?.draft_courses ?? 0})</span>
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'rejected' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_courses.rejected_tab', 'Bị từ chối')} ({stats?.rejected_courses ?? 0})</span>
+          </TabsTrigger>
+          <TabsTrigger value="archived" className="relative text-xs sm:text-sm whitespace-nowrap px-2 sm:px-4 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {selectedTab === 'archived' && <motion.span layoutId="instructor-courses-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
+            <span className="relative z-10">{t('instructor_courses.archived_tab', 'Lưu trữ')} ({stats?.archived_courses ?? 0})</span>
           </TabsTrigger>
         </TabsList>
 

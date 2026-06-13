@@ -244,7 +244,7 @@ export function AdminBlogPostsPage() {
     setSelectedPostIds(checked ? filteredPosts.map(post => post.id) : [])
   }
 
-  const changePostStatus = async (postId: string, status: 'draft' | 'published') => {
+  const changePostStatus = async (postId: string, status: 'draft' | 'published' | 'archived') => {
     const updated = await updateBlogPost(Number(postId), { status })
     setBlogPosts(prev => prev.map(post => post.id === postId ? mapApiBlogPost(updated) : post))
   }
@@ -564,13 +564,13 @@ export function AdminBlogPostsPage() {
             ),
           },
           {
-            key: 'draft',
-            label: t('admin_blog_posts.bulk.move_to_draft'),
+            key: 'archive',
+            label: t('admin_blog_posts.bulk.archive'),
             onClick: () => openConfirm(
-              t('admin_blog_posts.bulk.move_to_draft_title'),
-              t('admin_blog_posts.bulk.move_to_draft_description', { count: selectedPostIds.length }),
-              t('admin_blog_posts.bulk.move_to_draft'),
-              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'draft'), t('admin_blog_posts.toasts.bulk_move_to_draft_success')),
+              t('admin_blog_posts.bulk.archive_title'),
+              t('admin_blog_posts.bulk.archive_description', { count: selectedPostIds.length }),
+              t('admin_blog_posts.bulk.archive'),
+              () => bulkUpdatePosts(selectedPostIds, (id) => changePostStatus(id, 'archived'), t('admin_blog_posts.toasts.bulk_archive_success')),
             ),
           },
           {
@@ -696,20 +696,22 @@ export function AdminBlogPostsPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openConfirm(
-                          post.status === 'published' ? t('admin_blog_posts.actions.move_to_draft_title') : t('admin_blog_posts.actions.publish_post_title'),
-                          post.status === 'published'
-                            ? t('admin_blog_posts.actions.move_to_draft_description', { title: post.title })
-                            : t('admin_blog_posts.actions.publish_post_description', { title: post.title }),
-                          post.status === 'published' ? t('admin_blog_posts.bulk.move_to_draft') : t('admin_blog_posts.bulk.publish'),
-                          () => changePostStatus(post.id, post.status === 'published' ? 'draft' : 'published'),
-                        )}
-                      >
-                        <Tag className="h-4 w-4" />
-                      </Button>
+                      {post.status !== 'archived' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openConfirm(
+                            post.status === 'published' ? t('admin_blog_posts.actions.archive_title') : t('admin_blog_posts.actions.publish_post_title'),
+                            post.status === 'published'
+                              ? t('admin_blog_posts.actions.archive_description', { title: post.title })
+                              : t('admin_blog_posts.actions.publish_post_description', { title: post.title }),
+                            post.status === 'published' ? t('admin_blog_posts.bulk.archive') : t('admin_blog_posts.bulk.publish'),
+                            () => changePostStatus(post.id, post.status === 'published' ? 'archived' : 'published'),
+                          )}
+                        >
+                          <Tag className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -840,14 +842,17 @@ export function AdminBlogPostsPage() {
                 <Label htmlFor="edit-status">{t('admin_blog_posts.form.status')}</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value: 'draft' | 'published') => setFormData({ ...formData, status: value })}
+                  onValueChange={(value: 'draft' | 'published' | 'archived') => setFormData({ ...formData, status: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="draft">{t('admin_blog_posts.status.draft')}</SelectItem>
+                    {formData.status === 'draft' && (
+                      <SelectItem value="draft">{t('admin_blog_posts.status.draft')}</SelectItem>
+                    )}
                     <SelectItem value="published">{t('admin_blog_posts.status.published')}</SelectItem>
+                    <SelectItem value="archived">{t('admin_blog_posts.status.archived')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

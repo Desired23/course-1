@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Flag, CheckCircle2, XCircle, Lock, Eye, MessageSquare } from 'lucide-react'
+import { Flag, CheckCircle2, XCircle, Lock, Eye, MessageSquare, EyeOff } from 'lucide-react'
 import {
   type Question,
   type Answer,
@@ -49,7 +49,7 @@ export function AdminQAPage() {
     }
   }
 
-  const handleModerate = async (questionId: number, action: 'approve' | 'dismiss' | 'close' | 'delete') => {
+  const handleModerate = async (questionId: number, action: 'approve' | 'dismiss' | 'close' | 'hide' | 'delete') => {
     setActionLoading(questionId)
     try {
       await moderateQuestion(questionId, action)
@@ -94,7 +94,7 @@ export function AdminQAPage() {
           <div className="flex items-center gap-2 mb-1">
             <span className="font-medium text-sm text-gray-900 line-clamp-1">{question.title}</span>
             <Badge
-              variant={question.status === 'open' ? 'outline' : 'secondary'}
+              variant={question.status === 'open' ? 'outline' : question.status === 'hidden' ? 'destructive' : 'secondary'}
               className="shrink-0 text-xs"
             >
               {getStatusLabel(question.status)}
@@ -134,6 +134,15 @@ export function AdminQAPage() {
                 onClick={() => handleModerate(question.id, 'dismiss')}
               >
                 <CheckCircle2 className="w-3 h-3 mr-1" /> Bỏ qua
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs text-purple-600 border-purple-300 hover:bg-purple-50"
+                disabled={actionLoading === question.id}
+                onClick={() => handleModerate(question.id, 'hide')}
+              >
+                <EyeOff className="w-3 h-3 mr-1" /> Gỡ
               </Button>
               <Button
                 size="sm"

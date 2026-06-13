@@ -12,7 +12,7 @@ export function Footer() {
   const { t, i18n } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const [apiCategories, setApiCategories] = useState<Category[]>([])
-  const { siteLogo, siteName } = useSiteBranding()
+  const { siteLogo, siteName, socialLinks: brandingSocials } = useSiteBranding()
   const siteInitial = siteName?.charAt(0)?.toUpperCase() || "U"
   const isDesktopSidebar = useMinWidth(1024)
 
@@ -74,13 +74,19 @@ export function Footer() {
     }
   ]
 
-  const socialLinks = [
-    { icon: Facebook, label: t('footer.social.facebook'), url: "https://facebook.com/utc" },
-    { icon: Twitter, label: t('footer.social.twitter'), url: "https://twitter.com/utc" },
-    { icon: Youtube, label: t('footer.social.youtube'), url: "https://youtube.com/utc" },
-    { icon: Linkedin, label: t('footer.social.linkedin'), url: "https://linkedin.com/company/utc" },
-    { icon: Instagram, label: t('footer.social.instagram'), url: "https://instagram.com/utc" }
-  ]
+  // Social links come from site settings (admin-configured). No hardcoded placeholder
+  // URLs — when nothing is configured the section is hidden rather than linking to
+  // accounts that may not exist.
+  const SOCIAL_ICONS: Record<string, { icon: typeof Facebook; label: string }> = {
+    facebook: { icon: Facebook, label: t('footer.social.facebook') },
+    twitter: { icon: Twitter, label: t('footer.social.twitter') },
+    youtube: { icon: Youtube, label: t('footer.social.youtube') },
+    linkedin: { icon: Linkedin, label: t('footer.social.linkedin') },
+    instagram: { icon: Instagram, label: t('footer.social.instagram') },
+  }
+  const socialLinks = Object.entries(SOCIAL_ICONS)
+    .filter(([key]) => typeof brandingSocials[key] === 'string' && brandingSocials[key].trim() !== '')
+    .map(([key, meta]) => ({ icon: meta.icon, label: meta.label, url: brandingSocials[key] }))
 
   return (
     <footer className="bg-gray-900 text-white py-12 mt-auto">
@@ -121,26 +127,28 @@ export function Footer() {
             </Button>
 
 
-            <div className="mt-4">
-              <h3 className="font-semibold mb-3 text-white text-sm">{t('footer.follow_us')}</h3>
-              <div className="flex gap-2">
-                {socialLinks.map((social) => {
-                  const Icon = social.icon
-                  return (
-                    <a
-                      key={social.label}
-                      href={social.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
-                      aria-label={social.label}
-                    >
-                      <Icon className="w-4 h-4" />
-                    </a>
-                  )
-                })}
+            {socialLinks.length > 0 && (
+              <div className="mt-4">
+                <h3 className="font-semibold mb-3 text-white text-sm">{t('footer.follow_us')}</h3>
+                <div className="flex gap-2">
+                  {socialLinks.map((social) => {
+                    const Icon = social.icon
+                    return (
+                      <a
+                        key={social.label}
+                        href={social.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
+                        aria-label={social.label}
+                      >
+                        <Icon className="w-4 h-4" />
+                      </a>
+                    )
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

@@ -42,6 +42,7 @@ export interface Course {
   promotionId?: number
   discountEndDate?: string | null
   inPlan?: boolean
+  notBuyableReason?: string | null
 }
 
 export interface Coupon {
@@ -81,6 +82,7 @@ function cartItemToCourse(item: CartItem): Course {
     duration: course.duration ? `${Math.floor(course.duration / 60)}h ${course.duration % 60}m` : '',
     discountEndDate: course.discount_end_date || null,
     inPlan: item.in_plan ?? false,
+    notBuyableReason: item.not_buyable_reason ?? null,
   }
 }
 

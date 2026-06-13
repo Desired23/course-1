@@ -6,6 +6,7 @@ import { getMyInstructorProfile } from "../../services/instructor.api"
 import {
   getInstructorPayoutsPage,
   requestPayout,
+  getMinPayout,
   formatPayoutAmount,
   type InstructorPayout,
 } from "../../services/instructor-payouts.api"
@@ -38,6 +39,9 @@ import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
 
 const EARNINGS_PER_PAGE = 10
 const PAYOUTS_PER_PAGE = 10
+// Minimum withdrawal threshold (VND). Backend (`min_payout` system setting) is the
+// authoritative source; this mirrors its default for client-side UX validation.
+const MIN_PAYOUT = 500000
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -93,6 +97,8 @@ export function InstructorPayoutsPage() {
   const [selectedMethod, setSelectedMethod] = useState('')
   const [payoutAmount, setPayoutAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Live min-payout threshold from backend; MIN_PAYOUT is the fallback default.
+  const [minPayout, setMinPayout] = useState<number>(MIN_PAYOUT)
 
   useEffect(() => {
     if (user && !user.roles?.includes('instructor')) {
@@ -124,6 +130,7 @@ export function InstructorPayoutsPage() {
       }
     }
     fetchBase()
+    getMinPayout().then((v) => { if (!cancelled && v > 0) setMinPayout(v) }).catch(() => {})
     return () => { cancelled = true }
   }, [user?.id])
 
@@ -243,8 +250,8 @@ export function InstructorPayoutsPage() {
     if (!selectedMethod) return toast.error(t('instructor_payouts.select_method_error'))
     if (!payoutAmount || parseFloat(payoutAmount) <= 0) return toast.error(t('instructor_payouts.invalid_amount_error'))
     const amount = parseFloat(payoutAmount)
-    if (amount < 50) return toast.error(t('instructor_payouts.minimum_amount_error'))
-    if (amount > availableBalance) return toast.error(t('instructor_payouts.insufficient_balance_error', { amount: formatCurrency(availableBalance, 'USD') }))
+    if (amount < minPayout) return toast.error(t('instructor_payouts.minimum_amount_error'))
+    if (amount > availableBalance) return toast.error(t('instructor_payouts.insufficient_balance_error', { amount: formatCurrency() }))
 
     setIsSubmitting(true)
     try {
@@ -333,7 +340,7 @@ export function InstructorPayoutsPage() {
         </div>
         <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2" disabled={availableBalance < 50}>
+            <Button className="gap-2" disabled={availableBalance < minPayout}>
               <DollarSign className="h-4 w-4" />
               {t('instructor_payouts.request_button')}
             </Button>
@@ -347,22 +354,22 @@ export function InstructorPayoutsPage() {
               <div className="p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">{t('instructor_payouts.available_balance')}</span>
-                  <span className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</span>
+                  <span className="text-2xl font-bold text-green-600">{formatCurrency()}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-muted-foreground/20">
                   <span className="text-muted-foreground">{t('instructor_payouts.from_sales')}</span>
-                  <span className="font-medium">{formatCurrency(salesEarnings, 'USD')}</span>
+                  <span className="font-medium">{formatCurrency()}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">{t('instructor_payouts.from_subscriptions')}</span>
-                  <span className="font-medium">{formatCurrency(subscriptionEarnings, 'USD')}</span>
+                  <span className="font-medium">{formatCurrency()}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="amount">{t('instructor_payouts.withdraw_amount')}</Label>
-                <Input id="amount" type="number" placeholder="0.00" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} max={availableBalance} min={50} />
-                <p className="text-xs text-muted-foreground">{t('instructor_payouts.amount_hint', { amount: formatCurrency(availableBalance, 'USD') })}</p>
+                <Input id="amount" type="number" placeholder="0.00" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} max={availableBalance} min={minPayout} />
+                <p className="text-xs text-muted-foreground">{t('instructor_payouts.amount_hint', { amount: formatCurrency() })}</p>
               </div>
 
               <div className="space-y-2">
@@ -390,13 +397,13 @@ export function InstructorPayoutsPage() {
       </motion.div>
 
       <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={fadeInUp}>
-        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance, 'USD')}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency(salesEarnings, 'USD')}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency(subscriptionEarnings, 'USD')}</Badge></div></CardContent></Card>
-        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency(pendingPayouts, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
-        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalPaid, 'USD')}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency()}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency()}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency()}</Badge></div></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency()}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency()}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
         <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.successful_requests')}</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.completed_transactions')}</p></CardContent></Card>
       </motion.div>
 
-      {availableBalance < 50 && (
+      {availableBalance < minPayout && (
         <motion.div variants={fadeInUp}>
         <Alert>
           <Info className="h-4 w-4" />
@@ -411,7 +418,7 @@ export function InstructorPayoutsPage() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>{t('instructor_payouts.locked_earnings_title')}</AlertTitle>
-          <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency(lockedBalance, 'USD') })}</AlertDescription>
+          <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency() })}</AlertDescription>
         </Alert>
         </motion.div>
       )}
@@ -556,7 +563,7 @@ export function InstructorPayoutsPage() {
                         status: payoutStatusFilter !== 'all' ? payoutStatusFilter.toUpperCase() : undefined,
                       })
                     } catch {
-                      toast.error(t('instructor_payouts.export_failed') || 'Export failed')
+                      toast.error(t('instructor_payouts.export_failed', 'Xuất dữ liệu thất bại'))
                     } finally {
                       setIsPayoutExporting(false)
                     }
@@ -579,7 +586,7 @@ export function InstructorPayoutsPage() {
                         status: payoutStatusFilter !== 'all' ? payoutStatusFilter.toUpperCase() : undefined,
                       })
                     } catch {
-                      toast.error(t('instructor_payouts.export_failed') || 'Export failed')
+                      toast.error(t('instructor_payouts.export_failed', 'Xuất dữ liệu thất bại'))
                     } finally {
                       setIsPayoutExporting(false)
                     }

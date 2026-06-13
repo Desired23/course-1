@@ -87,6 +87,7 @@ export function ActivityLogPage() {
       const data = await getActivityLogsApi()
       const mapped: ActivityLog[] = data.map((log: ApiActivityLog) => {
         const actionLower = (log.action || '').toLowerCase()
+        const userId = log.user_id ?? log.user ?? null
         let actionType: ActivityLog['action_type'] = 'view'
 
         if (actionLower.includes('login')) actionType = 'login'
@@ -100,9 +101,12 @@ export function ActivityLogPage() {
 
         return {
           id: String(log.id),
-          user_id: String(log.user || ''),
-          user_name: log.user_name || t('activity_log_page.unknown_user'),
-          user_email: '',
+          user_id: userId ? String(userId) : '',
+          user_name: log.user_name || (userId ? `User #${userId}` : t('activity_log_page.unknown_user')),
+          user_email: log.user_email || '',
+          user_avatar: log.user_avatar || undefined,
+          resource_type: log.entity_type?.toLowerCase() as ActivityLog['resource_type'],
+          resource_id: log.entity_id ? String(log.entity_id) : undefined,
           action_type: actionType,
           action: log.action,
           description: log.description,

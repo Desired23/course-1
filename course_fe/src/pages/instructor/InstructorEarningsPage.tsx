@@ -168,7 +168,7 @@ export function InstructorEarningsPage() {
               {instructorProfile.level.name}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              Commission: {instructorProfile.level.commission_rate}% retail · {instructorProfile.level.plan_commission_rate}% subscription
+              Phí nền tảng: retail {instructorProfile.level.commission_rate}% / subscription {instructorProfile.level.plan_commission_rate}% &nbsp;·&nbsp; GV nhận: retail {100 - Number(instructorProfile.level.commission_rate)}% / subscription {100 - Number(instructorProfile.level.plan_commission_rate)}%
             </span>
           </div>
         )}
@@ -289,7 +289,7 @@ export function InstructorEarningsPage() {
                         <TableHead>{t('instructor_earnings_page.transactions.headers.source')}</TableHead>
                         <TableHead className="text-right">{t('instructor_earnings_page.transactions.headers.revenue')}</TableHead>
                         <TableHead className="text-right">{t('instructor_earnings_page.transactions.headers.net_income')}</TableHead>
-                        <TableHead className="text-right">Commission</TableHead>
+                        <TableHead className="text-right">Phí nền tảng / GV nhận</TableHead>
                         <TableHead>{t('instructor_earnings_page.transactions.headers.status')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -301,7 +301,12 @@ export function InstructorEarningsPage() {
                           <TableCell><Badge variant="outline" className="capitalize">{e.earning_source}</Badge></TableCell>
                           <TableCell className="text-right font-mono">{formatEarningVND(parseEarningAmount(e.amount))}</TableCell>
                           <TableCell className="text-right font-mono text-green-600">{formatEarningVND(parseEarningAmount(e.net_amount))}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{e.commission_rate_applied}%</TableCell>
+                          <TableCell className="text-right text-muted-foreground text-xs">
+                            {e.platform_commission_rate != null
+                              ? <>Nền tảng {e.platform_commission_rate}% / GV {e.instructor_share_rate}%{e.usage_share_rate ? <><br /><span className="text-muted-foreground/70">Usage: {e.usage_share_rate}%</span></> : null}</>
+                              : <span className="italic text-muted-foreground/60">Legacy</span>
+                            }
+                          </TableCell>
                           <TableCell><Badge variant={getEarningStatusBadge(e.status)} className="capitalize">{e.status}</Badge></TableCell>
                         </TableRow>
                       ))}

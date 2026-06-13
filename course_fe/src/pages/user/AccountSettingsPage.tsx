@@ -195,20 +195,8 @@ export function AccountSettingsPage() {
     { value: 'de', label: t('account_settings.languages.de') },
     { value: 'ja', label: t('account_settings.languages.ja') },
   ]
-  const timezoneOptions = [
-    { value: 'UTC+7', label: t('account_settings.timezones.utc_plus_7') },
-    { value: 'UTC', label: t('account_settings.timezones.utc') },
-    { value: 'UTC-5', label: t('account_settings.timezones.utc_minus_5') },
-    { value: 'UTC-8', label: t('account_settings.timezones.utc_minus_8') },
-    { value: 'UTC+1', label: t('account_settings.timezones.utc_plus_1') },
-    { value: 'UTC+9', label: t('account_settings.timezones.utc_plus_9') },
-  ]
   const currencyOptions = [
     { value: 'VND', label: t('account_settings.currencies.vnd') },
-    { value: 'USD', label: t('account_settings.currencies.usd') },
-    { value: 'EUR', label: t('account_settings.currencies.eur') },
-    { value: 'GBP', label: t('account_settings.currencies.gbp') },
-    { value: 'JPY', label: t('account_settings.currencies.jpy') },
   ]
 
 
@@ -238,7 +226,6 @@ export function AccountSettingsPage() {
 
   const [accountSettings, setAccountSettings] = useState({
     language: 'en',
-    timezone: 'UTC+7',
     currency: 'VND'
   })
 
@@ -932,23 +919,6 @@ export function AccountSettingsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {languageOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="timezone">{t('account_settings.timezone')}</Label>
-                <Select
-                  value={accountSettings.timezone}
-                  onValueChange={(value) => setAccountSettings({ ...accountSettings, timezone: value })}
-                >
-                  <SelectTrigger id="timezone" className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timezoneOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
                   </SelectContent>

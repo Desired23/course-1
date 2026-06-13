@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Separator } from '../../components/ui/separator'
 import { Progress } from '../../components/ui/progress'
-import { Checkbox } from '../../components/ui/checkbox'
 import { Label } from '../../components/ui/label'
 import { Textarea } from '../../components/ui/textarea'
 import {
@@ -22,7 +21,6 @@ import {
   Eye,
   MessageCircle,
   Download,
-  Edit,
   Trash2,
   MoreVertical,
   PlayCircle,
@@ -35,7 +33,7 @@ import {
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
-import { getCourseById as getCourseByIdApi, updateCourse as updateCourseApi, deleteCourse as deleteCourseApi } from '../../services/course.api'
+import { getCourseById as getCourseByIdApi, moderateCourse, deleteCourse as deleteCourseApi, type CourseModerationAction } from '../../services/course.api'
 import { exportCourseStudents } from '../../services/admin.api'
 import { getAllReviewsByCourse } from '../../services/review.api'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../../components/ui/breadcrumb'
@@ -79,6 +77,8 @@ interface CourseDetail {
   thumbnail: string
   preview_video?: string
   status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
+  admin_hidden: boolean
+  is_hard_blocked: boolean
   created_at: Date
   updated_at: Date
   published_at?: Date
@@ -175,22 +175,20 @@ export function AdminCourseDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [moderationState, setModerationState] = useState<{
     open: boolean
-    nextStatus: 'published' | 'rejected' | 'archived'
+    action: Exclude<CourseModerationAction, 'delete' | 'archive'>
     title: string
     description: string
     confirmLabel: string
     loading: boolean
   }>({
     open: false,
-    nextStatus: 'published',
+    action: 'approve',
     title: '',
     description: '',
     confirmLabel: '',
     loading: false,
   })
   const [moderationReason, setModerationReason] = useState('')
-  const [sendNotification, setSendNotification] = useState(true)
-  const [notifyMessage, setNotifyMessage] = useState('')
   const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'students' | 'reviews' | 'instructor' | 'analytics'>('overview')
   const [studentRows, setStudentRows] = useState<CourseStudentRow[]>([])
   const [studentPage, setStudentPage] = useState(1)
@@ -238,6 +236,8 @@ export function AdminCourseDetailPage() {
           thumbnail: courseData.thumbnail || '',
           preview_video: courseData.promotional_video || undefined,
           status: courseData.status as any,
+          admin_hidden: courseData.admin_hidden,
+          is_hard_blocked: courseData.is_hard_blocked,
           created_at: new Date(courseData.created_at),
           updated_at: new Date(courseData.updated_at),
           published_at: courseData.published_date ? new Date(courseData.published_date) : undefined,
@@ -390,31 +390,48 @@ export function AdminCourseDetailPage() {
     }
   }
 
-  const openModerationDialog = (nextStatus: 'published' | 'rejected' | 'archived') => {
+  const openModerationDialog = (action: Exclude<CourseModerationAction, 'delete' | 'archive'>) => {
     setModerationReason('')
-    setSendNotification(true)
-    setNotifyMessage('')
+    const restoringHardBlock = action === 'unblock' && Boolean(course?.is_hard_blocked)
+    const restoreTitle = restoringHardBlock
+      ? t('admin_course_detail.moderation.unlock_title')
+      : t('admin_course_detail.moderation.resume_title')
+    const restoreDescription = restoringHardBlock
+      ? t('admin_course_detail.moderation.unlock_description')
+      : t('admin_course_detail.moderation.resume_description')
     setModerationState({
       open: true,
-      nextStatus,
+      action,
       title:
-        nextStatus === 'published'
+        action === 'approve'
           ? t('admin_course_detail.moderation.approve_title')
-          : nextStatus === 'rejected'
+          : action === 'reject'
             ? t('admin_course_detail.moderation.reject_title')
-            : t('admin_course_detail.moderation.archive_title'),
+            : action === 'hide'
+                ? t('admin_course_detail.moderation.hide_title')
+                : action === 'hard_block'
+                  ? t('admin_course_detail.moderation.block_title')
+                  : restoreTitle,
       description:
-        nextStatus === 'published'
+        action === 'approve'
           ? t('admin_course_detail.moderation.approve_description')
-          : nextStatus === 'rejected'
+          : action === 'reject'
             ? t('admin_course_detail.moderation.reject_description')
-            : t('admin_course_detail.moderation.archive_description'),
+            : action === 'hide'
+                ? t('admin_course_detail.moderation.hide_description')
+                : action === 'hard_block'
+                  ? t('admin_course_detail.moderation.block_description')
+                  : restoreDescription,
       confirmLabel:
-        nextStatus === 'published'
+        action === 'approve'
           ? t('admin_course_detail.moderation.approve_title')
-          : nextStatus === 'rejected'
+          : action === 'reject'
             ? t('admin_course_detail.moderation.reject_title')
-            : t('admin_course_detail.moderation.archive_title'),
+            : action === 'hide'
+                ? t('admin_course_detail.moderation.hide_title')
+                : action === 'hard_block'
+                  ? t('admin_course_detail.moderation.block_title')
+                  : restoreTitle,
       loading: false,
     })
   }
@@ -424,14 +441,14 @@ export function AdminCourseDetailPage() {
     if (!numId) return
     try {
       setModerationState(prev => ({ ...prev, loading: true }))
-      await updateCourseApi(numId, {
-        status: moderationState.nextStatus,
-        status_reason: moderationReason.trim() || undefined,
-        send_notification: sendNotification,
-        notify_message: sendNotification ? notifyMessage.trim() || undefined : undefined,
-      })
+      await moderateCourse(numId, moderationState.action, moderationReason.trim() || undefined)
       const courseData = await getCourseByIdApi(numId)
-      setCourse(prev => prev ? { ...prev, status: courseData.status as any } : prev)
+      setCourse(prev => prev ? {
+        ...prev,
+        status: courseData.status as any,
+        admin_hidden: courseData.admin_hidden,
+        is_hard_blocked: courseData.is_hard_blocked,
+      } : prev)
       setModerationState(prev => ({ ...prev, open: false, loading: false }))
       toast.success(t('admin_course_detail.toasts.status_updated'))
     } catch {
@@ -453,12 +470,6 @@ export function AdminCourseDetailPage() {
       toast.error(t('admin_courses.toasts.delete_failed'))
     }
   }
-  const handleCourseAction = async (action: string) => {
-    if (action === 'edit') {
-      navigate(`/admin/courses/${courseId}`)
-    }
-  }
-
   if (!hasPermission('admin.courses.manage')) {
     return (
       <div className="container mx-auto p-6">
@@ -528,6 +539,12 @@ export function AdminCourseDetailPage() {
                 </Badge>
                 <Badge variant="outline">{course.category}</Badge>
                 <Badge variant="secondary">{getLevelLabel(course.level)}</Badge>
+                {course.admin_hidden && (
+                  <Badge variant="secondary">{t('admin_courses.moderation.hidden_badge')}</Badge>
+                )}
+                {course.is_hard_blocked && (
+                  <Badge variant="destructive">{t('admin_courses.moderation.blocked_badge')}</Badge>
+                )}
               </div>
               <h1 className="text-3xl mb-2">{course.title}</h1>
               <p className="text-muted-foreground mb-4 line-clamp-2">{course.description}</p>
@@ -566,27 +583,38 @@ export function AdminCourseDetailPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleCourseAction('edit')}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  {t('admin_course_detail.header.edit_course')}
-                </DropdownMenuItem>
                 {course.status === 'pending' && (
                   <>
-                    <DropdownMenuItem onClick={() => openModerationDialog('published')}>
+                    <DropdownMenuItem onClick={() => openModerationDialog('approve')}>
                       <CheckCircle className="h-4 w-4 mr-2" />
                       {t('admin_course_detail.header.approve_course')}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => openModerationDialog('rejected')}>
+                    <DropdownMenuItem onClick={() => openModerationDialog('reject')}>
                       <XCircle className="h-4 w-4 mr-2" />
                       {t('admin_course_detail.header.reject_course')}
                     </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => openModerationDialog('archived')}>
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  {t('admin_course_detail.header.archive_course')}
-                </DropdownMenuItem>
+                {course.admin_hidden || course.is_hard_blocked ? (
+                  <DropdownMenuItem onClick={() => openModerationDialog('unblock')}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {course.is_hard_blocked
+                      ? t('admin_course_detail.header.unlock_course')
+                      : t('admin_course_detail.header.resume_sale')}
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => openModerationDialog('hide')}>
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    {t('admin_course_detail.header.hide_course')}
+                  </DropdownMenuItem>
+                )}
+                {!course.is_hard_blocked && (
+                  <DropdownMenuItem onClick={() => openModerationDialog('hard_block')}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {t('admin_course_detail.header.block_course')}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => setConfirmDeleteOpen(true)}
@@ -1055,31 +1083,6 @@ export function AdminCourseDetailPage() {
                   rows={4}
                 />
               </div>
-              <div className="flex items-start gap-3 rounded-lg border p-3">
-                <Checkbox
-                  checked={sendNotification}
-                  onCheckedChange={(checked) => setSendNotification(Boolean(checked))}
-                  className="mt-1"
-                />
-                <div className="space-y-1">
-                  <Label htmlFor="course-detail-message">{t('admin_course_detail.moderation.send_notification')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('admin_course_detail.moderation.send_notification_hint')}
-                  </p>
-                </div>
-              </div>
-              {sendNotification && (
-                <div className="space-y-2">
-                  <Label htmlFor="course-detail-message">{t('admin_course_detail.moderation.notification_message')}</Label>
-                  <Textarea
-                    id="course-detail-message"
-                    value={notifyMessage}
-                    onChange={(event) => setNotifyMessage(event.target.value)}
-                    placeholder={t('admin_course_detail.moderation.notification_placeholder')}
-                    rows={3}
-                  />
-                </div>
-              )}
             </div>
             <DialogFooter>
               <Button
@@ -1088,9 +1091,9 @@ export function AdminCourseDetailPage() {
                 disabled={moderationState.loading}
               >
                 {t('common.cancel')}
-              </Button>
-              <Button
-                variant={moderationState.nextStatus === 'rejected' ? 'destructive' : 'default'}
+            </Button>
+            <Button
+                variant={moderationState.action === 'reject' || moderationState.action === 'hard_block' ? 'destructive' : 'default'}
                 onClick={submitModeration}
                 disabled={moderationState.loading}
               >

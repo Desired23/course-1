@@ -421,6 +421,9 @@ export function CoursePlayerPage() {
   }, [lessonProgressMap, locallyCompletedLessons])
 
   const isInstructorPreview = course?.access_info?.access_type === 'instructor'
+  const isPreviewMode = !['purchase', 'subscription', 'admin', 'instructor'].includes(
+    course?.access_info?.access_type ?? ''
+  )
 
   const furthestUnlockedIndex = useMemo(() => {
     if (orderedLessons.length === 0) return -1
@@ -732,6 +735,7 @@ export function CoursePlayerPage() {
   }
 
   const handleAddNote = async () => {
+    if (isPreviewMode) { toast.info(t('course_player.preview_feature_locked')); return }
     if (!newNote.trim() || !currentLessonId) {
       toast.error(t('course_player.write_note_required'))
       return
@@ -801,6 +805,7 @@ export function CoursePlayerPage() {
   }
 
   const handlePostComment = async () => {
+    if (isPreviewMode) { toast.info(t('course_player.preview_feature_locked')); return }
     if (!newComment.trim() || !currentLessonId) return
     try {
       await createLessonComment({ lesson: currentLessonId, content: newComment.trim() })
@@ -845,6 +850,7 @@ export function CoursePlayerPage() {
   }
 
   const handleDownloadResource = async (resource: LessonAttachment) => {
+    if (isPreviewMode) { toast.info(t('course_player.preview_feature_locked')); return }
     const isExternalUrl = /^https?:\/\//i.test(resource.file_path) || resource.file_path.startsWith('//')
     if (isExternalUrl) {
       const resolvedUrl = resolveAttachmentUrl(resource.file_path)
@@ -940,7 +946,7 @@ export function CoursePlayerPage() {
 
   const handleLessonComplete = async (lessonId: number = currentLessonId || 0, silent: boolean = false) => {
     if (!lessonId || completedLessonIds.has(lessonId) || completionInFlightRef.current.has(lessonId)) return
-    if (isInstructorPreview) return
+    if (isInstructorPreview || isPreviewMode) return
     completionInFlightRef.current.add(lessonId)
     setLocallyCompletedLessons(prev => ({ ...prev, [lessonId]: true }))
     if (!silent) toast.success(t('course_player.lesson_completed'))
@@ -976,7 +982,7 @@ export function CoursePlayerPage() {
     const normalized = Math.min(payload.percentage, 100)
     setCurrentPlaybackTimeSec(payload.currentTime)
     setProgress(prev => [Math.max(prev[0] || 0, normalized)])
-    if (isInstructorPreview) return
+    if (isInstructorPreview || isPreviewMode) return
     try {
       const existing = localStorage.getItem(`video_progress_${currentLessonId}`)
       const existingValue = existing ? parseFloat(existing) : 0

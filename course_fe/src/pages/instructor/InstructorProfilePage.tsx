@@ -148,7 +148,7 @@ export function InstructorProfilePage() {
             students: c.total_students || 0,
             rating: parseFloat(String(c.rating || 0)),
             reviews: 0,
-            image: c.thumbnail || '/api/placeholder/300/200',
+            image: c.thumbnail || '',
             price: parseFloat(String(c.price || 0)),
             bestseller: false,
           })))
@@ -163,7 +163,7 @@ export function InstructorProfilePage() {
       setTestimonials(reviews.slice(0, 5).map(r => ({
         id: r.review_id,
         student: r.user_info?.full_name || t('instructor_profile_page.fallbacks.student'),
-        avatar: r.user_info?.avatar || '/api/placeholder/40/40',
+        avatar: r.user_info?.avatar || '',
         content: r.comment || '',
         rating: r.rating,
         course: r.course_detail?.title || t('instructor_profile_page.fallbacks.course'),

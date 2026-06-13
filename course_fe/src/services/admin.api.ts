@@ -465,13 +465,18 @@ export async function reviewApplication(
 
 export interface ActivityLog {
   id: number
-  user: number | null
+  user?: number | null
+  user_id?: number | null
   action: string
   description: string
+  entity_type?: string | null
+  entity_id?: number | null
   ip_address: string | null
   user_agent: string | null
   created_at: string
-  user_name?: string
+  user_name?: string | null
+  user_email?: string | null
+  user_avatar?: string | null
 }
 
 export async function getActivityLogs(): Promise<ActivityLog[]> {
@@ -531,19 +536,24 @@ export interface SystemSetting {
 }
 
 export async function getSystemSettings(): Promise<SystemSetting[]> {
-  return fetchAllPages<SystemSetting>('/systems_settings/')
+  return fetchAllPages<SystemSetting>('/platform-settings/')
+}
+
+export async function getSystemSettingByKey(key: string): Promise<SystemSetting | null> {
+  const settings = await getSystemSettings()
+  return settings.find(s => s.key === key) ?? null
 }
 
 export async function createSystemSetting(data: Record<string, any>): Promise<SystemSetting> {
-  return http.post<SystemSetting>('/systems_settings/create/', data)
+  return http.post<SystemSetting>('/platform-settings/create/', data)
 }
 
 export async function updateSystemSetting(settingId: number, data: Record<string, any>): Promise<SystemSetting> {
-  return http.patch<SystemSetting>(`/systems_settings/${settingId}/update/`, data)
+  return http.patch<SystemSetting>(`/platform-settings/${settingId}/update/`, data)
 }
 
 export async function deleteSystemSetting(settingId: number): Promise<{ message: string }> {
-  return http.delete<{ message: string }>(`/systems_settings/${settingId}/delete/`)
+  return http.delete<{ message: string }>(`/platform-settings/${settingId}/delete/`)
 }
 
 

@@ -18,7 +18,7 @@ import { UserPagination } from '../../components/UserPagination'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Checkbox } from "../../components/ui/checkbox"
-import { getCourses, updateCourse, deleteCourse as deleteCourseApi, type CourseListItem, parseDecimal, formatPrice } from '../../services/course.api'
+import { getCourses, deleteCourse as deleteCourseApi, moderateCourse, type CourseListItem, type CourseModerationAction, parseDecimal, formatPrice } from '../../services/course.api'
 import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 10
@@ -79,8 +79,6 @@ export function AdminCoursesPage() {
     loading: false,
   })
   const [moderationReason, setModerationReason] = useState('')
-  const [sendNotification, setSendNotification] = useState(true)
-  const [notifyMessage, setNotifyMessage] = useState('')
   const [confirmState, setConfirmState] = useState<{
     open: boolean
     title: string
@@ -102,7 +100,6 @@ export function AdminCoursesPage() {
     all: 0,
     published: 0,
     pending: 0,
-    draft: 0,
     rejected: 0,
   })
 
@@ -147,18 +144,16 @@ export function AdminCoursesPage() {
 
   async function loadStatusCounts() {
     try {
-      const [allRes, publishedRes, pendingRes, draftRes, rejectedRes] = await Promise.all([
+      const [allRes, publishedRes, pendingRes, rejectedRes] = await Promise.all([
         getCourses({ page: 1, page_size: 1 }),
         getCourses({ page: 1, page_size: 1, status: 'published' }),
         getCourses({ page: 1, page_size: 1, status: 'pending' }),
-        getCourses({ page: 1, page_size: 1, status: 'draft' }),
         getCourses({ page: 1, page_size: 1, status: 'rejected' }),
       ])
       setStatusCounts({
         all: allRes.count || 0,
         published: publishedRes.count || 0,
         pending: pendingRes.count || 0,
-        draft: draftRes.count || 0,
         rejected: rejectedRes.count || 0,
       })
     } catch {
@@ -204,7 +199,8 @@ export function AdminCoursesPage() {
       published: { variant: "default" as const, text: t('admin_courses.status_published'), icon: Check },
       pending: { variant: "secondary" as const, text: t('admin_courses.status_pending'), icon: Clock },
       draft: { variant: "outline" as const, text: t('admin_courses.status_draft'), icon: Edit },
-      rejected: { variant: "destructive" as const, text: t('admin_courses.status_rejected'), icon: X }
+      rejected: { variant: "destructive" as const, text: t('admin_courses.status_rejected'), icon: X },
+      archived: { variant: "outline" as const, text: t('admin_courses.status_archived'), icon: BookOpen },
     }
     const config = variants[status as keyof typeof variants] || variants.draft
     const Icon = config.icon
@@ -287,8 +283,6 @@ export function AdminCoursesPage() {
     nextStatus: 'published' | 'rejected'
   ) => {
     setModerationReason('')
-    setSendNotification(true)
-    setNotifyMessage('')
     setModerationState({
       open: true,
       courseId,
@@ -308,12 +302,11 @@ export function AdminCoursesPage() {
     if (!moderationState.courseId) return
     try {
       setModerationState(prev => ({ ...prev, loading: true }))
-      await updateCourse(moderationState.courseId, {
-        status: moderationState.nextStatus,
-        status_reason: moderationReason.trim() || undefined,
-        send_notification: sendNotification,
-        notify_message: sendNotification ? notifyMessage.trim() || undefined : undefined,
-      })
+      await moderateCourse(
+        moderationState.courseId,
+        moderationState.nextStatus === 'published' ? 'approve' : 'reject',
+        moderationReason.trim() || undefined,
+      )
       toast.success(moderationState.nextStatus === 'published' ? t('admin_courses.toasts.approve_success') : t('admin_courses.toasts.reject_success'))
       setModerationState(prev => ({ ...prev, open: false, loading: false }))
       await refetchCurrentPageAndCounts()
@@ -330,6 +323,16 @@ export function AdminCoursesPage() {
       await refetchCurrentPageAndCounts()
     } catch {
       toast.error(t('admin_courses.toasts.delete_failed'))
+    }
+  }
+
+  const handleModerateCourse = async (courseId: number, action: CourseModerationAction) => {
+    try {
+      await moderateCourse(courseId, action)
+      toast.success(t('admin_course_detail.toasts.status_updated'))
+      await refetchCurrentPageAndCounts()
+    } catch {
+      toast.error(t('admin_course_detail.toasts.action_failed'))
     }
   }
 
@@ -455,7 +458,7 @@ export function AdminCoursesPage() {
               t('admin_courses.bulk.approve_title'),
               t('admin_courses.bulk.approve_description', { count: selectedCourseIds.length }),
               t('admin_courses.approve'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => updateCourse(id, { status: 'published' }), t('admin_courses.toasts.bulk_approve_success')),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'approve'), t('admin_courses.toasts.bulk_approve_success')),
             ),
           },
           {
@@ -466,7 +469,29 @@ export function AdminCoursesPage() {
               t('admin_courses.bulk.reject_title'),
               t('admin_courses.bulk.reject_description', { count: selectedCourseIds.length }),
               t('admin_courses.reject'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => updateCourse(id, { status: 'rejected' }), t('admin_courses.toasts.bulk_reject_success')),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'reject'), t('admin_courses.toasts.bulk_reject_success')),
+              true,
+            ),
+          },
+          {
+            key: 'hide',
+            label: t('admin_courses.moderation.hide_course'),
+            onClick: () => openConfirm(
+              t('admin_courses.moderation.hide_course'),
+              t('admin_courses.bulk.hide_description', { count: selectedCourseIds.length }),
+              t('admin_courses.moderation.hide_course'),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'hide'), t('admin_courses.toasts.bulk_hide_success')),
+            ),
+          },
+          {
+            key: 'block',
+            label: t('admin_courses.moderation.block_course'),
+            destructive: true,
+            onClick: () => openConfirm(
+              t('admin_courses.moderation.block_course'),
+              t('admin_courses.bulk.block_description', { count: selectedCourseIds.length }),
+              t('admin_courses.moderation.block_course'),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'hard_block'), t('admin_courses.toasts.bulk_block_success')),
               true,
             ),
           },
@@ -519,16 +544,6 @@ export function AdminCoursesPage() {
                 />
               )}
               <span className="relative z-10">{t('admin_courses.tabs.pending', { count: statusCounts.pending })}</span>
-            </TabsTrigger>
-            <TabsTrigger value="draft" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-              {statusFilter === 'draft' && (
-                <motion.span
-                  layoutId="admin-courses-tabs-glider"
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="absolute inset-0 rounded-md bg-background shadow-sm"
-                />
-              )}
-              <span className="relative z-10">{t('admin_courses.tabs.draft', { count: statusCounts.draft })}</span>
             </TabsTrigger>
             <TabsTrigger value="rejected" className="relative whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
               {statusFilter === 'rejected' && (
@@ -591,10 +606,45 @@ export function AdminCoursesPage() {
                               <Eye className="h-4 w-4 md:mr-1" />
                               <span className="hidden md:inline">{t('admin_courses.view')}</span>
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
-                              <Edit className="h-4 w-4 md:mr-1" />
-                              <span className="hidden md:inline">{t('admin_courses.edit')}</span>
-                            </Button>
+                            {course.admin_hidden || course.is_hard_blocked ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleModerateCourse(course.id, 'unblock')}
+                              >
+                                <Check className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">
+                                  {course.is_hard_blocked
+                                    ? t('admin_courses.moderation.unlock_course')
+                                    : t('admin_courses.moderation.resume_sale')}
+                                </span>
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleModerateCourse(course.id, 'hide')}
+                              >
+                                <X className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">{t('admin_courses.moderation.hide_course')}</span>
+                              </Button>
+                            )}
+                            {!course.is_hard_blocked && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openConfirm(
+                                  t('admin_courses.moderation.block_course'),
+                                  t('admin_courses.actions.block_description', { title: course.title }),
+                                  t('admin_courses.moderation.block_course'),
+                                  () => handleModerateCourse(course.id, 'hard_block'),
+                                  true,
+                                )}
+                              >
+                                <X className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">{t('admin_courses.moderation.block_course')}</span>
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -611,6 +661,13 @@ export function AdminCoursesPage() {
                             </Button>
                           </div>
                         </div>
+
+                        {(course.admin_hidden || course.is_hard_blocked) && (
+                          <div className="flex flex-wrap gap-2">
+                            {course.admin_hidden && <Badge variant="secondary">{t('admin_courses.moderation.hidden_badge')}</Badge>}
+                            {course.is_hard_blocked && <Badge variant="destructive">{t('admin_courses.moderation.blocked_badge')}</Badge>}
+                          </div>
+                        )}
 
                         {course.status === 'published' ? (
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 pt-3 border-t">
@@ -738,32 +795,6 @@ export function AdminCoursesPage() {
                 rows={4}
               />
             </div>
-            <div className="flex items-start gap-3 rounded-lg border p-3">
-              <Checkbox
-                id="course-moderation-notify"
-                checked={sendNotification}
-                onCheckedChange={(checked) => setSendNotification(Boolean(checked))}
-                className="mt-1"
-              />
-              <div className="space-y-1">
-                <Label htmlFor="course-moderation-notify">{t('admin_courses.moderation.send_notification')}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t('admin_courses.moderation.send_notification_hint')}
-                </p>
-              </div>
-            </div>
-            {sendNotification && (
-              <div className="space-y-2">
-                <Label htmlFor="course-moderation-message">{t('admin_courses.moderation.notification_message')}</Label>
-                <Textarea
-                  id="course-moderation-message"
-                  value={notifyMessage}
-                  onChange={(event) => setNotifyMessage(event.target.value)}
-                  placeholder={t('admin_courses.moderation.notification_placeholder')}
-                  rows={3}
-                />
-              </div>
-            )}
           </div>
           <DialogFooter>
             <Button

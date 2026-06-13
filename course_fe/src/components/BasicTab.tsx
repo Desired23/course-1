@@ -162,6 +162,21 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
       </div>
 
 
+      <div className="flex items-center justify-between rounded-lg border p-3">
+        <div className="space-y-0.5">
+          <Label htmlFor="is-free" className="cursor-pointer font-medium">
+            {t('lesson_editor.free_preview')}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t('lesson_editor.free_preview_hint')}
+          </p>
+        </div>
+        <Switch
+          id="is-free"
+          checked={!!lesson.is_free}
+          onCheckedChange={(checked) => onUpdate({ is_free: checked })}
+        />
+      </div>
 
 
       {contentType === 'quiz' && (

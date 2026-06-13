@@ -251,12 +251,6 @@ export function SubscriptionPricingPage() {
               }`}
             >
               {t('subscription_pricing_page.billing_toggle.annual')}
-              <Badge
-                variant="secondary"
-                className="h-4 border-none bg-green-500 px-1.5 py-0 text-[10px] text-white shadow-none"
-              >
-                -20%
-              </Badge>
             </button>
           </motion.div>
         </div>

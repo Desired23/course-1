@@ -170,7 +170,7 @@ export function WebsiteManagementPage() {
 
   const defaultConfig: WebsiteConfig = {
     general: {
-      siteName: 'UTC',
+      siteName: 'coursePlatform',
       tagline: 'Learn Without Limits',
       description: t('website_management.default_site_description'),
       logo: '',

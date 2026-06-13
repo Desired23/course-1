@@ -26,6 +26,7 @@ export interface WishlistCourseDetail {
   level: string
   short_description: string | null
   status: string
+  not_buyable_reason?: string | null
 }
 
 export interface WishlistItem {

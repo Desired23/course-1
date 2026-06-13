@@ -17,6 +17,7 @@ const UserPaymentMethodsPage = lazy(() => import('../pages/user/UserPaymentMetho
 const UserSubscriptionsPage = lazy(() => import('../pages/user/UserSubscriptionsPage').then((module) => ({ default: module.UserSubscriptionsPage })))
 const AccountSettingsPage = lazy(() => import('../pages/user/AccountSettingsPage').then((module) => ({ default: module.AccountSettingsPage })))
 const MyReviewsPage = lazy(() => import('../pages/user/MyReviewsPage').then((module) => ({ default: module.MyReviewsPage })))
+const MyCertificatesPage = lazy(() => import('../pages/user/MyCertificatesPage').then((module) => ({ default: module.MyCertificatesPage })))
 const TransactionHistoryPage = lazy(() => import('../pages/user/TransactionHistoryPage').then((module) => ({ default: module.TransactionHistoryPage })))
 
 export const userRoutes: RouteConfig[] = [
@@ -172,6 +173,18 @@ export const userRoutes: RouteConfig[] = [
       <RequireAuth roles={['user', 'instructor', 'admin']}>
         <UserDashboardLayout>
           <MyReviewsPage />
+        </UserDashboardLayout>
+      </RequireAuth>
+    )
+  },
+
+
+  {
+    path: '/user/my-certificates',
+    element: (
+      <RequireAuth roles={['user', 'instructor', 'admin']}>
+        <UserDashboardLayout>
+          <MyCertificatesPage />
         </UserDashboardLayout>
       </RequireAuth>
     )

@@ -643,7 +643,7 @@ export function InstructorDiscountsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t('instructor_discounts_page.stats.revenue_generated')}</p>
-                  <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">{totalRevenue.toLocaleString('vi-VN')}₫</p>
                 </div>
               </div>
             </Card>
@@ -742,7 +742,7 @@ export function InstructorDiscountsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {discount.type === 'percentage' ? `${discount.value}%` : `$${discount.value}`}
+                          {discount.type === 'percentage' ? `${discount.value}%` : `${Number(discount.value).toLocaleString('vi-VN')}₫`}
                         </TableCell>
                         <TableCell>
                           <div>
@@ -763,7 +763,7 @@ export function InstructorDiscountsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium text-green-600 dark:text-green-400">
-                          ${discount.revenue.toLocaleString()}
+                          {discount.revenue.toLocaleString('vi-VN')}₫
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 text-sm">

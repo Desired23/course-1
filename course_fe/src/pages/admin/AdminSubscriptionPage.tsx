@@ -19,7 +19,6 @@ import {
   Trash2,
   Users,
   DollarSign,
-  TrendingUp,
   Star,
   Crown,
   Gift,
@@ -29,21 +28,17 @@ import {
   X,
   BarChart3,
   Target,
-  Percent,
   Clock,
   Zap,
   Shield,
-  Briefcase,
-  Settings,
   Save,
-  RefreshCw,
   MoreHorizontal
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { toast } from 'sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
-import { getAdminSubscriptionPlans, createSubscriptionPlan, getPlanSubscribers, getAdminRevenueAnalytics, getSystemSettings, createSystemSetting, updateSystemSetting, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan } from '../../services/admin.api'
+import { getAdminSubscriptionPlans, createSubscriptionPlan, getPlanSubscribers, getAdminRevenueAnalytics, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan } from '../../services/admin.api'
 import { useTranslation } from 'react-i18next'
 interface SubscriptionPlan {
   id: string
@@ -117,13 +112,6 @@ export function AdminSubscriptionPage() {
   const [subscriptionSearchQuery, setSubscriptionSearchQuery] = useState('')
   const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState<'all' | Subscription['status']>('all')
   const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false)
-  const [revenueSettingId, setRevenueSettingId] = useState<number | null>(null)
-
-
-  const [poolPercentage, setPoolPercentage] = useState('15')
-  const [minPayoutThreshold, setMinPayoutThreshold] = useState('50')
-  const [engagementRate, setEngagementRate] = useState('0.03')
-  const [autoPayoutEnabled, setAutoPayoutEnabled] = useState(true)
 
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
@@ -219,10 +207,9 @@ export function AdminSubscriptionPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [apiPlans, revTrend, settings] = await Promise.all([
+        const [apiPlans, revTrend] = await Promise.all([
           getAdminSubscriptionPlans(),
           getAdminRevenueAnalytics(6),
-          getSystemSettings(),
         ])
         const mapped: SubscriptionPlan[] = apiPlans.map(mapPlan)
         setPlans(mapped)
@@ -238,19 +225,6 @@ export function AdminSubscriptionPage() {
           revenue: r.revenue
         })))
         await reloadSubscriptions(apiPlans)
-        const revenueSetting = settings.find((setting) => setting.key === 'subscription_revenue_pool')
-        if (revenueSetting) {
-          setRevenueSettingId(revenueSetting.id)
-          try {
-            const parsed = JSON.parse(revenueSetting.value || '{}')
-            setPoolPercentage(String(parsed.poolPercentage ?? '15'))
-            setMinPayoutThreshold(String(parsed.minPayoutThreshold ?? '50'))
-            setEngagementRate(String(parsed.engagementRate ?? '0.03'))
-            setAutoPayoutEnabled(parsed.autoPayoutEnabled !== false)
-          } catch {
-
-          }
-        }
       } catch {
         toast.error(t('subscriptions_page.admin.toasts.load_failed'))
       }
@@ -330,52 +304,6 @@ export function AdminSubscriptionPage() {
         features: '',
       })
     } catch { toast.error(t('subscriptions_page.admin.create_failed')) }
-  }
-
-  const handleSaveSettings = () => {
-     toast.success(t('subscriptions_page.admin.toasts.revenue_pool_updated'))
-  }
-
-  const persistRevenueSettings = async () => {
-    const parsedPoolPercentage = Number(poolPercentage)
-    const parsedMinPayoutThreshold = Number(minPayoutThreshold)
-    const parsedEngagementRate = Number(engagementRate)
-
-    if (!Number.isFinite(parsedPoolPercentage) || parsedPoolPercentage < 0 || parsedPoolPercentage > 100) {
-      toast.error(t('subscriptions_page.admin.toasts.revenue_pool_percentage_invalid'))
-      return
-    }
-    if (!Number.isFinite(parsedMinPayoutThreshold) || parsedMinPayoutThreshold < 0) {
-      toast.error(t('subscriptions_page.admin.toasts.revenue_pool_min_payout_invalid'))
-      return
-    }
-    if (!Number.isFinite(parsedEngagementRate) || parsedEngagementRate < 0) {
-      toast.error(t('subscriptions_page.admin.toasts.revenue_pool_engagement_invalid'))
-      return
-    }
-
-    const payload = {
-      key: 'subscription_revenue_pool',
-      value: JSON.stringify({
-        poolPercentage: parsedPoolPercentage,
-        minPayoutThreshold: parsedMinPayoutThreshold,
-        engagementRate: parsedEngagementRate,
-        autoPayoutEnabled,
-      }),
-      description: t('subscriptions_page.admin.settings_panel.config_description'),
-    }
-
-    try {
-      if (revenueSettingId) {
-        await updateSystemSetting(revenueSettingId, { value: payload.value })
-      } else {
-        const created = await createSystemSetting(payload)
-        setRevenueSettingId(created.id)
-      }
-      toast.success(t('subscriptions_page.admin.toasts.revenue_pool_updated'))
-    } catch {
-      toast.error(t('subscriptions_page.admin.toasts.revenue_pool_save_failed'))
-    }
   }
 
   const handleExtendSubscription = async () => {
@@ -546,9 +474,6 @@ export function AdminSubscriptionPage() {
 
 
   const TOTAL_MONTHLY_REVENUE = plans.reduce((s, p) => s + p.revenue, 0) || 0
-  const INSTRUCTOR_POOL_PERCENTAGE = parseInt(poolPercentage) / 100
-  const INSTRUCTOR_POOL_AMOUNT = TOTAL_MONTHLY_REVENUE * INSTRUCTOR_POOL_PERCENTAGE
-  const TOTAL_SYSTEM_MINUTES = 250000
 
   return (
     <motion.div
@@ -564,10 +489,6 @@ export function AdminSubscriptionPage() {
           <p className="text-muted-foreground">{t('subscriptions_page.admin.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setActiveTab('settings')}>
-                <Settings className="h-4 w-4 mr-2" />
-                {t('subscriptions_page.admin.settings_button')}
-            </Button>
             <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
             <DialogTrigger asChild>
                 <Button>
@@ -715,7 +636,7 @@ export function AdminSubscriptionPage() {
 
       <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="relative grid w-full grid-cols-4 max-w-[500px] p-1">
+        <TabsList className="relative grid w-full grid-cols-3 max-w-[500px] p-1">
           <TabsTrigger value="overview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'overview' && <motion.span layoutId="admin-subscription-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('subscriptions_page.admin.tabs.overview')}</span>
@@ -728,50 +649,11 @@ export function AdminSubscriptionPage() {
             {activeTab === 'subscriptions' && <motion.span layoutId="admin-subscription-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('subscriptions_page.admin.tabs.subscriptions')}</span>
           </TabsTrigger>
-          <TabsTrigger value="settings" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'settings' && <motion.span layoutId="admin-subscription-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('subscriptions_page.admin.tabs.settings')}</span>
-          </TabsTrigger>
         </TabsList>
 
 
         <TabsContent value="overview" className="space-y-6 mt-6">
 
-
-          <div className="bg-slate-900 text-slate-100 rounded-lg p-6 shadow-md relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Briefcase size={120} />
-             </div>
-             <div className="relative z-10 grid md:grid-cols-3 gap-8 items-center">
-                <div className="col-span-1">
-                   <h3 className="text-lg font-medium text-slate-400 uppercase tracking-wider mb-1">{t('subscriptions_page.admin.overview.instructor_revenue_pool')}</h3>
-                   <div className="text-4xl font-bold text-white mb-2">
-                      {formatCurrency(INSTRUCTOR_POOL_AMOUNT)}
-                   </div>
-                   <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-none">
-                      {t('subscriptions_page.admin.overview.total_revenue_share', { value: poolPercentage })}
-                   </Badge>
-                </div>
-                <div className="col-span-1 border-l border-slate-700 pl-8">
-                   <h4 className="text-sm font-medium text-slate-400 mb-1">{t('subscriptions_page.admin.overview.total_consumption')}</h4>
-                   <div className="text-2xl font-bold text-white mb-2">
-                      {TOTAL_SYSTEM_MINUTES.toLocaleString()} <span className="text-lg font-normal text-slate-500">{t('subscriptions_page.admin.overview.mins')}</span>
-                   </div>
-                   <p className="text-xs text-slate-400">
-                      {t('subscriptions_page.admin.overview.consumption_includes')}
-                   </p>
-                </div>
-                <div className="col-span-1 border-l border-slate-700 pl-8">
-                   <h4 className="text-sm font-medium text-slate-400 mb-1">{t('subscriptions_page.admin.overview.avg_payout_rate')}</h4>
-                   <div className="text-2xl font-bold text-green-400 mb-2">
-                      {formatCurrency(INSTRUCTOR_POOL_AMOUNT / TOTAL_SYSTEM_MINUTES)} <span className="text-lg font-normal text-slate-500">{t('subscriptions_page.admin.overview.per_minute')}</span>
-                   </div>
-                   <p className="text-xs text-slate-400">
-                      {t('subscriptions_page.admin.overview.based_on_current_settings')}
-                   </p>
-                </div>
-             </div>
-          </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -781,10 +663,6 @@ export function AdminSubscriptionPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(TOTAL_MONTHLY_REVENUE)}</div>
-                <p className="text-xs text-muted-foreground flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_12')}
-                </p>
               </CardContent>
             </Card>
 
@@ -795,24 +673,6 @@ export function AdminSubscriptionPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{subscriptions.length.toLocaleString('vi-VN')}</div>
-                <p className="text-xs text-muted-foreground flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1 text-green-500" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_8')}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.overview.churn_rate_label')}</CardTitle>
-                <Percent className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">5.8%</div>
-                <p className="text-xs text-muted-foreground flex items-center mt-1">
-                  <TrendingUp className="h-3 w-3 mr-1 text-red-500" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_02')}
-                </p>
               </CardContent>
             </Card>
 
@@ -822,7 +682,7 @@ export function AdminSubscriptionPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(245000)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(subscriptions.length ? Math.round(TOTAL_MONTHLY_REVENUE / subscriptions.length) : 0)}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t('subscriptions_page.admin.overview.arpu_description')}
                 </p>
@@ -1150,93 +1010,6 @@ export function AdminSubscriptionPage() {
           </Card>
         </TabsContent>
 
-
-        <TabsContent value="settings" className="space-y-6 mt-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>{t('subscriptions_page.admin.settings_panel.title')}</CardTitle>
-                    <CardDescription>
-                        {t('subscriptions_page.admin.settings_panel.description')}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="poolPercentage">{t('subscriptions_page.admin.settings_panel.pool_percentage_label')}</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="poolPercentage"
-                                        type="number"
-                                        value={poolPercentage}
-                                        onChange={(e) => setPoolPercentage(e.target.value)}
-                                    />
-                                    <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap">
-                                        {t('subscriptions_page.admin.settings_panel.total_revenue_suffix')}
-                                    </div>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {t('subscriptions_page.admin.settings_panel.pool_percentage_help')}
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="minThreshold">{t('subscriptions_page.admin.settings_panel.min_payout_label')}</Label>
-                                <Input
-                                    id="minThreshold"
-                                    type="number"
-                                    value={minPayoutThreshold}
-                                    onChange={(e) => setMinPayoutThreshold(e.target.value)}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    {t('subscriptions_page.admin.settings_panel.min_payout_help')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="rate">{t('subscriptions_page.admin.settings_panel.estimated_rate_label')}</Label>
-                                <Input
-                                    id="rate"
-                                    disabled
-                                    value={`~ ${formatCurrency((TOTAL_MONTHLY_REVENUE * (parseInt(poolPercentage) / 100)) / TOTAL_SYSTEM_MINUTES)} / ${t('subscriptions_page.admin.overview.mins')}`}
-                                    className="bg-muted"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    {t('subscriptions_page.admin.settings_panel.estimated_rate_help')}
-                                </p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="engagementRate">{t('subscriptions_page.admin.settings_panel.engagement_rate_label')}</Label>
-                                <Input
-                                    id="engagementRate"
-                                    type="number"
-                                    step="0.01"
-                                    value={engagementRate}
-                                    onChange={(e) => setEngagementRate(e.target.value)}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    {t('subscriptions_page.admin.settings_panel.engagement_rate_help')}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center space-x-2 pt-4">
-                                <Switch id="auto-payout" checked={autoPayoutEnabled} onCheckedChange={setAutoPayoutEnabled} />
-                                <Label htmlFor="auto-payout">{t('subscriptions_page.admin.settings_panel.auto_payout_label')}</Label>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-                <CardContent className="border-t pt-6">
-                    <Button onClick={() => void persistRevenueSettings()}>
-                        <Save className="w-4 h-4 mr-2" />
-                        {t('subscriptions_page.admin.settings_panel.save')}
-                    </Button>
-                </CardContent>
-            </Card>
-        </TabsContent>
       </Tabs>
       </motion.div>
 

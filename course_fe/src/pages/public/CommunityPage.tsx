@@ -278,7 +278,7 @@ export function CommunityPage() {
         <div className="container mx-auto max-w-4xl text-center">
           <h1 className="text-4xl font-bold mb-3">Cộng đồng học tập</h1>
           <p className="text-blue-100 text-lg mb-8">
-            Thảo luận, chia sẻ kiến thức và kết nối với hàng nghìn học viên
+            Thảo luận, chia sẻ kiến thức và kết nối với cộng đồng học viên
           </p>
         </div>
       </div>

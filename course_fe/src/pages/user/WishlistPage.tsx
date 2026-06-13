@@ -130,6 +130,10 @@ export function WishlistPage() {
 
   const handleAddToCart = async (item: WishlistItem) => {
     if (!user?.id) return
+    if (item.course_detail.not_buyable_reason) {
+      toast.error(item.course_detail.not_buyable_reason)
+      return
+    }
     try {
       await addToCartApi({ user: parseInt(user.id, 10), course: item.course })
       toast.success(t('wishlist.added_to_cart_item', { title: item.course_detail.title }))
@@ -142,16 +146,25 @@ export function WishlistPage() {
 
   const handleMoveAllToCart = async () => {
     if (!user?.id) return
+    const movedIds: number[] = []
     for (const item of wishlistItems) {
+      if (item.course_detail.not_buyable_reason) continue
       try {
         await addToCartApi({ user: parseInt(user.id, 10), course: item.course })
         await removeWishlistApi(item.id)
+        movedIds.push(item.id)
       } catch {
 
       }
     }
-    setWishlistItems([])
-    toast.success(t('wishlist.added_to_cart'))
+    setWishlistItems((items) => items.filter((i) => !movedIds.includes(i.id)))
+    if (movedIds.length === 0) {
+      toast.error(t('wishlist.move_all_none', 'Không có khóa học nào có thể thêm vào giỏ hàng.'))
+    } else if (movedIds.length < wishlistItems.length) {
+      toast.warning(t('wishlist.move_all_partial', 'Đã thêm một số khóa học; số còn lại không thể mua được.'))
+    } else {
+      toast.success(t('wishlist.added_to_cart'))
+    }
   }
 
   if (loading) {
@@ -334,7 +347,15 @@ export function WishlistPage() {
                         )}
                       </div>
 
-                      <Button className="w-full gap-2" onClick={() => handleAddToCart(item)}>
+                      {course.not_buyable_reason && (
+                        <p className="text-sm text-red-600 dark:text-red-400">{course.not_buyable_reason}</p>
+                      )}
+
+                      <Button
+                        className="w-full gap-2"
+                        disabled={Boolean(course.not_buyable_reason)}
+                        onClick={() => handleAddToCart(item)}
+                      >
                         <ShoppingCart className="h-4 w-4" />
                         {t('wishlist.move_to_cart')}
                       </Button>

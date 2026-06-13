@@ -4,10 +4,8 @@ import {
   ArrowRight,
   Bot,
   ListChecks,
-  Play,
   Save,
   Search,
-  ShoppingCart,
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -18,9 +16,7 @@ import { useAuthStore } from '../stores/auth.store'
 import { useCart } from '../contexts/CartContext'
 import { useOwnedCourses } from '../hooks/useOwnedCourses'
 import { useModal } from '../stores/modal.store'
-import { formatPrice } from '../services/course.api'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import {
@@ -175,8 +171,32 @@ function buildPathAssistantSummary(
   return `${tr('ai_learning_path.message_path_generated', 'Mình đã phân tích yêu cầu và gợi ý nội dung phù hợp dựa trên hội thoại hiện tại.')}\n\n${tr('ai_learning_path.message_course_links', 'Link khóa học đề xuất:')}\n${courseLinks}`
 }
 
+function buildCourseListAssistantSummary(
+  summary: string,
+  courses: LearningPathItem[],
+  tr: (key: string, fallback: string, options?: Record<string, unknown>) => string,
+) {
+  const courseLinks = (courses || [])
+    .slice(0, 8)
+    .map((item, idx) => {
+      const safeTitle = (item.course_title || `Khoa hoc #${item.course_id}`).replace(/\]/g, ')')
+      return `${idx + 1}. [Mo khoa hoc: ${safeTitle}](/course/${item.course_id})`
+    })
+    .join('\n')
+
+  if (!courseLinks) {
+    return (summary || '').trim() || tr('ai_learning_path.message_no_courses_found', 'Chưa tìm thấy khóa học phù hợp.')
+  }
+
+  return `${(summary || '').trim() || tr('ai_learning_path.message_courses_found', 'Mình tìm thấy các khóa học phù hợp:')}\n\n${tr('ai_learning_path.message_course_links', 'Link khóa học đề xuất:')}\n${courseLinks}`
+}
+
 function isPathResponse(value: AdvisorChatResponse | LearningPathDetail): value is Extract<AdvisorChatResponse, { type: 'path' }> {
   return typeof value === 'object' && value !== null && 'type' in value && value.type === 'path'
+}
+
+function isCourseListResponse(value: AdvisorChatResponse | LearningPathDetail): value is Extract<AdvisorChatResponse, { type: 'course_list' }> {
+  return typeof value === 'object' && value !== null && 'type' in value && value.type === 'course_list'
 }
 
 function isQuestionResponse(value: AdvisorChatResponse | LearningPathDetail): value is Extract<AdvisorChatResponse, { type: 'question' }> {
@@ -331,8 +351,6 @@ export function AiLearningPathDialog({
     void loadPathDetail(initialPathId)
   }, [open, initialPathId])
 
-  const monthsLabel = (weeks: number) => tr('ai_learning_path.months_label', `~${(weeks / 4).toFixed(1)} tháng`, { count: (weeks / 4).toFixed(1) })
-
   const progressSnapshot = useMemo(
     () =>
       advisorState
@@ -345,7 +363,6 @@ export function AiLearningPathDialog({
   )
 
   const missingPathItems = progressSnapshot?.missingItems ?? []
-  const missingCostEstimate = progressSnapshot?.missingCostEstimate ?? 0
   const filteredHistoryPaths = useMemo(() => {
     const keyword = historyQuery.trim().toLowerCase()
     if (!keyword) return historyPaths
@@ -443,7 +460,41 @@ export function AiLearningPathDialog({
       setAdvisorState(snapshot)
       const newMsgIndex = nextMessages.length
       setPathSnapshots((prev) => ({ ...prev, [newMsgIndex]: snapshot }))
-      setMessages([...nextMessages, { role: 'assistant', content: assistantSummary }])
+      setMessages([
+        ...nextMessages,
+        {
+          role: 'assistant',
+          content: assistantSummary,
+          artifact: {
+            type: 'path',
+            course_ids: result.path.map((item) => item.course_id),
+            retrieval_plan: result.advisor_meta?.retrieval_plan,
+          },
+        },
+      ])
+      const suggested = (result.advisor_meta?.suggested_actions || []).slice(0, 2)
+      setQuickReplyActions(suggested)
+      setShowQuickReplies(suggested.length > 0)
+      return
+    }
+
+    if (isCourseListResponse(result)) {
+      const assistantSummary = buildCourseListAssistantSummary(result.summary, result.courses, tr)
+      setAdvisorState(null)
+      setSavedPathId(null)
+      setActiveHistoryPathId(null)
+      setMessages([
+        ...nextMessages,
+        {
+          role: 'assistant',
+          content: assistantSummary,
+          artifact: {
+            type: 'course_list',
+            course_ids: result.courses.map((item) => item.course_id),
+            retrieval_plan: result.advisor_meta?.retrieval_plan,
+          },
+        },
+      ])
       const suggested = (result.advisor_meta?.suggested_actions || []).slice(0, 2)
       setQuickReplyActions(suggested)
       setShowQuickReplies(suggested.length > 0)

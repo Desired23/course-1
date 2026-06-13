@@ -84,6 +84,9 @@ export interface InstructorDashboardStats {
   total_courses: number
   published_courses: number
   draft_courses: number
+  pending_courses?: number
+  rejected_courses?: number
+  archived_courses?: number
   total_students: number
   new_students_this_month: number
   total_earnings: number

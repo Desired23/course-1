@@ -16,34 +16,34 @@ function formatLargeNumber(n: number): string {
 
 const features = [
   {
-    titleKey: "utc_business_page.features.fresh_content.title",
-    descriptionKey: "utc_business_page.features.fresh_content.description",
+    titleKey: "business_page.features.fresh_content.title",
+    descriptionKey: "business_page.features.fresh_content.description",
     icon: TrendingUp,
   },
   {
-    titleKey: "utc_business_page.features.hands_on.title",
-    descriptionKey: "utc_business_page.features.hands_on.description",
+    titleKey: "business_page.features.hands_on.title",
+    descriptionKey: "business_page.features.hands_on.description",
     icon: Users,
   },
   {
-    titleKey: "utc_business_page.features.trusted.title",
-    descriptionKey: "utc_business_page.features.trusted.description",
+    titleKey: "business_page.features.trusted.title",
+    descriptionKey: "business_page.features.trusted.description",
     icon: Award,
   },
 ]
 
 const growthItems = [
   {
-    titleKey: "utc_business_page.growth.learning_paths.title",
-    descriptionKey: "utc_business_page.growth.learning_paths.description",
+    titleKey: "business_page.growth.learning_paths.title",
+    descriptionKey: "business_page.growth.learning_paths.description",
   },
   {
-    titleKey: "utc_business_page.growth.analytics.title",
-    descriptionKey: "utc_business_page.growth.analytics.description",
+    titleKey: "business_page.growth.analytics.title",
+    descriptionKey: "business_page.growth.analytics.description",
   },
   {
-    titleKey: "utc_business_page.growth.integration.title",
-    descriptionKey: "utc_business_page.growth.integration.description",
+    titleKey: "business_page.growth.integration.title",
+    descriptionKey: "business_page.growth.integration.description",
   },
 ]
 
@@ -86,8 +86,8 @@ export function UtcBusinessPage() {
   }, [])
 
   const stats = [
-    { number: apiStats ? formatLargeNumber(apiStats.total_students) : "...", labelKey: "utc_business_page.stats.learners" },
-    { number: apiStats ? `${apiStats.avg_rating.toFixed(1)}/5` : "...", labelKey: "utc_business_page.stats.rating" },
+    { number: apiStats ? formatLargeNumber(apiStats.total_students) : "...", labelKey: "business_page.stats.learners" },
+    { number: apiStats ? `${apiStats.avg_rating.toFixed(1)}/5` : "...", labelKey: "business_page.stats.rating" },
   ]
 
   return (
@@ -98,17 +98,17 @@ export function UtcBusinessPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h1 className="text-4xl lg:text-6xl font-bold mb-6">
-                {t('utc_business_page.hero_title_prefix')}
-                <span className="text-yellow-400"> {t('utc_business_page.hero_title_highlight')}</span>
+                {t('business_page.hero_title_prefix')}
+                <span className="text-yellow-400"> {t('business_page.hero_title_highlight')}</span>
               </h1>
-              <p className="text-xl mb-8 opacity-90">{t('utc_business_page.hero_subtitle')}</p>
+              <p className="text-xl mb-8 opacity-90">{t('business_page.hero_subtitle')}</p>
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Button
                   size="lg"
                   className="font-bold border-none hover:bg-gray-100"
                   style={{ backgroundColor: '#ffffff', color: '#000000' }}
                 >
-                  {t('utc_business_page.get_business')}
+                  {t('business_page.get_business')}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button
@@ -117,15 +117,15 @@ export function UtcBusinessPage() {
                   className="font-bold border-2 hover:bg-white hover:opacity-90"
                   style={{ borderColor: '#ffffff', color: '#ffffff', backgroundColor: 'transparent' }}
                 >
-                  {t('utc_business_page.request_demo')}
+                  {t('business_page.request_demo')}
                 </Button>
               </div>
-              <p className="text-sm opacity-80">{t('utc_business_page.trusted_companies')}</p>
+              <p className="text-sm opacity-80">{t('business_page.trusted_companies')}</p>
             </div>
             <div className="relative">
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=600"
-                alt={t('utc_business_page.images.team_collaboration')}
+                alt={t('business_page.images.team_collaboration')}
                 className="rounded-lg shadow-2xl"
               />
             </div>
@@ -155,8 +155,8 @@ export function UtcBusinessPage() {
       <motion.section className="py-20" variants={fadeInUp}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('utc_business_page.why_title')}</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">{t('utc_business_page.why_subtitle')}</p>
+            <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('business_page.why_title')}</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">{t('business_page.why_subtitle')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
@@ -185,7 +185,7 @@ export function UtcBusinessPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h3 className="text-2xl lg:text-3xl font-bold mb-6">{t('utc_business_page.growth_title')}</h3>
+              <h3 className="text-2xl lg:text-3xl font-bold mb-6">{t('business_page.growth_title')}</h3>
               <div className="space-y-4">
                 {growthItems.map((item, index) => (
                   <motion.div
@@ -207,7 +207,7 @@ export function UtcBusinessPage() {
             <div>
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1551434678-e076c223a692?w=600"
-                alt={t('utc_business_page.images.analytics_dashboard')}
+                alt={t('business_page.images.analytics_dashboard')}
                 className="rounded-lg shadow-lg"
               />
             </div>
@@ -217,15 +217,15 @@ export function UtcBusinessPage() {
 
       <motion.section className="py-20 bg-gray-900 text-white" variants={fadeInUp}>
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('utc_business_page.cta_title')}</h2>
-          <p className="text-xl mb-8 opacity-90">{t('utc_business_page.cta_subtitle')}</p>
+          <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t('business_page.cta_title')}</h2>
+          <p className="text-xl mb-8 opacity-90">{t('business_page.cta_subtitle')}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
               size="lg"
               className="font-bold border-none hover:bg-gray-100"
               style={{ backgroundColor: '#ffffff', color: '#000000' }}
             >
-              {t('utc_business_page.get_business')}
+              {t('business_page.get_business')}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button
@@ -234,7 +234,7 @@ export function UtcBusinessPage() {
               className="font-bold border-2 hover:bg-white hover:opacity-90"
               style={{ borderColor: '#ffffff', color: '#ffffff', backgroundColor: 'transparent' }}
             >
-              {t('utc_business_page.request_demo')}
+              {t('business_page.request_demo')}
             </Button>
           </div>
         </div>

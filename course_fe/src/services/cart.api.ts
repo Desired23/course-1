@@ -32,6 +32,7 @@ export interface CartItem {
   course: number
   course_detail: CartCourseDetail
   in_plan?: boolean
+  not_buyable_reason?: string | null
   promotion: number | null
   created_at: string
 }

@@ -22,6 +22,7 @@ import { motion } from 'motion/react'
 import { Download, ExternalLink, FileImage, FileText, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listItemTransition } from '../../lib/motion'
+import AutoApproveToggle from '../../components/admin/AutoApproveToggle'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -186,6 +187,13 @@ export function AdminInstructorApplicationsPage() {
       <motion.div variants={fadeInUp}>
         <h1 className="text-2xl font-semibold">{t('admin_instructor_applications.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('admin_instructor_applications.subtitle')}</p>
+        <div className="mt-3 max-w-sm">
+          <AutoApproveToggle
+            settingKey="auto_approve_instructor_application"
+            label={t('auto_approve.instructor_application.label')}
+            description={t('auto_approve.instructor_application.description')}
+          />
+        </div>
       </motion.div>
 
       <motion.div variants={fadeInUp}>

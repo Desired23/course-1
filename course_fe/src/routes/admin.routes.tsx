@@ -30,6 +30,7 @@ const AdminHomeLayoutPage = lazy(() => import('../pages/admin/AdminHomeLayoutPag
 const AdminDataBackupPage = lazy(() => import('../pages/admin/AdminDataBackupPage').then((module) => ({ default: module.AdminDataBackupPage })))
 const AdminImportPage = lazy(() => import('../pages/admin/AdminImportPage').then((module) => ({ default: module.AdminImportPage })))
 const AdminNewsletterPage = lazy(() => import('../pages/admin/AdminNewsletterPage').then((module) => ({ default: module.AdminNewsletterPage })))
+const AdminPolicyPage = lazy(() => import('../pages/admin/AdminPolicyPage').then((module) => ({ default: module.AdminPolicyPage })))
 
 function Redirect({ to }: { to: string }) {
   const { navigate } = useRouter()
@@ -77,6 +78,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/refunds', page: <PaymentManagementPage /> },
   { path: '/admin/instructor-applications', page: <AdminInstructorApplicationsPage /> },
   { path: '/admin/subscriptions', page: <AdminSubscriptionPage /> },
+  { path: '/admin/policies', page: <AdminPolicyPage /> },
   { path: '/admin/website-management', page: <WebsiteManagementPage /> },
   { path: '/admin/activity-log', page: <ActivityLogPage /> },
   { path: '/admin/website-settings', page: <Redirect to="/admin/website-management" /> },

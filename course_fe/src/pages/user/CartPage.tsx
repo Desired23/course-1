@@ -191,8 +191,16 @@ export function CartPage() {
       toast.error(t('cart.select_at_least_one', 'Vui lòng chọn ít nhất một khóa học để thanh toán'))
       return
     }
+    const buyableSelected = selectedItems.filter((item) => !item.notBuyableReason)
+    if (buyableSelected.length === 0) {
+      toast.error(t('cart.no_buyable_selected', 'Các khóa học đã chọn hiện không thể mua. Vui lòng chọn khóa khác.'))
+      return
+    }
+    if (buyableSelected.length < selectedItems.length) {
+      toast.warning(t('cart.some_not_buyable_skipped', 'Một số khóa học không còn mua được đã bị bỏ qua khi thanh toán.'))
+    }
     navigate('/checkout', undefined, {
-      selected: selectedItems.map((item) => item.id).join(','),
+      selected: buyableSelected.map((item) => item.id).join(','),
     })
   }
 
@@ -351,6 +359,12 @@ export function CartPage() {
                       {item.inPlan && (
                         <span className="mb-2 inline-flex items-center rounded-full border border-amber-300 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
                           {t('cart.in_plan_tag')}
+                        </span>
+                      )}
+
+                      {item.notBuyableReason && (
+                        <span className="mb-2 inline-flex items-center rounded-full border border-red-300 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+                          {item.notBuyableReason}
                         </span>
                       )}
 

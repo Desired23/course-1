@@ -17,6 +17,7 @@ import {
   CreditCard,
   Package,
   Receipt,
+  Award,
   LogOut,
 } from "lucide-react"
 
@@ -56,6 +57,7 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
     { label: t('common.my_cart'), icon: <ShoppingCart className="h-4 w-4" />, href: '/cart' },
     { label: t('common.wishlist'), icon: <Heart className="h-4 w-4" />, href: '/wishlist' },
     { label: t('common.my_reviews'), icon: <Star className="h-4 w-4" />, href: '/user/my-reviews' },
+    { label: t('common.my_certificates', 'Chứng chỉ của tôi'), icon: <Award className="h-4 w-4" />, href: '/user/my-certificates' },
     { label: t('common.profile'), icon: <User className="h-4 w-4" />, href: '/profile' },
     { label: t('common.notifications'), icon: <Bell className="h-4 w-4" />, href: '/notifications', dividerAfter: true },
     { label: t('common.account_settings'), icon: <Settings className="h-4 w-4" />, href: '/account-settings' },

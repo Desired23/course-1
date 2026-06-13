@@ -64,7 +64,7 @@ interface CourseFilterSidebarProps {
   levels?: string[]
   languages?: string[]
   features?: string[]
-  currency?: 'USD' | 'VND'
+  currency?: 'VND'
   priceConfig?: {
     min: number
     max: number
@@ -94,7 +94,6 @@ export function CourseFilterSidebar({
   levels,
   languages,
   features,
-  currency = 'VND',
   priceConfig = {
     min: 0,
     max: 5000000,
@@ -143,13 +142,10 @@ export function CourseFilterSidebar({
   ]
 
   const formatPrice = (price: number) => {
-    if (currency === 'VND') {
-      return `VND ${price.toLocaleString('vi-VN')}`
-    }
-    return `$${price}`
+    return `${price.toLocaleString('vi-VN')}₫`
   }
 
-  const currencySymbol = currency === 'VND' ? 'VND' : '$'
+  const currencySymbol = '₫'
 
   if (!showFilters) return null
 

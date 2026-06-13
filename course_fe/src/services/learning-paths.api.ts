@@ -4,10 +4,19 @@ import type { PaginatedResponse } from './common/pagination'
 export interface AdvisorMessage {
   role: 'user' | 'assistant'
   content: string
+  artifact?: AdvisorMessageArtifact
+}
+
+export interface AdvisorMessageArtifact {
+  type: 'course_list' | 'path' | 'comparison'
+  course_ids?: number[]
+  retrieval_plan?: unknown
 }
 
 export interface AdvisorMeta {
   suggested_actions?: string[]
+  retrieval_plan?: unknown
+  retrieved_count?: number
 }
 
 export interface LearningPathItem {
@@ -58,6 +67,7 @@ export interface AdvisorChatRequest {
 
 export type AdvisorChatResponse =
   | { type: 'question'; message: string; advisor_meta?: AdvisorMeta }
+  | { type: 'course_list'; courses: LearningPathItem[]; summary: string; advisor_meta?: AdvisorMeta }
   | { type: 'path'; path: LearningPathItem[]; estimated_weeks: number; summary: string; advisor_meta?: AdvisorMeta }
 
 export interface CreateLearningPathRequest {
@@ -77,7 +87,6 @@ interface AdvisorSsePayload {
   event?: string
   data?: AdvisorSsePayload
   delta?: string
-  attempt?: number
   result?: AdvisorChatResponse
   message?: string
 }

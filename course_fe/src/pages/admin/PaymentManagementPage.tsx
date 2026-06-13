@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Checkbox } from "../../components/ui/checkbox"
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
+import AutoApproveToggle from '../../components/admin/AutoApproveToggle'
 import {
   CreditCard,
   DollarSign,
@@ -31,7 +32,6 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
-  Percent,
   Settings,
   Plus
 } from 'lucide-react'
@@ -49,9 +49,15 @@ import type { AdminPayment } from '../../services/admin.api'
 import { adminRefundAction, adminCreateRefund, getPaymentStatus, getAdminRefunds, getPaymentAdminConfig, updatePaymentAdminConfig } from '../../services/payment.api'
 import type { Payment as FullPayment } from '../../services/payment.api'
 import type { AdminRefundItem } from '../../services/payment.api'
-import type { RefundSettings } from '../../services/payment.api'
-import { getInstructorLevels, updateInstructorLevel } from '../../services/instructor-levels.api'
-import type { InstructorLevel } from '../../services/instructor-levels.api'
+import {
+  getInstructorPayoutsPage,
+  approvePayout,
+  rejectPayout,
+  formatPayoutAmount,
+  getPayoutStatusLabel,
+  getPayoutStatusColor,
+} from '../../services/instructor-payouts.api'
+import type { InstructorPayout, PayoutStatus } from '../../services/instructor-payouts.api'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { UserPagination } from '../../components/UserPagination'
@@ -109,17 +115,6 @@ interface RefundRequest {
   timeline: Array<{ event: string; actor?: string | null; note?: string | null; timestamp: string }>
 }
 
-interface PaymentPolicy {
-  id: string
-  name: string
-  type: 'commission' | 'refund_window' | 'minimum_payout' | 'processing_fee'
-  value: number
-  unit: 'percentage' | 'days' | 'currency'
-  description: string
-  is_active: boolean
-  updated_by: string
-  updated_at: Date
-}
 
 
 interface DiscountRule {
@@ -140,7 +135,7 @@ interface DiscountRule {
   status: 'active' | 'inactive' | 'expired'
 }
 
-type PaymentConfigEditorType = 'policies' | 'discounts' | 'refund-settings'
+type PaymentConfigEditorType = 'policies' | 'discounts'
 const ITEMS_PER_PAGE = 10
 
 const sectionStagger = {
@@ -164,14 +159,6 @@ const fadeInUp = {
     },
   },
 }
-
-function mapPolicies(value: any[]): PaymentPolicy[] {
-  return (value || []).map((item: any) => ({
-    ...item,
-    updated_at: new Date(item.updated_at || Date.now()),
-  }))
-}
-
 
 function mapDiscountRules(value: any[]): DiscountRule[] {
   return (value || []).map((item: any) => ({
@@ -227,27 +214,31 @@ export function PaymentManagementPage() {
     }
     return currentRoute.startsWith('/admin/refunds') ? 'refunds' : 'payments'
   })()
-  const [activeTab, setActiveTab] = useState<'payments' | 'refunds' | 'policies' | 'instructor-rates' | 'discounts' | 'payouts'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'payments' | 'refunds' | 'discounts' | 'payouts'>(initialTab)
   const [payoutExportDateFrom, setPayoutExportDateFrom] = useState('')
   const [payoutExportDateTo, setPayoutExportDateTo] = useState('')
   const [payoutExportStatus, setPayoutExportStatus] = useState('')
   const [payoutExportInstructorId, setPayoutExportInstructorId] = useState('')
   const [isPayoutExporting, setIsPayoutExporting] = useState(false)
+  // Admin payout management (request approval flow)
+  const [managedPayouts, setManagedPayouts] = useState<InstructorPayout[]>([])
+  const [payoutsLoading, setPayoutsLoading] = useState(false)
+  const [payoutFilterStatus, setPayoutFilterStatus] = useState<PayoutStatus | ''>('pending')
+  const [payoutFilterInstructorId, setPayoutFilterInstructorId] = useState('')
+  const [payoutsMgmtPage, setPayoutsMgmtPage] = useState(1)
+  const [payoutsMgmtTotalPages, setPayoutsMgmtTotalPages] = useState(1)
+  const [approveTarget, setApproveTarget] = useState<InstructorPayout | null>(null)
+  const [approveTxnId, setApproveTxnId] = useState('')
+  const [approveFee, setApproveFee] = useState('')
+  const [approveNotes, setApproveNotes] = useState('')
+  const [rejectTarget, setRejectTarget] = useState<InstructorPayout | null>(null)
+  const [rejectNotes, setRejectNotes] = useState('')
+  const [payoutActionSubmitting, setPayoutActionSubmitting] = useState(false)
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
   const [filteredRefundRequests, setFilteredRefundRequests] = useState<RefundRequest[]>([])
-  const [policies, setPolicies] = useState<PaymentPolicy[]>([])
-  const [instructorLevels, setInstructorLevels] = useState<InstructorLevel[]>([])
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([])
-  const [refundSettings, setRefundSettings] = useState<RefundSettings>({
-    refund_mode: 'admin_approval',
-    refund_retry_cooldown_minutes: 30,
-    refund_max_retry_count: 3,
-    refund_timeout_seconds: 15,
-    allow_admin_override_refund_status: true,
-    allow_admin_soft_delete_refund: true,
-  })
   const [filteredPayments, setFilteredPayments] = useState<AdminPayment[]>([])
   const [paymentsPage, setPaymentsPage] = useState(1)
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<number[]>([])
@@ -274,7 +265,6 @@ export function PaymentManagementPage() {
     loading: false,
     action: null,
   })
-  const [refundSettingsDraft, setRefundSettingsDraft] = useState<RefundSettings>(refundSettings)
   const [noteDialogOpen, setNoteDialogOpen] = useState(false)
   const [noteDialogValue, setNoteDialogValue] = useState('')
   const [noteTargetRefundId, setNoteTargetRefundId] = useState<number | null>(null)
@@ -290,17 +280,6 @@ export function PaymentManagementPage() {
   const [adminRefundSelectedIds, setAdminRefundSelectedIds] = useState<number[]>([])
   const [adminRefundReason, setAdminRefundReason] = useState('')
   const [adminRefundSubmitting, setAdminRefundSubmitting] = useState(false)
-  // Inline edit instructor commission rates
-  const [editingLevelId, setEditingLevelId] = useState<number | null>(null)
-  const [editLevelValues, setEditLevelValues] = useState<{ commission_rate: string; plan_commission_rate: string }>({ commission_rate: '', plan_commission_rate: '' })
-  const [savingLevelId, setSavingLevelId] = useState<number | null>(null)
-
-  const getRefundModeLabel = (mode: RefundSettings['refund_mode']) =>
-    t(`payment_management.refunds.settings.mode_options.${mode}`)
-
-  const getToggleStatusLabel = (enabled: boolean) =>
-    enabled ? t('payment_management.common.enabled') : t('payment_management.common.disabled')
-
   const openAdminRefundDialog = async (paymentId: number) => {
     setAdminRefundFetchingId(paymentId)
     try {
@@ -349,35 +328,70 @@ export function PaymentManagementPage() {
     }
   }
 
-  const startEditLevel = (level: InstructorLevel) => {
-    setEditingLevelId(level.id)
-    setEditLevelValues({ commission_rate: level.commission_rate, plan_commission_rate: level.plan_commission_rate })
-  }
-
-  const cancelEditLevel = () => { setEditingLevelId(null) }
-
-  const saveEditLevel = async (levelId: number) => {
-    setSavingLevelId(levelId)
-    try {
-      const updated = await updateInstructorLevel(levelId, {
-        commission_rate: editLevelValues.commission_rate,
-        plan_commission_rate: editLevelValues.plan_commission_rate,
-      })
-      setInstructorLevels(prev => prev.map(l => l.id === levelId ? updated : l))
-      setEditingLevelId(null)
-      toast.success(t('payment_management.commission_update_success'))
-    } catch (err: any) {
-      toast.error(err?.message || t('payment_management.commission_update_failed'))
-    } finally {
-      setSavingLevelId(null)
-    }
-  }
-
   const loadRefundQueue = async () => {
     const refunds = await getAdminRefunds({ page: 1, page_size: 200, include_deleted: true })
     const mappedRefunds = (refunds.results || []).map((refund: AdminRefundItem) => mapRefundRequest(refund))
     setRefundRequests(mappedRefunds)
     setFilteredRefundRequests(mappedRefunds.filter((refund) => !refund.is_deleted))
+  }
+
+  const loadManagedPayouts = useCallback(async () => {
+    setPayoutsLoading(true)
+    try {
+      const res = await getInstructorPayoutsPage({
+        status: payoutFilterStatus || undefined,
+        instructor_id: payoutFilterInstructorId ? Number(payoutFilterInstructorId) : undefined,
+        page: payoutsMgmtPage,
+        page_size: ITEMS_PER_PAGE,
+      })
+      setManagedPayouts(res.results || [])
+      setPayoutsMgmtTotalPages(res.total_pages || 1)
+    } catch {
+      setManagedPayouts([])
+      setPayoutsMgmtTotalPages(1)
+    } finally {
+      setPayoutsLoading(false)
+    }
+  }, [payoutFilterStatus, payoutFilterInstructorId, payoutsMgmtPage])
+
+  useEffect(() => {
+    if (activeTab === 'payouts') void loadManagedPayouts()
+  }, [activeTab, loadManagedPayouts])
+
+  const submitApprovePayout = async () => {
+    if (!approveTarget) return
+    setPayoutActionSubmitting(true)
+    try {
+      await approvePayout(approveTarget.id, {
+        transaction_id: approveTxnId.trim() || undefined,
+        fee: approveFee ? Number(approveFee) : 0,
+        notes: approveNotes.trim() || undefined,
+      })
+      toast.success(`Đã duyệt payout #${approveTarget.id}`)
+      setApproveTarget(null)
+      setApproveTxnId(''); setApproveFee(''); setApproveNotes('')
+      await loadManagedPayouts()
+    } catch (err: any) {
+      toast.error(err?.message || 'Duyệt payout thất bại')
+    } finally {
+      setPayoutActionSubmitting(false)
+    }
+  }
+
+  const submitRejectPayout = async () => {
+    if (!rejectTarget) return
+    setPayoutActionSubmitting(true)
+    try {
+      await rejectPayout(rejectTarget.id, { notes: rejectNotes.trim() || undefined })
+      toast.success(`Đã từ chối payout #${rejectTarget.id}`)
+      setRejectTarget(null)
+      setRejectNotes('')
+      await loadManagedPayouts()
+    } catch (err: any) {
+      toast.error(err?.message || 'Từ chối payout thất bại')
+    } finally {
+      setPayoutActionSubmitting(false)
+    }
   }
 
   useEffect(() => {
@@ -402,20 +416,10 @@ export function PaymentManagementPage() {
       }
 
       try {
-        const [policyConfig, discountConfig, refundConfig, levelsData] = await Promise.all([
-          getPaymentAdminConfig<any[]>('policies'),
-          getPaymentAdminConfig<any[]>('discounts'),
-          getPaymentAdminConfig<RefundSettings>('refund-settings'),
-          getInstructorLevels(),
-        ])
-        setPolicies(mapPolicies(policyConfig.value))
+        const discountConfig = await getPaymentAdminConfig<any[]>('discounts')
         setDiscountRules(mapDiscountRules(discountConfig.value))
-        setRefundSettings(refundConfig.value)
-        setInstructorLevels(levelsData)
       } catch {
-        setPolicies([])
         setDiscountRules([])
-        setInstructorLevels([])
       }
     }
     loadData()
@@ -423,15 +427,6 @@ export function PaymentManagementPage() {
 
   const openConfigEditor = (type: PaymentConfigEditorType) => {
     setConfigEditorType(type)
-    if (type === 'policies') {
-      setConfigEditorValue(stringifyConfig(policies))
-      return
-    }
-    if (type === 'refund-settings') {
-      setRefundSettingsDraft(refundSettings)
-      setConfigEditorValue(stringifyConfig(refundSettings))
-      return
-    }
     setConfigEditorValue(stringifyConfig(discountRules))
   }
 
@@ -439,15 +434,13 @@ export function PaymentManagementPage() {
     if (!configEditorType) return
     try {
       setConfigSaving(true)
-      const parsed = configEditorType === 'refund-settings' ? refundSettingsDraft : JSON.parse(configEditorValue)
-      if (configEditorType !== 'refund-settings' && !Array.isArray(parsed)) {
+      const parsed = JSON.parse(configEditorValue)
+      if (!Array.isArray(parsed)) {
         toast.error(t('payment_management.config_invalid_array'))
         return
       }
       const response = await updatePaymentAdminConfig(configEditorType, parsed)
-      if (configEditorType === 'policies') setPolicies(mapPolicies(response.value))
       if (configEditorType === 'discounts') setDiscountRules(mapDiscountRules(response.value))
-      if (configEditorType === 'refund-settings') setRefundSettings(response.value)
       toast.success(t('payment_management.config_save_success'))
       setConfigEditorType(null)
     } catch (err: any) {
@@ -629,9 +622,6 @@ export function PaymentManagementPage() {
     setOverrideNoteValue('')
   }
 
-  const updateRefundSettingsDraft = <K extends keyof RefundSettings>(key: K, value: RefundSettings[K]) => {
-    setRefundSettingsDraft((prev) => ({ ...prev, [key]: value }))
-  }
 
   const handleRefundAction = async (
     refundIds: number[],
@@ -879,9 +869,6 @@ export function PaymentManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl">{formatCurrency(payments.filter(p => p.payment_status === 'completed').reduce((sum, p) => sum + (parseFloat(p.total_amount as any) || 0), 0))}</div>
-            <p className="text-xs text-muted-foreground">
-              {t('payment_management.stats.revenue_change')}
-            </p>
           </CardContent>
         </Card>
 
@@ -935,14 +922,6 @@ export function PaymentManagementPage() {
           <TabsTrigger value="refunds" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'refunds' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('payment_management.tabs.refunds')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="policies" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'policies' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('payment_management.tabs.policies')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="instructor-rates" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'instructor-rates' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('payment_management.tabs.instructor_rates')}</span>
           </TabsTrigger>
           <TabsTrigger value="discounts" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'discounts' && <motion.span layoutId="payment-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
@@ -1310,192 +1289,6 @@ export function PaymentManagementPage() {
         </TabsContent>
 
 
-        <TabsContent value="policies" className="space-y-6">
-          <Card className="border-amber-200 bg-amber-50/60">
-            <CardContent className="pt-6 text-sm text-amber-900">
-              {t('payment_management.notices.policies')}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>{t('payment_management.policies.title')}</CardTitle>
-                <Button onClick={() => openConfigEditor('policies')}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  {t('payment_management.policies.update')}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h4 className="font-medium">{t('payment_management.refunds.workflow.title')}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {t('payment_management.refunds.workflow.mode_label')} <span className="font-medium">{getRefundModeLabel(refundSettings.refund_mode)}</span> • {t('payment_management.refunds.workflow.cooldown', { minutes: refundSettings.refund_retry_cooldown_minutes })}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t('payment_management.refunds.workflow.timeout', { seconds: refundSettings.refund_timeout_seconds })} • {t('payment_management.refunds.workflow.override', { status: getToggleStatusLabel(refundSettings.allow_admin_override_refund_status) })} • {t('payment_management.refunds.workflow.soft_delete', { status: getToggleStatusLabel(refundSettings.allow_admin_soft_delete_refund) })}
-                    </p>
-                  </div>
-                  <Button variant="outline" onClick={() => openConfigEditor('refund-settings')}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    {t('payment_management.refunds.workflow.configure')}
-                  </Button>
-                </div>
-                {policies.map((policy) => (
-                  <div key={policy.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h4 className="font-medium">{policy.name}</h4>
-                      <p className="text-sm text-muted-foreground">{policy.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t('payment_management.policies.updated_at', { date: policy.updated_at.toLocaleDateString() })}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-medium">
-                        {policy.value}
-                        {policy.unit === 'percentage' ? '%' :
-                         policy.unit === 'days' ? t('payment_management.policies.days_suffix') : ' VND'}
-                      </p>
-                      <Badge variant={policy.is_active ? 'default' : 'secondary'}>
-                        {policy.is_active ? t('payment_management.policies.active') : t('payment_management.policies.paused')}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-
-        <TabsContent value="instructor-rates" className="space-y-6">
-          <Card className="border-blue-200 bg-blue-50/60">
-            <CardContent className="pt-6 text-sm text-blue-900">
-              Tỷ lệ hoa hồng được tính tự động dựa theo <strong>cấp độ giảng viên (InstructorLevel)</strong>. Để thay đổi tỷ lệ, hãy chỉnh sửa trực tiếp ở trang <em>Quản lý cấp độ giảng viên</em>.
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Percent className="h-5 w-5" />
-                {t('payment_management.instructor_rates.title')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {instructorLevels.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Chưa có cấp độ giảng viên nào.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cấp độ</TableHead>
-                      <TableHead>Hoa hồng khóa học (% nền tảng)</TableHead>
-                      <TableHead>Hoa hồng subscription (% nền tảng)</TableHead>
-                      <TableHead>Học viên tối thiểu</TableHead>
-                      <TableHead>Doanh thu tối thiểu</TableHead>
-                      <TableHead className="text-right">Số GV</TableHead>
-                      <TableHead className="w-[100px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {instructorLevels.map((level) => {
-                      const isEditing = editingLevelId === level.id
-                      const isSaving = savingLevelId === level.id
-                      const courseShare = 100 - parseFloat(isEditing ? editLevelValues.commission_rate : level.commission_rate)
-                      const planShare = 100 - parseFloat(isEditing ? editLevelValues.plan_commission_rate : level.plan_commission_rate)
-                      return (
-                        <TableRow key={level.id}>
-                          <TableCell className="font-medium">{level.name}</TableCell>
-                          <TableCell>
-                            {isEditing ? (
-                              <div className="flex items-center gap-1">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.01"
-                                  value={editLevelValues.commission_rate}
-                                  onChange={e => setEditLevelValues(v => ({ ...v, commission_rate: e.target.value }))}
-                                  className="w-20 h-7 text-sm"
-                                />
-                                <span className="text-xs text-muted-foreground">% nền tảng</span>
-                              </div>
-                            ) : (
-                              <Badge variant="outline" className="w-fit">
-                                {courseShare.toFixed(0)}% GV / {parseFloat(level.commission_rate).toFixed(0)}% nền tảng
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {isEditing ? (
-                              <div className="flex items-center gap-1">
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.01"
-                                  value={editLevelValues.plan_commission_rate}
-                                  onChange={e => setEditLevelValues(v => ({ ...v, plan_commission_rate: e.target.value }))}
-                                  className="w-20 h-7 text-sm"
-                                />
-                                <span className="text-xs text-muted-foreground">% nền tảng</span>
-                              </div>
-                            ) : (
-                              <Badge variant="secondary" className="w-fit">
-                                {planShare.toFixed(0)}% GV / {parseFloat(level.plan_commission_rate).toFixed(0)}% nền tảng
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{level.min_students.toLocaleString('vi-VN')} học viên</TableCell>
-                          <TableCell>{Number(level.min_revenue).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 })}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="outline">{level.instructor_count} GV</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {isEditing ? (
-                              <div className="flex gap-1">
-                                <Button
-                                  size="sm"
-                                  className="h-7 px-2"
-                                  onClick={() => void saveEditLevel(level.id)}
-                                  disabled={isSaving}
-                                >
-                                  {isSaving ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 px-2"
-                                  onClick={cancelEditLevel}
-                                  disabled={isSaving}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2"
-                                onClick={() => startEditLevel(level)}
-                              >
-                                <Settings className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-
         <TabsContent value="discounts" className="space-y-6">
           <Card className="border-amber-200 bg-amber-50/60">
             <CardContent className="pt-6 text-sm text-amber-900">
@@ -1565,6 +1358,104 @@ export function PaymentManagementPage() {
         </TabsContent>
 
         <TabsContent value="payouts" className="space-y-6">
+          <div className="max-w-sm">
+            <AutoApproveToggle
+              settingKey="auto_approve_payout"
+              label={t('auto_approve.payout.label')}
+              description={t('auto_approve.payout.description')}
+            />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Duyệt yêu cầu rút tiền
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Trạng thái</label>
+                  <Select
+                    value={payoutFilterStatus || 'all'}
+                    onValueChange={(v) => { setPayoutsMgmtPage(1); setPayoutFilterStatus(v === 'all' ? '' : v as PayoutStatus) }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Tất cả" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="pending">Chờ duyệt</SelectItem>
+                      <SelectItem value="processed">Đã xử lý</SelectItem>
+                      <SelectItem value="cancelled">Đã hủy</SelectItem>
+                      <SelectItem value="failed">Thất bại</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Instructor ID (tùy chọn)</label>
+                  <Input
+                    type="number"
+                    placeholder="Để trống = tất cả"
+                    value={payoutFilterInstructorId}
+                    onChange={(e) => { setPayoutsMgmtPage(1); setPayoutFilterInstructorId(e.target.value) }}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button variant="outline" className="gap-2" disabled={payoutsLoading} onClick={() => void loadManagedPayouts()}>
+                    <RefreshCw className="h-4 w-4" /> Làm mới
+                  </Button>
+                </div>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Instructor</TableHead>
+                    <TableHead>Số tiền</TableHead>
+                    <TableHead>Phương thức</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày yêu cầu</TableHead>
+                    <TableHead className="w-[160px]">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payoutsLoading ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Đang tải...</TableCell></TableRow>
+                  ) : managedPayouts.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Không có payout</TableCell></TableRow>
+                  ) : managedPayouts.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-mono text-sm">#{p.id}</TableCell>
+                      <TableCell>{p.instructor}</TableCell>
+                      <TableCell className="font-semibold">{formatPayoutAmount(p.amount)}</TableCell>
+                      <TableCell><Badge variant="outline">{p.payment_method || '-'}</Badge></TableCell>
+                      <TableCell><Badge className={getPayoutStatusColor(p.status)}>{getPayoutStatusLabel(p.status)}</Badge></TableCell>
+                      <TableCell>{new Date(p.request_date).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        {p.status === 'pending' ? (
+                          <div className="flex gap-1">
+                            <Button size="sm" onClick={() => { setApproveTarget(p); setApproveTxnId(''); setApproveFee(''); setApproveNotes('') }}>
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => { setRejectTarget(p); setRejectNotes('') }}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{p.transaction_id || '-'}</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="flex justify-end">
+                <UserPagination currentPage={payoutsMgmtPage} totalPages={payoutsMgmtTotalPages} onPageChange={setPayoutsMgmtPage} />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1629,7 +1520,7 @@ export function PaymentManagementPage() {
                         status: payoutExportStatus || undefined,
                       })
                     } catch {
-                      toast.error('Export failed')
+                      toast.error(t('payment_management.export_failed', 'Xuất dữ liệu thất bại'))
                     } finally {
                       setIsPayoutExporting(false)
                     }
@@ -1652,7 +1543,7 @@ export function PaymentManagementPage() {
                         status: payoutExportStatus || undefined,
                       })
                     } catch {
-                      toast.error('Export failed')
+                      toast.error(t('payment_management.export_failed', 'Xuất dữ liệu thất bại'))
                     } finally {
                       setIsPayoutExporting(false)
                     }
@@ -1669,6 +1560,54 @@ export function PaymentManagementPage() {
       </Tabs>
       </motion.div>
       </motion.div>
+      <Dialog open={!!approveTarget} onOpenChange={(open) => { if (!open) setApproveTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duyệt payout #{approveTarget?.id}</DialogTitle>
+            <DialogDescription>
+              Số tiền: {approveTarget ? formatPayoutAmount(approveTarget.amount) : ''}. Nhập mã giao dịch sau khi đã chuyển khoản.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Mã giao dịch</Label>
+              <Input value={approveTxnId} onChange={(e) => setApproveTxnId(e.target.value)} placeholder="VD: FT24..." />
+            </div>
+            <div className="space-y-1">
+              <Label>Phí (VND)</Label>
+              <Input type="number" min={0} value={approveFee} onChange={(e) => setApproveFee(e.target.value)} placeholder="0" />
+            </div>
+            <div className="space-y-1">
+              <Label>Ghi chú</Label>
+              <Textarea value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setApproveTarget(null)}>Hủy</Button>
+              <Button disabled={payoutActionSubmitting} onClick={() => void submitApprovePayout()}>Duyệt</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!rejectTarget} onOpenChange={(open) => { if (!open) setRejectTarget(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Từ chối payout #{rejectTarget?.id}</DialogTitle>
+            <DialogDescription>Số dư sẽ được hoàn lại cho giảng viên.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Lý do</Label>
+              <Textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} placeholder="Lý do từ chối" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRejectTarget(null)}>Hủy</Button>
+              <Button variant="destructive" disabled={payoutActionSubmitting} onClick={() => void submitRejectPayout()}>Từ chối</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <AdminConfirmDialog
         open={confirmState.open}
         title={confirmState.title}
@@ -1693,80 +1632,7 @@ export function PaymentManagementPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {configEditorType === 'refund-settings' ? (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t('payment_management.refunds.settings.mode_label')}</Label>
-                  <Select
-                    value={refundSettingsDraft.refund_mode}
-                    onValueChange={(value) => updateRefundSettingsDraft('refund_mode', value as RefundSettings['refund_mode'])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('payment_management.refunds.settings.mode_placeholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin_approval">{t('payment_management.refunds.settings.mode_options.admin_approval')}</SelectItem>
-                      <SelectItem value="direct_system">{t('payment_management.refunds.settings.mode_options.direct_system')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {t('payment_management.refunds.settings.mode_help')}
-                  </p>
-                </div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>{t('payment_management.refunds.settings.retry_cooldown')}</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={refundSettingsDraft.refund_retry_cooldown_minutes}
-                        onChange={(e) => updateRefundSettingsDraft('refund_retry_cooldown_minutes', Number(e.target.value || 0))}
-                      />
-                    </div>
-                  <div className="space-y-2">
-                      <Label>{t('payment_management.refunds.settings.gateway_timeout')}</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={refundSettingsDraft.refund_timeout_seconds}
-                      onChange={(e) => updateRefundSettingsDraft('refund_timeout_seconds', Number(e.target.value || 1))}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>{t('payment_management.refunds.settings.allow_admin_override')}</Label>
-                    <Select
-                      value={refundSettingsDraft.allow_admin_override_refund_status ? 'true' : 'false'}
-                      onValueChange={(value) => updateRefundSettingsDraft('allow_admin_override_refund_status', value === 'true')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">{t('payment_management.common.enabled')}</SelectItem>
-                        <SelectItem value="false">{t('payment_management.common.disabled')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t('payment_management.refunds.settings.allow_admin_archive')}</Label>
-                    <Select
-                      value={refundSettingsDraft.allow_admin_soft_delete_refund ? 'true' : 'false'}
-                      onValueChange={(value) => updateRefundSettingsDraft('allow_admin_soft_delete_refund', value === 'true')}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">{t('payment_management.common.enabled')}</SelectItem>
-                        <SelectItem value="false">{t('payment_management.common.disabled')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            ) : (
+            {(
               <Textarea
                 value={configEditorValue}
                 onChange={(e) => setConfigEditorValue(e.target.value)}

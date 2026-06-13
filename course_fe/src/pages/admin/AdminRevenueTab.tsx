@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Download, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -32,6 +33,7 @@ function monthStartISO() {
 }
 
 export function AdminRevenueTab() {
+  const { t } = useTranslation()
   const [dateFrom, setDateFrom] = useState(monthStartISO)
   const [dateTo, setDateTo] = useState(todayISO)
   const [applied, setApplied] = useState({ dateFrom, dateTo })
@@ -64,7 +66,7 @@ export function AdminRevenueTab() {
         setRefunds(refundRes)
         setTopCourses(topRes)
       } catch (err: any) {
-        if (!cancelled) setError(err?.message || 'Failed to load revenue analytics')
+        if (!cancelled) setError(err?.message || t('admin_revenue.load_error'))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -80,8 +82,8 @@ export function AdminRevenueTab() {
   }, [breakdown])
 
   const pieData = commission ? [
-    { name: 'Platform', value: commission.total_platform_revenue, color: '#2563eb' },
-    { name: 'Instructor', value: commission.total_instructor_earnings, color: '#f97316' },
+    { name: t('admin_revenue.platform'), value: commission.total_platform_revenue, color: '#2563eb' },
+    { name: t('admin_revenue.instructor'), value: commission.total_instructor_earnings, color: '#f97316' },
   ] : []
 
   return (
@@ -92,7 +94,7 @@ export function AdminRevenueTab() {
           <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           <Button onClick={() => setApplied({ dateFrom, dateTo })}>
             <RefreshCw className="mr-2 h-4 w-4" />
-            Apply
+            {t('admin_revenue.apply')}
           </Button>
         </div>
         <div className="flex gap-2">
@@ -110,19 +112,19 @@ export function AdminRevenueTab() {
       {error && <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-        <Metric title="Gross Revenue" value={formatAdminCurrency(breakdown?.total_gross ?? 0)} loading={loading} />
-        <Metric title="Net Revenue" value={formatAdminCurrency(breakdown?.net_revenue ?? 0)} loading={loading} />
-        <Metric title="Refunded" value={formatAdminCurrency(breakdown?.total_refunded ?? 0)} loading={loading} />
-        <Metric title="Retail / Subscription" value={ratio} loading={loading} />
+        <Metric title={t('admin_revenue.gross_revenue')} value={formatAdminCurrency(breakdown?.total_gross ?? 0)} loading={loading} />
+        <Metric title={t('admin_revenue.net_revenue')} value={formatAdminCurrency(breakdown?.net_revenue ?? 0)} loading={loading} />
+        <Metric title={t('admin_revenue.refunded')} value={formatAdminCurrency(breakdown?.total_refunded ?? 0)} loading={loading} />
+        <Metric title={t('admin_revenue.retail_subscription')} value={ratio} loading={loading} />
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Monthly Revenue</CardTitle>
+          <CardTitle>{t('admin_revenue.monthly_revenue')}</CardTitle>
           <Select value={String(months)} onValueChange={(value) => setMonths(Number(value))}>
             <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {[3, 6, 12, 24].map((m) => <SelectItem key={m} value={String(m)}>{m} months</SelectItem>)}
+              {[3, 6, 12, 24].map((m) => <SelectItem key={m} value={String(m)}>{t('admin_revenue.months', { n: m })}</SelectItem>)}
             </SelectContent>
           </Select>
         </CardHeader>
@@ -134,9 +136,9 @@ export function AdminRevenueTab() {
               <YAxis tickFormatter={(v) => `${Math.round(Number(v) / 1000000)}M`} />
               <Tooltip formatter={(value) => formatAdminCurrency(Number(value))} />
               <Legend />
-              <Bar dataKey="retail" stackId="revenue" fill="#16a34a" name="Retail" />
-              <Bar dataKey="subscription" stackId="revenue" fill="#7c3aed" name="Subscription" />
-              <Bar dataKey="refunded" fill="#fca5a5" name="Refunded" />
+              <Bar dataKey="retail" stackId="revenue" fill="#16a34a" name={t('admin_revenue.retail')} />
+              <Bar dataKey="subscription" stackId="revenue" fill="#7c3aed" name={t('admin_revenue.subscription')} />
+              <Bar dataKey="refunded" fill="#fca5a5" name={t('admin_revenue.refunded')} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -144,7 +146,7 @@ export function AdminRevenueTab() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_1fr]">
         <Card>
-          <CardHeader><CardTitle>Commission Split</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('admin_revenue.commission_split')}</CardTitle></CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -158,18 +160,18 @@ export function AdminRevenueTab() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Instructor Commission</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('admin_revenue.instructor_commission')}</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Instructor</TableHead>
-                  <TableHead className="text-right">Gross</TableHead>
-                  <TableHead className="text-right">Net</TableHead>
-                  <TableHead className="text-right">Retail</TableHead>
-                  <TableHead className="text-right">Subscription</TableHead>
-                  <TableHead className="text-right">Pending</TableHead>
-                  <TableHead className="text-right">Paid</TableHead>
+                  <TableHead>{t('admin_revenue.instructor')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.gross')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.net')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.retail')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.subscription')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.pending')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.paid')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -192,17 +194,17 @@ export function AdminRevenueTab() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle>Refund Analytics</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('admin_revenue.refund_analytics')}</CardTitle></CardHeader>
           <CardContent>
             <div className="mb-3 text-sm text-muted-foreground">
-              {refunds?.total_requests ?? 0} requests · {formatAdminCurrency(refunds?.total_refunded_amount ?? 0)} refunded
+              {t('admin_revenue.refund_summary', { requests: refunds?.total_requests ?? 0, amount: formatAdminCurrency(refunds?.total_refunded_amount ?? 0) })}
             </div>
             <Table>
-              <TableHeader><TableRow><TableHead>Status</TableHead><TableHead className="text-right">Count</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t('admin_revenue.status')}</TableHead><TableHead className="text-right">{t('admin_revenue.count')}</TableHead><TableHead className="text-right">{t('admin_revenue.amount')}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {Object.entries(refunds?.breakdown ?? {}).map(([status, value]) => (
                   <TableRow key={status}>
-                    <TableCell className="capitalize">{status}</TableCell>
+                    <TableCell className="capitalize">{t(`admin_revenue.refund_status.${status}`, status)}</TableCell>
                     <TableCell className="text-right">{value.count}</TableCell>
                     <TableCell className="text-right">{formatAdminCurrency(value.amount)}</TableCell>
                   </TableRow>
@@ -213,10 +215,10 @@ export function AdminRevenueTab() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Top Courses by Revenue</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('admin_revenue.top_courses')}</CardTitle></CardHeader>
           <CardContent>
             <Table>
-              <TableHeader><TableRow><TableHead>#</TableHead><TableHead>Course</TableHead><TableHead>Instructor</TableHead><TableHead className="text-right">Revenue</TableHead><TableHead className="text-right">Transactions</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>{t('admin_revenue.rank')}</TableHead><TableHead>{t('admin_revenue.course')}</TableHead><TableHead>{t('admin_revenue.instructor')}</TableHead><TableHead className="text-right">{t('admin_revenue.revenue')}</TableHead><TableHead className="text-right">{t('admin_revenue.transactions')}</TableHead></TableRow></TableHeader>
               <TableBody>
                 {topCourses.map((course, index) => (
                   <TableRow key={course.course_id}>

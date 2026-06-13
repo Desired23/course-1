@@ -73,7 +73,7 @@ type PublicHomeSettingsPayload = {
 
 async function getPublicHomeSettings(): Promise<PublicHomeSettingsPayload | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/systems_settings/public/homepage/`, {
+    const response = await fetch(`${API_BASE_URL}/platform-settings/public/homepage/`, {
       method: "GET",
       headers: {
         ...getApiTransportHeaders(),

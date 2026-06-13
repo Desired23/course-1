@@ -7,8 +7,15 @@ import { Skeleton } from "../../components/ui/skeleton"
 import { motion } from 'motion/react'
 import { useRouter } from "../../components/Router"
 import { getActiveCategories, buildCategoryTree, type CategoryTreeNode } from "../../services/category.api"
+import { getPublicStats, type PublicStats } from "../../services/course.api"
 import { useTranslation } from "react-i18next"
 import { listItemTransition } from '../../lib/motion'
+
+function formatLargeNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M+`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K+`
+  return `${n}`
+}
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -36,6 +43,8 @@ export function CategoriesPage() {
   const { navigate } = useRouter()
   const { t } = useTranslation()
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([])
+  const [categoryCount, setCategoryCount] = useState(0)
+  const [stats, setStats] = useState<PublicStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -48,6 +57,7 @@ export function CategoriesPage() {
         if (cancelled) return
         const tree = buildCategoryTree(res.results)
         setCategoryTree(tree)
+        setCategoryCount(res.count ?? res.results.length)
       } catch (err: any) {
         if (!cancelled) setError(err.message || 'Không thể tải danh mục')
       } finally {
@@ -55,6 +65,7 @@ export function CategoriesPage() {
       }
     }
     load()
+    getPublicStats().then(s => { if (!cancelled) setStats(s) }).catch(() => {})
     return () => { cancelled = true }
   }, [])
 
@@ -109,15 +120,15 @@ export function CategoriesPage() {
           <motion.div className="flex flex-wrap justify-center gap-3 sm:gap-4" variants={fadeInUp}>
             <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-2 text-xs backdrop-blur-sm sm:px-4 sm:text-sm">
               <BookOpen className="w-5 h-5" />
-              <span className="font-semibold">{t('categories_page.hero.stats.courses')}</span>
+              <span className="font-semibold">{t('categories_page.hero.stats.courses', { value: stats ? formatLargeNumber(stats.total_courses) : '…' })}</span>
             </div>
             <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-2 text-xs backdrop-blur-sm sm:px-4 sm:text-sm">
               <Target className="w-5 h-5" />
-              <span className="font-semibold">{t('categories_page.hero.stats.categories')}</span>
+              <span className="font-semibold">{t('categories_page.hero.stats.categories', { value: categoryCount || '…' })}</span>
             </div>
             <div className="flex items-center gap-2 rounded-full bg-white/20 px-3 py-2 text-xs backdrop-blur-sm sm:px-4 sm:text-sm">
               <TrendingUp className="w-5 h-5" />
-              <span className="font-semibold">{t('categories_page.hero.stats.students')}</span>
+              <span className="font-semibold">{t('categories_page.hero.stats.students', { value: stats ? formatLargeNumber(stats.total_students) : '…' })}</span>
             </div>
           </motion.div>
         </motion.div>

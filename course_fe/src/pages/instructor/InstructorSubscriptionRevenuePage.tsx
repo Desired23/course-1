@@ -58,6 +58,7 @@ export function InstructorSubscriptionRevenuePage() {
   const [totalCount, setTotalCount] = useState(0)
   const TOTAL_SYSTEM_MINUTES = 5000000
   const ITEMS_PER_PAGE = 8
+  const formatVND = (amount: number) => `${Number(amount).toLocaleString('vi-VN')}₫`
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -226,10 +227,10 @@ export function InstructorSubscriptionRevenuePage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center text-green-600">
-              ${totalEarnings.toFixed(2)}
+              {formatVND(totalEarnings)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-               {t('instructor_subscription_revenue.cents_per_minute', { value: (totalEarnings / totalMinutes * 100).toFixed(4) })}
+               {t('instructor_subscription_revenue.cents_per_minute', { value: totalMinutes > 0 ? (totalEarnings / totalMinutes).toFixed(0) : '0' })}
             </p>
           </CardContent>
         </Card>
@@ -256,7 +257,7 @@ export function InstructorSubscriptionRevenuePage() {
              <TooltipProvider>
                <UITooltip>
                   <TooltipTrigger className="cursor-help flex items-center gap-1">
-                     <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.pool_share')}</CardTitle>
+                     <CardTitle className="text-sm font-medium text-muted-foreground">Tỷ trọng usage</CardTitle>
                      <HelpCircle className="w-3 h-3 text-muted-foreground" />
                   </TooltipTrigger>
                   <TooltipContent>
@@ -307,7 +308,7 @@ export function InstructorSubscriptionRevenuePage() {
                   <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
                   <Tooltip
                      formatter={(value: any, name: any) => [
-                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value,
+                        name === t('instructor_subscription_revenue.chart_earnings') ? `${Number(value).toLocaleString('vi-VN')}₫` : value,
                         name
                      ]}
                   />
@@ -334,7 +335,7 @@ export function InstructorSubscriptionRevenuePage() {
                   <YAxis dataKey="title" type="category" width={150} style={{ fontSize: '12px' }} />
                   <Tooltip
                      formatter={(value: any, name: any) => [
-                        name === t('instructor_subscription_revenue.chart_earnings') ? `$${value.toFixed(2)}` : value,
+                        name === t('instructor_subscription_revenue.chart_earnings') ? `${Number(value).toLocaleString('vi-VN')}₫` : value,
                         name
                      ]}
                   />
@@ -381,7 +382,7 @@ export function InstructorSubscriptionRevenuePage() {
                 <TableHead>{t('instructor_subscription_revenue.course_name')}</TableHead>
                 <TableHead>{t('instructor_subscription_revenue.included_activities')}</TableHead>
                 <TableHead className="text-right">{t('instructor_subscription_revenue.minutes_total')}</TableHead>
-                <TableHead className="text-right">{t('instructor_subscription_revenue.pool_share_percent')}</TableHead>
+                <TableHead className="text-right">Tỷ trọng usage trong kỳ</TableHead>
                 <TableHead className="text-right">{t('instructor_subscription_revenue.revenue')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -404,7 +405,7 @@ export function InstructorSubscriptionRevenuePage() {
                   <TableCell className="text-right">{course.totalMinutes.toLocaleString()}</TableCell>
                   <TableCell className="text-right">{course.share}%</TableCell>
                   <TableCell className="text-right font-bold text-green-600">
-                    ${course.earnings.toFixed(2)}
+                    {formatVND(course.earnings)}
                   </TableCell>
                 </TableRow>
               ))}

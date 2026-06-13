@@ -280,7 +280,7 @@ export interface AdminRefundItem {
   timeline?: Array<{ event: string; actor?: string | null; note?: string | null; timestamp: string }>
 }
 
-export type PaymentAdminConfigKey = 'policies' | 'instructor-rates' | 'discounts' | 'refund-settings'
+export type PaymentAdminConfigKey = 'policies' | 'instructor-rates' | 'discounts'
 
 export interface RefundSettings {
   refund_mode: 'admin_approval' | 'direct_system'

@@ -8,7 +8,7 @@ export interface Question {
   author_name: string | null
   author_avatar: string | null
   tags: string[]
-  status: 'open' | 'closed' | 'duplicate'
+  status: 'open' | 'closed' | 'duplicate' | 'hidden'
   views: number
   score: number
   answer_count: number
@@ -99,7 +99,7 @@ export async function reportQuestion(questionId: number, reason?: string): Promi
 
 export async function moderateQuestion(
   questionId: number,
-  action: 'approve' | 'dismiss' | 'close' | 'delete',
+  action: 'approve' | 'dismiss' | 'close' | 'hide' | 'delete',
   reason?: string
 ): Promise<Question> {
   return http.post<Question>(`/questions/${questionId}/moderate/`, { action, reason: reason ?? '' })
@@ -155,6 +155,7 @@ export function getStatusLabel(status: Question['status']): string {
     open: 'Mở',
     closed: 'Đóng',
     duplicate: 'Trùng lặp',
+    hidden: 'Đã gỡ',
   }
   return labels[status] ?? status
 }

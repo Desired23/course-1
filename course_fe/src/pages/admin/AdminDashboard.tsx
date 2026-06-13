@@ -3,10 +3,12 @@ import { motion } from 'motion/react'
 import { useAuth } from "../../contexts/AuthContext"
 import { useRouter } from "../../components/Router"
 import { toast } from "sonner"
-import { StatDetailDialog } from "../../components/StatDetailDialog"
 import { PendingTasks } from "../../components/PendingTasks"
 import { formatCurrency } from "../../utils/formatters"
 import { getAdminDashboardStats, getUsers, type UserItem } from '../../services/admin.api'
+import { HARDCODED_BACKUP_HOME_SCHEMA } from '../../features/home/hardcodedBackupSchema'
+import { saveHomeSchemaV2 } from '../../features/home/service'
+import { normalizeHomeSchemaV2 } from '../../features/home/schema'
 import { getCourses, type CourseListItem } from '../../services/course.api'
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Button } from "../../components/ui/button"
@@ -26,7 +28,7 @@ import {
   Edit,
   Filter,
   Plus,
-  BarChart3
+  RotateCcw
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -69,20 +71,26 @@ export function AdminDashboard() {
   const [isUsersLoading, setIsUsersLoading] = useState(true)
   const [isCoursesLoading, setIsCoursesLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('users')
+  const [isRestoring, setIsRestoring] = useState(false)
+
+  const restoreOriginalUi = async () => {
+    const confirmed = window.confirm(t('admin_home_layout.confirm.load_fake_data_description'))
+    if (!confirmed) return
+    try {
+      setIsRestoring(true)
+      const normalized = normalizeHomeSchemaV2(HARDCODED_BACKUP_HOME_SCHEMA)
+      await saveHomeSchemaV2(normalized, null, 0)
+      try { window.localStorage.removeItem('homepage_schema_v2_cached') } catch {}
+      toast.success(t('admin_home_layout.toasts.save_schema_success'))
+    } catch {
+      toast.error(t('admin_home_layout.toasts.save_schema_failed'))
+    } finally {
+      setIsRestoring(false)
+    }
+  }
   const [recentUsers, setRecentUsers] = useState<any[]>([])
   const [recentCourses, setRecentCourses] = useState<any[]>([])
   const [dashboardStats, setDashboardStats] = useState<any>({ totalUsers: 0, totalCourses: 0, monthlyRevenue: 0, courseCompletions: 0 })
-  const [selectedStat, setSelectedStat] = useState<{
-    open: boolean
-    title: string
-    type: 'users' | 'courses' | 'revenue' | 'completions'
-    value: number
-  }>({
-    open: false,
-    title: '',
-    type: 'users',
-    value: 0
-  })
 
   const fetchDashboard = async () => {
     try {
@@ -170,9 +178,6 @@ export function AdminDashboard() {
     toast.success(t('admin_dashboard.toasts.refresh_success'))
   }
 
-  const openStatDetail = (title: string, type: 'users' | 'courses' | 'revenue' | 'completions', value: number) => {
-    setSelectedStat({ open: true, title, type, value })
-  }
 
   if (!hasRole('admin')) {
     return (
@@ -197,91 +202,46 @@ export function AdminDashboard() {
         </motion.div>
 
         <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={fadeInUp}>
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.total_users'), 'users', dashboardStats.totalUsers || 0)}
-          >
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.total_users')}</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{(dashboardStats.totalUsers || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                {t('admin_dashboard.from_last_month_12')}
-              </p>
             </CardContent>
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
           </Card>
 
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.total_courses'), 'courses', dashboardStats.totalCourses || 0)}
-          >
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.total_courses')}</CardTitle>
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{(dashboardStats.totalCourses || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                {t('admin_dashboard.from_last_month_8')}
-              </p>
             </CardContent>
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
           </Card>
 
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.monthly_revenue'), 'revenue', dashboardStats.monthlyRevenue || 0)}
-          >
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.monthly_revenue')}</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{formatCurrency(dashboardStats.monthlyRevenue || 0)}</div>
-              <p className="text-xs text-muted-foreground">
-                {t('admin_dashboard.from_last_month_23')}
-              </p>
             </CardContent>
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
           </Card>
 
-          <Card
-            className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-            onClick={() => openStatDetail(t('admin_dashboard.completions'), 'completions', dashboardStats.courseCompletions || 0)}
-          >
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('admin_dashboard.completions')}</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl">{(dashboardStats.courseCompletions || 0).toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">
-                {t('admin_dashboard.from_last_month_15')}
-              </p>
             </CardContent>
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-8 w-8 text-primary" />
-            </div>
           </Card>
         </motion.div>
-
-
-        <StatDetailDialog
-          open={selectedStat.open}
-          onOpenChange={(open) => setSelectedStat({ ...selectedStat, open })}
-          title={selectedStat.title}
-          type={selectedStat.type}
-          currentValue={selectedStat.value}
-        />
 
 
         <motion.div className="mb-8" variants={fadeInUp}>
@@ -555,14 +515,9 @@ export function AdminDashboard() {
                     {t('admin_dashboard.settings_description')}
                   </p>
                   <div className="flex flex-wrap gap-3">
-                    <Button onClick={() => navigate('/admin/settings')}>
-                      {t('admin_dashboard.platform_settings')}
-                    </Button>
-                    <Button variant="outline" onClick={() => navigate('/admin/website-management')}>
-                      {t('admin_dashboard.website_settings')}
-                    </Button>
-                    <Button variant="outline" onClick={() => navigate('/admin/payments/methods')}>
-                      {t('admin_dashboard.payment_methods')}
+                    <Button variant="outline" onClick={restoreOriginalUi} disabled={isRestoring}>
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      {isRestoring ? t('common.loading') : t('admin_home_layout.confirm.load_fake_data_confirm')}
                     </Button>
                   </div>
                 </div>

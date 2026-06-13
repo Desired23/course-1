@@ -117,7 +117,8 @@ export function AdminDiscountsPage() {
     description: "",
     usageLimit: "",
     expiry: "",
-    applicableTo: "all" as "all" | "specific",
+    minPurchase: "",
+    maxDiscount: "",
   })
   const [discounts, setDiscounts] = useState<Discount[]>([])
 
@@ -205,6 +206,8 @@ export function AdminDiscountsPage() {
         start_date: new Date().toISOString(),
         end_date: new Date(newDiscount.expiry).toISOString(),
         status: "active",
+        min_purchase: newDiscount.minPurchase ? Number(newDiscount.minPurchase) : undefined,
+        max_discount: newDiscount.maxDiscount ? Number(newDiscount.maxDiscount) : undefined,
       })
 
       setDiscounts((prev) => [
@@ -232,7 +235,8 @@ export function AdminDiscountsPage() {
         description: "",
         usageLimit: "",
         expiry: "",
-        applicableTo: "all",
+        minPurchase: "",
+        maxDiscount: "",
       })
     } catch {
       toast.error(t("admin_discounts.toasts.create_failed"))
@@ -483,22 +487,31 @@ export function AdminDiscountsPage() {
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="applicableTo">{t("admin_discounts.form.applicable_to")}</Label>
-                  <Select
-                    value={newDiscount.applicableTo}
-                    onValueChange={(value: "all" | "specific") =>
-                      setNewDiscount((prev) => ({ ...prev, applicableTo: value }))
-                    }
-                  >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t("admin_discounts.form.all_courses")}</SelectItem>
-                      <SelectItem value="specific">{t("admin_discounts.form.specific_courses")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="minPurchase">{t("admin_discounts.form.min_purchase")}</Label>
+                    <Input
+                      id="minPurchase"
+                      type="number"
+                      value={newDiscount.minPurchase}
+                      onChange={(e) => setNewDiscount((prev) => ({ ...prev, minPurchase: e.target.value }))}
+                      placeholder="0"
+                      className="mt-1.5"
+                    />
+                  </div>
+                  {newDiscount.type === "percentage" && (
+                    <div>
+                      <Label htmlFor="maxDiscount">{t("admin_discounts.form.max_discount")}</Label>
+                      <Input
+                        id="maxDiscount"
+                        type="number"
+                        value={newDiscount.maxDiscount}
+                        onChange={(e) => setNewDiscount((prev) => ({ ...prev, maxDiscount: e.target.value }))}
+                        placeholder="0"
+                        className="mt-1.5"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 justify-end pt-4">
@@ -543,7 +556,7 @@ export function AdminDiscountsPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">{t("admin_discounts.stats.revenue_impact")}</p>
-              <p className="text-2xl font-bold">${totalRevenue.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{totalRevenue.toLocaleString('vi-VN')}₫</p>
             </div>
           </div>
         </Card>
@@ -694,7 +707,7 @@ export function AdminDiscountsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {discount.type === "percentage" ? `${discount.value}%` : `$${discount.value}`}
+                      {discount.type === "percentage" ? `${discount.value}%` : `${Number(discount.value).toLocaleString('vi-VN')}₫`}
                     </TableCell>
                     <TableCell>
                       <div>

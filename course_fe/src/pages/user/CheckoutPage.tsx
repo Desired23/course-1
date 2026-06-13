@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, CreditCard, Landmark, Loader2, Lock, QrCode, ShieldCheck, Smartphone } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button } from "../../components/ui/button"
@@ -87,7 +87,7 @@ export function CheckoutPage() {
   const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
-  const { cartItems, orderCoupon, appliedPromotion } = useCart()
+  const { cartItems, orderCoupon, appliedPromotion, loadCart, syncCartIfStale } = useCart()
   const gatewayOptions: Array<{
     id: GatewayMethod
     title: string
@@ -146,10 +146,27 @@ export function CheckoutPage() {
     return ids.length > 0 ? new Set(ids) : null
   }, [currentRoute])
 
+  useEffect(() => {
+    if (user?.id) {
+      syncCartIfStale(Number(user.id))
+    }
+  }, [user, syncCartIfStale])
+
   const checkoutItems = useMemo(() => {
-    if (!selectedCartItemIds) return cartItems
-    return cartItems.filter((item) => selectedCartItemIds.has(item.id))
+    const selected = !selectedCartItemIds
+      ? cartItems
+      : cartItems.filter((item) => selectedCartItemIds.has(item.id))
+    return selected.filter((item) => !item.notBuyableReason)
   }, [cartItems, selectedCartItemIds])
+
+  useEffect(() => {
+    const selected = !selectedCartItemIds
+      ? cartItems
+      : cartItems.filter((item) => selectedCartItemIds.has(item.id))
+    if (selected.some((item) => item.notBuyableReason)) {
+      toast.warning(t('checkout.some_not_buyable_removed', 'Một số khóa học không còn mua được đã bị loại khỏi đơn.'))
+    }
+  }, [cartItems, selectedCartItemIds, t])
 
   const checkoutTotals = useMemo(
     () => calculateCheckoutTotals(checkoutItems, orderCoupon),
@@ -210,6 +227,19 @@ export function CheckoutPage() {
       // continuing it or cancelling to start over, instead of dead-ending.
       if (err?.errors?.code === "pending_payment" && err?.errors?.payment_id) {
         setPendingOrder({ paymentId: String(err.errors.payment_id), method: err.errors.payment_method })
+        setIsProcessing(false)
+        return
+      }
+      // BE is the final buyability check: if the cart is stale, reload it and
+      // surface the specific failing courses instead of retrying with old data.
+      if (err?.errors?.code === "course_not_buyable") {
+        const items: Array<{ title?: string; reason?: string }> = err.errors.items || []
+        if (user?.id) await loadCart(Number(user.id))
+        if (items.length > 0) {
+          items.forEach((it) => toast.error(it.reason || t("checkout.course_not_buyable", { title: it.title || "" })))
+        } else {
+          toast.error(t("checkout.checkout_failed"))
+        }
         setIsProcessing(false)
         return
       }

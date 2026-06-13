@@ -552,19 +552,17 @@ function mapReviewTestimonial(review: Review, locale: string): HomeTestimonialIt
 }
 
 function TestimonialSection({ section }: { section: HomeSection }) {
-  const { i18n, t } = useTranslation()
+  const { i18n } = useTranslation()
   const locale = i18n.language
   const content = section.content
   const dataSource = section.data_source
   const heading = resolveLocalizedText(content.heading, locale)
   const subheading = resolveLocalizedText(content.subheading, locale)
+  // Only admin-configured testimonials are used. The previous fallback to demo
+  // testimonials in the locale file (fake names + fabricated metrics) is removed —
+  // when there are no real reviews and nothing configured, the section hides itself.
   const configuredStaticItems = Array.isArray(content.items) ? content.items : []
-  const translatedStaticItems = t("testimonials.items", { returnObjects: true }) as unknown
-  const staticSourceItems = configuredStaticItems.length > 0
-    ? configuredStaticItems
-    : Array.isArray(translatedStaticItems)
-      ? translatedStaticItems
-      : []
+  const staticSourceItems = configuredStaticItems
   const staticItems = staticSourceItems
     .map((item, index) => mapStaticTestimonial(item, index, locale))
     .filter((item) => item.content && item.name)

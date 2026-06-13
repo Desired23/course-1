@@ -67,7 +67,7 @@ export function AdminWebsiteSettingsPage() {
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const [pendingUploadTarget, setPendingUploadTarget] = useState<string | null>(null)
   const [uploadingField, setUploadingField] = useState<string | null>(null)
-  const [siteName, setSiteName] = useState('UTC')
+  const [siteName, setSiteName] = useState('coursePlatform')
   const [siteDescription, setSiteDescription] = useState('Learn anything, anytime, anywhere')
   const [siteLogo, setSiteLogo] = useState('/logo.png')
   const [favicon, setFavicon] = useState('/favicon.ico')

@@ -261,7 +261,7 @@ export function InstructorDashboard() {
             {instructorProfile.level.name}
           </Badge>
           <span className="text-xs text-muted-foreground">
-            {instructorProfile.level.commission_rate}% retail · {instructorProfile.level.plan_commission_rate}% subscription
+            Phí nền tảng: retail {instructorProfile.level.commission_rate}% / subscription {instructorProfile.level.plan_commission_rate}% &nbsp;·&nbsp; GV nhận: retail {100 - Number(instructorProfile.level.commission_rate)}% / subscription {100 - Number(instructorProfile.level.plan_commission_rate)}%
           </span>
         </motion.div>
       )}

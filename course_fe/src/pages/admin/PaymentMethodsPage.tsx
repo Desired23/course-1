@@ -428,7 +428,7 @@ export function PaymentMethodsPage() {
 
         <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="relative grid w-full grid-cols-4 p-1">
+        <TabsList className="relative grid w-full grid-cols-3 p-1">
           <TabsTrigger value="methods" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'methods' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('payment_methods_admin.tabs.methods')}</span>
@@ -440,10 +440,6 @@ export function PaymentMethodsPage() {
           <TabsTrigger value="fees" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'fees' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('payment_methods_admin.tabs.fees')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'security' && <motion.span layoutId="payment-methods-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('payment_methods_admin.tabs.security')}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -639,11 +635,11 @@ export function PaymentMethodsPage() {
                           {method.name}
                         </div>
                       </TableCell>
-                      <TableCell>${method.fees.fixed}</TableCell>
+                      <TableCell>{Number(method.fees.fixed).toLocaleString('vi-VN')}₫</TableCell>
                       <TableCell>{method.fees.percentage}%</TableCell>
-                      <TableCell>${method.limits.min}</TableCell>
-                      <TableCell>${method.limits.max.toLocaleString()}</TableCell>
-                      <TableCell>${method.limits.daily.toLocaleString()}</TableCell>
+                      <TableCell>{Number(method.limits.min).toLocaleString('vi-VN')}₫</TableCell>
+                      <TableCell>{method.limits.max.toLocaleString('vi-VN')}₫</TableCell>
+                      <TableCell>{method.limits.daily.toLocaleString('vi-VN')}₫</TableCell>
                       <TableCell>{method.processingTime}</TableCell>
                     </TableRow>
                   ))}
@@ -653,75 +649,6 @@ export function PaymentMethodsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('payment_methods_admin.security_title')}</CardTitle>
-              <CardDescription>{t('payment_methods_admin.security_description')}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base">{t('payment_methods_admin.two_factor')}</Label>
-                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.two_factor_description')}</p>
-                </div>
-                <Switch
-                  checked={settings.twoFactorAuth}
-                  onCheckedChange={(checked) => setSettings({...settings, twoFactorAuth: checked})}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base">{t('payment_methods_admin.fraud_detection')}</Label>
-                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.fraud_detection_description')}</p>
-                </div>
-                <Switch
-                  checked={settings.fraudDetection}
-                  onCheckedChange={(checked) => setSettings({...settings, fraudDetection: checked})}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base">{t('payment_methods_admin.ip_whitelist')}</Label>
-                  <p className="text-sm text-muted-foreground">{t('payment_methods_admin.ip_whitelist_description')}</p>
-                </div>
-                <Switch
-                  checked={settings.ipWhitelist}
-                  onCheckedChange={(checked) => setSettings({...settings, ipWhitelist: checked})}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  {t('payment_methods_admin.security_features_by_method')}
-                </h3>
-                <div className="grid gap-4">
-                  {paymentMethods.map((method) => (
-                    <div key={method.id} className="p-4 border rounded-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        {getMethodIcon(method.type)}
-                        <h4 className="font-medium">{method.name}</h4>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {method.securityFeatures.map((feature, index) => (
-                          <Badge key={index} variant="outline" className="text-green-600 border-green-600">
-                            <Lock className="h-3 w-3 mr-1" />
-                            {feature}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
       </motion.div>
       </motion.div>
@@ -757,7 +684,7 @@ export function PaymentMethodsPage() {
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
                     <Label className="text-sm">{t('payment_methods_admin.detail.transaction_fee')}</Label>
-                    <p>{selectedMethod.fees.percentage}% + ${selectedMethod.fees.fixed}</p>
+                    <p>{selectedMethod.fees.percentage}% + {Number(selectedMethod.fees.fixed).toLocaleString('vi-VN')}₫</p>
                   </div>
                   <div>
                     <Label className="text-sm">{t('payment_methods_admin.detail.processing_time')}</Label>
@@ -765,11 +692,11 @@ export function PaymentMethodsPage() {
                   </div>
                   <div>
                     <Label className="text-sm">{t('payment_methods_admin.detail.min_max_amount')}</Label>
-                    <p>${selectedMethod.limits.min} - ${selectedMethod.limits.max.toLocaleString()}</p>
+                    <p>{Number(selectedMethod.limits.min).toLocaleString('vi-VN')}₫ - {selectedMethod.limits.max.toLocaleString('vi-VN')}₫</p>
                   </div>
                   <div>
                     <Label className="text-sm">{t('payment_methods_admin.detail.daily_limit')}</Label>
-                    <p>${selectedMethod.limits.daily.toLocaleString()}</p>
+                    <p>{selectedMethod.limits.daily.toLocaleString('vi-VN')}₫</p>
                   </div>
                 </div>
               </div>

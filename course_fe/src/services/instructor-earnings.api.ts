@@ -21,8 +21,17 @@ export interface InstructorEarning {
   payment_transaction_id: string | null
   plan_name: string | null
   earning_source: 'retail' | 'subscription'
-  commission_rate_applied: string
+  commission_rate_applied: string | null
   created_at: string
+  // Snapshot fields
+  platform_commission_rate: string | null
+  instructor_share_rate: string | null
+  instructor_level_id_snapshot: number | null
+  instructor_level_name_snapshot: string | null
+  usage_share_rate: string | null
+  usage_seconds: number
+  earning_period_start: string | null
+  earning_period_end: string | null
 }
 
 export interface StatusBreakdown {

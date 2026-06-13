@@ -158,7 +158,7 @@ export function SubscriptionsPage() {
           description: p.description || '',
           type: (p.duration_days <= 31 ? 'monthly' : p.duration_days <= 366 ? 'yearly' : 'lifetime') as SubscriptionPlan['type'],
           price: Number(p.price) || 0,
-          currency: 'USD',
+          currency: 'VND',
           features: (p.features || '').split(',').filter(Boolean),
           limitations: [],
           isPopular: false,
@@ -199,7 +199,7 @@ export function SubscriptionsPage() {
                 endDate: new Date(s.end_date || Date.now()),
                 nextBillingDate: new Date(s.end_date || Date.now()),
                 amount: plan.price,
-                currency: 'USD',
+                currency: 'VND',
                 paymentMethod: 'N/A',
                 autoRenew: s.auto_renew !== false,
                 user: { name: s.user_name || `User ${s.user}`, email: s.user_email || '' }
@@ -250,7 +250,7 @@ export function SubscriptionsPage() {
     description: '',
     type: 'monthly' as SubscriptionPlan['type'],
     price: 0,
-    currency: 'USD',
+    currency: 'VND',
     features: '',
     trialDays: 7,
     isPopular: false
@@ -280,7 +280,7 @@ export function SubscriptionsPage() {
       })
       toast.success(t('subscriptions_page.admin.create_success'))
       setIsCreatePlanOpen(false)
-      setNewPlan({ name: '', description: '', type: 'monthly', price: 0, currency: 'USD', features: '', trialDays: 7, isPopular: false })
+      setNewPlan({ name: '', description: '', type: 'monthly', price: 0, currency: 'VND', features: '', trialDays: 7, isPopular: false })
 
       window.location.reload()
     } catch (e) {
@@ -298,6 +298,17 @@ export function SubscriptionsPage() {
       }
     } catch (e) {
       toast.error(t('subscriptions_page.admin.update_failed'))
+    }
+  }
+
+  const handleDeletePlan = async (planId: string, planName: string) => {
+    if (!window.confirm(t('subscriptions_page.admin.delete_confirm', { name: planName }))) return
+    try {
+      await deleteSubscriptionPlan(Number(planId))
+      setPlans(prev => prev.filter(p => p.id !== planId))
+      toast.success(t('subscriptions_page.admin.delete_success'))
+    } catch (e) {
+      toast.error(t('subscriptions_page.admin.delete_failed'))
     }
   }
 
@@ -427,9 +438,7 @@ export function SubscriptionsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="GBP">GBP</SelectItem>
+                      <SelectItem value="VND">VND</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -510,11 +519,7 @@ export function SubscriptionsPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${metrics.monthlyRecurringRevenue.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
-                  <TrendingUp className="h-3 w-3 inline mr-1" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_12')}
-                </p>
+                <div className="text-2xl font-bold">{metrics.monthlyRecurringRevenue.toLocaleString('vi-VN')}₫</div>
               </CardContent>
             </Card>
 
@@ -525,10 +530,6 @@ export function SubscriptionsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.activeSubscribers.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">
-                  <TrendingUp className="h-3 w-3 inline mr-1" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_8')}
-                </p>
               </CardContent>
             </Card>
 
@@ -539,10 +540,6 @@ export function SubscriptionsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{metrics.churnRate}%</div>
-                <p className="text-xs text-muted-foreground">
-                  <TrendingUp className="h-3 w-3 inline mr-1 text-red-500" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_02')}
-                </p>
               </CardContent>
             </Card>
 
@@ -552,11 +549,7 @@ export function SubscriptionsPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${metrics.averageRevenuePerUser}</div>
-                <p className="text-xs text-muted-foreground">
-                  <TrendingUp className="h-3 w-3 inline mr-1" />
-                  {t('subscriptions_page.admin.metrics.from_last_month_57')}
-                </p>
+                <div className="text-2xl font-bold">{Number(metrics.averageRevenuePerUser).toLocaleString('vi-VN')}₫</div>
               </CardContent>
             </Card>
           </div>
@@ -637,9 +630,9 @@ export function SubscriptionsPage() {
                   </div>
 
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold">${plan.price}</span>
+                    <span className="text-3xl font-bold">{Number(plan.price).toLocaleString('vi-VN')}₫</span>
                     {plan.originalPrice && (
-                      <span className="text-lg text-muted-foreground line-through">${plan.originalPrice}</span>
+                      <span className="text-lg text-muted-foreground line-through">{Number(plan.originalPrice).toLocaleString('vi-VN')}₫</span>
                     )}
                     <span className="text-muted-foreground">/{getPlanTypeLabel(plan.type)}</span>
                   </div>
@@ -686,7 +679,7 @@ export function SubscriptionsPage() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.monthly_revenue')}</p>
-                      <p className="font-semibold">${plan.revenue.toLocaleString()}</p>
+                      <p className="font-semibold">{plan.revenue.toLocaleString('vi-VN')}₫</p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">{t('subscriptions_page.admin.metrics.churn_rate')}</p>
@@ -706,6 +699,15 @@ export function SubscriptionsPage() {
                     <Button size="sm" variant="outline">
                       <BarChart3 className="h-4 w-4 mr-1" />
                       {t('subscriptions_page.admin.tabs.analytics')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => handleDeletePlan(plan.id, plan.name)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      {t('common.delete')}
                     </Button>
                   </div>
                 </CardContent>
@@ -756,7 +758,7 @@ export function SubscriptionsPage() {
                             <span className="ml-1">{getStatusLabel(subscription.status)}</span>
                           </Badge>
                         </TableCell>
-                        <TableCell>${subscription.amount}/{plan ? getPlanTypeLabel(plan.type) : ''}</TableCell>
+                        <TableCell>{Number(subscription.amount).toLocaleString('vi-VN')}₫/{plan ? getPlanTypeLabel(plan.type) : ''}</TableCell>
                         <TableCell>
                           {subscription.status === 'trialing' && subscription.trialEnd
                             ? t('subscriptions_page.admin.trial_ends', { date: subscription.trialEnd.toLocaleDateString() })
@@ -813,7 +815,7 @@ export function SubscriptionsPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${metrics.lifetimeValue}</div>
+                <div className="text-2xl font-bold">{Number(metrics.lifetimeValue).toLocaleString('vi-VN')}₫</div>
                 <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.analytics_metrics.average_customer_ltv')}</p>
               </CardContent>
             </Card>
@@ -824,7 +826,7 @@ export function SubscriptionsPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${metrics.annualRecurringRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">{metrics.annualRecurringRevenue.toLocaleString('vi-VN')}₫</div>
                 <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.analytics_metrics.arr_projection')}</p>
               </CardContent>
             </Card>
@@ -981,7 +983,7 @@ export function SubscriptionsPage() {
                 </div>
                 <div>
                   <Label>{t('subscriptions_page.admin.price')}</Label>
-                  <Input value={`$${selectedPlan.price}/${getPlanTypeLabel(selectedPlan.type)}`} readOnly />
+                  <Input value={`${Number(selectedPlan.price).toLocaleString('vi-VN')}₫/${getPlanTypeLabel(selectedPlan.type)}`} readOnly />
                 </div>
               </div>
 
@@ -997,7 +999,7 @@ export function SubscriptionsPage() {
                 </div>
                 <div>
                   <Label>{t('subscriptions_page.admin.monthly_revenue')}</Label>
-                  <p className="text-2xl font-bold">${selectedPlan.revenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">{selectedPlan.revenue.toLocaleString('vi-VN')}₫</p>
                 </div>
                 <div>
                   <Label>{t('subscriptions_page.admin.metrics.churn_rate')}</Label>

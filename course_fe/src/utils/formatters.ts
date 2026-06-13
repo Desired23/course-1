@@ -96,7 +96,7 @@ export function formatCurrency(amount: number, currency: string = 'VND'): string
   if (currency === 'VND') {
     return `${amount.toLocaleString('vi-VN')}₫`
   }
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `${amount.toLocaleString('vi-VN')}₫`
 }
 
 export function formatPrice(price: number, discountPrice?: number | null): {

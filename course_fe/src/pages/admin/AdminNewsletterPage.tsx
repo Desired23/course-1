@@ -17,7 +17,7 @@ import {
   type Subscriber,
 } from '../../services/newsletter.api'
 
-type Audience = 'subscribers' | 'all_users'
+type Audience = 'subscribers' | 'all_users' | 'instructors' | 'students'
 
 export function AdminNewsletterPage() {
   const { t } = useTranslation()
@@ -96,6 +96,8 @@ export function AdminNewsletterPage() {
                   <SelectContent>
                     <SelectItem value="subscribers">{t('admin_newsletter.compose.audience_subscribers')}</SelectItem>
                     <SelectItem value="all_users">{t('admin_newsletter.compose.audience_all_users')}</SelectItem>
+                    <SelectItem value="instructors">{t('admin_newsletter.compose.audience_instructors')}</SelectItem>
+                    <SelectItem value="students">{t('admin_newsletter.compose.audience_students')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

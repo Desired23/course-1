@@ -25,6 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { SubscriptionLockOverlay } from '../../components/subscription/SubscriptionLockOverlay'
+import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { Skeleton } from '../../components/ui/skeleton'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
@@ -126,12 +127,43 @@ export function CourseDetailPage() {
   const accessType = accessInfo?.access_type || null
   const isCourseInSubscription = accessInfo?.in_subscription || false
   const subscriptionPlan = accessInfo?.subscription_plan || null
+  const reviewProgress = Number(courseData?.user_enrollment?.progress ?? 0)
+  const canReviewCourse = canAccessCourse && reviewProgress > 50
 
 
   const courseId = courseData?.id || 0
   const enrolled = isEnrolled(courseId)
 
   const isFree = courseData ? getEffectivePrice(courseData) === 0 : false
+
+  const [previewLesson, setPreviewLesson] = useState<any>(null)
+
+  const openPromoVideo = () => {
+    if (!courseData?.promotional_video) return
+    setPreviewLesson({
+      id: -1,
+      title: courseData.title,
+      type: 'video',
+      content_type: 'video',
+      duration: '',
+      status: 'published',
+      is_free: true,
+      videoUrl: courseData.promotional_video,
+    })
+  }
+
+  const openLessonPreview = (lesson: { lesson_id: number; title: string; content_type: string; duration: number | null; signed_video_url?: string | null; is_free: boolean }) => {
+    setPreviewLesson({
+      id: lesson.lesson_id,
+      title: lesson.title,
+      type: lesson.content_type,
+      content_type: lesson.content_type,
+      duration: formatDuration(lesson.duration),
+      status: 'published',
+      is_free: lesson.is_free,
+      videoUrl: lesson.signed_video_url || '',
+    })
+  }
 
   const handleMessageInstructor = async () => {
     if (!courseData?.instructor) return
@@ -496,19 +528,28 @@ export function CourseDetailPage() {
                   }`}
                >
 
-                  <div className="relative h-48 bg-black group cursor-pointer overflow-hidden">
-                    <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className="w-full h-full object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+                  <div
+                    className={`relative h-48 bg-black overflow-hidden ${courseData.promotional_video ? 'group cursor-pointer' : ''}`}
+                    onClick={courseData.promotional_video ? openPromoVideo : undefined}
+                  >
+                    <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className={`w-full h-full object-cover ${courseData.promotional_video ? 'opacity-80 group-hover:opacity-60 transition-opacity' : 'opacity-60'}`} />
 
-
-
-                    <div className="absolute inset-0 flex items-center justify-center">
-                       <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <Play className="w-8 h-8 text-white fill-white" />
-                       </div>
-                    </div>
-                    <div className="absolute bottom-4 left-0 right-0 text-center text-white font-medium">
-                       {t('course_detail.preview_course')}
-                    </div>
+                    {courseData.promotional_video ? (
+                      <>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Play className="w-8 h-8 text-white fill-white" />
+                          </div>
+                        </div>
+                        <div className="absolute bottom-4 left-0 right-0 text-center text-white font-medium">
+                          {t('course_detail.preview_course')}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-white/70 text-sm font-medium">{t('course_detail.no_preview_available')}</span>
+                      </div>
+                    )}
                   </div>
 
                   <CardContent className="p-6 space-y-6">
@@ -669,14 +710,23 @@ export function CourseDetailPage() {
 
           <div className="lg:hidden mb-8">
             <Card className="app-surface-elevated overflow-hidden">
-               <div className="relative aspect-video bg-black group cursor-pointer overflow-hidden">
-                  <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className="w-full h-full object-cover" />
+               <div
+                 className={`relative aspect-video bg-black overflow-hidden ${courseData.promotional_video ? 'group cursor-pointer' : ''}`}
+                 onClick={courseData.promotional_video ? openPromoVideo : undefined}
+               >
+                  <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className={`w-full h-full object-cover ${courseData.promotional_video ? '' : 'opacity-60'}`} />
 
-                   <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                  {courseData.promotional_video ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                         <Play className="w-8 h-8 text-white fill-white" />
                       </div>
-                   </div>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white/70 text-sm font-medium">{t('course_detail.no_preview_available')}</span>
+                    </div>
+                  )}
                </div>
                <CardContent className="space-y-6 p-4 sm:p-6">
                   {canGoToPlayerDirectly ? (
@@ -833,13 +883,21 @@ export function CourseDetailPage() {
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-2 pl-4">
-                          {(mod.lessons || []).map((lesson) => (
+                          {(mod.lessons || []).map((lesson) => {
+                            const canPreview =
+                              (lesson.is_free || canAccessCourse) &&
+                              lesson.content_type === 'video' &&
+                              !!lesson.signed_video_url
+                            return (
                             <div
                               key={lesson.lesson_id}
+                              onClick={canPreview ? () => openLessonPreview(lesson) : undefined}
                               className={`flex flex-col gap-2 py-2 px-3 rounded sm:flex-row sm:items-center sm:justify-between ${
                                 !lesson.is_free && !canAccessCourse
                                   ? 'opacity-70 hover:bg-transparent cursor-not-allowed'
-                                  : 'hover:bg-secondary/50 cursor-pointer'
+                                  : canPreview
+                                    ? 'hover:bg-secondary/50 cursor-pointer'
+                                    : 'hover:bg-secondary/50'
                               }`}
                             >
                               <div className="flex min-w-0 items-center gap-3">
@@ -854,7 +912,8 @@ export function CourseDetailPage() {
                               </div>
                               <span className="text-sm text-muted-foreground">{formatDuration(lesson.duration)}</span>
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
@@ -933,7 +992,15 @@ export function CourseDetailPage() {
                <h3 className="text-xl font-bold">{t('course_detail.student_feedback')}</h3>
 
 
-               {isAuthenticated && canAccessCourse && (
+               {isAuthenticated && canAccessCourse && !canReviewCourse && (
+                 <Card className="mb-4">
+                   <CardContent className="p-4 text-sm text-muted-foreground">
+                     {t('course_detail.review_requires_progress', 'Bạn cần học hơn 50% khóa học trước khi đánh giá.')}
+                   </CardContent>
+                 </Card>
+               )}
+
+               {isAuthenticated && canReviewCourse && (
                  <Card className="mb-4">
                    <CardContent className="p-4 space-y-3">
                      <p className="font-medium">{t('course_detail.write_review')}</p>
@@ -1031,6 +1098,14 @@ export function CourseDetailPage() {
         </div>
       </motion.div>
       </motion.div>)}
+
+      {previewLesson && (
+        <LessonPreviewModal
+          open={!!previewLesson}
+          onOpenChange={(open) => { if (!open) setPreviewLesson(null) }}
+          lesson={previewLesson}
+        />
+      )}
     </motion.div>
   )
 }

@@ -102,7 +102,7 @@ function mapApiPostToUi(p: ApiBlogPost): BlogPost {
     excerpt: p.summary || p.content.substring(0, 150) + '...',
     author: {
       name: p.author_name || 'Unknown',
-      avatar: p.author_avatar || '/api/placeholder/40/40',
+      avatar: p.author_avatar || '',
       role: 'Author',
       id: p.author,
     },
@@ -125,7 +125,7 @@ function mapApiCommentToUi(c: ApiBlogComment, allComments: ApiBlogComment[]): Co
     postId: String(c.blog_post),
     author: {
       name: c.user_name || 'Unknown',
-      avatar: c.user_avatar || '/api/placeholder/32/32',
+      avatar: c.user_avatar || '',
     },
     content: c.content,
     createdAt: new Date(c.created_at),

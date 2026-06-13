@@ -45,6 +45,8 @@ export interface CourseListItem {
   status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
   is_featured: boolean
   is_public: boolean
+  admin_hidden: boolean
+  is_hard_blocked: boolean
   created_at: string
   updated_at: string
   published_date: string | null
@@ -143,6 +145,7 @@ export interface AccessInfo {
   access_type: 'admin' | 'instructor' | 'purchase' | 'subscription' | null
   in_subscription: boolean
   subscription_plan?: SubscriptionPlanRef | null
+  hard_blocked?: boolean
 }
 
 
@@ -174,6 +177,8 @@ export interface CourseDetail {
   status: string
   is_featured: boolean
   is_public: boolean
+  admin_hidden: boolean
+  is_hard_blocked: boolean
   created_at: string
   updated_at: string
   published_date: string | null
@@ -320,6 +325,16 @@ export async function updateCourse(
   data: CourseUpdateData
 ): Promise<CourseListItem> {
   return http.patch<CourseListItem>(`/courses/${courseId}/update`, data)
+}
+
+export type CourseModerationAction = 'approve' | 'reject' | 'archive' | 'hide' | 'hard_block' | 'unblock' | 'delete'
+
+export async function moderateCourse(
+  courseId: number,
+  action: CourseModerationAction,
+  reason?: string
+): Promise<CourseListItem> {
+  return http.post<CourseListItem>(`/courses/${courseId}/moderate`, { action, reason })
 }
 
 

@@ -8,6 +8,7 @@ import {
   Flag,
   MessageSquare,
   MoreVertical,
+  RefreshCw,
   Trash2,
   User,
   XCircle,
@@ -35,6 +36,7 @@ import {
   getAdminReports,
   getReportCaseDetail,
   resolveAdminReport,
+  reopenAdminReport,
   type ReportAction,
   type ReportCase,
   type ReportCaseDetail,
@@ -154,6 +156,16 @@ export function ReportManagementPage() {
       setCases(prev => prev.filter(c => c.id !== reportCase.id))
     } catch {
       toast.error('Xử lý báo cáo thất bại.')
+    }
+  }
+
+  const handleReopen = async (reportCase: ReportCase) => {
+    try {
+      await reopenAdminReport(reportCase.target_type, reportCase.target_id)
+      toast.success('Đã mở lại báo cáo. Chuyển về đang xem xét.')
+      setCases(prev => prev.filter(c => c.id !== reportCase.id))
+    } catch {
+      toast.error('Không thể mở lại báo cáo.')
     }
   }
 
@@ -333,6 +345,15 @@ export function ReportManagementPage() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   Xem chi tiết
                                 </DropdownMenuItem>
+                                {(tab === 'resolved' || tab === 'dismissed') && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleReopen(c)}>
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Xử lý lại
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                                 {(tab === 'pending' || tab === 'reviewing') && (
                                   <>
                                     <DropdownMenuSeparator />

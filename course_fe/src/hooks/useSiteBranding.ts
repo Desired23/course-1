@@ -3,18 +3,19 @@ import { getApiTransportHeaders } from "../services/http"
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api"
 
-const DEFAULT_SITE_NAME = "UTC"
+const DEFAULT_SITE_NAME = "coursePlatform"
 const DEFAULT_SITE_LOGO = ""
 
 export function useSiteBranding() {
   const [siteName, setSiteName] = useState(DEFAULT_SITE_NAME)
   const [siteLogo, setSiteLogo] = useState(DEFAULT_SITE_LOGO)
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let cancelled = false
     const loadBranding = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/systems_settings/public/branding/`, {
+        const response = await fetch(`${API_BASE_URL}/platform-settings/public/branding/`, {
           method: "GET",
           headers: { "Content-Type": "application/json", ...getApiTransportHeaders() },
         })
@@ -26,6 +27,9 @@ export function useSiteBranding() {
 
         if (nextName) setSiteName(nextName)
         if (nextLogo) setSiteLogo(nextLogo)
+        if (data.social_links && typeof data.social_links === "object") {
+          setSocialLinks(data.social_links as Record<string, string>)
+        }
       } catch {
         // network error — keep defaults
       }
@@ -37,5 +41,5 @@ export function useSiteBranding() {
     }
   }, [])
 
-  return { siteName, siteLogo }
+  return { siteName, siteLogo, socialLinks }
 }

@@ -138,7 +138,7 @@ export function BlogPostDetailPage() {
       excerpt: apiPost.summary || `${apiPost.content.substring(0, 150)}...`,
       author: {
         name: apiPost.author_name || t('blog_post_detail_page.fallbacks.unknown_author'),
-        avatar: apiPost.author_avatar || '/api/placeholder/60/60',
+        avatar: apiPost.author_avatar || '',
         role: apiPost.author_title || t('blog_post_detail_page.fallbacks.author_role'),
       },
       category: apiPost.category_name || t('blog_post_detail_page.fallbacks.general_category'),

@@ -59,9 +59,8 @@ interface ReviewRow {
 
 const mapStatus = (status: string, reportCount: number): ReviewStatus => {
   if (reportCount > 0) return 'flagged'
-  if (status === 'approved') return 'published'
   if (status === 'rejected') return 'hidden'
-  return 'pending'
+  return 'published'
 }
 
 const sectionStagger = {
@@ -161,7 +160,6 @@ export function ReviewManagementPage() {
       type: 'select',
       options: [
         { label: t('admin_reviews.status.published'), value: 'published', count: reviews.filter(r => r.status === 'published').length },
-        { label: t('admin_reviews.status.pending'), value: 'pending', count: reviews.filter(r => r.status === 'pending').length },
         { label: t('admin_reviews.status.flagged'), value: 'flagged', count: reviews.filter(r => r.status === 'flagged').length },
         { label: t('admin_reviews.status.hidden'), value: 'hidden', count: reviews.filter(r => r.status === 'hidden').length },
       ],
@@ -269,15 +267,9 @@ export function ReviewManagementPage() {
     if (!targetReview) return
 
     try {
-      if (targetReview.status === 'flagged') {
-        await moderateReview(Number(reviewId), {
-          action: newStatus === 'published' ? 'approve' : 'hide',
-        })
-      } else {
-        await updateReview(Number(reviewId), {
-          status: newStatus === 'published' ? 'approved' : 'rejected',
-        })
-      }
+      await moderateReview(Number(reviewId), {
+        action: newStatus === 'published' ? 'approve' : 'hide',
+      })
 
       syncReview(reviewId, (review) => ({
         ...review,
@@ -454,10 +446,6 @@ export function ReviewManagementPage() {
             {activeTab === 'all' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('admin_reviews.tabs.all', { count: reviews.length })}</span>
           </TabsTrigger>
-          <TabsTrigger value="pending" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'pending' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('admin_reviews.tabs.pending', { count: reviews.filter(r => r.status === 'pending').length })}</span>
-          </TabsTrigger>
           <TabsTrigger value="flagged" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'flagged' && <motion.span layoutId="review-management-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('admin_reviews.tabs.flagged', { count: reviews.filter(r => r.status === 'flagged').length })}</span>
@@ -633,49 +621,6 @@ export function ReviewManagementPage() {
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="pending" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('admin_reviews.pending_title')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {reviews.filter(r => r.status === 'pending').map((review) => (
-                <div key={review.id} className="p-4 border rounded-lg">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2">
-                      <p className="font-medium">{review.user_name}</p>
-                      <p className="text-sm text-muted-foreground">{review.course_title}</p>
-                      <div>{renderStars(review.rating)}</div>
-                      <p className="text-sm">{review.comment || t('admin_reviews.no_content')}</p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      <Button size="sm" onClick={() => openConfirm(
-                        t('admin_reviews.actions.publish_title'),
-                        t('admin_reviews.actions.publish_description', { name: review.user_name }),
-                        t('admin_reviews.bulk.publish'),
-                        () => handleStatusChange(review.id, 'published'),
-                      )}>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        {t('admin_reviews.actions.approve')}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openConfirm(
-                        t('admin_reviews.actions.hide_title'),
-                        t('admin_reviews.actions.hide_description', { name: review.user_name }),
-                        t('admin_reviews.bulk.hide'),
-                        () => handleStatusChange(review.id, 'hidden'),
-                        true,
-                      )}>
-                        <XCircle className="h-4 w-4 mr-2" />
-                        {t('admin_reviews.actions.reject')}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
         </TabsContent>

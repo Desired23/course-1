@@ -6,9 +6,6 @@ import {
   Bar,
   AreaChart,
   Area,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -23,7 +20,6 @@ import { TrendingUp, TrendingDown, DollarSign, Users, BookOpen, Star } from "luc
 import { cn } from "./ui/utils"
 import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from "../services/instructor.api"
 import { getAdminDashboardStats, getAdminRevenueAnalytics, getAdminUserAnalytics } from "../services/admin.api"
-import { getAllCategories } from "../services/category.api"
 import { formatCurrency } from "../utils/formatters"
 import { useTranslation } from "react-i18next"
 
@@ -37,11 +33,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d')
   const [chartType, setChartType] = useState<'line' | 'bar' | 'area'>('line')
 
-  const CATEGORY_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899']
-
-
   const [revenueData, setRevenueData] = useState<any[]>([])
-  const [categoryData, setCategoryData] = useState<any[]>([])
   const [engagementData, setEngagementData] = useState<any[]>([])
   const [stats, setStats] = useState<any[]>([
     { label: t('analytics_charts.stats.total_revenue'), value: '...', change: '-', trend: 'up', icon: DollarSign, color: 'text-green-600 dark:text-green-400' },
@@ -59,11 +51,10 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
       Array.isArray(payload) ? (payload as T[]) : ((payload as any)?.results ?? [])
 
     async function fetchPlatform() {
-      const [dashStats, revenue, users, categories] = await Promise.all([
+      const [dashStats, revenue, users] = await Promise.all([
         getAdminDashboardStats(),
         getAdminRevenueAnalytics(months),
         getAdminUserAnalytics(months),
-        getAllCategories(),
       ])
 
       const revenueRows = toArray<{ date: string; revenue: number }>(revenue)
@@ -73,12 +64,6 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         revenue: r.revenue,
         students: userRows[i]?.new_users ?? 0,
         courses: dashStats.total_courses,
-      })))
-
-      setCategoryData(toArray<any>(categories).slice(0, 6).map((c, i) => ({
-        name: c.name,
-        value: c.course_count || 0,
-        color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
       })))
 
       setEngagementData([])
@@ -138,14 +123,6 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
           }
         })
         setRevenueData(revData)
-
-
-        const catData = dashStats.course_stats.slice(0, 6).map((c, i) => ({
-          name: c.title.length > 20 ? c.title.slice(0, 20) + '…' : c.title,
-          value: c.total_students,
-          color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-        }))
-        setCategoryData(catData)
 
 
         const engData = timeseries.engagement_trend.map((e) => {
@@ -355,9 +332,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
         </ResponsiveContainer>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        <Card className="p-6">
+      <Card className="p-6">
           <h3 className="font-medium mb-1">{t('analytics_charts.students.title')}</h3>
           <p className="text-sm text-muted-foreground mb-6">
             {t('analytics_charts.students.subtitle')}
@@ -392,41 +367,7 @@ export function AnalyticsCharts({ type = 'platform', className }: AnalyticsChart
               />
             </AreaChart>
           </ResponsiveContainer>
-        </Card>
-
-
-        <Card className="p-6">
-          <h3 className="font-medium mb-1">{t('analytics_charts.categories.title')}</h3>
-          <p className="text-sm text-muted-foreground mb-6">
-            {t('analytics_charts.categories.subtitle')}
-          </p>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px'
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
+      </Card>
 
 
       {engagementData.length > 0 && (

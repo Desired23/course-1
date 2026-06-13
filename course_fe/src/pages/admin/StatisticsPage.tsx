@@ -6,15 +6,12 @@ import { Button } from '../../components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Badge } from '../../components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts'
 import { TrendingUp, TrendingDown, Users, BookOpen, DollarSign, Star, Download, Calendar, Filter } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getAdminDashboardStats, getAdminRevenueAnalytics, getAdminUserAnalytics, getAdminCourseAnalytics, getAdminRevenueMonthlyBreakdown, getAdminCommissionAnalytics, exportAdminRevenue } from '../../services/admin.api'
-import { getAllCategories } from '../../services/category.api'
 import { useTranslation } from 'react-i18next'
-
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#ff6b6b', '#4ecdc4', '#45b7d1']
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -46,7 +43,6 @@ export function StatisticsPage() {
   const [activeTab, setActiveTab] = useState('overview')
 
   const [revenueData, setRevenueData] = useState<any[]>([])
-  const [courseCategories, setCourseCategories] = useState<any[]>([])
   const [userGrowth, setUserGrowth] = useState<any[]>([])
   const [detailedCourses, setDetailedCourses] = useState<any[]>([])
   const [stats, setStats] = useState<any>({})
@@ -63,18 +59,16 @@ export function StatisticsPage() {
 
     async function load() {
       try {
-        const [dashStats, revenue, users, courses, categories] = await Promise.all([
+        const [dashStats, revenue, users, courses] = await Promise.all([
           getAdminDashboardStats().catch(() => null),
           getAdminRevenueAnalytics(timeRange === '1month' ? 1 : timeRange === '3months' ? 3 : timeRange === '1year' ? 12 : 6).catch(() => []),
           getAdminUserAnalytics(timeRange === '1month' ? 1 : timeRange === '3months' ? 3 : timeRange === '1year' ? 12 : 6).catch(() => []),
           getAdminCourseAnalytics().catch(() => []),
-          getAllCategories().catch(() => [])
         ])
         if (dashStats) setStats(dashStats)
         const revenueRows = ensureArray<any>(revenue)
         const userRows = ensureArray<any>(users)
         const courseRows = ensureArray<any>(courses)
-        const categoryRows = ensureArray<any>(categories)
 
         setRevenueData(revenueRows.map((r: any) => ({
           month: r.date,
@@ -95,11 +89,6 @@ export function StatisticsPage() {
           revenue: c.revenue ?? 0,
           rating: c.rating,
           status: c.status || 'active'
-        })))
-        setCourseCategories(categoryRows.map((cat: any, idx: number) => ({
-          name: cat.name,
-          value: cat.course_count || 1,
-          color: COLORS[idx % COLORS.length]
         })))
       } catch (e) {
         console.error('Failed to load statistics', e)
@@ -232,28 +221,6 @@ export function StatisticsPage() {
             </AreaChart>
           </ResponsiveContainer>
         )
-      case 'pie':
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={courseCategories}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {courseCategories.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        )
       default:
         return null
     }
@@ -314,7 +281,7 @@ export function StatisticsPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${(stats.total_revenue || 0).toLocaleString()}</div>
+                <div className="text-2xl font-bold">{(stats.total_revenue || 0).toLocaleString('vi-VN')}₫</div>
                 <p className="text-xs text-muted-foreground">
                   <TrendingUp className="h-3 w-3 inline mr-1" />
                   {t('admin_statistics.metrics.this_month_revenue', { amount: (stats.this_month_revenue || 0).toLocaleString() })}
@@ -379,7 +346,6 @@ export function StatisticsPage() {
                       <SelectItem value="bar">{t('admin_statistics.charts.bar')}</SelectItem>
                       <SelectItem value="line">{t('admin_statistics.charts.line')}</SelectItem>
                       <SelectItem value="area">{t('admin_statistics.charts.area')}</SelectItem>
-                      <SelectItem value="pie">{t('admin_statistics.charts.pie')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={timeRange} onValueChange={setTimeRange}>
@@ -434,7 +400,7 @@ export function StatisticsPage() {
                       <TableCell className="font-medium">{course.title}</TableCell>
                       <TableCell>{course.instructor}</TableCell>
                       <TableCell>{course.students.toLocaleString()}</TableCell>
-                      <TableCell>${course.revenue.toLocaleString()}</TableCell>
+                      <TableCell>{course.revenue.toLocaleString('vi-VN')}₫</TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
@@ -455,55 +421,25 @@ export function StatisticsPage() {
         </TabsContent>
 
         <TabsContent value="trends" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('admin_statistics.user_growth.title')}</CardTitle>
-                <CardDescription>{t('admin_statistics.user_growth.description')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={userGrowth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Area type="monotone" dataKey="students" stackId="1" stroke="#8884d8" fill="#8884d8" />
-                    <Area type="monotone" dataKey="instructors" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('admin_statistics.course_categories.title')}</CardTitle>
-                <CardDescription>{t('admin_statistics.course_categories.description')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={courseCategories}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {courseCategories.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('admin_statistics.user_growth.title')}</CardTitle>
+              <CardDescription>{t('admin_statistics.user_growth.description')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={userGrowth}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="students" stackId="1" stroke="#8884d8" fill="#8884d8" />
+                  <Area type="monotone" dataKey="instructors" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6">

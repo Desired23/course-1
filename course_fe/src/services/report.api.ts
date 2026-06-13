@@ -116,3 +116,11 @@ export async function resolveAdminReport(
 ): Promise<{ message: string }> {
   return http.post(`/reports/admin/${targetType}/${targetId}/resolve/`, data)
 }
+
+// Admin: reopen a resolved/dismissed case
+export async function reopenAdminReport(
+  targetType: ReportTargetType,
+  targetId: number,
+): Promise<{ message: string }> {
+  return http.post(`/reports/admin/${targetType}/${targetId}/reopen/`, {})
+}

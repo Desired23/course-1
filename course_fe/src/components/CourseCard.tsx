@@ -32,7 +32,7 @@ interface CourseCardProps {
   variant?: "vertical" | "horizontal" | "compact"
   bestseller?: boolean
   isNew?: boolean
-  currency?: "USD" | "VND"
+  currency?: "VND"
   showWishlist?: boolean
   showAddToCart?: boolean
   discountEndDate?: string | null
@@ -56,7 +56,6 @@ export function CourseCard({
   variant = "vertical",
   bestseller = false,
   isNew = false,
-  currency = "VND",
   showWishlist = true,
   showAddToCart = true,
   discountEndDate,
@@ -85,8 +84,7 @@ export function CourseCard({
 
   const formatPrice = (priceValue: string | number): string => {
     if (typeof priceValue === "string") return priceValue
-    if (currency === "VND") return `VND ${priceValue.toLocaleString()}`
-    return `$${priceValue.toFixed(2)}`
+    return `${priceValue.toLocaleString('vi-VN')}₫`
   }
 
   const formatStudents = (studentsValue: string | number): string => {
