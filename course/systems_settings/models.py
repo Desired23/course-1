@@ -100,6 +100,10 @@ def default_refund_settings():
     }
 
 
+def default_legal_policies():
+    return {"terms": "", "privacy": "", "refund": "", "community": ""}
+
+
 def default_payment_methods_config():
     return []
 
@@ -143,6 +147,7 @@ class PlatformSetting(models.Model):
     homepage_schema_v2 = models.JSONField(null=True, blank=True)
     homepage_schema_v2_initial_backup = models.JSONField(null=True, blank=True)
     website_management = models.JSONField(default=default_website_management_config)
+    legal_policies = models.JSONField(default=default_legal_policies)
     learning_path_gemini_model = models.CharField(max_length=120, blank=True, default="")
     updated_by = models.ForeignKey(Admin, on_delete=models.SET_NULL, null=True, blank=True, related_name='platform_settings_updates')
     created_at = models.DateTimeField(auto_now_add=True)

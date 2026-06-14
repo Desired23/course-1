@@ -12,14 +12,20 @@ import {
   formatAdminCurrency,
   getAdminCommissionAnalytics,
   getAdminRefundAnalytics,
+  getAdminRevenueByCategory,
+  getAdminRevenueByInstructor,
   getAdminRevenueBreakdown,
   getAdminRevenueMonthlyBreakdown,
+  getAdminSubscriptionMetrics,
   getAdminTopCoursesByRevenue,
+  type CategoryRevenueRow,
   type CommissionAnalytics,
   type CourseRevenueRow,
+  type InstructorRevenueRow,
   type RefundAnalytics,
   type RevenueBreakdown,
   type RevenueMonthlyEntry,
+  type SubscriptionMetrics,
 } from '../../services/admin.api'
 
 function todayISO() {
@@ -45,6 +51,9 @@ export function AdminRevenueTab() {
   const [commission, setCommission] = useState<CommissionAnalytics | null>(null)
   const [refunds, setRefunds] = useState<RefundAnalytics | null>(null)
   const [topCourses, setTopCourses] = useState<CourseRevenueRow[]>([])
+  const [categoryRevenue, setCategoryRevenue] = useState<CategoryRevenueRow[]>([])
+  const [instructorRevenue, setInstructorRevenue] = useState<InstructorRevenueRow[]>([])
+  const [subscriptionMetrics, setSubscriptionMetrics] = useState<SubscriptionMetrics | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -52,12 +61,15 @@ export function AdminRevenueTab() {
       setLoading(true)
       setError(null)
       try {
-        const [breakdownRes, monthlyRes, commissionRes, refundRes, topRes] = await Promise.all([
+        const [breakdownRes, monthlyRes, commissionRes, refundRes, topRes, categoryRes, instructorRes, subscriptionRes] = await Promise.all([
           getAdminRevenueBreakdown(applied.dateFrom, applied.dateTo),
-          getAdminRevenueMonthlyBreakdown(months),
+          getAdminRevenueMonthlyBreakdown(months, applied.dateFrom, applied.dateTo),
           getAdminCommissionAnalytics(applied.dateFrom, applied.dateTo),
           getAdminRefundAnalytics(applied.dateFrom, applied.dateTo),
           getAdminTopCoursesByRevenue(10, applied.dateFrom, applied.dateTo),
+          getAdminRevenueByCategory(10, applied.dateFrom, applied.dateTo),
+          getAdminRevenueByInstructor(10, applied.dateFrom, applied.dateTo),
+          getAdminSubscriptionMetrics(applied.dateFrom, applied.dateTo),
         ])
         if (cancelled) return
         setBreakdown(breakdownRes)
@@ -65,6 +77,9 @@ export function AdminRevenueTab() {
         setCommission(commissionRes)
         setRefunds(refundRes)
         setTopCourses(topRes)
+        setCategoryRevenue(categoryRes)
+        setInstructorRevenue(instructorRes)
+        setSubscriptionMetrics(subscriptionRes)
       } catch (err: any) {
         if (!cancelled) setError(err?.message || t('admin_revenue.load_error'))
       } finally {
@@ -116,6 +131,13 @@ export function AdminRevenueTab() {
         <Metric title={t('admin_revenue.net_revenue')} value={formatAdminCurrency(breakdown?.net_revenue ?? 0)} loading={loading} />
         <Metric title={t('admin_revenue.refunded')} value={formatAdminCurrency(breakdown?.total_refunded ?? 0)} loading={loading} />
         <Metric title={t('admin_revenue.retail_subscription')} value={ratio} loading={loading} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <Metric title={t('admin_revenue.subscription_total', 'Doanh thu subscription')} value={formatAdminCurrency(subscriptionMetrics?.total_revenue ?? 0)} loading={loading} />
+        <Metric title={t('admin_revenue.subscription_new', 'Subscriber mới')} value={String(subscriptionMetrics?.new_subscribers ?? 0)} loading={loading} />
+        <Metric title={t('admin_revenue.subscription_churned', 'Hủy / hết hạn')} value={`${subscriptionMetrics?.cancelled_subscribers ?? 0} / ${subscriptionMetrics?.expired_subscribers ?? 0}`} loading={loading} />
+        <Metric title={t('admin_revenue.subscription_churn_rate', 'Churn rate')} value={`${subscriptionMetrics?.churn_rate ?? 0}%`} loading={loading} />
       </div>
 
       <Card>
@@ -191,6 +213,98 @@ export function AdminRevenueTab() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>{t('admin_revenue.revenue_by_category', 'Doanh thu theo category')}</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('admin_revenue.category', 'Category')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.revenue')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.net')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.refunded')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.courses', 'Khóa học')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categoryRevenue.map((row) => (
+                  <TableRow key={row.category_id ?? row.category_name}>
+                    <TableCell>{row.category_name}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.revenue)}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.net_revenue)}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.refunded)}</TableCell>
+                    <TableCell className="text-right">{row.course_count}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>{t('admin_revenue.revenue_by_instructor', 'Doanh thu theo instructor')}</CardTitle></CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('admin_revenue.instructor')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.gross')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.platform')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.instructor')}</TableHead>
+                  <TableHead className="text-right">{t('admin_revenue.subscription')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {instructorRevenue.map((row) => (
+                  <TableRow key={row.instructor_id ?? row.instructor_name ?? 'unknown'}>
+                    <TableCell>{row.instructor_name || `#${row.instructor_id}`}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.gross)}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.platform_revenue)}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.instructor_earnings)}</TableCell>
+                    <TableCell className="text-right">{formatAdminCurrency(row.subscription_revenue)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>{t('admin_revenue.subscription_by_plan', 'Subscription metrics theo plan')}</CardTitle></CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('admin_revenue.plan', 'Plan')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.revenue')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.payments', 'Thanh toán')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.new_subscribers', 'Mới')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.cancelled', 'Hủy')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.expired', 'Hết hạn')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.active', 'Đang active')}</TableHead>
+                <TableHead className="text-right">{t('admin_revenue.churn_rate', 'Churn')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(subscriptionMetrics?.per_plan ?? []).map((plan) => (
+                <TableRow key={plan.plan_id}>
+                  <TableCell>{plan.plan_name}</TableCell>
+                  <TableCell className="text-right">{formatAdminCurrency(plan.revenue)}</TableCell>
+                  <TableCell className="text-right">{plan.payments}</TableCell>
+                  <TableCell className="text-right">{plan.new_subscribers}</TableCell>
+                  <TableCell className="text-right">{plan.cancelled_subscribers}</TableCell>
+                  <TableCell className="text-right">{plan.expired_subscribers}</TableCell>
+                  <TableCell className="text-right">{plan.active_subscribers}</TableCell>
+                  <TableCell className="text-right">{plan.churn_rate}%</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>

@@ -156,23 +156,25 @@ export interface TopCourse {
   title: string
   instructor_name: string | null
   enrollment_count: number
+  revenue?: number
+  transactions?: number
   rating: number
 }
 
-export async function getAdminDashboardStats(): Promise<AdminDashboardStats> {
-  return http.get<AdminDashboardStats>('/admin/dashboard/stats/')
+export async function getAdminDashboardStats(dateFrom?: string, dateTo?: string): Promise<AdminDashboardStats> {
+  return http.get<AdminDashboardStats>('/admin/dashboard/stats/', rangeParams(dateFrom, dateTo))
 }
 
-export async function getAdminRevenueAnalytics(months = 6): Promise<RevenueTrend[]> {
-  return http.get<RevenueTrend[]>('/admin/analytics/revenue/', { months })
+export async function getAdminRevenueAnalytics(months = 6, dateFrom?: string, dateTo?: string): Promise<RevenueTrend[]> {
+  return http.get<RevenueTrend[]>('/admin/analytics/revenue/', { months, ...rangeParams(dateFrom, dateTo) })
 }
 
-export async function getAdminUserAnalytics(months = 6): Promise<UserTrend[]> {
-  return http.get<UserTrend[]>('/admin/analytics/users/', { months })
+export async function getAdminUserAnalytics(months = 6, dateFrom?: string, dateTo?: string): Promise<UserTrend[]> {
+  return http.get<UserTrend[]>('/admin/analytics/users/', { months, ...rangeParams(dateFrom, dateTo) })
 }
 
-export async function getAdminCourseAnalytics(): Promise<TopCourse[]> {
-  return http.get<TopCourse[]>('/admin/analytics/courses/')
+export async function getAdminCourseAnalytics(dateFrom?: string, dateTo?: string): Promise<TopCourse[]> {
+  return http.get<TopCourse[]>('/admin/analytics/courses/', rangeParams(dateFrom, dateTo))
 }
 
 export interface RevenueBreakdown {
@@ -192,6 +194,7 @@ export interface RevenueMonthlyEntry {
   gross: number
   refunded: number
   net: number
+  transactions?: number
 }
 
 export interface CommissionAnalytics {
@@ -232,6 +235,116 @@ export interface CourseRevenueRow {
   transactions: number
 }
 
+export interface CourseRevenueDetailRow {
+  course_id: number
+  title: string
+  instructor_name: string | null
+  category_name: string
+  revenue: number
+  refunded: number
+  net_revenue: number
+  transactions: number
+  enrollments: number
+}
+
+export interface CategoryRevenueRow {
+  category_id: number | null
+  category_name: string
+  revenue: number
+  refunded: number
+  net_revenue: number
+  transactions: number
+  course_count: number
+}
+
+export interface InstructorRevenueRow {
+  instructor_id: number | null
+  instructor_name: string | null
+  gross: number
+  instructor_earnings: number
+  platform_revenue: number
+  retail_revenue: number
+  subscription_revenue: number
+  pending: number
+  available: number
+  paid: number
+  transactions: number
+}
+
+export interface SubscriptionPlanMetric {
+  plan_id: number
+  plan_name: string
+  duration_type: string
+  revenue: number
+  payments: number
+  new_subscribers: number
+  cancelled_subscribers: number
+  expired_subscribers: number
+  active_subscribers: number
+  churn_rate: number
+}
+
+export interface SubscriptionMetrics {
+  total_revenue: number
+  new_subscribers: number
+  cancelled_subscribers: number
+  expired_subscribers: number
+  active_subscribers: number
+  churn_rate: number
+  per_plan: SubscriptionPlanMetric[]
+}
+
+export interface EarningPayoutInstructorRow {
+  instructor_id: number | null
+  instructor_name: string | null
+  gross: number
+  instructor_earnings: number
+  retail_earnings: number
+  subscription_earnings: number
+  pending_earnings: number
+  available_earnings: number
+  paid_earnings: number
+  payout_requested: number
+  payout_processed: number
+  payout_processed_net: number
+  payout_pending: number
+  payout_failed: number
+  payout_cancelled: number
+  payout_fee: number
+  payout_processed_fee: number
+  earning_count: number
+  payout_count: number
+  payout_processed_count: number
+  payable_earnings: number
+  unpaid_balance: number
+  settlement_gap: number
+}
+
+export interface EarningPayoutMetrics {
+  total_gross_earnings: number
+  total_instructor_earnings: number
+  retail_earnings: number
+  subscription_earnings: number
+  pending_earnings: number
+  available_earnings: number
+  payable_earnings: number
+  paid_earnings: number
+  cancelled_earnings: number
+  earning_count: number
+  payout_requested: number
+  payout_processed: number
+  payout_processed_net: number
+  payout_pending: number
+  payout_failed: number
+  payout_cancelled: number
+  payout_fee: number
+  payout_processed_fee: number
+  payout_count: number
+  payout_processed_count: number
+  payout_by_status: Record<string, { count: number; amount: number; fee: number; net_amount: number }>
+  per_instructor: EarningPayoutInstructorRow[]
+}
+
 export interface ImportResult {
   success?: number
   created?: number
@@ -251,8 +364,11 @@ export async function getAdminRevenueBreakdown(dateFrom?: string, dateTo?: strin
   return http.get<RevenueBreakdown>('/admin/analytics/revenue-breakdown/', rangeParams(dateFrom, dateTo))
 }
 
-export async function getAdminRevenueMonthlyBreakdown(months = 12): Promise<RevenueMonthlyEntry[]> {
-  return http.get<RevenueMonthlyEntry[]>('/admin/analytics/revenue-monthly-breakdown/', { months })
+export async function getAdminRevenueMonthlyBreakdown(months = 12, dateFrom?: string, dateTo?: string): Promise<RevenueMonthlyEntry[]> {
+  return http.get<RevenueMonthlyEntry[]>('/admin/analytics/revenue-monthly-breakdown/', {
+    months,
+    ...rangeParams(dateFrom, dateTo),
+  })
 }
 
 export async function getAdminCommissionAnalytics(dateFrom?: string, dateTo?: string): Promise<CommissionAnalytics> {
@@ -268,6 +384,65 @@ export async function getAdminTopCoursesByRevenue(limit = 10, dateFrom?: string,
     limit,
     ...rangeParams(dateFrom, dateTo),
   })
+}
+
+export async function getAdminRevenueByCourse(limit = 50, dateFrom?: string, dateTo?: string): Promise<CourseRevenueDetailRow[]> {
+  return http.get<CourseRevenueDetailRow[]>('/admin/analytics/revenue-by-course/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+export async function getAdminRevenueByCategory(limit = 20, dateFrom?: string, dateTo?: string): Promise<CategoryRevenueRow[]> {
+  return http.get<CategoryRevenueRow[]>('/admin/analytics/revenue-by-category/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+export async function getAdminRevenueByInstructor(limit = 20, dateFrom?: string, dateTo?: string): Promise<InstructorRevenueRow[]> {
+  return http.get<InstructorRevenueRow[]>('/admin/analytics/revenue-by-instructor/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+export async function getAdminSubscriptionMetrics(dateFrom?: string, dateTo?: string): Promise<SubscriptionMetrics> {
+  return http.get<SubscriptionMetrics>('/admin/analytics/subscription-metrics/', rangeParams(dateFrom, dateTo))
+}
+
+export async function getAdminEarningPayoutMetrics(limit = 100, dateFrom?: string, dateTo?: string): Promise<EarningPayoutMetrics> {
+  return http.get<EarningPayoutMetrics>('/admin/analytics/earning-payout/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+export type BulkReportKey =
+  | 'revenue_monthly'
+  | 'revenue_quarterly'
+  | 'revenue_yearly'
+  | 'revenue_instructor'
+  | 'revenue_course'
+  | 'revenue_category'
+  | 'subscription_plan'
+  | 'subscription_metrics'
+  | 'earning_payout'
+  | 'refunds'
+
+export async function exportAdminBulkReports(
+  reports: BulkReportKey[],
+  format: 'csv' | 'excel' = 'excel',
+  dateFrom?: string,
+  dateTo?: string,
+): Promise<void> {
+  const params = new URLSearchParams({ format, reports: reports.join(',') })
+  if (dateFrom) params.set('date_from', dateFrom)
+  if (dateTo) params.set('date_to', dateTo)
+  await downloadBlob(
+    `/admin/analytics/bulk-export/?${params.toString()}`,
+    `statistics_reports.${format === 'excel' ? 'xlsx' : 'zip'}`
+  )
 }
 
 async function downloadBlob(endpoint: string, filename: string): Promise<void> {

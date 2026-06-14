@@ -4,11 +4,14 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from utils.permissions import RolePermissionFactory
+from utils.admin_actors import resolve_admin_actor
+from .serializers import PlatformConfigSerializer, PolicyDocumentsSerializer
 from .services import (
     get_systems_setting_by_key,
     update_systems_setting,
     create_systems_setting,
     delete_systems_setting,
+    get_platform_setting,
     get_public_branding_payload,
     get_public_home_settings_payload,
     list_systems_settings_payload,
@@ -59,6 +62,55 @@ class PlatformSettingsView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
+
+
+class PlatformConfigView(APIView):
+    # Structured read/write of the curated platform settings that admins actually
+    # configure (branding + automation), operating directly on the PlatformSetting
+    # singleton instead of the legacy key/value emulation.
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        instance = get_platform_setting()
+        return Response(PlatformConfigSerializer(instance).data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        instance = get_platform_setting()
+        serializer = PlatformConfigSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=resolve_admin_actor(request.user))
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PolicyDocumentsView(APIView):
+    # Admin read/write of the platform legal policy documents (terms/privacy/refund/community)
+    # stored as rich-text HTML on the PlatformSetting singleton.
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        instance = get_platform_setting()
+        return Response(PolicyDocumentsSerializer(instance).data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        instance = get_platform_setting()
+        serializer = PolicyDocumentsSerializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=resolve_admin_actor(request.user))
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PublicPoliciesView(APIView):
+    permission_classes = [AllowAny]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            instance = get_platform_setting()
+            return Response(PolicyDocumentsSerializer(instance).data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"errors": {"error": str(e)}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class PayoutSettingsView(APIView):

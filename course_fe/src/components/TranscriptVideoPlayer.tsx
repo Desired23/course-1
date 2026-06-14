@@ -4,7 +4,7 @@ import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { ScrollArea } from './ui/scroll-area'
-import { Bookmark, PlayCircle } from 'lucide-react'
+import { AlertCircle, Bookmark, PlayCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTranscriptTime, type LessonTranscriptDTO } from '../services/transcript.api'
 
@@ -51,12 +51,14 @@ export function TranscriptVideoPlayer({
   const lastBlockedToastAtRef = useRef(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [videoError, setVideoError] = useState<string | null>(null)
 
   useEffect(() => {
     completionTriggeredRef.current = false
     maxWatchedTimeRef.current = 0
     setCurrentTime(0)
     setDuration(0)
+    setVideoError(null)
   }, [url])
 
   const activeSegmentId = useMemo(() => {
@@ -88,6 +90,7 @@ export function TranscriptVideoPlayer({
     const element = videoRef.current
     if (!element) return
     const nextDuration = element.duration || 0
+    setVideoError(null)
     setDuration(nextDuration)
     const initialSeconds = nextDuration > 0 ? Math.min(nextDuration, (savedProgress / 100) * nextDuration) : 0
     element.currentTime = initialSeconds
@@ -158,23 +161,34 @@ export function TranscriptVideoPlayer({
           </div>
         </div>
         <div className="bg-black">
-          <video
-            ref={videoRef}
-            src={url}
-            controls
-            className="aspect-video w-full"
-            onLoadedMetadata={handleLoadedMetadata}
-            onTimeUpdate={handleTimeUpdate}
-            onSeeking={handleSeeking}
-            onEnded={() => {
-              if (!completionTriggeredRef.current) {
-                completionTriggeredRef.current = true
-                onComplete?.()
-              }
-            }}
-            controlsList="nodownload"
-            onContextMenu={e => e.preventDefault()}
-          />
+          {videoError ? (
+            <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 px-6 text-center text-white/80">
+              <AlertCircle className="h-10 w-10 text-red-300" />
+              <div>
+                <p className="font-medium text-white">{t('video_player.unavailable_title')}</p>
+                <p className="mt-1 text-sm text-white/70">{videoError}</p>
+              </div>
+            </div>
+          ) : (
+            <video
+              ref={videoRef}
+              src={url}
+              controls
+              className="aspect-video w-full"
+              onLoadedMetadata={handleLoadedMetadata}
+              onTimeUpdate={handleTimeUpdate}
+              onSeeking={handleSeeking}
+              onError={() => setVideoError(t('video_player.source_load_failed'))}
+              onEnded={() => {
+                if (!completionTriggeredRef.current) {
+                  completionTriggeredRef.current = true
+                  onComplete?.()
+                }
+              }}
+              controlsList="nodownload"
+              onContextMenu={e => e.preventDefault()}
+            />
+          )}
         </div>
         {bookmarks.length > 0 && (
           <div className="flex flex-wrap gap-2 border-t px-4 py-3">

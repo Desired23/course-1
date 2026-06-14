@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from .serializers import Userserializers, UserUpdateBySelfSerializer, UserSettingsSerializer
-from .services import create_user, update_user_by_admin, delete_user, get_users, get_user_by_id, register, login, google_login, refresh_token, user_reset_password, confirm_reset_password, user_confirm_email, resend_verification_email, update_user_by_selfself, get_or_create_user_settings, update_user_settings, deactivate_user_self, delete_user_self, change_password_self
+from .services import create_user, update_user_by_admin, delete_user, get_users, get_user_by_id, register, login, google_login, refresh_token, user_reset_password, confirm_reset_password, user_confirm_email, resend_verification_email, update_user_by_selfself, get_or_create_user_settings, update_user_settings, deactivate_user_self, delete_user_self, change_password_self, request_email_change_self, confirm_email_change_self
 from utils.permissions import RolePermissionFactory
 from utils.roles import is_active_admin
 from .models import User
@@ -222,6 +222,34 @@ class UserChangePasswordSelfView(APIView):
             current_password = request.data.get('current_password')
             new_password = request.data.get('new_password')
             result = change_password_self(request.user.id, current_password, new_password)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserRequestEmailChangeSelfView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        try:
+            password = request.data.get('password')
+            new_email = request.data.get('new_email')
+            result = request_email_change_self(request.user.id, password, new_email)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserConfirmEmailChangeView(APIView):
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        token = request.data.get('token')
+        if not token:
+            return Response({"errors": {"token": ["This field is required."]}}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = confirm_email_change_self(token)
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

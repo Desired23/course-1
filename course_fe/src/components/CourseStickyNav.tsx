@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, motion } from 'motion/react'
-import { Heart, ShoppingCart } from 'lucide-react'
+import { ShoppingCart } from 'lucide-react'
 import { Button } from './ui/button'
 
 interface CourseStickyNavProps {
@@ -9,12 +9,10 @@ interface CourseStickyNavProps {
   price: number
   originalPrice?: number
   isInCart: boolean
-  isWishlisted: boolean
   primaryActionLabel?: string
   showAddToCart?: boolean
   onAddToCart: () => void
   onBuyNow: () => void
-  onToggleWishlist: () => void
   sidebarCardRef?: React.RefObject<HTMLDivElement>
 }
 
@@ -23,12 +21,10 @@ export function CourseStickyNav({
   price,
   originalPrice,
   isInCart,
-  isWishlisted,
   primaryActionLabel,
   showAddToCart = true,
   onAddToCart,
   onBuyNow,
-  onToggleWishlist,
   sidebarCardRef,
 }: CourseStickyNavProps) {
   const { t } = useTranslation()
@@ -83,15 +79,6 @@ export function CourseStickyNav({
                     </span>
                   )}
                 </div>
-
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onToggleWishlist}
-                  className={isWishlisted ? 'text-red-500 hover:text-red-600' : ''}
-                >
-                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
-                </Button>
 
                 {isInCart ? (
                   <Button onClick={onBuyNow} size="lg">

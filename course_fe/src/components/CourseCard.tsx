@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
-import { ArrowRight, CheckCircle, Clock, Heart, Loader2, Play, ShoppingCart, Star, Users } from "lucide-react"
+import { ArrowRight, CheckCircle, Clock, Loader2, Play, ShoppingCart, Star, Users } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { useAuth } from "../contexts/AuthContext"
 import { useCart } from "../contexts/CartContext"
-import { useWishlist } from "../contexts/WishlistContext"
 import { useAuthAction } from "../hooks/useAuthAction"
 import { DiscountCountdown } from "./DiscountCountdown"
 import { ImageWithFallback } from "./figma/ImageWithFallback"
@@ -33,7 +32,6 @@ interface CourseCardProps {
   bestseller?: boolean
   isNew?: boolean
   currency?: "VND"
-  showWishlist?: boolean
   showAddToCart?: boolean
   discountEndDate?: string | null
 }
@@ -56,14 +54,12 @@ export function CourseCard({
   variant = "vertical",
   bestseller = false,
   isNew = false,
-  showWishlist = true,
   showAddToCart = true,
   discountEndDate,
 }: CourseCardProps) {
   const { t } = useTranslation()
   const { navigate } = useRouter()
   const { addToCart, addToCartFromApi, isInCart, isInCartByCourseId, syncCartIfStale } = useCart()
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist()
   const { execute: executeAuth } = useAuthAction()
   const { user, isAuthenticated } = useAuth()
 
@@ -79,7 +75,6 @@ export function CourseCard({
     setDiscountExpired(true)
   }, [])
 
-  const inWishlist = courseId ? isInWishlist(courseId) : false
   const addedToCart = courseId ? isInCart(courseId) : false
 
   const formatPrice = (priceValue: string | number): string => {
@@ -121,30 +116,6 @@ export function CourseCard({
     if (isAddingToCart) return t("course_card.adding_to_cart")
     if (addedToCart) return t("course_card.view_cart")
     return t("course_card.add_to_cart")
-  }
-
-  const handleToggleWishlist = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    e.preventDefault()
-
-    if (!courseId) return
-
-    executeAuth(() => {
-      if (inWishlist) {
-        removeFromWishlist(courseId)
-        return
-      }
-
-      const priceValue = typeof price === "string" ? parseFloat(price.replace(/[^0-9.]/g, "")) : price
-
-      addToWishlist(courseId, {
-        title,
-        instructor,
-        price: Number.isNaN(priceValue) ? 0 : priceValue,
-        image,
-        rating,
-      })
-    })
   }
 
   const handleClick = () => {
@@ -231,17 +202,6 @@ export function CourseCard({
     </>
   )
 
-  const renderWishlistButton = () =>
-    showWishlist ? (
-      <button
-        className="absolute top-2 right-2 p-2 rounded-full bg-white/80 hover:bg-white text-gray-900 transition-colors z-20 hover:scale-110 shadow-sm"
-        onClick={handleToggleWishlist}
-        title={inWishlist ? t("course_card.remove_from_wishlist") : t("course_card.add_to_wishlist")}
-      >
-        <Heart className={`w-4 h-4 ${inWishlist ? "fill-red-500 text-red-500" : "text-gray-600"}`} />
-      </button>
-    ) : null
-
   if (variant === "compact") {
     return (
       <Card
@@ -322,7 +282,6 @@ export function CourseCard({
             {!isOwned && isNew && (
               <Badge className="absolute top-2 left-2 bg-blue-600 text-white">{t("course_card.new")}</Badge>
             )}
-            {renderWishlistButton()}
           </div>
 
           <CardContent className="p-4 flex-1 flex flex-col justify-between">
@@ -415,7 +374,6 @@ export function CourseCard({
           className="w-full h-48 object-cover rounded-t-lg group-hover/card:scale-105 transition-transform duration-300"
         />
         {isOwned ? renderOwnedBadge() : renderStatusBadges()}
-        {renderWishlistButton()}
 
         {!isOwned && effectiveShowAddToCart && (
           <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/60 transition-all duration-300 flex items-center justify-center">

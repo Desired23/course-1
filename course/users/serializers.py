@@ -43,6 +43,7 @@ class Userserializers(serializers.ModelSerializer):
             'id',
             'username',
             'email',
+            'pending_email',
             'password_hash',
             'full_name',
             'phone',
@@ -58,6 +59,7 @@ class Userserializers(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'password_hash': {'write_only': True},
+            'pending_email': {'read_only': True},
             'email': {'required': True,},
             'username': {'required': True},
             'full_name': {'required': True},
@@ -84,7 +86,7 @@ class UserUpdateBySelfSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password_hash': {'write_only': True},
         }
-        read_only_fields = ['id', 'created_at', 'last_login', 'status']
+        read_only_fields = ['id', 'email', 'created_at', 'last_login', 'status']
 
 
 class UserSettingsSerializer(serializers.ModelSerializer):

@@ -14,7 +14,6 @@ import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, form
 import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
 import { getInitials } from "../../services/instructor.api"
 import { extractRouteParams } from "../../utils/routeHelpers"
-import { getAllWishlistByUser, addToWishlist, removeFromWishlist, type WishlistItem } from "../../services/wishlist.api"
 import { getReviewsByCourse, createReview, reportReview, type Review } from "../../services/review.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
 import { useOwnedCourses } from "../../hooks/useOwnedCourses"
@@ -58,9 +57,6 @@ const fadeInUp = {
 }
 
 export function CourseDetailPage() {
-  const [isWishlisted, setIsWishlisted] = useState(false)
-  const [wishlistItemId, setWishlistItemId] = useState<number | null>(null)
-  const [wishlistLoading, setWishlistLoading] = useState(false)
   const { t } = useTranslation()
 
 
@@ -165,6 +161,21 @@ export function CourseDetailPage() {
     })
   }
 
+  const firstFreePreviewLesson =
+    (courseData?.modules || [])
+      .flatMap((m) => m.lessons || [])
+      .find((l) => l.is_free && l.content_type === 'video' && !!l.signed_video_url) || null
+
+  const hasPreview = !!courseData?.promotional_video || !!firstFreePreviewLesson
+
+  const openPreview = () => {
+    if (courseData?.promotional_video) {
+      openPromoVideo()
+    } else if (firstFreePreviewLesson) {
+      openLessonPreview(firstFreePreviewLesson)
+    }
+  }
+
   const handleMessageInstructor = async () => {
     if (!courseData?.instructor) return
     if (!isAuthenticated) {
@@ -237,30 +248,6 @@ export function CourseDetailPage() {
   }, [currentRoute])
 
 
-  useEffect(() => {
-    if (!isAuthenticated || !user || !courseData) return
-    let cancelled = false
-    async function loadWishlist() {
-      try {
-        const items = await getAllWishlistByUser(Number(user!.id))
-        if (cancelled) return
-        const match = items.find((w) => w.course === courseData!.id || (w as any).course_detail?.course_id === courseData!.id)
-        if (match) {
-          setIsWishlisted(true)
-          setWishlistItemId(match.id)
-        } else {
-          setIsWishlisted(false)
-          setWishlistItemId(null)
-        }
-      } catch (err) {
-        console.error('[CourseDetail] Failed to load wishlist:', err)
-      }
-    }
-    loadWishlist()
-    return () => { cancelled = true }
-  }, [isAuthenticated, user, courseData])
-
-
   const loadReviews = useCallback(async (courseId: number) => {
     setReviewsLoading(true)
     try {
@@ -327,28 +314,6 @@ export function CourseDetailPage() {
   const handleBuyNow = async () => {
     await handleAddToCart()
     navigate('/cart')
-  }
-
-  const handleWishlist = async () => {
-    if (!isAuthenticated || !user || !courseData || wishlistLoading) return
-    setWishlistLoading(true)
-    try {
-      if (isWishlisted && wishlistItemId) {
-        await removeFromWishlist(wishlistItemId)
-        setIsWishlisted(false)
-        setWishlistItemId(null)
-        toast.success(t('course_detail.wishlist_removed'))
-      } else {
-        const created = await addToWishlist({ user: Number(user.id), course: courseData.id })
-        setIsWishlisted(true)
-        setWishlistItemId(created.id)
-        toast.success(t('course_detail.wishlist_added'))
-      }
-    } catch (err: any) {
-      toast.error(err?.message || t('course_detail.wishlist_update_failed'))
-    } finally {
-      setWishlistLoading(false)
-    }
   }
 
   const handleSubmitReview = async () => {
@@ -438,7 +403,6 @@ export function CourseDetailPage() {
         price={canAccessCourse || isFree ? 0 : effectivePrice}
         originalPrice={canAccessCourse || isFree ? undefined : regularPrice}
         isInCart={isInCartByCourseId(courseData.id)}
-        isWishlisted={isWishlisted}
         primaryActionLabel={
           canGoToPlayerDirectly
             ? t('common.go_to_course')
@@ -451,7 +415,6 @@ export function CourseDetailPage() {
         showAddToCart={!(canGoToPlayerDirectly || needsSubscriptionEnrollment || isFree)}
         onAddToCart={canGoToPlayerDirectly ? () => navigate(`/course-player/${courseData.id}`) : isFree ? () => handleEnroll('purchase') : handleAddToCart}
         onBuyNow={canGoToPlayerDirectly ? () => navigate(`/course-player/${courseData.id}`) : needsSubscriptionEnrollment ? () => handleEnroll('subscription') : isFree ? () => handleEnroll('purchase') : handleBuyNow}
-        onToggleWishlist={handleWishlist}
         sidebarCardRef={sidebarCardInnerRef}
       />
 
@@ -529,12 +492,12 @@ export function CourseDetailPage() {
                >
 
                   <div
-                    className={`relative h-48 bg-black overflow-hidden ${courseData.promotional_video ? 'group cursor-pointer' : ''}`}
-                    onClick={courseData.promotional_video ? openPromoVideo : undefined}
+                    className={`relative h-48 bg-black overflow-hidden ${hasPreview ? 'group cursor-pointer' : ''}`}
+                    onClick={hasPreview ? openPreview : undefined}
                   >
-                    <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className={`w-full h-full object-cover ${courseData.promotional_video ? 'opacity-80 group-hover:opacity-60 transition-opacity' : 'opacity-60'}`} />
+                    <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className={`w-full h-full object-cover ${hasPreview ? 'opacity-80 group-hover:opacity-60 transition-opacity' : 'opacity-60'}`} />
 
-                    {courseData.promotional_video ? (
+                    {hasPreview ? (
                       <>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -711,12 +674,12 @@ export function CourseDetailPage() {
           <div className="lg:hidden mb-8">
             <Card className="app-surface-elevated overflow-hidden">
                <div
-                 className={`relative aspect-video bg-black overflow-hidden ${courseData.promotional_video ? 'group cursor-pointer' : ''}`}
-                 onClick={courseData.promotional_video ? openPromoVideo : undefined}
+                 className={`relative aspect-video bg-black overflow-hidden ${hasPreview ? 'group cursor-pointer' : ''}`}
+                 onClick={hasPreview ? openPreview : undefined}
                >
-                  <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className={`w-full h-full object-cover ${courseData.promotional_video ? '' : 'opacity-60'}`} />
+                  <img src={courseData.thumbnail || ''} alt={t('course_detail.preview_alt')} className={`w-full h-full object-cover ${hasPreview ? '' : 'opacity-60'}`} />
 
-                  {courseData.promotional_video ? (
+                  {hasPreview ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                         <Play className="w-8 h-8 text-white fill-white" />
@@ -975,12 +938,13 @@ export function CourseDetailPage() {
                         </button>
                         <p className="text-muted-foreground">{courseData.instructor.specialization || ''}</p>
                         <p className="mt-2 text-sm">{courseData.instructor.bio || ''}</p>
+                        {/* chat feature hidden across all roles
                         {Number(user?.id) !== courseData.instructor.user_id && (
                           <Button className="mt-3" variant="outline" onClick={() => void handleMessageInstructor()}>
                             <MessageSquare className="h-4 w-4 mr-2" />
                             {t('course_detail.message_instructor')}
                           </Button>
-                        )}
+                        )} */}
                      </div>
                   </div>
                </CardContent>

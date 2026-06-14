@@ -9,12 +9,10 @@ import { useMinWidth } from "../hooks/useMinWidth"
 import {
   BookOpen,
   ShoppingCart,
-  Heart,
   Star,
   User,
   Bell,
   Settings,
-  CreditCard,
   Package,
   Receipt,
   Award,
@@ -38,7 +36,7 @@ function getRoutePath(route: string) {
 
 function isRouteActive(currentRoute: string, href: string) {
   const path = getRoutePath(currentRoute)
-  if (href === '/my-learning' || href === '/profile' || href === '/wishlist' || href === '/notifications') {
+  if (href === '/my-learning' || href === '/profile' || href === '/notifications') {
     return path === href
   }
   return path === href || path.startsWith(`${href}/`)
@@ -55,13 +53,11 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
   const menuItems: SidebarItem[] = [
     { label: t('common.my_learning'), icon: <BookOpen className="h-4 w-4" />, href: '/my-learning' },
     { label: t('common.my_cart'), icon: <ShoppingCart className="h-4 w-4" />, href: '/cart' },
-    { label: t('common.wishlist'), icon: <Heart className="h-4 w-4" />, href: '/wishlist' },
     { label: t('common.my_reviews'), icon: <Star className="h-4 w-4" />, href: '/user/my-reviews' },
     { label: t('common.my_certificates', 'Chứng chỉ của tôi'), icon: <Award className="h-4 w-4" />, href: '/user/my-certificates' },
     { label: t('common.profile'), icon: <User className="h-4 w-4" />, href: '/profile' },
     { label: t('common.notifications'), icon: <Bell className="h-4 w-4" />, href: '/notifications', dividerAfter: true },
     { label: t('common.account_settings'), icon: <Settings className="h-4 w-4" />, href: '/account-settings' },
-    { label: t('sidebar.payment_methods') || 'Payment methods', icon: <CreditCard className="h-4 w-4" />, href: '/user/payment-methods' },
     { label: t('user_dashboard_sidebar.transaction_history'), icon: <Receipt className="h-4 w-4" />, href: '/user/transactions' },
     { label: t('sidebar.subscriptions') || 'Subscriptions', icon: <Package className="h-4 w-4" />, href: '/user/subscriptions', dividerAfter: true },
   ]

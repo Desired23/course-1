@@ -76,10 +76,6 @@ export function MyLearningPage() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('recent_access')
-  const [enrollmentDateFrom, setEnrollmentDateFrom] = useState('')
-  const [enrollmentDateTo, setEnrollmentDateTo] = useState('')
-  const [purchaseDateFrom, setPurchaseDateFrom] = useState('')
-  const [purchaseDateTo, setPurchaseDateTo] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(6)
   const [totalCount, setTotalCount] = useState(0)
@@ -190,10 +186,6 @@ export function MyLearningPage() {
       status: statusFilter,
       search: debouncedSearch || undefined,
       sort_by: sortBy,
-      enrollment_date_from: enrollmentDateFrom || undefined,
-      enrollment_date_to: enrollmentDateTo || undefined,
-      purchase_date_from: purchaseDateFrom || undefined,
-      purchase_date_to: purchaseDateTo || undefined,
     })
       .then((listRes) => {
         if (cancelled) return
@@ -231,7 +223,7 @@ export function MyLearningPage() {
     return () => {
       cancelled = true
     }
-  }, [selectedTab, currentPage, pageSize, debouncedSearch, sortBy, enrollmentDateFrom, enrollmentDateTo, purchaseDateFrom, purchaseDateTo, isCourseTab, t])
+  }, [selectedTab, currentPage, pageSize, debouncedSearch, sortBy, isCourseTab, t])
 
   useEffect(() => {
     if (!isPlanCoursesTab) return
@@ -322,7 +314,7 @@ export function MyLearningPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedTab, search, sortBy, enrollmentDateFrom, enrollmentDateTo, purchaseDateFrom, purchaseDateTo, pageSize])
+  }, [selectedTab, search, sortBy, pageSize])
 
   useEffect(() => {
     setPlanCurrentPage(1)
@@ -729,10 +721,6 @@ export function MyLearningPage() {
                 <option value="title_asc">{t('my_learning.sort_title')}</option>
                 <option value="progress_desc">{t('my_learning.sort_progress')}</option>
               </select>
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateFrom} onChange={(event) => setEnrollmentDateFrom(event.target.value)} />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={enrollmentDateTo} onChange={(event) => setEnrollmentDateTo(event.target.value)} />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateFrom} onChange={(event) => setPurchaseDateFrom(event.target.value)} />
-              <input type="date" className="h-9 rounded-md border px-3 text-sm" value={purchaseDateTo} onChange={(event) => setPurchaseDateTo(event.target.value)} />
               <select className="h-9 rounded-md border px-3 text-sm" value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))}>
                 <option value="6">{t('my_learning.page_size.six')}</option>
                 <option value="9">{t('my_learning.page_size.nine')}</option>
@@ -744,10 +732,6 @@ export function MyLearningPage() {
                 onClick={() => {
                   setSearch('')
                   setSortBy('recent_access')
-                  setEnrollmentDateFrom('')
-                  setEnrollmentDateTo('')
-                  setPurchaseDateFrom('')
-                  setPurchaseDateTo('')
                 }}
               >
                 {t('my_learning.clear_filters')}

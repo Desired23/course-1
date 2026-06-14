@@ -22,7 +22,6 @@ import {
   BookOpen,
   Search,
   ShoppingCart,
-  Heart,
   User,
   Bell,
   Settings,
@@ -193,14 +192,6 @@ export function MobileMenu() {
                       >
                         <GraduationCap className="h-4 w-4 mr-3" />
                         {t('common.my_courses')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => handleNavigate('/wishlist')}
-                      >
-                        <Heart className="h-4 w-4 mr-3" />
-                        {t('mobile_menu.wishlist')}
                       </Button>
                       <Button
                         variant="ghost"

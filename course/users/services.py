@@ -24,12 +24,18 @@ REFRESH_TOKEN_DAYS_DEFAULT = 3
 REFRESH_TOKEN_DAYS_REMEMBER = 30
 EMAIL_VERIFICATION_TOKEN_MINUTES = settings.EMAIL_VERIFICATION_TOKEN_MINUTES
 EMAIL_VERIFICATION_TOKEN_TYPE = "email_verification"
+EMAIL_CHANGE_TOKEN_TYPE = "email_change"
 GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 
 
 def _build_email_verification_link(token):
     query = urlencode({"token": token})
     return f"{settings.FRONTEND_URL}/email-verification?{query}"
+
+
+def _build_email_change_link(token):
+    query = urlencode({"token": token})
+    return f"{settings.FRONTEND_URL}/email-change-verification?{query}"
 
 
 def _issue_email_verification_token(user_id):
@@ -768,7 +774,108 @@ def change_password_self(user_id, current_password, new_password):
         entity_id=user_id,
         description="NgÆ°á»i dÃ¹ng Ä‘á»•i máº­t kháº©u táº¡i trang cÃ i Ä‘áº·t"
     )
-    return {"message": "Password changed successfully."}
+    # Other devices were revoked above; issue a fresh session for the current
+    # device so the user who just changed the password stays logged in here.
+    tokens = _issue_auth_tokens(user)
+    return {
+        "message": "Password changed successfully.",
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+    }
+
+
+def _issue_email_change_token(user_id, new_email):
+    payload = {
+        "user_id": user_id,
+        "new_email": new_email,
+        "token_type": EMAIL_CHANGE_TOKEN_TYPE,
+        "exp": datetime.now(dt_timezone.utc) + timedelta(minutes=EMAIL_VERIFICATION_TOKEN_MINUTES),
+    }
+    return encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def request_email_change_self(user_id, password, new_email):
+    if not password:
+        raise ValidationError({"error": "Password is required."})
+
+    new_email = (new_email or "").strip().lower()
+    if not new_email:
+        raise ValidationError({"error": "New email is required."})
+    if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", new_email):
+        raise ValidationError({"error": "Invalid email address."})
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        raise ValidationError({"error": "User not found."})
+
+    if not check_password(password, user.password_hash):
+        raise ValidationError({"error": "Password is incorrect."})
+    if new_email == user.email.lower():
+        raise ValidationError({"error": "New email must be different from the current email."})
+    if User.objects.filter(email__iexact=new_email).exclude(id=user_id).exists():
+        raise ValidationError({"error": "This email is already in use."})
+
+    user.pending_email = new_email
+    user.save(update_fields=['pending_email'])
+
+    token = _issue_email_change_token(user.id, new_email)
+    link = _build_email_change_link(token)
+    if not send_verify_email(new_email, link, EMAIL_VERIFICATION_TOKEN_MINUTES):
+        raise ValidationError({"error": "Failed to send verification email. Please try again later."})
+
+    log_activity(
+        user_id=user_id,
+        action="EMAIL_CHANGE_REQUESTED",
+        entity_type="User",
+        entity_id=user_id,
+        description="Người dùng yêu cầu đổi email"
+    )
+    return {
+        "message": "A verification link has been sent to the new email address.",
+        "expires_in_minutes": EMAIL_VERIFICATION_TOKEN_MINUTES,
+    }
+
+
+def confirm_email_change_self(token):
+    try:
+        payload = decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except ExpiredSignatureError:
+        raise ValidationError({
+            "error": "Verification link has expired.",
+            "code": "email_change_expired",
+        })
+    except DecodeError:
+        raise ValidationError({"error": "Invalid token."})
+
+    if payload.get("token_type") != EMAIL_CHANGE_TOKEN_TYPE:
+        raise ValidationError({"error": "Invalid token type."})
+
+    new_email = (payload.get("new_email") or "").strip().lower()
+    try:
+        user = User.objects.get(id=payload.get("user_id"))
+    except User.DoesNotExist:
+        raise ValidationError({"error": "User not found."})
+
+    if not new_email or (user.pending_email or "").lower() != new_email:
+        raise ValidationError({"error": "This change request is no longer valid."})
+    if User.objects.filter(email__iexact=new_email).exclude(id=user.id).exists():
+        user.pending_email = None
+        user.save(update_fields=['pending_email'])
+        raise ValidationError({"error": "This email is already in use."})
+
+    user.email = new_email
+    user.pending_email = None
+    user.save(update_fields=['email', 'pending_email'])
+    revoke_all_refresh_tokens_for_user(user.id)
+    log_activity(
+        user_id=user.id,
+        action="EMAIL_CHANGED",
+        entity_type="User",
+        entity_id=user.id,
+        description="Người dùng xác minh và đổi email thành công"
+    )
+    return {"message": "Email changed successfully. Please log in again."}
 
 
 def deactivate_user_self(user_id, password):

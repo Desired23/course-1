@@ -15,7 +15,6 @@ if (typeof window !== 'undefined') {
 import { EnrollmentProvider } from './contexts/EnrollmentContext'
 import { LearningProgressProvider } from './contexts/LearningProgressContext'
 import { CartProvider } from './contexts/CartContext'
-import { WishlistProvider } from './contexts/WishlistContext'
 import { ReviewsProvider } from './contexts/ReviewsContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { ChatProvider } from './contexts/ChatContext'
@@ -35,10 +34,8 @@ import { useUIStore } from './stores/ui.store'
 import { Toaster } from './components/ui/sonner'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
-import { ChatWidget } from './components/ChatWidget'
 import { AiLearningPathLauncher } from './components/AiLearningPathLauncher'
 import { BottomNav } from './components/BottomNav'
-import { FloatingNavigation } from './components/FloatingNavigation'
 
 import { AuthModal } from './components/auth/AuthModal'
 import { PromoBar } from './components/PromoBar'
@@ -92,7 +89,7 @@ function AppContent() {
       {!hideHeaderFooter && !isCheckoutPage && <Footer />}
 
 
-      <ChatWidget />
+      {/* <ChatWidget /> chat feature hidden across all roles */}
 
 
       <AiLearningPathLauncher />
@@ -136,19 +133,17 @@ export default function App() {
         <EnrollmentProvider>
           <LearningProgressProvider>
             <CartProvider>
-              <WishlistProvider>
-                <ReviewsProvider>
-                  <NotificationProvider>
-                    <ChatProvider>
-                      <FollowProvider>
-                        <Router>
-                          <AppContent />
-                        </Router>
-                      </FollowProvider>
-                    </ChatProvider>
-                  </NotificationProvider>
-                </ReviewsProvider>
-              </WishlistProvider>
+              <ReviewsProvider>
+                <NotificationProvider>
+                  <ChatProvider>
+                    <FollowProvider>
+                      <Router>
+                        <AppContent />
+                      </Router>
+                    </FollowProvider>
+                  </ChatProvider>
+                </NotificationProvider>
+              </ReviewsProvider>
             </CartProvider>
           </LearningProgressProvider>
         </EnrollmentProvider>

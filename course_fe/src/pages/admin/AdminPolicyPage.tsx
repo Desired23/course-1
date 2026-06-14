@@ -14,6 +14,9 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../../components/ui/alert-dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { SystemSettingsPanel } from '../../components/admin/SystemSettingsPanel'
+import { PolicyDocumentsPanel } from '../../components/admin/PolicyDocumentsPanel'
 import { Layers, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -147,6 +150,14 @@ export function AdminPolicyPage() {
         <p className="text-muted-foreground">{t('admin_policy.subtitle')}</p>
       </div>
 
+      <Tabs defaultValue="levels" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="levels">{t('admin_policy.tabs.levels')}</TabsTrigger>
+          <TabsTrigger value="system_settings">{t('admin_policy.tabs.system_settings')}</TabsTrigger>
+          <TabsTrigger value="policies">{t('admin_policy.tabs.policies')}</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="levels">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -222,6 +233,16 @@ export function AdminPolicyPage() {
           </Table>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="system_settings">
+          <SystemSettingsPanel />
+        </TabsContent>
+
+        <TabsContent value="policies">
+          <PolicyDocumentsPanel />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={levelDialogOpen} onOpenChange={setLevelDialogOpen}>
         <DialogContent className="max-w-lg">

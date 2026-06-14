@@ -10,6 +10,7 @@ const SignupPage = lazy(() => import('../pages/auth/SignupPage').then((module) =
 const ForgotPasswordPage = lazy(() => import('../pages/auth/ForgotPasswordPage').then((module) => ({ default: module.ForgotPasswordPage })))
 const ResetPasswordPage = lazy(() => import('../pages/auth/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })))
 const EmailVerificationPage = lazy(() => import('../pages/auth/EmailVerificationPage').then((module) => ({ default: module.EmailVerificationPage })))
+const EmailChangeVerificationPage = lazy(() => import('../pages/auth/EmailChangeVerificationPage').then((module) => ({ default: module.EmailChangeVerificationPage })))
 const GoogleCallbackPage = lazy(() => import('../pages/auth/GoogleCallbackPage').then((module) => ({ default: module.GoogleCallbackPage })))
 const TeachOnUtcPage = lazy(() => import('../pages/public/TeachOnUtcPage').then((module) => ({ default: module.TeachOnUtcPage })))
 const CommunityPage = lazy(() => import('../pages/public/CommunityPage').then((module) => ({ default: module.CommunityPage })))
@@ -27,6 +28,7 @@ const CategoriesPage = lazy(() => import('../pages/public/CategoriesPage').then(
 const PreviewDemo = lazy(() => import('../components/PreviewDemo').then((module) => ({ default: module.PreviewDemo })))
 const SubscriptionPricingPage = lazy(() => import('../pages/public/SubscriptionPricingPage').then((module) => ({ default: module.SubscriptionPricingPage })))
 const InstructorPublicProfilePage = lazy(() => import('../pages/public/InstructorPublicProfilePage').then((module) => ({ default: module.InstructorPublicProfilePage })))
+const PolicyPage = lazy(() => import('../pages/public/PolicyPage').then((module) => ({ default: module.PolicyPage })))
 
 export interface RouteConfig {
   path: string
@@ -61,6 +63,7 @@ export const publicRoutes: RouteConfig[] = [
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/email-verification', element: <EmailVerificationPage /> },
+  { path: '/email-change-verification', element: <EmailChangeVerificationPage /> },
   { path: '/auth/google/callback', element: <GoogleCallbackPage /> },
   { path: '/google-callback', element: <GoogleCallbackPage /> },
 
@@ -90,4 +93,9 @@ export const publicRoutes: RouteConfig[] = [
 
 
   { path: '/preview-demo', element: <PreviewDemo /> },
+
+  { path: '/terms', element: <PolicyPage policyKey="terms" /> },
+  { path: '/privacy', element: <PolicyPage policyKey="privacy" /> },
+  { path: '/refund', element: <PolicyPage policyKey="refund" /> },
+  { path: '/community-guidelines', element: <PolicyPage policyKey="community" /> },
 ]

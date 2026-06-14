@@ -19,7 +19,6 @@ export function Footer() {
   const isUserDashboard =
     currentRoute.startsWith('/my-learning') ||
     currentRoute.startsWith('/cart') ||
-    currentRoute.startsWith('/wishlist') ||
     currentRoute.startsWith('/user/') ||
     currentRoute.startsWith('/profile') ||
     currentRoute.startsWith('/notifications') ||
@@ -68,6 +67,8 @@ export function Footer() {
       links: [
         { name: t('footer.terms'), action: () => navigate('/terms') },
         { name: t('footer.privacy_policy'), action: () => navigate('/privacy') },
+        { name: t('footer.refund_policy'), action: () => navigate('/refund') },
+        { name: t('footer.community_guidelines'), action: () => navigate('/community-guidelines') },
         { name: t('footer.cookie_settings'), action: () => {}, hidden: true },
         { name: t('footer.accessibility'), action: () => navigate('/accessibility') }
       ]

@@ -47,6 +47,7 @@ export interface UserProfile {
   id: number
   username: string
   email: string
+  pending_email?: string | null
   full_name: string
   phone: string | null
   avatar: string | null
@@ -164,6 +165,16 @@ export async function deleteMyAccount(password: string): Promise<ActionMessageRe
 
 
 
-export async function changeMyPassword(payload: ChangePasswordPayload): Promise<ActionMessageResponse> {
-  return http.post<ActionMessageResponse>('/users/me/change-password', payload)
+export async function changeMyPassword(payload: ChangePasswordPayload): Promise<ActionMessageResponse & { access_token?: string; refresh_token?: string }> {
+  return http.post<ActionMessageResponse & { access_token?: string; refresh_token?: string }>('/users/me/change-password', payload)
+}
+
+
+export async function requestEmailChange(payload: { password: string; new_email: string }): Promise<ActionMessageResponse> {
+  return http.post<ActionMessageResponse>('/users/me/change-email', payload)
+}
+
+
+export async function confirmEmailChange(token: string): Promise<ActionMessageResponse> {
+  return http.post<ActionMessageResponse>('/users/me/confirm-email-change', { token })
 }

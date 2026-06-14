@@ -67,7 +67,7 @@ export function AppRoutes() {
       if (/^\/instructor\/lessons\/[^/]+\/edit$/.test(path)) return false
       return true
     }
-    if (path === '/my-learning' || path === '/wishlist' || path === '/profile' || path === '/notifications' || path === '/support') return true
+    if (path === '/my-learning' || path === '/profile' || path === '/notifications' || path === '/support') return true
     if (path === '/account-settings' || path === '/cart') return true
     if (path.startsWith('/user/')) return true
     return false

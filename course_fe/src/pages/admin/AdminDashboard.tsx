@@ -492,10 +492,7 @@ export function AdminDashboard() {
                     {t('admin_dashboard.analytics_description')}
                   </p>
                   <div className="flex flex-wrap gap-3">
-                    <Button onClick={() => navigate('/admin/analytics')}>
-                      {t('admin_dashboard.analytics_tab')}
-                    </Button>
-                    <Button variant="outline" onClick={() => navigate('/admin/statistics')}>
+                    <Button onClick={() => navigate('/admin/statistics')}>
                       {t('admin_dashboard.statistics')}
                     </Button>
                   </div>

@@ -108,7 +108,7 @@ export function InstructorCommunicationPage() {
     setActiveConversation,
     sendMessage,
   } = useChat()
-  const [activeTab, setActiveTab] = useState('messages')
+  const [activeTab, setActiveTab] = useState('announcements')
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [dashboardStats, setDashboardStats] = useState<InstructorDashboardStats | null>(null)
   const [conversationQuery, setConversationQuery] = useState('')
@@ -468,20 +468,8 @@ export function InstructorCommunicationPage() {
         </p>
       </motion.div>
 
-      <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" variants={fadeInUp}>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.new_messages')}</p>
-                <p className="text-2xl mt-1">{chatState.totalUnreadCount}</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                <Mail className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <motion.div className="grid grid-cols-1 gap-4 mb-6" variants={fadeInUp}>
+        {/* new messages (chat) stat hidden across all roles */}
 
         <Card>
           <CardContent className="pt-6">
@@ -501,15 +489,8 @@ export function InstructorCommunicationPage() {
 
       <motion.div variants={fadeInUp}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="relative grid w-full grid-cols-2 p-1">
-          <TabsTrigger value="messages" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'messages' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10 inline-flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              {t('instructor_communication_page.messages_tab')}
-              <Badge variant="default" className="ml-2">{chatState.totalUnreadCount}</Badge>
-            </span>
-          </TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-1 p-1">
+          {/* messages (chat) tab hidden across all roles */}
           <TabsTrigger value="announcements" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'announcements' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10 inline-flex items-center gap-2">

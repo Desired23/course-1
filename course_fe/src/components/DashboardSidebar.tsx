@@ -3,7 +3,6 @@ import { motion } from "motion/react"
 import {
   Activity,
   Award,
-  BarChart3,
   Bell,
   BookOpen,
   Calendar,
@@ -17,7 +16,6 @@ import {
   Flag,
   Folder,
   GraduationCap,
-  Heart,
   HelpCircle,
   Scale,
   LayoutDashboard,
@@ -89,7 +87,6 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       label: t("dashboard_sidebar.groups.overview"),
       items: [
         { label: t("dashboard_sidebar.items.dashboard"), icon: <LayoutDashboard className="h-5 w-5" />, href: "/admin" },
-        { label: t("dashboard_sidebar.items.analytics"), icon: <BarChart3 className="h-5 w-5" />, href: "/admin/analytics" },
         { label: t("dashboard_sidebar.items.statistics"), icon: <TrendingUp className="h-5 w-5" />, href: "/admin/statistics" },
         { label: t("dashboard_sidebar.items.activity_log"), icon: <Activity className="h-5 w-5" />, href: "/admin/activity-log" },
       ],
@@ -152,7 +149,6 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
 
   const userItems: SidebarItem[] = [
     { label: t("dashboard_sidebar.items.my_learning"), icon: <BookOpen className="h-5 w-5" />, href: "/my-learning" },
-    { label: t("dashboard_sidebar.items.wishlist"), icon: <Heart className="h-5 w-5" />, href: "/wishlist" },
     { label: t("dashboard_sidebar.items.notifications"), icon: <Bell className="h-5 w-5" />, href: "/notifications" },
     { label: t("dashboard_sidebar.items.profile"), icon: <User className="h-5 w-5" />, href: "/profile" },
     { label: t("dashboard_sidebar.items.support"), icon: <HelpCircle className="h-5 w-5" />, href: "/support" },

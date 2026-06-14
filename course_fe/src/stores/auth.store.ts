@@ -23,6 +23,7 @@ export interface User {
   name: string
   username: string
   email: string
+  pendingEmail?: string
   avatar?: string
   roles: UserRole[]
   permissions: string[]
@@ -336,6 +337,7 @@ export const useAuthStore = create<AuthState>()(
               name: profile.full_name || profile.username,
               username: profile.username,
               email: profile.email,
+              pendingEmail: profile.pending_email || undefined,
               avatar: profile.avatar || undefined,
               phone: profile.phone || undefined,
               address: profile.address || undefined,

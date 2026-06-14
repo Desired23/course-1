@@ -24,6 +24,7 @@ import {
   Download,
   Eye,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { toast } from "sonner"
 import { getCourseById, type CourseDetail } from "../services/course.api"
@@ -61,6 +62,11 @@ function formatDurationLabel(durationMinutes: number): string {
   return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
 }
 
+function isDirectVideoUrl(url?: string | null): boolean {
+  if (!url) return false
+  return !/(youtube\.com|youtu\.be)/i.test(url)
+}
+
 export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseModalProps) {
   const { t } = useTranslation()
   const [course, setCourse] = useState<CourseDetail | null>(null)
@@ -92,6 +98,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
     upvoted?: boolean
   }>>([])
   const [playbackPercent, setPlaybackPercent] = useState(0)
+  const [videoError, setVideoError] = useState<string | null>(null)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -178,6 +185,11 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
   const previousLesson = currentLessonIndex > 0 ? flatLessons[currentLessonIndex - 1] : null
   const completedLessons = currentLessonIndex >= 0 ? currentLessonIndex : 0
   const progressPercent = flatLessons.length > 0 ? Math.round((completedLessons / flatLessons.length) * 100) : 0
+
+  useEffect(() => {
+    setVideoError(null)
+    setPlaybackPercent(0)
+  }, [currentLesson?.id])
 
   if (!isOpen) return null
 
@@ -390,15 +402,46 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
               </div>
             ) : (
               <div className="flex-shrink-0">
-                <VideoPlayer
-                  key={currentLesson.id}
-                  url={currentLesson.videoUrl || course.promotional_video || undefined}
-                  title={currentLesson.title}
-                  lessonId={currentLesson.id}
-                  onProgress={(payload) => setPlaybackPercent(payload.percentage)}
-                  onComplete={() => toast.success(t('preview_course_modal.toast.lesson_completed'))}
-                  savedProgress={0}
-                />
+                {isDirectVideoUrl(currentLesson.videoUrl) ? (
+                  <div className="bg-black">
+                    {videoError ? (
+                      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 px-6 text-center text-white/80">
+                        <AlertCircle className="h-10 w-10 text-red-300" />
+                        <div>
+                          <p className="font-medium text-white">{t('video_player.unavailable_title')}</p>
+                          <p className="mt-1 text-sm text-white/70">{videoError}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <video
+                        key={currentLesson.id}
+                        src={currentLesson.videoUrl || undefined}
+                        controls
+                        className="aspect-video w-full"
+                        aria-label={currentLesson.title}
+                        onLoadedMetadata={() => setVideoError(null)}
+                        onTimeUpdate={(event) => {
+                          const video = event.currentTarget
+                          setPlaybackPercent(video.duration ? (video.currentTime / video.duration) * 100 : 0)
+                        }}
+                        onError={() => setVideoError(t('video_player.source_load_failed'))}
+                        onEnded={() => toast.success(t('preview_course_modal.toast.lesson_completed'))}
+                        controlsList="nodownload"
+                        onContextMenu={e => e.preventDefault()}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <VideoPlayer
+                    key={currentLesson.id}
+                    url={currentLesson.videoUrl || undefined}
+                    title={currentLesson.title}
+                    lessonId={currentLesson.id}
+                    onProgress={(payload) => setPlaybackPercent(payload.percentage)}
+                    onComplete={() => toast.success(t('preview_course_modal.toast.lesson_completed'))}
+                    savedProgress={0}
+                  />
+                )}
               </div>
             )}
 

@@ -254,7 +254,6 @@ export function InstructorPublicProfilePage() {
       variant: courseViewMode === 'grid' ? 'vertical' as const : 'horizontal' as const,
       bestseller: Boolean(course.is_featured),
       currency: 'VND' as const,
-      showWishlist: true,
       showAddToCart: true,
       discountEndDate: hasDiscount ? course.discount_end_date : undefined,
     }
@@ -313,12 +312,6 @@ export function InstructorPublicProfilePage() {
             </BreadcrumbList>
           </Breadcrumb>
 
-          {fromCourseTitle && (
-            <p className="mb-5 text-xs text-muted-foreground">
-              {t('instructor_public_profile.breadcrumb_context_note')}
-            </p>
-          )}
-
           <div className="flex flex-col items-start gap-8 md:flex-row">
             <Avatar className="h-32 w-32">
               <AvatarImage src={instructor.user.avatar || undefined} />
@@ -368,12 +361,13 @@ export function InstructorPublicProfilePage() {
                     </>
                   )}
                 </Button>
+                {/* chat feature hidden across all roles
                 {Number(user?.id) !== instructor.user.id && (
                   <Button variant="outline" onClick={() => void handleMessageInstructor()} className="w-full sm:w-auto">
                     <MessageCircle className="mr-2 h-4 w-4" />
                     {t('instructor_public_profile.message')}
                   </Button>
-                )}
+                )} */}
               </div>
 
               {Object.keys(socialLinks).length > 0 && (

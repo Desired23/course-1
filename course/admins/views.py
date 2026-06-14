@@ -25,10 +25,15 @@ from .dashboard_services import (
     get_admin_commission_analytics,
     get_admin_refund_analytics,
     get_admin_top_courses_by_revenue,
+    get_admin_revenue_by_course,
+    get_admin_revenue_by_category,
+    get_admin_revenue_by_instructor,
+    get_admin_earning_payout_metrics,
+    get_admin_subscription_metrics,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
-from utils.export_helpers import export_to_csv, export_to_excel
+from utils.export_helpers import export_to_csv, export_to_excel, export_sheets_to_zip_csv, export_workbook_to_excel
 
 
 def parse_date_param(raw, end_of_day=False):
@@ -48,6 +53,98 @@ def parse_date_param(raw, end_of_day=False):
 def _clamped_int(raw, default, minimum=1, maximum=100):
     value = int(raw or default)
     return max(minimum, min(value, maximum))
+
+
+def _group_revenue_rows(rows, period):
+    grouped = {}
+    for row in rows:
+        year = row['date'][:4]
+        month = int(row['date'][5:7])
+        if period == 'quarter':
+            key = f"{year}-Q{((month - 1) // 3) + 1}"
+        elif period == 'year':
+            key = year
+        else:
+            key = row['date']
+        target = grouped.setdefault(key, {
+            'date': key,
+            'retail': 0,
+            'subscription': 0,
+            'gross': 0,
+            'refunded': 0,
+            'net': 0,
+            'transactions': 0,
+        })
+        for field in ['retail', 'subscription', 'gross', 'refunded', 'net', 'transactions']:
+            target[field] += row.get(field, 0) or 0
+    return [grouped[key] for key in sorted(grouped)]
+
+
+def _report_sheet(report_key, date_from=None, date_to=None):
+    if report_key in {'revenue_monthly', 'revenue_quarterly', 'revenue_yearly'}:
+        period = {
+            'revenue_monthly': 'month',
+            'revenue_quarterly': 'quarter',
+            'revenue_yearly': 'year',
+        }[report_key]
+        rows = get_admin_revenue_monthly_breakdown(36, date_from, date_to)
+        rows = _group_revenue_rows(rows, period)
+        label = {'month': 'Month', 'quarter': 'Quarter', 'year': 'Year'}[period]
+        return {
+            'title': report_key,
+            'headers': [label, 'Retail Revenue', 'Subscription Revenue', 'Gross Revenue', 'Refunded', 'Net Revenue', 'Transactions'],
+            'rows': [[r['date'], r['retail'], r['subscription'], r['gross'], r['refunded'], r['net'], r['transactions']] for r in rows],
+        }
+
+    if report_key == 'revenue_instructor':
+        rows = get_admin_revenue_by_instructor(100, date_from, date_to)
+        return {
+            'title': 'revenue_instructor',
+            'headers': ['Instructor', 'Gross', 'Instructor Earnings', 'Platform Revenue', 'Retail Revenue', 'Subscription Revenue', 'Pending', 'Paid', 'Transactions'],
+            'rows': [[r['instructor_name'], r['gross'], r['instructor_earnings'], r['platform_revenue'], r['retail_revenue'], r['subscription_revenue'], r['pending'], r['paid'], r['transactions']] for r in rows],
+        }
+
+    if report_key == 'revenue_course':
+        rows = get_admin_revenue_by_course(100, date_from, date_to)
+        return {
+            'title': 'revenue_course',
+            'headers': ['Course', 'Instructor', 'Category', 'Revenue', 'Refunded', 'Net Revenue', 'Transactions', 'Enrollments'],
+            'rows': [[r['title'], r['instructor_name'], r['category_name'], r['revenue'], r['refunded'], r['net_revenue'], r['transactions'], r['enrollments']] for r in rows],
+        }
+
+    if report_key == 'revenue_category':
+        rows = get_admin_revenue_by_category(100, date_from, date_to)
+        return {
+            'title': 'revenue_category',
+            'headers': ['Category', 'Courses', 'Revenue', 'Refunded', 'Net Revenue', 'Transactions'],
+            'rows': [[r['category_name'], r['course_count'], r['revenue'], r['refunded'], r['net_revenue'], r['transactions']] for r in rows],
+        }
+
+    if report_key in {'subscription_plan', 'subscription_metrics'}:
+        data = get_admin_subscription_metrics(date_from, date_to)
+        return {
+            'title': 'subscription_plan',
+            'headers': ['Plan', 'Revenue', 'Payments', 'New Subscribers', 'Active Subscribers', 'Cancelled', 'Expired', 'Churn Rate'],
+            'rows': [[r['plan_name'], r['revenue'], r['payments'], r['new_subscribers'], r['active_subscribers'], r['cancelled_subscribers'], r['expired_subscribers'], r['churn_rate']] for r in data['per_plan']],
+        }
+
+    if report_key == 'earning_payout':
+        data = get_admin_earning_payout_metrics(100, date_from, date_to)
+        return {
+            'title': 'earning_payout',
+            'headers': ['Instructor', 'Gross Earnings', 'Instructor Earnings', 'Retail Earnings', 'Subscription Earnings', 'Pending Earnings', 'Available Earnings', 'Payable Earnings', 'Paid Earnings', 'Payout Requested', 'Payout Processed Gross', 'Payout Processed Net', 'Payout Pending', 'Settlement Gap'],
+            'rows': [[r['instructor_name'], r['gross'], r['instructor_earnings'], r['retail_earnings'], r['subscription_earnings'], r['pending_earnings'], r['available_earnings'], r['payable_earnings'], r['paid_earnings'], r['payout_requested'], r['payout_processed'], r['payout_processed_net'], r['payout_pending'], r['settlement_gap']] for r in data['per_instructor']],
+        }
+
+    if report_key == 'refunds':
+        data = get_admin_refund_analytics(date_from, date_to)
+        return {
+            'title': 'refunds',
+            'headers': ['Status', 'Count', 'Amount'],
+            'rows': [[status_key, row['count'], row['amount']] for status_key, row in data['breakdown'].items()],
+        }
+
+    raise ValueError(f'Unsupported report: {report_key}')
 
 
 class AdminManagementView(APIView):
@@ -99,8 +196,12 @@ class AdminDashboardStatsView(APIView):
 
     def get(self, request):
         try:
-            data = get_admin_dashboard_stats()
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+            data = get_admin_dashboard_stats(date_from, date_to)
             return Response(data)
+        except ValueError:
+            return Response({'error': 'date_from/date_to must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -110,8 +211,13 @@ class AdminRevenueAnalyticsView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
-        months = int(request.query_params.get('months', 6))
-        return Response(get_admin_revenue_analytics(months))
+        try:
+            months = _clamped_int(request.query_params.get('months'), 6, maximum=36)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'months must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_revenue_analytics(months, date_from, date_to))
 
 
 class AdminUserAnalyticsView(APIView):
@@ -119,8 +225,13 @@ class AdminUserAnalyticsView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
-        months = int(request.query_params.get('months', 6))
-        return Response(get_admin_user_analytics(months))
+        try:
+            months = _clamped_int(request.query_params.get('months'), 6, maximum=36)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'months must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_user_analytics(months, date_from, date_to))
 
 
 class AdminCourseAnalyticsView(APIView):
@@ -128,7 +239,12 @@ class AdminCourseAnalyticsView(APIView):
     throttle_scope = 'burst'
 
     def get(self, request):
-        return Response(get_admin_course_analytics())
+        try:
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'date_from/date_to must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_course_analytics(date_from, date_to))
 
 
 class AdminRevenueBreakdownView(APIView):
@@ -151,9 +267,11 @@ class AdminRevenueMonthlyBreakdownView(APIView):
     def get(self, request):
         try:
             months = _clamped_int(request.query_params.get('months'), 12, maximum=36)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
         except ValueError:
-            return Response({'error': 'months must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(get_admin_revenue_monthly_breakdown(months))
+            return Response({'error': 'months must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_revenue_monthly_breakdown(months, date_from, date_to))
 
 
 class AdminCommissionAnalyticsView(APIView):
@@ -194,6 +312,101 @@ class AdminTopCoursesByRevenueView(APIView):
         except ValueError:
             return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(get_admin_top_courses_by_revenue(limit, date_from, date_to))
+
+
+class AdminRevenueByCourseView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            limit = _clamped_int(request.query_params.get('limit'), 50, maximum=100)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_revenue_by_course(limit, date_from, date_to))
+
+
+class AdminRevenueByCategoryView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            limit = _clamped_int(request.query_params.get('limit'), 20, maximum=100)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_revenue_by_category(limit, date_from, date_to))
+
+
+class AdminRevenueByInstructorView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            limit = _clamped_int(request.query_params.get('limit'), 20, maximum=100)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_revenue_by_instructor(limit, date_from, date_to))
+
+
+class AdminSubscriptionMetricsView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'date_from/date_to must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_subscription_metrics(date_from, date_to))
+
+
+class AdminEarningPayoutMetricsView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            limit = _clamped_int(request.query_params.get('limit'), 100, maximum=200)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_earning_payout_metrics(limit, date_from, date_to))
+
+
+class AdminBulkReportExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        fmt = request.query_params.get('format', 'excel')
+        if fmt not in {'csv', 'excel'}:
+            return Response({'error': 'format must be csv or excel.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_reports = request.query_params.get('reports', '')
+        report_keys = [r.strip() for r in raw_reports.split(',') if r.strip()]
+        if not report_keys:
+            return Response({'error': 'reports is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+            sheets = [_report_sheet(key, date_from, date_to) for key in report_keys]
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if fmt == 'csv':
+            return export_sheets_to_zip_csv(sheets, 'statistics_reports')
+        return export_workbook_to_excel(sheets, 'statistics_reports')
 
 
 class AdminRevenueExportView(APIView):

@@ -16,6 +16,7 @@ class User(models.Model):
 
     username = models.CharField(max_length=255, unique=True)
     email = models.EmailField(max_length=255, unique=True)
+    pending_email = models.EmailField(max_length=255, null=True, blank=True)
     password_hash = models.CharField(max_length=255)
     full_name = models.CharField(max_length=255)
     phone = models.CharField(max_length=20, blank=True, null=True)

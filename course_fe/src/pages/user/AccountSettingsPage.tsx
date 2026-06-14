@@ -4,9 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Separator } from "../../components/ui/separator"
-import { Switch } from "../../components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Textarea } from "../../components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import {
@@ -19,13 +16,12 @@ import {
 } from "../../components/ui/dialog"
 import { Alert, AlertDescription } from "../../components/ui/alert"
 import { useAuth } from "../../contexts/AuthContext"
-import { changeMyPassword, deactivateMyAccount, deleteMyAccount } from "../../services/auth.api"
+import { changeMyPassword, requestEmailChange } from "../../services/auth.api"
 import { uploadFiles } from "../../services/upload.api"
-import { getMyUserSettings, updateMyUserSettings } from "../../services/user-settings.api"
-import type { ApiError } from "../../services/http"
+import { type ApiError, setTokens } from "../../services/http"
 import { toast } from "sonner"
 import {
-  Eye, EyeOff, Mail, Lock, Globe, Bell, Shield,
+  Eye, EyeOff, Mail, Lock, Shield,
   User as UserIcon, Trash2, AlertTriangle,
   Check, X, Loader2, Camera
 } from "lucide-react"
@@ -185,31 +181,14 @@ function ConfirmDialog({
 
 export function AccountSettingsPage() {
   const { t } = useTranslation()
-  const { user, updateProfile, logout } = useAuth()
+  const { user, updateProfile, fetchProfile } = useAuth()
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const languageOptions = [
-    { value: 'en', label: t('account_settings.languages.en') },
-    { value: 'vi', label: t('account_settings.languages.vi') },
-    { value: 'es', label: t('account_settings.languages.es') },
-    { value: 'fr', label: t('account_settings.languages.fr') },
-    { value: 'de', label: t('account_settings.languages.de') },
-    { value: 'ja', label: t('account_settings.languages.ja') },
-  ]
-  const currencyOptions = [
-    { value: 'VND', label: t('account_settings.currencies.vnd') },
-  ]
-
 
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     username: user?.username || user?.email?.split('@')[0] || '',
     email: user?.email || '',
-    bio: user?.bio || '',
     phone: user?.phone || '',
-    website: user?.website || '',
-    twitter: user?.twitter || '',
-    linkedin: user?.linkedin || '',
-    facebook: user?.facebook || '',
   })
 
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({})
@@ -224,39 +203,9 @@ export function AccountSettingsPage() {
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({})
 
 
-  const [accountSettings, setAccountSettings] = useState({
-    language: 'en',
-    currency: 'VND'
-  })
-
-
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    courseUpdates: true,
-    promotions: false,
-    announcements: true,
-    weeklyDigest: true,
-    instructorMessages: true,
-    courseRecommendations: false,
-    newFeatures: true
-  })
-
-
-  const [privacy, setPrivacy] = useState({
-    profilePublic: true,
-    showProgress: true,
-    showCertificates: true,
-    showCourses: true,
-    allowMessages: true,
-    showOnlineStatus: true
-  })
-
-
   const [confirmDialogs, setConfirmDialogs] = useState({
     email: false,
-    password: false,
-    deactivate: false,
-    delete: false
+    password: false
   })
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -273,10 +222,6 @@ export function AccountSettingsPage() {
 
     if (!profileData.name || profileData.name.length < 2) {
       errors.name = t('account_settings.validation.name_min')
-    }
-
-    if (profileData.bio && profileData.bio.length > 500) {
-      errors.bio = t('account_settings.validation.bio_max')
     }
 
     setProfileErrors(errors)
@@ -307,7 +252,6 @@ export function AccountSettingsPage() {
   }
 
   const [isSaving, setIsSaving] = useState(false)
-  const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
 
   useEffect(() => {
@@ -317,29 +261,9 @@ export function AccountSettingsPage() {
       name: user.name || '',
       username: user.username || user.email?.split('@')[0] || '',
       email: user.email || '',
-      bio: user.bio || '',
       phone: user.phone || '',
-      website: user.website || '',
-      twitter: user.twitter || '',
-      linkedin: user.linkedin || '',
-      facebook: user.facebook || '',
     }))
   }, [user, hasUnsavedChanges])
-
-  useEffect(() => {
-    let cancelled = false
-    getMyUserSettings()
-      .then((res) => {
-        if (cancelled) return
-        setAccountSettings((prev) => ({ ...prev, ...(res.account_preferences || {}) }))
-        setNotifications((prev) => ({ ...prev, ...(res.notification_preferences || {}) }))
-        setPrivacy((prev) => ({ ...prev, ...(res.privacy_preferences || {}) }))
-      })
-      .catch((error) => {
-        toast.error(getApiErrorMessage(error, t('account_settings.load_failed')))
-      })
-    return () => { cancelled = true }
-  }, [])
 
 
   const handleProfileUpdate = async () => {
@@ -353,13 +277,7 @@ export function AccountSettingsPage() {
       await updateProfile({
         name: profileData.name,
         username: profileData.username,
-        email: profileData.email,
         phone: profileData.phone,
-        bio: profileData.bio,
-        website: profileData.website,
-        twitter: profileData.twitter,
-        linkedin: profileData.linkedin,
-        facebook: profileData.facebook,
       })
       toast.success(t('profile.profile_updated'))
       setHasUnsavedChanges(false)
@@ -386,10 +304,15 @@ export function AccountSettingsPage() {
     setConfirmDialogs({ ...confirmDialogs, email: true })
   }
 
-  const confirmEmailChange = async () => {
+  const confirmEmailChange = async (password?: string) => {
+    if (!password) {
+      toast.error(t('account_settings.password_required'))
+      return
+    }
     try {
-      await updateProfile({ email: profileData.email })
-      toast.success(t('account_settings.email_updated'))
+      const res = await requestEmailChange({ password, new_email: profileData.email })
+      toast.success(res.message || t('account_settings.email_change_verification_sent'))
+      await fetchProfile()
     } catch (error) {
       toast.error(getApiErrorMessage(error, t('account_settings.update_email_failed')))
       throw error
@@ -408,10 +331,15 @@ export function AccountSettingsPage() {
 
   const confirmPasswordChange = async () => {
     try {
-      await changeMyPassword({
+      const res = await changeMyPassword({
         current_password: passwordData.currentPassword,
         new_password: passwordData.newPassword,
       })
+      // Backend revokes all other sessions and returns a fresh session for this
+      // device; store it so the current device stays logged in.
+      if (res.access_token && res.refresh_token) {
+        setTokens(res.access_token, res.refresh_token)
+      }
       toast.success(t('account_settings.password_changed'))
       setPasswordData({
         currentPassword: '',
@@ -424,79 +352,6 @@ export function AccountSettingsPage() {
       throw error
     }
   }
-
-  const handleAccountSettingsSave = async () => {
-    setIsSavingSettings(true)
-    try {
-      await updateMyUserSettings({ account_preferences: accountSettings })
-      toast.success(t('account_settings.account_settings_saved'))
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, t('account_settings.save_account_settings_failed')))
-    } finally {
-      setIsSavingSettings(false)
-    }
-  }
-
-
-  const handleNotificationSave = async () => {
-    setIsSavingSettings(true)
-    try {
-      await updateMyUserSettings({ notification_preferences: notifications })
-      toast.success(t('account_settings.notification_preferences_saved'))
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, t('account_settings.save_notification_preferences_failed')))
-    } finally {
-      setIsSavingSettings(false)
-    }
-  }
-
-
-  const handlePrivacySave = async () => {
-    setIsSavingSettings(true)
-    try {
-      await updateMyUserSettings({ privacy_preferences: privacy })
-      toast.success(t('account_settings.privacy_settings_saved'))
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, t('account_settings.save_privacy_settings_failed')))
-    } finally {
-      setIsSavingSettings(false)
-    }
-  }
-
-
-  const handleDeactivate = async (password?: string) => {
-    if (!password) {
-      toast.error(t('account_settings.password_required'))
-      return
-    }
-    try {
-      await deactivateMyAccount(password)
-      toast.success(t('account_settings.account_deactivated'))
-      logout()
-      window.location.href = '/login'
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, t('account_settings.deactivate_account_failed')))
-      throw error
-    }
-  }
-
-
-  const handleDelete = async (password?: string) => {
-    if (!password) {
-      toast.error(t('account_settings.password_required'))
-      return
-    }
-    try {
-      await deleteMyAccount(password)
-      toast.success(t('account_settings.account_deleted'))
-      logout()
-      window.location.href = '/login'
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, t('account_settings.delete_account_failed')))
-      throw error
-    }
-  }
-
 
   const handleAvatarUpload = () => {
     avatarInputRef.current?.click()
@@ -634,88 +489,17 @@ export function AccountSettingsPage() {
 
 
             <div>
-              <Label htmlFor="bio">{t('account_settings.bio')}</Label>
-              <Textarea
-                id="bio"
-                value={profileData.bio}
+              <Label htmlFor="phone">{t('account_settings.phone')}</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={profileData.phone}
                 onChange={(e) => {
-                  setProfileData({ ...profileData, bio: e.target.value })
+                  setProfileData({ ...profileData, phone: e.target.value })
                   setHasUnsavedChanges(true)
                 }}
-                placeholder={t('account_settings.placeholders.bio')}
-                rows={4}
-                className={profileErrors.bio ? 'border-destructive' : ''}
+                placeholder={t('account_settings.placeholders.phone')}
               />
-              <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                {profileErrors.bio && (
-                  <p className="text-sm text-destructive">{profileErrors.bio}</p>
-                )}
-                <p className="text-sm text-muted-foreground ml-auto">
-                  {profileData.bio.length}/500
-                </p>
-              </div>
-            </div>
-
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="phone">{t('account_settings.phone')}</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={profileData.phone}
-                  onChange={(e) => {
-                    setProfileData({ ...profileData, phone: e.target.value })
-                    setHasUnsavedChanges(true)
-                  }}
-                  placeholder={t('account_settings.placeholders.phone')}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="website">{t('account_settings.website')}</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  value={profileData.website}
-                  onChange={(e) => {
-                    setProfileData({ ...profileData, website: e.target.value })
-                    setHasUnsavedChanges(true)
-                  }}
-                  placeholder={t('account_settings.placeholders.website')}
-                />
-              </div>
-            </div>
-
-
-            <div>
-              <Label className="mb-3 block">{t('account_settings.social_links')}</Label>
-              <div className="grid md:grid-cols-2 gap-4">
-                <Input
-                  placeholder={t('account_settings.placeholders.twitter')}
-                  value={profileData.twitter}
-                  onChange={(e) => {
-                    setProfileData({ ...profileData, twitter: e.target.value })
-                    setHasUnsavedChanges(true)
-                  }}
-                />
-                <Input
-                  placeholder={t('account_settings.placeholders.linkedin')}
-                  value={profileData.linkedin}
-                  onChange={(e) => {
-                    setProfileData({ ...profileData, linkedin: e.target.value })
-                    setHasUnsavedChanges(true)
-                  }}
-                />
-                <Input
-                  placeholder={t('account_settings.placeholders.facebook')}
-                  value={profileData.facebook}
-                  onChange={(e) => {
-                    setProfileData({ ...profileData, facebook: e.target.value })
-                    setHasUnsavedChanges(true)
-                  }}
-                />
-              </div>
             </div>
 
             {hasUnsavedChanges && (
@@ -775,13 +559,18 @@ export function AccountSettingsPage() {
                   {t('account_settings.update_email')}
                 </Button>
               </div>
-              {user?.email && (
+              {user?.email && profileData.email === user.email && (
                 <div className="flex items-center gap-2 mt-2">
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <Check className="h-3 w-3" />
                     {t('account_settings.verified')}
                   </Badge>
                 </div>
+              )}
+              {user?.pendingEmail && (
+                <p className="text-sm text-amber-600 dark:text-amber-500 mt-2">
+                  {t('account_settings.email_pending_verification', { email: user.pendingEmail })}
+                </p>
               )}
             </div>
 
@@ -893,365 +682,6 @@ export function AccountSettingsPage() {
           </CardContent>
         </Card>
         </motion.div>
-
-
-        <motion.div variants={fadeInUp}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              {t('account_settings.account_prefs')}
-            </CardTitle>
-            <CardDescription>
-              {t('account_settings.account_prefs_desc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="language">{t('account_settings.language_label')}</Label>
-                <Select
-                  value={accountSettings.language}
-                  onValueChange={(value) => setAccountSettings({ ...accountSettings, language: value })}
-                >
-                  <SelectTrigger id="language" className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languageOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="currency">{t('account_settings.currency')}</Label>
-              <Select
-                value={accountSettings.currency}
-                onValueChange={(value) => setAccountSettings({ ...accountSettings, currency: value })}
-              >
-                <SelectTrigger id="currency" className="mt-1 w-full sm:max-w-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {currencyOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button onClick={handleAccountSettingsSave} disabled={isSavingSettings}>
-              {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t('account_settings.save_settings')}
-            </Button>
-          </CardContent>
-        </Card>
-        </motion.div>
-
-
-        <motion.div variants={fadeInUp}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              {t('account_settings.notification_preferences_title')}
-            </CardTitle>
-            <CardDescription>
-              {t('account_settings.notification_preferences_desc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <Label>{t('account_settings.email_notifications')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.email_notifications_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.emailNotifications}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, emailNotifications: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.course_updates')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.course_updates_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.courseUpdates}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, courseUpdates: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.instructor_messages')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.instructor_messages_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.instructorMessages}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, instructorMessages: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.weekly_digest')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.weekly_digest_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.weeklyDigest}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, weeklyDigest: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.promotions_offers')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.promotions_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.promotions}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, promotions: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.course_recommendations')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.course_recommendations_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.courseRecommendations}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, courseRecommendations: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.new_features')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.new_features_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.newFeatures}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, newFeatures: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.announcements')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.notification_preferences.announcements_desc')}</p>
-              </div>
-              <Switch
-                checked={notifications.announcements}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, announcements: checked })
-                }
-              />
-            </div>
-
-            <div className="pt-4">
-              <Button onClick={handleNotificationSave} disabled={isSavingSettings}>
-                {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Bell className="h-4 w-4 mr-2" />
-                {t('account_settings.save_preferences')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        </motion.div>
-
-
-        <motion.div variants={fadeInUp}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              {t('account_settings.privacy_settings')}
-            </CardTitle>
-            <CardDescription>
-              {t('account_settings.privacy_desc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.profile_public')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.profile_public_desc')}</p>
-              </div>
-              <Switch
-                checked={privacy.profilePublic}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, profilePublic: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.show_progress')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_progress_desc')}</p>
-              </div>
-              <Switch
-                checked={privacy.showProgress}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, showProgress: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.show_certificates')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_certificates_desc')}</p>
-              </div>
-              <Switch
-                checked={privacy.showCertificates}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, showCertificates: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.show_courses')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_courses_desc')}</p>
-              </div>
-              <Switch
-                checked={privacy.showCourses}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, showCourses: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.allow_messages')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.allow_messages_desc')}</p>
-              </div>
-              <Switch
-                checked={privacy.allowMessages}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, allowMessages: checked })
-                }
-              />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>{t('account_settings.show_online_status')}</Label>
-                <p className="text-sm text-muted-foreground">{t('account_settings.privacy_preferences.show_online_status_desc')}</p>
-              </div>
-              <Switch
-                checked={privacy.showOnlineStatus}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, showOnlineStatus: checked })
-                }
-              />
-            </div>
-
-            <div className="pt-4">
-              <Button onClick={handlePrivacySave} disabled={isSavingSettings}>
-                {isSavingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                <Shield className="h-4 w-4 mr-2" />
-                {t('account_settings.save_settings')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        </motion.div>
-
-
-        <motion.div variants={fadeInUp}>
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              {t('account_settings.danger_zone')}
-            </CardTitle>
-            <CardDescription>
-              {t('account_settings.danger_zone_desc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h4 className="font-medium mb-1">{t('account_settings.deactivate_account')}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {t('account_settings.deactivate_account_desc')}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setConfirmDialogs({ ...confirmDialogs, deactivate: true })}
-                className="w-full sm:w-auto"
-              >
-                {t('account_settings.deactivate')}
-              </Button>
-            </div>
-
-            <div className="flex flex-col gap-3 rounded-lg border border-destructive p-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h4 className="font-medium mb-1 text-destructive">{t('account_settings.delete_account')}</h4>
-                <p className="text-sm text-muted-foreground">
-                  {t('account_settings.delete_account_desc')}
-                </p>
-              </div>
-              <Button
-                variant="destructive"
-                onClick={() => setConfirmDialogs({ ...confirmDialogs, delete: true })}
-                className="w-full sm:w-auto"
-              >
-                {t('account_settings.delete_account')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-        </motion.div>
       </motion.div>
 
 
@@ -1262,6 +692,7 @@ export function AccountSettingsPage() {
         description={t('account_settings.dialogs.change_email.description')}
         confirmText={t('account_settings.dialogs.change_email.confirm')}
         onConfirm={confirmEmailChange}
+        requirePassword={true}
       />
 
       <ConfirmDialog
@@ -1271,28 +702,6 @@ export function AccountSettingsPage() {
         description={t('account_settings.dialogs.change_password.description')}
         confirmText={t('account_settings.dialogs.change_password.confirm')}
         onConfirm={confirmPasswordChange}
-      />
-
-      <ConfirmDialog
-        open={confirmDialogs.deactivate}
-        onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, deactivate: open })}
-        title={t('account_settings.dialogs.deactivate.title')}
-        description={t('account_settings.dialogs.deactivate.description')}
-        confirmText={t('account_settings.dialogs.deactivate.confirm')}
-        onConfirm={handleDeactivate}
-        variant="destructive"
-        requirePassword={true}
-      />
-
-      <ConfirmDialog
-        open={confirmDialogs.delete}
-        onOpenChange={(open) => setConfirmDialogs({ ...confirmDialogs, delete: open })}
-        title={t('account_settings.dialogs.delete.title')}
-        description={t('account_settings.dialogs.delete.description')}
-        confirmText={t('account_settings.dialogs.delete.confirm')}
-        onConfirm={handleDelete}
-        variant="destructive"
-        requirePassword={true}
       />
     </motion.div>
   )

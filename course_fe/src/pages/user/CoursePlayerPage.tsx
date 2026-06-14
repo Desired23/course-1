@@ -1235,7 +1235,7 @@ export function CoursePlayerPage() {
               ) : (
                 <VideoPlayer
                   key={currentLessonId}
-                  url={currentLesson.videoUrl || 'https://www.youtube.com/watch?v=qz0aGYrrlhU'}
+                  url={currentLesson.videoUrl || undefined}
                   title={currentLesson.title}
                   lessonId={currentLessonId!}
                   bookmarks={bookmarksByLesson[currentLessonId!] || []}

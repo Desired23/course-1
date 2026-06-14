@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
-import { Camera, Mail, Calendar, BookOpen, Users, Edit2 } from "lucide-react"
+import { Camera, Mail, Calendar, BookOpen, Users } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
-import { Textarea } from "../../components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import { Skeleton } from '../../components/ui/skeleton'
@@ -44,16 +43,9 @@ export function ProfilePage() {
   const { t } = useTranslation()
   const { user, updateProfile } = useAuth()
   const { navigate } = useRouter()
-  const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    bio: user?.bio || '',
-    website: user?.website || '',
-    twitter: user?.twitter || '',
-    facebook: user?.facebook || '',
-    linkedin: user?.linkedin || '',
-    youtube: user?.youtube || ''
   })
 
   const [isSaving, setIsSaving] = useState(false)
@@ -112,7 +104,6 @@ export function ProfilePage() {
     setIsSaving(true)
     try {
       await updateProfile(formData)
-      setIsEditing(false)
       toast.success(t('profile.profile_updated'))
     } catch {
       toast.error(t('profile.update_failed'))
@@ -125,14 +116,7 @@ export function ProfilePage() {
     setFormData({
       name: user?.name || '',
       email: user?.email || '',
-      bio: user?.bio || '',
-      website: user?.website || '',
-      twitter: user?.twitter || '',
-      facebook: user?.facebook || '',
-      linkedin: user?.linkedin || '',
-      youtube: user?.youtube || ''
     })
-    setIsEditing(false)
   }
 
   if (!user) {
@@ -203,14 +187,6 @@ export function ProfilePage() {
                       {user.bio || t('profile.no_bio')}
                     </p>
                   </div>
-
-                  <Button
-                    variant={isEditing ? "default" : "outline"}
-                    onClick={() => setIsEditing(!isEditing)}
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    {isEditing ? t('profile.cancel') : t('profile.edit_profile')}
-                  </Button>
                 </div>
 
                 {user.roles?.includes('instructor') && (
@@ -372,58 +348,6 @@ export function ProfilePage() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="bio">{t('profile.bio')}</Label>
-                  <Textarea
-                    id="bio"
-                    placeholder={t('profile.placeholders.bio')}
-                    value={formData.bio}
-                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                  />
-                </div>
-
-                <Separator />
-
-                <h4 className="font-medium">{t('profile.social_links')}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="website">{t('profile.website')}</Label>
-                    <Input
-                      id="website"
-                      placeholder={t('profile.placeholders.website')}
-                      value={formData.website}
-                      onChange={(e) => setFormData({...formData, website: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="twitter">{t('profile.twitter')}</Label>
-                    <Input
-                      id="twitter"
-                      placeholder={t('profile.placeholders.twitter')}
-                      value={formData.twitter}
-                      onChange={(e) => setFormData({...formData, twitter: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="linkedin">{t('profile.linkedin')}</Label>
-                    <Input
-                      id="linkedin"
-                      placeholder={t('profile.placeholders.linkedin')}
-                      value={formData.linkedin}
-                      onChange={(e) => setFormData({...formData, linkedin: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="youtube">{t('profile.youtube')}</Label>
-                    <Input
-                      id="youtube"
-                      placeholder={t('profile.placeholders.youtube')}
-                      value={formData.youtube}
-                      onChange={(e) => setFormData({...formData, youtube: e.target.value})}
                     />
                   </div>
                 </div>

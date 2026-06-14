@@ -8,6 +8,7 @@ import { Textarea } from "../../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 import { ArrowLeft, ArrowRight, Save, Image as ImageIcon, Check, BookOpen, Settings, DollarSign, Users } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { toast } from 'sonner'
@@ -73,6 +74,7 @@ export function InstructorCreateCoursePage() {
   const [apiCategories, setApiCategories] = useState<Category[]>([])
   const [apiSubcategories, setApiSubcategories] = useState<Category[]>([])
   const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [createdCourseId, setCreatedCourseId] = useState<number | null>(null)
 
   useEffect(() => {
     getActiveCategories({ page_size: 100 })
@@ -143,9 +145,9 @@ export function InstructorCreateCoursePage() {
         status: saveStatus === 'submit_review' ? 'pending' : 'draft',
       }
       if (instructorId) courseData.instructor = instructorId
-      await createCourse(courseData)
+      const created = await createCourse(courseData)
       toast.success(t(saveStatus === 'draft' ? 'instructor_create_course_page.toasts.saved_draft' : 'instructor_create_course_page.toasts.created_success'))
-      setTimeout(() => navigate('/instructor/courses'), 1000)
+      setCreatedCourseId(created.id)
     } catch (err: any) {
       console.error('Create course failed:', err)
       toast.error(err?.message || t('instructor_create_course_page.toasts.create_failed'))
@@ -396,6 +398,18 @@ export function InstructorCreateCoursePage() {
         </Card>
       </motion.div>
       </motion.div>
+      <AlertDialog open={createdCourseId !== null} onOpenChange={(open) => { if (!open) { setCreatedCourseId(null); navigate('/instructor/courses') } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('instructor_create_course_page.redirect_dialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('instructor_create_course_page.redirect_dialog.description')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCreatedCourseId(null); navigate('/instructor/courses') }}>{t('instructor_create_course_page.redirect_dialog.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => navigate(`/instructor/lessons/${createdCourseId}`)}>{t('instructor_create_course_page.redirect_dialog.confirm')}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   )
 }

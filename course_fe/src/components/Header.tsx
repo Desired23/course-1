@@ -4,7 +4,6 @@ import { cn } from "./ui/utils"
 import { useCart } from "../contexts/CartContext"
 import { useAuth } from "../contexts/AuthContext"
 import { useNotifications } from "../contexts/NotificationContext"
-import { useChat } from "../contexts/ChatContext"
 import { NotificationPopup } from "./NotificationPopup"
 import { OnlineStatus } from "./OnlineStatus"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
@@ -21,8 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from "./ui/dropdown-menu"
-import { MessageCircle, Sun, Moon, User, LogOut, BookOpen, Settings, LayoutDashboard, GraduationCap, Heart, Globe, Menu, Search, ChevronDown } from "lucide-react"
-import { Badge } from "./ui/badge"
+import { Sun, Moon, User, LogOut, BookOpen, Settings, LayoutDashboard, GraduationCap, Heart, Globe, Menu, Search, ChevronDown } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { LanguageSwitcher } from "./LanguageSwitcher"
@@ -45,12 +43,10 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
   const isUserDashboard =
     currentRoute.startsWith('/my-learning') ||
     currentRoute.startsWith('/cart') ||
-    currentRoute.startsWith('/wishlist') ||
     currentRoute.startsWith('/user/') ||
     currentRoute.startsWith('/profile') ||
     currentRoute.startsWith('/notifications') ||
     currentRoute.startsWith('/account-settings');
-  const { state: chatState, toggleChat } = useChat()
   const [isNotificationPopupOpen, setIsNotificationPopupOpen] = useState(false)
 
 
@@ -58,8 +54,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
     currentRoute.startsWith('/instructor') ||
     currentRoute.startsWith('/admin') ||
     currentRoute.startsWith('/my-learning') ||
-    currentRoute.startsWith('/profile') ||
-    currentRoute.startsWith('/wishlist')
+    currentRoute.startsWith('/profile')
 
 
   const getUserRole = () => {
@@ -197,20 +192,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
 
             {isAuthenticated && (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative hover:bg-accent hover:text-accent-foreground transition-all duration-200 hover:scale-110"
-                  onClick={toggleChat}
-                  aria-label={t('chat_widget.support_chat')}
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  {chatState.totalUnreadCount > 0 && (
-                    <Badge className="absolute -top-2 -right-2 w-5 h-5 p-0 flex items-center justify-center text-xs animate-pulse">
-                      {chatState.totalUnreadCount}
-                    </Badge>
-                  )}
-                </Button>
+                {/* chat button hidden across all roles */}
 
 
                 <NotificationSidebar />
@@ -245,7 +227,6 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/my-learning')}>{t('common.my_learning')}</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/cart')}>{t('common.my_cart')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/wishlist')}>{t('common.wishlist')}</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/profile')}>{t('common.profile')}</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/notifications')}>{t('common.notifications')}</DropdownMenuItem>
                     {hasRole('instructor') && (
@@ -256,7 +237,6 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
                     )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => navigate('/account-settings')}>{t('common.account_settings')}</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/user/payment-methods')}>{t('sidebar.payment_methods')}</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/user/subscriptions')}>{t('sidebar.subscriptions')}</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout}>{t('common.log_out')}</DropdownMenuItem>

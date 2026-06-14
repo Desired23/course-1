@@ -13,7 +13,8 @@ import {
   SkipBack,
   SkipForward,
   Bookmark,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -89,6 +90,7 @@ export function VideoPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [playerReady, setPlayerReady] = useState(false)
+  const [playerError, setPlayerError] = useState<string | null>(null)
 
   const controlsTimeoutRef = useRef<NodeJS.Timeout>()
   const maxWatchedTimeRef = useRef(0)
@@ -104,6 +106,11 @@ export function VideoPlayer({
 
   const videoId = getYouTubeVideoId(url)
 
+  useEffect(() => {
+    setPlayerError(null)
+    setPlayerReady(false)
+    setPlaying(false)
+  }, [url])
 
   useEffect(() => {
     if (!window.YT) {
@@ -155,6 +162,7 @@ export function VideoPlayer({
         },
         events: {
           onReady: (event: any) => {
+            setPlayerError(null)
             setPlayerReady(true)
             const playerDuration = event.target.getDuration()
             setDuration(playerDuration)
@@ -232,6 +240,11 @@ export function VideoPlayer({
                 onComplete()
               }
             }
+          },
+          onError: () => {
+            setPlayerError(t('video_player.source_load_failed'))
+            setPlayerReady(false)
+            setPlaying(false)
           }
         }
       })
@@ -510,6 +523,12 @@ export function VideoPlayer({
     return <Volume2 className="w-4 h-4" />
   }
 
+  const videoError = !url
+    ? t('video_player.missing_source')
+    : !videoId
+      ? t('video_player.unsupported_source')
+      : playerError
+
   return (
     <div
       ref={containerRef}
@@ -519,27 +538,40 @@ export function VideoPlayer({
     >
 
       <div className="w-full" style={{ aspectRatio: '16/9' }}>
-        <div ref={iframeRef} className="w-full h-full" />
-      </div>
-
-
-      <div
-        className="absolute inset-0 flex items-center justify-center cursor-pointer"
-        onClick={togglePlay}
-      >
-        {!playing && playerReady && (
-          <div className="bg-black/50 rounded-full p-4 backdrop-blur-sm transition-opacity">
-            <Play className="w-12 h-12 text-white" />
+        {videoError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-white/80">
+            <AlertCircle className="h-10 w-10 text-red-300" />
+            <div>
+              <p className="font-medium text-white">{t('video_player.unavailable_title')}</p>
+              <p className="mt-1 text-sm text-white/70">{videoError}</p>
+            </div>
           </div>
+        ) : (
+          <div ref={iframeRef} className="w-full h-full" />
         )}
       </div>
 
 
-      <div
-        className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent transition-opacity duration-300 ${
-          showControls ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
+      {!videoError && (
+        <div
+          className="absolute inset-0 flex items-center justify-center cursor-pointer"
+          onClick={togglePlay}
+        >
+          {!playing && playerReady && (
+            <div className="bg-black/50 rounded-full p-4 backdrop-blur-sm transition-opacity">
+              <Play className="w-12 h-12 text-white" />
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {!videoError && (
+        <div
+          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent transition-opacity duration-300 ${
+            showControls ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
         <div className="p-4 space-y-2">
 
           <div className="flex items-center gap-2">
@@ -683,7 +715,8 @@ export function VideoPlayer({
             Shortcuts: Space (Play/Pause) • ← → (Skip 10s) • ↑ ↓ (Volume) • M (Mute) • F (Fullscreen) • B (Bookmark)
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   )
 }

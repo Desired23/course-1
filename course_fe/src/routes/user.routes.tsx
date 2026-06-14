@@ -9,11 +9,9 @@ const CartPage = lazy(() => import('../pages/user/CartPage').then((module) => ({
 const CheckoutPage = lazy(() => import('../pages/user/CheckoutPage').then((module) => ({ default: module.CheckoutPage })))
 const SubscriptionCheckoutPage = lazy(() => import('../pages/user/SubscriptionCheckoutPage').then((module) => ({ default: module.SubscriptionCheckoutPage })))
 const PaymentResultPage = lazy(() => import('../pages/user/PaymentResultPage').then((module) => ({ default: module.PaymentResultPage })))
-const WishlistPage = lazy(() => import('../pages/user/WishlistPage').then((module) => ({ default: module.WishlistPage })))
 const ProfilePage = lazy(() => import('../pages/user/ProfilePage').then((module) => ({ default: module.ProfilePage })))
 const NotificationsPage = lazy(() => import('../pages/user/NotificationsPage').then((module) => ({ default: module.NotificationsPage })))
 const SupportPage = lazy(() => import('../pages/user/SupportPage').then((module) => ({ default: module.SupportPage })))
-const UserPaymentMethodsPage = lazy(() => import('../pages/user/UserPaymentMethodsPage').then((module) => ({ default: module.UserPaymentMethodsPage })))
 const UserSubscriptionsPage = lazy(() => import('../pages/user/UserSubscriptionsPage').then((module) => ({ default: module.UserSubscriptionsPage })))
 const AccountSettingsPage = lazy(() => import('../pages/user/AccountSettingsPage').then((module) => ({ default: module.AccountSettingsPage })))
 const MyReviewsPage = lazy(() => import('../pages/user/MyReviewsPage').then((module) => ({ default: module.MyReviewsPage })))
@@ -86,18 +84,6 @@ export const userRoutes: RouteConfig[] = [
 
 
   {
-    path: '/wishlist',
-    element: (
-      <RequireAuth roles={['user', 'instructor', 'admin']}>
-        <UserDashboardLayout>
-          <WishlistPage />
-        </UserDashboardLayout>
-      </RequireAuth>
-    )
-  },
-
-
-  {
     path: '/profile',
     element: (
       <RequireAuth roles={['user', 'instructor', 'admin']}>
@@ -143,16 +129,6 @@ export const userRoutes: RouteConfig[] = [
   },
 
 
-  {
-    path: '/user/payment-methods',
-    element: (
-      <RequireAuth roles={['user', 'instructor', 'admin']}>
-        <UserDashboardLayout>
-          <UserPaymentMethodsPage />
-        </UserDashboardLayout>
-      </RequireAuth>
-    )
-  },
 
 
   {

@@ -17,9 +17,7 @@ interface Task {
   description: string
   priority: 'low' | 'medium' | 'high' | 'urgent'
   status: 'pending' | 'in_progress' | 'completed'
-  dueDate?: Date
   actionUrl?: string
-  category: string
 }
 
 interface PendingTasksProps {
@@ -68,7 +66,6 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
             priority: 'high',
             status: 'pending',
             actionUrl: '/admin/courses',
-            category: 'Courses',
           })
         }
 
@@ -79,9 +76,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
             description: t('pending_tasks.mock.admin.process_refunds_description', { count: refundsRes.count }),
             priority: 'urgent',
             status: 'pending',
-            dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24),
             actionUrl: '/admin/refunds',
-            category: 'Payments',
           })
         }
 
@@ -93,7 +88,6 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
             priority: 'high',
             status: 'in_progress',
             actionUrl: '/admin/reports',
-            category: 'Moderation',
           })
         }
 
@@ -134,16 +128,6 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       completed: { label: t('pending_tasks.status.completed'), color: 'bg-green-500/10 text-green-600 dark:text-green-400' },
     }
     return configs[status as keyof typeof configs] || configs.pending
-  }
-
-  const formatDueDate = (date: Date) => {
-    const now = new Date()
-    const diffMs = date.getTime() - now.getTime()
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffHours < 24) return t('pending_tasks.time.hours_left', { count: diffHours })
-    return t('pending_tasks.time.days_left', { count: diffDays })
   }
 
   const pendingCount = tasks.filter(t => t.status === 'pending').length
@@ -227,17 +211,9 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
                       <Badge variant="secondary" className={statusConfig.color}>
                         {statusConfig.label}
                       </Badge>
-                      <Badge variant="outline" className="capitalize">
-                        {task.category}
-                      </Badge>
                       <Badge variant="outline" className={cn("capitalize", priorityConfig.color)}>
                         {task.priority}
                       </Badge>
-                      {task.dueDate && (
-                        <Badge variant="outline" className="text-xs">
-                          ⏰ {formatDueDate(task.dueDate)}
-                        </Badge>
-                      )}
                     </div>
                   </div>
                 </div>

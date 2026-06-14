@@ -389,7 +389,6 @@ export function UserSubscriptionsPage() {
                 {t('subscriptions_page.cancel_auto_renew')}
               </Button>
             )}
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate('/user/payment-methods')}>{t('subscriptions_page.manage_payment_methods')}</Button>
           </motion.div>
 
           <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>

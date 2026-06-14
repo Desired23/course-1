@@ -1,7 +1,7 @@
 import React, { lazy, useEffect } from 'react'
-import { useRouter } from '../components/Router'
 import { RequireAuth } from '../components/auth/RequireAuth'
 import { AdminLayout, type AdminLayoutProps } from '../components/layouts'
+import { useRouter } from '../components/Router'
 import type { RouteConfig } from './public.routes'
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard').then((module) => ({ default: module.AdminDashboard })))
@@ -12,7 +12,6 @@ const AdminCoursesPage = lazy(() => import('../pages/admin/AdminCoursesPage').th
 const AdminCourseDetailPage = lazy(() => import('../pages/admin/AdminCourseDetailPage').then((module) => ({ default: module.AdminCourseDetailPage })))
 const PaymentManagementPage = lazy(() => import('../pages/admin/PaymentManagementPage').then((module) => ({ default: module.PaymentManagementPage })))
 const AdminDiscountsPage = lazy(() => import('../pages/admin/AdminDiscountsPage').then((module) => ({ default: module.AdminDiscountsPage })))
-const AdminAnalyticsPage = lazy(() => import('../pages/admin/AdminAnalyticsPage').then((module) => ({ default: module.AdminAnalyticsPage })))
 const AdminCategoriesPage = lazy(() => import('../pages/admin/AdminCategoriesPage').then((module) => ({ default: module.AdminCategoriesPage })))
 const StatisticsPage = lazy(() => import('../pages/admin/StatisticsPage').then((module) => ({ default: module.StatisticsPage })))
 const PermissionsPage = lazy(() => import('../pages/admin/PermissionsPage').then((module) => ({ default: module.PermissionsPage })))
@@ -25,18 +24,8 @@ const ActivityLogPage = lazy(() => import('../pages/admin/ActivityLogPage').then
 const AdminInstructorApplicationsPage = lazy(() => import('../pages/admin/AdminInstructorApplicationsPage').then((module) => ({ default: module.AdminInstructorApplicationsPage })))
 const PaymentMethodsPage = lazy(() => import('../pages/admin/PaymentMethodsPage').then((module) => ({ default: module.PaymentMethodsPage })))
 const AdminSubscriptionPage = lazy(() => import('../pages/admin/AdminSubscriptionPage').then((module) => ({ default: module.AdminSubscriptionPage })))
-const WebsiteManagementPage = lazy(() => import('../pages/admin/WebsiteManagementPage').then((module) => ({ default: module.WebsiteManagementPage })))
-const AdminHomeLayoutPage = lazy(() => import('../pages/admin/AdminHomeLayoutPage').then((module) => ({ default: module.AdminHomeLayoutPage })))
-const AdminDataBackupPage = lazy(() => import('../pages/admin/AdminDataBackupPage').then((module) => ({ default: module.AdminDataBackupPage })))
-const AdminImportPage = lazy(() => import('../pages/admin/AdminImportPage').then((module) => ({ default: module.AdminImportPage })))
 const AdminNewsletterPage = lazy(() => import('../pages/admin/AdminNewsletterPage').then((module) => ({ default: module.AdminNewsletterPage })))
 const AdminPolicyPage = lazy(() => import('../pages/admin/AdminPolicyPage').then((module) => ({ default: module.AdminPolicyPage })))
-
-function Redirect({ to }: { to: string }) {
-  const { navigate } = useRouter()
-  useEffect(() => { navigate(to) }, [])
-  return null
-}
 
 interface AdminRouteDefinition {
   path: string
@@ -55,6 +44,14 @@ function withAdminShell(page: React.ReactNode, layoutProps?: Omit<AdminLayoutPro
   )
 }
 
+function AdminAnalyticsRedirect() {
+  const { navigate } = useRouter()
+  useEffect(() => {
+    navigate('/admin/statistics')
+  }, [navigate])
+  return null
+}
+
 const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin', page: <AdminDashboard /> },
   { path: '/admin/users', page: <AdminUsersPage /> },
@@ -65,7 +62,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/payments', page: <PaymentManagementPage /> },
   { path: '/admin/payments/methods', page: <PaymentMethodsPage /> },
   { path: '/admin/discounts', page: <AdminDiscountsPage /> },
-  { path: '/admin/analytics', page: <AdminAnalyticsPage /> },
+  { path: '/admin/analytics', page: <AdminAnalyticsRedirect /> },
   { path: '/admin/categories', page: <AdminCategoriesPage /> },
   { path: '/admin/statistics', page: <StatisticsPage /> },
   { path: '/admin/permissions', page: <PermissionsPage /> },
@@ -79,12 +76,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/instructor-applications', page: <AdminInstructorApplicationsPage /> },
   { path: '/admin/subscriptions', page: <AdminSubscriptionPage /> },
   { path: '/admin/policies', page: <AdminPolicyPage /> },
-  { path: '/admin/website-management', page: <WebsiteManagementPage /> },
   { path: '/admin/activity-log', page: <ActivityLogPage /> },
-  { path: '/admin/website-settings', page: <Redirect to="/admin/website-management" /> },
-  { path: '/admin/home-layout', page: <AdminHomeLayoutPage /> },
-  { path: '/admin/data-backup', page: <AdminDataBackupPage /> },
-  { path: '/admin/import', page: <AdminImportPage /> },
 ]
 
 export const adminRoutes: RouteConfig[] = adminRouteDefinitions.map((route) => ({
