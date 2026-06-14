@@ -125,6 +125,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       items: [
         { label: t("dashboard_sidebar.items.purchase_and_refunds"), icon: <CreditCard className="h-5 w-5" />, href: "/admin/payments" },
         { label: t("dashboard_sidebar.items.payment_methods"), icon: <CreditCard className="h-5 w-5" />, href: "/admin/payments/methods" },
+        { label: t("dashboard_sidebar.items.payouts_admin"), icon: <DollarSign className="h-5 w-5" />, href: "/admin/payouts" },
         { label: t("dashboard_sidebar.items.subscriptions"), icon: <Calendar className="h-5 w-5" />, href: "/admin/subscriptions" },
         { label: t("dashboard_sidebar.items.discounts"), icon: <Tag className="h-5 w-5" />, href: "/admin/discounts" },
         { label: t("dashboard_sidebar.items.policies"), icon: <Scale className="h-5 w-5" />, href: "/admin/policies" },
@@ -135,11 +136,11 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
   const instructorItems: SidebarItem[] = [
     { label: t("dashboard_sidebar.items.dashboard"), icon: <LayoutDashboard className="h-5 w-5" />, href: "/instructor" },
     { label: t("dashboard_sidebar.items.my_courses"), icon: <BookOpen className="h-5 w-5" />, href: "/instructor/courses" },
+    { label: t("dashboard_sidebar.items.blog_posts"), icon: <FileText className="h-5 w-5" />, href: "/instructor/blog" },
     { label: t("dashboard_sidebar.items.communication"), icon: <MessageSquare className="h-5 w-5" />, href: "/instructor/communication" },
     { label: t("dashboard_sidebar.items.students"), icon: <UserCheck className="h-5 w-5" />, href: "/instructor/students" },
     { label: t("dashboard_sidebar.items.resources"), icon: <Upload className="h-5 w-5" />, href: "/instructor/resources" },
-    { label: t("dashboard_sidebar.items.quizzes"), icon: <FileText className="h-5 w-5" />, href: "/instructor/quizzes" },
-    { label: t("dashboard_sidebar.items.analytics"), icon: <TrendingUp className="h-5 w-5" />, href: "/instructor/analytics" },
+{ label: t("dashboard_sidebar.items.analytics"), icon: <TrendingUp className="h-5 w-5" />, href: "/instructor/analytics" },
     { label: t("dashboard_sidebar.items.earnings"), icon: <DollarSign className="h-5 w-5" />, href: "/instructor/earnings" },
     { label: t("dashboard_sidebar.items.subscription_revenue"), icon: <Crown className="h-5 w-5" />, href: "/instructor/subscription-revenue" },
     { label: t("dashboard_sidebar.items.payouts"), icon: <CreditCard className="h-5 w-5" />, href: "/instructor/payouts" },

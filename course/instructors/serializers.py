@@ -27,6 +27,7 @@ class InstructorSerializers(serializers.ModelSerializer):
             'total_students',
             'total_courses',
             'payment_info',
+            'profile_settings',
             'level',
         ]
         extra_kwargs = {

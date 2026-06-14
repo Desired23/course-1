@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
@@ -7,11 +7,14 @@ import { Badge } from '../../components/ui/badge'
 import { ArrowLeft, X, HelpCircle } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
-import { createQuestion } from '../../services/qa.api'
+import { createQuestion, updateQuestion, getQuestion } from '../../services/qa.api'
 
 export function AskQuestionPage() {
   const { navigate } = useRouter()
   const { user } = useAuth()
+
+  const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  const editId = params.get('edit') ? Number(params.get('edit')) : null
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -19,6 +22,19 @@ export function AskQuestionPage() {
   const [tags, setTags] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(!!editId)
+
+  useEffect(() => {
+    if (!editId) return
+    getQuestion(editId)
+      .then(q => {
+        setTitle(q.title)
+        setContent(q.content)
+        setTags(q.tags ?? [])
+      })
+      .catch(() => setError('Không thể tải câu hỏi.'))
+      .finally(() => setLoading(false))
+  }, [editId])
 
   if (!user) {
     navigate('/login')
@@ -53,13 +69,26 @@ export function AskQuestionPage() {
     setError('')
     setSubmitting(true)
     try {
-      const question = await createQuestion({ title: title.trim(), content: content.trim(), tags })
-      navigate(`/qa/${question.id}`)
+      if (editId) {
+        await updateQuestion(editId, { title: title.trim(), content: content.trim(), tags })
+        navigate(`/qa/${editId}`)
+      } else {
+        const question = await createQuestion({ title: title.trim(), content: content.trim(), tags })
+        navigate(`/qa/${question.id}`)
+      }
     } catch (err: any) {
       setError(err?.message ?? 'Đã xảy ra lỗi. Vui lòng thử lại.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8 text-center text-gray-500">
+        Đang tải...
+      </div>
+    )
   }
 
   return (
@@ -73,7 +102,9 @@ export function AskQuestionPage() {
 
       <div className="flex items-center gap-2 mb-6">
         <HelpCircle className="w-6 h-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-900">Đặt câu hỏi</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {editId ? 'Chỉnh sửa câu hỏi' : 'Đặt câu hỏi'}
+        </h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -145,7 +176,7 @@ export function AskQuestionPage() {
 
         <div className="flex gap-3 pt-2">
           <Button type="submit" disabled={submitting || !title.trim() || !content.trim()}>
-            {submitting ? 'Đang đăng...' : 'Đăng câu hỏi'}
+            {submitting ? (editId ? 'Đang lưu...' : 'Đang đăng...') : (editId ? 'Lưu thay đổi' : 'Đăng câu hỏi')}
           </Button>
           <Button type="button" variant="outline" onClick={() => navigate('/qa')}>
             Hủy

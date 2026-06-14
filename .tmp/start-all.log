@@ -1,0 +1,12 @@
+Dang chay backend local voi ngrok URL dong...
+Dang bat ngrok cho cong 8000...
+Ngrok URL: https://amber-electrosynthetic-dolorously.ngrok-free.dev
+MOMO_IPN_URL: https://amber-electrosynthetic-dolorously.ngrok-free.dev/api/momo/ipn/
+MOMO_REDIRECT_URL: https://amber-electrosynthetic-dolorously.ngrok-free.dev/api/momo/payment-return/
+LEARNING_PATH_PROVIDER: auto
+GEMINI_API_KEY length: 0
+LEARNING_PATH_FORCE_GEMINI: 
+WARNING: GEMINI_API_KEY dang rong. Advisor se dung rule_based thay vi Gemini.
+Dang chay Django server...
+WARNING: .venv ton tai nhung chua du dependency. Fallback sang python he thong.
+Su dung python he thong

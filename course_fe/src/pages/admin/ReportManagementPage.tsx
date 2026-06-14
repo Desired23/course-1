@@ -345,52 +345,41 @@ export function ReportManagementPage() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   Xem chi tiết
                                 </DropdownMenuItem>
-                                {(tab === 'resolved' || tab === 'dismissed') && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleReopen(c)}>
-                                      <RefreshCw className="h-4 w-4 mr-2" />
-                                      Xử lý lại
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-                                {(tab === 'pending' || tab === 'reviewing') && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    {getResolveActions(c.target_type).map(opt => (
-                                      <DropdownMenuItem
-                                        key={opt.action}
-                                        className={opt.destructive ? 'text-red-600' : ''}
-                                        onClick={() =>
-                                          openConfirm(
-                                            `${opt.label}?`,
-                                            `Hành động này sẽ áp dụng cho "${c.title ?? c.target_id}" và đóng toàn bộ báo cáo liên quan.`,
-                                            opt.label,
-                                            () => handleResolve(c, opt.action),
-                                            opt.destructive,
-                                          )
-                                        }
-                                      >
-                                        {opt.destructive ? <Trash2 className="h-4 w-4 mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                                        {opt.label}
-                                      </DropdownMenuItem>
-                                    ))}
-                                    <DropdownMenuSeparator />
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {getResolveActions(c.target_type).map(opt => (
                                     <DropdownMenuItem
+                                      key={opt.action}
+                                      className={opt.destructive ? 'text-red-600' : ''}
                                       onClick={() =>
                                         openConfirm(
-                                          'Bỏ qua báo cáo?',
-                                          `Bỏ qua tất cả báo cáo về "${c.title ?? c.target_id}". Nội dung vẫn được giữ nguyên.`,
-                                          'Bỏ qua',
-                                          () => handleResolve(c, 'dismiss'),
+                                          `${opt.label}?`,
+                                          `Hành động này sẽ áp dụng cho "${c.title ?? c.target_id}" và đóng toàn bộ báo cáo liên quan.`,
+                                          opt.label,
+                                          () => handleResolve(c, opt.action),
+                                          opt.destructive,
                                         )
                                       }
                                     >
-                                      <XCircle className="h-4 w-4 mr-2" />
-                                      Bỏ qua
+                                      {opt.destructive ? <Trash2 className="h-4 w-4 mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                                      {opt.label}
                                     </DropdownMenuItem>
-                                  </>
-                                )}
+                                  ))}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      openConfirm(
+                                        'Bỏ qua báo cáo?',
+                                        `Bỏ qua tất cả báo cáo về "${c.title ?? c.target_id}". Nội dung vẫn được giữ nguyên.`,
+                                        'Bỏ qua',
+                                        () => handleResolve(c, 'dismiss'),
+                                      )
+                                    }
+                                  >
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Bỏ qua
+                                  </DropdownMenuItem>
+                                </>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

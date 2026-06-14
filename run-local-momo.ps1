@@ -7,6 +7,8 @@ $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $ngrokExe = Join-Path $repoRoot "ngrok.exe"
 $frontendUrl = "http://localhost:3000"
 $ngrokApi = "http://127.0.0.1:4040/api/tunnels"
+$ngrokLogFile = Join-Path $env:TEMP "course-1-ngrok.log"
+$ngrokErrFile = Join-Path $env:TEMP "course-1-ngrok.err.log"
 
 if (-not (Test-Path $ngrokExe)) {
     throw "Khong tim thay ngrok.exe tai $ngrokExe"
@@ -22,6 +24,50 @@ function Get-NgrokPublicUrl {
     } catch {
         return $null
     }
+    return $null
+}
+
+function Get-NgrokStartupFailureMessage {
+    $logText = ""
+    foreach ($path in @($ngrokLogFile, $ngrokErrFile)) {
+        if (Test-Path $path) {
+            try {
+                $content = Get-Content $path -Raw -ErrorAction Stop
+                if ($content) {
+                    $logText += $content + "`n"
+                }
+            } catch {
+            }
+        }
+    }
+
+    if (-not $logText) {
+        return $null
+    }
+
+    if ($logText -match "ERR_NGROK_334") {
+        $reservedDomain = $null
+        $domainMatch = [regex]::Match($logText, "https://[A-Za-z0-9.-]*ngrok-[A-Za-z0-9.-]+")
+        if ($domainMatch.Success) {
+            $reservedDomain = $domainMatch.Value
+        }
+
+        if ($reservedDomain) {
+            return "Ngrok khong tao duoc URL moi vi tai khoan hien tai dang duoc gan free dev domain co dinh $reservedDomain va domain nay dang online o noi khac (ERR_NGROK_334). Hay tat endpoint/tunnel cu trong ngrok dashboard, tat may/phien dang dung domain do, hoac dung authtoken khac."
+        }
+
+        return "Ngrok khong tao duoc tunnel vi endpoint dang online o noi khac (ERR_NGROK_334). Hay tat endpoint/tunnel cu trong ngrok dashboard hoac dung authtoken khac."
+    }
+
+    if ($logText -match "ERR_NGROK_4018") {
+        return "Ngrok chua san sang vi tai khoan hien tai chua xac minh hoac chua co authtoken hop le (ERR_NGROK_4018)."
+    }
+
+    $logLines = ($logText -split "(`r`n|`n|`r)") | Where-Object { $_.Trim() }
+    if ($logLines.Count -gt 0) {
+        return "Ngrok khoi dong that bai: " + $logLines[-1].Trim()
+    }
+
     return $null
 }
 
@@ -75,7 +121,8 @@ Import-EnvFile -FilePath $backendEnvFile -ExcludedKeys @(
 $publicUrl = Get-NgrokPublicUrl
 if (-not $publicUrl) {
     Write-Host "Dang bat ngrok cho cong 8000..."
-    Start-Process -FilePath $ngrokExe -ArgumentList "http", "8000", "--log=stdout" -WindowStyle Hidden
+    Remove-Item $ngrokLogFile, $ngrokErrFile -ErrorAction SilentlyContinue
+    Start-Process -FilePath $ngrokExe -ArgumentList "http", "8000", "--log=stdout" -WindowStyle Hidden -RedirectStandardOutput $ngrokLogFile -RedirectStandardError $ngrokErrFile
 
     $deadline = (Get-Date).AddSeconds(15)
     do {
@@ -85,6 +132,10 @@ if (-not $publicUrl) {
 }
 
 if (-not $publicUrl) {
+    $ngrokFailureMessage = Get-NgrokStartupFailureMessage
+    if ($ngrokFailureMessage) {
+        throw $ngrokFailureMessage
+    }
     throw "Khong lay duoc public URL tu ngrok. Hay kiem tra ngrok da dang nhap va chay duoc chua."
 }
 
@@ -115,9 +166,33 @@ Write-Host "Dang chay Django server..."
 
 Set-Location $backendDir
 if (Test-Path $venvPython) {
-    Write-Host "Su dung Python tu .venv: $venvPython"
-    & $venvPython manage.py runserver
-} else {
-    Write-Host "Khong tim thay .venv, su dung python he thong"
-    python manage.py runserver
+    $venvReady = $false
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        & $venvPython -c "import django, django_extensions" *> $null
+        $venvReady = ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($venvReady) {
+        Write-Host "Su dung Python tu .venv: $venvPython"
+        & $venvPython manage.py runserver
+        exit $LASTEXITCODE
+    }
+
+    Write-Warning ".venv ton tai nhung chua du dependency. Fallback sang python he thong."
 }
+
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    throw "Khong tim thay python he thong de chay backend."
+}
+
+if (-not (Test-Path $venvPython)) {
+    Write-Host "Khong tim thay .venv, su dung python he thong"
+} else {
+    Write-Host "Su dung python he thong"
+}
+
+python manage.py runserver

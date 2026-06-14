@@ -58,6 +58,7 @@ export async function getQuestions(params?: {
   sort?: 'newest' | 'votes' | 'unanswered'
   page?: number
   page_size?: number
+  author_id?: number | string
 }): Promise<PaginatedResponse<Question>> {
   const query: Record<string, string | number> = {}
   if (params?.search) query.search = params.search
@@ -66,6 +67,7 @@ export async function getQuestions(params?: {
   if (params?.sort) query.sort = params.sort
   if (params?.page) query.page = params.page
   if (params?.page_size) query.page_size = params.page_size
+  if (params?.author_id) query.author_id = params.author_id
   return http.get<PaginatedResponse<Question>>('/questions/', query)
 }
 

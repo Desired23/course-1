@@ -1,16 +1,25 @@
 import React from 'react'
-import { MessageSquare, Eye, CheckCircle2, Clock } from 'lucide-react'
+import { MessageSquare, CheckCircle2, Clock, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import { cn } from '../ui/utils'
 import { type Question, formatQADate } from '../../services/qa.api'
 import { useRouter } from '../Router'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
+import { Button } from '../ui/button'
 
 interface QuestionCardProps {
   question: Question
   className?: string
+  onEdit?: (question: Question) => void
+  onDelete?: (question: Question) => void
 }
 
-export function QuestionCard({ question, className }: QuestionCardProps) {
+export function QuestionCard({ question, className, onEdit, onDelete }: QuestionCardProps) {
   const { navigate } = useRouter()
 
   return (
@@ -90,6 +99,34 @@ export function QuestionCard({ question, className }: QuestionCardProps) {
           )}
         </div>
       </div>
+
+      {/* Actions */}
+      {(onEdit || onDelete) && (
+        <div className="shrink-0" onClick={e => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onEdit && (
+                <DropdownMenuItem onClick={() => onEdit(question)}>
+                  <Pencil className="w-4 h-4 mr-2" /> Chỉnh sửa
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  className="text-red-600 focus:text-red-600"
+                  onClick={() => onDelete(question)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Xóa
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   )
 }

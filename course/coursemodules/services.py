@@ -41,6 +41,8 @@ def create_course_module(data):
     if serializer.is_valid(raise_exception=True):
         course_module = serializer.save()
         if getattr(course_module, 'course', None):
+            from courses.services import recalc_course_structure
+            recalc_course_structure(course_module.course.id)
             mark_course_content_changed(course_module.course)
         return course_module
     raise ValidationError(serializer.errors)
@@ -82,9 +84,15 @@ def update_course_module(course_module_id, data, requesting_user=None):
 
     update_payload, status_meta = _pop_status_update_meta(data)
     old_status = course_module.status
+    previous_course_id = course_module.course_id
     serializer = CourseModuleSerializer(course_module, data=update_payload, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_course_module = serializer.save()
+        next_course_id = updated_course_module.course_id
+        course_ids_to_recalc = {course_id for course_id in {previous_course_id, next_course_id} if course_id}
+        for course_id in course_ids_to_recalc:
+            from courses.services import recalc_course_structure
+            recalc_course_structure(course_id)
         if not is_admin and getattr(updated_course_module, 'course', None):
             mark_course_content_changed(updated_course_module.course)
 

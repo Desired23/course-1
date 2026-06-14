@@ -132,7 +132,14 @@ export function InstructorPublicProfilePage() {
         setInstructor(inst)
         setCourses(courseRes.results)
         setReviews(reviewData)
-        setActiveTab(courseRes.results.length > 0 ? 'courses' : reviewData.length > 0 ? 'reviews' : 'about')
+        const canShowCourses = inst.profile_settings?.showCourses !== false
+        setActiveTab(
+          canShowCourses && courseRes.results.length > 0
+            ? 'courses'
+            : reviewData.length > 0
+              ? 'reviews'
+              : 'about'
+        )
       })
       .catch((err) => {
         if (!cancelled) setError(err?.message || t('instructor_public_profile.load_failed'))
@@ -189,6 +196,14 @@ export function InstructorPublicProfilePage() {
 
   const rating = parseRating(instructor.rating)
   const socialLinks = instructor.social_links || {}
+  const ps = instructor.profile_settings
+  const showBio = ps?.showBio ?? true
+  const showStats = ps?.showStats ?? true
+  const showCourses = ps?.showCourses ?? true
+  const showSocialLinks = ps?.showSocialLinks ?? true
+  const customSections = (ps?.customSections || [])
+    .filter((s) => s.visible)
+    .sort((a, b) => a.order - b.order)
   const searchParams = new URLSearchParams(currentRoute.split('?')[1] || '')
   const fromCourseId = searchParams.get('fromCourseId')
   const fromCourseTitle = searchParams.get('fromCourseTitle')
@@ -370,7 +385,7 @@ export function InstructorPublicProfilePage() {
                 )} */}
               </div>
 
-              {Object.keys(socialLinks).length > 0 && (
+              {showSocialLinks && Object.keys(socialLinks).length > 0 && (
                 <div className="flex flex-wrap gap-2 sm:gap-3">
                   {socialLinks.website && (
                     <Button variant="ghost" size="icon" asChild>
@@ -415,6 +430,7 @@ export function InstructorPublicProfilePage() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {showStats && (
         <motion.div className="mb-8 grid gap-4 md:grid-cols-3" variants={fadeInUp} initial="hidden" animate="show">
           <Card>
             <CardContent className="p-4 sm:p-5">
@@ -438,6 +454,7 @@ export function InstructorPublicProfilePage() {
             </CardContent>
           </Card>
         </motion.div>
+        )}
 
         <motion.div variants={sectionStagger} initial="hidden" animate="show">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'about' | 'courses' | 'reviews')} className="space-y-6">
@@ -446,10 +463,12 @@ export function InstructorPublicProfilePage() {
               {activeTab === 'about' && <motion.span layoutId="instructor-public-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
               <span className="relative z-10">{t('instructor_public_profile.tabs.about')}</span>
             </TabsTrigger>
+            {showCourses && (
             <TabsTrigger value="courses" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
               {activeTab === 'courses' && <motion.span layoutId="instructor-public-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
               <span className="relative z-10">{t('instructor_public_profile.tabs.courses', { count: courses.length })}</span>
             </TabsTrigger>
+            )}
             <TabsTrigger value="reviews" className="relative shrink-0 whitespace-nowrap data-[state=active]:bg-transparent data-[state=active]:shadow-none">
               {activeTab === 'reviews' && <motion.span layoutId="instructor-public-profile-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
               <span className="relative z-10">{t('instructor_public_profile.tabs.reviews', { count: reviews.length })}</span>
@@ -463,7 +482,9 @@ export function InstructorPublicProfilePage() {
                 <CardTitle>{t('instructor_public_profile.about.title')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="leading-relaxed text-muted-foreground">{instructor.bio || t('instructor_public_profile.about.empty')}</p>
+                {showBio && (
+                  <p className="leading-relaxed text-muted-foreground">{instructor.bio || t('instructor_public_profile.about.empty')}</p>
+                )}
                 <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
                   {instructor.experience != null && (
                     <div>
@@ -481,6 +502,32 @@ export function InstructorPublicProfilePage() {
               </CardContent>
             </Card>
             </motion.div>
+
+            {customSections.map((section) => (
+              <motion.div key={section.id} variants={fadeInUp}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{section.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {section.type === 'gallery' ? (
+                      <>
+                        {section.content && (
+                          <p className="mb-3 text-sm text-muted-foreground whitespace-pre-wrap">{section.content}</p>
+                        )}
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                          {(section.images || []).map((url, i) => (
+                            <img key={i} src={url} alt="" className="h-32 w-full rounded-lg object-cover" />
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="whitespace-pre-wrap leading-relaxed text-muted-foreground">{section.content}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
           </TabsContent>
 
           <TabsContent value="courses" className="space-y-6">

@@ -29,7 +29,26 @@ export interface Instructor {
   total_students: number
   total_courses: number
   payment_info: unknown | null
+  profile_settings: InstructorProfileSettings | null
   level: InstructorLevel | null
+}
+
+export interface InstructorCustomSection {
+  id: string
+  title: string
+  content: string
+  visible: boolean
+  order: number
+  type: 'text' | 'achievements' | 'testimonials' | 'gallery'
+  images?: string[]
+}
+
+export interface InstructorProfileSettings {
+  showCourses: boolean
+  showStats: boolean
+  showBio: boolean
+  showSocialLinks: boolean
+  customSections: InstructorCustomSection[]
 }
 
 export interface InstructorLevel {
@@ -75,6 +94,22 @@ export async function getAllInstructors(): Promise<Instructor[]> {
 
 export async function getInstructorById(instructorId: number): Promise<Instructor> {
   return http.get<Instructor>(`/instructors/${instructorId}/`)
+}
+
+
+
+
+export type UpdateInstructorProfileData = Partial<
+  Pick<Instructor, 'bio' | 'specialization' | 'qualification' | 'experience' | 'social_links' | 'profile_settings'>
+>
+
+export async function updateInstructorProfile(
+  instructorId: number,
+  data: UpdateInstructorProfileData,
+): Promise<Instructor> {
+  const updated = await http.patch<Instructor>(`/instructors/${instructorId}/`, data)
+  clearInstructorCache()
+  return updated
 }
 
 

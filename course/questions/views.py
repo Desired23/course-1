@@ -34,6 +34,7 @@ class QuestionListView(APIView):
                 tag=request.query_params.get('tag'),
                 status=request.query_params.get('status'),
                 sort=request.query_params.get('sort', 'newest'),
+                author_id=request.query_params.get('author_id'),
             )
             return paginate_queryset(questions, request, QuestionSerializer)
         except ValidationError as e:

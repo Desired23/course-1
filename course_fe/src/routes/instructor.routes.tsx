@@ -7,7 +7,6 @@ const InstructorDashboard = lazy(() => import('../pages/instructor/InstructorDas
 const InstructorCoursesPage = lazy(() => import('../pages/instructor/InstructorCoursesPage').then((module) => ({ default: module.InstructorCoursesPage })))
 const InstructorCreateCoursePage = lazy(() => import('../pages/instructor/InstructorCreateCoursePage').then((module) => ({ default: module.InstructorCreateCoursePage })))
 const InstructorCourseDetailPage = lazy(() => import('../pages/instructor/InstructorCourseDetailPage').then((module) => ({ default: module.InstructorCourseDetailPage })))
-const InstructorQuizzesPage = lazy(() => import('../pages/instructor/InstructorQuizzesPage').then((module) => ({ default: module.InstructorQuizzesPage })))
 const InstructorAnalyticsPage = lazy(() => import('../pages/instructor/InstructorAnalyticsPage').then((module) => ({ default: module.InstructorAnalyticsPage })))
 const InstructorDiscountsPage = lazy(() => import('../pages/instructor/InstructorDiscountsPage').then((module) => ({ default: module.InstructorDiscountsPage })))
 const InstructorLessonsPageNew = lazy(() => import('../pages/instructor/InstructorLessonsPageNew').then((module) => ({ default: module.InstructorLessonsPageNew })))
@@ -21,6 +20,7 @@ const InstructorOnboardingPage = lazy(() => import('../pages/instructor/Instruct
 const InstructorCourseLandingPage = lazy(() => import('../pages/instructor/InstructorCourseLandingPage').then((module) => ({ default: module.InstructorCourseLandingPage })))
 const InstructorCommunicationPage = lazy(() => import('../pages/instructor/InstructorCommunicationPage').then((module) => ({ default: module.InstructorCommunicationPage })))
 const InstructorLessonEditorPage = lazy(() => import('../pages/instructor/InstructorLessonEditorPage').then((module) => ({ default: module.InstructorLessonEditorPage })))
+const InstructorBlogPage = lazy(() => import('../pages/instructor/InstructorBlogPage').then((module) => ({ default: module.InstructorBlogPage })))
 
 export const instructorRoutes: RouteConfig[] = [
 
@@ -103,18 +103,6 @@ export const instructorRoutes: RouteConfig[] = [
       <RequireAuth roles={['instructor', 'admin']}>
         <InstructorLayout>
           <InstructorLessonsPageNew />
-        </InstructorLayout>
-      </RequireAuth>
-    )
-  },
-
-
-  {
-    path: '/instructor/quizzes',
-    element: (
-      <RequireAuth roles={['instructor', 'admin']}>
-        <InstructorLayout>
-          <InstructorQuizzesPage />
         </InstructorLayout>
       </RequireAuth>
     )
@@ -235,6 +223,17 @@ export const instructorRoutes: RouteConfig[] = [
     dynamic: true
   },
 
+
+  {
+    path: '/instructor/blog',
+    element: (
+      <RequireAuth roles={['instructor', 'admin']}>
+        <InstructorLayout>
+          <InstructorBlogPage />
+        </InstructorLayout>
+      </RequireAuth>
+    )
+  },
 
   {
     path: '/instructor/communication',

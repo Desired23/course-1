@@ -821,21 +821,21 @@ export function AdminSubscriptionPage() {
                     >
                       {plan.isPopular ? t('subscriptions_page.admin.actions.unmark_featured') : t('subscriptions_page.admin.actions.mark_featured')}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full text-red-600"
-                      size="sm"
-                      onClick={() => openConfirm(
-                        t('subscriptions_page.admin.actions.delete_title'),
-                        t('subscriptions_page.admin.actions.delete_description', { name: plan.name }),
-                        t('common.delete'),
-                        () => handleDeletePlan(plan),
-                        true,
-                      )}
-                    >
-                      {t('common.delete')}
-                    </Button>
                   </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                    size="sm"
+                    onClick={() => openConfirm(
+                      t('subscriptions_page.admin.actions.delete_title'),
+                      t('subscriptions_page.admin.actions.delete_description', { name: plan.name }),
+                      t('common.delete'),
+                      () => handleDeletePlan(plan),
+                      true,
+                    )}
+                  >
+                    {t('common.delete')}
+                  </Button>
                 </CardContent>
               </Card>
             ))}

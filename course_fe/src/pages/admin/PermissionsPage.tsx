@@ -317,24 +317,7 @@ export function PermissionsPage() {
 
       <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="relative grid w-full grid-cols-4 p-1">
-          <TabsTrigger value="users" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'users' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('permissions_page.tabs.users')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="roles" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'roles' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('permissions_page.tabs.roles')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'permissions' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('permissions_page.tabs.permissions')}</span>
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'audit' && <motion.span layoutId="permissions-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('permissions_page.tabs.audit')}</span>
-          </TabsTrigger>
-        </TabsList>
+        <TabsList className="hidden"></TabsList>
 
         <TabsContent value="users" className="space-y-4">
           <div className="flex gap-4 items-center">
@@ -454,111 +437,6 @@ export function PermissionsPage() {
           ) : null}
         </TabsContent>
 
-        <TabsContent value="roles" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {roleTemplates.map((role) => (
-              <Card key={role.id} className="cursor-pointer hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{role.name}</CardTitle>
-                      <CardDescription className="mt-1">{role.description}</CardDescription>
-                    </div>
-                    {role.isDefault && <Badge variant="outline">{t('permissions_page.default')}</Badge>}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium mb-2">{t('permissions_page.role_permissions_count', { count: role.permissions.length })}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {role.permissions.slice(0, 3).map((permissionId) => {
-                          const permission = PERMISSIONS.find(p => p.id === permissionId)
-                          return permission ? (
-                            <Badge key={permissionId} variant="secondary" className="text-xs">
-                              {permission.name}
-                            </Badge>
-                          ) : null
-                        })}
-                        {role.permissions.length > 3 && (
-                          <Badge variant="outline" className="text-xs">
-                            {t('permissions_page.more_permissions', { count: role.permissions.length - 3 })}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="outline" onClick={() => setSelectedRole(role)}>
-                        <Eye className="h-3 w-3 mr-1" />
-                        {t('permissions_page.view')}
-                      </Button>
-                      <Button size="sm" variant="outline" disabled>
-                        <Edit className="h-3 w-3 mr-1" />
-                        {t('permissions_page.view_only')}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="permissions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('permissions_page.all_permissions_title')}</CardTitle>
-              <CardDescription>{t('permissions_page.all_permissions_description')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {Object.entries(getPermissionsByCategory()).map(([category, permissions]) => (
-                  <div key={category}>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <Shield className="h-5 w-5" />
-                      {category}
-                    </h3>
-                    <div className="grid gap-3">
-                      {permissions.map((permission) => (
-                        <div key={permission.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">{permission.name}</p>
-                            <p className="text-sm text-muted-foreground">{t(permission.description)}</p>
-                            <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
-                              {permission.id}
-                            </code>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="audit" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('permissions_page.audit_title')}</CardTitle>
-              <CardDescription>{t('permissions_page.audit_description')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {auditEntries.map((entry) => (
-                  <div key={entry.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium">{entry.title}</p>
-                      <p className="text-sm text-muted-foreground">{entry.description}</p>
-                    </div>
-                    <Badge variant={entry.variant}>{entry.badge}</Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
       </motion.div>
       </motion.div>

@@ -28,7 +28,7 @@ def get_question_by_id(question_id):
         raise NotFound("Question not found.")
 
 
-def get_all_questions(search=None, tag=None, status=None, sort='newest'):
+def get_all_questions(search=None, tag=None, status=None, sort='newest', author_id=None):
     qs = Question.objects.filter(is_deleted=False)
     if search:
         qs = qs.filter(Q(title__icontains=search) | Q(content__icontains=search))
@@ -36,6 +36,8 @@ def get_all_questions(search=None, tag=None, status=None, sort='newest'):
         qs = qs.filter(tags__contains=[tag])
     if status:
         qs = qs.filter(status=status)
+    if author_id:
+        qs = qs.filter(author_id=author_id)
     if sort == 'votes':
         qs = qs.order_by('-score', '-created_at')
     elif sort == 'unanswered':

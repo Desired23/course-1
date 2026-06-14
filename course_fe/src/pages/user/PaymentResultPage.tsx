@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Loader2, XCircle } from "lucide-react"
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Crown, Loader2, XCircle } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { useRouter } from "../../components/Router"
@@ -340,12 +340,22 @@ export function PaymentResultPage() {
             <motion.div className="flex flex-col sm:flex-row gap-3 w-full pt-2" variants={fadeInUp} initial="hidden" animate="show">
               {status === "success" ? (
                 <>
-                  <Button className="flex-1" onClick={() => navigate(requiresAuthForDetails ? "/login" : "/my-learning")}>
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    {requiresAuthForDetails
-                      ? t("payment_result_page.login_to_view_details", "Đăng nhập để xem chi tiết")
-                      : t("payment_result_page.go_to_learning")}
-                  </Button>
+                  {requiresAuthForDetails ? (
+                    <Button className="flex-1" onClick={() => navigate("/login")}>
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {t("payment_result_page.login_to_view_details", "Đăng nhập để xem chi tiết")}
+                    </Button>
+                  ) : paymentData?.payment_type === "subscription" ? (
+                    <Button className="flex-1" onClick={() => navigate("/user/subscriptions")}>
+                      <Crown className="w-4 h-4 mr-2" />
+                      {t("payment_result_page.go_to_subscription")}
+                    </Button>
+                  ) : (
+                    <Button className="flex-1" onClick={() => navigate("/my-learning")}>
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      {t("payment_result_page.go_to_learning")}
+                    </Button>
+                  )}
                   <Button variant="outline" className="flex-1" onClick={() => navigate("/")}>
                     {t("payment_result_page.back_to_home")}
                   </Button>

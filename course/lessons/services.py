@@ -182,12 +182,18 @@ def update_lesson(lesson_id, data, requesting_user=None):
 
     update_payload, status_meta = _pop_status_update_meta(data)
     old_status = lesson.status
+    previous_course_id = getattr(getattr(lesson, 'coursemodule', None), 'course_id', None)
     previous_snapshot = get_lesson_source_snapshot(lesson)
     serializer = LessonSerializer(lesson, data=update_payload, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_lesson = serializer.save()
         _sync_lesson_transcript_generation(updated_lesson, previous_snapshot=previous_snapshot)
         course = getattr(getattr(updated_lesson, 'coursemodule', None), 'course', None)
+        next_course_id = getattr(course, 'id', None)
+        course_ids_to_recalc = {course_id for course_id in {previous_course_id, next_course_id} if course_id}
+        for course_id in course_ids_to_recalc:
+            from courses.services import recalc_course_structure
+            recalc_course_structure(course_id)
         if not is_admin and course:
             mark_course_content_changed(course)
 

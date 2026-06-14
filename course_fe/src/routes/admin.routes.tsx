@@ -23,6 +23,7 @@ const ReportManagementPage = lazy(() => import('../pages/admin/ReportManagementP
 const ActivityLogPage = lazy(() => import('../pages/admin/ActivityLogPage').then((module) => ({ default: module.ActivityLogPage })))
 const AdminInstructorApplicationsPage = lazy(() => import('../pages/admin/AdminInstructorApplicationsPage').then((module) => ({ default: module.AdminInstructorApplicationsPage })))
 const PaymentMethodsPage = lazy(() => import('../pages/admin/PaymentMethodsPage').then((module) => ({ default: module.PaymentMethodsPage })))
+const PayoutManagementPage = lazy(() => import('../pages/admin/PayoutManagementPage').then((module) => ({ default: module.PayoutManagementPage })))
 const AdminSubscriptionPage = lazy(() => import('../pages/admin/AdminSubscriptionPage').then((module) => ({ default: module.AdminSubscriptionPage })))
 const AdminNewsletterPage = lazy(() => import('../pages/admin/AdminNewsletterPage').then((module) => ({ default: module.AdminNewsletterPage })))
 const AdminPolicyPage = lazy(() => import('../pages/admin/AdminPolicyPage').then((module) => ({ default: module.AdminPolicyPage })))
@@ -61,6 +62,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/courses/:courseId', page: <AdminCourseDetailPage />, dynamic: true },
   { path: '/admin/payments', page: <PaymentManagementPage /> },
   { path: '/admin/payments/methods', page: <PaymentMethodsPage /> },
+  { path: '/admin/payouts', page: <PayoutManagementPage /> },
   { path: '/admin/discounts', page: <AdminDiscountsPage /> },
   { path: '/admin/analytics', page: <AdminAnalyticsRedirect /> },
   { path: '/admin/categories', page: <AdminCategoriesPage /> },

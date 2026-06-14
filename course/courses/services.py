@@ -4,7 +4,8 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import Course
 from .serializers import CourseSerializer, CourseDetailSerializer
 from activity_logs.services import log_activity
-from django.db.models import Avg, Sum
+from django.db.models import Avg, Count, Q, Sum
+from django.db.models.functions import Coalesce
 from enrollments.models import Enrollment
 from learning_progress.models import LearningProgress
 from reviews.models import Review
@@ -32,7 +33,6 @@ COURSE_CONTENT_FIELDS = {
     'discount_end_date',
     'level',
     'language',
-    'duration',
     'requirements',
     'learning_objectives',
     'target_audience',
@@ -78,21 +78,42 @@ def recalc_course_students(course_id):
 
 def recalc_course_structure(course_id):
     from coursemodules.models import CourseModule
-    from lessons.models import Lesson
-    total_modules = CourseModule.objects.filter(course_id=course_id, is_deleted=False).count()
-    total_lessons = Lesson.objects.filter(
-        coursemodule__course_id=course_id,
-        coursemodule__is_deleted=False,
-        is_deleted=False,
-    ).count()
+    modules = CourseModule.objects.filter(course_id=course_id, is_deleted=False).annotate(
+        lesson_count=Count('lessons', filter=Q(lessons__is_deleted=False)),
+        duration_total=Coalesce(
+            Sum('lessons__duration', filter=Q(lessons__is_deleted=False)),
+            0,
+        ),
+    )
+
+    total_modules = modules.count()
+    total_lessons = 0
+    total_duration = 0
+    modules_to_update = []
+
+    for module in modules:
+        total_lessons += module.lesson_count
+        total_duration += module.duration_total
+        next_duration = module.duration_total or None
+        if module.duration != next_duration:
+            module.duration = next_duration
+            modules_to_update.append(module)
+
+    if modules_to_update:
+        CourseModule.objects.bulk_update(modules_to_update, ['duration'])
+
     Course.objects.filter(id=course_id).update(
-        total_modules=total_modules, total_lessons=total_lessons
+        total_modules=total_modules,
+        total_lessons=total_lessons,
+        duration=total_duration or None,
     )
 
 
 def create_course(data):
     try:
-        serializer = CourseSerializer(data=data)
+        payload = data.copy()
+        payload.pop('duration', None)
+        serializer = CourseSerializer(data=payload)
         if serializer.is_valid():
             course = serializer.save()
             log_activity(
@@ -328,6 +349,7 @@ def update_course(course_id, data, requesting_user=None):
                 raise PermissionDenied("Bạn không có quyền chỉnh sửa khóa học này.")
 
         payload = data.copy()
+        payload.pop('duration', None)
         status_reason = payload.pop('status_reason', None)
         send_notification = payload.pop('send_notification', False)
         notify_title = payload.pop('notify_title', None)

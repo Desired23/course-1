@@ -1,11 +1,10 @@
 import jwt
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
 from users.models import User
-from django.utils.timezone import now
 from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
-from channels.exceptions import DenyConnection
 
 JWT_SECRET = settings.SECRET_KEY
 JWT_ALGORITHM = "HS256"
@@ -23,7 +22,7 @@ class JWTAuthMiddleware(BaseMiddleware):
         params = parse_qs(query_string)
         token = params.get("token", [None])[0]
 
-        scope["user"] = None
+        scope["user"] = AnonymousUser()
 
         if token:
             try:
@@ -31,11 +30,9 @@ class JWTAuthMiddleware(BaseMiddleware):
                 user = await get_user(payload["user_id"])
                 if user and user.status == "active":
                     scope["user"] = user
-                else:
-                    raise DenyConnection()
             except jwt.ExpiredSignatureError:
-                raise DenyConnection()
+                scope["user"] = AnonymousUser()
             except jwt.InvalidTokenError:
-                raise DenyConnection()
+                scope["user"] = AnonymousUser()
 
         return await super().__call__(scope, receive, send)

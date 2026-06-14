@@ -18,6 +18,7 @@ class Instructor(models.Model):
     total_courses = models.IntegerField(default=0)
 
     payment_info = models.JSONField(null=True, blank=True)
+    profile_settings = models.JSONField(null=True, blank=True)
     level = models.ForeignKey(InstructorLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='instructors')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

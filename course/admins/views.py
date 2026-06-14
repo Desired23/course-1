@@ -80,6 +80,19 @@ def _group_revenue_rows(rows, period):
     return [grouped[key] for key in sorted(grouped)]
 
 
+def _refund_status_label(status_key):
+    labels = {
+        'pending': 'Chờ duyệt',
+        'processing': 'Đang hoàn tiền',
+        'approved': 'Đã duyệt',
+        'success': 'Hoàn tiền thành công',
+        'rejected': 'Bị từ chối',
+        'failed': 'Hoàn tiền thất bại',
+        'cancelled': 'Đã hủy',
+    }
+    return labels.get(status_key, status_key)
+
+
 def _report_sheet(report_key, date_from=None, date_to=None):
     if report_key in {'revenue_monthly', 'revenue_quarterly', 'revenue_yearly'}:
         period = {
@@ -89,59 +102,59 @@ def _report_sheet(report_key, date_from=None, date_to=None):
         }[report_key]
         rows = get_admin_revenue_monthly_breakdown(36, date_from, date_to)
         rows = _group_revenue_rows(rows, period)
-        label = {'month': 'Month', 'quarter': 'Quarter', 'year': 'Year'}[period]
+        label = {'month': 'Tháng', 'quarter': 'Quý', 'year': 'Năm'}[period]
         return {
-            'title': report_key,
-            'headers': [label, 'Retail Revenue', 'Subscription Revenue', 'Gross Revenue', 'Refunded', 'Net Revenue', 'Transactions'],
+            'title': f'Doanh thu theo {label.lower()}',
+            'headers': [label, 'Doanh thu bán lẻ', 'Doanh thu gói đăng ký', 'Doanh thu gộp', 'Đã hoàn tiền', 'Doanh thu thuần', 'Giao dịch'],
             'rows': [[r['date'], r['retail'], r['subscription'], r['gross'], r['refunded'], r['net'], r['transactions']] for r in rows],
         }
 
     if report_key == 'revenue_instructor':
         rows = get_admin_revenue_by_instructor(100, date_from, date_to)
         return {
-            'title': 'revenue_instructor',
-            'headers': ['Instructor', 'Gross', 'Instructor Earnings', 'Platform Revenue', 'Retail Revenue', 'Subscription Revenue', 'Pending', 'Paid', 'Transactions'],
+            'title': 'Doanh thu theo giảng viên',
+            'headers': ['Giảng viên', 'Doanh thu gộp', 'Thu nhập giảng viên', 'Doanh thu nền tảng', 'Doanh thu bán lẻ', 'Doanh thu gói đăng ký', 'Đang chờ', 'Đã thanh toán', 'Giao dịch'],
             'rows': [[r['instructor_name'], r['gross'], r['instructor_earnings'], r['platform_revenue'], r['retail_revenue'], r['subscription_revenue'], r['pending'], r['paid'], r['transactions']] for r in rows],
         }
 
     if report_key == 'revenue_course':
         rows = get_admin_revenue_by_course(100, date_from, date_to)
         return {
-            'title': 'revenue_course',
-            'headers': ['Course', 'Instructor', 'Category', 'Revenue', 'Refunded', 'Net Revenue', 'Transactions', 'Enrollments'],
+            'title': 'Doanh thu theo khóa học',
+            'headers': ['Khóa học', 'Giảng viên', 'Danh mục', 'Doanh thu', 'Hoàn tiền', 'Doanh thu thuần', 'Giao dịch', 'Ghi danh'],
             'rows': [[r['title'], r['instructor_name'], r['category_name'], r['revenue'], r['refunded'], r['net_revenue'], r['transactions'], r['enrollments']] for r in rows],
         }
 
     if report_key == 'revenue_category':
         rows = get_admin_revenue_by_category(100, date_from, date_to)
         return {
-            'title': 'revenue_category',
-            'headers': ['Category', 'Courses', 'Revenue', 'Refunded', 'Net Revenue', 'Transactions'],
+            'title': 'Doanh thu theo danh mục',
+            'headers': ['Danh mục', 'Số khóa học', 'Doanh thu gộp', 'Hoàn tiền', 'Doanh thu thuần', 'Giao dịch'],
             'rows': [[r['category_name'], r['course_count'], r['revenue'], r['refunded'], r['net_revenue'], r['transactions']] for r in rows],
         }
 
     if report_key in {'subscription_plan', 'subscription_metrics'}:
         data = get_admin_subscription_metrics(date_from, date_to)
         return {
-            'title': 'subscription_plan',
-            'headers': ['Plan', 'Revenue', 'Payments', 'New Subscribers', 'Active Subscribers', 'Cancelled', 'Expired', 'Churn Rate'],
+            'title': 'Doanh thu theo gói đăng ký',
+            'headers': ['Gói', 'Doanh thu', 'Thanh toán', 'Người đăng ký mới', 'Đang hoạt động', 'Đã hủy', 'Hết hạn', 'Tỷ lệ rời bỏ'],
             'rows': [[r['plan_name'], r['revenue'], r['payments'], r['new_subscribers'], r['active_subscribers'], r['cancelled_subscribers'], r['expired_subscribers'], r['churn_rate']] for r in data['per_plan']],
         }
 
     if report_key == 'earning_payout':
         data = get_admin_earning_payout_metrics(100, date_from, date_to)
         return {
-            'title': 'earning_payout',
-            'headers': ['Instructor', 'Gross Earnings', 'Instructor Earnings', 'Retail Earnings', 'Subscription Earnings', 'Pending Earnings', 'Available Earnings', 'Payable Earnings', 'Paid Earnings', 'Payout Requested', 'Payout Processed Gross', 'Payout Processed Net', 'Payout Pending', 'Settlement Gap'],
+            'title': 'Thu nhập và chi trả theo giảng viên',
+            'headers': ['Giảng viên', 'Thu nhập gộp', 'Thu nhập giảng viên', 'Thu nhập bán lẻ', 'Thu nhập từ gói đăng ký', 'Thu nhập chờ xử lý', 'Thu nhập khả dụng', 'Cần chi trả', 'Thu nhập đã thanh toán', 'Yêu cầu chi trả', 'Chi trả đã xử lý (gộp)', 'Chi trả đã xử lý (thuần)', 'Chi trả đang chờ', 'Chênh lệch đã trả - đã xử lý thuần'],
             'rows': [[r['instructor_name'], r['gross'], r['instructor_earnings'], r['retail_earnings'], r['subscription_earnings'], r['pending_earnings'], r['available_earnings'], r['payable_earnings'], r['paid_earnings'], r['payout_requested'], r['payout_processed'], r['payout_processed_net'], r['payout_pending'], r['settlement_gap']] for r in data['per_instructor']],
         }
 
     if report_key == 'refunds':
         data = get_admin_refund_analytics(date_from, date_to)
         return {
-            'title': 'refunds',
-            'headers': ['Status', 'Count', 'Amount'],
-            'rows': [[status_key, row['count'], row['amount']] for status_key, row in data['breakdown'].items()],
+            'title': 'Hoàn tiền theo trạng thái',
+            'headers': ['Trạng thái', 'Số lượng', 'Số tiền'],
+            'rows': [[_refund_status_label(status_key), row['count'], row['amount']] for status_key, row in data['breakdown'].items()],
         }
 
     raise ValueError(f'Unsupported report: {report_key}')

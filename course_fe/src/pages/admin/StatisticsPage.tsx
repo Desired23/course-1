@@ -93,8 +93,8 @@ const reportOptions: Array<{ key: BulkReportKey; label: string }> = [
   { key: 'revenue_course', label: 'Doanh thu theo khóa học' },
   { key: 'revenue_category', label: 'Doanh thu theo danh mục' },
   { key: 'subscription_plan', label: 'Doanh thu theo gói đăng ký' },
-  { key: 'subscription_metrics', label: 'Subscription metrics' },
-  { key: 'earning_payout', label: 'Earning/Payout' },
+  { key: 'subscription_metrics', label: 'Chỉ số gói đăng ký' },
+  { key: 'earning_payout', label: 'Thu nhập/chi trả' },
   { key: 'refunds', label: 'Hoàn tiền' },
 ]
 
@@ -188,6 +188,19 @@ function compareValues(a: string | number | null | undefined, b: string | number
   const bNumber = typeof b === 'number' ? b : Number(b)
   if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) return (aNumber - bNumber) * multiplier
   return String(a ?? '').localeCompare(String(b ?? ''), 'vi') * multiplier
+}
+
+function getRefundStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: 'Chờ duyệt',
+    processing: 'Đang hoàn tiền',
+    approved: 'Đã duyệt',
+    success: 'Hoàn tiền thành công',
+    rejected: 'Bị từ chối',
+    failed: 'Hoàn tiền thất bại',
+    cancelled: 'Đã hủy',
+  }
+  return labels[status] ?? status
 }
 
 function SortableDataTable<T>({
@@ -478,8 +491,8 @@ export function StatisticsPage() {
             <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="revenue">Doanh thu</TabsTrigger>
             <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="users">Người dùng</TabsTrigger>
             <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="courses">Khóa học</TabsTrigger>
-            <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="subscription">Subscription</TabsTrigger>
-            <TabsTrigger className="h-8 min-w-36 flex-none px-4 lg:flex-1" value="earningPayout">Earning/Payout</TabsTrigger>
+            <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="subscription">Gói đăng ký</TabsTrigger>
+            <TabsTrigger className="h-8 min-w-36 flex-none px-4 lg:flex-1" value="earningPayout">Thu nhập/chi trả</TabsTrigger>
             <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="refunds">Hoàn tiền</TabsTrigger>
             <TabsTrigger className="h-8 min-w-32 flex-none px-4 lg:flex-1" value="reviews">Đánh giá</TabsTrigger>
           </TabsList>
@@ -561,17 +574,17 @@ function KpiRow({ breakdown, subscription }: { breakdown: RevenueBreakdown | nul
       <Metric title="Doanh thu gộp" value={formatAdminCurrency(breakdown?.total_gross ?? 0)} />
       <Metric title="Doanh thu ròng" value={formatAdminCurrency(breakdown?.net_revenue ?? 0)} />
       <Metric title="Đã hoàn tiền" value={formatAdminCurrency(breakdown?.total_refunded ?? 0)} />
-      <Metric title="Giao dịch / Subscription" value={`${(breakdown?.retail_count ?? 0) + (breakdown?.subscription_count ?? 0)} / ${subscription?.new_subscribers ?? 0}`} />
+      <Metric title="Giao dịch / đăng ký mới" value={`${(breakdown?.retail_count ?? 0) + (breakdown?.subscription_count ?? 0)} / ${subscription?.new_subscribers ?? 0}`} />
     </div>
   )
 }
 
 function SecondaryKpis({ tab, dashboardStats, subscription, earningPayout, refunds }: { tab: MainTab; dashboardStats: any; subscription: SubscriptionMetrics | null; earningPayout: EarningPayoutMetrics | null; refunds: RefundAnalytics | null }) {
   if (tab === 'subscription') {
-    return <div className="grid gap-3 md:grid-cols-4"><Metric title="Doanh thu subscription" value={formatAdminCurrency(subscription?.total_revenue ?? 0)} /><Metric title="Subscriber mới" value={String(subscription?.new_subscribers ?? 0)} /><Metric title="Đang active" value={String(subscription?.active_subscribers ?? 0)} /><Metric title="Churn rate" value={`${subscription?.churn_rate ?? 0}%`} /></div>
+    return <div className="grid gap-3 md:grid-cols-4"><Metric title="Doanh thu gói đăng ký" value={formatAdminCurrency(subscription?.total_revenue ?? 0)} /><Metric title="Người đăng ký mới" value={String(subscription?.new_subscribers ?? 0)} /><Metric title="Đang hoạt động" value={String(subscription?.active_subscribers ?? 0)} /><Metric title="Tỷ lệ rời bỏ" value={`${subscription?.churn_rate ?? 0}%`} /></div>
   }
   if (tab === 'earningPayout') {
-    return <div className="grid gap-3 md:grid-cols-4"><Metric title="Instructor earning" value={formatAdminCurrency(earningPayout?.total_instructor_earnings ?? 0)} /><Metric title="Cần chi trả" value={formatAdminCurrency(earningPayout?.payable_earnings ?? 0)} hint="Pending + available earning" /><Metric title="Payout đã xử lý" value={formatAdminCurrency(earningPayout?.payout_processed_net ?? 0)} hint="Theo ngày processed" /><Metric title="Payout pending" value={formatAdminCurrency(earningPayout?.payout_pending ?? 0)} hint="Theo ngày request" /></div>
+    return <div className="grid gap-3 md:grid-cols-4"><Metric title="Thu nhập giảng viên" value={formatAdminCurrency(earningPayout?.total_instructor_earnings ?? 0)} /><Metric title="Cần chi trả" value={formatAdminCurrency(earningPayout?.payable_earnings ?? 0)} hint="Đang chờ + khả dụng" /><Metric title="Chi trả đã xử lý" value={formatAdminCurrency(earningPayout?.payout_processed_net ?? 0)} hint="Theo ngày xử lý" /><Metric title="Chi trả đang chờ" value={formatAdminCurrency(earningPayout?.payout_pending ?? 0)} hint="Theo ngày yêu cầu" /></div>
   }
   if (tab === 'refunds') {
     return <div className="grid gap-3 md:grid-cols-3"><Metric title="Yêu cầu hoàn tiền" value={String(refunds?.total_requests ?? 0)} /><Metric title="Tổng tiền hoàn" value={formatAdminCurrency(refunds?.total_refunded_amount ?? 0)} /><Metric title="Theo trạng thái" value={String(Object.keys(refunds?.breakdown ?? {}).length)} /></div>
@@ -619,9 +632,9 @@ function RevenueChart({ view, periodRows, instructors, categories, subscription 
             <YAxis tickFormatter={(value) => `${Math.round(Number(value) / 1000000)}M`} />
             <Tooltip formatter={(value) => formatAdminCurrency(Number(value))} />
             <Legend />
-            <Bar dataKey="gross" name="Gross" fill="#2563eb" />
-            <Bar dataKey="net" name="Net" fill="#16a34a" />
-            {view === 'month' || view === 'quarter' || view === 'year' ? <Bar dataKey="refunded" name="Refunded" fill="#ef4444" /> : null}
+            <Bar dataKey="gross" name="Doanh thu gộp" fill="#2563eb" />
+            <Bar dataKey="net" name="Doanh thu thuần" fill="#16a34a" />
+            {view === 'month' || view === 'quarter' || view === 'year' ? <Bar dataKey="refunded" name="Đã hoàn tiền" fill="#ef4444" /> : null}
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -647,13 +660,13 @@ function getCurrentTable(activeTab: MainTab, revenueView: RevenueView, data: any
         rows: data.instructors as InstructorRevenueRow[],
         columns: [
           { key: 'instructor_name', label: 'Giảng viên', searchable: true, sortable: true, value: (r: InstructorRevenueRow) => r.instructor_name || `#${r.instructor_id}` },
-          moneyColumn('gross', 'Gross', (r: InstructorRevenueRow) => r.gross),
-          moneyColumn('instructor_earnings', 'Instructor earning', (r: InstructorRevenueRow) => r.instructor_earnings),
-          moneyColumn('platform_revenue', 'Platform revenue', (r: InstructorRevenueRow) => r.platform_revenue),
-          moneyColumn('retail_revenue', 'Retail', (r: InstructorRevenueRow) => r.retail_revenue),
-          moneyColumn('subscription_revenue', 'Subscription', (r: InstructorRevenueRow) => r.subscription_revenue),
-          moneyColumn('pending', 'Pending', (r: InstructorRevenueRow) => r.pending),
-          moneyColumn('paid', 'Paid', (r: InstructorRevenueRow) => r.paid),
+          moneyColumn('gross', 'Doanh thu gộp', (r: InstructorRevenueRow) => r.gross),
+          moneyColumn('instructor_earnings', 'Thu nhập giảng viên', (r: InstructorRevenueRow) => r.instructor_earnings),
+          moneyColumn('platform_revenue', 'Doanh thu nền tảng', (r: InstructorRevenueRow) => r.platform_revenue),
+          moneyColumn('retail_revenue', 'Bán lẻ', (r: InstructorRevenueRow) => r.retail_revenue),
+          moneyColumn('subscription_revenue', 'Gói đăng ký', (r: InstructorRevenueRow) => r.subscription_revenue),
+          moneyColumn('pending', 'Đang chờ', (r: InstructorRevenueRow) => r.pending),
+          moneyColumn('paid', 'Đã thanh toán', (r: InstructorRevenueRow) => r.paid),
           numberColumn('transactions', 'Giao dịch', (r: InstructorRevenueRow) => r.transactions),
         ],
       }
@@ -670,9 +683,9 @@ function getCurrentTable(activeTab: MainTab, revenueView: RevenueView, data: any
           { key: 'category_name', label: 'Danh mục', searchable: true, sortable: true, value: (r: CourseRevenueDetailRow) => r.category_name },
           moneyColumn('revenue', 'Doanh thu', (r: CourseRevenueDetailRow) => r.revenue),
           moneyColumn('refunded', 'Hoàn tiền', (r: CourseRevenueDetailRow) => r.refunded),
-          moneyColumn('net_revenue', 'Net', (r: CourseRevenueDetailRow) => r.net_revenue),
+          moneyColumn('net_revenue', 'Doanh thu thuần', (r: CourseRevenueDetailRow) => r.net_revenue),
           numberColumn('transactions', 'Giao dịch', (r: CourseRevenueDetailRow) => r.transactions),
-          numberColumn('enrollments', 'Enrollment', (r: CourseRevenueDetailRow) => r.enrollments),
+          numberColumn('enrollments', 'Ghi danh', (r: CourseRevenueDetailRow) => r.enrollments),
         ],
       }
     }
@@ -685,9 +698,9 @@ function getCurrentTable(activeTab: MainTab, revenueView: RevenueView, data: any
         columns: [
           { key: 'category_name', label: 'Danh mục', searchable: true, sortable: true, value: (r: CategoryRevenueRow) => r.category_name },
           numberColumn('course_count', 'Số khóa học', (r: CategoryRevenueRow) => r.course_count),
-          moneyColumn('revenue', 'Gross', (r: CategoryRevenueRow) => r.revenue),
+          moneyColumn('revenue', 'Doanh thu gộp', (r: CategoryRevenueRow) => r.revenue),
           moneyColumn('refunded', 'Hoàn tiền', (r: CategoryRevenueRow) => r.refunded),
-          moneyColumn('net_revenue', 'Net', (r: CategoryRevenueRow) => r.net_revenue),
+          moneyColumn('net_revenue', 'Doanh thu thuần', (r: CategoryRevenueRow) => r.net_revenue),
           numberColumn('transactions', 'Giao dịch', (r: CategoryRevenueRow) => r.transactions),
         ],
       }
@@ -715,37 +728,37 @@ function getCurrentTable(activeTab: MainTab, revenueView: RevenueView, data: any
       columns: [
         { key: 'title', label: 'Khóa học', searchable: true, sortable: true, value: (r: TopCourse) => r.title },
         { key: 'instructor_name', label: 'Giảng viên', searchable: true, sortable: true, value: (r: TopCourse) => r.instructor_name || '' },
-        numberColumn('enrollment_count', 'Enrollment', (r: TopCourse) => r.enrollment_count),
+        numberColumn('enrollment_count', 'Ghi danh', (r: TopCourse) => r.enrollment_count),
         moneyColumn('revenue', 'Doanh thu', (r: TopCourse) => r.revenue ?? 0),
-        numberColumn('rating', 'Rating', (r: TopCourse) => r.rating),
+        numberColumn('rating', 'Đánh giá', (r: TopCourse) => r.rating),
       ],
     }
   }
   if (activeTab === 'subscription') return subscriptionTable(data.subscription)
   if (activeTab === 'earningPayout') {
     return {
-      title: 'Earning và payout theo giảng viên',
+      title: 'Thu nhập và chi trả theo giảng viên',
       filename: 'earning_payout',
       searchPlaceholder: 'Tìm giảng viên...',
       rows: (data.earningPayout as EarningPayoutMetrics | null)?.per_instructor ?? [],
       columns: [
         { key: 'instructor_name', label: 'Giảng viên', searchable: true, sortable: true, value: (r: EarningPayoutInstructorRow) => r.instructor_name || `#${r.instructor_id}` },
-        moneyColumn('gross', 'Gross earning', (r: EarningPayoutInstructorRow) => r.gross),
-        moneyColumn('instructor_earnings', 'Instructor earning', (r: EarningPayoutInstructorRow) => r.instructor_earnings),
-        moneyColumn('retail_earnings', 'Retail earning', (r: EarningPayoutInstructorRow) => r.retail_earnings),
-        moneyColumn('subscription_earnings', 'Subscription earning', (r: EarningPayoutInstructorRow) => r.subscription_earnings),
-        moneyColumn('pending_earnings', 'Pending earning', (r: EarningPayoutInstructorRow) => r.pending_earnings),
-        moneyColumn('available_earnings', 'Available earning', (r: EarningPayoutInstructorRow) => r.available_earnings),
+        moneyColumn('gross', 'Thu nhập gộp', (r: EarningPayoutInstructorRow) => r.gross),
+        moneyColumn('instructor_earnings', 'Thu nhập giảng viên', (r: EarningPayoutInstructorRow) => r.instructor_earnings),
+        moneyColumn('retail_earnings', 'Thu nhập bán lẻ', (r: EarningPayoutInstructorRow) => r.retail_earnings),
+        moneyColumn('subscription_earnings', 'Thu nhập từ gói đăng ký', (r: EarningPayoutInstructorRow) => r.subscription_earnings),
+        moneyColumn('pending_earnings', 'Thu nhập chờ xử lý', (r: EarningPayoutInstructorRow) => r.pending_earnings),
+        moneyColumn('available_earnings', 'Thu nhập khả dụng', (r: EarningPayoutInstructorRow) => r.available_earnings),
         moneyColumn('payable_earnings', 'Cần chi trả', (r: EarningPayoutInstructorRow) => r.payable_earnings),
-        moneyColumn('paid_earnings', 'Paid earning', (r: EarningPayoutInstructorRow) => r.paid_earnings),
-        moneyColumn('payout_requested', 'Payout requested', (r: EarningPayoutInstructorRow) => r.payout_requested),
-        moneyColumn('payout_processed', 'Processed gross', (r: EarningPayoutInstructorRow) => r.payout_processed),
-        moneyColumn('payout_processed_net', 'Processed net', (r: EarningPayoutInstructorRow) => r.payout_processed_net),
-        moneyColumn('payout_pending', 'Payout pending', (r: EarningPayoutInstructorRow) => r.payout_pending),
-        moneyColumn('settlement_gap', 'Paid - processed net', (r: EarningPayoutInstructorRow) => r.settlement_gap),
-        numberColumn('earning_count', 'Earning rows', (r: EarningPayoutInstructorRow) => r.earning_count),
-        numberColumn('payout_count', 'Payout rows', (r: EarningPayoutInstructorRow) => r.payout_count),
-        numberColumn('payout_processed_count', 'Processed rows', (r: EarningPayoutInstructorRow) => r.payout_processed_count),
+        moneyColumn('paid_earnings', 'Thu nhập đã thanh toán', (r: EarningPayoutInstructorRow) => r.paid_earnings),
+        moneyColumn('payout_requested', 'Yêu cầu chi trả', (r: EarningPayoutInstructorRow) => r.payout_requested),
+        moneyColumn('payout_processed', 'Chi trả đã xử lý (gộp)', (r: EarningPayoutInstructorRow) => r.payout_processed),
+        moneyColumn('payout_processed_net', 'Chi trả đã xử lý (thuần)', (r: EarningPayoutInstructorRow) => r.payout_processed_net),
+        moneyColumn('payout_pending', 'Chi trả đang chờ', (r: EarningPayoutInstructorRow) => r.payout_pending),
+        moneyColumn('settlement_gap', 'Chênh lệch đã trả - đã xử lý thuần', (r: EarningPayoutInstructorRow) => r.settlement_gap),
+        numberColumn('earning_count', 'Số dòng thu nhập', (r: EarningPayoutInstructorRow) => r.earning_count),
+        numberColumn('payout_count', 'Số dòng chi trả', (r: EarningPayoutInstructorRow) => r.payout_count),
+        numberColumn('payout_processed_count', 'Số dòng đã xử lý', (r: EarningPayoutInstructorRow) => r.payout_processed_count),
       ],
     }
   }
@@ -756,7 +769,7 @@ function getCurrentTable(activeTab: MainTab, revenueView: RevenueView, data: any
       filename: 'refunds',
       rows,
       columns: [
-        { key: 'status', label: 'Trạng thái', sortable: true, value: (r: any) => r.status },
+        { key: 'status', label: 'Trạng thái', sortable: true, value: (r: any) => getRefundStatusLabel(r.status) },
         numberColumn('count', 'Số lượng', (r: any) => r.count),
         moneyColumn('amount', 'Số tiền', (r: any) => r.amount),
       ],
@@ -770,8 +783,8 @@ function getCurrentTable(activeTab: MainTab, revenueView: RevenueView, data: any
     columns: [
       { key: 'title', label: 'Khóa học', searchable: true, sortable: true, value: (r: TopCourse) => r.title },
       { key: 'instructor_name', label: 'Giảng viên', searchable: true, sortable: true, value: (r: TopCourse) => r.instructor_name || '' },
-      numberColumn('rating', 'Rating', (r: TopCourse) => r.rating),
-      numberColumn('enrollment_count', 'Enrollment', (r: TopCourse) => r.enrollment_count),
+      numberColumn('rating', 'Đánh giá', (r: TopCourse) => r.rating),
+      numberColumn('enrollment_count', 'Ghi danh', (r: TopCourse) => r.enrollment_count),
     ],
   }
 }
@@ -784,11 +797,11 @@ function periodRevenueTable(rows: RevenuePeriodRow[], view: RevenueView) {
     rows,
     columns: [
       { key: 'date', label, sortable: true, value: (r: RevenuePeriodRow) => r.date },
-      moneyColumn('retail', 'Retail revenue', (r: RevenuePeriodRow) => r.retail),
-      moneyColumn('subscription', 'Subscription revenue', (r: RevenuePeriodRow) => r.subscription),
-      moneyColumn('gross', 'Gross', (r: RevenuePeriodRow) => r.gross),
-      moneyColumn('refunded', 'Refunded', (r: RevenuePeriodRow) => r.refunded),
-      moneyColumn('net', 'Net', (r: RevenuePeriodRow) => r.net),
+      moneyColumn('retail', 'Doanh thu bán lẻ', (r: RevenuePeriodRow) => r.retail),
+      moneyColumn('subscription', 'Doanh thu gói đăng ký', (r: RevenuePeriodRow) => r.subscription),
+      moneyColumn('gross', 'Doanh thu gộp', (r: RevenuePeriodRow) => r.gross),
+      moneyColumn('refunded', 'Đã hoàn tiền', (r: RevenuePeriodRow) => r.refunded),
+      moneyColumn('net', 'Doanh thu thuần', (r: RevenuePeriodRow) => r.net),
       numberColumn('transactions', 'Giao dịch', (r: RevenuePeriodRow) => r.transactions),
     ],
   }
@@ -804,11 +817,11 @@ function subscriptionTable(subscription: SubscriptionMetrics | null) {
       { key: 'plan_name', label: 'Gói', searchable: true, sortable: true, value: (r: any) => r.plan_name },
       moneyColumn('revenue', 'Doanh thu', (r: any) => r.revenue),
       numberColumn('payments', 'Thanh toán', (r: any) => r.payments),
-      numberColumn('new_subscribers', 'Subscriber mới', (r: any) => r.new_subscribers),
-      numberColumn('active_subscribers', 'Đang active', (r: any) => r.active_subscribers),
+      numberColumn('new_subscribers', 'Người đăng ký mới', (r: any) => r.new_subscribers),
+      numberColumn('active_subscribers', 'Đang hoạt động', (r: any) => r.active_subscribers),
       numberColumn('cancelled_subscribers', 'Hủy', (r: any) => r.cancelled_subscribers),
       numberColumn('expired_subscribers', 'Hết hạn', (r: any) => r.expired_subscribers),
-      { key: 'churn_rate', label: 'Churn rate', align: 'right', sortable: true, value: (r: any) => r.churn_rate, render: (r: any) => `${r.churn_rate}%` },
+      { key: 'churn_rate', label: 'Tỷ lệ rời bỏ', align: 'right', sortable: true, value: (r: any) => r.churn_rate, render: (r: any) => `${r.churn_rate}%` },
     ],
   }
 }

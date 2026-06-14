@@ -7,10 +7,12 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Search, HelpCircle } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
-import { type Question, getQuestions } from '../../services/qa.api'
+import { type Question, getQuestions, deleteQuestion } from '../../services/qa.api'
 import { QuestionCard } from '../../components/qa/QuestionCard'
+import { toast } from 'sonner'
 
 type SortOption = 'newest' | 'votes' | 'unanswered'
+type TabOption = 'all' | 'mine'
 
 const POPULAR_TAGS = ['python', 'django', 'javascript', 'react', 'css', 'sql', 'api', 'html', 'git', 'testing']
 
@@ -28,6 +30,7 @@ export function QuestionsPage() {
   const [searchInput, setSearchInput] = useState(initialSearch)
   const [activeTag, setActiveTag] = useState(initialTag)
   const [sort, setSort] = useState<SortOption>('newest')
+  const [tab, setTab] = useState<TabOption>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
@@ -41,6 +44,7 @@ export function QuestionsPage() {
         sort,
         page,
         page_size: 20,
+        author_id: tab === 'mine' && user ? user.id : undefined,
       })
       setQuestions(res.results)
       setTotalPages(res.total_pages)
@@ -50,7 +54,7 @@ export function QuestionsPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, activeTag, sort, page])
+  }, [search, activeTag, sort, page, tab, user])
 
   useEffect(() => {
     fetchQuestions()
@@ -72,11 +76,51 @@ export function QuestionsPage() {
     setPage(1)
   }
 
+  const handleTabChange = (value: string) => {
+    setTab(value as TabOption)
+    setPage(1)
+  }
+
+  const handleEdit = (question: Question) => {
+    navigate(`/qa/ask?edit=${question.id}`)
+  }
+
+  const handleDelete = async (question: Question) => {
+    if (!confirm('Bạn có chắc muốn xóa câu hỏi này?')) return
+    try {
+      await deleteQuestion(question.id)
+      toast.success('Đã xóa câu hỏi')
+      fetchQuestions()
+    } catch {
+      toast.error('Xóa câu hỏi thất bại')
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex gap-6">
         {/* Main content */}
         <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-gray-900">Hỏi &amp; Đáp</h1>
+            {user && (
+              <Button size="sm" onClick={() => navigate('/qa/ask')}>
+                Đặt câu hỏi
+              </Button>
+            )}
+          </div>
+
+          {/* Tabs: all / mine */}
+          {user && (
+            <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
+              <TabsList>
+                <TabsTrigger value="all">Tất cả câu hỏi</TabsTrigger>
+                <TabsTrigger value="mine">Câu hỏi của tôi</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+
           {/* Search */}
           <form onSubmit={handleSearch} className="flex gap-2 mb-4">
             <div className="relative flex-1">
@@ -133,7 +177,9 @@ export function QuestionsPage() {
             ) : questions.length === 0 ? (
               <div className="py-16 text-center text-gray-500">
                 <HelpCircle className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                <p className="font-medium">Không tìm thấy câu hỏi nào</p>
+                <p className="font-medium">
+                  {tab === 'mine' ? 'Bạn chưa có câu hỏi nào' : 'Không tìm thấy câu hỏi nào'}
+                </p>
                 {user && (
                   <Button variant="link" onClick={() => navigate('/qa/ask')}>
                     Đặt câu hỏi đầu tiên →
@@ -141,7 +187,14 @@ export function QuestionsPage() {
                 )}
               </div>
             ) : (
-              questions.map(q => <QuestionCard key={q.id} question={q} />)
+              questions.map(q => (
+                <QuestionCard
+                  key={q.id}
+                  question={q}
+                  onEdit={tab === 'mine' ? handleEdit : undefined}
+                  onDelete={tab === 'mine' ? handleDelete : undefined}
+                />
+              ))
             )}
           </div>
 
