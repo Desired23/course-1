@@ -154,7 +154,7 @@ function Pagination({
 export function CoursesPage() {
   const { t } = useTranslation()
   const { currentRoute } = useRouter()
-  const { isOwned, getProgress } = useOwnedCourses()
+  const { isEnrolled, isInSubscription, getProgress } = useOwnedCourses()
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [gridCols, setGridCols] = useState(3)
@@ -169,6 +169,7 @@ export function CoursesPage() {
   const [selectedDurations, setSelectedDurations] = useState<string[]>([])
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([])
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
+  const [featuredOnly, setFeaturedOnly] = useState(false)
 
 
   const [sortBy, setSortBy] = useState('popularity')
@@ -266,13 +267,14 @@ export function CoursesPage() {
         .join(',')
     }
     if (selectedFeatures.includes(t('courses_page.certificate_feature'))) p.certificate = true
+    if (featuredOnly) p.is_featured = true
     if (priceRange[0] > PRICE_MIN) p.price_min = priceRange[0]
     if (priceRange[1] < PRICE_MAX) p.price_max = priceRange[1]
     return JSON.stringify(p)
   }, [
     currentPage, itemsPerPage, selectedCategory, selectedSubcategories,
     selectedLevels, selectedLanguages, selectedDurations, selectedFeatures,
-    searchTerm, sortBy,
+    featuredOnly, searchTerm, sortBy,
 
     selectedRatings.length > 0 ? Math.min(...selectedRatings) : null,
     priceRange,
@@ -343,6 +345,7 @@ export function CoursesPage() {
     if (params.query) {
       setSearchTerm(params.query)
     }
+    setFeaturedOnly(params.featured === 'true' || params.featured === '1')
     setCurrentPage(1)
   }, [currentRoute, categoryTree])
 
@@ -444,7 +447,8 @@ export function CoursesPage() {
       bestseller: course.total_students > 100000,
       currency: 'VND' as const,
       discountEndDate: hasDiscount ? course.discount_end_date : undefined,
-      isOwned: isOwned(course.id),
+      isOwned: isEnrolled(course.id),
+      inSubscription: isInSubscription(course.id),
       progress: getProgress(course.id),
     }
   })

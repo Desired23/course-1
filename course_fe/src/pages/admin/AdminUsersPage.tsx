@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { adminUpdateUser, deleteUser as deleteUserApi, getUsers, exportAdminUsers, exportAdminInstructors } from '../../services/admin.api'
 import type { UserItem } from '../../services/admin.api'
+import { getInstructorLevels, type InstructorLevel } from '../../services/instructor-levels.api'
+import { assignInstructorLevel } from '../../services/instructor.api'
 
 import { FilterComponents } from "../../components/FilterComponents"
 import { Button } from "../../components/ui/button"
@@ -12,6 +14,9 @@ import { Skeleton } from '../../components/ui/skeleton'
 import { UserPagination } from '../../components/UserPagination'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "../../components/ui/dialog"
 import { Checkbox } from "../../components/ui/checkbox"
 import {
   Table,
@@ -42,6 +47,7 @@ import {
   Users,
   Loader2,
   Download,
+  Award,
 } from "lucide-react"
 import { motion } from 'motion/react'
 import { cn } from "../../components/ui/utils"
@@ -80,6 +86,9 @@ interface User {
   coursesCreated?: number
   joinDate: string
   lastActive: string
+  instructorId?: number | null
+  instructorLevel?: { id: number; name: string } | null
+  instructorLevelLocked?: boolean | null
 }
 
 interface UserCounts {
@@ -121,7 +130,10 @@ function mapApiUser(u: UserItem): User {
     enrollments: u.enrollment_count ?? 0,
     coursesCreated: u.courses_count ?? undefined,
     joinDate: u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
-    lastActive: u.last_login ? new Date(u.last_login).toLocaleDateString() : ''
+    lastActive: u.last_login ? new Date(u.last_login).toLocaleDateString() : '',
+    instructorId: u.instructor_id ?? null,
+    instructorLevel: u.instructor_level ?? null,
+    instructorLevelLocked: u.instructor_level_locked ?? null,
   }
 }
 
@@ -166,6 +178,11 @@ export function AdminUsersPage() {
   const [exportDateFrom, setExportDateFrom] = useState('')
   const [exportDateTo, setExportDateTo] = useState('')
   const [isExporting, setIsExporting] = useState(false)
+  const [levels, setLevels] = useState<InstructorLevel[]>([])
+  const [levelDialogUser, setLevelDialogUser] = useState<User | null>(null)
+  const [selectedLevelId, setSelectedLevelId] = useState<string>('')
+  const [selectedLevelLocked, setSelectedLevelLocked] = useState(true)
+  const [savingLevel, setSavingLevel] = useState(false)
 
   const renderUsersTableSkeleton = () => (
     <div className="space-y-3 p-4">
@@ -228,7 +245,29 @@ export function AdminUsersPage() {
 
   useEffect(() => {
     loadCounts()
+    getInstructorLevels().then(setLevels).catch(() => setLevels([]))
   }, [])
+
+  const openLevelDialog = (user: User) => {
+    setLevelDialogUser(user)
+    setSelectedLevelId(user.instructorLevel?.id ? String(user.instructorLevel.id) : '')
+    setSelectedLevelLocked(user.instructorLevelLocked ?? true)
+  }
+
+  const handleSaveLevel = async () => {
+    if (!levelDialogUser?.instructorId || !selectedLevelId) return
+    try {
+      setSavingLevel(true)
+      await assignInstructorLevel(levelDialogUser.instructorId, Number(selectedLevelId), selectedLevelLocked)
+      toast.success(t('admin_users.toasts.level_update_success'))
+      setLevelDialogUser(null)
+      await refreshAfterMutation()
+    } catch {
+      toast.error(t('admin_users.toasts.level_update_failed'))
+    } finally {
+      setSavingLevel(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -633,6 +672,12 @@ export function AdminUsersPage() {
                             <Shield className="h-4 w-4 mr-2" />
                             {t('admin_users.manage_roles')}
                           </DropdownMenuItem>
+                          {user.roles.includes('instructor') && user.instructorId && (
+                            <DropdownMenuItem onClick={() => openLevelDialog(user)}>
+                              <Award className="h-4 w-4 mr-2" />
+                              {t('admin_users.change_level')}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           {user.status === 'active' ? (
                             <DropdownMenuItem
@@ -695,6 +740,46 @@ export function AdminUsersPage() {
           />
         </motion.div>
       )}
+
+      <Dialog open={!!levelDialogUser} onOpenChange={(open) => !open && setLevelDialogUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('admin_users.change_level_title')}</DialogTitle>
+            <DialogDescription>
+              {t('admin_users.change_level_description', { name: levelDialogUser?.name })}
+            </DialogDescription>
+          </DialogHeader>
+          <FilterComponents.Select
+            label={t('admin_users.level_label')}
+            value={selectedLevelId}
+            options={levels.map((lvl) => ({ value: String(lvl.id), label: lvl.name }))}
+            onChange={setSelectedLevelId}
+            className="w-full"
+          />
+          <div className="flex items-start gap-3 mt-3">
+            <Checkbox
+              id="dialog-level-locked"
+              checked={selectedLevelLocked}
+              onCheckedChange={(checked) => setSelectedLevelLocked(checked === true)}
+            />
+            <label htmlFor="dialog-level-locked" className="text-sm cursor-pointer">
+              {t('admin_users.lock_level_label')}
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {t('admin_users.lock_level_description')}
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLevelDialogUser(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSaveLevel} disabled={savingLevel || !selectedLevelId} className="gap-2">
+              {savingLevel && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AdminConfirmDialog
         open={confirmState.open}

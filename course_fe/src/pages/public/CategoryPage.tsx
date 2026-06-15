@@ -49,7 +49,7 @@ const durations = [
 
 export default function CategoryPage() {
   const { currentRoute, navigate } = useRouter()
-  const { isOwned: isOwnedCourse, getProgress } = useOwnedCourses()
+  const { isEnrolled: isOwnedCourse, isInSubscription, getProgress } = useOwnedCourses()
   const { t } = useTranslation()
 
 
@@ -455,6 +455,7 @@ export default function CategoryPage() {
                       variant={viewMode === 'list' ? 'horizontal' : 'vertical'}
                       discountEndDate={hasDiscount ? course.discount_end_date : undefined}
                       isOwned={isOwnedCourse(course.id)}
+                      inSubscription={isInSubscription(course.id)}
                       progress={getProgress(course.id)}
                     />
                     </motion.div>

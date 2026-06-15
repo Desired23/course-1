@@ -14,8 +14,7 @@ import { http } from './http'
 
 
 
-export type LessonContentType = 'video' | 'text' | 'quiz' | 'code' | 'assignment' | 'file' | 'link'
-export type LessonStatus = 'draft' | 'published'
+export type LessonContentType = 'video' | 'quiz' | 'code'
 
 export interface Lesson {
   id: number
@@ -37,7 +36,6 @@ export interface Lesson {
   duration: number | null
   is_free: boolean
   order: number
-  status: LessonStatus
   created_at: string
   updated_at: string
 }
@@ -54,7 +52,6 @@ export interface LessonCreateData {
   duration?: number
   is_free?: boolean
   order: number
-  status?: LessonStatus
 }
 
 export interface LessonUpdateData {
@@ -69,12 +66,6 @@ export interface LessonUpdateData {
   duration?: number
   is_free?: boolean
   order?: number
-  status?: LessonStatus
-
-  status_reason?: string
-  send_notification?: boolean
-  notify_title?: string
-  notify_message?: string
 }
 
 export interface PaginatedLessons {
@@ -94,7 +85,6 @@ export async function getLessons(params?: {
   coursemodule_id?: number
   content_type?: LessonContentType
   instructor_id?: number
-  status?: LessonStatus
   search?: string
   ordering?: string
   page?: number
@@ -104,7 +94,6 @@ export async function getLessons(params?: {
   if (params?.coursemodule_id) search.set('coursemodule_id', String(params.coursemodule_id))
   if (params?.content_type) search.set('content_type', params.content_type)
   if (params?.instructor_id) search.set('instructor_id', String(params.instructor_id))
-  if (params?.status) search.set('status', params.status)
   if (params?.search) search.set('search', params.search)
   if (params?.ordering) search.set('ordering', params.ordering)
   if (params?.page) search.set('page', String(params.page))
@@ -151,12 +140,8 @@ export async function deleteLesson(lessonId: number): Promise<void> {
 export function getContentTypeLabel(type: LessonContentType): string {
   const labels: Record<LessonContentType, string> = {
     video: 'Video',
-    text: 'Article',
     quiz: 'Quiz',
     code: 'Coding Exercise',
-    assignment: 'Assignment',
-    file: 'Attachment',
-    link: 'Link',
   }
   return labels[type] || type
 }
@@ -164,12 +149,8 @@ export function getContentTypeLabel(type: LessonContentType): string {
 export function getContentTypeIcon(type: LessonContentType): string {
   const icons: Record<LessonContentType, string> = {
     video: 'Play',
-    text: 'FileText',
     quiz: 'HelpCircle',
     code: 'Code',
-    assignment: 'Edit',
-    file: 'Paperclip',
-    link: 'ExternalLink',
   }
   return icons[type] || 'File'
 }

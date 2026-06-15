@@ -19,6 +19,7 @@ import { ImageWithFallback } from "../../components/figma/ImageWithFallback"
 import { useTranslation } from "react-i18next"
 import { createPaymentRecord, createVnpayPayment, createMomoPayment, cancelPayment, type CreatePaymentResponse } from "../../services/payment.api"
 import { formatCartPrice } from "../../services/cart.api"
+import { validatePromotionCode } from "../../services/promotion.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
 import { listItemTransition } from "../../lib/motion"
 import { toast } from "sonner"
@@ -59,7 +60,8 @@ const fadeInUp = {
 
 function calculateCheckoutTotals(
   items: Array<{ currentPrice: number; originalPrice: number; couponDiscount?: number }>,
-  orderCoupon: { discount: number; discountType: 'percentage' | 'fixed' } | null
+  orderCoupon: { discount: number; discountType: 'percentage' | 'fixed' } | null,
+  appliedPromotion: { totalDiscount: number } | null
 ) {
   const originalPrice = items.reduce((total, item) => total + item.currentPrice, 0)
   const discountedSubtotal = items.reduce((total, item) => {
@@ -67,13 +69,20 @@ function calculateCheckoutTotals(
     return total + effectivePrice
   }, 0)
 
-  const orderDiscount = orderCoupon
-    ? orderCoupon.discountType === 'percentage'
-      ? (discountedSubtotal * orderCoupon.discount) / 100
-      : orderCoupon.discount
-    : 0
+  // The summary shows a single coupon discount — appliedPromotion.totalDiscount (the
+  // amount the backend validated), falling back to orderCoupon. Subtract exactly that
+  // from the total so the displayed total always agrees with the discount line, even
+  // when the discount isn't reflected per-item. min() guards against double-counting a
+  // per-item (instructor) discount that's already in discountedSubtotal.
+  const couponDiscount = appliedPromotion
+    ? appliedPromotion.totalDiscount
+    : orderCoupon
+      ? orderCoupon.discountType === 'percentage'
+        ? (originalPrice * orderCoupon.discount) / 100
+        : orderCoupon.discount
+      : 0
 
-  const totalPrice = Math.max(0, discountedSubtotal - orderDiscount)
+  const totalPrice = Math.max(0, Math.min(discountedSubtotal, originalPrice - couponDiscount))
   const savings = items.reduce((total, item) => total + item.originalPrice, 0) - totalPrice
 
   return {
@@ -169,8 +178,8 @@ export function CheckoutPage() {
   }, [cartItems, selectedCartItemIds, t])
 
   const checkoutTotals = useMemo(
-    () => calculateCheckoutTotals(checkoutItems, orderCoupon),
-    [checkoutItems, orderCoupon]
+    () => calculateCheckoutTotals(checkoutItems, orderCoupon, appliedPromotion),
+    [checkoutItems, orderCoupon, appliedPromotion]
   )
 
   const displayTotal = confirmedAmount ?? checkoutTotals.totalPrice
@@ -193,8 +202,30 @@ export function CheckoutPage() {
         promotion_id: item.promotionId || null,
       }))
 
-      const adminPromotionId =
-        appliedPromotion?.promotion.type === "admin" ? appliedPromotion.promotion.id : null
+      // Send the order-level promotion id from whichever source holds it, so the amount
+      // charged matches the discount shown. appliedPromotion and orderCoupon can drift
+      // apart; checking both avoids skipping the discount on the backend.
+      let adminPromotionId =
+        appliedPromotion?.promotion.type === "admin"
+          ? appliedPromotion.promotion.id
+          : (orderCoupon?.promotionId ?? null)
+
+      // Self-heal stale carts: an order coupon is still shown (and subtracted from the
+      // total) but we don't have its promotion id — e.g. it was persisted before the id
+      // was stored, or appliedPromotion was dropped on cart reload. Re-validate the code
+      // so the backend applies the same discount the user sees instead of charging full price.
+      if (!adminPromotionId && orderCoupon?.code) {
+        try {
+          const courseIds = checkoutItems.map((item) => Number(item.courseId || item.id))
+          const revalidated = await validatePromotionCode(orderCoupon.code, courseIds)
+          if (revalidated.promotion.type === "admin") {
+            adminPromotionId = revalidated.promotion.id
+          }
+        } catch {
+          // Leave adminPromotionId null; the price-reconciliation step below still
+          // protects the user from being charged the wrong amount.
+        }
+      }
 
       const result = await createPaymentRecord({
         user_id: Number(user.id),

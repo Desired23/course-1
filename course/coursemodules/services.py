@@ -2,8 +2,6 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 
 from .models import CourseModule
 from .serializers import CourseModuleSerializer
-from activity_logs.services import log_activity
-from notifications.services import create_notification
 from courses.services import mark_course_content_changed
 from utils.roles import is_active_admin, is_active_instructor
 
@@ -21,8 +19,6 @@ def get_course_modules(filters=None):
     if filters:
         if filters.get("course_id") is not None:
             course_modules = course_modules.filter(course_id=filters["course_id"])
-        if filters.get("status"):
-            course_modules = course_modules.filter(status=filters["status"])
 
     return course_modules.order_by("order_number", "id")
 
@@ -48,27 +44,6 @@ def create_course_module(data):
     raise ValidationError(serializer.errors)
 
 
-def _pop_status_update_meta(data):
-    payload = data.copy()
-
-    status_reason = payload.pop('status_reason', None)
-    send_notification = payload.pop('send_notification', False)
-    notify_title = payload.pop('notify_title', None)
-    notify_message = payload.pop('notify_message', None)
-
-    if isinstance(send_notification, str):
-        send_notification = send_notification.lower() in ('1', 'true', 'yes', 'on')
-    else:
-        send_notification = bool(send_notification)
-
-    return payload, {
-        'status_reason': (status_reason or '').strip() if status_reason else '',
-        'send_notification': send_notification,
-        'notify_title': (notify_title or '').strip() if notify_title else '',
-        'notify_message': (notify_message or '').strip() if notify_message else '',
-    }
-
-
 def update_course_module(course_module_id, data, requesting_user=None):
     try:
         course_module = CourseModule.objects.get(id=course_module_id)
@@ -82,8 +57,12 @@ def update_course_module(course_module_id, data, requesting_user=None):
         if not is_active_instructor(requesting_user) or owner_instructor_id != instructor.id:
             raise PermissionDenied("Bạn không có quyền chỉnh sửa module này.")
 
-    update_payload, status_meta = _pop_status_update_meta(data)
-    old_status = course_module.status
+    update_payload = data.copy()
+    update_payload.pop('status', None)
+    update_payload.pop('status_reason', None)
+    update_payload.pop('send_notification', None)
+    update_payload.pop('notify_title', None)
+    update_payload.pop('notify_message', None)
     previous_course_id = course_module.course_id
     serializer = CourseModuleSerializer(course_module, data=update_payload, partial=True)
     if serializer.is_valid(raise_exception=True):
@@ -95,49 +74,6 @@ def update_course_module(course_module_id, data, requesting_user=None):
             recalc_course_structure(course_id)
         if not is_admin and getattr(updated_course_module, 'course', None):
             mark_course_content_changed(updated_course_module.course)
-
-        if old_status != updated_course_module.status:
-            actor_label = 'Admin' if is_admin else 'Instructor'
-            reason_suffix = f" | Reason: {status_meta['status_reason']}" if status_meta['status_reason'] else ''
-            log_activity(
-                user_id=requesting_user.id if requesting_user else None,
-                action="UPDATE",
-                entity_type="CourseModule",
-                entity_id=updated_course_module.id,
-                description=(
-                    f"{actor_label} changed module status '{updated_course_module.title}' "
-                    f"from '{old_status}' to '{updated_course_module.status}'{reason_suffix}"
-                ),
-            )
-
-            if is_admin and status_meta['send_notification']:
-                instructor_user_id = (
-                    updated_course_module.course.instructor.user.id
-                    if updated_course_module.course and updated_course_module.course.instructor
-                    else None
-                )
-                if instructor_user_id:
-                    module_labels = {'Draft': 'Bản nháp', 'Published': 'Đã xuất bản'}
-                    new_label = module_labels.get(updated_course_module.status, updated_course_module.status)
-                    title = status_meta['notify_title'] or f"Cập nhật chương \"{updated_course_module.title}\""
-                    default_message = (
-                        f"Chương \"{updated_course_module.title}\" đã được cập nhật trạng thái thành \"{new_label}\"."
-                    )
-                    if status_meta['status_reason']:
-                        default_message += f" Lý do: {status_meta['status_reason']}"
-                    message = status_meta['notify_message'] or default_message
-                    try:
-                        create_notification(
-                            receiver_id=instructor_user_id,
-                            title=title,
-                            message=message,
-                            type='course',
-                            related_id=updated_course_module.id,
-                            sender=requesting_user.id if requesting_user else None,
-                            notification_code='module_status_changed_by_admin',
-                        )
-                    except Exception:
-                        pass
 
         return updated_course_module
     raise ValidationError(serializer.errors)

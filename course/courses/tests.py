@@ -57,3 +57,51 @@ class CourseStudentsViewTests(TestCase):
         row = response.data["results"][0]
         self.assertIn("study_time_minutes", row)
         self.assertIn("rating", row)
+
+
+class InstructorCourseStatusTests(TestCase):
+    def setUp(self):
+        self.instructor_user = make_user("instructor", username="status_inst")
+        self.client = auth_client(self.instructor_user)
+        self.category = Category.objects.create(name="Business", status="active")
+        self.course = Course.objects.create(
+            title="Published Course",
+            instructor=self.instructor_user.instructor,
+            category=self.category,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+            published_date=timezone.now(),
+        )
+
+    def test_instructor_cannot_archive_course_with_active_student_access(self):
+        student = make_user("student", username="active_course_student")
+        Enrollment.objects.create(
+            user=student,
+            course=self.course,
+            status=Enrollment.Status.Active,
+            enrollment_date=timezone.now(),
+        )
+
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/update",
+            {"status": Course.Status.ARCHIVED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+
+    def test_instructor_restore_archived_course_sends_to_review(self):
+        self.course.status = Course.Status.ARCHIVED
+        self.course.save(update_fields=["status", "updated_at"])
+
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/update",
+            {"status": Course.Status.PENDING},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.PENDING)

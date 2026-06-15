@@ -25,6 +25,7 @@ type Data = {
   learningObjectives: Item[]; requirements: Item[]; targetAudience: Item[]; courseImagePreview: string | null; promotionalVideoPreview: string | null;
   price: string; currency: string; tags: string[]
 }
+type CourseStatus = 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
 
 const initialData: Data = { title: '', subtitle: '', description: '', category: '', subcategory: '', language: 'Vietnamese', level: '', learningObjectives: [], requirements: [], targetAudience: [], courseImagePreview: null, promotionalVideoPreview: null, price: '', currency: 'VND', tags: [] }
 const getId = (value: unknown) => typeof value === 'number' ? String(value) : typeof value === 'object' && value && typeof (value as Record<string, unknown>).id === 'number' ? String((value as Record<string, number>).id) : ''
@@ -70,6 +71,7 @@ export function InstructorCourseLandingPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Category[]>([])
   const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [currentCourseStatus, setCurrentCourseStatus] = useState<CourseStatus>('draft')
   const [newObjective, setNewObjective] = useState('')
   const [newRequirement, setNewRequirement] = useState('')
   const [newAudience, setNewAudience] = useState('')
@@ -93,6 +95,7 @@ export function InstructorCourseLandingPage() {
         if (courseId !== 'new') {
           const course = await getCourseById(Number(courseId))
           if (cancelled) return
+          setCurrentCourseStatus(course.status as CourseStatus)
           setData({
             title: course.title || '', subtitle: course.shortdescription || '', description: course.description || '',
             category: getId(course.category), subcategory: getId(course.subcategory), language: normalizeLanguage(course.language), level: course.level || '',
@@ -145,13 +148,25 @@ export function InstructorCourseLandingPage() {
     if (!data.courseImagePreview) return void (toast.error(t('instructor_course_landing_page.toasts.image_required')), setActiveTab('media'))
     try {
       setSaving(true)
+      const nextStatus =
+        courseId === 'new'
+          ? status === 'submit_review' ? 'pending' : 'draft'
+          : currentCourseStatus === 'draft' || currentCourseStatus === 'rejected'
+            ? status === 'submit_review' ? 'pending' : 'draft'
+            : currentCourseStatus
       const payload: Record<string, any> = {
         title: data.title.trim(), shortdescription: data.subtitle.trim(), description: data.description.trim(), category: Number(data.category), subcategory: data.subcategory ? Number(data.subcategory) : null,
         level: data.level || 'all_levels', language: data.language || 'Vietnamese', price: data.price ? Number(data.price) : 0, thumbnail: data.courseImagePreview || null, promotional_video: data.promotionalVideoPreview || null,
-        learning_objectives: data.learningObjectives.map((x) => x.text), requirements: data.requirements.map((x) => x.text).join('\n'), target_audience: data.targetAudience.map((x) => x.text), tags: data.tags, status: status === 'submit_review' ? 'pending' : 'draft',
+        learning_objectives: data.learningObjectives.map((x) => x.text), requirements: data.requirements.map((x) => x.text).join('\n'), target_audience: data.targetAudience.map((x) => x.text), tags: data.tags, status: nextStatus,
       }
       if (courseId === 'new') { if (instructorId) payload.instructor = instructorId; await createCourse(payload) } else { await updateCourse(Number(courseId), payload) }
-      toast.success(t(status === 'draft' ? 'instructor_course_landing_page.toasts.saved_draft' : 'instructor_course_landing_page.toasts.submitted_review'))
+      setCurrentCourseStatus(nextStatus as CourseStatus)
+      const toastKey = nextStatus === 'pending'
+        ? 'instructor_course_landing_page.toasts.submitted_review'
+        : nextStatus === 'draft'
+          ? 'instructor_course_landing_page.toasts.saved_draft'
+          : 'instructor_course_landing_page.toasts.saved_changes'
+      toast.success(t(toastKey))
       setTimeout(() => navigate('/instructor/courses'), 1000)
     } catch (err: any) {
       console.error(err)

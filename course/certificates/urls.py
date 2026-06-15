@@ -4,7 +4,9 @@ from .views import (
     CertificateGenerateView,
     CertificateVerifyView,
     CertificateUserView,
+    CertificateSyncView,
     CertificateAdminView,
+    CertificateAdminCoursePreviewView,
     CertificateDownloadView,
     CertificatePublicDownloadView,
 )
@@ -16,7 +18,9 @@ urlpatterns = [
     path('certificates/public/<str:verification_code>/download/', CertificatePublicDownloadView.as_view(), name='certificate-public-download'),
     path('certificates/verify/<str:verification_code>/', CertificateVerifyView.as_view(), name='certificate-verify'),
     path('certificates/me/', CertificateUserView.as_view(), name='certificate-user'),
+    path('certificates/sync/', CertificateSyncView.as_view(), name='certificate-sync'),
     path('certificates/admin/', CertificateAdminView.as_view(), name='certificate-admin'),
+    path('certificates/admin/courses/<int:course_id>/preview/', CertificateAdminCoursePreviewView.as_view(), name='certificate-admin-course-preview'),
     path('certificates/admin/<int:certificate_id>/', CertificateAdminView.as_view(), name='certificate-admin-detail'),
 ]
 

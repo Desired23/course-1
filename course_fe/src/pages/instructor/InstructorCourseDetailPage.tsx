@@ -240,7 +240,7 @@ export function InstructorCourseDetailPage() {
       })
     }
 
-    if (course.status === "published") {
+    if (course.status === "published" && (course.total_students || 0) === 0) {
       actions.push({
         key: "archive",
         label: t("instructor_course_detail_page.archive"),
@@ -311,6 +311,11 @@ export function InstructorCourseDetailPage() {
               <p className="text-sm text-muted-foreground line-clamp-1">{course.shortdescription || course.description?.slice(0, 100)}</p>
               {course.status === "archived" && course.content_changed_since_publish && (
                 <p className="text-xs text-amber-600 mt-2">{t("instructor_course_detail_page.archived_changed_notice")}</p>
+              )}
+              {course.status === "published" && (course.total_students || 0) > 0 && (
+                <p className="text-xs text-amber-600 mt-2">
+                  {t("instructor_course_detail_page.cannot_archive_has_students", "Không thể lưu trữ khóa học đang có học viên.")}
+                </p>
               )}
             </div>
           </div>

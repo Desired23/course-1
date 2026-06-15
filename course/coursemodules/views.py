@@ -23,8 +23,6 @@ class CourseModuleListView(APIView):
             if not str(course_id).isdigit():
                 return Response({"errors": {"course_id": ["course_id must be an integer"]}}, status=status.HTTP_400_BAD_REQUEST)
             filters['course_id'] = int(course_id)
-        if request.query_params.get('status'):
-            filters['status'] = request.query_params['status']
 
         course_modules = get_course_modules(filters if filters else None)
         return paginate_queryset(course_modules, request, CourseModuleSerializer)

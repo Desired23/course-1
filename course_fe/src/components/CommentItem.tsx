@@ -28,6 +28,8 @@ interface CommentItemProps {
   onDeleteComment?: (commentId: number) => void
   currentUser?: string
   isReply?: boolean
+  // When true, hide all write actions (reply / edit / delete) — view only.
+  readOnly?: boolean
 }
 
 export function CommentItem({
@@ -38,7 +40,8 @@ export function CommentItem({
   onEditComment,
   onDeleteComment,
   currentUser = 'You',
-  isReply = false
+  isReply = false,
+  readOnly = false
 }: CommentItemProps) {
   const { t } = useTranslation()
   const [replyContent, setReplyContent] = useState('')
@@ -99,6 +102,7 @@ export function CommentItem({
                          onEditComment={onEditComment}
                          onDeleteComment={onDeleteComment}
                          currentUser={currentUser}
+                         readOnly={readOnly}
                        />
                      ))}
                   </div>
@@ -132,7 +136,7 @@ export function CommentItem({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{comment.date}</span>
 
-                {(canEdit || canDelete) && !isEditing && (
+                {(canEdit || canDelete) && !isEditing && !readOnly && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-6 w-6 -mr-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -186,17 +190,19 @@ export function CommentItem({
                  <button className="flex items-center gap-1 hover:text-foreground transition-colors">
                     <ThumbsUp className="h-3 w-3" /> {comment.likes}
                  </button>
+                 {!readOnly && (
                  <button
                    onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
                    className="flex items-center gap-1 hover:text-foreground transition-colors"
                  >
                     <Reply className="h-3 w-3" /> {t('comment_item.reply')}
                  </button>
+                 )}
               </div>
             )}
 
 
-            {replyingTo === comment.id && !isEditing && (
+            {replyingTo === comment.id && !isEditing && !readOnly && (
               <div className="mt-3 flex gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
                  <div className="flex-1">
                    <Textarea

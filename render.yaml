@@ -54,6 +54,86 @@ services:
         sync: false
 
 
+  - type: cron
+    name: course-overdue-copyright
+    runtime: python
+    plan: free
+    rootDir: course
+    schedule: "0 * * * *"
+    buildCommand: ./build.sh
+    startCommand: python manage.py process_overdue_copyright_cases
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: course-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+      - key: FRONTEND_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+
+
+  - type: cron
+    name: course-settle-earnings
+    runtime: python
+    plan: free
+    rootDir: course
+    schedule: "30 0 * * *"
+    buildCommand: ./build.sh
+    startCommand: python manage.py settle_earnings
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: course-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+      - key: REDIS_URL
+        sync: false
+
+  - type: cron
+    name: course-run-payouts
+    runtime: python
+    plan: free
+    rootDir: course
+    schedule: "0 1 1 * *"
+    buildCommand: ./build.sh
+    startCommand: python manage.py run_payouts
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: course-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+
+
   - type: web
     name: course-fe
     runtime: static

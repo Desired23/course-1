@@ -61,7 +61,7 @@
       <div class="header">
         <h2>HÓA ĐƠN THANH TOÁN</h2>
         <p>Mã đơn hàng: {{ payment.id }}</p>
-        <p>Ngày thanh toán: {{ payment.pay_date }}</p>
+        <p>Ngày thanh toán: {{ payment.payment_date|date:"d/m/Y H:i" }}</p>
       </div>
 
       <div class="details">
@@ -78,12 +78,14 @@
             {% for item in payment_details %}
             <tr>
               <td style="display: flex; align-items: center; gap: 10px">
+                {% if item.course.thumbnail %}
                 <img
-                  src="{{ item.thumbnail }}"
+                  src="{{ item.course.thumbnail }}"
                   alt="Ảnh khóa học"
                   style="width: 60px; height: auto; border-radius: 4px"
                 />
-                <span>{{ item.title }}</span>
+                {% endif %}
+                <span>{{ item.course.title }}</span>
               </td>
               <td>{{ item.price|floatformat:0 }} đ</td>
               <td>{{ item.discount|floatformat:0 }} đ</td>

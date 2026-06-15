@@ -8,12 +8,23 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 
-def create_notification(receiver_id, title, message, type, related_id=None, sender=None, notification_code=None):
+def create_notification(
+    receiver_id,
+    title,
+    message,
+    type,
+    related_id=None,
+    sender=None,
+    notification_code=None,
+    action_url=None,
+    metadata=None,
+    force=False,
+):
     try:
         if not receiver_id:
             raise ValidationError({"receiver_id": ["This field is required."]})
 
-        if not is_notification_allowed(int(receiver_id), type, notification_code):
+        if not force and not is_notification_allowed(int(receiver_id), type, notification_code):
             return {
                 "skipped": True,
                 "reason": "notification_preference_disabled",
@@ -27,6 +38,8 @@ def create_notification(receiver_id, title, message, type, related_id=None, send
             'type': type,
             'related_id': related_id,
             'notification_code': notification_code,
+            'action_url': action_url,
+            'metadata': metadata or {},
         }
         if sender:
             data['sender'] = sender
@@ -66,7 +79,17 @@ def notify_role_updated(user_id):
         )
 
 
-def notify_admins(title, message, type, notification_code, related_id=None, sender_id=None):
+def notify_admins(
+    title,
+    message,
+    type,
+    notification_code,
+    related_id=None,
+    sender_id=None,
+    action_url=None,
+    metadata=None,
+    force=False,
+):
     admin_ids = User.objects.filter(
         admin__isnull=False, admin__is_deleted=False, is_deleted=False, status='active'
     ).values_list('id', flat=True)
@@ -79,6 +102,9 @@ def notify_admins(title, message, type, notification_code, related_id=None, send
             related_id=related_id,
             sender=sender_id,
             notification_code=notification_code,
+            action_url=action_url,
+            metadata=metadata,
+            force=force,
         )
 
 

@@ -1,257 +1,293 @@
 import json
-import threading
+import os
+from pathlib import Path
+
+from django.apps import apps
+from django.conf import settings
+from django.contrib.auth.hashers import make_password
+from django.db import connection, transaction
 from django.http import JsonResponse
-from django.db import connection
-from django.utils import timezone
 
-from config.reseed_engine import (
-    DEFAULT_PROFILE,
-    get_default_strict_mode,
-    get_reseed_status,
-    get_seed_secret,
-    start_reseed_run,
-)
-
-
-from subscription_plans.models import (
-    SubscriptionUsage,
-    UserSubscription,
-    CourseSubscriptionConsent,
-    PlanCourse,
-    SubscriptionPlan,
-)
-from applications.models import ApplicationResponse, Application
-from registration_forms.models import FormQuestion, RegistrationForm
-from activity_logs.models import ActivityLog
-from support_replies.models import SupportReply
-from supports.models import Support
-from systems_settings.models import PlatformSetting
-from notifications.models import Notification
-from instructor_payouts.models import InstructorPayout
-from instructor_earnings.models import InstructorEarning
-from payment_methods.models import InstructorPayoutMethod, UserPaymentMethod
-from payment_details.models import Payment_Details
-from payments.models import Payment
-from wishlists.models import Wishlist
-from carts.models import Cart
-from promotions.models import Promotion
-from answers.models import Answer
-from questions.models import Question
-from blog_comments.models import BlogComment
-from blog_posts.models import BlogPost
-from quiz_results.models import QuizResult
-from quiz_questions.models import QuizQuestion, QuizTestCase
-from reviews.models import Review
-from certificates.models import Certificate
-from learning_progress.models import LearningProgress
-from enrollments.models import Enrollment
-from lesson_comments.models import LessonComment
-from lesson_attachments.models import LessonAttachment
-from lessons.models import Lesson
-from coursemodules.models import CourseModule
-from courses.models import Course
-from instructors.models import Instructor
-from instructor_levels.models import InstructorLevel
-from categories.models import Category
 from admins.models import Admin
+from categories.models import Category
+from instructors.models import Instructor
+from registration_forms.models import FormQuestion, RegistrationForm
 from users.models import User
 
 
-SEED_SECRET = get_seed_secret()
+DEFAULT_PASSWORD = "password123"
+
+# App labels Django manages itself — never wiped.
+_SYSTEM_APP_LABELS = {"admin", "auth", "contenttypes", "sessions"}
+
+# One blank account per role. Login works; no other personal data.
+ACCOUNTS = (
+    {
+        "username": "admin",
+        "email": "admin@example.com",
+        "full_name": "Platform Admin",
+        "phone": "0900000001",
+        "role": "admin",
+    },
+    {
+        "username": "instructor",
+        "email": "instructor@example.com",
+        "full_name": "Instructor",
+        "phone": "0900000002",
+        "role": "instructor",
+    },
+    {
+        "username": "student",
+        "email": "student@example.com",
+        "full_name": "Student",
+        "phone": "0900000003",
+        "role": "student",
+    },
+)
+
+# Canonical instructor-application questions.
+INSTRUCTOR_FORM_QUESTIONS = (
+    {
+        "order": 1,
+        "label": "Giới thiệu bản thân (Bio)",
+        "type": "textarea",
+        "placeholder": "Hãy kể về bản thân, kinh nghiệm và lý do bạn muốn giảng dạy...",
+        "help_text": "Tối thiểu vài câu để học viên hiểu về bạn.",
+        "required": True,
+    },
+    {
+        "order": 2,
+        "label": "Chuyên ngành giảng dạy",
+        "type": "text",
+        "placeholder": "VD: Lập trình Web, Marketing, Thiết kế đồ họa...",
+        "required": True,
+    },
+    {
+        "order": 3,
+        "label": "Bằng cấp / Chứng chỉ",
+        "type": "text",
+        "placeholder": "VD: Cử nhân CNTT, AWS Certified...",
+        "help_text": "Bằng cấp hoặc chứng chỉ liên quan đến lĩnh vực giảng dạy.",
+        "required": False,
+    },
+    {
+        "order": 4,
+        "label": "Số năm kinh nghiệm",
+        "type": "number",
+        "placeholder": "VD: 5",
+        "required": True,
+    },
+    {
+        "order": 5,
+        "label": "Trình độ chuyên môn",
+        "type": "select",
+        "options": ["Mới bắt đầu", "Trung cấp", "Nâng cao", "Chuyên gia"],
+        "required": True,
+    },
+    {
+        "order": 6,
+        "label": "Link hồ sơ / LinkedIn / Portfolio",
+        "type": "url",
+        "placeholder": "https://...",
+        "required": False,
+    },
+    {
+        "order": 7,
+        "label": "CV / Hồ sơ năng lực",
+        "type": "file",
+        "help_text": "Tải lên CV (PDF) hoặc hồ sơ năng lực của bạn.",
+        "required": False,
+    },
+)
+
+# Category taxonomy — focused on the platform's nine core domains.
+CATEGORY_TAXONOMY = {
+    "Công nghệ thông tin": [
+        "Lập trình Web",
+        "Lập trình Mobile",
+        "Cơ sở dữ liệu",
+        "An ninh mạng",
+    ],
+    "Ngoại ngữ": [
+        "Tiếng Anh",
+        "Tiếng Nhật",
+        "Tiếng Trung",
+        "Tiếng Hàn",
+    ],
+    "Kỹ năng mềm": [
+        "Giao tiếp",
+        "Làm việc nhóm",
+        "Thuyết trình",
+        "Quản lý thời gian",
+    ],
+    "Kinh doanh và marketing": [
+        "Khởi nghiệp",
+        "Bán hàng",
+        "Digital Marketing",
+        "Quản trị doanh nghiệp",
+    ],
+    "Thiết kế và sáng tạo": [
+        "Thiết kế đồ họa",
+        "Thiết kế UX/UI",
+        "Dựng video",
+        "Nhiếp ảnh",
+    ],
+    "Tài chính – kế toán": [
+        "Kế toán",
+        "Tài chính cá nhân",
+        "Đầu tư & Chứng khoán",
+        "Thuế",
+    ],
+    "Giáo dục và luyện thi": [
+        "Luyện thi đại học",
+        "Luyện thi chứng chỉ",
+        "Toán học",
+        "Khoa học",
+    ],
+    "Sức khỏe và thể chất": [
+        "Thể hình",
+        "Yoga",
+        "Dinh dưỡng",
+        "Sức khỏe tinh thần",
+    ],
+    "Phát triển bản thân": [
+        "Tư duy & Năng suất",
+        "Lãnh đạo",
+        "Quản lý cảm xúc",
+        "Phát triển sự nghiệp",
+    ],
+}
 
 
-_seed_lock = threading.Lock()
-_seed_running = False
+def get_seed_secret():
+    return os.getenv("SEED_SECRET_KEY", "demo-seed-2026")
 
 
-def _run_seed():
-    global _seed_running
-    print("[SEED] ==== BẮT ĐẦU RESET DỮ LIỆU ====")
-    try:
-
-        connection.close()
-
-
-        print("🗑️  Clearing database...")
-        SubscriptionUsage.objects.all().delete()
-        UserSubscription.objects.all().delete()
-        CourseSubscriptionConsent.objects.all().delete()
-        PlanCourse.objects.all().delete()
-        SubscriptionPlan.objects.all().delete()
-        ApplicationResponse.objects.all().delete()
-        Application.objects.all().delete()
-        FormQuestion.objects.all().delete()
-        RegistrationForm.objects.all().delete()
-        ActivityLog.objects.all().delete()
-        SupportReply.objects.all().delete()
-        Support.objects.all().delete()
-        PlatformSetting.objects.all().delete()
-        Notification.objects.all().delete()
-        InstructorPayout.objects.all().delete()
-        InstructorEarning.objects.all().delete()
-        InstructorPayoutMethod.objects.all().delete()
-        UserPaymentMethod.objects.all().delete()
-        Payment_Details.objects.all().delete()
-        Payment.objects.all().delete()
-        Wishlist.objects.all().delete()
-        Cart.objects.all().delete()
-        Promotion.objects.all().delete()
-        Answer.objects.all().delete()
-        Question.objects.all().delete()
-        BlogComment.objects.all().delete()
-        BlogPost.objects.all().delete()
-        QuizResult.objects.all().delete()
-        QuizTestCase.objects.all().delete()
-        QuizQuestion.objects.all().delete()
-        Review.objects.all().delete()
-        Certificate.objects.all().delete()
-        LearningProgress.objects.all().delete()
-        Enrollment.objects.all().delete()
-        LessonComment.objects.all().delete()
-        LessonAttachment.objects.all().delete()
-        Lesson.objects.all().delete()
-        CourseModule.objects.all().delete()
-        Course.objects.all().delete()
-        Instructor.objects.all().delete()
-        InstructorLevel.objects.all().delete()
-        Category.objects.all().delete()
-        Admin.objects.all().delete()
-        User.objects.all().delete()
-
-
+def _project_models():
+    """Every managed model defined under this project (excludes Django/3rd-party)."""
+    base_dir = Path(settings.BASE_DIR).resolve()
+    models = []
+    for model in apps.get_models():
+        opts = model._meta
+        if opts.proxy or not opts.managed or opts.app_label in _SYSTEM_APP_LABELS:
+            continue
+        app_path = Path(apps.get_app_config(opts.app_label).path).resolve()
         try:
-            from realtime.models import ChatMessage, ChatRoom
-            ChatMessage.objects.all().delete()
-            ChatRoom.objects.all().delete()
-        except Exception:
-            pass
-
-        print("✅ Database cleared!")
+            app_path.relative_to(base_dir)
+        except ValueError:
+            continue
+        models.append(model)
+    return models
 
 
-        print("🌱 Running seed_data.py...")
-        import importlib, sys
-        if 'seed_data' in sys.modules:
-            importlib.reload(sys.modules['seed_data'])
+def _clear_database():
+    """Empty every project table. Order-independent: TRUNCATE CASCADE on
+    Postgres, deferred FK checks on SQLite."""
+    tables = [m._meta.db_table for m in _project_models()]
+    with connection.cursor() as cursor:
+        if connection.vendor == "postgresql":
+            quoted = ", ".join(f'"{t}"' for t in tables)
+            cursor.execute(f"TRUNCATE {quoted} RESTART IDENTITY CASCADE")
         else:
-            import seed_data
-        print("✅ Seed complete!")
-        print("[SEED] ==== RESET DỮ LIỆU THÀNH CÔNG ====")
-
-    except Exception as e:
-        print(f"❌ Seed error: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        _seed_running = False
+            cursor.execute("PRAGMA defer_foreign_keys = ON")
+            for table in tables:
+                cursor.execute(f'DELETE FROM "{table}"')
+    return len(tables)
 
 
-def seed_demo_view(request):
-    global _seed_running
-
-
-    key = request.GET.get('key', '')
-    if key != SEED_SECRET:
-        return JsonResponse({'error': 'Invalid key'}, status=403)
-
-
-    with _seed_lock:
-        if _seed_running:
-            return JsonResponse({'message': 'Seed is already running. Please wait...'}, status=429)
-        _seed_running = True
-
-
-    thread = threading.Thread(target=_run_seed, daemon=True)
-    thread.start()
-
-    return JsonResponse({
-        'message': '🌱 Seed started! Database is being reset with demo data. This takes ~30 seconds.',
-        'status': 'running',
-        'note': 'Data will be available shortly. Refresh your app after ~30s.',
-    })
-
-
-def seed_status_view(request):
-    return JsonResponse({
-        'running': _seed_running,
-        'message': 'Seed is running...' if _seed_running else 'No seed in progress.',
-    })
-
-
-def _extract_request_key(request, payload):
-    if payload.get('key'):
-        return payload.get('key')
-
-    query_key = request.GET.get('key', '')
-    if query_key:
-        return query_key
-
-    return request.headers.get('X-Seed-Key', '')
-
-
-def _parse_bool(value, default=False):
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in {'1', 'true', 'yes', 'y', 'on'}
-
-
-def reseed_demo_view(request):
-    if request.method not in ('GET', 'POST'):
-        return JsonResponse({'error': 'Method not allowed. Use GET or POST.'}, status=405)
-
-    if request.method == 'POST':
-        try:
-            payload = json.loads(request.body.decode('utf-8')) if request.body else {}
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON payload.'}, status=400)
-    else:
-        payload = request.GET.dict()
-
-    key = _extract_request_key(request, payload)
-    if key != SEED_SECRET:
-        return JsonResponse({'error': 'Invalid key'}, status=403)
-
-    profile = str(payload.get('profile', DEFAULT_PROFILE)).strip().lower()
-    dry_run = _parse_bool(payload.get('dry_run'), default=False)
-    strict_mode = _parse_bool(payload.get('strict_mode'), default=get_default_strict_mode())
-    preserve_home_settings = _parse_bool(payload.get('preserve_home_settings'), default=True)
-    random_seed = payload.get('random_seed', int(timezone.now().strftime('%Y%m%d')))
-
-    try:
-        random_seed = int(random_seed)
-    except (TypeError, ValueError):
-        return JsonResponse({'error': 'random_seed must be an integer.'}, status=400)
-
-    try:
-        started, run_state = start_reseed_run(
-            profile=profile,
-            random_seed=random_seed,
-            dry_run=dry_run,
-            strict_mode=strict_mode,
-            preserve_home_settings=preserve_home_settings,
-        )
-    except ValueError as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
-
-    if not started:
-        return JsonResponse(
-            {
-                'message': 'A reseed run is already in progress.',
-                'status': run_state,
-            },
-            status=429,
+def _seed_accounts():
+    password_hash = make_password(DEFAULT_PASSWORD)
+    users = {}
+    for item in ACCOUNTS:
+        users[item["role"]] = User.objects.create(
+            username=item["username"],
+            email=item["email"],
+            password_hash=password_hash,
+            full_name=item["full_name"],
+            phone=item["phone"],
+            status=User.StatusChoices.ACTIVE,
         )
 
-    return JsonResponse(
-        {
-            'message': 'Reseed started successfully.',
-            'status': run_state,
-        },
-        status=202,
+    admin = Admin.objects.create(
+        user=users["admin"],
+        department="Operations",
+        role="super_admin",
+        is_super_admin=True,
+        permissions=[],
+    )
+    Instructor.objects.create(user=users["instructor"])
+    return admin
+
+
+def _seed_instructor_form(admin):
+    form = RegistrationForm.objects.create(
+        type=RegistrationForm.FormType.INSTRUCTOR_APPLICATION,
+        title="Đơn đăng ký trở thành Giảng viên",
+        description=(
+            "Điền thông tin bên dưới để gửi đơn đăng ký trở thành giảng viên. "
+            "Đội ngũ quản trị sẽ xem xét và phản hồi đơn của bạn."
+        ),
+        is_active=True,
+        version=1,
+        created_by=admin,
+    )
+    for question in INSTRUCTOR_FORM_QUESTIONS:
+        FormQuestion.objects.create(form=form, **question)
+    return len(INSTRUCTOR_FORM_QUESTIONS)
+
+
+def _seed_categories():
+    count = 0
+    for parent_name, children in CATEGORY_TAXONOMY.items():
+        parent = Category.objects.create(name=parent_name)  # status defaults to active
+        count += 1
+        for child_name in children:
+            Category.objects.create(name=child_name, parent_category=parent)
+            count += 1
+    return count
+
+
+def _request_key(request, payload):
+    return (
+        payload.get("key")
+        or request.GET.get("key", "")
+        or request.headers.get("X-Seed-Key", "")
     )
 
 
-def reseed_status_view(request):
-    return JsonResponse(get_reseed_status())
+def reset_db_view(request):
+    if request.method not in ("GET", "POST"):
+        return JsonResponse({"error": "Method not allowed. Use GET or POST."}, status=405)
+
+    if request.method == "POST":
+        try:
+            payload = json.loads(request.body.decode("utf-8")) if request.body else {}
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON payload."}, status=400)
+    else:
+        payload = request.GET.dict()
+
+    if _request_key(request, payload) != get_seed_secret():
+        return JsonResponse({"error": "Invalid key"}, status=403)
+
+    with transaction.atomic():
+        cleared_tables = _clear_database()
+        admin = _seed_accounts()
+        question_count = _seed_instructor_form(admin)
+        category_count = _seed_categories()
+
+    return JsonResponse(
+        {
+            "message": "Database reset and seeded with baseline scaffold.",
+            "cleared_tables": cleared_tables,
+            "seeded": {
+                "users": len(ACCOUNTS),
+                "instructor_form_questions": question_count,
+                "categories": category_count,
+            },
+            "login": {
+                item["role"]: {"email": item["email"], "password": DEFAULT_PASSWORD}
+                for item in ACCOUNTS
+            },
+        }
+    )

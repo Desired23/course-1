@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -36,6 +37,17 @@ export function AdminConfirmDialog({
   onConfirm,
 }: AdminConfirmDialogProps) {
   const { t } = useTranslation()
+
+  // Khi confirm dialog này nằm chồng lên một modal Radix khác (Dialog/DropdownMenu/Select),
+  // lúc đóng Radix có thể để sót `pointer-events: none` trên <body> khiến cả trang bị đơ
+  // (không click được nữa). Reset lại sau khi đóng để gỡ kẹt.
+  useEffect(() => {
+    if (open) return
+    const id = window.setTimeout(() => {
+      document.body.style.pointerEvents = ''
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [open])
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

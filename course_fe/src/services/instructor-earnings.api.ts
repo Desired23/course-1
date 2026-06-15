@@ -14,6 +14,12 @@ export interface InstructorEarning {
   amount: string
   net_amount: string
   status: 'pending' | 'available' | 'paid' | 'cancelled'
+  active_hold?: {
+    hold_id: number
+    case_id: number
+    reason: string
+    created_at: string
+  } | null
   earning_date: string
   instructor_payout: number | null
   instructor_name: string
@@ -43,6 +49,9 @@ export interface EarningSourceSummary {
   count: number
   total_amount: string
   total_net_amount: string
+  total_usage_seconds?: number
+  held_active_net_amount?: string
+  available_payable_net_amount?: string
   by_status: Record<string, StatusBreakdown>
 }
 
@@ -53,6 +62,8 @@ export interface EarningsSummary {
     count: number
     total_amount: string
     total_net_amount: string
+    held_active_net_amount?: string
+    available_payable_net_amount?: string
   }
   retail: EarningSourceSummary
   subscription: EarningSourceSummary
@@ -91,6 +102,7 @@ export interface EarningsMonthlyEntry {
   retail_net: number
   sub_gross: number
   sub_net: number
+  sub_usage_seconds: number
   total_net: number
 }
 

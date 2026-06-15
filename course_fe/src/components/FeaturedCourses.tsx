@@ -10,7 +10,7 @@ import { useOwnedCourses } from "../hooks/useOwnedCourses"
 export function FeaturedCourses() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
-  const { isOwned, getProgress } = useOwnedCourses()
+  const { isEnrolled, isInSubscription, getProgress } = useOwnedCourses()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
@@ -47,7 +47,8 @@ export function FeaturedCourses() {
       : `${course.total_students}`,
     level: getLevelLabel(course.level),
     category: course.category_name || '',
-    isOwned: isOwned(course.id),
+    isOwned: isEnrolled(course.id),
+    inSubscription: isInSubscription(course.id),
     progress: getProgress(course.id),
     discountEndDate: hasActiveDiscount(course) ? course.discount_end_date : undefined,
   }))
@@ -85,7 +86,7 @@ export function FeaturedCourses() {
           </div>
           <Button
             variant="outline"
-            onClick={() => navigate('/courses')}
+            onClick={() => navigate('/courses?featured=true')}
           >
             {t('featured_courses.view_all')}
           </Button>

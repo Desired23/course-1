@@ -19,6 +19,7 @@ export interface Category {
   icon: string | null
   parent_category: number | null
   status: 'active' | 'inactive'
+  order: number
   course_count?: number
   created_at: string
   updated_at: string
@@ -146,6 +147,14 @@ export async function updateCategory(
 
 export async function deleteCategory(categoryId: number): Promise<{ message: string }> {
   return http.delete<{ message: string }>(`/categories/${categoryId}/delete`)
+}
+
+
+
+
+
+export async function moveCategoryToTop(categoryId: number): Promise<Category> {
+  return http.post<Category>(`/categories/${categoryId}/move-to-top`, {})
 }
 
 

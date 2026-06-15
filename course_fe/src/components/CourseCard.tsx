@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { ArrowRight, CheckCircle, Clock, Loader2, Play, ShoppingCart, Star, Users } from "lucide-react"
+import { ArrowRight, CheckCircle, Clock, Crown, Loader2, Play, ShoppingCart, Star, Users } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { useAuth } from "../contexts/AuthContext"
@@ -26,6 +26,7 @@ interface CourseCardProps {
   level: string
   category?: string
   isOwned?: boolean
+  inSubscription?: boolean
   progress?: number
   courseId?: string
   variant?: "vertical" | "horizontal" | "compact"
@@ -49,6 +50,7 @@ export function CourseCard({
   level,
   category,
   isOwned = false,
+  inSubscription = false,
   progress = 0,
   courseId,
   variant = "vertical",
@@ -76,6 +78,11 @@ export function CourseCard({
   }, [])
 
   const addedToCart = courseId ? isInCart(courseId) : false
+
+  // Subscription-plan access is distinct from a real enrollment: the user can learn
+  // the course but never enrolled, so it shouldn't show the "owned / continue learning" UI.
+  const showSubscription = inSubscription && !isOwned
+  const accessible = isOwned || showSubscription
 
   const formatPrice = (priceValue: string | number): string => {
     if (typeof priceValue === "string") return priceValue
@@ -119,7 +126,7 @@ export function CourseCard({
   }
 
   const handleClick = () => {
-    if (isOwned && numericCourseId) {
+    if (accessible && numericCourseId) {
       navigate(`/course-player/${numericCourseId}`)
       return
     }
@@ -195,6 +202,16 @@ export function CourseCard({
     </Badge>
   )
 
+  const renderSubscriptionBadge = () => (
+    <Badge className="absolute top-2 left-2 bg-blue-600 text-white flex items-center gap-1 z-10">
+      <Crown className="h-3 w-3" />
+      {t("course_card.in_subscription")}
+    </Badge>
+  )
+
+  const renderAccessBadge = () =>
+    isOwned ? renderOwnedBadge() : showSubscription ? renderSubscriptionBadge() : renderStatusBadges()
+
   const renderStatusBadges = (className?: string) => (
     <>
       {bestseller && <Badge className={className ?? "absolute top-2 left-2 bg-yellow-400 text-black z-10"}>{t("course_card.bestseller")}</Badge>}
@@ -214,9 +231,9 @@ export function CourseCard({
             alt={title}
             className="w-full h-32 object-cover group-hover/card:scale-105 transition-transform duration-300"
           />
-          {isOwned ? renderOwnedBadge() : renderStatusBadges()}
+          {renderAccessBadge()}
 
-          {!isOwned && effectiveShowAddToCart && (
+          {!accessible && effectiveShowAddToCart && (
             <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/60 transition-all duration-300 flex items-center justify-center">
               <Button
                 className="opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 bg-white text-gray-900 hover:bg-gray-100"
@@ -278,8 +295,8 @@ export function CourseCard({
               alt={title}
               className="w-full h-48 sm:h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
             />
-            {isOwned ? renderOwnedBadge() : renderStatusBadges("absolute top-2 left-2 bg-yellow-400 text-black")}
-            {!isOwned && isNew && (
+            {isOwned ? renderOwnedBadge() : showSubscription ? renderSubscriptionBadge() : renderStatusBadges("absolute top-2 left-2 bg-yellow-400 text-black")}
+            {!accessible && isNew && (
               <Badge className="absolute top-2 left-2 bg-blue-600 text-white">{t("course_card.new")}</Badge>
             )}
           </div>
@@ -324,6 +341,13 @@ export function CourseCard({
                   <span className="font-medium">{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-2" />
+              </div>
+            ) : showSubscription ? (
+              <div className="pt-2">
+                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleClick() }}>
+                  <Play className="h-4 w-4 mr-2" />
+                  {t("course_card.start_learning")}
+                </Button>
               </div>
             ) : (
               <div className="space-y-2 pt-2">
@@ -373,9 +397,9 @@ export function CourseCard({
           alt={title}
           className="w-full h-48 object-cover rounded-t-lg group-hover/card:scale-105 transition-transform duration-300"
         />
-        {isOwned ? renderOwnedBadge() : renderStatusBadges()}
+        {renderAccessBadge()}
 
-        {!isOwned && effectiveShowAddToCart && (
+        {!accessible && effectiveShowAddToCart && (
           <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/60 transition-all duration-300 flex items-center justify-center">
             <div className="opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 flex flex-col gap-2 px-4 w-full">
               <Button
@@ -406,7 +430,7 @@ export function CourseCard({
           </div>
         )}
 
-        {isOwned && (
+        {accessible && (
           <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/40 transition-colors flex items-center justify-center">
             <div className="opacity-0 group-hover/card:opacity-100 transition-opacity">
               <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
@@ -461,6 +485,13 @@ export function CourseCard({
               <Button className="w-full mt-2" size="sm" onClick={(e) => { e.stopPropagation(); handleClick() }}>
                 <Play className="h-4 w-4 mr-2" />
                 {t("course_card.continue_learning")}
+              </Button>
+            </div>
+          ) : showSubscription ? (
+            <div className="pt-2">
+              <Button className="w-full" size="sm" onClick={(e) => { e.stopPropagation(); handleClick() }}>
+                <Play className="h-4 w-4 mr-2" />
+                {t("course_card.start_learning")}
               </Button>
             </div>
           ) : (

@@ -4,12 +4,8 @@ import { useTranslation } from 'react-i18next'
 import {
   Video,
   FileText,
+  Code,
   HelpCircle,
-  ClipboardList,
-  File,
-  Link,
-  CheckCircle,
-  Clock,
   Captions
 } from 'lucide-react'
 import { cn } from './ui/utils'
@@ -20,7 +16,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   transcript_status?: string | null
   has_published_transcript?: boolean
@@ -38,26 +33,8 @@ interface LessonTreeItemProps {
 
 const LESSON_ICONS = {
   video: Video,
-  text: FileText,
   quiz: HelpCircle,
-  assignment: ClipboardList,
-  file: File,
-  link: Link,
-}
-
-const STATUS_CONFIG = {
-  published: {
-    color: 'text-green-600 dark:text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/20',
-    dotColor: 'bg-green-500'
-  },
-  draft: {
-    color: 'text-gray-600 dark:text-gray-400',
-    bgColor: 'bg-gray-500/10',
-    borderColor: 'border-gray-500/20',
-    dotColor: 'bg-gray-500'
-  }
+  code: Code,
 }
 
 export function LessonTreeItem({
@@ -72,7 +49,6 @@ export function LessonTreeItem({
   const { t } = useTranslation()
   const type = lesson.content_type || lesson.type
   const Icon = LESSON_ICONS[type as keyof typeof LESSON_ICONS] || FileText
-  const statusConfig = STATUS_CONFIG[lesson.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.draft
   const transcriptStatus = lesson.transcript_status || (lesson.has_published_transcript ? 'published' : null)
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
@@ -126,23 +102,6 @@ export function LessonTreeItem({
             {lessonIndex + 1}. {lesson.title}
           </p>
 
-
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] px-1.5 py-0 h-4 font-semibold flex-shrink-0 border",
-              statusConfig.color,
-              statusConfig.bgColor,
-              statusConfig.borderColor
-            )}
-          >
-            {lesson.status === 'published' ? (
-              <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
-            ) : (
-              <Clock className="h-2.5 w-2.5 mr-0.5" />
-            )}
-            {lesson.status === 'published' ? t('lesson_tree_item.status.published') : t('lesson_tree_item.status.draft')}
-          </Badge>
         </div>
 
 

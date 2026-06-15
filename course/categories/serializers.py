@@ -13,6 +13,7 @@ class CategoriesSerializer(serializers.ModelSerializer):
             'icon',
             'parent_category',
             'status',
+            'order',
             'created_at',
             'updated_at',
             'course_count',

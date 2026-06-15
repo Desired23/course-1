@@ -10,7 +10,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   transcript_status?: string | null
   has_published_transcript?: boolean
@@ -47,7 +46,6 @@ export function SectionTreeItem({
   selectedLessonIds,
   onCheckLesson
 }: SectionTreeItemProps) {
-  const publishedCount = section.lessons.filter(l => l.status === 'published').length
   const totalCount = section.lessons.length
 
   return (
@@ -80,7 +78,7 @@ export function SectionTreeItem({
             variant="secondary"
             className="text-xs px-1.5 py-0 h-5 font-medium"
           >
-            {publishedCount}/{totalCount}
+            {totalCount}
           </Badge>
         </div>
       </button>

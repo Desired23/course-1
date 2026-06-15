@@ -25,6 +25,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
 import { SubscriptionLockOverlay } from '../../components/subscription/SubscriptionLockOverlay'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
+import { ReportDialog } from '../../components/ReportDialog'
 import { Skeleton } from '../../components/ui/skeleton'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
@@ -133,6 +134,7 @@ export function CourseDetailPage() {
   const isFree = courseData ? getEffectivePrice(courseData) === 0 : false
 
   const [previewLesson, setPreviewLesson] = useState<any>(null)
+  const [courseReportOpen, setCourseReportOpen] = useState(false)
 
   const openPromoVideo = () => {
     if (!courseData?.promotional_video) return
@@ -168,6 +170,16 @@ export function CourseDetailPage() {
 
   const hasPreview = !!courseData?.promotional_video || !!firstFreePreviewLesson
 
+  const visibleCourseModules = (courseData?.modules || []).map((mod) => ({
+    ...mod,
+    lessons: (mod.lessons || []).filter((lesson) => lesson.content_type === 'video'),
+  }))
+  const visibleLessonCount = visibleCourseModules.reduce((total, mod) => total + mod.lessons.length, 0)
+  const visibleDuration = visibleCourseModules.reduce(
+    (total, mod) => total + mod.lessons.reduce((sum, lesson) => sum + (lesson.duration || 0), 0),
+    0,
+  )
+
   const openPreview = () => {
     if (courseData?.promotional_video) {
       openPromoVideo()
@@ -184,6 +196,16 @@ export function CourseDetailPage() {
       return
     }
     await openChatWithUser(courseData.instructor.user_id, courseData.instructor.full_name)
+  }
+
+  const handleOpenCourseReport = () => {
+    if (!courseData) return
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để báo cáo khóa học.')
+      navigate('/login', undefined, { redirect: currentRoute })
+      return
+    }
+    setCourseReportOpen(true)
   }
 
   const handleOpenInstructorProfile = () => {
@@ -614,7 +636,7 @@ export function CourseDetailPage() {
                                  <div className="flex justify-between items-center mb-2">
                                     <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1">
                                        <Zap className="w-4 h-4 fill-blue-500 text-blue-500" />
-                                       {t('course_detail.with_pro_plan')}
+                                       {t('course_detail.with_pro_plan', { plan: subscriptionPlan?.name || 'Pro' })}
                                     </span>
                                     <span className="font-bold text-blue-600">{t('course_detail.included')}</span>
                                  </div>
@@ -643,6 +665,15 @@ export function CourseDetailPage() {
                            </p>
                         </div>
                      )}
+
+                     <Button
+                        variant="outline"
+                        className="w-full gap-2"
+                        onClick={handleOpenCourseReport}
+                     >
+                        <Flag className="h-4 w-4" />
+                        Báo cáo khóa học
+                     </Button>
 
                      <div className="space-y-2 pt-2">
                         <h4 className="font-semibold text-sm">{t('course_detail.course_includes_title')}</h4>
@@ -769,7 +800,7 @@ export function CourseDetailPage() {
                                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                                 <span className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1">
                                     <Zap className="w-4 h-4 fill-blue-500 text-blue-500" />
-                                    {t('course_detail.with_pro_plan')}
+                                    {t('course_detail.with_pro_plan', { plan: subscriptionPlan?.name || 'Pro' })}
                                 </span>
                                 <span className="font-bold text-blue-600">{t('course_detail.included')}</span>
                                 </div>
@@ -798,6 +829,14 @@ export function CourseDetailPage() {
                         </p>
                       </div>
                   )}
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={handleOpenCourseReport}
+                  >
+                    <Flag className="h-4 w-4" />
+                    Báo cáo khóa học
+                  </Button>
                </CardContent>
             </Card>
           </div>
@@ -822,15 +861,17 @@ export function CourseDetailPage() {
                    {t('course_detail.content_summary', {
                      modules: courseData.total_modules,
                      modulesLabel: t('course_detail.modules_count'),
-                     lessons: courseData.total_lessons,
+                     lessons: visibleLessonCount,
                      lecturesLabel: t('course_detail.lectures_count'),
-                     duration: formatDuration(courseData.duration),
+                     duration: formatDuration(visibleDuration),
                    })}
                  </CardDescription>
                </CardHeader>
                <CardContent className="space-y-2">
                   <Accordion type="multiple" className="w-full">
-                  {(courseData.modules || []).map((mod) => (
+                  {visibleCourseModules.map((mod) => {
+                    const moduleDuration = mod.lessons.reduce((total, lesson) => total + (lesson.duration || 0), 0)
+                    return (
                     <AccordionItem key={mod.module_id} value={String(mod.module_id)}>
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex w-full flex-col gap-1 pr-4 sm:flex-row sm:items-center sm:justify-between">
@@ -839,7 +880,7 @@ export function CourseDetailPage() {
                             {t('course_detail.module_summary', {
                               lessons: mod.lessons.length,
                               lecturesLabel: t('course_detail.lectures_count'),
-                              duration: formatDuration(mod.duration),
+                              duration: formatDuration(moduleDuration),
                             })}
                           </span>
                         </div>
@@ -864,8 +905,7 @@ export function CourseDetailPage() {
                               }`}
                             >
                               <div className="flex min-w-0 items-center gap-3">
-                                {lesson.content_type === 'video' && <Play className="w-4 h-4" />}
-                                {lesson.content_type !== 'video' && <FileText className="w-4 h-4" />}
+                                <Play className="w-4 h-4" />
                                 <span className="text-sm break-words">{lesson.title}</span>
                                 {lesson.is_free ? (
                                   <Badge variant="outline" className="text-xs">{t('course_detail.preview_badge')}</Badge>
@@ -880,7 +920,8 @@ export function CourseDetailPage() {
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  ))}
+                    )
+                  })}
                 </Accordion>
                </CardContent>
             </Card>
@@ -1068,6 +1109,16 @@ export function CourseDetailPage() {
           open={!!previewLesson}
           onOpenChange={(open) => { if (!open) setPreviewLesson(null) }}
           lesson={previewLesson}
+          isPublic
+        />
+      )}
+      {courseData && (
+        <ReportDialog
+          open={courseReportOpen}
+          onOpenChange={setCourseReportOpen}
+          targetType="course"
+          targetId={courseData.id}
+          contentLabel={courseData.title}
         />
       )}
     </motion.div>

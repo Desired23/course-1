@@ -48,6 +48,7 @@ export interface Course {
 export interface Coupon {
   code: string
   type: 'course' | 'order'
+  promotionId?: number
   discount: number
   discountType: 'percentage' | 'fixed'
   minAmount?: number
@@ -265,6 +266,7 @@ export const useCartStore = create<CartState>()(
                 orderCoupon: {
                   code: promoInfo.code,
                   type: 'order',
+                  promotionId: promoInfo.id,
                   discount: totalDiscount,
                   discountType: 'fixed',
                   isActive: true,

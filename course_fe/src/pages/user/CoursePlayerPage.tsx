@@ -12,6 +12,13 @@ import { Textarea } from "../../components/ui/textarea"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../components/ui/sheet"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu"
+import { ReportDialog } from "../../components/ReportDialog"
 import { motion, AnimatePresence, useReducedMotion, type Variants } from 'motion/react'
 import {
   X,
@@ -32,7 +39,9 @@ import {
   PanelRightClose,
   Loader2,
   AlertCircle,
-  Award
+  Award,
+  Flag,
+  MoreVertical
 } from "lucide-react"
 import { toast } from "sonner"
 import { getErrorMessage } from "../../lib/apiError"
@@ -319,9 +328,21 @@ function parseTimestampToSeconds(timestamp: string): number | null {
 
 export function CoursePlayerPage() {
   const { t } = useTranslation()
-  const { navigate, params } = useRouter()
+  const { navigate, params, currentRoute } = useRouter()
   const shouldReduceMotion = useReducedMotion()
   const courseId = Number(params.courseId)
+
+  // Deep-link support (e.g. admin opening a reported comment): /course-player/:id?lesson=&comment=
+  const deepLink = useMemo(() => {
+    const qs = currentRoute.split('?')[1] || ''
+    const sp = new URLSearchParams(qs)
+    const lesson = sp.get('lesson')
+    const comment = sp.get('comment')
+    return {
+      lessonId: lesson ? Number(lesson) : null,
+      commentId: comment ? Number(comment) : null,
+    }
+  }, [currentRoute])
 
 
   const [course, setCourse] = useState<CourseDetail | null>(null)
@@ -332,6 +353,7 @@ export function CoursePlayerPage() {
   const [currentLessonId, setCurrentLessonId] = useState<number | null>(null)
   const [progress, setProgress] = useState([0])
   const [currentPlaybackTimeSec, setCurrentPlaybackTimeSec] = useState(0)
+  const [reportTarget, setReportTarget] = useState<'course' | 'lesson' | null>(null)
   const [currentTranscript, setCurrentTranscript] = useState<LessonTranscriptDTO | null>(null)
   const [seekRequest, setSeekRequest] = useState<{ seconds: number; nonce: number } | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({})
@@ -421,6 +443,7 @@ export function CoursePlayerPage() {
   }, [lessonProgressMap, locallyCompletedLessons])
 
   const isInstructorPreview = course?.access_info?.access_type === 'instructor'
+  const isAdminView = course?.access_info?.access_type === 'admin'
   const isPreviewMode = !['purchase', 'subscription', 'admin', 'instructor'].includes(
     course?.access_info?.access_type ?? ''
   )
@@ -439,7 +462,8 @@ export function CoursePlayerPage() {
   }, [orderedLessons, completedLessonIds])
 
   const isLessonUnlocked = (lessonId: number): boolean => {
-    if (isInstructorPreview) return true
+    // Instructors previewing and admins reviewing have unrestricted access — no sequential gating.
+    if (isInstructorPreview || isAdminView) return true
     const lessonIndex = orderedLessons.findIndex(l => l.id === lessonId)
     if (lessonIndex === -1) return false
     if (completedLessonIds.has(lessonId)) return true
@@ -515,13 +539,37 @@ export function CoursePlayerPage() {
 
   useEffect(() => {
     if (curriculum.length > 0 && currentLessonId === null) {
+      // Honor a deep-linked lesson (admin opening a reported comment / reviewing content).
+      const deepLinked = deepLink.lessonId
+        ? orderedLessons.find(l => l.id === deepLink.lessonId)
+        : null
+      if (deepLinked) {
+        const section = curriculum.find(s => s.lessons.some(l => l.id === deepLinked.id))
+        setExpandedSections(section ? { [section.id]: true } : { [curriculum[0].id]: true })
+        setCurrentLessonId(deepLinked.id)
+        return
+      }
       setExpandedSections({ [curriculum[0].id]: true })
       const firstUnlocked = orderedLessons.find((lesson, index) =>
         completedLessonIds.has(lesson.id) || index <= furthestUnlockedIndex
       )
       setCurrentLessonId(firstUnlocked?.id ?? orderedLessons[0]?.id ?? null)
     }
-  }, [curriculum, currentLessonId, orderedLessons, furthestUnlockedIndex, completedLessonIds])
+  }, [curriculum, currentLessonId, orderedLessons, furthestUnlockedIndex, completedLessonIds, deepLink.lessonId])
+
+  // When deep-linked to a specific comment (admin handling a report), open the comments tab.
+  useEffect(() => {
+    if (deepLink.commentId && currentLessonId) {
+      setActiveContentTab('comments')
+    }
+  }, [deepLink.commentId, currentLessonId])
+
+  // Scroll to the deep-linked comment once it has loaded.
+  useEffect(() => {
+    if (!deepLink.commentId || commentsLoading) return
+    const el = document.getElementById(`cp-comment-${deepLink.commentId}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [deepLink.commentId, comments, commentsLoading])
 
 
   useEffect(() => {
@@ -1159,6 +1207,23 @@ export function CoursePlayerPage() {
             </Sheet>
             <Progress value={overallProgress} className="w-24 hidden sm:block" />
             <span className="text-sm text-muted-foreground hidden sm:inline">{t('course_player.progress_complete', { percent: Math.round(overallProgress) })}</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setReportTarget('course')}>
+                  <Flag className="h-4 w-4 mr-2" />
+                  Báo cáo khóa học
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setReportTarget('lesson')} disabled={!currentLessonId}>
+                  <Flag className="h-4 w-4 mr-2" />
+                  Báo cáo bài học hiện tại
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </motion.header>
@@ -1328,7 +1393,7 @@ export function CoursePlayerPage() {
                         <div className="flex justify-between text-sm text-muted-foreground">
                           <span>{t('course_player.lessons_completed', { completed: completedLessons, total: totalLessons })}</span>
                         </div>
-                        {course.certificate && overallProgress >= 100 && (
+                        {overallProgress >= 100 && (
                           certCode ? (
                             <Button asChild className="w-full gap-2 bg-green-600 hover:bg-green-700">
                               <a href={getCertificateDownloadUrl(certCode)} target="_blank" rel="noreferrer">
@@ -1430,16 +1495,21 @@ export function CoursePlayerPage() {
                           </div>
                         ) : comments.length > 0 ? (
                           comments.map((comment) => (
-                            <CommentItem
+                            <div
                               key={comment.id}
-                              comment={comment}
-                              replyingTo={replyingTo}
-                              setReplyingTo={setReplyingTo}
-                              onPostReply={handlePostReply}
-                              onEditComment={handleEditComment}
-                              onDeleteComment={handleDeleteComment}
-                              currentUser={user?.username || t('course_player.you')}
-                            />
+                              id={`cp-comment-${comment.id}`}
+                              className={deepLink.commentId === comment.id ? "ring-2 ring-primary rounded-lg p-2 -m-1" : undefined}
+                            >
+                              <CommentItem
+                                comment={comment}
+                                replyingTo={replyingTo}
+                                setReplyingTo={setReplyingTo}
+                                onPostReply={handlePostReply}
+                                onEditComment={handleEditComment}
+                                onDeleteComment={handleDeleteComment}
+                                currentUser={user?.username || t('course_player.you')}
+                              />
+                            </div>
                           ))
                         ) : (
                           <div className="text-center text-muted-foreground py-10 border rounded-lg border-dashed">
@@ -1537,6 +1607,18 @@ export function CoursePlayerPage() {
           </AnimatePresence>
         </motion.div>
       </motion.div>
+      {reportTarget && (
+        <ReportDialog
+          open={!!reportTarget}
+          onOpenChange={(open) => { if (!open) setReportTarget(null) }}
+          targetType={reportTarget === 'lesson' ? 'lesson' : 'course'}
+          targetId={reportTarget === 'lesson' ? (currentLessonId || 0) : courseId}
+          contentLabel={reportTarget === 'lesson' ? currentLesson.title : course.title}
+          lessonId={reportTarget === 'lesson' ? currentLessonId : null}
+          lessonTitle={reportTarget === 'lesson' ? currentLesson.title : null}
+          timestampSeconds={reportTarget === 'lesson' ? Math.floor(currentPlaybackTimeSec) : null}
+        />
+      )}
     </motion.div>
   )
 }

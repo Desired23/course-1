@@ -87,7 +87,7 @@ class Course(models.Model):
     rating = models.DecimalField(max_digits=4, decimal_places=2, default=Decimal('0.00'))
     total_reviews = models.IntegerField(default=0)
     total_students = models.IntegerField(default=0)
-    certificate = models.BooleanField(default=False)
+    certificate = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'Courses'

@@ -1,19 +1,11 @@
 from django.contrib import admin
 from django.urls import path, include
-from config.seed_view import (
-    reseed_demo_view,
-    reseed_status_view,
-    seed_demo_view,
-    seed_status_view,
-)
+from config.seed_view import reset_db_view
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/seed-demo/', seed_demo_view, name='seed-demo'),
-    path('api/seed-demo/status/', seed_status_view, name='seed-status'),
-    path('api/reseed-demo/', reseed_demo_view, name='reseed-demo'),
-    path('api/reseed-demo/status/', reseed_status_view, name='reseed-status'),
+    path('api/reset-db/', reset_db_view, name='reset-db'),
 
     path('api/', include('users.urls')),
     path('api/', include('payments.urls')),

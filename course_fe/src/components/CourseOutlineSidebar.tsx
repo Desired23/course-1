@@ -20,7 +20,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   transcript_status?: string | null
   has_published_transcript?: boolean
@@ -108,10 +107,6 @@ export function CourseOutlineSidebar({
   }
 
   const totalLessons = sections.reduce((sum, section) => sum + section.lessons.length, 0)
-  const completedLessons = sections.reduce(
-    (sum, section) => sum + section.lessons.filter((l) => l.status === 'published').length,
-    0,
-  )
 
   const allExpanded = expandedSections.size === sections.length
   const allCollapsed = expandedSections.size === 0
@@ -170,7 +165,7 @@ export function CourseOutlineSidebar({
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">{t('course_outline_sidebar.title')}</h3>
                 <Badge variant="outline" className="text-xs">
-                  {completedLessons}/{totalLessons}
+                  {totalLessons}
                 </Badge>
               </div>
 
@@ -206,12 +201,6 @@ export function CourseOutlineSidebar({
                 </div>
               )}
 
-              <div className="w-full bg-muted rounded-full h-2">
-                <div
-                  className="bg-primary rounded-full h-2 transition-all duration-300"
-                  style={{ width: `${totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0}%` }}
-                />
-              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-2">

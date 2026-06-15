@@ -1,140 +1,44 @@
-from unittest.mock import Mock, patch
-
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from config import reseed_engine
-from config.curated_seed import SeedError, run_curated_seed
-from systems_settings.models import PlatformSetting
+from admins.models import Admin
+from categories.models import Category
+from instructors.models import Instructor
+from registration_forms.models import FormQuestion, RegistrationForm
+from users.models import User
 
 
-class ReseedEngineTests(TestCase):
-    def setUp(self):
-        reseed_engine._run_in_progress = False
-        reseed_engine._set_run_state(
-            run_id=None,
-            status="idle",
-            phase="idle",
-            message="No reseed run has started yet.",
-            started_at=None,
-            finished_at=None,
-            profile=None,
-            random_seed=None,
-            dry_run=False,
-            strict_mode=False,
-            reset_report=None,
-            seed_report=None,
-            validation_report=None,
-            error=None,
-        )
-
-    def test_start_reseed_run_accepts_demo_large_profile(self):
-        with patch("config.reseed_engine.threading.Thread") as thread_cls:
-            thread_instance = Mock()
-            thread_cls.return_value = thread_instance
-
-            started, status = reseed_engine.start_reseed_run(
-                profile="demo-large",
-                random_seed=20260413,
-                dry_run=True,
-                strict_mode=True,
-            )
-
-        self.assertTrue(started)
-        self.assertEqual(status["profile"], "demo-large")
-        self.assertTrue(status["strict_mode"])
-        thread_instance.start.assert_called_once()
-
-    def test_start_reseed_run_rejects_unknown_profile(self):
-        with self.assertRaises(ValueError):
-            reseed_engine.start_reseed_run(profile="demo-unknown", random_seed=1)
-
-    def test_curated_seed_rejects_unknown_profile(self):
-        with self.assertRaises(SeedError):
-            run_curated_seed(profile="demo-unknown", random_seed=20260413)
-
-    def test_curated_seed_restores_default_homepage_settings(self):
-        run_curated_seed(profile="demo-small", random_seed=20260413)
-
-        platform_setting = PlatformSetting.objects.filter(singleton_key=1).first()
-
-        self.assertIsNotNone(platform_setting)
-
-        layout_value = platform_setting.homepage_layout
-        self.assertIsInstance(layout_value, list)
-        self.assertGreater(len(layout_value), 0)
-        self.assertEqual(layout_value[0].get("component"), "HeroSection")
-
-
-class ReseedApiTests(TestCase):
+class ResetDbApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-    @patch("config.seed_view.start_reseed_run")
-    def test_reseed_endpoint_passes_strict_mode(self, start_mock):
-        start_mock.return_value = (True, {"status": "running", "profile": "demo-small"})
+    def test_rejects_invalid_key(self):
+        response = self.client.get("/api/reset-db/?key=wrong")
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(User.objects.count(), 0)
 
-        response = self.client.post(
-            "/api/reseed-demo/",
-            {
-                "key": "demo-seed-2026",
-                "profile": "demo-small",
-                "random_seed": 20260413,
-                "strict_mode": True,
-                "dry_run": True,
-            },
-            format="json",
+    def test_resets_and_seeds_baseline(self):
+        # Pre-existing data must be wiped by the reset.
+        User.objects.create(username="stale", email="stale@example.com", password_hash="x", full_name="Stale")
+
+        response = self.client.get("/api/reset-db/?key=demo-seed-2026")
+        self.assertEqual(response.status_code, 200, response.content)
+
+        # 3 blank accounts, one per role.
+        self.assertEqual(User.objects.count(), 3)
+        self.assertEqual(Admin.objects.count(), 1)
+        self.assertEqual(Instructor.objects.count(), 1)
+        self.assertEqual(User.objects.get(username="admin").user_type, User.UserTypeChoices.ADMIN)
+        self.assertEqual(
+            User.objects.get(username="instructor").user_type, User.UserTypeChoices.INSTRUCTOR
         )
+        self.assertEqual(User.objects.get(username="student").user_type, User.UserTypeChoices.STUDENT)
 
-        self.assertEqual(response.status_code, 202, response.content)
-        start_mock.assert_called_once_with(
-            profile="demo-small",
-            random_seed=20260413,
-            dry_run=True,
-            strict_mode=True,
-            preserve_home_settings=True,
-        )
+        # Active instructor-application form with all questions.
+        form = RegistrationForm.objects.get(type=RegistrationForm.FormType.INSTRUCTOR_APPLICATION)
+        self.assertTrue(form.is_active)
+        self.assertEqual(FormQuestion.objects.filter(form=form).count(), 7)
 
-    @patch("config.seed_view.get_default_strict_mode")
-    @patch("config.seed_view.start_reseed_run")
-    def test_reseed_endpoint_uses_default_strict_mode_when_omitted(self, start_mock, strict_default_mock):
-        strict_default_mock.return_value = True
-        start_mock.return_value = (True, {"status": "running", "profile": "demo-small"})
-
-        response = self.client.post(
-            "/api/reseed-demo/",
-            {
-                "key": "demo-seed-2026",
-                "profile": "demo-small",
-                "random_seed": 20260413,
-                "dry_run": False,
-            },
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, 202, response.content)
-        start_mock.assert_called_once_with(
-            profile="demo-small",
-            random_seed=20260413,
-            dry_run=False,
-            strict_mode=True,
-            preserve_home_settings=True,
-        )
-
-    @patch("config.seed_view.get_default_strict_mode")
-    @patch("config.seed_view.start_reseed_run")
-    def test_reseed_endpoint_accepts_get_with_query_key_only(self, start_mock, strict_default_mock):
-        strict_default_mock.return_value = False
-        start_mock.return_value = (True, {"status": "running", "profile": "demo-full"})
-
-        response = self.client.get("/api/reseed-demo/?key=demo-seed-2026")
-
-        self.assertEqual(response.status_code, 202, response.content)
-        self.assertEqual(start_mock.call_count, 1)
-        call_kwargs = start_mock.call_args.kwargs
-        # GET with key only falls back to DEFAULT_PROFILE (reseed_engine.DEFAULT_PROFILE).
-        self.assertEqual(call_kwargs["profile"], "demo-full")
-        self.assertIsInstance(call_kwargs["random_seed"], int)
-        self.assertEqual(call_kwargs["dry_run"], False)
-        self.assertEqual(call_kwargs["strict_mode"], False)
-        self.assertEqual(call_kwargs["preserve_home_settings"], True)
+        # Categories with a parent/child tree.
+        self.assertGreater(Category.objects.filter(parent_category__isnull=True).count(), 0)
+        self.assertGreater(Category.objects.filter(parent_category__isnull=False).count(), 0)

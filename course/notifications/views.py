@@ -53,8 +53,20 @@ class NotificationView(APIView):
             type = request.data.get('type')
             related_id = request.data.get('related_id')
             notification_code = request.data.get('notification_code')
+            action_url = request.data.get('action_url')
+            metadata = request.data.get('metadata')
 
-            notification = create_notification(receiver_id, title, message, type, related_id, sender, notification_code)
+            notification = create_notification(
+                receiver_id,
+                title,
+                message,
+                type,
+                related_id,
+                sender,
+                notification_code,
+                action_url=action_url,
+                metadata=metadata,
+            )
             return Response(notification, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

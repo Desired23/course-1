@@ -40,7 +40,6 @@ class LessonSerializer(serializers.ModelSerializer):
             'duration',
             'is_free',
             'order',
-            'status',
             'created_at',
             'updated_at',
         ]

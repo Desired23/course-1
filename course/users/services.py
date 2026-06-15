@@ -197,7 +197,7 @@ def validate_user_data(data):
 def get_users(filters=None):
     filters = filters or {}
     from django.db.models import Count, Q
-    users = User.objects.select_related('instructor', 'admin').annotate(
+    users = User.objects.select_related('instructor', 'instructor__level', 'admin').annotate(
         enrollment_count_db=Count('enrollment_user', filter=Q(enrollment_user__is_deleted=False), distinct=True),
         courses_count_db=Count('instructor__courses_instructor', filter=Q(instructor__courses_instructor__is_deleted=False), distinct=True),
     ).filter(is_deleted=False)
@@ -239,7 +239,7 @@ def get_users(filters=None):
 
 def get_user_by_id(user_id, viewer_id=None, is_admin=False):
         try:
-            user = User.objects.select_related('instructor', 'admin').get(id=user_id)
+            user = User.objects.select_related('instructor', 'instructor__level', 'admin').get(id=user_id)
             serializer = Userserializers(user)
             return apply_privacy_to_user_payload(serializer.data, owner_id=user.id, viewer_id=viewer_id, is_admin=is_admin)
         except User.DoesNotExist:
@@ -399,7 +399,7 @@ def google_login(data):
             action="REGISTER",
             entity_type="User",
             entity_id=user.id,
-            description="NgÆ°á»i dÃ¹ng Ä‘Äƒng kÃ½ tÃ i khoáº£n báº±ng Google"
+            description="Người dùng đăng ký tài khoản bằng Google"
         )
     else:
         updates = []
@@ -419,21 +419,25 @@ def google_login(data):
         action="LOGIN",
         entity_type="User",
         entity_id=user.id,
-        description="NgÆ°á»i dÃ¹ng Ä‘Äƒng nháº­p báº±ng Google"
+        description="Người dùng đăng nhập bằng Google"
     )
     return _issue_auth_tokens(user, remember_me=remember_me)
 def login(data):
-    username = data.get('username')
+    username = (data.get('username') or '').strip()
     password = data.get('password')
     remember_me = data.get('remember_me', False)
     remember_me = str(remember_me).lower() in ['true', '1', 'yes', 'on']
 
     if not username or not password:
-        raise ValidationError({"error": "Username and password are required."})
-    try:
-        user = User.objects.select_related('instructor', 'admin').get(username=username)
-    except User.DoesNotExist:
+        raise ValidationError({"error": "Username or email and password are required."})
+
+    users = User.objects.select_related('instructor', 'admin')
+    user = users.filter(username=username).first()
+    if user is None:
+        user = users.filter(email__iexact=username).first()
+    if user is None:
         raise ValidationError({"error": "User not found."})
+
     if not check_password(data['password'], user.password_hash):
         raise ValidationError({"error": "Invalid password."})
     if user.status != 'active':
@@ -567,10 +571,14 @@ def user_reset_password(data):
     )
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
     try:
-        send_reset_password(user.email, reset_link)
-        return {"message": "Reset password email sent."}
+        sent = send_reset_password(user.email, reset_link)
     except Exception as e:
         raise ValidationError({"error": f"Failed to send email: {str(e)}"})
+
+    if not sent:
+        raise ValidationError({"error": "Failed to send reset password email. Please try again later."})
+
+    return {"message": "Reset password email sent."}
 
 def confirm_reset_password(token, new_password):
     try:
@@ -772,7 +780,7 @@ def change_password_self(user_id, current_password, new_password):
         action="PASSWORD_CHANGED",
         entity_type="User",
         entity_id=user_id,
-        description="NgÆ°á»i dÃ¹ng Ä‘á»•i máº­t kháº©u táº¡i trang cÃ i Ä‘áº·t"
+        description="Người dùng đổi mật khẩu tại trang cài đặt"
     )
     # Other devices were revoked above; issue a fresh session for the current
     # device so the user who just changed the password stays logged in here.

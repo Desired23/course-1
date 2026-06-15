@@ -11,7 +11,6 @@ class CourseModuleSerializer(serializers.ModelSerializer):
             'description',
             'order_number',
             'duration',
-            'status',
             'created_at',
             'updated_at',
         ]

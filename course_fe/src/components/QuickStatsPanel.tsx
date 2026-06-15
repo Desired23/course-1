@@ -2,13 +2,8 @@ import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import {
   Video,
-  FileText,
+  Code,
   HelpCircle,
-  ClipboardList,
-  File,
-  Link,
-  CheckCircle,
-  Clock,
   PlayCircle
 } from 'lucide-react'
 import { cn } from './ui/utils'
@@ -20,7 +15,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
 }
 
@@ -40,8 +34,6 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
 
   const allLessons = sections.flatMap(s => s.lessons)
   const totalLessons = allLessons.length
-  const publishedLessons = allLessons.filter(l => l.status === 'published').length
-  const draftLessons = allLessons.filter(l => l.status === 'draft').length
 
 
   const totalMinutes = allLessons.reduce((sum, lesson) => {
@@ -74,11 +66,8 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
 
   const contentTypeStats = [
     { type: 'video', label: t('quick_stats.video'), icon: Video, count: contentTypeCounts.video || 0, color: 'text-purple-600 dark:text-purple-400' },
-    { type: 'text', label: t('quick_stats.article'), icon: FileText, count: contentTypeCounts.text || 0, color: 'text-blue-600 dark:text-blue-400' },
     { type: 'quiz', label: t('quick_stats.quiz'), icon: HelpCircle, count: contentTypeCounts.quiz || 0, color: 'text-orange-600 dark:text-orange-400' },
-    { type: 'assignment', label: t('quick_stats.assignment'), icon: ClipboardList, count: contentTypeCounts.assignment || 0, color: 'text-green-600 dark:text-green-400' },
-    { type: 'file', label: t('quick_stats.file'), icon: File, count: contentTypeCounts.file || 0, color: 'text-gray-600 dark:text-gray-400' },
-    { type: 'link', label: t('quick_stats.link'), icon: Link, count: contentTypeCounts.link || 0, color: 'text-cyan-600 dark:text-cyan-400' }
+    { type: 'code', label: t('quick_stats.code'), icon: Code, count: contentTypeCounts.code || 0, color: 'text-red-600 dark:text-red-400' },
   ].filter(stat => stat.count > 0)
 
   return (
@@ -107,37 +96,6 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
       </div>
 
 
-      <div className="space-y-2 pt-2 border-t">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('quick_stats.status')}</p>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <span className="text-sm">{t('quick_stats.published')}</span>
-          </div>
-          <Badge
-            variant="outline"
-            className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20"
-          >
-            {publishedLessons}
-          </Badge>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-            <span className="text-sm">{t('quick_stats.draft')}</span>
-          </div>
-          <Badge
-            variant="outline"
-            className="bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20"
-          >
-            {draftLessons}
-          </Badge>
-        </div>
-      </div>
-
-
       {contentTypeStats.length > 0 && (
         <div className="space-y-2 pt-2 border-t">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('quick_stats.content_types')}</p>
@@ -155,23 +113,6 @@ export function QuickStatsPanel({ sections, className }: QuickStatsPanelProps) {
           ))}
         </div>
       )}
-
-
-      <div className="space-y-2 pt-2 border-t">
-        <div className="flex items-baseline justify-between">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('quick_stats.completion')}</p>
-          <p className="text-sm font-semibold">
-            {totalLessons > 0 ? Math.round((publishedLessons / totalLessons) * 100) : 0}%
-          </p>
-        </div>
-
-        <div className="w-full bg-muted rounded-full h-2.5">
-          <div
-            className="bg-gradient-to-r from-primary to-primary/80 rounded-full h-2.5 transition-all duration-500"
-            style={{ width: `${totalLessons > 0 ? (publishedLessons / totalLessons) * 100 : 0}%` }}
-          />
-        </div>
-      </div>
     </Card>
   )
 }

@@ -12,7 +12,28 @@ class Userserializers(serializers.ModelSerializer):
     enrollment_count = serializers.SerializerMethodField()
     courses_count = serializers.SerializerMethodField()
     roles = serializers.SerializerMethodField()
+    instructor_id = serializers.SerializerMethodField()
+    instructor_level = serializers.SerializerMethodField()
+    instructor_level_locked = serializers.SerializerMethodField()
     user_type = serializers.ReadOnlyField()
+
+    def get_instructor_id(self, obj):
+        instructor = getattr(obj, 'instructor', None)
+        if instructor is None or instructor.is_deleted:
+            return None
+        return instructor.id
+
+    def get_instructor_level(self, obj):
+        instructor = getattr(obj, 'instructor', None)
+        if instructor is None or instructor.is_deleted or instructor.level is None:
+            return None
+        return {'id': instructor.level.id, 'name': instructor.level.name}
+
+    def get_instructor_level_locked(self, obj):
+        instructor = getattr(obj, 'instructor', None)
+        if instructor is None or instructor.is_deleted:
+            return None
+        return instructor.level_locked
 
     def get_roles(self, obj):
         roles = ['student']
@@ -56,6 +77,9 @@ class Userserializers(serializers.ModelSerializer):
             'user_type',
             'enrollment_count',
             'courses_count',
+            'instructor_id',
+            'instructor_level',
+            'instructor_level_locked',
         ]
         extra_kwargs = {
             'password_hash': {'write_only': True},

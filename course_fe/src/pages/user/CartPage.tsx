@@ -48,7 +48,8 @@ const fadeInUp = {
 
 function calculateCartTotals(
   items: Array<{ currentPrice: number; originalPrice: number; couponDiscount?: number }>,
-  orderCoupon: { discount: number; discountType: 'percentage' | 'fixed' } | null
+  orderCoupon: { discount: number; discountType: 'percentage' | 'fixed' } | null,
+  appliedPromotion: { totalDiscount: number } | null
 ) {
   const originalPrice = items.reduce((total, item) => total + item.currentPrice, 0)
   const discountedSubtotal = items.reduce((total, item) => {
@@ -56,13 +57,20 @@ function calculateCartTotals(
     return total + effectivePrice
   }, 0)
 
-  const orderDiscount = orderCoupon
-    ? orderCoupon.discountType === 'percentage'
-      ? (discountedSubtotal * orderCoupon.discount) / 100
-      : orderCoupon.discount
-    : 0
+  // The summary shows a single coupon discount — appliedPromotion.totalDiscount (the
+  // amount the backend validated), falling back to orderCoupon. Subtract exactly that
+  // from the total so the displayed total always agrees with the discount line, even
+  // when the discount isn't reflected per-item. min() guards against double-counting a
+  // per-item (instructor) discount that's already in discountedSubtotal.
+  const couponDiscount = appliedPromotion
+    ? appliedPromotion.totalDiscount
+    : orderCoupon
+      ? orderCoupon.discountType === 'percentage'
+        ? (originalPrice * orderCoupon.discount) / 100
+        : orderCoupon.discount
+      : 0
 
-  const totalPrice = Math.max(0, discountedSubtotal - orderDiscount)
+  const totalPrice = Math.max(0, Math.min(discountedSubtotal, originalPrice - couponDiscount))
   const savings = items.reduce((total, item) => total + item.originalPrice, 0) - totalPrice
 
   return {
@@ -137,8 +145,8 @@ export function CartPage() {
   )
 
   const selectedTotals = useMemo(
-    () => calculateCartTotals(selectedItems, orderCoupon),
-    [selectedItems, orderCoupon]
+    () => calculateCartTotals(selectedItems, orderCoupon, appliedPromotion),
+    [selectedItems, orderCoupon, appliedPromotion]
   )
 
   const allSelected = cartItems.length > 0 && selectedItems.length === cartItems.length

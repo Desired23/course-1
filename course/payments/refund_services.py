@@ -88,6 +88,8 @@ def _serialize_refund_detail(detail):
     return {
         "refund_id": detail.id,
         "payment_id": detail.payment_id,
+        "payment_method": detail.payment.payment_method if detail.payment else None,
+        "payment_gateway": detail.payment.payment_gateway if detail.payment else None,
         "course_id": detail.course_id,
         "course_title": detail.course.title if detail.course else None,
         "amount": float(detail.final_price),
@@ -177,7 +179,7 @@ def _validate_refundable_detail(payment, detail, user):
 
 def _apply_success_side_effects(detail):
     payment = detail.payment
-    if detail.refund_status != Payment_Details.RefundStatus.SUCCESS:
+    if detail.refund_status == Payment_Details.RefundStatus.SUCCESS:
         payment.refund_amount = (payment.refund_amount or Decimal("0.00")) + (detail.refund_amount or Decimal("0.00"))
         if payment.refund_amount >= payment.total_amount:
             payment.payment_status = Payment.PaymentStatus.REFUNDED
@@ -868,7 +870,6 @@ def get_admin_refunds(refund_status_filter=None, search=None, date_from=None, da
             "user_email": detail.payment.user.email if detail.payment and detail.payment.user else None,
             "requested_at": detail.refund_request_time,
             "processed_at": detail.refund_date,
-            "processed_by": None,
             "learning_progress": float(enrollment.progress) if enrollment and enrollment.progress is not None else 0,
             "course_completion_days": course_completion_days,
             "retryable": (

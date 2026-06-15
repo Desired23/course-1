@@ -291,11 +291,16 @@ def create_payment(payment_data):
                     applicable_category_ids = set(
                         promotion.applicable_categories.values_list('pk', flat=True)
                     )
-                    for detail_course in courses_detail:
-                        if not detail_course.category_id or detail_course.category_id not in applicable_category_ids:
-                            raise ValidationError(
-                                f"Khuyến mãi {promotion.code} (ID {promotion.id}) không áp dụng cho danh mục của khóa học '{detail_course.title}'."
-                            )
+                    # Only enforce the category restriction when the promotion actually
+                    # specifies categories — an empty set means "all categories" (matches
+                    # validate_promotion_code). Without this guard, `not in empty_set` is
+                    # always True and every course would be wrongly rejected.
+                    if applicable_category_ids:
+                        for detail_course in courses_detail:
+                            if not detail_course.category_id or detail_course.category_id not in applicable_category_ids:
+                                raise ValidationError(
+                                    f"Khuyến mãi {promotion.code} (ID {promotion.id}) không áp dụng cho danh mục của khóa học '{detail_course.title}'."
+                                )
                     if promotion.status != Promotion.StatusChoices.ACTIVE:
                         raise ValidationError("Khuyến mãi không hoạt động.")
                     if promotion.start_date and promotion.end_date and not (promotion.start_date <= payment_time <= promotion.end_date):
@@ -472,14 +477,26 @@ def get_payment_status(payment_id, user, admin_override=False):
 
     return {
         "id": payment.id,
+        "user": payment.user_id,
+        "user_id": payment.user_id,
+        "user_name": payment.user.full_name if payment.user else None,
+        "user_email": payment.user.email if payment.user else None,
+        "payment_type": payment.payment_type,
+        "subscription_plan": payment.subscription_plan_id,
+        "promotion": payment.promotion_id,
         "payment_status": payment.payment_status,
         "transaction_id": payment.transaction_id,
         "amount": payment.amount,
         "discount_amount": payment.discount_amount,
         "total_amount": payment.total_amount,
         "payment_method": payment.payment_method,
+        "refund_amount": payment.refund_amount,
+        "payment_gateway": payment.payment_gateway,
+        "gateway_response": payment.gateway_response,
         "courses": courses,
+        "payment_date": payment.payment_date,
         "created_at": payment.created_at,
+        "updated_at": payment.updated_at,
         "completed_at": completed_at,
         "retryable_until": retryable_until,
         "can_retry_payment": can_retry_payment(payment),
@@ -529,6 +546,11 @@ def list_admin_payments(problematic: bool = False):
             'user_name': p.user.full_name if p.user else None,
             'user_email': p.user.email if p.user else None,
             'payment_status': p.payment_status,
+            'payment_type': p.payment_type,
+            'payment_method': p.payment_method,
+            'payment_gateway': p.payment_gateway,
+            'gateway_response': p.gateway_response,
+            'transaction_id': p.transaction_id,
             'total_amount': p.total_amount,
             'created_at': p.created_at,
             'courses': course_list,

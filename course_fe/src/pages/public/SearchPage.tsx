@@ -40,7 +40,7 @@ const fadeInUp = {
 export function SearchPage() {
   const { t } = useTranslation()
   const { params } = useRouter()
-  const { isOwned, getProgress } = useOwnedCourses()
+  const { isEnrolled, isInSubscription, getProgress } = useOwnedCourses()
   const searchQuery = params?.query || ""
 
 
@@ -385,7 +385,8 @@ export function SearchPage() {
                               bestseller={course.total_students > 100000}
                               currency="VND"
                               discountEndDate={ep < rp ? course.discount_end_date : undefined}
-                              isOwned={isOwned(course.id)}
+                              isOwned={isEnrolled(course.id)}
+                              inSubscription={isInSubscription(course.id)}
                               progress={getProgress(course.id)}
                             />
                           )
@@ -454,7 +455,8 @@ export function SearchPage() {
                             bestseller={course.total_students > 100000}
                             currency="VND"
                             discountEndDate={ep < rp ? course.discount_end_date : undefined}
-                            isOwned={isOwned(course.id)}
+                            isOwned={isEnrolled(course.id)}
+                            inSubscription={isInSubscription(course.id)}
                             progress={getProgress(course.id)}
                           />
                         </motion.div>

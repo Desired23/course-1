@@ -20,6 +20,7 @@ import { LearningPathTrackingCard } from '../../components/LearningPathTrackingC
 import { onAiLearningPathSaved, openAiLearningPath } from '../../components/AiLearningPathLauncher'
 import { listItemTransition } from '../../lib/motion'
 import { useAuth } from '../../contexts/AuthContext'
+import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
 type SortBy = 'recent_access' | 'newest_enrollment' | 'oldest_enrollment' | 'title_asc' | 'progress_desc'
 type LearningTab = 'all' | 'in-progress' | 'completed' | 'plan-courses' | 'bookmarks' | 'learning-paths'
@@ -62,6 +63,7 @@ export function MyLearningPage() {
   const { t } = useTranslation()
   const { navigate } = useRouter()
   const { user } = useAuth()
+  const { isEnrolled } = useOwnedCourses()
   const userCacheKey = user?.id == null ? null : String(user.id)
   const cachedLearningPaths = getCachedLearningPaths(userCacheKey)
 
@@ -408,6 +410,10 @@ export function MyLearningPage() {
                   <span>{course.course_rating ? `${Number(course.course_rating).toFixed(1)}★` : '-'}</span>
                 </div>
 
+                <Button className="w-full gap-2" onClick={() => handleContinueLearning(course.course)}>
+                  <Play className="h-4 w-4" />
+                  {isEnrolled(course.course) ? t('my_learning.continue_learning') : t('course_card.start_learning')}
+                </Button>
                 <Button variant="outline" className="w-full" onClick={() => navigate(`/course/${course.course}`)}>
                   {t('my_learning.view_details')}
                 </Button>

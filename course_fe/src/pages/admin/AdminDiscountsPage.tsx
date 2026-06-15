@@ -62,6 +62,7 @@ interface Discount {
   status: "active" | "expired" | "disabled"
   creatorRole: "admin" | "instructor"
   applicableTo: "all" | "specific"
+  revenueImpact: number
 }
 
 const sectionStagger = {
@@ -119,6 +120,7 @@ export function AdminDiscountsPage() {
     expiry: "",
     minPurchase: "",
     maxDiscount: "",
+    applicableTo: "all" as "all" | "specific",
   })
   const [discounts, setDiscounts] = useState<Discount[]>([])
 
@@ -148,6 +150,7 @@ export function AdminDiscountsPage() {
               (promotion.applicable_courses?.length || promotion.applicable_categories?.length)
                 ? "specific"
                 : "all",
+            revenueImpact: Number(promotion.revenue_impact ?? promotion.revenue ?? 0),
           })),
         )
       } catch {
@@ -189,6 +192,12 @@ export function AdminDiscountsPage() {
   const getStatusLabel = (status: Discount["status"]) => t(`admin_discounts.status.${status}`)
   const getTypeLabel = (type: Discount["type"]) => t(`admin_discounts.type.${type}`)
   const getRoleLabel = (role: Discount["creatorRole"]) => t(`admin_discounts.creator_role.${role}`)
+  const formatVnd = (amount: number) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    }).format(amount)
 
   const handleCreateDiscount = async () => {
     if (!newDiscount.code || !newDiscount.value || !newDiscount.expiry) {
@@ -224,6 +233,7 @@ export function AdminDiscountsPage() {
           status: "active",
           creatorRole: "admin",
           applicableTo: newDiscount.applicableTo,
+          revenueImpact: Number(created.revenue_impact ?? created.revenue ?? 0),
         },
       ])
       toast.success(t("admin_discounts.toasts.create_success"))
@@ -237,6 +247,7 @@ export function AdminDiscountsPage() {
         expiry: "",
         minPurchase: "",
         maxDiscount: "",
+        applicableTo: "all",
       })
     } catch {
       toast.error(t("admin_discounts.toasts.create_failed"))
@@ -361,7 +372,7 @@ export function AdminDiscountsPage() {
     setSelectedDiscountIds(checked ? filteredDiscounts.map((discount) => discount.id) : [])
   }
 
-  const totalRevenue = discounts.reduce((sum, discount) => sum + discount.usedCount * discount.value, 0)
+  const totalRevenueImpact = discounts.reduce((sum, discount) => sum + discount.revenueImpact, 0)
   const totalUsage = discounts.reduce((sum, discount) => sum + discount.usedCount, 0)
   const activeDiscounts = discounts.filter((discount) => discount.status === "active").length
   const averageDiscount = discounts.length
@@ -556,7 +567,7 @@ export function AdminDiscountsPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">{t("admin_discounts.stats.revenue_impact")}</p>
-              <p className="text-2xl font-bold">{totalRevenue.toLocaleString('vi-VN')}₫</p>
+              <p className="text-2xl font-bold">{formatVnd(totalRevenueImpact)}</p>
             </div>
           </div>
         </Card>
@@ -707,7 +718,7 @@ export function AdminDiscountsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {discount.type === "percentage" ? `${discount.value}%` : `${Number(discount.value).toLocaleString('vi-VN')}₫`}
+                      {discount.type === "percentage" ? `${discount.value}%` : formatVnd(Number(discount.value))}
                     </TableCell>
                     <TableCell>
                       <div>

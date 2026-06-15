@@ -8,17 +8,12 @@ import {
   DialogDescription
 } from './ui/dialog'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
 import {
   Save,
   X,
   FileText,
   Paperclip,
-  HelpCircle,
   Loader2,
-  AlertCircle,
-  CheckCircle,
-  Clock,
   Code,
   ChevronRight,
   ChevronLeft,
@@ -31,7 +26,7 @@ import { ContentTab } from './ContentTab'
 import { ResourcesTab } from './ResourcesTab'
 import { QuizTab } from './QuizTab'
 import { LessonPreviewModal } from './LessonPreviewModal'
-import { EnhancedCodeQuizCreator, EnhancedCodeQuizData } from './EnhancedCodeQuizCreator'
+import { EnhancedCodeQuizCreator } from './EnhancedCodeQuizCreator'
 import { useTranslation } from 'react-i18next'
 
 interface Lesson {
@@ -40,7 +35,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   description?: string
   videoUrl?: string
@@ -187,20 +181,6 @@ export function LessonEditorDialog({
     },
   ]
 
-  const statusConfig = {
-    published: {
-      icon: CheckCircle,
-      color: 'bg-green-500/10 text-green-600 border-green-500/20'
-    },
-    draft: {
-      icon: Clock,
-      color: 'bg-gray-500/10 text-gray-600 border-gray-500/20'
-    }
-  }
-
-  const currentStatus = statusConfig[editedLesson.status as keyof typeof statusConfig] || statusConfig.draft
-
-
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
@@ -256,11 +236,6 @@ export function LessonEditorDialog({
                   {editedLesson.id ? t('lesson_editor_dialog.edit_lesson') : t('lesson_editor_dialog.new_lesson')}
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-3">
-                  <Badge variant="outline" className={cn("gap-1.5 py-1 px-2", currentStatus.color)}>
-                    <currentStatus.icon className="h-3.5 w-3.5" />
-                    {editedLesson.status === 'published' ? t('lesson_editor_dialog.published') : t('lesson_editor_dialog.draft')}
-                  </Badge>
-                  <span className="text-muted-foreground">|</span>
                   <span className="font-medium text-foreground">{editedLesson.title || t('lesson_editor_dialog.untitled_lesson')}</span>
                 </DialogDescription>
               </div>

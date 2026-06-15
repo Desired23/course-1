@@ -48,8 +48,8 @@ class CertificateIssuanceTests(TestCase):
         )
         self.lessons = [
             Lesson.objects.create(
-                coursemodule=module, title=f"L{i}", content_type=Lesson.ContentType.TEXT,
-                order=i, status=Lesson.Status.PUBLISHED,
+                coursemodule=module, title=f"L{i}", content_type=Lesson.ContentType.VIDEO,
+                order=i,
             )
             for i in range(1, 3)
         ]
@@ -79,8 +79,8 @@ class CertificateIssuanceTests(TestCase):
             status="Published", is_deleted=True,
         )
         Lesson.objects.create(
-            coursemodule=dead_module, title="Ghost", content_type=Lesson.ContentType.TEXT,
-            order=99, status=Lesson.Status.PUBLISHED, is_deleted=True,
+            coursemodule=dead_module, title="Ghost", content_type=Lesson.ContentType.VIDEO,
+            order=99, is_deleted=True,
         )
 
         issue_certificate(self.student, self.course.id)

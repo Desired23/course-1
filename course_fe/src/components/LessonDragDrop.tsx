@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
 import { useTranslation } from 'react-i18next'
-import { GripVertical, Play, FileText, HelpCircle, Clock, Edit3, Eye, Trash2, Captions, RefreshCw, Loader2 } from 'lucide-react'
+import { GripVertical, Play, FileText, HelpCircle, Code, Clock, Edit3, Eye, Trash2, Captions, RefreshCw, Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 
@@ -10,7 +10,6 @@ interface Lesson {
   title: string
   type: string
   duration: string
-  status: string
   videoUrl?: string
   description?: string
   resources?: string[]
@@ -50,23 +49,10 @@ const getTypeIcon = (type: string) => {
       return <Play className="h-4 w-4" />
     case 'quiz':
       return <HelpCircle className="h-4 w-4" />
-    case 'article':
-      return <FileText className="h-4 w-4" />
+    case 'code':
+      return <Code className="h-4 w-4" />
     default:
       return <FileText className="h-4 w-4" />
-  }
-}
-
-const getStatusBadge = (status: string, t: (key: string) => string) => {
-  switch (status) {
-    case 'published':
-      return <Badge className="bg-green-500 hover:bg-green-600">{t('lesson_drag_drop.status.published')}</Badge>
-    case 'draft':
-      return <Badge variant="secondary">{t('lesson_drag_drop.status.draft')}</Badge>
-    case 'pending':
-      return <Badge className="bg-yellow-500 hover:bg-yellow-600">{t('lesson_drag_drop.status.pending')}</Badge>
-    default:
-      return <Badge variant="outline">{status}</Badge>
   }
 }
 
@@ -215,7 +201,6 @@ export function DraggableLessonCard({
           <span>{lesson.duration}</span>
         </div>
         {renderTranscriptBadge()}
-        {getStatusBadge(lesson.status, t)}
       </div>
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">

@@ -40,7 +40,7 @@ def _to_datetime_range(date_from=None, date_to=None):
     return parsed_from, parsed_to
 
 
-def create_report(reporter, target_type, target_id, reason, description=''):
+def create_report(reporter, target_type, target_id, reason, description='', metadata=None, attachments=None):
     adapter = get_adapter(target_type)
     if not adapter:
         raise ValidationError({'target_type': 'Loại nội dung không hợp lệ.'})
@@ -67,7 +67,11 @@ def create_report(reporter, target_type, target_id, reason, description=''):
             existing.reason = reason
         if description:
             existing.description = description
-        existing.save(update_fields=['reason', 'description', 'updated_at'])
+        if metadata:
+            existing.metadata = metadata
+        if attachments:
+            existing.attachments = attachments
+        existing.save(update_fields=['reason', 'description', 'metadata', 'attachments', 'updated_at'])
         report = existing
     else:
         report = Report.objects.create(
@@ -76,9 +80,20 @@ def create_report(reporter, target_type, target_id, reason, description=''):
             target_id=target_id,
             reason=reason,
             description=description,
+            metadata=metadata or {},
+            attachments=attachments or [],
         )
 
     _sync_counter(target_type, target_id, reason, description)
+
+    copyright_case = None
+    if reason == Report.Reason.COPYRIGHT:
+        from .copyright_services import create_or_update_copyright_case
+        copyright_case = create_or_update_copyright_case(
+            report,
+            metadata=metadata or {},
+            attachments=attachments or [],
+        )
 
     try:
         from notifications.services import notify_admins
@@ -93,6 +108,12 @@ def create_report(reporter, target_type, target_id, reason, description=''):
             type='other',
             notification_code=f'{target_type}_reported',
             related_id=target_id,
+            action_url=(
+                f'/admin/reports?case={copyright_case.id}'
+                if copyright_case else None
+            ),
+            metadata={'copyright_case_id': copyright_case.id} if copyright_case else None,
+            force=bool(copyright_case),
         )
     except Exception:
         pass
@@ -194,6 +215,21 @@ def get_report_cases(filters=None):
         .order_by('-last_reported_at')
     )
 
+    from django.utils import timezone
+    from .models import CopyrightCase
+    now = timezone.now()
+    copyright_map = {}
+    for c in CopyrightCase.objects.order_by('id').values(
+        'target_type', 'target_id', 'id', 'status', 'reporter_deadline_at', 'instructor_deadline_at',
+    ):
+        overdue = bool(
+            (c['status'] == CopyrightCase.Status.NEEDS_REPORTER_INFO
+                and c['reporter_deadline_at'] and c['reporter_deadline_at'] < now)
+            or (c['status'] == CopyrightCase.Status.AWAITING_INSTRUCTOR_RESPONSE
+                and c['instructor_deadline_at'] and c['instructor_deadline_at'] < now)
+        )
+        copyright_map[(c['target_type'], c['target_id'])] = {'id': c['id'], 'overdue': overdue}
+
     items = []
     for case in cases_qs:
         tt = case['target_type']
@@ -228,6 +264,8 @@ def get_report_cases(filters=None):
 
         response_status = status_filter if status_filter not in (None, '', 'open') else 'pending'
 
+        cc = copyright_map.get((tt, tid))
+
         items.append({
             'id': f'{tt}-{tid}',
             'target_type': tt,
@@ -241,6 +279,8 @@ def get_report_cases(filters=None):
             'top_reason': top_reason,
             'reason_breakdown': reason_breakdown,
             'last_reported_at': case['last_reported_at'],
+            'copyright_case_id': cc['id'] if cc else None,
+            'copyright_overdue': cc['overdue'] if cc else False,
         })
 
     return items
@@ -284,11 +324,13 @@ def get_report_case_detail(target_type, target_id):
             'reason': r.reason,
             'reason_label': _reason_label(r.reason),
             'description': r.description,
+            'metadata': r.metadata,
+            'attachments': r.attachments,
             'status': r.status,
             'created_at': r.created_at,
         })
 
-    return {
+    result = {
         'target_type': target_type,
         'target_id': target_id,
         'title': adapter['get_title'](obj) if obj else f'{target_type} #{target_id}',
@@ -296,6 +338,15 @@ def get_report_case_detail(target_type, target_id):
         'snippet': adapter['get_snippet'](obj) if obj else '',
         'reports': items,
     }
+
+    get_context = adapter.get('get_context')
+    if get_context and obj is not None:
+        try:
+            result['context'] = get_context(obj)
+        except Exception:
+            pass
+
+    return result
 
 
 def resolve_report_case(target_type, target_id, action, notes='', admin=None):

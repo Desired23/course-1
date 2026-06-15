@@ -31,6 +31,7 @@ export interface Instructor {
   payment_info: unknown | null
   profile_settings: InstructorProfileSettings | null
   level: InstructorLevel | null
+  level_locked?: boolean
 }
 
 export interface InstructorCustomSection {
@@ -108,6 +109,19 @@ export async function updateInstructorProfile(
   data: UpdateInstructorProfileData,
 ): Promise<Instructor> {
   const updated = await http.patch<Instructor>(`/instructors/${instructorId}/`, data)
+  clearInstructorCache()
+  return updated
+}
+
+export async function assignInstructorLevel(
+  instructorId: number,
+  levelId: number,
+  locked = true,
+): Promise<Instructor> {
+  const updated = await http.patch<Instructor>(`/instructors/${instructorId}/`, {
+    level_id: levelId,
+    level_locked: locked,
+  })
   clearInstructorCache()
   return updated
 }

@@ -20,6 +20,10 @@ class Instructor(models.Model):
     payment_info = models.JSONField(null=True, blank=True)
     profile_settings = models.JSONField(null=True, blank=True)
     level = models.ForeignKey(InstructorLevel, on_delete=models.SET_NULL, null=True, blank=True, related_name='instructors')
+    level_locked = models.BooleanField(
+        default=False,
+        help_text='Khi True, level do admin gán thủ công; job tự động nâng cấp sẽ bỏ qua giảng viên này.'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)

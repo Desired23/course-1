@@ -9,9 +9,41 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+
+_INVOICE_FONT_NAME = None
+
+
+def _get_invoice_font_name():
+    global _INVOICE_FONT_NAME
+    if _INVOICE_FONT_NAME:
+        return _INVOICE_FONT_NAME
+
+    font_path_candidates = [
+        getattr(settings, "INVOICE_PDF_FONT_PATH", None),
+        os.path.join(str(getattr(settings, "BASE_DIR", "")), "static", "fonts", "DejaVuSans.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        r"C:\Windows\Fonts\arial.ttf",
+    ]
+    for font_path in font_path_candidates:
+        if not font_path or not os.path.exists(font_path):
+            continue
+        try:
+            pdfmetrics.registerFont(TTFont("InvoiceUnicode", font_path))
+            _INVOICE_FONT_NAME = "InvoiceUnicode"
+            return _INVOICE_FONT_NAME
+        except Exception:
+            logger.warning("[Invoice PDF] Could not register font at %s", font_path, exc_info=True)
+
+    _INVOICE_FONT_NAME = "Helvetica"
+    return _INVOICE_FONT_NAME
 
 
 def _get_branding_setting(setting_key, fallback):
@@ -46,6 +78,10 @@ def generate_invoice_pdf(payment, payment_details):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
+    font_name = _get_invoice_font_name()
+    styles['Title'].fontName = font_name
+    styles['Normal'].fontName = font_name
+    styles['Italic'].fontName = font_name
     elements = []
 
 
@@ -74,7 +110,7 @@ def generate_invoice_pdf(payment, payment_details):
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, -1), font_name),
         ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
     ]))
     elements.append(table)
@@ -129,7 +165,7 @@ def send_email(
 
 def send_payment_invoice(user_email, payment):
 
-    payment_details = payment.payment_details.all()
+    payment_details = payment.payment_details.select_related("course").all()
 
     if not payment_details.exists():
         logger.warning(f"[Invoice Error] Không tìm thấy payment_details cho payment_id={payment.id}")
@@ -327,6 +363,57 @@ def send_course_status_changed(instructor_email, instructor_name, course_title, 
             "new_status": new_status,
             "is_approved": is_approved,
             "reason": reason,
+            "support_email": get_support_email(),
+        },
+    )
+
+
+def send_copyright_reporter_info_required(user_email, user_name, course_title, action_url, deadline_at=None):
+    return send_email(
+        subject=f"Can bo sung thong tin bao cao ban quyen: {course_title}",
+        to=user_email,
+        template_name="copyright_case_notification.html",
+        context={
+            "user_name": user_name,
+            "title": "Can bo sung thong tin bao cao ban quyen",
+            "course_title": course_title,
+            "message": "Admin can them thong tin/chung cu de tiep tuc xu ly bao cao ban quyen.",
+            "action_url": action_url,
+            "deadline_at": deadline_at,
+            "support_email": get_support_email(),
+        },
+    )
+
+
+def send_copyright_instructor_response_required(user_email, user_name, course_title, action_url, deadline_at=None):
+    return send_email(
+        subject=f"Yeu cau phan hoi bao cao ban quyen: {course_title}",
+        to=user_email,
+        template_name="copyright_case_notification.html",
+        context={
+            "user_name": user_name,
+            "title": "Yeu cau phan hoi bao cao ban quyen",
+            "course_title": course_title,
+            "message": "Khoa hoc/bai hoc cua ban dang co bao cao ban quyen. Vui long phan hoi va cung cap license/chung cu neu co.",
+            "action_url": action_url,
+            "deadline_at": deadline_at,
+            "support_email": get_support_email(),
+        },
+    )
+
+
+def send_copyright_case_decision(user_email, user_name, course_title, decision_message, action_url=None):
+    return send_email(
+        subject=f"Ket qua xu ly bao cao ban quyen: {course_title}",
+        to=user_email,
+        template_name="copyright_case_notification.html",
+        context={
+            "user_name": user_name,
+            "title": "Ket qua xu ly bao cao ban quyen",
+            "course_title": course_title,
+            "message": decision_message,
+            "action_url": action_url,
+            "deadline_at": None,
             "support_email": get_support_email(),
         },
     )

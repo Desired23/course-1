@@ -3,6 +3,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendDir = Join-Path $repoRoot "course"
 $backendEnvFile = Join-Path $backendDir ".env"
+$frontendDir = Join-Path $repoRoot "course_fe"
+$frontendEnvLocalFile = Join-Path $frontendDir ".env.local"
 $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $ngrokExe = Join-Path $repoRoot "ngrok.exe"
 $frontendUrl = "http://localhost:3000"
@@ -82,7 +84,6 @@ function Import-EnvFile {
         return
     }
 
-    Write-Host "Nap bien moi truong tu: $FilePath"
     Get-Content $FilePath | ForEach-Object {
         $line = $_.Trim()
         if (-not $line -or $line.StartsWith("#")) {
@@ -111,6 +112,45 @@ function Import-EnvFile {
     }
 }
 
+function Set-EnvFileValues {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Values
+    )
+
+    $lines = @()
+    if (Test-Path $FilePath) {
+        $lines = @(Get-Content $FilePath)
+    }
+
+    $seenKeys = @{}
+    $updatedLines = foreach ($line in $lines) {
+        $matched = $false
+        foreach ($key in $Values.Keys) {
+            if ($line -match "^\s*$([regex]::Escape($key))\s*=") {
+                $seenKeys[$key] = $true
+                $matched = $true
+                "$key=$($Values[$key])"
+                break
+            }
+        }
+
+        if (-not $matched) {
+            $line
+        }
+    }
+
+    foreach ($key in $Values.Keys) {
+        if (-not $seenKeys.ContainsKey($key)) {
+            $updatedLines += "$key=$($Values[$key])"
+        }
+    }
+
+    Set-Content -Path $FilePath -Value $updatedLines -Encoding UTF8
+}
+
 Import-EnvFile -FilePath $backendEnvFile -ExcludedKeys @(
     "BACKEND_PUBLIC_URL",
     "NGROK_URL",
@@ -120,7 +160,7 @@ Import-EnvFile -FilePath $backendEnvFile -ExcludedKeys @(
 
 $publicUrl = Get-NgrokPublicUrl
 if (-not $publicUrl) {
-    Write-Host "Dang bat ngrok cho cong 8000..."
+    Write-Host "Starting ngrok on :8000..."
     Remove-Item $ngrokLogFile, $ngrokErrFile -ErrorAction SilentlyContinue
     Start-Process -FilePath $ngrokExe -ArgumentList "http", "8000", "--log=stdout" -WindowStyle Hidden -RedirectStandardOutput $ngrokLogFile -RedirectStandardError $ngrokErrFile
 
@@ -148,21 +188,30 @@ $env:LEARNING_PATH_PROVIDER = if ([string]::IsNullOrWhiteSpace($env:LEARNING_PAT
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"
 
-Write-Host "Ngrok URL: $publicUrl"
-Write-Host "MOMO_IPN_URL: $env:MOMO_IPN_URL"
-Write-Host "MOMO_REDIRECT_URL: $env:MOMO_REDIRECT_URL"
-Write-Host "LEARNING_PATH_PROVIDER: $env:LEARNING_PATH_PROVIDER"
-$geminiKeyLength = if ([string]::IsNullOrEmpty($env:GEMINI_API_KEY)) { 0 } else { $env:GEMINI_API_KEY.Length }
-Write-Host "GEMINI_API_KEY length: $geminiKeyLength"
-Write-Host "LEARNING_PATH_FORCE_GEMINI: $env:LEARNING_PATH_FORCE_GEMINI"
-if ($geminiKeyLength -eq 0) {
-    if ($env:LEARNING_PATH_FORCE_GEMINI -eq "True") {
-        Write-Warning "GEMINI_API_KEY dang rong va LEARNING_PATH_FORCE_GEMINI=True. Advisor se tra loi loi cau hinh thay vi fallback rule-based."
-    } else {
-        Write-Warning "GEMINI_API_KEY dang rong. Advisor se dung rule_based thay vi Gemini."
+if (Test-Path $frontendDir) {
+    Set-EnvFileValues -FilePath $frontendEnvLocalFile -Values @{
+        "VITE_API_BASE_URL" = "$publicUrl/api"
     }
 }
-Write-Host "Dang chay Django server..."
+
+$geminiKeyLength = if ([string]::IsNullOrEmpty($env:GEMINI_API_KEY)) { 0 } else { $env:GEMINI_API_KEY.Length }
+if ($geminiKeyLength -eq 0 -and $env:LEARNING_PATH_FORCE_GEMINI -eq "True") {
+    Write-Warning "GEMINI_API_KEY is empty while LEARNING_PATH_FORCE_GEMINI=True."
+}
+
+Write-Host ""
+Write-Host "Backend tunnel ready"
+Write-Host "  Local:   http://127.0.0.1:8000"
+Write-Host "  API:     $publicUrl/api"
+Write-Host "  Ngrok:   $publicUrl"
+Write-Host "  MoMo IPN:      $env:MOMO_IPN_URL"
+Write-Host "  MoMo Redirect: $env:MOMO_REDIRECT_URL"
+if (Test-Path $frontendDir) {
+    Write-Host "  FE env:  $frontendEnvLocalFile"
+    Write-Host "  Note: restart Vite if it was already running."
+}
+Write-Host ""
+Write-Host "Starting Django..."
 
 Set-Location $backendDir
 if (Test-Path $venvPython) {
@@ -177,12 +226,12 @@ if (Test-Path $venvPython) {
     }
 
     if ($venvReady) {
-        Write-Host "Su dung Python tu .venv: $venvPython"
+        Write-Host "Python: .venv"
         & $venvPython manage.py runserver
         exit $LASTEXITCODE
     }
 
-    Write-Warning ".venv ton tai nhung chua du dependency. Fallback sang python he thong."
+    Write-Host "Python: system (the .venv is missing backend dependencies)"
 }
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
@@ -190,9 +239,9 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Test-Path $venvPython)) {
-    Write-Host "Khong tim thay .venv, su dung python he thong"
+    Write-Host "Python: system (.venv not found)"
 } else {
-    Write-Host "Su dung python he thong"
+    Write-Host "Python: system"
 }
 
 python manage.py runserver

@@ -35,6 +35,7 @@ export interface Promotion {
   status: PromotionStatus
   created_at: string
   updated_at: string
+  revenue_impact?: string
   revenue?: number
 }
 

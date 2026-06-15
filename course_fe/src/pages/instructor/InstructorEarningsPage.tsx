@@ -307,7 +307,12 @@ export function InstructorEarningsPage() {
                               : <span className="italic text-muted-foreground/60">Legacy</span>
                             }
                           </TableCell>
-                          <TableCell><Badge variant={getEarningStatusBadge(e.status)} className="capitalize">{e.status}</Badge></TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge variant={getEarningStatusBadge(e.status)} className="capitalize">{e.status}</Badge>
+                              {e.active_hold && <Badge variant="destructive">Đang giữ do report bản quyền</Badge>}
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

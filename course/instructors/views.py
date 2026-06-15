@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from .models import Instructor
 from .serializers import InstructorSerializers
+from .stats import average_rating, student_count, published_course_count
 from .services import (
     create_instructor,
     update_instructor,
@@ -43,12 +44,18 @@ class InstructorDetailView(APIView):
 
     def patch(self, request, instructor_id):
 
-        if not is_active_admin(request.user):
+        is_admin = is_active_admin(request.user)
+        if not is_admin:
             user_instructor = getattr(request.user, 'instructor', None)
             if not is_active_instructor(request.user) or user_instructor.id != instructor_id:
                 return Response({"error": "Bạn không có quyền cập nhật hồ sơ giảng viên này."}, status=status.HTTP_403_FORBIDDEN)
+        data = request.data
+        if not is_admin:
+            # Only admin may reassign an instructor's level or lock it; instructors
+            # editing their own profile cannot change these.
+            data = {k: v for k, v in data.items() if k not in ('level_id', 'level_locked')}
         try:
-            updated_instructor = update_instructor(instructor_id, request.data)
+            updated_instructor = update_instructor(instructor_id, data)
             return Response(InstructorSerializers(updated_instructor).data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -274,9 +281,9 @@ class InstructorListExportView(APIView):
                 i.specialization or '',
                 i.qualification or '',
                 i.experience or 0,
-                float(i.rating or 0),
-                i.total_students,
-                i.total_courses,
+                average_rating(i),
+                student_count(i),
+                published_course_count(i),
                 i.level.name if i.level else '',
                 i.created_at.strftime('%Y-%m-%d') if i.created_at else '',
             ]

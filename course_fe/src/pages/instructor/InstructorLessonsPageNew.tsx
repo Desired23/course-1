@@ -1,7 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { QuickStatsPanel } from "../../components/QuickStatsPanel"
 import { BulkActionsBar } from "../../components/BulkActionsBar"
-import { LessonEditorDialog } from "../../components/LessonEditorDialog"
 import { DarkModeToggle } from "../../components/DarkModeToggle"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
 import { useRouter } from "../../components/Router"
@@ -11,19 +9,19 @@ import { CourseStatsHorizontal } from '../../components/CourseStatsHorizontal'
 import { LessonEditorMain } from '../../components/LessonEditorMain'
 import { CourseOutlineSidebar } from '../../components/CourseOutlineSidebar'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
-import { LayoutDashboard, CheckSquare, ArrowLeft } from 'lucide-react'
+import { CheckSquare, ArrowLeft } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
 import { Textarea } from '../../components/ui/textarea'
 import { Label } from '../../components/ui/label'
 import { toast } from 'sonner'
 import { getErrorMessage } from '../../lib/apiError'
+import { formatLessonDurationInput, parseLessonDurationInputToMinutes } from '../../utils/lessonDuration'
 import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
 import { getAllLessons, getLessonById, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
 import { getLessonQuiz } from "../../services/quiz-questions.api"
 import { getCourseById } from "../../services/course.api"
 import { generateLessonTranscript } from "../../services/transcript.api"
-import { useAuthStore } from "../../stores/auth.store"
 import { useTranslation } from 'react-i18next'
 
 
@@ -32,7 +30,6 @@ export function InstructorLessonsPageNew() {
   const { params, navigate } = useRouter()
   const { t } = useTranslation()
   const courseId = params?.courseId
-  const isAdmin = useAuthStore(state => state.hasRole('admin'))
 
 
   const [sections, setSections] = useLocalStorage(`courseSections_${courseId}`, [] as any[])
@@ -195,15 +192,13 @@ export function InstructorLessonsPageNew() {
             return {
               id: mod.id,
               title: mod.title,
-              status: mod.status || 'Draft',
               lessons: lessons.map((l: any, idx: number) => ({
                 id: l.id,
                 title: l.title,
                 type: l.content_type || 'video',
                 content_type: l.content_type || 'video',
                 order: typeof l.order === 'number' ? l.order : idx + 1,
-                duration: l.duration ? `${Math.floor(l.duration / 60)}:${String(l.duration % 60).padStart(2, '0')}` : '0:00',
-                status: l.status || 'draft',
+                duration: formatLessonDurationInput(l.duration, '0 min'),
                 is_free: l.is_free || false,
                 videoUrl: l.video_url || '',
                 videoPublicId: l.video_public_id || '',
@@ -248,52 +243,6 @@ export function InstructorLessonsPageNew() {
   const handleClearSelection = useCallback(() => {
     setSelectedLessonIds(new Set())
   }, [])
-
-  const handleBulkPublish = useCallback(async () => {
-    try {
-      await Promise.all(
-        Array.from(selectedLessonIds).map(id => updateLessonApi(id, { status: 'published' }))
-      )
-      setSections(prevSections =>
-        prevSections.map(section => ({
-          ...section,
-          lessons: section.lessons.map(lesson =>
-            selectedLessonIds.has(lesson.id)
-              ? { ...lesson, status: 'published' }
-              : lesson
-          )
-        }))
-      )
-      toast.success(t('instructor_lessons_page_new.toasts.published_lessons', { count: selectedLessonIds.size }))
-      handleClearSelection()
-    } catch (err) {
-      console.error(err)
-      toast.error(t('instructor_lessons_page_new.toasts.failed_to_publish_lessons'))
-    }
-  }, [selectedLessonIds, setSections, handleClearSelection, t])
-
-  const handleBulkUnpublish = useCallback(async () => {
-    try {
-      await Promise.all(
-        Array.from(selectedLessonIds).map(id => updateLessonApi(id, { status: 'draft' }))
-      )
-      setSections(prevSections =>
-        prevSections.map(section => ({
-          ...section,
-          lessons: section.lessons.map(lesson =>
-            selectedLessonIds.has(lesson.id)
-              ? { ...lesson, status: 'draft' }
-              : lesson
-          )
-        }))
-      )
-      toast.success(t('instructor_lessons_page_new.toasts.unpublished_lessons', { count: selectedLessonIds.size }))
-      handleClearSelection()
-    } catch (err) {
-      console.error(err)
-      toast.error(t('instructor_lessons_page_new.toasts.failed_to_unpublish_lessons'))
-    }
-  }, [selectedLessonIds, setSections, handleClearSelection, t])
 
   const handleBulkDelete = useCallback(async () => {
     if (!confirm(t('instructor_lessons_page_new.confirms.delete_lessons', { count: selectedLessonIds.size }))) {
@@ -397,7 +346,6 @@ export function InstructorLessonsPageNew() {
       const section = {
         id: created.id,
         title: created.title,
-        status: created.status || 'Draft',
         lessons: []
       }
       setSections(prev => [...prev, section])
@@ -426,9 +374,8 @@ export function InstructorLessonsPageNew() {
         title: newLesson.title,
         content_type: newLesson.type as any,
         description: newLesson.description,
-        duration: newLesson.duration ? parseInt(newLesson.duration.split(':')[0]) * 60 + parseInt(newLesson.duration.split(':')[1] || '0') : 300,
+        duration: parseLessonDurationInputToMinutes(newLesson.duration) ?? 5,
         order: orderNum,
-        status: 'draft',
       })
 
       const lesson: any = {
@@ -437,9 +384,8 @@ export function InstructorLessonsPageNew() {
         type: created.content_type || newLesson.type,
         content_type: created.content_type || newLesson.type,
         description: created.description || '',
-        duration: newLesson.duration || '5:00',
+        duration: newLesson.duration || '5 min',
         order: typeof created.order === 'number' ? created.order : orderNum,
-        status: 'draft',
         is_free: false,
         videoUrl: '',
         videoPublicId: '',
@@ -502,47 +448,6 @@ export function InstructorLessonsPageNew() {
       toast.error(t('instructor_lessons_page_new.toasts.failed_to_delete_section'))
     }
   }, [setSections, t])
-
-  const handleUpdateSectionStatus = useCallback(async (sectionId: number, status: 'Draft' | 'Published') => {
-    try {
-      const payload: any = { status }
-
-      if (isAdmin) {
-        const statusLabel = status === 'Published'
-          ? t('instructor_lessons_page_new.status.published')
-          : t('instructor_lessons_page_new.status.draft')
-        const reason = window.prompt(
-          t('instructor_lessons_page_new.prompts.status_reason', { status: statusLabel }),
-          ''
-        ) || ''
-        const sendNotification = window.confirm(t('instructor_lessons_page_new.confirms.send_notification'))
-        let notifyMessage = ''
-        if (sendNotification) {
-          notifyMessage = window.prompt(t('instructor_lessons_page_new.prompts.notification_message'), '') || ''
-        }
-
-        payload.status_reason = reason || undefined
-        payload.send_notification = sendNotification
-        payload.notify_message = notifyMessage || undefined
-      }
-
-      await updateCourseModule(sectionId, payload)
-      setSections(prevSections =>
-        prevSections.map(section =>
-          section.id === sectionId
-            ? { ...section, status }
-            : section
-        )
-      )
-      const label = status === 'Published'
-        ? t('instructor_lessons_page_new.status.published')
-        : t('instructor_lessons_page_new.status.draft')
-      toast.success(t('instructor_lessons_page_new.toasts.section_status_updated', { status: label }))
-    } catch (err) {
-      console.error(err)
-      toast.error(t('instructor_lessons_page_new.toasts.failed_to_update_section_status'))
-    }
-  }, [isAdmin, setSections, t])
 
   const handleDeleteLesson = useCallback(async (lessonId: number) => {
     try {
@@ -620,7 +525,6 @@ export function InstructorLessonsPageNew() {
         video_url: updatedLesson.videoUrl,
         video_public_id: updatedLesson.videoPublicId || undefined,
         is_free: updatedLesson.is_free,
-        status: updatedLesson.status,
       })
       setSections(prevSections =>
         prevSections.map(section => ({
@@ -837,7 +741,6 @@ export function InstructorLessonsPageNew() {
               onAddLesson={handleAddLesson}
               onEditSection={handleEditSection}
               onDeleteSection={handleDeleteSection}
-              onUpdateSectionStatus={handleUpdateSectionStatus}
               onEditLesson={handleEditLesson}
               onPreviewLesson={handlePreviewLesson}
               onDeleteLesson={handleDeleteLesson}
@@ -875,8 +778,6 @@ export function InstructorLessonsPageNew() {
         {showBulkSelection && selectedLessonIds.size > 0 && (
           <BulkActionsBar
             selectedCount={selectedLessonIds.size}
-            onPublishAll={handleBulkPublish}
-            onUnpublishAll={handleBulkUnpublish}
             onDeleteAll={handleBulkDelete}
             onClearSelection={handleClearSelection}
           />

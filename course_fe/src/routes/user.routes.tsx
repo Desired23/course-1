@@ -17,6 +17,7 @@ const AccountSettingsPage = lazy(() => import('../pages/user/AccountSettingsPage
 const MyReviewsPage = lazy(() => import('../pages/user/MyReviewsPage').then((module) => ({ default: module.MyReviewsPage })))
 const MyCertificatesPage = lazy(() => import('../pages/user/MyCertificatesPage').then((module) => ({ default: module.MyCertificatesPage })))
 const TransactionHistoryPage = lazy(() => import('../pages/user/TransactionHistoryPage').then((module) => ({ default: module.TransactionHistoryPage })))
+const ReporterCopyrightCasePage = lazy(() => import('../pages/user/ReporterCopyrightCasePage').then((module) => ({ default: module.ReporterCopyrightCasePage })))
 
 export const userRoutes: RouteConfig[] = [
 
@@ -176,5 +177,17 @@ export const userRoutes: RouteConfig[] = [
         </UserDashboardLayout>
       </RequireAuth>
     )
+  },
+
+  {
+    path: '/reports/my/:caseId',
+    element: (
+      <RequireAuth roles={['user', 'instructor', 'admin']}>
+        <UserDashboardLayout>
+          <ReporterCopyrightCasePage />
+        </UserDashboardLayout>
+      </RequireAuth>
+    ),
+    dynamic: true
   }
 ]

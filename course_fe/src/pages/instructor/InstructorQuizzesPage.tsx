@@ -8,7 +8,6 @@ import { DraggableQuestionCard } from "../../components/QuizQuestionDragDrop"
 import { QuestionWizard, type QuizQuestion } from "../../components/QuestionWizard"
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card"
-import { Badge } from "../../components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../components/ui/dialog"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
@@ -33,7 +32,6 @@ interface Quiz {
   passingScore: number
   timeLimit?: number
   questions: QuizQuestion[]
-  isPublished: boolean
   attempts: number
   totalTakers: number
   avgScore: number
@@ -85,7 +83,6 @@ function lessonToQuiz(lesson: any, questions: QuizQuestion[]): Quiz {
     passingScore: meta.passingScore ?? 70,
     timeLimit: meta.timeLimit ?? 30,
     questions,
-    isPublished: lesson.status === 'published',
     attempts: meta.attempts ?? 0,
     totalTakers: meta.totalTakers ?? 0,
     avgScore: meta.avgScore ?? 0,
@@ -142,7 +139,6 @@ export function InstructorQuizzesPage() {
   const [defaultModuleId, setDefaultModuleId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -158,7 +154,7 @@ export function InstructorQuizzesPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [debouncedSearch, statusFilter, sortBy])
+  }, [debouncedSearch, sortBy])
 
 
   useEffect(() => {
@@ -194,13 +190,11 @@ export function InstructorQuizzesPage() {
     async function fetchQuizzesPage() {
       try {
         setIsLoading(true)
-        const status = statusFilter === 'all' ? undefined : statusFilter
         const ordering = sortBy === 'title' ? 'title' : '-created_at'
 
         const res = await getLessons({
           content_type: 'quiz',
           instructor_id: instructorId,
-          status: status as any,
           search: debouncedSearch || undefined,
           ordering,
           page: currentPage,
@@ -240,7 +234,7 @@ export function InstructorQuizzesPage() {
 
     fetchQuizzesPage()
     return () => { cancelled = true }
-  }, [instructorId, currentPage, debouncedSearch, statusFilter, sortBy, refreshKey])
+  }, [instructorId, currentPage, debouncedSearch, sortBy, refreshKey])
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages)
@@ -259,7 +253,6 @@ export function InstructorQuizzesPage() {
         content_type: 'quiz',
         content: JSON.stringify({ passingScore, timeLimit, attempts: 0, totalTakers: 0, avgScore: 0 }),
         order: (currentPage - 1) * ITEMS_PER_PAGE + quizzes.length + 1,
-        status: 'draft',
       })
       if (lesson) {
         setCurrentPage(1)
@@ -289,26 +282,6 @@ export function InstructorQuizzesPage() {
         console.error(err)
         toast.error(t('instructor_quizzes_page.toasts.delete_quiz_failed'))
       }
-    }
-  }
-
-  const handlePublishQuiz = async (quizId: string) => {
-    try {
-      const quiz = quizzes.find(q => q.id === quizId)
-      const newStatus = quiz?.isPublished ? 'draft' : 'published'
-      await updateLessonApi(Number(quizId), { status: newStatus as any })
-      setRefreshKey((prev) => prev + 1)
-      if (selectedQuiz?.id === quizId) {
-        setSelectedQuiz(prev => prev ? { ...prev, isPublished: !prev.isPublished } : null)
-      }
-      toast.success(
-        newStatus === 'published'
-          ? t('instructor_quizzes_page.toasts.quiz_published')
-          : t('instructor_quizzes_page.toasts.quiz_unpublished')
-      )
-    } catch (err) {
-      console.error(err)
-      toast.error(t('instructor_quizzes_page.toasts.update_status_failed'))
     }
   }
 
@@ -523,12 +496,6 @@ export function InstructorQuizzesPage() {
                     <Button variant="outline" onClick={() => setSelectedQuiz(null)}>
                       {t('instructor_quizzes_page.actions.back_to_list')}
                     </Button>
-                    <Button
-                      variant={selectedQuiz.isPublished ? "destructive" : "default"}
-                      onClick={() => handlePublishQuiz(selectedQuiz.id)}
-                    >
-                      {selectedQuiz.isPublished ? t('instructor_quizzes_page.actions.unpublish') : t('instructor_quizzes_page.actions.publish')}
-                    </Button>
                   </div>
                 </div>
             </CardHeader>
@@ -594,7 +561,7 @@ export function InstructorQuizzesPage() {
         ) : (
 
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="md:col-span-2">
                 <Input
                   value={searchQuery}
@@ -602,16 +569,6 @@ export function InstructorQuizzesPage() {
                   placeholder={t('instructor_quizzes_page.filters.search_placeholder')}
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('instructor_quizzes_page.filters.status')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('instructor_quizzes_page.filters.all_status')}</SelectItem>
-                  <SelectItem value="published">{t('instructor_quizzes_page.status.published')}</SelectItem>
-                  <SelectItem value="draft">{t('instructor_quizzes_page.status.draft')}</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger>
                   <SelectValue placeholder={t('instructor_quizzes_page.filters.sort_by')} />
@@ -637,9 +594,6 @@ export function InstructorQuizzesPage() {
                     <div className="flex-1" onClick={() => setSelectedQuiz(quiz)}>
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-semibold">{quiz.title}</h3>
-                        <Badge variant={quiz.isPublished ? "default" : "secondary"}>
-                          {quiz.isPublished ? t('instructor_quizzes_page.status.published') : t('instructor_quizzes_page.status.draft')}
-                        </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mb-4">{quiz.description}</p>
 

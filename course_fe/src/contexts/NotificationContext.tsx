@@ -58,6 +58,7 @@ function mapApiNotification(n: ApiNotification): Notification {
     read: n.is_read,
     relatedId: n.related_id,
     notificationCode: n.notification_code,
+    actionUrl: n.action_url || undefined,
   }
 }
 
@@ -150,6 +151,7 @@ export interface IncomingNotification {
   message?: string
   related_id?: number | null
   notification_code?: string | null
+  action_url?: string | null
 }
 
 interface NotificationContextType {
@@ -213,6 +215,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           message: d.message || '',
           relatedId: d.related_id,
           notificationCode: d.notification_code,
+          actionUrl: d.action_url || undefined,
         },
       })
       subscribersRef.current.forEach(cb => {

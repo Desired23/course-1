@@ -3,8 +3,6 @@ from django.db.models import Q
 from .models import Lesson
 from .serializers import LessonSerializer
 from users.models import User
-from notifications.services import create_notification
-from activity_logs.services import log_activity
 from courses.services import mark_course_content_changed
 from transcripts.services import enqueue_transcript_generation, get_lesson_source_snapshot, mark_lesson_transcripts_stale
 from utils.roles import is_active_admin, is_active_instructor
@@ -43,7 +41,7 @@ def _sync_lesson_transcript_generation(lesson, previous_snapshot=None, force=Fal
 
 
 def get_lessons(filters=None):
-    lessons = Lesson.objects.all()
+    lessons = Lesson.objects.filter(content_type__in=Lesson.ContentType.values)
     if filters:
         if filters.get('coursemodule_id'):
             lessons = lessons.filter(coursemodule_id=filters['coursemodule_id'])
@@ -51,8 +49,6 @@ def get_lessons(filters=None):
             lessons = lessons.filter(content_type=filters['content_type'])
         if filters.get('instructor_id'):
             lessons = lessons.filter(coursemodule__course__instructor_id=filters['instructor_id'])
-        if filters.get('status'):
-            lessons = lessons.filter(status=filters['status'])
         if filters.get('search'):
             search = str(filters['search']).strip()
             if search:
@@ -145,27 +141,6 @@ def _notify_completed_learners_new_lesson(course):
         pass
 
 
-def _pop_status_update_meta(data):
-    payload = data.copy()
-
-    status_reason = payload.pop('status_reason', None)
-    send_notification = payload.pop('send_notification', False)
-    notify_title = payload.pop('notify_title', None)
-    notify_message = payload.pop('notify_message', None)
-
-    if isinstance(send_notification, str):
-        send_notification = send_notification.lower() in ('1', 'true', 'yes', 'on')
-    else:
-        send_notification = bool(send_notification)
-
-    return payload, {
-        'status_reason': (status_reason or '').strip() if status_reason else '',
-        'send_notification': send_notification,
-        'notify_title': (notify_title or '').strip() if notify_title else '',
-        'notify_message': (notify_message or '').strip() if notify_message else '',
-    }
-
-
 def update_lesson(lesson_id, data, requesting_user=None):
     try:
         lesson = Lesson.objects.get(id=lesson_id)
@@ -180,8 +155,12 @@ def update_lesson(lesson_id, data, requesting_user=None):
         if not is_active_instructor(requesting_user) or owner_instructor_id != instructor.id:
             raise PermissionDenied("Bạn không có quyền chỉnh sửa bài học này.")
 
-    update_payload, status_meta = _pop_status_update_meta(data)
-    old_status = lesson.status
+    update_payload = data.copy()
+    update_payload.pop('status', None)
+    update_payload.pop('status_reason', None)
+    update_payload.pop('send_notification', None)
+    update_payload.pop('notify_title', None)
+    update_payload.pop('notify_message', None)
     previous_course_id = getattr(getattr(lesson, 'coursemodule', None), 'course_id', None)
     previous_snapshot = get_lesson_source_snapshot(lesson)
     serializer = LessonSerializer(lesson, data=update_payload, partial=True)
@@ -197,50 +176,6 @@ def update_lesson(lesson_id, data, requesting_user=None):
         if not is_admin and course:
             mark_course_content_changed(course)
 
-        if old_status != updated_lesson.status:
-            actor_label = 'Admin' if is_admin else 'Instructor'
-            reason_suffix = f" | Lý do: {status_meta['status_reason']}" if status_meta['status_reason'] else ''
-            log_activity(
-                user_id=requesting_user.id if requesting_user else None,
-                action="UPDATE",
-                entity_type="Lesson",
-                entity_id=updated_lesson.id,
-                description=(
-                    f"{actor_label} đổi trạng thái bài học '{updated_lesson.title}' "
-                    f"từ '{old_status}' sang '{updated_lesson.status}'{reason_suffix}"
-                ),
-            )
-
-            if is_admin and status_meta['send_notification']:
-                course = getattr(updated_lesson.coursemodule, 'course', None)
-                instructor = getattr(course, 'instructor', None) if course else None
-                instructor_user_id = getattr(instructor, 'user_id', None)
-                if instructor_user_id:
-                    lesson_labels = {
-                        Lesson.Status.DRAFT: 'Bản nháp',
-                        Lesson.Status.PUBLISHED: 'Đã xuất bản',
-                    }
-                    new_label = lesson_labels.get(updated_lesson.status, updated_lesson.status)
-                    title = status_meta['notify_title'] or f"Cập nhật bài học \"{updated_lesson.title}\""
-                    default_message = (
-                        f"Bài học \"{updated_lesson.title}\" đã được cập nhật trạng thái thành \"{new_label}\"."
-                    )
-                    if status_meta['status_reason']:
-                        default_message += f" Lý do: {status_meta['status_reason']}"
-                    message = status_meta['notify_message'] or default_message
-                    try:
-                        create_notification(
-                            receiver_id=instructor_user_id,
-                            title=title,
-                            message=message,
-                            type='course',
-                            related_id=updated_lesson.id,
-                            sender=requesting_user.id if requesting_user else None,
-                            notification_code='lesson_status_changed_by_admin',
-                        )
-                    except Exception:
-
-                        pass
         return updated_lesson
     raise ValidationError(serializer.errors)
 

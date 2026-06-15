@@ -27,6 +27,8 @@ class Notification(models.Model):
     )
     notification_code = models.CharField(max_length=255, blank=True, null=True)
     related_id = models.IntegerField(blank=True, null=True)
+    action_url = models.CharField(max_length=500, blank=True, null=True)
+    metadata = models.JSONField(default=dict, blank=True)
     class Meta:
         db_table = 'Notifications'
         ordering = ['-created_at']

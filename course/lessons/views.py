@@ -23,8 +23,6 @@ class LessonListView(APIView):
             filters['content_type'] = request.query_params['content_type']
         if request.query_params.get('instructor_id'):
             filters['instructor_id'] = request.query_params['instructor_id']
-        if request.query_params.get('status'):
-            filters['status'] = request.query_params['status']
         if request.query_params.get('search'):
             filters['search'] = request.query_params['search']
         if request.query_params.get('ordering'):

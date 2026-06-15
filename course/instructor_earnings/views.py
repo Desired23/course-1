@@ -212,7 +212,7 @@ class InstructorSubscriptionRevenueBreakdownView(APIView):
             instructor_id = user_instructor.id
 
         try:
-            queryset, total_earnings = get_subscription_revenue_breakdown_by_course(
+            queryset, total_usage_seconds = get_subscription_revenue_breakdown_by_course(
                 int(instructor_id),
                 search=search,
                 sort_by=sort_by,
@@ -221,7 +221,7 @@ class InstructorSubscriptionRevenueBreakdownView(APIView):
                 queryset,
                 request,
                 SubscriptionRevenueBreakdownSerializer,
-                context={'total_earnings': total_earnings},
+                context={'total_usage_seconds': total_usage_seconds},
             )
         except ValidationError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

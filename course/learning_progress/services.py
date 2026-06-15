@@ -28,7 +28,7 @@ def _active_course_lessons(course):
         coursemodule__course=course,
         coursemodule__is_deleted=False,
         is_deleted=False,
-        status=Lesson.Status.PUBLISHED,
+        content_type__in=Lesson.ContentType.values,
     )
 
 
@@ -41,7 +41,7 @@ def _course_progress_stats(user, course):
         is_deleted=False,
         lesson__is_deleted=False,
         lesson__coursemodule__is_deleted=False,
-        lesson__status=Lesson.Status.PUBLISHED,
+        lesson__content_type__in=Lesson.ContentType.values,
     ).count()
     total_time_spent = LearningProgress.objects.filter(
         user=user,
@@ -78,6 +78,9 @@ def _completed_lessons_count(enrollment):
         enrollment=enrollment,
         is_completed=True,
         is_deleted=False,
+        lesson__is_deleted=False,
+        lesson__coursemodule__is_deleted=False,
+        lesson__content_type__in=Lesson.ContentType.values,
     ).count()
 
 
@@ -101,7 +104,7 @@ def _sync_enrollment_progress(enrollment, user, course):
     enrollment.progress = snapshot_progress
     enrollment.last_access_date = now
     is_fully_complete = denom > 0 and completed >= denom
-    if is_fully_complete and not course.certificate:
+    if is_fully_complete:
         enrollment.status = Enrollment.Status.Complete
         if not enrollment.completion_date:
             enrollment.completion_date = now
@@ -109,7 +112,7 @@ def _sync_enrollment_progress(enrollment, user, course):
         'progress', 'progress_denominator', 'last_access_date',
         'status', 'completion_date', 'updated_at',
     ])
-    if is_fully_complete and course.certificate:
+    if is_fully_complete:
         _try_auto_issue_certificate(user, course)
     return stats
 
@@ -225,10 +228,12 @@ def update_learning_progress(user_id, lesson_id, progress_data):
             }
         )
 
+        previous_position = learning_progress.last_position or 0
         learning_progress.enrollment = enrollment
         learning_progress.course = course
         _apply_progress_data(learning_progress, progress_data)
         learning_progress.save()
+        _maybe_record_subscription_usage(user, enrollment, course, lesson, previous_position, progress_data)
         _sync_enrollment_progress(enrollment, user, course)
 
         return LearningProgressSerializer(learning_progress).data

@@ -1,8 +1,6 @@
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import {
-  CheckCircle,
-  XCircle,
   Trash2,
   X,
   Move
@@ -12,8 +10,6 @@ import { useTranslation } from "react-i18next"
 
 interface BulkActionsBarProps {
   selectedCount: number
-  onPublishAll: () => void
-  onUnpublishAll: () => void
   onDeleteAll: () => void
   onMoveAll?: () => void
   onClearSelection: () => void
@@ -21,8 +17,6 @@ interface BulkActionsBarProps {
 
 export function BulkActionsBar({
   selectedCount,
-  onPublishAll,
-  onUnpublishAll,
   onDeleteAll,
   onMoveAll,
   onClearSelection
@@ -38,7 +32,7 @@ export function BulkActionsBar({
       transition={{ type: 'spring', damping: 25, stiffness: 300 }}
       className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
     >
-      <div className="bg-card border shadow-2xl rounded-xl p-4 min-w-[500px]">
+      <div className="bg-card border shadow-2xl rounded-xl p-4 min-w-[320px]">
         <div className="flex items-center justify-between gap-4">
 
           <div className="flex items-center gap-3">
@@ -58,26 +52,6 @@ export function BulkActionsBar({
 
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPublishAll}
-              className="h-8 gap-1.5"
-            >
-              <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-              <span className="text-xs">{t('bulk_actions.publish')}</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onUnpublishAll}
-              className="h-8 gap-1.5"
-            >
-              <XCircle className="h-3.5 w-3.5 text-gray-600" />
-              <span className="text-xs">{t('bulk_actions.unpublish')}</span>
-            </Button>
-
             {onMoveAll && (
               <Button
                 variant="outline"
@@ -89,8 +63,6 @@ export function BulkActionsBar({
                 <span className="text-xs">{t('bulk_actions.move_to')}</span>
               </Button>
             )}
-
-            <div className="w-px h-6 bg-border mx-1" />
 
             <Button
               variant="outline"

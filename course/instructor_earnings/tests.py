@@ -1,15 +1,18 @@
 from decimal import Decimal
+from datetime import timezone as dt_timezone
 from django.test import TestCase
 from django.utils import timezone
 
 from categories.models import Category
 from courses.models import Course
 from instructor_earnings.models import InstructorEarning
-from instructor_earnings.serializers import InstructorEarningSerializer
+from instructor_earnings.serializers import InstructorEarningSerializer, SubscriptionRevenueBreakdownSerializer
 from instructor_earnings.services import (
     generate_instructor_earnings_from_payment,
     resolve_instructor_rate_snapshot,
     calculate_subscription_earnings_for_month,
+    get_instructor_earnings_summary,
+    get_subscription_revenue_breakdown_by_course,
 )
 from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
@@ -298,7 +301,7 @@ class SubscriptionEarningCalculationTest(TestCase):
         self.payment = _make_payment(self.student, Decimal("100.00"))
         self.sub = _make_subscription(
             self.student, self.plan, payment=self.payment,
-            start_date=timezone.datetime(2026, 1, 15, tzinfo=timezone.UTC),
+            start_date=timezone.datetime(2026, 1, 15, tzinfo=dt_timezone.utc),
         )
         self.enrollment = Enrollment.objects.create(
             user=self.student,
@@ -316,7 +319,7 @@ class SubscriptionEarningCalculationTest(TestCase):
             enrollment=self.enrollment,
             instructor=self.instructor,
             delta_seconds=delta_seconds,
-            occurred_at=occurred_at or timezone.datetime(2026, 1, 20, tzinfo=timezone.UTC),
+            occurred_at=occurred_at or timezone.datetime(2026, 1, 20, tzinfo=dt_timezone.utc),
             platform_commission_rate_snapshot=Decimal(str(platform_rate)),
             instructor_share_rate_snapshot=Decimal(str(share_rate)),
             instructor_level_id_snapshot=self.level.id,
@@ -358,7 +361,7 @@ class SubscriptionEarningCalculationTest(TestCase):
             enrollment=enrollment2,
             instructor=instructor2,
             delta_seconds=400,
-            occurred_at=timezone.datetime(2026, 1, 20, tzinfo=timezone.UTC),
+            occurred_at=timezone.datetime(2026, 1, 20, tzinfo=dt_timezone.utc),
             platform_commission_rate_snapshot=Decimal("30.00"),
             instructor_share_rate_snapshot=Decimal("70.00"),
             instructor_level_id_snapshot=level2.id,
@@ -374,7 +377,7 @@ class SubscriptionEarningCalculationTest(TestCase):
         self.assertEqual(e1.amount + e2.amount, Decimal("100.00"))
 
     def test_level_change_mid_month_weighted_net(self):
-        self._create_event(600, occurred_at=timezone.datetime(2026, 1, 10, tzinfo=timezone.UTC), platform_rate=30, share_rate=70)
+        self._create_event(600, occurred_at=timezone.datetime(2026, 1, 10, tzinfo=dt_timezone.utc), platform_rate=30, share_rate=70)
         SubscriptionUsageEvent.objects.create(
             user_subscription=self.sub,
             user=self.student,
@@ -382,7 +385,7 @@ class SubscriptionEarningCalculationTest(TestCase):
             enrollment=self.enrollment,
             instructor=self.instructor,
             delta_seconds=400,
-            occurred_at=timezone.datetime(2026, 1, 20, tzinfo=timezone.UTC),
+            occurred_at=timezone.datetime(2026, 1, 20, tzinfo=dt_timezone.utc),
             platform_commission_rate_snapshot=Decimal("20.00"),
             instructor_share_rate_snapshot=Decimal("80.00"),
             instructor_level_id_snapshot=self.level.id,
@@ -482,6 +485,54 @@ class SerializerTest(TestCase):
         self.assertEqual(data['usage_share_rate'], "60.0000")
         self.assertEqual(data['usage_seconds'], 600)
         self.assertEqual(data['earning_period_start'], "2026-01-01")
+
+    def test_subscription_breakdown_uses_recorded_usage_seconds(self):
+        plan = _make_plan("P usage")
+        payment = _make_payment(self.student)
+        sub = _make_subscription(self.student, plan, payment=payment)
+        course2 = _make_course("Course E2", self.instructor)
+
+        InstructorEarning.objects.create(
+            instructor=self.instructor,
+            course=self.course,
+            user_subscription=sub,
+            amount=Decimal("100.00"),
+            net_amount=Decimal("80.00"),
+            usage_seconds=120,
+            status="pending",
+        )
+        InstructorEarning.objects.create(
+            instructor=self.instructor,
+            course=course2,
+            user_subscription=sub,
+            amount=Decimal("100.00"),
+            net_amount=Decimal("20.00"),
+            usage_seconds=180,
+            status="pending",
+        )
+
+        rows, total_usage_seconds = get_subscription_revenue_breakdown_by_course(
+            self.instructor.id,
+            sort_by="share_desc",
+        )
+        data = SubscriptionRevenueBreakdownSerializer(
+            list(rows),
+            many=True,
+            context={"total_usage_seconds": total_usage_seconds},
+        ).data
+
+        self.assertEqual(total_usage_seconds, 300)
+        first = data[0]
+        second = data[1]
+        self.assertEqual(first["course_id"], course2.id)
+        self.assertEqual(first["total_minutes"], 3)
+        self.assertEqual(first["share_pct"], "60.0000")
+        self.assertEqual(second["course_id"], self.course.id)
+        self.assertEqual(second["total_minutes"], 2)
+        self.assertEqual(second["share_pct"], "40.0000")
+
+        summary = get_instructor_earnings_summary(self.instructor.id)
+        self.assertEqual(summary["subscription"]["total_usage_seconds"], 300)
 
     def test_legacy_subscription_no_error(self):
         plan = _make_plan("P2")

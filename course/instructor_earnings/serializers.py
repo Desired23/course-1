@@ -10,6 +10,7 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
     plan_name = serializers.CharField(source='user_subscription.plan.name', read_only=True)
     earning_source = serializers.SerializerMethodField()
     commission_rate_applied = serializers.SerializerMethodField()
+    active_hold = serializers.SerializerMethodField()
 
     class Meta:
         model = InstructorEarning
@@ -36,6 +37,7 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
             'amount',
             'net_amount',
             'status',
+            'active_hold',
             'earning_date',
             'instructor_payout',
         ]
@@ -62,6 +64,22 @@ class InstructorEarningSerializer(serializers.ModelSerializer):
                 return str(commission.quantize(Decimal('0.01')))
         return None
 
+    def get_active_hold(self, obj):
+        hold = None
+        prefetched = getattr(obj, '_prefetched_objects_cache', {}).get('copyright_holds')
+        if prefetched is not None:
+            hold = next((item for item in prefetched if item.status == 'active'), None)
+        if hold is None:
+            hold = obj.copyright_holds.filter(status='active').select_related('case').first()
+        if not hold:
+            return None
+        return {
+            'hold_id': hold.id,
+            'case_id': hold.case_id,
+            'reason': hold.reason,
+            'created_at': hold.created_at,
+        }
+
 
 class SubscriptionRevenueBreakdownSerializer(serializers.Serializer):
     course_id = serializers.IntegerField()
@@ -72,13 +90,13 @@ class SubscriptionRevenueBreakdownSerializer(serializers.Serializer):
     share_pct = serializers.SerializerMethodField()
 
     def get_total_minutes(self, obj):
-        earnings = obj.get('earnings') or Decimal('0')
-        return int(round(float(earnings) * 100))
+        usage_seconds = obj.get('total_usage_seconds') or 0
+        return int(round(usage_seconds / 60))
 
     def get_share_pct(self, obj):
-        total_earnings = self.context.get('total_earnings') or Decimal('0')
-        earnings = obj.get('earnings') or Decimal('0')
-        if not total_earnings:
+        total_usage_seconds = self.context.get('total_usage_seconds') or 0
+        usage_seconds = obj.get('total_usage_seconds') or 0
+        if not total_usage_seconds:
             return '0.0000'
-        share = (Decimal(earnings) / Decimal(total_earnings)) * Decimal('100')
+        share = (Decimal(usage_seconds) / Decimal(total_usage_seconds)) * Decimal('100')
         return f"{share.quantize(Decimal('0.0001'))}"

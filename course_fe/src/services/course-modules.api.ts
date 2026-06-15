@@ -21,12 +21,9 @@ export interface CourseModule {
   description: string | null
   order_number: number
   duration: number | null
-  status: 'Draft' | 'Published'
   created_at: string
   updated_at: string
 }
-
-export type ModuleStatus = 'Draft' | 'Published'
 
 export interface CourseModuleCreateData {
   course: number
@@ -34,7 +31,6 @@ export interface CourseModuleCreateData {
   description?: string
   order_number: number
   duration?: number
-  status?: ModuleStatus
 }
 
 export interface CourseModuleUpdateData {
@@ -42,12 +38,6 @@ export interface CourseModuleUpdateData {
   description?: string
   order_number?: number
   duration?: number
-  status?: ModuleStatus
-
-  status_reason?: string
-  send_notification?: boolean
-  notify_title?: string
-  notify_message?: string
 }
 
 export interface PaginatedModules {
@@ -103,8 +93,3 @@ export async function deleteCourseModule(moduleId: number): Promise<void> {
   return http.delete(`/course_modules/${moduleId}/delete`)
 }
 
-
-
-export function getModuleStatusLabel(status: string): string {
-  return status === 'Published' ? 'Đã xuất bản' : 'Bản nháp'
-}

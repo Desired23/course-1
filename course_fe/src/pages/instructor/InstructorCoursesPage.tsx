@@ -230,16 +230,13 @@ export function InstructorCoursesPage() {
       return [{ label: t('instructor_courses.submit_for_review'), run: () => handleCourseStatusChange(course, 'pending', t('instructor_courses.confirm_submit_for_review')) }]
     }
     if (course.status === 'archived') {
-      const actions = [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_archived_to_draft')) }]
-      if (!course.content_changed_since_publish) {
-        actions.unshift({ label: t('instructor_courses.restore_published'), run: () => handleCourseStatusChange(course, 'published', t('instructor_courses.confirm_restore_published')) })
-      }
-      return actions
+      return [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_archived_to_draft')) }]
     }
     if (['pending', 'rejected'].includes(course.status)) {
       return [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_to_draft')) }]
     }
     if (course.status === 'published') {
+      if ((course.total_students || 0) > 0) return []
       return [{ label: t('instructor_courses.archive'), run: () => handleCourseStatusChange(course, 'archived', t('instructor_courses.confirm_archive')) }]
     }
     return []
@@ -551,6 +548,11 @@ export function InstructorCoursesPage() {
                           {course.status === 'archived' && course.content_changed_since_publish && (
                             <span className="text-xs text-amber-600">
                               {t('instructor_courses.archived_changed_notice')}
+                            </span>
+                          )}
+                          {course.status === 'published' && (course.total_students || 0) > 0 && (
+                            <span className="text-xs text-amber-600">
+                              {t('instructor_courses.cannot_archive_has_students', 'Không thể lưu trữ khóa học đang có học viên.')}
                             </span>
                           )}
                           <div className="flex flex-wrap gap-2">

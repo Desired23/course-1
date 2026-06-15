@@ -3,7 +3,11 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 from django.utils import timezone
 
-from certificates.services import _certificate_fonts_for_text, render_certificate_pdf
+from certificates.services import (
+    _certificate_fonts_for_text,
+    build_course_certificate_preview,
+    render_certificate_pdf,
+)
 
 
 class CertificatePdfFontTests(SimpleTestCase):
@@ -25,4 +29,18 @@ class CertificatePdfFontTests(SimpleTestCase):
 
         self.assertTrue(pdf.startswith(b"%PDF"))
         self.assertGreater(len(pdf), 1000)
+
+    def test_build_course_certificate_preview_uses_course_data_without_certificate_row(self):
+        course = SimpleNamespace(
+            id=7,
+            title="Khóa học mẫu",
+            instructor=SimpleNamespace(user=SimpleNamespace(full_name="Giảng viên mẫu")),
+        )
+
+        cert = build_course_certificate_preview(course)
+
+        self.assertEqual(cert.student_name, "Học viên mẫu")
+        self.assertEqual(cert.course_title, "Khóa học mẫu")
+        self.assertEqual(cert.instructor_name, "Giảng viên mẫu")
+        self.assertEqual(cert.verification_code, "PREVIEW-COURSE-7")
 

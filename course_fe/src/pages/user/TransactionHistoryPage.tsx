@@ -167,7 +167,10 @@ export function TransactionHistoryPage() {
     }
   }
 
-  const refundStatusBadge = (status: string) => {
+  const refundStatusBadge = (status: string, hasRequest = true) => {
+    // 'pending' is the model default on every purchase detail; a real refund request
+    // always sets refund_request_time. Without one, show no badge (no request was made).
+    if (status === "pending" && !hasRequest) return null
     switch (status) {
       case "processing":
         return <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">{t("transaction_history_page.refund_status.processing")}</Badge>
@@ -557,7 +560,7 @@ export function TransactionHistoryPage() {
                                   <div className="flex items-center gap-2 mt-0.5">
                                     {parseFloat(item.discount) > 0 && <span className="text-xs text-muted-foreground line-through">{formatCurrency(item.price)}</span>}
                                     <span className="text-sm font-semibold">{formatCurrency(item.final_price)}</span>
-                                    {refundStatusBadge(item.refund_status)}
+                                    {refundStatusBadge(item.refund_status, !!item.refund_request_time)}
                                   </div>
                                   <p className={`text-xs mt-1 ${item.refund_eligible ? "text-green-700" : "text-muted-foreground"}`}>
                                     {item.refund_eligible ? t("transaction_history_page.refund_eligible") : item.refund_disabled_reason || t("transaction_history_page.refund_ineligible_default")}
@@ -594,6 +597,16 @@ export function TransactionHistoryPage() {
                                 </Button>
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {payment.items.length === 0 && canRetryPayment && (
+                        <div className="border-t bg-muted/30">
+                          <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-end sm:p-5">
+                            <Button variant="secondary" size="sm" disabled={retryingPaymentId === payment.id} onClick={(e) => { e.stopPropagation(); void handleRetryPayment(payment) }}>
+                              {retryingPaymentId === payment.id ? t("transaction_history_page.retry_creating_link") : t("transaction_history_page.retry_payment")}
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -745,7 +758,7 @@ export function TransactionHistoryPage() {
                         <div key={item.id} className="space-y-1 border-b pb-3 last:border-b-0 last:pb-0">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-medium truncate flex-1">{item.course_title}</p>
-                            {refundStatusBadge(item.refund_status)}
+                            {refundStatusBadge(item.refund_status, !!item.refund_request_time)}
                           </div>
                           <div className="flex gap-3 text-xs text-muted-foreground">
                             {parseFloat(item.discount) > 0 && <span className="line-through">{formatCurrency(item.price)}</span>}

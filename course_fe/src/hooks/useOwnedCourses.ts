@@ -13,6 +13,7 @@ import { registerCacheClearer } from '../services/cacheRegistry'
 let _cache: {
   userId: string
   courseIds: Set<number>
+  enrolledIds: Set<number>
   enrollmentMap: Map<number, Enrollment>
   subscriptionIds: Set<number>
 } | null = null
@@ -24,12 +25,16 @@ registerCacheClearer(() => {
 export function useOwnedCourses() {
   const { user, isAuthenticated } = useAuth()
   const [ownedIds, setOwnedIds] = useState<Set<number>>(new Set())
+  const [enrolledIds, setEnrolledIds] = useState<Set<number>>(new Set())
+  const [subscriptionIds, setSubscriptionIds] = useState<Set<number>>(new Set())
   const [enrollmentMap, setEnrollmentMap] = useState<Map<number, Enrollment>>(new Map())
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
     if (!isAuthenticated || !user?.id) {
       setOwnedIds(new Set())
+      setEnrolledIds(new Set())
+      setSubscriptionIds(new Set())
       setEnrollmentMap(new Map())
       return
     }
@@ -39,6 +44,8 @@ export function useOwnedCourses() {
 
     if (_cache && _cache.userId === userId) {
       setOwnedIds(_cache.courseIds)
+      setEnrolledIds(_cache.enrolledIds)
+      setSubscriptionIds(_cache.subscriptionIds)
       setEnrollmentMap(_cache.enrollmentMap)
       return
     }
@@ -50,11 +57,13 @@ export function useOwnedCourses() {
         getAllMySubscriptionCourses(),
       ])
       const ids = new Set<number>()
+      const enrolled = new Set<number>()
       const map = new Map<number, Enrollment>()
       for (const e of enrollments) {
         if (e.status === 'active' || e.status === 'complete') {
           const cid = typeof e.course === 'object' ? e.course.course_id : e.course
           ids.add(cid)
+          enrolled.add(cid)
           map.set(cid, e)
         }
       }
@@ -65,11 +74,15 @@ export function useOwnedCourses() {
           subIds.add(pc.course)
         }
       }
-      _cache = { userId, courseIds: ids, enrollmentMap: map, subscriptionIds: subIds }
+      _cache = { userId, courseIds: ids, enrolledIds: enrolled, enrollmentMap: map, subscriptionIds: subIds }
       setOwnedIds(ids)
+      setEnrolledIds(enrolled)
+      setSubscriptionIds(subIds)
       setEnrollmentMap(map)
     } catch {
       setOwnedIds(new Set())
+      setEnrolledIds(new Set())
+      setSubscriptionIds(new Set())
       setEnrollmentMap(new Map())
     } finally {
       setLoading(false)
@@ -81,6 +94,13 @@ export function useOwnedCourses() {
   }, [load])
 
   const isOwned = useCallback((courseId: number) => ownedIds.has(courseId), [ownedIds])
+
+  const isEnrolled = useCallback((courseId: number) => enrolledIds.has(courseId), [enrolledIds])
+
+  const isInSubscription = useCallback(
+    (courseId: number) => subscriptionIds.has(courseId) && !enrolledIds.has(courseId),
+    [subscriptionIds, enrolledIds]
+  )
 
   const getProgress = useCallback((courseId: number): number => {
     const enrollment = enrollmentMap.get(courseId)
@@ -97,10 +117,12 @@ export function useOwnedCourses() {
   return useMemo(() => ({
     ownedIds,
     isOwned,
+    isEnrolled,
+    isInSubscription,
     getProgress,
     loading,
     refresh,
-  }), [ownedIds, isOwned, getProgress, loading, refresh])
+  }), [ownedIds, isOwned, isEnrolled, isInSubscription, getProgress, loading, refresh])
 }
 
 

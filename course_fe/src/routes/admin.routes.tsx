@@ -22,9 +22,9 @@ const ReviewManagementPage = lazy(() => import('../pages/admin/ReviewManagementP
 const ReportManagementPage = lazy(() => import('../pages/admin/ReportManagementPage').then((module) => ({ default: module.ReportManagementPage })))
 const ActivityLogPage = lazy(() => import('../pages/admin/ActivityLogPage').then((module) => ({ default: module.ActivityLogPage })))
 const AdminInstructorApplicationsPage = lazy(() => import('../pages/admin/AdminInstructorApplicationsPage').then((module) => ({ default: module.AdminInstructorApplicationsPage })))
-const PaymentMethodsPage = lazy(() => import('../pages/admin/PaymentMethodsPage').then((module) => ({ default: module.PaymentMethodsPage })))
 const PayoutManagementPage = lazy(() => import('../pages/admin/PayoutManagementPage').then((module) => ({ default: module.PayoutManagementPage })))
 const AdminSubscriptionPage = lazy(() => import('../pages/admin/AdminSubscriptionPage').then((module) => ({ default: module.AdminSubscriptionPage })))
+const CreateSubscriptionPlanPage = lazy(() => import('../pages/admin/CreateSubscriptionPlanPage').then((module) => ({ default: module.CreateSubscriptionPlanPage })))
 const AdminNewsletterPage = lazy(() => import('../pages/admin/AdminNewsletterPage').then((module) => ({ default: module.AdminNewsletterPage })))
 const AdminPolicyPage = lazy(() => import('../pages/admin/AdminPolicyPage').then((module) => ({ default: module.AdminPolicyPage })))
 
@@ -61,7 +61,6 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/courses', page: <AdminCoursesPage /> },
   { path: '/admin/courses/:courseId', page: <AdminCourseDetailPage />, dynamic: true },
   { path: '/admin/payments', page: <PaymentManagementPage /> },
-  { path: '/admin/payments/methods', page: <PaymentMethodsPage /> },
   { path: '/admin/payouts', page: <PayoutManagementPage /> },
   { path: '/admin/discounts', page: <AdminDiscountsPage /> },
   { path: '/admin/analytics', page: <AdminAnalyticsRedirect /> },
@@ -77,6 +76,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/refunds', page: <PaymentManagementPage /> },
   { path: '/admin/instructor-applications', page: <AdminInstructorApplicationsPage /> },
   { path: '/admin/subscriptions', page: <AdminSubscriptionPage /> },
+  { path: '/admin/subscriptions/new', page: <CreateSubscriptionPlanPage /> },
   { path: '/admin/policies', page: <AdminPolicyPage /> },
   { path: '/admin/activity-log', page: <ActivityLogPage /> },
 ]

@@ -1,4 +1,5 @@
-from django.db.models import Count, Sum, Avg, Q
+from django.db.models import Count, Sum, Avg, Q, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from decimal import Decimal
 from datetime import datetime, timezone as dt_timezone
@@ -10,6 +11,7 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
     from courses.models import Course
     from enrollments.models import Enrollment
     from payments.models import Payment
+    from payment_details.models import Payment_Details
     from reviews.models import Review
     from supports.models import Support
 
@@ -47,10 +49,21 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
         payments_qs = payments_qs.filter(payment_date__gte=date_from)
     if date_to:
         payments_qs = payments_qs.filter(payment_date__lte=date_to)
-    total_revenue = payments_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
-    this_month_revenue = payments_qs.filter(
-        payment_date__gte=month_start
-    ).aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    month_payments_qs = payments_qs.filter(payment_date__gte=month_start)
+    total_gross = payments_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    this_month_gross = month_payments_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    total_refunded = Payment_Details.objects.filter(
+        payment__in=payments_qs,
+        refund_status=Payment_Details.RefundStatus.SUCCESS,
+        is_deleted=False,
+    ).aggregate(t=Sum('refund_amount'))['t'] or Decimal('0')
+    this_month_refunded = Payment_Details.objects.filter(
+        payment__in=month_payments_qs,
+        refund_status=Payment_Details.RefundStatus.SUCCESS,
+        is_deleted=False,
+    ).aggregate(t=Sum('refund_amount'))['t'] or Decimal('0')
+    total_revenue = total_gross - total_refunded
+    this_month_revenue = this_month_gross - this_month_refunded
 
 
     enrollments_qs = Enrollment.objects.filter(is_deleted=False)
@@ -102,6 +115,7 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
 
 def get_admin_revenue_analytics(months=6, date_from=None, date_to=None):
     from payments.models import Payment
+    from payment_details.models import Payment_Details
     from datetime import timedelta
 
     now = timezone.now()
@@ -115,20 +129,25 @@ def get_admin_revenue_analytics(months=6, date_from=None, date_to=None):
         else:
             month_end = month_start.replace(month=month_start.month + 1)
 
-        revenue = Payment.objects.filter(
+        revenue_qs = Payment.objects.filter(
             payment_status=Payment.PaymentStatus.COMPLETED,
             payment_date__gte=month_start,
             payment_date__lt=month_end,
         )
         if date_from:
-            revenue = revenue.filter(payment_date__gte=date_from)
+            revenue_qs = revenue_qs.filter(payment_date__gte=date_from)
         if date_to:
-            revenue = revenue.filter(payment_date__lte=date_to)
-        revenue = revenue.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+            revenue_qs = revenue_qs.filter(payment_date__lte=date_to)
+        gross = revenue_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+        refunded = Payment_Details.objects.filter(
+            payment__in=revenue_qs,
+            refund_status=Payment_Details.RefundStatus.SUCCESS,
+            is_deleted=False,
+        ).aggregate(t=Sum('refund_amount'))['t'] or Decimal('0')
 
         result.append({
             'date': month_start.strftime('%Y-%m'),
-            'revenue': float(revenue),
+            'revenue': float(gross - refunded),
         })
     return result
 
@@ -183,7 +202,15 @@ def get_admin_course_analytics(date_from=None, date_to=None):
 
     top_revenue = list(
         payment_details.values('course_id')
-        .annotate(revenue=Sum('final_price'), transactions=Count('id'))
+        .annotate(
+            gross=Coalesce(Sum('final_price'), Decimal('0')),
+            refunded=Coalesce(
+                Sum('refund_amount', filter=Q(refund_status=Payment_Details.RefundStatus.SUCCESS)),
+                Decimal('0'),
+            ),
+            transactions=Count('id'),
+        )
+        .annotate(revenue=F('gross') - F('refunded'))
         .order_by('-revenue')[:10]
     )
     course_map = {
@@ -393,7 +420,15 @@ def get_admin_top_courses_by_revenue(limit=10, date_from=None, date_to=None):
 
     top = (
         pd_qs.values('course__id', 'course__title', 'course__instructor__user__full_name')
-        .annotate(revenue=Sum('final_price'), transactions=Count('id'))
+        .annotate(
+            gross=Coalesce(Sum('final_price'), Decimal('0')),
+            refunded=Coalesce(
+                Sum('refund_amount', filter=Q(refund_status=Payment_Details.RefundStatus.SUCCESS)),
+                Decimal('0'),
+            ),
+            transactions=Count('id'),
+        )
+        .annotate(revenue=F('gross') - F('refunded'))
         .order_by('-revenue')[:limit]
     )
     return [

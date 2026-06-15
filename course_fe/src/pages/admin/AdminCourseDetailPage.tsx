@@ -28,13 +28,15 @@ import {
   Award,
   AlertCircle,
   CheckCircle,
-  XCircle
+  XCircle,
+  Loader2
 } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { getCourseById as getCourseByIdApi, moderateCourse, deleteCourse as deleteCourseApi, type CourseModerationAction } from '../../services/course.api'
 import { exportCourseStudents } from '../../services/admin.api'
+import { getAdminCourseCertificatePreviewBlob } from '../../services/certificate.api'
 import { getAllReviewsByCourse } from '../../services/review.api'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '../../components/ui/breadcrumb'
 import {
@@ -195,6 +197,7 @@ export function AdminCourseDetailPage() {
   const [studentCount, setStudentCount] = useState(0)
   const [studentTotalPages, setStudentTotalPages] = useState(1)
   const [studentLoading, setStudentLoading] = useState(false)
+  const [certificatePreviewing, setCertificatePreviewing] = useState(false)
 
 
   const courseId = currentRoute.split('/admin/courses/')[1]
@@ -457,6 +460,29 @@ export function AdminCourseDetailPage() {
     }
   }
 
+  const handlePreviewCertificate = async () => {
+    const numId = Number(courseId)
+    if (!numId || certificatePreviewing) return
+
+    const previewWindow = window.open('', '_blank')
+    try {
+      setCertificatePreviewing(true)
+      const blob = await getAdminCourseCertificatePreviewBlob(numId)
+      const url = URL.createObjectURL(blob)
+      if (previewWindow) {
+        previewWindow.location.href = url
+      } else {
+        window.open(url, '_blank')
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      previewWindow?.close()
+      toast.error(t('admin_course_detail.toasts.certificate_preview_failed'))
+    } finally {
+      setCertificatePreviewing(false)
+    }
+  }
+
   const handleDeleteCourse = async () => {
     const numId = Number(courseId)
     if (!numId) return
@@ -575,6 +601,14 @@ export function AdminCourseDetailPage() {
               <Eye className="h-4 w-4 mr-2" />
               {t('admin_course_detail.header.view_course')}
             </Button>
+            <Button variant="outline" onClick={handlePreviewCertificate} disabled={certificatePreviewing}>
+              {certificatePreviewing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Award className="h-4 w-4 mr-2" />
+              )}
+              {t('admin_course_detail.header.preview_certificate')}
+            </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -595,26 +629,30 @@ export function AdminCourseDetailPage() {
                     </DropdownMenuItem>
                   </>
                 )}
-                <DropdownMenuSeparator />
-                {course.admin_hidden || course.is_hard_blocked ? (
-                  <DropdownMenuItem onClick={() => openModerationDialog('unblock')}>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    {course.is_hard_blocked
-                      ? t('admin_course_detail.header.unlock_course')
-                      : t('admin_course_detail.header.resume_sale')}
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem onClick={() => openModerationDialog('hide')}>
-                    <AlertCircle className="h-4 w-4 mr-2" />
-                    {t('admin_course_detail.header.hide_course')}
-                  </DropdownMenuItem>
+                {course.status === 'published' && (
+                  <>
+                    {course.admin_hidden || course.is_hard_blocked ? (
+                      <DropdownMenuItem onClick={() => openModerationDialog('unblock')}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        {course.is_hard_blocked
+                          ? t('admin_course_detail.header.unlock_course')
+                          : t('admin_course_detail.header.resume_sale')}
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={() => openModerationDialog('hide')}>
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        {t('admin_course_detail.header.hide_course')}
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
-                {!course.is_hard_blocked && (
+                {course.status === 'published' && !course.is_hard_blocked && (
                   <DropdownMenuItem onClick={() => openModerationDialog('hard_block')}>
                     <XCircle className="h-4 w-4 mr-2" />
                     {t('admin_course_detail.header.block_course')}
                   </DropdownMenuItem>
                 )}
+                {course.status === 'published' && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => setConfirmDeleteOpen(true)}
@@ -800,12 +838,20 @@ export function AdminCourseDetailPage() {
                       </h4>
                       <div className="space-y-2">
                         {section.lessons.map((lesson, lessonIndex) => (
-                          <div key={lesson.id} className="flex items-center justify-between p-2 rounded border">
+                          <div
+                            key={lesson.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => window.open(`/course-player/${courseId}?lesson=${lesson.id}`, '_blank')}
+                            onKeyDown={(e) => { if (e.key === 'Enter') window.open(`/course-player/${courseId}?lesson=${lesson.id}`, '_blank') }}
+                            className="flex items-center justify-between p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors"
+                            title={t('admin_course_detail.content.open_lesson')}
+                          >
                             <div className="flex items-center gap-3">
                               <span className="text-sm text-muted-foreground">
                                 {sectionIndex + 1}.{lessonIndex + 1}
                               </span>
-                              <PlayCircle className="h-4 w-4 text-muted-foreground" />
+                              <PlayCircle className="h-4 w-4 text-primary" />
                               <span>{lesson.title}</span>
                               {lesson.is_preview && (
                                 <Badge variant="outline" className="text-xs">{t('admin_course_detail.content.preview_badge')}</Badge>

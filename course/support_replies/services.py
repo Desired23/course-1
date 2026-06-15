@@ -76,7 +76,7 @@ def _send_admin_reply_notification(reply):
     try:
         from utils.mailer.mailer import send_email
 
-        send_email(
+        sent = send_email(
             subject=f'[Ticket #{ticket.id}] Support reply: {ticket.subject}',
             to=recipient.email,
             template_name='support_reply_notification.html',
@@ -88,6 +88,8 @@ def _send_admin_reply_notification(reply):
                 'ticket_status': ticket.status,
             },
         )
+        if not sent:
+            logger.warning('Failed to send support reply notification for ticket %s', ticket.id)
     except Exception as exc:
         logger.warning('Failed to send support reply notification: %s', exc)
 

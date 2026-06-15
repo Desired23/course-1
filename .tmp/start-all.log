@@ -10,3 +10,72 @@ WARNING: GEMINI_API_KEY dang rong. Advisor se dung rule_based thay vi Gemini.
 Dang chay Django server...
 WARNING: .venv ton tai nhung chua du dependency. Fallback sang python he thong.
 Su dung python he thong
+Warning: REDIS_URL not set. Please set it in your environment variables.
+DATABASE_URL not set. Using SQLite.
+Performing system checks...
+
+System check identified no issues (0 silenced).
+June 14, 2026 - 18:57:27
+Django version 5.2, using settings 'config.settings'
+Starting ASGI/Daphne version 4.1.2 development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+Warning: REDIS_URL not set. Please set it in your environment variables.
+DATABASE_URL not set. Using SQLite.
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 1 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): courses.
+Run 'python manage.py migrate' to apply them.
+June 14, 2026 - 19:09:17
+Django version 5.2, using settings 'config.settings'
+Starting ASGI/Daphne version 4.1.2 development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+Warning: REDIS_URL not set. Please set it in your environment variables.
+DATABASE_URL not set. Using SQLite.
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 1 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): courses.
+Run 'python manage.py migrate' to apply them.
+June 14, 2026 - 19:10:09
+Django version 5.2, using settings 'config.settings'
+Starting ASGI/Daphne version 4.1.2 development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+Warning: REDIS_URL not set. Please set it in your environment variables.
+DATABASE_URL not set. Using SQLite.
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 1 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): courses.
+Run 'python manage.py migrate' to apply them.
+June 14, 2026 - 19:21:29
+Django version 5.2, using settings 'config.settings'
+Starting ASGI/Daphne version 4.1.2 development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+Warning: REDIS_URL not set. Please set it in your environment variables.
+DATABASE_URL not set. Using SQLite.
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 1 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): courses.
+Run 'python manage.py migrate' to apply them.
+June 14, 2026 - 19:26:28
+Django version 5.2, using settings 'config.settings'
+Starting ASGI/Daphne version 4.1.2 development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+Warning: REDIS_URL not set. Please set it in your environment variables.
+DATABASE_URL not set. Using SQLite.
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 1 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): courses.
+Run 'python manage.py migrate' to apply them.
+June 14, 2026 - 19:26:33
+Django version 5.2, using settings 'config.settings'
+Starting ASGI/Daphne version 4.1.2 development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.

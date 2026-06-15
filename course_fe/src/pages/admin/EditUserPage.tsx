@@ -7,10 +7,13 @@ import { Label } from "../../components/ui/label"
 import { Card } from "../../components/ui/card"
 import { Checkbox } from "../../components/ui/checkbox"
 import { Badge } from "../../components/ui/badge"
+import { FilterComponents } from "../../components/FilterComponents"
 import { useRouter } from "../../components/Router"
-import { ArrowLeft, Save, UserCog, Shield } from "lucide-react"
+import { ArrowLeft, Save, UserCog, Shield, Award } from "lucide-react"
 import { toast } from "sonner"
 import { getUserById, adminUpdateUser } from "../../services/admin.api"
+import { getInstructorLevels, type InstructorLevel } from "../../services/instructor-levels.api"
+import { assignInstructorLevel } from "../../services/instructor.api"
 import { useTranslation } from "react-i18next"
 
 const sectionStagger = {
@@ -47,6 +50,13 @@ export function EditUserPage() {
     roles: [] as string[],
   })
 
+  const [instructorId, setInstructorId] = useState<number | null>(null)
+  const [levels, setLevels] = useState<InstructorLevel[]>([])
+  const [levelId, setLevelId] = useState<string>("")
+  const [initialLevelId, setInitialLevelId] = useState<string>("")
+  const [levelLocked, setLevelLocked] = useState(false)
+  const [initialLevelLocked, setInitialLevelLocked] = useState(false)
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -66,6 +76,13 @@ export function EditUserPage() {
           status: user.status === "banned" ? "banned" : "active",
           roles,
         })
+        setInstructorId(user.instructor_id ?? null)
+        const currentLevel = user.instructor_level?.id ? String(user.instructor_level.id) : ""
+        setLevelId(currentLevel)
+        setInitialLevelId(currentLevel)
+        const currentLocked = Boolean(user.instructor_level_locked)
+        setLevelLocked(currentLocked)
+        setInitialLevelLocked(currentLocked)
       } catch {
         toast.error(t("admin_user_form.toasts.load_failed"))
       }
@@ -73,6 +90,13 @@ export function EditUserPage() {
 
     void fetchUser()
   }, [t, userId])
+
+  useEffect(() => {
+    if (instructorId == null) return
+    getInstructorLevels()
+      .then(setLevels)
+      .catch(() => setLevels([]))
+  }, [instructorId])
 
   const availableRoles = [
     {
@@ -131,6 +155,11 @@ export function EditUserPage() {
         // back to the backend "student" role.
         roles: formData.roles.map((r) => (r === "user" ? "student" : r)),
       })
+      if (instructorId != null && levelId && (levelId !== initialLevelId || levelLocked !== initialLevelLocked)) {
+        await assignInstructorLevel(instructorId, Number(levelId), levelLocked)
+        setInitialLevelId(levelId)
+        setInitialLevelLocked(levelLocked)
+      }
       toast.success(t("admin_user_form.toasts.update_success"))
       navigate("/admin/users")
     } catch {
@@ -235,6 +264,38 @@ export function EditUserPage() {
             ))}
           </div>
         </Card>
+
+        {instructorId != null && formData.roles.includes("instructor") && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Award className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-medium">{t("admin_user_form.instructor_level.title")}</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t("admin_user_form.instructor_level.description")}
+            </p>
+            <FilterComponents.Select
+              label={t("admin_user_form.instructor_level.label")}
+              value={levelId}
+              options={levels.map((lvl) => ({ value: String(lvl.id), label: lvl.name }))}
+              onChange={setLevelId}
+              className="w-full md:w-72"
+            />
+            <div className="flex items-start gap-3 mt-4">
+              <Checkbox
+                id="level-locked"
+                checked={levelLocked}
+                onCheckedChange={(checked) => setLevelLocked(checked === true)}
+              />
+              <Label htmlFor="level-locked" className="cursor-pointer font-normal">
+                {t("admin_user_form.instructor_level.lock_label")}
+                <span className="block text-sm text-muted-foreground mt-0.5">
+                  {t("admin_user_form.instructor_level.lock_description")}
+                </span>
+              </Label>
+            </div>
+          </Card>
+        )}
 
         <Card className="p-6">
           <h3 className="font-medium mb-4">{t("admin_user_form.account_status")}</h3>

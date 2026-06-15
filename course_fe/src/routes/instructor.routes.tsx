@@ -21,6 +21,8 @@ const InstructorCourseLandingPage = lazy(() => import('../pages/instructor/Instr
 const InstructorCommunicationPage = lazy(() => import('../pages/instructor/InstructorCommunicationPage').then((module) => ({ default: module.InstructorCommunicationPage })))
 const InstructorLessonEditorPage = lazy(() => import('../pages/instructor/InstructorLessonEditorPage').then((module) => ({ default: module.InstructorLessonEditorPage })))
 const InstructorBlogPage = lazy(() => import('../pages/instructor/InstructorBlogPage').then((module) => ({ default: module.InstructorBlogPage })))
+const InstructorReportsPage = lazy(() => import('../pages/instructor/InstructorReportsPage').then((module) => ({ default: module.InstructorReportsPage })))
+const InstructorReportDetailPage = lazy(() => import('../pages/instructor/InstructorReportDetailPage').then((module) => ({ default: module.InstructorReportDetailPage })))
 
 export const instructorRoutes: RouteConfig[] = [
 
@@ -244,6 +246,28 @@ export const instructorRoutes: RouteConfig[] = [
         </InstructorLayout>
       </RequireAuth>
     )
+  },
+
+  {
+    path: '/instructor/reports',
+    element: (
+      <RequireAuth roles={['instructor', 'admin']}>
+        <InstructorLayout>
+          <InstructorReportsPage />
+        </InstructorLayout>
+      </RequireAuth>
+    )
+  },
+  {
+    path: '/instructor/reports/:caseId',
+    element: (
+      <RequireAuth roles={['instructor', 'admin']}>
+        <InstructorLayout>
+          <InstructorReportDetailPage />
+        </InstructorLayout>
+      </RequireAuth>
+    ),
+    dynamic: true
   },
 
 

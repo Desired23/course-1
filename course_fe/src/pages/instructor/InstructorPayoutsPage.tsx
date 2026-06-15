@@ -202,8 +202,12 @@ export function InstructorPayoutsPage() {
 
   const availableBalance = useMemo(() => {
     if (!summary) return 0
-    const retailAvailable = parseEarningAmount(summary.retail.by_status?.available?.net_amount || '0')
-    const subAvailable = parseEarningAmount(summary.subscription.by_status?.available?.net_amount || '0')
+    const retailAvailable = parseEarningAmount(
+      summary.retail.available_payable_net_amount ?? summary.retail.by_status?.available?.net_amount ?? '0'
+    )
+    const subAvailable = parseEarningAmount(
+      summary.subscription.available_payable_net_amount ?? summary.subscription.by_status?.available?.net_amount ?? '0'
+    )
     return retailAvailable + subAvailable
   }, [summary])
 
@@ -221,8 +225,9 @@ export function InstructorPayoutsPage() {
     return retailPaid + subPaid
   }, [summary])
 
-  const salesEarnings = parseEarningAmount(summary?.retail.by_status?.available?.net_amount || '0')
-  const subscriptionEarnings = parseEarningAmount(summary?.subscription.by_status?.available?.net_amount || '0')
+  const salesEarnings = parseEarningAmount(summary?.retail.available_payable_net_amount ?? summary?.retail.by_status?.available?.net_amount ?? '0')
+  const subscriptionEarnings = parseEarningAmount(summary?.subscription.available_payable_net_amount ?? summary?.subscription.by_status?.available?.net_amount ?? '0')
+  const heldBalance = parseEarningAmount(summary?.retail.held_active_net_amount || '0') + parseEarningAmount(summary?.subscription.held_active_net_amount || '0')
   const pendingPayouts = payouts.filter(p => p.status === 'pending').reduce((sum, p) => sum + parseEarningAmount(p.amount), 0)
   const completedPayouts = payouts.filter(p => p.status === 'processed').length
 
@@ -251,7 +256,7 @@ export function InstructorPayoutsPage() {
     if (!payoutAmount || parseFloat(payoutAmount) <= 0) return toast.error(t('instructor_payouts.invalid_amount_error'))
     const amount = parseFloat(payoutAmount)
     if (amount < minPayout) return toast.error(t('instructor_payouts.minimum_amount_error'))
-    if (amount > availableBalance) return toast.error(t('instructor_payouts.insufficient_balance_error', { amount: formatCurrency() }))
+    if (amount > availableBalance) return toast.error(t('instructor_payouts.insufficient_balance_error', { amount: formatCurrency(availableBalance) }))
 
     setIsSubmitting(true)
     try {
@@ -354,22 +359,22 @@ export function InstructorPayoutsPage() {
               <div className="p-4 bg-muted rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">{t('instructor_payouts.available_balance')}</span>
-                  <span className="text-2xl font-bold text-green-600">{formatCurrency()}</span>
+                  <span className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs pt-2 border-t border-muted-foreground/20">
                   <span className="text-muted-foreground">{t('instructor_payouts.from_sales')}</span>
-                  <span className="font-medium">{formatCurrency()}</span>
+                  <span className="font-medium">{formatCurrency(salesEarnings)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-muted-foreground">{t('instructor_payouts.from_subscriptions')}</span>
-                  <span className="font-medium">{formatCurrency()}</span>
+                  <span className="font-medium">{formatCurrency(subscriptionEarnings)}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="amount">{t('instructor_payouts.withdraw_amount')}</Label>
                 <Input id="amount" type="number" placeholder="0.00" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} max={availableBalance} min={minPayout} />
-                <p className="text-xs text-muted-foreground">{t('instructor_payouts.amount_hint', { amount: formatCurrency() })}</p>
+                <p className="text-xs text-muted-foreground">{t('instructor_payouts.amount_hint', { amount: formatCurrency(minPayout) })}</p>
               </div>
 
               <div className="space-y-2">
@@ -397,9 +402,9 @@ export function InstructorPayoutsPage() {
       </motion.div>
 
       <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={fadeInUp}>
-        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency()}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency()}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency()}</Badge></div></CardContent></Card>
-        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency()}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
-        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency()}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.available_balance')}</CardDescription><DollarSign className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance)}</div><div className="flex gap-2 mt-1"><Badge variant="secondary" className="text-[10px] h-5 bg-green-100 text-green-700 dark:bg-green-900/30">{t('instructor_payouts.sales_badge')}: {formatCurrency(salesEarnings)}</Badge><Badge variant="secondary" className="text-[10px] h-5 bg-blue-100 text-blue-700 dark:bg-blue-900/30">{t('instructor_payouts.subs_badge')}: {formatCurrency(subscriptionEarnings)}</Badge></div></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.pending_review')}</CardDescription><Clock className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold text-amber-600">{formatCurrency(lockedBalance)}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.pending_processing')}</p></CardContent></Card>
+        <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.paid_out')}</CardDescription><TrendingUp className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{formatCurrency(totalPaid)}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.total_received')}</p></CardContent></Card>
         <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.successful_requests')}</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.completed_transactions')}</p></CardContent></Card>
       </motion.div>
 
@@ -418,8 +423,20 @@ export function InstructorPayoutsPage() {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>{t('instructor_payouts.locked_earnings_title')}</AlertTitle>
-          <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency() })}</AlertDescription>
+          <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency(lockedBalance) })}</AlertDescription>
         </Alert>
+        </motion.div>
+      )}
+
+      {heldBalance > 0 && (
+        <motion.div variants={fadeInUp}>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Đang giữ earning do report bản quyền</AlertTitle>
+            <AlertDescription>
+              {formatPayoutAmount(heldBalance)} đang bị loại khỏi số dư có thể payout cho tới khi admin xử lý xong.
+            </AlertDescription>
+          </Alert>
         </motion.div>
       )}
 
@@ -508,9 +525,14 @@ export function InstructorPayoutsPage() {
                         <TableCell>{formatPayoutAmount(earning.amount)}</TableCell>
                         <TableCell className="font-semibold text-green-600">{formatPayoutAmount(earning.net_amount)}</TableCell>
                         <TableCell>
-                          <Badge variant={earning.status === 'available' ? 'default' : earning.status === 'pending' ? 'outline' : 'secondary'}>
-                            {earning.status === 'available' ? t('instructor_payouts.available') : earning.status === 'pending' ? t('instructor_payouts.pending_processing') : t('instructor_payouts.paid')}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant={earning.status === 'available' ? 'default' : earning.status === 'pending' ? 'outline' : 'secondary'}>
+                              {earning.status === 'available' ? t('instructor_payouts.available') : earning.status === 'pending' ? t('instructor_payouts.pending_processing') : t('instructor_payouts.paid')}
+                            </Badge>
+                            {earning.active_hold && (
+                              <Badge variant="destructive">Đang giữ do report bản quyền</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>{formatDate(earning.earning_date)}</TableCell>
                       </TableRow>

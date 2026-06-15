@@ -260,7 +260,7 @@ function createCourseQuery(section: HomeSection): CourseListParams {
 function CourseListSection({ section }: { section: HomeSection }) {
   const { i18n } = useTranslation()
   const { navigate } = useRouter()
-  const { isOwned, getProgress } = useOwnedCourses()
+  const { isEnrolled, isInSubscription, getProgress } = useOwnedCourses()
   const locale = i18n.language
   const [courses, setCourses] = useState<CourseListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -371,7 +371,8 @@ function CourseListSection({ section }: { section: HomeSection }) {
               students={course.total_students >= 1000 ? `${Math.floor(course.total_students / 1000)}K+` : `${course.total_students}`}
               level={getLevelLabel(course.level)}
               category={course.category_name || ""}
-              isOwned={isOwned(course.id)}
+              isOwned={isEnrolled(course.id)}
+              inSubscription={isInSubscription(course.id)}
               progress={getProgress(course.id)}
               courseId={`course-${course.id}`}
             />

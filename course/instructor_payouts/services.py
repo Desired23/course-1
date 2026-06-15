@@ -30,12 +30,12 @@ def auto_create_instructor_payouts(processed_by=None, notes='', settle_first=Tru
                 from instructor_earnings.services import update_earnings_available
                 settled_count = update_earnings_available().count()
 
-            from instructor_earnings.services import exclude_open_refund_earnings
-            earnings_qs = exclude_open_refund_earnings(InstructorEarning.objects.filter(
+            from instructor_earnings.services import exclude_active_hold_earnings, exclude_open_refund_earnings
+            earnings_qs = exclude_active_hold_earnings(exclude_open_refund_earnings(InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.AVAILABLE,
                 instructor_payout__isnull=True,
                 is_deleted=False,
-            )).select_for_update().select_related('instructor__user')
+            ))).select_for_update().select_related('instructor__user')
 
             earnings_map = defaultdict(list)
             for earning in earnings_qs:
@@ -173,7 +173,7 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
 
     with transaction.atomic():
 
-        from instructor_earnings.services import exclude_open_refund_earnings
+        from instructor_earnings.services import exclude_active_hold_earnings, exclude_open_refund_earnings
         try:
             requested = Decimal(str(amount))
         except (InvalidOperation, ValueError, TypeError):
@@ -190,12 +190,12 @@ def request_instructor_payout(instructor, amount, payout_method_id, notes='', pe
 
         # Lock the candidate earnings first, then sum under the lock so the
         # available balance cannot shift (refund/settle) between check and use.
-        earnings_qs = exclude_open_refund_earnings(InstructorEarning.objects.filter(
+        earnings_qs = exclude_active_hold_earnings(exclude_open_refund_earnings(InstructorEarning.objects.filter(
             instructor=instructor,
             status=InstructorEarning.StatusChoices.AVAILABLE,
             instructor_payout_id__isnull=True,
             is_deleted=False,
-        )).select_for_update().order_by('created_at')
+        ))).select_for_update().order_by('created_at')
 
         covered = Decimal('0')
         earning_ids = []
@@ -302,18 +302,18 @@ def admin_approve_payout(payout_id, admin, transaction_id=None, notes=None, fee=
         if payout.status != InstructorPayout.PayoutStatusChoices.PENDING:
             raise ValidationError("Only pending payouts can be approved.")
 
-        from instructor_earnings.services import exclude_open_refund_earnings
+        from instructor_earnings.services import exclude_active_hold_earnings, exclude_open_refund_earnings
         locked = list(
             InstructorEarning.objects.select_for_update().filter(instructor_payout=payout)
         )
         payable_ids = set(
-            exclude_open_refund_earnings(
+            exclude_active_hold_earnings(exclude_open_refund_earnings(
                 InstructorEarning.objects.filter(
                     instructor_payout=payout,
                     status=InstructorEarning.StatusChoices.AVAILABLE,
                     is_deleted=False,
                 )
-            ).values_list('id', flat=True)
+            )).values_list('id', flat=True)
         )
         # Drop earnings that were refunded/cancelled or disputed after the
         # payout was created; only pay the ones still payable.

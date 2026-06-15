@@ -12,6 +12,8 @@ from .services import (
     get_certificate_detail,
     revoke_certificate,
     get_course_certificates,
+    build_course_certificate_preview,
+    reconcile_user_certificates,
 )
 from .serializers import CertificateListSerializer
 from utils.pagination import paginate_queryset
@@ -74,6 +76,16 @@ class CertificateUserView(APIView):
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
 
 
+class CertificateSyncView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'burst'
+
+    def post(self, request):
+        reconcile_user_certificates(request.user)
+        results = get_user_certificates(request.user)
+        return paginate_queryset(results, request, CertificateListSerializer)
+
+
 class CertificateAdminView(APIView):
     permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
@@ -106,6 +118,24 @@ def _pdf_response(cert):
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="certificate_{cert.verification_code}.pdf"'
     return response
+
+
+class CertificateAdminCoursePreviewView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request, course_id):
+        from courses.models import Course
+
+        try:
+            course = Course.objects.select_related('instructor__user').get(
+                id=course_id,
+                is_deleted=False,
+            )
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return _pdf_response(build_course_certificate_preview(course))
 
 
 class CertificateDownloadView(APIView):

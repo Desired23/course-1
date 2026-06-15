@@ -31,9 +31,8 @@ class LearningProgressSyncTests(TestCase):
             Lesson.objects.create(
                 coursemodule=module,
                 title=f"Lesson {index}",
-                content_type=Lesson.ContentType.TEXT,
+                content_type=Lesson.ContentType.VIDEO,
                 order=index,
-                status=Lesson.Status.PUBLISHED,
             )
             for index in range(1, 3)
         ]
@@ -74,9 +73,8 @@ class LearningProgressSyncTests(TestCase):
             Lesson.objects.create(
                 coursemodule=module,
                 title=f"Lesson {index}",
-                content_type=Lesson.ContentType.TEXT,
+                content_type=Lesson.ContentType.VIDEO,
                 order=index,
-                status=Lesson.Status.PUBLISHED,
             )
 
         update_learning_progress(

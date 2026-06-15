@@ -15,6 +15,8 @@ export interface Notification {
   type: NotificationType
   related_id: number | null
   notification_code: string | null
+  action_url?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export interface InstructorAnnouncement {

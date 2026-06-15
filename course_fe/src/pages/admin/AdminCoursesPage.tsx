@@ -18,7 +18,7 @@ import { UserPagination } from '../../components/UserPagination'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Checkbox } from "../../components/ui/checkbox"
-import { getCourses, deleteCourse as deleteCourseApi, moderateCourse, type CourseListItem, type CourseModerationAction, parseDecimal, formatPrice } from '../../services/course.api'
+import { getCourses, deleteCourse as deleteCourseApi, moderateCourse, updateCourse, type CourseListItem, type CourseModerationAction, parseDecimal, formatPrice } from '../../services/course.api'
 import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 10
@@ -336,6 +336,17 @@ export function AdminCoursesPage() {
     }
   }
 
+  const handleToggleFeatured = async (courseId: number, nextFeatured: boolean) => {
+    setCourses(prev => prev.map(c => c.id === courseId ? { ...c, is_featured: nextFeatured } : c))
+    try {
+      await updateCourse(courseId, { is_featured: nextFeatured })
+      toast.success(nextFeatured ? t('admin_courses.toasts.feature_success') : t('admin_courses.toasts.unfeature_success'))
+    } catch {
+      setCourses(prev => prev.map(c => c.id === courseId ? { ...c, is_featured: !nextFeatured } : c))
+      toast.error(t('admin_courses.toasts.feature_failed'))
+    }
+  }
+
   const toggleCourseSelection = (courseId: number, checked: boolean) => {
     setSelectedCourseIds(prev => checked ? [...prev, courseId] : prev.filter(id => id !== courseId))
   }
@@ -364,6 +375,8 @@ export function AdminCoursesPage() {
   const totalStudentsOnPage = courses.reduce((sum, c) => sum + (c.total_students || 0), 0)
   const startIdx = totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
+  const selectedCourses = courses.filter(course => selectedCourseIds.includes(course.id))
+  const canBulkManageAvailability = selectedCourses.length > 0 && selectedCourses.every(course => course.status === 'published')
 
   return (
     <motion.div className="p-4 sm:p-6 lg:p-8" variants={sectionStagger} initial="hidden" animate="show">
@@ -473,7 +486,7 @@ export function AdminCoursesPage() {
               true,
             ),
           },
-          {
+          ...(canBulkManageAvailability ? [{
             key: 'hide',
             label: t('admin_courses.moderation.hide_course'),
             onClick: () => openConfirm(
@@ -494,7 +507,7 @@ export function AdminCoursesPage() {
               () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'hard_block'), t('admin_courses.toasts.bulk_block_success')),
               true,
             ),
-          },
+          }] : []),
           {
             key: 'delete',
             label: t('common.delete'),
@@ -593,6 +606,12 @@ export function AdminCoursesPage() {
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
                               <h3 className="font-semibold line-clamp-2 sm:line-clamp-1">{course.title}</h3>
                               {getStatusBadge(course.status)}
+                              {course.is_featured && (
+                                <Badge variant="outline" className="gap-1 border-yellow-400 text-yellow-600">
+                                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                  {t('admin_courses.moderation.featured_badge')}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm text-muted-foreground">{t('admin_courses.by_instructor', { name: course.instructor_name || t('admin_courses.unknown') })}</p>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-muted-foreground mt-2">
@@ -602,11 +621,23 @@ export function AdminCoursesPage() {
                           </div>
 
                           <div className="flex gap-2 flex-shrink-0">
+                            <Button
+                              variant={course.is_featured ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => handleToggleFeatured(course.id, !course.is_featured)}
+                            >
+                              <Star className={`h-4 w-4 md:mr-1 ${course.is_featured ? 'fill-current' : ''}`} />
+                              <span className="hidden md:inline">
+                                {course.is_featured
+                                  ? t('admin_courses.moderation.unfeature_course')
+                                  : t('admin_courses.moderation.feature_course')}
+                              </span>
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => navigate(`/admin/courses/${course.id}`)}>
                               <Eye className="h-4 w-4 md:mr-1" />
                               <span className="hidden md:inline">{t('admin_courses.view')}</span>
                             </Button>
-                            {course.admin_hidden || course.is_hard_blocked ? (
+                            {course.status === 'published' && (course.admin_hidden || course.is_hard_blocked ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -616,7 +647,7 @@ export function AdminCoursesPage() {
                                 <span className="hidden md:inline">
                                   {course.is_hard_blocked
                                     ? t('admin_courses.moderation.unlock_course')
-                                    : t('admin_courses.moderation.resume_sale')}
+                                  : t('admin_courses.moderation.resume_sale')}
                                 </span>
                               </Button>
                             ) : (
@@ -628,8 +659,8 @@ export function AdminCoursesPage() {
                                 <X className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">{t('admin_courses.moderation.hide_course')}</span>
                               </Button>
-                            )}
-                            {!course.is_hard_blocked && (
+                            ))}
+                            {course.status === 'published' && !course.is_hard_blocked && (
                               <Button
                                 variant="outline"
                                 size="sm"

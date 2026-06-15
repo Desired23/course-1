@@ -1,4 +1,4 @@
-import { API_BASE_URL, http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 
 export interface IssuedCertificate {
   id: number
@@ -43,6 +43,21 @@ export async function getMyCertificates(params?: {
   return http.get<PaginatedCertificates>(`/certificates/me/${qs ? `?${qs}` : ''}`)
 }
 
+/**
+ * Reconcile then list: issues any earned-but-missing certificates (idempotent)
+ * and returns the up-to-date page. One request, so no extra network round-trips.
+ */
+export async function syncMyCertificates(params?: {
+  page?: number
+  page_size?: number
+}): Promise<PaginatedCertificates> {
+  const query = new URLSearchParams()
+  if (params?.page) query.set('page', String(params.page))
+  if (params?.page_size) query.set('page_size', String(params.page_size))
+  const qs = query.toString()
+  return http.post<PaginatedCertificates>(`/certificates/sync/${qs ? `?${qs}` : ''}`)
+}
+
 /** Link to the (login-required) My Certificates page — no public PDF link (SOL-017). */
 export function getCertificateDownloadUrl(_verificationCode?: string): string {
   return '/user/my-certificates'
@@ -50,9 +65,12 @@ export function getCertificateDownloadUrl(_verificationCode?: string): string {
 
 /** Download the certificate PDF via the authenticated owner/admin endpoint. */
 export async function downloadMyCertificate(certificateId: number, fileName: string): Promise<void> {
-  const token = localStorage.getItem('access_token')
+  const token = getAccessToken()
   const res = await fetch(`${API_BASE_URL}/certificates/${certificateId}/download/`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      ...getApiTransportHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   })
   if (!res.ok) {
     throw new Error('Không thể tải chứng chỉ.')
@@ -66,4 +84,19 @@ export async function downloadMyCertificate(certificateId: number, fileName: str
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+/** Admin-only course certificate preview. Does not issue or persist a certificate. */
+export async function getAdminCourseCertificatePreviewBlob(courseId: number): Promise<Blob> {
+  const token = getAccessToken()
+  const res = await fetch(`${API_BASE_URL}/certificates/admin/courses/${courseId}/preview/`, {
+    headers: {
+      ...getApiTransportHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  if (!res.ok) {
+    throw new Error('Could not preview certificate.')
+  }
+  return res.blob()
 }

@@ -26,6 +26,10 @@ def exclude_open_refund_earnings(qs):
     )
 
 
+def exclude_active_hold_earnings(qs):
+    return qs.exclude(copyright_holds__status='active')
+
+
 def resolve_instructor_rate_snapshot(instructor, source="retail"):
     if source == "subscription":
         raw_rate = instructor.level.plan_commission_rate if instructor.level else Decimal("30.00")
@@ -104,6 +108,7 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None, source=
             InstructorEarning.objects
             .filter(instructor=instructor, is_deleted=False)
             .select_related('course', 'payment', 'user_subscription__plan', 'instructor__user')
+            .prefetch_related('copyright_holds')
             .order_by('-earning_date', '-id')
         )
 
@@ -131,6 +136,7 @@ def get_instructor_earnings(status=None, earning_id=None, source=None):
                 InstructorEarning.objects
                 .filter(is_deleted=False)
                 .select_related('course', 'payment', 'user_subscription__plan', 'instructor__user')
+                .prefetch_related('copyright_holds')
                 .order_by('-earning_date', '-id')
             )
             if status:
@@ -245,10 +251,10 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
     from collections import defaultdict
     from subscription_plans.models import UserSubscription, SubscriptionUsageEvent
 
-    first_day = timezone.datetime(year, month, 1, tzinfo=timezone.UTC)
+    first_day = timezone.datetime(year, month, 1, tzinfo=dt_timezone.utc)
     last_day = timezone.datetime(
         year, month, calendar.monthrange(year, month)[1],
-        23, 59, 59, tzinfo=timezone.UTC
+        23, 59, 59, tzinfo=dt_timezone.utc
     )
 
     subscriptions = UserSubscription.objects.filter(
@@ -389,11 +395,20 @@ def get_instructor_earnings_summary(instructor_id):
             total_net=Sum('net_amount'),
             total_amount=Sum('amount'),
             count=Count('id'),
+            total_usage_seconds=Sum('usage_seconds'),
         )
+        active_hold_qs = qs.filter(copyright_holds__status='active').distinct()
+        held_active = active_hold_qs.aggregate(net=Sum('net_amount'))['net'] or Decimal('0.00')
+        available_payable = exclude_active_hold_earnings(
+            qs.filter(status=InstructorEarning.StatusChoices.AVAILABLE)
+        ).aggregate(net=Sum('net_amount'))['net'] or Decimal('0.00')
         return {
             'count': result['count'] or 0,
             'total_amount': str(result['total_amount'] or Decimal('0.00')),
             'total_net_amount': str(result['total_net'] or Decimal('0.00')),
+            'total_usage_seconds': result['total_usage_seconds'] or 0,
+            'held_active_net_amount': str(held_active),
+            'available_payable_net_amount': str(available_payable),
         }
 
     def _status_breakdown(qs):
@@ -449,7 +464,7 @@ def get_subscription_revenue_breakdown_by_course(instructor_id, search=None, sor
     if search:
         base_qs = base_qs.filter(course__title__icontains=search)
 
-    total_earnings = base_qs.aggregate(total=Sum('net_amount'))['total'] or Decimal('0.00')
+    total_usage_seconds = base_qs.aggregate(total=Sum('usage_seconds'))['total'] or 0
 
     breakdown_qs = (
         base_qs
@@ -457,6 +472,7 @@ def get_subscription_revenue_breakdown_by_course(instructor_id, search=None, sor
         .annotate(
             course_title=F('course__title'),
             earnings=Sum('net_amount'),
+            total_usage_seconds=Sum('usage_seconds'),
             records_count=Count('id'),
         )
     )
@@ -466,11 +482,11 @@ def get_subscription_revenue_breakdown_by_course(instructor_id, search=None, sor
         'earnings_asc': 'earnings',
         'course_asc': 'course_title',
         'course_desc': '-course_title',
-        'share_desc': '-earnings',
-        'share_asc': 'earnings',
+        'share_desc': '-total_usage_seconds',
+        'share_asc': 'total_usage_seconds',
     }
     breakdown_qs = breakdown_qs.order_by(ordering_map.get(sort_by, '-earnings'), 'course_id')
-    return breakdown_qs, total_earnings
+    return breakdown_qs, total_usage_seconds
 
 
 def get_instructor_earnings_by_month(instructor_id, months=12):
@@ -502,6 +518,7 @@ def get_instructor_earnings_by_month(instructor_id, months=12):
             retail_net=Sum('net_amount', filter=Q(payment__isnull=False)),
             sub_amount=Sum('amount', filter=Q(user_subscription__isnull=False)),
             sub_net=Sum('net_amount', filter=Q(user_subscription__isnull=False)),
+            sub_usage_seconds=Sum('usage_seconds', filter=Q(user_subscription__isnull=False)),
         )
         retail_net = agg['retail_net'] or Decimal('0')
         sub_net = agg['sub_net'] or Decimal('0')
@@ -511,6 +528,7 @@ def get_instructor_earnings_by_month(instructor_id, months=12):
             'retail_net': float(retail_net),
             'sub_gross': float(agg['sub_amount'] or 0),
             'sub_net': float(sub_net),
+            'sub_usage_seconds': agg['sub_usage_seconds'] or 0,
             'total_net': float(retail_net + sub_net),
         })
 

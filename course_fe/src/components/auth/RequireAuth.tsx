@@ -4,6 +4,16 @@ import { useRouter } from '../Router'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 
+const blockedRedirectPaths = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/email-verification',
+  '/auth/google/callback',
+  '/google-callback',
+]
+
 interface RequireAuthProps {
   children: React.ReactNode
   roles?: UserRole[]
@@ -30,7 +40,13 @@ export function RequireAuth({
         toast.error(t('system_notifications.login_required_description'), { id: 'login-required' })
       }
       if (redirectTo === '/login') {
-        navigate('/login', undefined, { redirect: currentRoute })
+        const currentPath = currentRoute.split('?')[0]
+        if (blockedRedirectPaths.includes(currentPath)) {
+          // Already on an auth page — don't nest the redirect param into itself
+          navigate('/login')
+        } else {
+          navigate('/login', undefined, { redirect: currentRoute })
+        }
       } else {
         navigate(redirectTo)
       }

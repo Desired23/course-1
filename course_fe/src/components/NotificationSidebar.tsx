@@ -131,6 +131,9 @@ export function NotificationSidebar({
   }
 
   const getNotificationLink = (notification: any): string | null => {
+    const actionUrl = notification.action_url ?? notification.actionUrl
+    if (actionUrl) return actionUrl
+
     const code = notification.notification_code ?? notification.notificationCode
     const relatedId = notification.related_id ?? notification.relatedId
     const type = notification.type
@@ -155,6 +158,18 @@ export function NotificationSidebar({
       // Refund request -> admin queue
       case 'refund_requested':
         return '/admin/refunds'
+
+      // Copyright workflow
+      case 'copyright_reporter_info_required':
+        return relatedId ? `/reports/my/${relatedId}` : '/notifications'
+      case 'copyright_response_required':
+        return relatedId ? `/instructor/reports/${relatedId}` : '/instructor/reports'
+      case 'copyright_instructor_responded':
+      case 'copyright_reporter_info_submitted':
+        return relatedId ? `/admin/reports?tab=copyright&case=${relatedId}` : '/admin/reports?tab=copyright'
+      case 'copyright_case_decision':
+        if (notification.actionUrl) return notification.actionUrl
+        return null
 
       // Payments & refund results (student)
       case 'payment_completed':

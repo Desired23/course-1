@@ -66,7 +66,6 @@ if extra_hosts:
 def get_env(key, default=None, required=False):
     value = os.getenv(key, default)
     if not value:
-        print(f"Warning: {key} not set. Please set it in your environment variables.")
         if required:
             raise EnvironmentError(f"Error: {key} is required but not set.")
     return value
@@ -310,10 +309,6 @@ if DATABASE_URL:
     })
 
 else:
-    import sys
-    if 'makemigrations' not in sys.argv and 'migrate' not in sys.argv and 'check' not in sys.argv:
-        print("DATABASE_URL not set. Using SQLite.")
-
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -444,6 +439,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^https://.*\.ngrok-free\.dev$',
+    r'^https://.*\.onrender\.com$',
 ]
 
 
@@ -477,6 +473,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
     'https://*.ngrok-free.dev',
+    'https://*.onrender.com',
 ]
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')

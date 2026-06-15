@@ -4,12 +4,8 @@ from coursemodules.models import CourseModule
 class Lesson(models.Model):
     class ContentType(models.TextChoices):
         VIDEO = 'video'
-        TEXT = 'text'
         QUIZ = 'quiz'
         CODE = 'code'
-        ASSIGNMENT = 'assignment'
-        FILE = 'file'
-        LINK = 'link'
 
     class Status(models.TextChoices):
         DRAFT = 'draft'

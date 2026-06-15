@@ -9,14 +9,12 @@ import { Input } from '../../components/ui/input'
 import { UserPagination } from '../../components/UserPagination'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts'
 import {
-  HelpCircle,
   Download,
   Info,
   Crown
 } from 'lucide-react'
-import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../components/ui/tooltip"
-import { getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount, exportInstructorEarnings } from '../../services/instructor-earnings.api'
-import { getInstructorDashboardStats, getInstructorAnalyticsTimeseries } from '../../services/instructor.api'
+import { getInstructorEarningsMonthly, getInstructorEarningsSummary, getInstructorSubscriptionRevenueBreakdown, parseEarningAmount, exportInstructorEarnings } from '../../services/instructor-earnings.api'
+import { getInstructorDashboardStats } from '../../services/instructor.api'
 import { useTranslation } from 'react-i18next'
 
 const sectionStagger: any = {
@@ -56,7 +54,6 @@ export function InstructorSubscriptionRevenuePage() {
   const [listLoading, setListLoading] = useState(false)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const TOTAL_SYSTEM_MINUTES = 5000000
   const ITEMS_PER_PAGE = 8
   const formatVND = (amount: number) => `${Number(amount).toLocaleString('vi-VN')}₫`
 
@@ -73,24 +70,24 @@ export function InstructorSubscriptionRevenuePage() {
         const monthsMap: Record<string, number> = { '7d': 1, '30d': 3, '90d': 6 }
         const months = monthsMap[period] || 3
 
-        const [summary, dashStats, timeseries] = await Promise.all([
+        const [summary, dashStats, monthlyEntries] = await Promise.all([
           getInstructorEarningsSummary(),
           getInstructorDashboardStats(),
-          getInstructorAnalyticsTimeseries(months),
+          getInstructorEarningsMonthly(months),
         ])
 
         const subscriptionTotal = parseEarningAmount(summary.subscription.total_net_amount)
         setTotalEarnings(subscriptionTotal)
-        setTotalMinutes(Math.round(subscriptionTotal * 100))
+        setTotalMinutes(Math.round((summary.subscription.total_usage_seconds || 0) / 60))
         setQualifyingStudents(dashStats.total_students)
 
 
-        const perfData = timeseries.revenue_trend.map((r) => {
+        const perfData = monthlyEntries.map((r) => {
           const dateLabel = new Date(r.date + '-01').toLocaleDateString('en', { day: '2-digit', month: '2-digit' })
           return {
             date: dateLabel,
-            minutes: Math.round(r.revenue * 10),
-            earnings: r.revenue,
+            minutes: Math.round((r.sub_usage_seconds || 0) / 60),
+            earnings: r.sub_net,
           }
         })
         setPerformanceData(perfData)
@@ -123,7 +120,7 @@ export function InstructorSubscriptionRevenuePage() {
           return {
             id: row.course_id,
             title: row.course_title || t('instructor_subscription_revenue.unknown_course'),
-            totalMinutes: row.total_minutes ?? Math.round(earnings * 100),
+            totalMinutes: row.total_minutes ?? 0,
             share: row.share_pct || '0.0000',
             earnings,
             engagementType: t('instructor_subscription_revenue.engagement_type'),
@@ -194,21 +191,7 @@ export function InstructorSubscriptionRevenuePage() {
                {t('instructor_subscription_revenue.pool_model_title')}
             </h4>
             <div className="mt-2 text-sm text-blue-800 dark:text-blue-300 space-y-2">
-               <p>
-                 {t('instructor_subscription_revenue.pool_model_intro_before')}
-                 <strong>{t('instructor_subscription_revenue.pool_model_intro_highlight')}</strong>
-                 {t('instructor_subscription_revenue.pool_model_intro_after')}
-               </p>
-
-               <div className="bg-white/60 dark:bg-black/20 p-3 rounded border border-blue-100 dark:border-blue-800/50 flex flex-wrap gap-4 items-center font-mono text-xs md:text-sm">
-                  <span className="font-bold">{t('instructor_subscription_revenue.formula_revenue')}</span>
-                  <div className="flex flex-col items-center">
-                     <span className="border-b border-black dark:border-white px-2">{t('instructor_subscription_revenue.formula_your_minutes')}</span>
-                     <span>{t('instructor_subscription_revenue.formula_total_minutes')}</span>
-                  </div>
-                  <span>?</span>
-                  <span className="font-bold text-green-600 dark:text-green-400">{t('instructor_subscription_revenue.formula_total_pool')}</span>
-               </div>
+               <p>{t('instructor_subscription_revenue.pool_model_intro')}</p>
 
                <p className="text-xs mt-2 italic flex items-center gap-1">
                  <Info className="w-3 h-3" />
@@ -220,7 +203,7 @@ export function InstructorSubscriptionRevenuePage() {
       </motion.div>
 
 
-      <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-6" variants={fadeInUp}>
+      <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-6" variants={fadeInUp}>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">{t('instructor_subscription_revenue.total_earnings')}</CardTitle>
@@ -244,33 +227,7 @@ export function InstructorSubscriptionRevenuePage() {
               {totalMinutes.toLocaleString()}
               <span className="text-sm font-normal text-muted-foreground ml-1">{t('instructor_subscription_revenue.minutes_short')}</span>
             </div>
-            <div className="flex gap-1 mt-1">
-               <Badge variant="secondary" className="text-[10px] h-4">{t('instructor_subscription_revenue.video')}</Badge>
-               <Badge variant="secondary" className="text-[10px] h-4">{t('instructor_subscription_revenue.coding')}</Badge>
-               <Badge variant="secondary" className="text-[10px] h-4">{t('instructor_subscription_revenue.quiz')}</Badge>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-             <TooltipProvider>
-               <UITooltip>
-                  <TooltipTrigger className="cursor-help flex items-center gap-1">
-                     <CardTitle className="text-sm font-medium text-muted-foreground">Tỷ trọng usage</CardTitle>
-                     <HelpCircle className="w-3 h-3 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                     <p>{t('instructor_subscription_revenue.pool_share_tooltip')}</p>
-                  </TooltipContent>
-               </UITooltip>
-             </TooltipProvider>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-               {((totalMinutes / TOTAL_SYSTEM_MINUTES) * 100).toFixed(4)}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{t('instructor_subscription_revenue.platform_usage_share')}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t('instructor_subscription_revenue.engagement_includes_short')}</p>
           </CardContent>
         </Card>
 
@@ -382,7 +339,7 @@ export function InstructorSubscriptionRevenuePage() {
                 <TableHead>{t('instructor_subscription_revenue.course_name')}</TableHead>
                 <TableHead>{t('instructor_subscription_revenue.included_activities')}</TableHead>
                 <TableHead className="text-right">{t('instructor_subscription_revenue.minutes_total')}</TableHead>
-                <TableHead className="text-right">Tỷ trọng usage trong kỳ</TableHead>
+                <TableHead className="text-right">{t('instructor_subscription_revenue.pool_share_percent')}</TableHead>
                 <TableHead className="text-right">{t('instructor_subscription_revenue.revenue')}</TableHead>
               </TableRow>
             </TableHeader>

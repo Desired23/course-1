@@ -53,6 +53,18 @@ def get_active_categories():
     return Category.objects.filter(status='active')
 
 
+def move_category_to_top(category_id):
+    try:
+        category = Category.objects.get(id=category_id)
+    except Category.DoesNotExist:
+        raise ValidationError({"error": "Category not found."})
+
+    min_order = Category.objects.order_by('order').values_list('order', flat=True).first()
+    category.order = (min_order if min_order is not None else 0) - 1
+    category.save(update_fields=['order', 'updated_at'])
+    return category
+
+
 def get_top_categories(limit=6):
     return (
         Category.objects
@@ -68,6 +80,6 @@ def get_top_categories(limit=6):
             )
         )
         .filter(course_count__gt=0)
-        .order_by('-course_count', 'name')[:limit]
+        .order_by('order', 'name')[:limit]
     )
 

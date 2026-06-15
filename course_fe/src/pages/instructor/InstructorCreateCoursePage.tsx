@@ -8,7 +8,6 @@ import { Textarea } from "../../components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../components/ui/alert-dialog"
 import { ArrowLeft, ArrowRight, Save, Image as ImageIcon, Check, BookOpen, Settings, DollarSign, Users } from 'lucide-react'
 import { useRouter } from "../../components/Router"
 import { toast } from 'sonner'
@@ -155,6 +154,23 @@ export function InstructorCreateCoursePage() {
       setIsSaving(false)
     }
   }
+
+  const handleGoToCurriculum = () => {
+    if (!createdCourseId) return
+    setCreatedCourseId(null)
+    navigate(`/instructor/lessons/${createdCourseId}`)
+  }
+
+  // The category/level/language Selects use Radix dismissable layers, which set
+  // `document.body.style.pointerEvents = 'none'` while open and can leave it
+  // stuck after closing. Because the success modal lives inside <body>, that
+  // stuck value cascades into it and freezes the whole screen. Clear it whenever
+  // the modal opens so the dialog (and page) stay interactive.
+  useEffect(() => {
+    if (createdCourseId !== null) {
+      document.body.style.pointerEvents = ''
+    }
+  }, [createdCourseId])
 
   const handleThumbnailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -398,18 +414,18 @@ export function InstructorCreateCoursePage() {
         </Card>
       </motion.div>
       </motion.div>
-      <AlertDialog open={createdCourseId !== null} onOpenChange={(open) => { if (!open) { setCreatedCourseId(null); navigate('/instructor/courses') } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('instructor_create_course_page.redirect_dialog.title')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('instructor_create_course_page.redirect_dialog.description')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setCreatedCourseId(null); navigate('/instructor/courses') }}>{t('instructor_create_course_page.redirect_dialog.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => navigate(`/instructor/lessons/${createdCourseId}`)}>{t('instructor_create_course_page.redirect_dialog.confirm')}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {createdCourseId !== null && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4" role="alertdialog" aria-modal="true">
+          <div className="w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <h2 className="text-lg font-semibold">{t('instructor_create_course_page.redirect_dialog.title')}</h2>
+            <p className="text-muted-foreground mt-2 text-sm">{t('instructor_create_course_page.redirect_dialog.description')}</p>
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => { setCreatedCourseId(null); navigate('/instructor/courses') }}>{t('instructor_create_course_page.redirect_dialog.cancel')}</Button>
+              <Button onClick={handleGoToCurriculum}>{t('instructor_create_course_page.redirect_dialog.confirm')}</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   )
 }

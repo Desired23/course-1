@@ -85,6 +85,10 @@ def check_and_upgrade_instructor_levels():
             except Instructor.DoesNotExist:
                 continue
 
+            if instructor.level_locked:
+                # Level do admin gán thủ công — không tự động nâng cấp.
+                continue
+
             target_level = None
             for lvl in levels:
                 if total_minutes >= lvl.min_plan_minutes:

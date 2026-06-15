@@ -84,10 +84,9 @@ python manage.py test apps.courses.tests                    # Single app
 python manage.py test apps.courses.tests.TestClassName      # Single class
 ```
 
-Seed database:
+Seed database (resets all project tables, then creates initial accounts admin/instructor/student):
 ```bash
-python manage.py shell < seed_data.py
-python manage.py shell < config/curated_seed.py
+curl "http://127.0.0.1:8000/api/seed/?key=$SEED_SECRET_KEY"   # default key: demo-seed-2026
 ```
 
 Production build (used by Render):

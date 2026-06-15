@@ -93,6 +93,10 @@ export interface AdminPayment {
   course_title?: string
   instructor_name?: string
   payment_method?: string
+  payment_type?: string
+  payment_gateway?: string
+  gateway_response?: string | null
+  transaction_id?: string | null
 }
 
 
@@ -746,6 +750,9 @@ export interface UserItem {
   last_login: string | null
   enrollment_count: number
   courses_count: number | null
+  instructor_id?: number | null
+  instructor_level?: { id: number; name: string } | null
+  instructor_level_locked?: boolean | null
 }
 
 export interface AdminUserListParams {

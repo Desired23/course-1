@@ -31,6 +31,6 @@ if ($env:NGROK_AUTHTOKEN) {
 Get-Process -Name "ngrok" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 500
 
-Write-Host "Dang chay backend local voi ngrok URL dong..."
+Write-Host "Starting backend with ngrok..."
 
 powershell -ExecutionPolicy Bypass -File $runScript

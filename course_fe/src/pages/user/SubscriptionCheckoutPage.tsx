@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next"
 import {
   AlertCircle,
   ArrowLeft,
-  Building2,
   Check,
   CreditCard,
   Crown,
   Loader2,
   Lock,
+  QrCode,
   Shield,
   Smartphone,
   Zap,
@@ -26,6 +26,18 @@ import { getSubscriptionPlans, type SubscriptionPlanListItem } from "../../servi
 import { createPaymentRecord } from "../../services/payment.api"
 import { motion } from "motion/react"
 import { getErrorMessage } from "../../lib/apiError"
+
+type GatewayMethod = "momo" | "momo_wallet" | "momo_cc" | "vnpay"
+
+// MoMo keeps payment_method='momo'; the chosen MoMo flow is sent separately as requestType.
+const MOMO_REQUEST_TYPE: Partial<Record<GatewayMethod, string>> = {
+  momo_wallet: "captureWallet",
+  momo_cc: "payWithCC",
+}
+
+function toBackendMethod(method: GatewayMethod): "momo" | "vnpay" {
+  return method === "vnpay" ? "vnpay" : "momo"
+}
 
 const iconMap: Record<string, React.ComponentType<any>> = { Zap, Crown, Shield }
 const colorMap: Record<string, { color: string; bg: string }> = {
@@ -60,7 +72,7 @@ export function SubscriptionCheckoutPage() {
   const { navigate } = useRouter()
   const { user } = useAuth()
   const { t } = useTranslation()
-  const [selectedPayment, setSelectedPayment] = useState("momo")
+  const [selectedPayment, setSelectedPayment] = useState<GatewayMethod>("momo")
   const [isProcessing, setIsProcessing] = useState(false)
   const [planId, setPlanId] = useState<string>("pro")
   const [interval, setInterval] = useState<string>("year")
@@ -94,24 +106,35 @@ export function SubscriptionCheckoutPage() {
       })
   }, [])
 
-  const paymentMethods = [
-    {
-      id: "card",
-      name: t("subscription_checkout_page.payment_methods.card_name"),
-      icon: CreditCard,
-      description: t("subscription_checkout_page.payment_methods.card_description"),
-    },
+  const paymentMethods: Array<{
+    id: GatewayMethod
+    name: string
+    icon: React.ComponentType<any>
+    description: string
+  }> = [
     {
       id: "momo",
-      name: t("subscription_checkout_page.payment_methods.momo_name"),
+      name: t("checkout.gateway_options.momo.title"),
       icon: Smartphone,
-      description: t("subscription_checkout_page.payment_methods.momo_description"),
+      description: t("checkout.gateway_options.momo.description"),
     },
     {
-      id: "bank",
-      name: t("subscription_checkout_page.payment_methods.bank_name"),
-      icon: Building2,
-      description: t("subscription_checkout_page.payment_methods.bank_description"),
+      id: "momo_wallet",
+      name: t("checkout.gateway_options.momo_wallet.title"),
+      icon: QrCode,
+      description: t("checkout.gateway_options.momo_wallet.description"),
+    },
+    {
+      id: "momo_cc",
+      name: t("checkout.gateway_options.momo_cc.title"),
+      icon: CreditCard,
+      description: t("checkout.gateway_options.momo_cc.description"),
+    },
+    {
+      id: "vnpay",
+      name: t("checkout.gateway_options.vnpay.title"),
+      icon: CreditCard,
+      description: t("checkout.gateway_options.vnpay.description"),
     },
   ]
 
@@ -190,33 +213,23 @@ export function SubscriptionCheckoutPage() {
 
     setIsProcessing(true)
     try {
-      const gatewayMethod = selectedPayment === "card" ? "vnpay" : "momo"
-
       const result = await createPaymentRecord({
         user_id: Number(user.id),
-        payment_method: gatewayMethod,
+        payment_method: toBackendMethod(selectedPayment),
+        momo_request_type: MOMO_REQUEST_TYPE[selectedPayment],
+        return_url: `${window.location.origin}/payment/result`,
         payment_type: "subscription",
         billing_cycle: interval === "year" ? "yearly" : "monthly",
         subscription_plan_id: apiPlan ? apiPlan.id : undefined,
         payment_details: [],
       })
 
-      if (gatewayMethod === "momo") {
-        if (result.gateway_payment?.url) {
-          window.location.href = result.gateway_payment.url
-          return
-        }
-        toast.error(t("subscription_checkout_page.create_momo_url_failed"))
-        setIsProcessing(false)
-        return
-      }
-
       if (result.gateway_payment?.url) {
         window.location.href = result.gateway_payment.url
-      } else {
-        toast.error(t("subscription_checkout_page.create_payment_url_failed"))
-        setIsProcessing(false)
+        return
       }
+      toast.error(t("subscription_checkout_page.create_payment_url_failed"))
+      setIsProcessing(false)
     } catch (err: any) {
       console.error("Subscription checkout failed:", err)
       toast.error(err?.message || t("subscription_checkout_page.checkout_failed"))
@@ -294,7 +307,7 @@ export function SubscriptionCheckoutPage() {
 
                 <Card>
                   <CardContent className="p-4 sm:p-6 space-y-6">
-                    <RadioGroup value={selectedPayment} onValueChange={setSelectedPayment}>
+                    <RadioGroup value={selectedPayment} onValueChange={(value) => setSelectedPayment(value as GatewayMethod)}>
                       <div className="space-y-3">
                         {paymentMethods.map((method, index) => {
                           const IconComponent = method.icon
@@ -323,7 +336,7 @@ export function SubscriptionCheckoutPage() {
                                 </div>
                                 <p className="text-xs text-muted-foreground sm:text-sm">{method.description}</p>
                               </div>
-                              {method.id === "card" && (
+                              {method.id === "vnpay" && (
                                 <div className="hidden sm:flex gap-1.5">
                                   <div className="w-8 h-5 bg-slate-200 rounded"></div>
                                   <div className="w-8 h-5 bg-slate-200 rounded"></div>
@@ -335,7 +348,7 @@ export function SubscriptionCheckoutPage() {
                       </div>
                     </RadioGroup>
 
-                    {selectedPayment === "card" && (
+                    {selectedPayment === "vnpay" && (
                       <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-3">
                           <AlertCircle className="w-5 h-5 shrink-0" />
@@ -348,7 +361,7 @@ export function SubscriptionCheckoutPage() {
                       </div>
                     )}
 
-                    {selectedPayment !== "card" && (
+                    {selectedPayment !== "vnpay" && (
                       <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300 flex items-start gap-3 animate-in fade-in">
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         <p>{t("subscription_checkout_page.partner_redirect_notice")}</p>

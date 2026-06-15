@@ -7,7 +7,7 @@ import { Award, Download, Ban } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useAuth } from "../../contexts/AuthContext"
 import { useTranslation } from "react-i18next"
-import { getMyCertificates, downloadMyCertificate, type MyCertificate } from '../../services/certificate.api'
+import { syncMyCertificates, downloadMyCertificate, type MyCertificate } from '../../services/certificate.api'
 import { UserPagination } from '../../components/UserPagination'
 import { toast } from "sonner"
 
@@ -37,7 +37,7 @@ export function MyCertificatesPage() {
     }
     let cancelled = false
     setLoading(true)
-    getMyCertificates({ page: currentPage, page_size: pageSize })
+    syncMyCertificates({ page: currentPage, page_size: pageSize })
       .then((res) => {
         if (cancelled) return
         setItems(res.results)

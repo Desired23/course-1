@@ -7,6 +7,7 @@ from .services import (
     get_active_categories,
     get_subcategories,
     get_top_categories,
+    move_category_to_top,
 )
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -60,6 +61,18 @@ class CategoryManagementView(APIView):
             return Response(result, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
+class CategoryMoveToTopView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, category_id):
+        try:
+            category = move_category_to_top(category_id)
+            return Response(CategoriesSerializer(category).data, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": e.detail}, status=status.HTTP_404_NOT_FOUND)
+
+
 class ActiveCategoryListView(APIView):
     throttle_scope = 'search'
     def get(self, request):

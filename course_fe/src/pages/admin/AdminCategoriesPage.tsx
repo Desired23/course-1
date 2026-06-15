@@ -11,10 +11,10 @@ import { AdminConfirmDialog } from "../../components/admin/AdminConfirmDialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
 import { Switch } from "../../components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Plus, Edit, Trash2, Folder, Search, Tag, Layers, Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen } from 'lucide-react'
+import { Plus, Edit, Trash2, Folder, Search, Tag, Layers, Code, Briefcase, Palette, Megaphone, Database, Music, BookOpen, ArrowUpToLine } from 'lucide-react'
 import { motion } from 'motion/react'
 import { toast } from "sonner"
-import { getAllCategories, createCategory as createCategoryApi, updateCategory as updateCategoryApi, deleteCategory as deleteCategoryApi } from '../../services/category.api'
+import { getAllCategories, createCategory as createCategoryApi, updateCategory as updateCategoryApi, deleteCategory as deleteCategoryApi, moveCategoryToTop as moveCategoryToTopApi } from '../../services/category.api'
 import type { Category as ApiCategory } from '../../services/category.api'
 
 interface Category {
@@ -291,6 +291,16 @@ export function AdminCategoriesPage() {
     try {
       await updateCategoryApi(Number(categoryId), { status: cat.isActive ? 'inactive' : 'active' })
       setCategories(prev => prev.map(c => c.id === categoryId ? { ...c, isActive: !c.isActive } : c))
+    } catch {
+      toast.error(t('admin_categories.toasts.action_failed'))
+    }
+  }
+
+  const handleMoveToTop = async (categoryId: string) => {
+    try {
+      await moveCategoryToTopApi(Number(categoryId))
+      toast.success(t('admin_categories.toasts.move_to_top_success'))
+      await fetchData()
     } catch {
       toast.error(t('admin_categories.toasts.action_failed'))
     }
@@ -589,7 +599,7 @@ export function AdminCategoriesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCategories.map((category) => {
+                {filteredCategories.map((category, index) => {
                   const categorySubcats = subcategories.filter(s => s.categoryId === category.id)
                   const CategoryIcon = ICON_MAP[category.icon] || BookOpen
                   return (
@@ -642,6 +652,15 @@ export function AdminCategoriesPage() {
                       <TableCell>{category.createdAt}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title={t('admin_categories.actions.move_to_top')}
+                            disabled={index === 0}
+                            onClick={() => void handleMoveToTop(category.id)}
+                          >
+                            <ArrowUpToLine className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEditCategory(category)}>
                             <Edit className="h-4 w-4" />
                           </Button>

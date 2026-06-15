@@ -34,7 +34,6 @@ import {
 } from 'lucide-react'
 import { VideoPlayerPreview } from './VideoPlayerPreview'
 import { QuizPreview } from './QuizPreview'
-import { ArticlePreview } from './ArticlePreview'
 import { cn } from './ui/utils'
 import { useState, useEffect, useRef } from 'react'
 import { CommentItem } from './CommentItem'
@@ -49,7 +48,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   description?: string
   videoUrl?: string
@@ -60,6 +58,9 @@ interface LessonPreviewModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   lesson: Lesson
+  // When true the modal is shown to public visitors (course landing page):
+  // hide instructor-only preview controls and disable comment posting.
+  isPublic?: boolean
 }
 
 type DeviceType = 'desktop' | 'tablet' | 'mobile'
@@ -68,7 +69,8 @@ type ViewMode = 'free' | 'enrolled'
 export function LessonPreviewModal({
   open,
   onOpenChange,
-  lesson
+  lesson,
+  isPublic = false
 }: LessonPreviewModalProps) {
   const { t } = useTranslation()
   const currentUser = useAuthStore(s => s.user)
@@ -312,6 +314,7 @@ export function LessonPreviewModal({
                    <TabsContent value="comments" className="flex-1 overflow-hidden m-0 h-full">
                       <div className="flex flex-col h-full bg-background">
 
+                        {!isPublic && (
                         <div className="p-4 border-b">
                            <div className="flex gap-3">
                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -336,6 +339,7 @@ export function LessonPreviewModal({
                              </div>
                            </div>
                         </div>
+                        )}
 
 
                         <div className="flex-1 overflow-y-auto p-4">
@@ -352,6 +356,7 @@ export function LessonPreviewModal({
                                 setReplyingTo={setReplyingTo}
                                 onPostReply={handlePostReply}
                                 currentUser={currentUser?.name}
+                                readOnly={isPublic}
                               />
                             ))
                           ) : (
@@ -614,13 +619,6 @@ export function LessonPreviewModal({
           </div>
         )
 
-      case 'article':
-        return (
-          <div className="h-[600px] overflow-y-auto border rounded-lg bg-background p-6">
-            <ArticlePreview title={lesson.title} content={lesson.content} />
-          </div>
-        )
-
       default:
         return <div>{t('lesson_preview_modal.unsupported_content_type')}</div>
     }
@@ -634,6 +632,7 @@ export function LessonPreviewModal({
             <DialogTitle className="text-sm font-medium">{t('lesson_preview_modal.title')}</DialogTitle>
           </div>
 
+          {!isPublic && (
           <div className="flex items-center gap-2 bg-background border rounded-md p-1">
             <button
               onClick={() => setDevice('desktop')}
@@ -657,8 +656,10 @@ export function LessonPreviewModal({
               <Smartphone className="h-4 w-4" />
             </button>
           </div>
+          )}
 
           <div className="flex items-center gap-2">
+             {!isPublic && (
              <div className="flex items-center bg-background border rounded-md px-1 h-8">
                <button
                  onClick={() => setViewMode('enrolled')}
@@ -674,6 +675,7 @@ export function LessonPreviewModal({
                  {t('lesson_preview_modal.visitor')}
                </button>
              </div>
+             )}
              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onOpenChange(false)}>
                <X className="h-4 w-4" />
              </Button>

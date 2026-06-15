@@ -109,9 +109,15 @@ export function SubscriptionPricingPage() {
           const discountPrice = plan.discount_price ? Number(plan.discount_price) : null
           const isFree = price === 0 && !discountPrice
           const monthlyPrice = price
-          const annualPerMonth = discountPrice ?? price
+          const explicitYearlyPrice = Number(plan.yearly_price || 0)
+          const yearlyDiscountPercent = Number(plan.yearly_discount_percent || 0)
+          const annualPerMonth = explicitYearlyPrice > 0
+            ? Math.round(explicitYearlyPrice / 12)
+            : yearlyDiscountPercent > 0
+              ? Math.round(price * (1 - yearlyDiscountPercent / 100))
+              : discountPrice ?? price
           const displayPrice = isFree ? 0 : isAnnual ? annualPerMonth : monthlyPrice
-          const hasDiscount = discountPrice !== null && discountPrice < price
+          const hasDiscount = annualPerMonth < monthlyPrice
 
           return {
             id: String(plan.id),

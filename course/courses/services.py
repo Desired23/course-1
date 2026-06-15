@@ -14,9 +14,9 @@ from utils.roles import is_active_admin, is_active_instructor
 
 INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS = {
     Course.Status.DRAFT: {Course.Status.PENDING},
-    Course.Status.PENDING: {Course.Status.DRAFT, Course.Status.PUBLISHED},
-    Course.Status.REJECTED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
-    Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PUBLISHED},
+    Course.Status.PENDING: {Course.Status.DRAFT},
+    Course.Status.REJECTED: {Course.Status.DRAFT, Course.Status.PENDING},
+    Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PENDING},
     Course.Status.PUBLISHED: {Course.Status.ARCHIVED, Course.Status.DRAFT},
 }
 
@@ -76,12 +76,34 @@ def recalc_course_students(course_id):
     Course.objects.filter(id=course_id).update(total_students=total)
 
 
+def course_has_student_access(course):
+    return Enrollment.objects.filter(
+        course=course,
+        is_deleted=False,
+        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
+    ).exists()
+
+
 def recalc_course_structure(course_id):
     from coursemodules.models import CourseModule
+    from lessons.models import Lesson
+    supported_content_types = Lesson.ContentType.values
     modules = CourseModule.objects.filter(course_id=course_id, is_deleted=False).annotate(
-        lesson_count=Count('lessons', filter=Q(lessons__is_deleted=False)),
+        lesson_count=Count(
+            'lessons',
+            filter=Q(
+                lessons__is_deleted=False,
+                lessons__content_type__in=supported_content_types,
+            ),
+        ),
         duration_total=Coalesce(
-            Sum('lessons__duration', filter=Q(lessons__is_deleted=False)),
+            Sum(
+                'lessons__duration',
+                filter=Q(
+                    lessons__is_deleted=False,
+                    lessons__content_type__in=supported_content_types,
+                ),
+            ),
             0,
         ),
     )
@@ -374,6 +396,10 @@ def update_course(course_id, data, requesting_user=None):
                 if normalized_status not in allowed_next_statuses:
                     raise ValidationError(
                         f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
+                    )
+                if normalized_status == Course.Status.ARCHIVED and course_has_student_access(course):
+                    raise ValidationError(
+                        "Không thể lưu trữ khóa học đang có học viên học hoặc đã hoàn thành."
                     )
             payload['status'] = normalized_status
 

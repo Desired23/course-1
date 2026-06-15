@@ -102,9 +102,22 @@ class InstructorSummarySerializer(serializers.Serializer):
     avatar = serializers.CharField(source='user.avatar', allow_null=True)
     bio = serializers.CharField(allow_null=True)
     specialization = serializers.CharField(allow_null=True)
-    rating = serializers.DecimalField(max_digits=4, decimal_places=2)
-    total_students = serializers.IntegerField()
-    total_courses = serializers.IntegerField()
+    # Tính động — field lưu cứng trên Instructor không được maintain.
+    rating = serializers.SerializerMethodField()
+    total_students = serializers.SerializerMethodField()
+    total_courses = serializers.SerializerMethodField()
+
+    def get_rating(self, obj):
+        from instructors.stats import average_rating
+        return average_rating(obj)
+
+    def get_total_students(self, obj):
+        from instructors.stats import student_count
+        return student_count(obj)
+
+    def get_total_courses(self, obj):
+        from instructors.stats import published_course_count
+        return published_course_count(obj)
 
 
 class CategorySummarySerializer(serializers.Serializer):
@@ -194,7 +207,10 @@ class ModuleSummarySerializer(serializers.Serializer):
     lessons = serializers.SerializerMethodField()
 
     def get_lessons(self, obj):
-        lessons = obj.lessons.filter(is_deleted=False, status='published').order_by('order')
+        lessons = obj.lessons.filter(
+            is_deleted=False,
+            content_type__in=['video', 'quiz', 'code'],
+        ).order_by('order')
         return LessonSummarySerializer(lessons, many=True, context=self.context).data
 
 

@@ -63,7 +63,7 @@ interface Payment {
   instructor_name: string
   amount: number
   currency: string
-  payment_method: 'credit_card' | 'debit_card' | 'paypal' | 'bank_transfer' | 'vnpay'
+  payment_method: 'credit_card' | 'debit_card' | 'paypal' | 'bank_transfer' | 'vnpay' | 'momo'
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled'
   vnpay_transaction_id?: string
   vnpay_response_code?: string
@@ -80,6 +80,8 @@ interface RefundRequest {
   id: string
   refund_id: number
   payment_id: string
+  payment_method?: 'vnpay' | 'momo' | null
+  payment_gateway?: string | null
   payment_details_ids: number[]
   user_name: string
   user_email?: string | null
@@ -108,6 +110,13 @@ interface RefundRequest {
 
 const ITEMS_PER_PAGE = 10
 
+function getPaymentManagementRouteTab(route: string): 'payments' | 'refunds' {
+  const [path, search = ''] = route.split('?')
+  const params = new URLSearchParams(search)
+  if (params.get('tab') === 'refunds' || path.startsWith('/admin/refunds')) return 'refunds'
+  return 'payments'
+}
+
 const sectionStagger = {
   hidden: { opacity: 0 },
   show: {
@@ -135,6 +144,8 @@ function mapRefundRequest(refund: AdminRefundItem): RefundRequest {
     id: String(refund.refund_id),
     refund_id: refund.refund_id,
     payment_id: String(refund.payment_id),
+    payment_method: refund.payment_method,
+    payment_gateway: refund.payment_gateway,
     payment_details_ids: refund.payment_details_ids,
     user_name: refund.user_name || '',
     user_email: refund.user_email,
@@ -165,14 +176,7 @@ export function PaymentManagementPage() {
   const { user, hasPermission } = useAuth()
   const { t } = useTranslation()
   const { currentRoute } = useRouter()
-  const initialTab = (() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      if (params.get('tab') === 'refunds') return 'refunds'
-    }
-    return currentRoute.startsWith('/admin/refunds') ? 'refunds' : 'payments'
-  })()
-  const [activeTab, setActiveTab] = useState<'payments' | 'refunds'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'payments' | 'refunds'>(() => getPaymentManagementRouteTab(currentRoute))
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [loadingPayments, setLoadingPayments] = useState(false)
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([])
@@ -215,6 +219,10 @@ export function PaymentManagementPage() {
   const [adminRefundSelectedIds, setAdminRefundSelectedIds] = useState<number[]>([])
   const [adminRefundReason, setAdminRefundReason] = useState('')
   const [adminRefundSubmitting, setAdminRefundSubmitting] = useState(false)
+
+  useEffect(() => {
+    setActiveTab(getPaymentManagementRouteTab(currentRoute))
+  }, [currentRoute])
   const openAdminRefundDialog = async (paymentId: number) => {
     setAdminRefundFetchingId(paymentId)
     try {
@@ -328,8 +336,7 @@ export function PaymentManagementPage() {
       type: 'select',
       options: [
         { label: t('payment_management.methods.vnpay'), value: 'vnpay', count: payments.filter(p => p.payment_method === 'vnpay').length },
-        { label: t('payment_management.methods.credit_card'), value: 'credit_card', count: payments.filter(p => p.payment_method === 'credit_card').length },
-        { label: t('payment_management.methods.paypal'), value: 'paypal', count: payments.filter(p => p.payment_method === 'paypal').length }
+        { label: t('payment_management.methods.momo'), value: 'momo', count: payments.filter(p => p.payment_method === 'momo').length }
       ]
     },
     {
@@ -640,6 +647,11 @@ export function PaymentManagementPage() {
     }).format(amount)
   }
 
+  const formatGateway = (method?: string | null, gateway?: string | null) => {
+    const value = gateway || method
+    return value ? value.toUpperCase() : '-'
+  }
+
   const paymentsTotalPages = Math.max(1, Math.ceil(filteredPayments.length / ITEMS_PER_PAGE))
   const refundsTotalPages = Math.max(1, Math.ceil(filteredRefundRequests.length / ITEMS_PER_PAGE))
 
@@ -852,7 +864,7 @@ export function PaymentManagementPage() {
                       </TableCell>
                       <TableCell>{formatCurrency(parseFloat(payment.total_amount))}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{payment.payment_method || ''}</Badge>
+                        <Badge variant="outline">{formatGateway(payment.payment_method)}</Badge>
                       </TableCell>
                       <TableCell>{getStatusBadge(payment.payment_status)}</TableCell>
                       <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
@@ -1003,9 +1015,14 @@ export function PaymentManagementPage() {
                       <TableCell>{refund.gateway_attempt_count}</TableCell>
                       <TableCell>{refund.next_retry_at ? refund.next_retry_at.toLocaleString() : '-'}</TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground line-clamp-2">
-                          {refund.last_gateway_error || '-'}
-                        </span>
+                        <div className="space-y-1">
+                          <Badge variant="outline">{formatGateway(refund.payment_method, refund.payment_gateway)}</Badge>
+                          {refund.last_gateway_error && (
+                            <p className="text-xs text-muted-foreground line-clamp-2" title={refund.last_gateway_error}>
+                              {refund.last_gateway_error}
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>{refund.internal_note_summary ? t('common.yes') : t('common.no')}</TableCell>
                       <TableCell>{refund.requested_at.toLocaleDateString()}</TableCell>
@@ -1240,7 +1257,7 @@ export function PaymentManagementPage() {
                 </div>
                 <div className="overflow-hidden">
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.email')}</Label>
-                  <p className="truncate">{selectedPayment.user}</p>
+                  <p className="truncate">{selectedPayment.user_email || selectedPayment.user}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">{t('payment_management.payment_detail.course')}</Label>

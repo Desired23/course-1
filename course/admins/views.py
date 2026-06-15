@@ -428,6 +428,7 @@ class AdminRevenueExportView(APIView):
 
     def get(self, request):
         from payments.models import Payment
+        from payment_details.models import Payment_Details
 
         fmt = request.query_params.get('format', 'csv')
         if fmt not in {'csv', 'excel'}:
@@ -453,22 +454,28 @@ class AdminRevenueExportView(APIView):
 
         headers = [
             'Payment ID', 'Date', 'User', 'Email', 'Type',
-            'Gross (VND)', 'Discount (VND)', 'Net (VND)', 'Method', 'Courses',
+            'Gross (VND)', 'Discount (VND)', 'Refunded (VND)', 'Net (VND)', 'Method', 'Courses',
         ]
         rows = []
         for payment in qs:
-            courses = ', '.join(
-                detail.course.title for detail in payment.payment_details.all() if detail.course
+            details = list(payment.payment_details.all())
+            courses = ', '.join(detail.course.title for detail in details if detail.course)
+            refunded = sum(
+                (detail.refund_amount or 0)
+                for detail in details
+                if detail.refund_status == Payment_Details.RefundStatus.SUCCESS and not detail.is_deleted
             )
+            gross = float(payment.total_amount or 0)
             rows.append([
                 payment.id,
                 payment.payment_date.strftime('%Y-%m-%d %H:%M') if payment.payment_date else '',
                 payment.user.full_name if payment.user else '',
                 payment.user.email if payment.user else '',
                 payment.payment_type,
-                float(payment.total_amount or 0),
+                gross,
                 float(payment.discount_amount or 0),
-                float((payment.total_amount or 0) - (payment.discount_amount or 0)),
+                float(refunded),
+                gross - float(refunded),
                 payment.payment_method or '',
                 courses,
             ])

@@ -6,7 +6,7 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Switch } from '../../components/ui/switch'
@@ -16,7 +16,6 @@ import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import {
   Plus,
   Edit,
-  Trash2,
   Users,
   DollarSign,
   Star,
@@ -38,7 +37,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { toast } from 'sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
-import { getAdminSubscriptionPlans, createSubscriptionPlan, getPlanSubscribers, getAdminRevenueAnalytics, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan } from '../../services/admin.api'
+import { getAdminSubscriptionPlans, getPlanSubscribers, getAdminSubscriptionMetrics, getAdminRevenueMonthlyBreakdown, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan, type SubscriptionMetrics } from '../../services/admin.api'
+import { useRouter } from '../../components/Router'
 import { useTranslation } from 'react-i18next'
 interface SubscriptionPlan {
   id: string
@@ -108,15 +108,16 @@ const fadeInUp = {
 
 export function AdminSubscriptionPage() {
   const { canAccess } = useAuth(); const { t } = useTranslation()
+  const { navigate } = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [subscriptionSearchQuery, setSubscriptionSearchQuery] = useState('')
   const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState<'all' | Subscription['status']>('all')
-  const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false)
 
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [revenueData, setRevenueData] = useState<{month: string; revenue: number}[]>([])
   const [planDistribution, setPlanDistribution] = useState<{name: string; value: number; color: string}[]>([])
+  const [subMetrics, setSubMetrics] = useState<SubscriptionMetrics | null>(null)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [isEditPlanOpen, setIsEditPlanOpen] = useState(false)
   const [editPlanForm, setEditPlanForm] = useState({ name: '', description: '', price: '', isActive: true, isPopular: false })
@@ -144,20 +145,6 @@ export function AdminSubscriptionPage() {
     loading: false,
     action: null,
   })
-  const [planForm, setPlanForm] = useState({
-    name: '',
-    description: '',
-    duration_type: 'monthly',
-    duration_days: '30',
-    price: '',
-    discount_price: '',
-    status: 'active',
-    is_featured: false,
-    yearly_discount_percent: '0',
-    yearly_price: '',
-    features: '',
-  })
-
   const mapPlan = (p: any): SubscriptionPlan => ({
     id: String(p.id),
     name: p.name || '',
@@ -207,12 +194,24 @@ export function AdminSubscriptionPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [apiPlans, revTrend] = await Promise.all([
+        const [apiPlans, metrics, monthly] = await Promise.all([
           getAdminSubscriptionPlans(),
-          getAdminRevenueAnalytics(6),
+          getAdminSubscriptionMetrics(),
+          getAdminRevenueMonthlyBreakdown(6),
         ])
-        const mapped: SubscriptionPlan[] = apiPlans.map(mapPlan)
+        const metricsByPlan = new Map(metrics.per_plan.map(p => [String(p.plan_id), p]))
+        const mapped: SubscriptionPlan[] = apiPlans.map(p => {
+          const base = mapPlan(p)
+          const m = metricsByPlan.get(base.id)
+          if (m) {
+            base.subscriberCount = m.active_subscribers
+            base.revenue = m.revenue
+            base.churnRate = m.churn_rate
+          }
+          return base
+        })
         setPlans(mapped)
+        setSubMetrics(metrics)
         const colors = ['#94a3b8', '#3b82f6', '#eab308', '#ef4444', '#22c55e', '#a855f7']
         const total = mapped.reduce((s, p) => s + p.subscriberCount, 0) || 1
         setPlanDistribution(mapped.map((p, i) => ({
@@ -220,9 +219,9 @@ export function AdminSubscriptionPage() {
           value: Math.round((p.subscriberCount / total) * 100),
           color: colors[i % colors.length]
         })))
-        setRevenueData(revTrend.map(r => ({
+        setRevenueData(monthly.map(r => ({
           month: new Date(r.date).toLocaleString('en', { month: 'short' }),
-          revenue: r.revenue
+          revenue: r.subscription
         })))
         await reloadSubscriptions(apiPlans)
       } catch {
@@ -231,7 +230,6 @@ export function AdminSubscriptionPage() {
     }
     fetchData()
   }, [])
-
 
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
@@ -259,51 +257,6 @@ export function AdminSubscriptionPage() {
     } catch {
       toast.error(t('subscriptions_page.admin.plan_update_failed', 'Failed to update plan'))
     }
-  }
-
-  const handleCreatePlan = async () => {
-    const parsedPrice = Number(planForm.price)
-    const parsedDurationDays = Number(planForm.duration_days)
-    if (!planForm.name.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      toast.error(t('subscriptions_page.admin.validation.name_price_required'))
-      return
-    }
-    if (!Number.isFinite(parsedDurationDays) || parsedDurationDays <= 0) {
-      toast.error(t('subscriptions_page.admin.validation.duration_days_invalid'))
-      return
-    }
-    try {
-      await createSubscriptionPlan({
-        name: planForm.name.trim(),
-        description: planForm.description.trim() || undefined,
-        duration_type: planForm.duration_type,
-        duration_days: parsedDurationDays,
-        price: parsedPrice,
-        discount_price: planForm.discount_price ? Number(planForm.discount_price) : undefined,
-        status: planForm.status,
-        is_featured: planForm.is_featured,
-        yearly_discount_percent: Number(planForm.yearly_discount_percent || 0),
-        yearly_price: planForm.yearly_price ? Number(planForm.yearly_price) : undefined,
-        features: planForm.features.split('\n').map(item => item.trim()).filter(Boolean),
-      })
-      toast.success(t('subscriptions_page.admin.create_success'))
-      setIsCreatePlanOpen(false)
-      const apiPlans = await getAdminSubscriptionPlans()
-      setPlans(apiPlans.map(mapPlan))
-      setPlanForm({
-        name: '',
-        description: '',
-        duration_type: 'monthly',
-        duration_days: '30',
-        price: '',
-        discount_price: '',
-        status: 'active',
-        is_featured: false,
-        yearly_discount_percent: '0',
-        yearly_price: '',
-        features: '',
-      })
-    } catch { toast.error(t('subscriptions_page.admin.create_failed')) }
   }
 
   const handleExtendSubscription = async () => {
@@ -473,7 +426,9 @@ export function AdminSubscriptionPage() {
   }, [subscriptions, subscriptionSearchQuery, subscriptionStatusFilter, plans])
 
 
-  const TOTAL_MONTHLY_REVENUE = plans.reduce((s, p) => s + p.revenue, 0) || 0
+  const totalSubscriptionRevenue = subMetrics?.total_revenue ?? 0
+  const activeSubscribers = subMetrics?.active_subscribers ?? 0
+  const arpu = activeSubscribers ? Math.round(totalSubscriptionRevenue / activeSubscribers) : 0
 
   return (
     <motion.div
@@ -489,148 +444,10 @@ export function AdminSubscriptionPage() {
           <p className="text-muted-foreground">{t('subscriptions_page.admin.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-            <Dialog open={isCreatePlanOpen} onOpenChange={setIsCreatePlanOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                {t('subscriptions_page.admin.create_plan')}
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                <DialogTitle>{t('subscriptions_page.admin.create_plan_dialog_title')}</DialogTitle>
-                <DialogDescription>{t('subscriptions_page.admin.create_plan_dialog_description')}</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                    <Label>{t('subscriptions_page.admin.plan_name')}</Label>
-                    <Input
-                      placeholder={t('subscriptions_page.admin.plan_name_placeholder')}
-                      value={planForm.name}
-                      onChange={(e) => setPlanForm(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                    </div>
-                    <div className="space-y-2">
-                    <Label>{t('subscriptions_page.admin.billing_type')}</Label>
-                    <Select value={planForm.duration_type} onValueChange={(value) => setPlanForm(prev => ({ ...prev, duration_type: value }))}>
-                        <SelectTrigger>
-                        <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="monthly">{t('subscriptions_page.admin.plan_type.monthly')}</SelectItem>
-                        <SelectItem value="quarterly">{t('subscriptions_page.admin.plan_type.quarterly')}</SelectItem>
-                        <SelectItem value="semi_annual">{t('subscriptions_page.admin.plan_type.semi_annual')}</SelectItem>
-                        <SelectItem value="annual">{t('subscriptions_page.admin.plan_type.annual')}</SelectItem>
-                        <SelectItem value="lifetime">{t('subscriptions_page.admin.plan_type.lifetime')}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <Label>{t('subscriptions_page.admin.price')} (VND)</Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={planForm.price}
-                      onChange={(e) => setPlanForm(prev => ({ ...prev, price: e.target.value }))}
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label>{t('subscriptions_page.admin.description')}</Label>
-                    <Input
-                      placeholder={t('subscriptions_page.admin.description_placeholder')}
-                      value={planForm.description}
-                      onChange={(e) => setPlanForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t('subscriptions_page.admin.form.duration_days')}</Label>
-                      <Input
-                        type="number"
-                        placeholder="30"
-                        value={planForm.duration_days}
-                        onChange={(e) => setPlanForm(prev => ({ ...prev, duration_days: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t('subscriptions_page.admin.form.status')}</Label>
-                      <Select value={planForm.status} onValueChange={(value) => setPlanForm(prev => ({ ...prev, status: value }))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active">{t('subscriptions_page.admin.form.status_active')}</SelectItem>
-                          <SelectItem value="inactive">{t('subscriptions_page.admin.form.status_inactive')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t('subscriptions_page.admin.form.discount_price')}</Label>
-                      <Input
-                        type="number"
-                        placeholder={t('subscriptions_page.admin.form.discount_price_placeholder')}
-                        value={planForm.discount_price}
-                        onChange={(e) => setPlanForm(prev => ({ ...prev, discount_price: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t('subscriptions_page.admin.form.yearly_discount_percent')}</Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={planForm.yearly_discount_percent}
-                        onChange={(e) => setPlanForm(prev => ({ ...prev, yearly_discount_percent: e.target.value }))}
-                      />
-                    </div>
-                </div>
-
-                <div className="space-y-2">
-                    <Label>{t('subscriptions_page.admin.form.yearly_price')}</Label>
-                    <Input
-                      type="number"
-                      placeholder={t('subscriptions_page.admin.form.yearly_price_placeholder')}
-                      value={planForm.yearly_price}
-                      onChange={(e) => setPlanForm(prev => ({ ...prev, yearly_price: e.target.value }))}
-                    />
-                    <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.form.yearly_price_hint')}</p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-md border px-3 py-3">
-                    <div>
-                      <Label className="block">{t('subscriptions_page.admin.mark_popular')}</Label>
-                      <p className="text-xs text-muted-foreground">{t('subscriptions_page.admin.form.featured_hint')}</p>
-                    </div>
-                    <Switch
-                      checked={planForm.is_featured}
-                      onCheckedChange={(checked) => setPlanForm(prev => ({ ...prev, is_featured: checked }))}
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label>{t('subscriptions_page.admin.features')}</Label>
-                    <textarea
-                      className="min-h-[120px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      placeholder={t('subscriptions_page.admin.features_placeholder')}
-                      value={planForm.features}
-                      onChange={(e) => setPlanForm(prev => ({ ...prev, features: e.target.value }))}
-                    />
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsCreatePlanOpen(false)}>{t('common.cancel')}</Button>
-                    <Button onClick={handleCreatePlan}>{t('subscriptions_page.admin.form.save_plan')}</Button>
-                </div>
-                </div>
-            </DialogContent>
-            </Dialog>
+            <Button onClick={() => navigate('/admin/subscriptions/new')}>
+              <Plus className="h-4 w-4 mr-2" />
+              {t('subscriptions_page.admin.create_plan')}
+            </Button>
         </div>
       </motion.div>
 
@@ -662,7 +479,7 @@ export function AdminSubscriptionPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(TOTAL_MONTHLY_REVENUE)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(totalSubscriptionRevenue)}</div>
               </CardContent>
             </Card>
 
@@ -672,7 +489,7 @@ export function AdminSubscriptionPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{subscriptions.length.toLocaleString('vi-VN')}</div>
+                <div className="text-2xl font-bold">{activeSubscribers.toLocaleString('vi-VN')}</div>
               </CardContent>
             </Card>
 
@@ -682,7 +499,7 @@ export function AdminSubscriptionPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(subscriptions.length ? Math.round(TOTAL_MONTHLY_REVENUE / subscriptions.length) : 0)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(arpu)}</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {t('subscriptions_page.admin.overview.arpu_description')}
                 </p>

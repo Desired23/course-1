@@ -5,15 +5,12 @@ import { useUIStore } from '../../stores'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/switch'
 import { Label } from '../../components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import {
   Save,
   FileText,
   Paperclip,
   Code,
   Loader2,
-  CheckCircle,
-  Clock,
   ChevronRight,
   ChevronLeft,
   CheckCircle2,
@@ -33,6 +30,7 @@ import { getCourseModuleById } from '../../services/course-modules.api'
 import { getQuestionsByLesson } from '../../services/quiz-questions.api'
 import { getAttachmentsByLesson } from '../../services/lesson-attachments.api'
 import { useTranslation } from 'react-i18next'
+import { formatLessonDurationInput, parseLessonDurationInputToMinutes } from '../../utils/lessonDuration'
 
 interface Lesson {
   id: number
@@ -41,15 +39,12 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   description?: string
   videoUrl?: string
   signedVideoUrl?: string
   videoPublicId?: string
   content?: string
-  filePath?: string
-  externalUrl?: string
   settings?: Record<string, any>
   resources?: string[]
   questions?: number
@@ -112,30 +107,6 @@ export function InstructorLessonEditorPage() {
   const [showPreview, setShowPreview] = useState(false)
   const [returnCourseId, setReturnCourseId] = useState<number | null>(null)
 
-  const parseDurationToSeconds = (raw?: string): number | undefined => {
-    if (!raw) return undefined
-    const normalized = raw.trim().toLowerCase()
-    if (!normalized) return undefined
-
-    const mmss = normalized.match(/^(\d+):(\d{1,2})$/)
-    if (mmss) {
-      return Number(mmss[1]) * 60 + Number(mmss[2])
-    }
-
-    const minText = normalized.match(/^(\d+)\s*min/)
-    if (minText) {
-      return Number(minText[1]) * 60
-    }
-
-    const asNumber = Number(normalized)
-    if (!Number.isNaN(asNumber) && asNumber >= 0) {
-      return asNumber
-    }
-
-    return undefined
-  }
-
-
   useEffect(() => {
     const lessonId = params?.lessonId
     if (!lessonId) return
@@ -152,16 +123,13 @@ export function InstructorLessonEditorPage() {
           title: lesson.title,
           type: lesson.content_type || 'video',
           content_type: lesson.content_type || 'video',
-          duration: lesson.duration ? `${Math.floor(lesson.duration / 60)}:${String(lesson.duration % 60).padStart(2, '0')}` : '5:00',
-          status: lesson.status || 'draft',
+          duration: formatLessonDurationInput(lesson.duration),
           is_free: lesson.is_free || false,
           description: lesson.description || '',
           videoUrl: lesson.video_url || '',
           signedVideoUrl: lesson.signed_video_url || '',
           videoPublicId: lesson.video_public_id || '',
           content: lesson.content || '',
-          filePath: lesson.file_path || '',
-          externalUrl: lesson.content_type === 'link' ? (lesson.file_path || '') : '',
           resources: [],
           questions: 0,
           quizData: undefined,
@@ -270,16 +238,9 @@ export function InstructorLessonEditorPage() {
         content_type: editedLesson.content_type || editedLesson.type,
         video_url: editedLesson.videoUrl,
         video_public_id: editedLesson.videoPublicId || undefined,
-        file_path: editedLesson.filePath || undefined,
-        duration: parseDurationToSeconds(editedLesson.duration),
+        duration: parseLessonDurationInputToMinutes(editedLesson.duration),
         is_free: editedLesson.is_free,
-        status: editedLesson.status,
         content: editedLesson.content,
-      }
-
-      if ((editedLesson.content_type || editedLesson.type) === 'link') {
-        updateData.file_path = editedLesson.externalUrl || editedLesson.filePath || undefined
-        updateData.content = editedLesson.content || editedLesson.description || ''
       }
 
 
@@ -314,7 +275,7 @@ export function InstructorLessonEditorPage() {
     setEditedLesson({ ...editedLesson, ...updates })
   }
 
-  const handleVideoSave = async (videoData: { videoUrl: string; videoPublicId: string; duration?: number }) => {
+  const handleVideoSave = async (videoData: { videoUrl: string; videoPublicId: string; durationMinutes?: number }) => {
     if (!editedLesson) return
     try {
       await updateLessonApi(editedLesson.id, {
@@ -324,8 +285,7 @@ export function InstructorLessonEditorPage() {
         video_url: videoData.videoUrl,
         video_public_id: videoData.videoPublicId || undefined,
         is_free: editedLesson.is_free,
-        status: editedLesson.status as any,
-        ...(videoData.duration != null ? { duration: Math.round(videoData.duration) } : {}),
+        ...(videoData.durationMinutes != null ? { duration: videoData.durationMinutes } : {}),
       })
       setIsDirty(false)
       setLastSaved(new Date())
@@ -363,18 +323,6 @@ export function InstructorLessonEditorPage() {
 
   const contentType = editedLesson.content_type || editedLesson.type
   const steps = BASE_STEPS
-
-  const statusConfig = {
-    published: {
-      icon: CheckCircle,
-      color: 'bg-green-500/10 text-green-600 border-green-500/20'
-    },
-    draft: {
-      icon: Clock,
-      color: 'bg-gray-500/10 text-gray-600 border-gray-500/20'
-    }
-  }
-
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -468,32 +416,6 @@ export function InstructorLessonEditorPage() {
                       {t('instructor_lesson_editor_page.actions.free_preview')}
                     </Label>
                   </div>
-
-                  <Select
-                    value={editedLesson.status}
-                    onValueChange={(value) => handleUpdate({ status: value })}
-                  >
-                    <SelectTrigger className={cn(
-                      "w-[140px] h-9 border-dashed",
-                      editedLesson.status === 'published' ? "border-green-500/50 bg-green-500/5 text-green-700" : "border-muted-foreground/30"
-                    )}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="draft">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{t('instructor_lesson_editor_page.status.draft')}</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="published">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>{t('instructor_lesson_editor_page.status.published')}</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
                </div>
 
                {lastSaved && (

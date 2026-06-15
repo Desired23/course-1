@@ -25,7 +25,6 @@ interface Lesson {
   type: string
   content_type?: string
   duration: string
-  status: string
   is_free?: boolean
   description?: string
   videoUrl?: string
@@ -99,50 +98,20 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
       </div>
 
 
-      <div className="grid grid-cols-2 gap-4">
-
-        <div className="space-y-2">
-          <Label htmlFor="duration">
-            <Clock className="h-3.5 w-3.5 inline mr-1" />
-            {t('lesson_editor.duration')}
-          </Label>
-          <Input
-            id="duration"
-            value={lesson.duration}
-            onChange={(e) => onUpdate({ duration: e.target.value })}
-            placeholder={t('lesson_editor.duration_placeholder')}
-          />
-          <p className="text-xs text-muted-foreground">
-            {t('lesson_editor.duration_hint')}
-          </p>
-        </div>
-
-
-        <div className="space-y-2">
-          <Label htmlFor="status">{t('lesson_editor.publication_status')}</Label>
-          <Select
-            value={lesson.status}
-            onValueChange={(value) => onUpdate({ status: value })}
-          >
-            <SelectTrigger id="status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-gray-500" />
-                  <span>{t('lesson_editor.draft')}</span>
-                </div>
-              </SelectItem>
-              <SelectItem value="published">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>{t('lesson_editor.published')}</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="duration">
+          <Clock className="h-3.5 w-3.5 inline mr-1" />
+          {t('lesson_editor.duration')}
+        </Label>
+        <Input
+          id="duration"
+          value={lesson.duration}
+          onChange={(e) => onUpdate({ duration: e.target.value })}
+          placeholder={t('lesson_editor.duration_placeholder')}
+        />
+        <p className="text-xs text-muted-foreground">
+          {t('lesson_editor.duration_hint')}
+        </p>
       </div>
 
 

@@ -13,6 +13,9 @@ export interface PaginatedResponse<T> {
 export interface Payment {
   id: number
   user: number
+  user_id?: number
+  user_name?: string | null
+  user_email?: string | null
   payment_type: 'course_purchase' | 'subscription'
   subscription_plan: number | null
   amount: string
@@ -232,6 +235,8 @@ export interface RefundRequest {
 export interface UserRefundItem {
   refund_id: number
   payment_id: number
+  payment_method?: 'vnpay' | 'momo' | null
+  payment_gateway?: string | null
   course_id: number
   course_title: string | null
   amount: number
@@ -254,6 +259,8 @@ export interface UserRefundItem {
 export interface AdminRefundItem {
   refund_id: number
   payment_id: number
+  payment_method?: 'vnpay' | 'momo' | null
+  payment_gateway?: string | null
   payment_details_ids: number[]
   user_name: string | null
   user_email: string | null

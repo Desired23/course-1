@@ -44,8 +44,10 @@ def _send_bulk(recipients, subject, content):
     sent = 0
     for email in recipients:
         try:
-            send_newsletter(email, subject, content)
-            sent += 1
+            if send_newsletter(email, subject, content):
+                sent += 1
+            else:
+                logger.error(f"[Newsletter] Failed to send to {email}.")
         except Exception as e:
             logger.error(f"[Newsletter] Failed to send to {email}: {e}")
     logger.info(f"[Newsletter] Bulk send finished: {sent}/{len(recipients)} delivered.")
