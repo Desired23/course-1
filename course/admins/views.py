@@ -30,6 +30,9 @@ from .dashboard_services import (
     get_admin_revenue_by_instructor,
     get_admin_earning_payout_metrics,
     get_admin_subscription_metrics,
+    get_admin_promotion_stats,
+    get_admin_creation_stats,
+    get_admin_best_selling_courses,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
@@ -74,9 +77,15 @@ def _group_revenue_rows(rows, period):
             'refunded': 0,
             'net': 0,
             'transactions': 0,
+            'estimated_revenue': 0,
+            'realized_revenue': 0,
+            'refunded_amount': 0,
+            'transaction_count': 0,
+            'refund_rate': 0,
         })
-        for field in ['retail', 'subscription', 'gross', 'refunded', 'net', 'transactions']:
+        for field in ['retail', 'subscription', 'gross', 'refunded', 'net', 'transactions', 'estimated_revenue', 'realized_revenue', 'refunded_amount', 'transaction_count']:
             target[field] += row.get(field, 0) or 0
+        target['refund_rate'] = round((target['refunded_amount'] / target['gross'] * 100), 2) if target['gross'] else 0
     return [grouped[key] for key in sorted(grouped)]
 
 
@@ -100,13 +109,21 @@ def _report_sheet(report_key, date_from=None, date_to=None):
             'revenue_quarterly': 'quarter',
             'revenue_yearly': 'year',
         }[report_key]
-        rows = get_admin_revenue_monthly_breakdown(36, date_from, date_to)
+        rows = get_admin_revenue_monthly_breakdown(36, date_from, date_to, period)
         rows = _group_revenue_rows(rows, period)
         label = {'month': 'Tháng', 'quarter': 'Quý', 'year': 'Năm'}[period]
         return {
             'title': f'Doanh thu theo {label.lower()}',
             'headers': [label, 'Doanh thu bán lẻ', 'Doanh thu gói đăng ký', 'Doanh thu gộp', 'Đã hoàn tiền', 'Doanh thu thuần', 'Giao dịch'],
             'rows': [[r['date'], r['retail'], r['subscription'], r['gross'], r['refunded'], r['net'], r['transactions']] for r in rows],
+        }
+
+    if report_key == 'realized_revenue':
+        rows = get_admin_revenue_monthly_breakdown(36, date_from, date_to, 'month')
+        return {
+            'title': 'Doanh thu tam tinh va thuc',
+            'headers': ['Thoi gian', 'Doanh thu tam tinh', 'Doanh thu thuc', 'Hoan tien', 'Giao dich', 'Ty le hoan tien'],
+            'rows': [[r['date'], r['estimated_revenue'], r['realized_revenue'], r['refunded_amount'], r['transaction_count'], r['refund_rate']] for r in rows],
         }
 
     if report_key == 'revenue_instructor':
@@ -155,6 +172,30 @@ def _report_sheet(report_key, date_from=None, date_to=None):
             'title': 'Hoàn tiền theo trạng thái',
             'headers': ['Trạng thái', 'Số lượng', 'Số tiền'],
             'rows': [[_refund_status_label(status_key), row['count'], row['amount']] for status_key, row in data['breakdown'].items()],
+        }
+
+    if report_key == 'promotion_stats':
+        rows = get_admin_promotion_stats(date_from, date_to, 500)
+        return {
+            'title': 'Promotion stats',
+            'headers': ['Code', 'Used count', 'Discount amount', 'Revenue after discount', 'Status'],
+            'rows': [[r['code'], r['used_count'], r['discount_amount'], r['revenue_after_discount'], r['status']] for r in rows],
+        }
+
+    if report_key == 'creation_stats':
+        rows = get_admin_creation_stats(date_from, date_to, 'month')
+        return {
+            'title': 'Creation stats',
+            'headers': ['Period', 'New users', 'New instructors', 'New orders', 'New refunds', 'New payouts'],
+            'rows': [[r['period'], r['new_users'], r['new_instructors'], r['new_orders'], r['new_refunds'], r['new_payouts']] for r in rows],
+        }
+
+    if report_key == 'best_selling_courses':
+        rows = get_admin_best_selling_courses(200, date_from, date_to)
+        return {
+            'title': 'Best-selling courses',
+            'headers': ['Course', 'Instructor', 'Paid enrollments', 'Revenue', 'Refunded', 'Rating'],
+            'rows': [[r['title'], r['instructor_name'], r['enrollment_count'], r['revenue'], r['refunded'], r['rating']] for r in rows],
         }
 
     raise ValueError(f'Unsupported report: {report_key}')
@@ -280,11 +321,12 @@ class AdminRevenueMonthlyBreakdownView(APIView):
     def get(self, request):
         try:
             months = _clamped_int(request.query_params.get('months'), 12, maximum=36)
+            group_by = request.query_params.get('group_by', 'month')
             date_from = parse_date_param(request.query_params.get('date_from'))
             date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
         except ValueError:
             return Response({'error': 'months must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(get_admin_revenue_monthly_breakdown(months, date_from, date_to))
+        return Response(get_admin_revenue_monthly_breakdown(months, date_from, date_to, group_by))
 
 
 class AdminCommissionAnalyticsView(APIView):
@@ -394,6 +436,48 @@ class AdminEarningPayoutMetricsView(APIView):
         except ValueError:
             return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(get_admin_earning_payout_metrics(limit, date_from, date_to))
+
+
+class AdminPromotionStatsView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            limit = _clamped_int(request.query_params.get('limit'), 100, maximum=500)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_promotion_stats(date_from, date_to, limit))
+
+
+class AdminCreationStatsView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            group_by = request.query_params.get('group_by', 'month')
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'date_from/date_to must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_creation_stats(date_from, date_to, group_by))
+
+
+class AdminBestSellingCoursesView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request):
+        try:
+            limit = _clamped_int(request.query_params.get('limit'), 20, maximum=200)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+        except ValueError:
+            return Response({'error': 'limit must be an integer and dates must be YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_admin_best_selling_courses(limit, date_from, date_to))
 
 
 class AdminBulkReportExportView(APIView):

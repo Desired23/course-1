@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from './ui/badge'
-import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { ScrollArea } from './ui/scroll-area'
-import { AlertCircle, Bookmark, PlayCircle } from 'lucide-react'
+import { AlertCircle, PlayCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTranscriptTime, type LessonTranscriptDTO } from '../services/transcript.api'
 
@@ -22,8 +21,6 @@ interface TranscriptVideoPlayerProps {
   onProgress?: (progress: TranscriptVideoProgressPayload) => void
   onComplete?: () => void
   savedProgress?: number
-  bookmarks?: number[]
-  onBookmarksChange?: (bookmarks: number[]) => void | Promise<void>
   completionThresholdPercent?: number
   restrictForwardSeeking?: boolean
   seekToleranceSeconds?: number
@@ -37,8 +34,6 @@ export function TranscriptVideoPlayer({
   onProgress,
   onComplete,
   savedProgress = 0,
-  bookmarks = [],
-  onBookmarksChange,
   completionThresholdPercent = 85,
   restrictForwardSeeking = true,
   seekToleranceSeconds = 2,
@@ -121,12 +116,6 @@ export function TranscriptVideoPlayer({
     }
   }
 
-  const addBookmark = async () => {
-    if (!videoRef.current) return
-    const nextBookmarks = Array.from(new Set([...bookmarks, Math.floor(videoRef.current.currentTime)])).sort((a, b) => a - b)
-    await onBookmarksChange?.(nextBookmarks)
-  }
-
   const seekToTime = (seconds: number) => {
     if (!videoRef.current) return
     videoRef.current.currentTime = seconds
@@ -154,10 +143,6 @@ export function TranscriptVideoPlayer({
                 </div>
               )}
             </div>
-            <Button variant="outline" size="sm" onClick={() => void addBookmark()}>
-              <Bookmark className="mr-2 h-4 w-4" />
-              Bookmark
-            </Button>
           </div>
         </div>
         <div className="bg-black">
@@ -190,15 +175,6 @@ export function TranscriptVideoPlayer({
             />
           )}
         </div>
-        {bookmarks.length > 0 && (
-          <div className="flex flex-wrap gap-2 border-t px-4 py-3">
-            {bookmarks.map((bookmark) => (
-              <Button key={bookmark} variant="ghost" size="sm" onClick={() => seekToTime(bookmark)}>
-                {formatTranscriptTime(bookmark * 1000)}
-              </Button>
-            ))}
-          </div>
-        )}
       </Card>
 
       <Card className="overflow-hidden">

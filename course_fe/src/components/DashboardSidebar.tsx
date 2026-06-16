@@ -108,6 +108,7 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
         { label: t("dashboard_sidebar.items.categories"), icon: <Folder className="h-5 w-5" />, href: "/admin/categories" },
         { label: t("dashboard_sidebar.items.reviews"), icon: <Star className="h-5 w-5" />, href: "/admin/reviews" },
         { label: t("dashboard_sidebar.items.reports"), icon: <Flag className="h-5 w-5" />, href: "/admin/reports" },
+        { label: t("dashboard_sidebar.items.support_requests", "Yêu cầu hỗ trợ"), icon: <Flag className="h-5 w-5" />, href: "/admin/support-requests" },
       ],
     },
     {

@@ -39,9 +39,12 @@ import { useRouter } from '../../components/Router'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   REPORT_REASON_LABELS,
+  downloadCopyrightCaseExport,
+  downloadReportExport,
   getAdminCopyrightCase,
   getAdminReports,
   getReportCaseDetail,
+  getReportStatistics,
   runAdminCopyrightAction,
   resolveAdminReport,
   reopenAdminReport,
@@ -52,7 +55,10 @@ import {
   type ReportCase,
   type ReportCaseDetail,
   type ReportPriority,
+  type ReportReason,
   type ReportStatus,
+  type ReportStats,
+  type ReportStatsFilters,
   type ReportTargetType,
 } from '../../services/report.api'
 
@@ -179,10 +185,12 @@ export function ReportManagementPage() {
   const [copyrightActionLoading, setCopyrightActionLoading] = useState(false)
   const [copyrightMessage, setCopyrightMessage] = useState('')
   const [copyrightSeverity, setCopyrightSeverity] = useState<CopyrightSeverity>('low')
-  const [copyrightDeadlineDays, setCopyrightDeadlineDays] = useState('7')
-  const [shareReporterEvidence, setShareReporterEvidence] = useState(false)
   const [selectedCopyrightAction, setSelectedCopyrightAction] = useState<CopyrightAdminAction | ''>('')
-  const [overdueOnly, setOverdueOnly] = useState(false)
+  const [countAsStrike, setCountAsStrike] = useState(true)
+  const [withRefund, setWithRefund] = useState(true)
+  const [withHold, setWithHold] = useState(true)
+  const [stats, setStats] = useState<ReportStats | null>(null)
+  const [statsFilters, setStatsFilters] = useState<ReportStatsFilters>({ group_by: 'day' })
   const [loading, setLoading] = useState(false)
   const [selectedCase, setSelectedCase] = useState<ReportCase | null>(null)
   const [caseDetail, setCaseDetail] = useState<ReportCaseDetail | null>(null)
@@ -224,6 +232,32 @@ export function ReportManagementPage() {
     void loadCases(activeTab)
   }, [activeTab])
 
+  const loadStats = async () => {
+    try {
+      setStats(await getReportStatistics(statsFilters))
+    } catch {
+      /* stats là phụ trợ; lỗi không chặn trang */
+    }
+  }
+
+  useEffect(() => {
+    void loadStats()
+  }, [
+    statsFilters.date_from,
+    statsFilters.date_to,
+    statsFilters.type,
+    statsFilters.reason,
+    statsFilters.status,
+    statsFilters.group_by,
+  ])
+
+  const setStatsFilter = <K extends keyof ReportStatsFilters>(key: K, value: ReportStatsFilters[K] | '') => {
+    setStatsFilters(prev => ({
+      ...prev,
+      [key]: value === '' ? undefined : value,
+    }))
+  }
+
   useEffect(() => {
     const qs = currentRoute.split('?')[1] || ''
     const sp = new URLSearchParams(qs)
@@ -260,7 +294,6 @@ export function ReportManagementPage() {
       setCopyrightDetail(detail)
       setCopyrightSeverity(detail.severity)
       setCopyrightMessage('')
-      setShareReporterEvidence(false)
     } catch {
       toast.error('Không thể tải chi tiết case bản quyền.')
     }
@@ -275,8 +308,9 @@ export function ReportManagementPage() {
         action,
         message: copyrightMessage,
         severity: copyrightSeverity,
-        deadline_days: Number(copyrightDeadlineDays) || 7,
-        share_reporter_evidence: shareReporterEvidence,
+        count_as_strike: action === 'takedown' ? countAsStrike : undefined,
+        with_refund: action === 'takedown' ? withRefund : undefined,
+        with_hold: (action === 'suspend_sale' || action === 'freeze' || action === 'takedown') ? withHold : undefined,
       })
       setSelectedCopyrightCase(updated)
       setCopyrightDetail(updated)
@@ -315,6 +349,22 @@ export function ReportManagementPage() {
     }
   }
 
+  const handleExportReports = async () => {
+    try {
+      await downloadReportExport(statsFilters)
+    } catch {
+      toast.error('Không thể xuất báo cáo.')
+    }
+  }
+
+  const handleExportCopyrightCases = async () => {
+    try {
+      await downloadCopyrightCaseExport(statsFilters)
+    } catch {
+      toast.error('Không thể xuất case bản quyền.')
+    }
+  }
+
   const openConfirm = (
     title: string,
     description: string,
@@ -347,8 +397,7 @@ export function ReportManagementPage() {
 
   const criticalCount = cases.filter(c => c.priority === 'critical').length
   const highCount = cases.filter(c => c.priority === 'high').length
-  const overdueCount = cases.filter(c => c.copyright_overdue).length
-  const displayedCases = overdueOnly ? cases.filter(c => c.copyright_overdue) : cases
+  const displayedCases = cases
 
   return (
     <motion.div
@@ -365,15 +414,23 @@ export function ReportManagementPage() {
             Xem xét và xử lý nội dung bị người dùng báo cáo
           </p>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => void handleExportReports()}>
+            Xuất báo cáo (CSV)
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void handleExportCopyrightCases()}>
+            Xuất case bản quyền (CSV)
+          </Button>
+        </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats — toàn hệ thống (không đếm theo trang) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[
-          { label: 'Tổng case', value: cases.length, icon: Flag, color: 'text-muted-foreground' },
-          { label: 'Critical', value: criticalCount, icon: AlertTriangle, color: 'text-red-500' },
-          { label: 'High', value: highCount, icon: AlertTriangle, color: 'text-orange-500' },
-          { label: 'Tab hiện tại', value: activeTab, icon: CheckCircle, color: 'text-green-500' },
+          { label: 'Tổng báo cáo', value: stats?.summary.total_reports ?? '—', icon: Flag, color: 'text-muted-foreground' },
+          { label: 'Case đang mở', value: stats?.summary.open_cases ?? '—', icon: AlertTriangle, color: 'text-orange-500' },
+          { label: 'Đã xử lý', value: stats?.summary.resolved_cases ?? '—', icon: CheckCircle, color: 'text-green-500' },
+          { label: 'Nghiêm trọng', value: stats?.summary.critical_cases ?? '—', icon: CheckCircle, color: 'text-red-500' },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -385,6 +442,96 @@ export function ReportManagementPage() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      <div className="rounded-md border bg-card p-4">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+          <div className="space-y-1">
+            <Label className="text-xs">Từ ngày</Label>
+            <Input
+              type="date"
+              value={statsFilters.date_from ?? ''}
+              onChange={(event) => setStatsFilter('date_from', event.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Đến ngày</Label>
+            <Input
+              type="date"
+              value={statsFilters.date_to ?? ''}
+              onChange={(event) => setStatsFilter('date_to', event.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Loại</Label>
+            <Select
+              value={statsFilters.type ?? 'all'}
+              onValueChange={(value) => setStatsFilter('type', value === 'all' ? '' : value as ReportTargetType)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                {(Object.keys(TARGET_TYPE_LABELS) as ReportTargetType[]).map(type => (
+                  <SelectItem key={type} value={type}>{TARGET_TYPE_LABELS[type]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Lý do</Label>
+            <Select
+              value={statsFilters.reason ?? 'all'}
+              onValueChange={(value) => setStatsFilter('reason', value === 'all' ? '' : value as ReportReason)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                {(Object.keys(REPORT_REASON_LABELS) as ReportReason[]).map(reason => (
+                  <SelectItem key={reason} value={reason}>{REPORT_REASON_LABELS[reason]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Trạng thái</Label>
+            <Select
+              value={statsFilters.status ?? 'all'}
+              onValueChange={(value) => setStatsFilter('status', value === 'all' ? '' : value as ReportStatus)}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tất cả</SelectItem>
+                <SelectItem value="pending">Chờ xử lý</SelectItem>
+                <SelectItem value="reviewing">Đang xem xét</SelectItem>
+                <SelectItem value="resolved">Đã xử lý</SelectItem>
+                <SelectItem value="dismissed">Đã bỏ qua</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Nhóm</Label>
+            <Select
+              value={statsFilters.group_by ?? 'day'}
+              onValueChange={(value) => setStatsFilter('group_by', value as 'day' | 'week' | 'month')}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Ngày</SelectItem>
+                <SelectItem value="week">Tuần</SelectItem>
+                <SelectItem value="month">Tháng</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={() => setStatsFilters({ group_by: 'day' })}
+            >
+              Xóa lọc
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -407,16 +554,6 @@ export function ReportManagementPage() {
                       <Badge variant="destructive" className="ml-2">{criticalCount} critical</Badge>
                     )}
                   </CardTitle>
-                  {overdueCount > 0 && (
-                    <Button
-                      variant={overdueOnly ? 'destructive' : 'outline'}
-                      size="sm"
-                      onClick={() => setOverdueOnly(v => !v)}
-                    >
-                      <AlertTriangle className="mr-1 h-4 w-4" />
-                      {overdueOnly ? 'Đang lọc quá hạn' : `Chỉ quá hạn (${overdueCount})`}
-                    </Button>
-                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -424,35 +561,32 @@ export function ReportManagementPage() {
                   <p className="text-sm text-muted-foreground py-8 text-center">Đang tải...</p>
                 ) : displayedCases.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">
-                    {overdueOnly ? 'Không có báo cáo quá hạn.' : 'Không có báo cáo nào.'}
+                    Không có báo cáo nào.
                   </p>
                 ) : (
-                  <Table>
+                  <Table style={{ tableLayout: 'fixed', width: '100%' }}>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nội dung</TableHead>
-                        <TableHead>Loại</TableHead>
-                        <TableHead>Người tạo</TableHead>
-                        <TableHead className="text-center">Báo cáo</TableHead>
-                        <TableHead>Lý do chính</TableHead>
-                        <TableHead>Ưu tiên</TableHead>
-                        <TableHead>Ngày gần nhất</TableHead>
-                        <TableHead className="w-[50px]" />
+                        <TableHead style={{ width: 110 }}>Loại</TableHead>
+                        <TableHead style={{ width: 150 }}>Người tạo</TableHead>
+                        <TableHead style={{ width: 90 }} className="text-center">Báo cáo</TableHead>
+                        <TableHead style={{ width: 160 }}>Lý do chính</TableHead>
+                        <TableHead style={{ width: 110 }}>Ưu tiên</TableHead>
+                        <TableHead style={{ width: 130 }}>Ngày gần nhất</TableHead>
+                        <TableHead style={{ width: 56 }} />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {displayedCases.map(c => (
                         <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50">
                           <TableCell onClick={() => openCaseDetail(c)}>
-                            <div>
-                              <p className="font-medium text-sm line-clamp-1">
+                            <div style={{ minWidth: 0 }}>
+                              <p className="font-medium text-sm truncate">
                                 {c.title ?? `#${c.target_id}`}
-                                {c.copyright_overdue && (
-                                  <Badge variant="destructive" className="ml-2 align-middle">Quá hạn</Badge>
-                                )}
                               </p>
                               {c.snippet && (
-                                <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">
                                   {c.snippet}
                                 </p>
                               )}
@@ -722,12 +856,11 @@ export function ReportManagementPage() {
               setSelectedCopyrightCase(null)
               setCopyrightDetail(null)
               setCopyrightMessage('')
-              setShareReporterEvidence(false)
               setSelectedCopyrightAction('')
             }
           }}
         >
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto" style={{ width: '95vw', maxWidth: '72rem' }}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Flag className="h-4 w-4 text-red-500" />
@@ -737,21 +870,15 @@ export function ReportManagementPage() {
 
             {(() => {
               const detail = copyrightDetail || selectedCopyrightCase
-              const actions: Array<{ label: string; action: CopyrightAdminAction; destructive?: boolean; hidden?: boolean; desc?: string; fields?: Array<'severity' | 'deadline' | 'share'> }> = [
-                { label: 'Yêu cầu reporter bổ sung', action: 'request_reporter_info', fields: ['deadline'], desc: 'Yêu cầu người báo cáo cung cấp thêm bằng chứng trước hạn. Không đổi nội dung hay earning.' },
-                { label: 'Yêu cầu instructor phản hồi', action: 'request_instructor_response', fields: ['severity', 'deadline', 'share'], desc: 'Yêu cầu giảng viên giải trình trước hạn. Nếu chọn mức độ Trung bình → tự ngừng bán + hold; mức độ Cao → tự ẩn/chặn truy cập + hold.' },
-                { label: 'Ngừng bán + hold earning', action: 'suspend_sale_hold', fields: ['severity'], desc: 'Ẩn khóa khỏi marketplace (ngừng bán); học viên đã mua vẫn học. Hold toàn bộ earning pending/available, gỡ khỏi payout đang chờ.' },
-                { label: 'Ẩn bài học + hold earning', action: 'hide_lesson_hold', hidden: detail.target_type !== 'lesson', fields: ['severity'], desc: 'Ẩn riêng bài học vi phạm. Hold earning liên quan.' },
-                { label: 'Ngừng truy cập + hold earning', action: 'suspend_access_hold', fields: ['severity'], desc: 'Chặn cứng cả học viên đã mua (block access). Hold earning.' },
-                { label: 'Xác nhận vi phạm / takedown', action: 'confirm_takedown', destructive: true, desc: 'Gỡ bỏ vĩnh viễn (block cứng). Hủy earning chưa trả; nếu đã trả thì gắn cờ xử lý hoàn/đòi thủ công (manual follow-up).' },
-                { label: 'Bác report / restore', action: 'reject_restore', desc: 'Kết luận không vi phạm: khôi phục nội dung và giải phóng (release) toàn bộ hold earning.' },
-                { label: 'Đóng vì thiếu thông tin', action: 'close_insufficient', desc: 'Đóng case do thiếu bằng chứng. Không gỡ nội dung; không tự release hold (nếu trước đó có).' },
-                { label: 'Chuyển pháp lý', action: 'escalate_legal', destructive: true, desc: 'Chuyển sang xử lý pháp lý + chặn truy cập tạm thời và hold earning.' },
-                { label: 'Restore + release hold', action: 'restore_release', desc: 'Khôi phục nội dung (bỏ ẩn/bỏ block) và giải phóng toàn bộ hold earning về khả dụng.' },
+              const actions: Array<{ label: string; action: CopyrightAdminAction; destructive?: boolean; hidden?: boolean; desc?: string; fields?: Array<'severity'> }> = [
+                { label: 'Ngừng bán', action: 'suspend_sale', fields: ['severity'], desc: 'Ẩn khóa khỏi marketplace (ngừng bán); học viên đã mua vẫn học. Tuỳ chọn hold earning.' },
+                { label: 'Đóng băng truy cập', action: 'freeze', fields: ['severity'], desc: 'Chặn cứng cả học viên đã mua (block access). Tuỳ chọn hold earning.' },
+                { label: 'Xác nhận vi phạm / takedown', action: 'takedown', destructive: true, desc: 'Gỡ bỏ vĩnh viễn (block cứng). Tuỳ chọn: hủy earning chưa trả + HOÀN TIỀN 100% cho người mua trong 30 ngày (trên 30 ngày vào danh sách đền bù thủ công) + tính 1 gậy vi phạm (gậy thứ 3 tự ban giảng viên). Bỏ tick để xử lý riêng ở trang refund/earning.' },
+                { label: 'Khôi phục', action: 'restore', desc: 'Khôi phục nội dung (bỏ ẩn/bỏ block) và giải phóng toàn bộ hold earning về khả dụng.' },
               ]
               const visibleActions = actions.filter(item => !item.hidden)
               const selected = visibleActions.find(item => item.action === selectedCopyrightAction)
-              const showField = (f: 'severity' | 'deadline' | 'share') => !!selected?.fields?.includes(f)
+              const showField = (f: 'severity') => !!selected?.fields?.includes(f)
               return (
                 <div className="space-y-5">
                   <div className="grid gap-3 rounded-md bg-muted p-4 text-sm md:grid-cols-2">
@@ -765,15 +892,6 @@ export function ReportManagementPage() {
                     <div><span className="text-muted-foreground">Financial action:</span> {detail.financial_action}</div>
                     <div><span className="text-muted-foreground">Held:</span> {Number(detail.held_amount || 0).toLocaleString('vi-VN')} VND</div>
                     <div><span className="text-muted-foreground">Manual follow-up:</span> {detail.manual_follow_up ? 'Có' : 'Không'}</div>
-                    <div className="md:col-span-2">
-                      <span className="text-muted-foreground">Hạn phản hồi:</span>{' '}
-                      {detail.instructor_deadline_at || detail.reporter_deadline_at
-                        ? new Date(detail.instructor_deadline_at || detail.reporter_deadline_at || '').toLocaleString('vi-VN')
-                        : '—'}
-                      {(detail.is_instructor_deadline_overdue || detail.is_reporter_deadline_overdue) && (
-                        <Badge variant="destructive" className="ml-2">Quá hạn</Badge>
-                      )}
-                    </div>
                   </div>
 
                   <div className="space-y-3 rounded-md border p-4">
@@ -801,41 +919,44 @@ export function ReportManagementPage() {
                           </div>
                         )}
 
-                        {(showField('severity') || showField('deadline')) && (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {showField('severity') && (
-                              <div className="space-y-2">
-                                <Label>Mức độ vi phạm</Label>
-                                <Select value={copyrightSeverity} onValueChange={(value) => setCopyrightSeverity(value as CopyrightSeverity)}>
-                                  <SelectTrigger><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    {([
-                                      ['low', 'Thấp'],
-                                      ['medium', 'Trung bình (tự ngừng bán + hold)'],
-                                      ['high', 'Cao (tự ẩn/chặn truy cập + hold)'],
-                                      ['confirmed', 'Đã xác nhận'],
-                                      ['legal', 'Pháp lý'],
-                                    ] as [CopyrightSeverity, string][]).map(([value, label]) => (
-                                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-                            {showField('deadline') && (
-                              <div className="space-y-2">
-                                <Label>Hạn phản hồi (ngày)</Label>
-                                <Input value={copyrightDeadlineDays} onChange={(e) => setCopyrightDeadlineDays(e.target.value)} type="number" min={1} max={30} />
-                              </div>
-                            )}
+                        {showField('severity') && (
+                          <div className="space-y-2">
+                            <Label>Mức độ vi phạm</Label>
+                            <Select value={copyrightSeverity} onValueChange={(value) => setCopyrightSeverity(value as CopyrightSeverity)}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {([
+                                  ['low', 'Thấp'],
+                                  ['medium', 'Trung bình'],
+                                  ['high', 'Cao'],
+                                  ['confirmed', 'Đã xác nhận'],
+                                  ['legal', 'Pháp lý'],
+                                ] as [CopyrightSeverity, string][]).map(([value, label]) => (
+                                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         )}
 
-                        {showField('share') && (
+                        {(selected.action === 'suspend_sale' || selected.action === 'freeze' || selected.action === 'takedown') && (
                           <label className="flex items-center gap-2 text-sm">
-                            <Checkbox checked={shareReporterEvidence} onCheckedChange={(value) => setShareReporterEvidence(value === true)} />
-                            <span>Chia sẻ bằng chứng của người báo cáo cho giảng viên</span>
+                            <Checkbox checked={withHold} onCheckedChange={(value) => setWithHold(value === true)} />
+                            <span>{selected.action === 'takedown' ? 'Hủy earning chưa trả của khóa' : 'Hold earning pending/available'}</span>
                           </label>
+                        )}
+
+                        {selected.action === 'takedown' && (
+                          <>
+                            <label className="flex items-center gap-2 text-sm">
+                              <Checkbox checked={withRefund} onCheckedChange={(value) => setWithRefund(value === true)} />
+                              <span>Tự hoàn tiền 100% cho người mua trong 30 ngày (bỏ tick để xử lý riêng ở trang refund)</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                              <Checkbox checked={countAsStrike} onCheckedChange={(value) => setCountAsStrike(value === true)} />
+                              <span>Tính vụ này là 1 gậy vi phạm bản quyền (gậy thứ 3 sẽ tự ban giảng viên)</span>
+                            </label>
+                          </>
                         )}
 
                         <div className="space-y-2">

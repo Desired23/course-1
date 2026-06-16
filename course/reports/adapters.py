@@ -239,7 +239,7 @@ def _lesson_adapter():
 
 def _course_adapter():
     from courses.models import Course
-    from courses.services import moderate_course
+    from courses.services import moderate_course, delete_course
 
     def get_object(target_id):
         return Course.objects.filter(id=target_id, is_deleted=False).select_related('instructor__user').first()
@@ -253,13 +253,20 @@ def _course_adapter():
     def get_snippet(obj):
         return (obj.description or '')[:200]
 
+    def moderate(target_id, action, reason=''):
+        # STANDARD_ACTIONS: approve/dismiss giữ nguyên; hide -> suspend_sale; delete -> xóa.
+        if action == 'delete':
+            return delete_course(target_id)
+        course_action = 'suspend_sale' if action == 'hide' else action
+        return moderate_course(target_id, course_action, reason=reason)
+
     return {
         'get_object': get_object,
         'get_title': get_title,
         'get_owner_id': get_owner_id,
         'get_snippet': get_snippet,
         'actions': STANDARD_ACTIONS,
-        'moderate': lambda tid, action, reason: moderate_course(tid, action, reason),
+        'moderate': moderate,
     }
 
 

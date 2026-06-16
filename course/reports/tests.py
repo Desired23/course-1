@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
-from rest_framework.exceptions import PermissionDenied
 
 from admins.models import Admin
 from courses.models import Course
@@ -11,7 +10,7 @@ from instructor_payouts.models import InstructorPayout
 from instructors.models import Instructor
 from lessons.models import Lesson
 from notifications.models import Notification
-from reports.copyright_services import admin_action, get_instructor_case
+from reports.copyright_services import admin_action
 from reports.models import CopyrightCase, InstructorEarningHold, Report
 from reports.services import create_report
 from users.models import User
@@ -112,28 +111,7 @@ class CopyrightCaseWorkflowTests(TestCase):
         self.assertEqual(case.course_id, self.course.id)
         self.assertEqual(case.instructor_id, self.instructor.id)
 
-    def test_request_reporter_info_sets_deadline_and_action_notification(self):
-        _, case = self.make_case()
-
-        updated = admin_action(
-            case.id,
-            self.admin_user,
-            'request_reporter_info',
-            message='Please add license proof.',
-            deadline_days=5,
-        )
-
-        self.assertEqual(updated.status, CopyrightCase.Status.NEEDS_REPORTER_INFO)
-        self.assertIsNotNone(updated.reporter_deadline_at)
-
-        notification = Notification.objects.get(
-            receiver=self.reporter,
-            notification_code='copyright_reporter_info_required',
-        )
-        self.assertEqual(notification.action_url, f'/reports/my/{case.id}')
-        self.assertEqual(notification.metadata['case_id'], case.id)
-
-    def test_request_instructor_response_high_course_blocks_content_and_holds_earnings(self):
+    def test_suspend_access_hold_blocks_content_and_holds_earnings(self):
         _, case = self.make_case()
         payout = InstructorPayout.objects.create(
             instructor=self.instructor,
@@ -157,14 +135,11 @@ class CopyrightCaseWorkflowTests(TestCase):
         updated = admin_action(
             case.id,
             self.admin_user,
-            'request_instructor_response',
-            message='Respond to this claim.',
-            severity=CopyrightCase.Severity.HIGH,
-            deadline_days=7,
+            'freeze',
+            message='Temporary block while verifying.',
         )
 
-        self.assertEqual(updated.status, CopyrightCase.Status.AWAITING_INSTRUCTOR_RESPONSE)
-        self.assertEqual(updated.severity, CopyrightCase.Severity.HIGH)
+        self.assertEqual(updated.status, CopyrightCase.Status.UNDER_REVIEW)
 
         self.course.refresh_from_db()
         self.assertTrue(self.course.admin_hidden)
@@ -181,30 +156,24 @@ class CopyrightCaseWorkflowTests(TestCase):
         hold = InstructorEarningHold.objects.get(case=case, earning=held_earning)
         self.assertEqual(hold.status, InstructorEarningHold.Status.ACTIVE)
 
-        notification = Notification.objects.get(
-            receiver=self.instructor_user,
-            notification_code='copyright_response_required',
-        )
-        self.assertEqual(notification.action_url, f'/instructor/reports/{case.id}')
-
     def test_reject_restore_releases_holds_and_restores_course(self):
         _, case = self.make_case()
         earning = self.make_earning()
         admin_action(
             case.id,
             self.admin_user,
-            'suspend_access_hold',
+            'freeze',
             message='Temporary block.',
         )
 
         updated = admin_action(
             case.id,
             self.admin_user,
-            'reject_restore',
+            'restore',
             message='Claim rejected.',
         )
 
-        self.assertEqual(updated.status, CopyrightCase.Status.RESOLVED_REJECTED)
+        self.assertEqual(updated.status, CopyrightCase.Status.RESTORED)
         self.course.refresh_from_db()
         self.assertFalse(self.course.admin_hidden)
         self.assertFalse(self.course.is_hard_blocked)
@@ -219,14 +188,14 @@ class CopyrightCaseWorkflowTests(TestCase):
         admin_action(
             case.id,
             self.admin_user,
-            'suspend_sale_hold',
+            'suspend_sale',
             message='Hold while reviewing.',
         )
 
         updated = admin_action(
             case.id,
             self.admin_user,
-            'confirm_takedown',
+            'takedown',
             message='Confirmed violation.',
         )
 
@@ -237,9 +206,3 @@ class CopyrightCaseWorkflowTests(TestCase):
         self.assertEqual(updated.financial_action, CopyrightCase.FinancialAction.MANUAL_FOLLOW_UP)
         self.assertEqual(unpaid.status, InstructorEarning.StatusChoices.CANCELLED)
         self.assertEqual(paid.status, InstructorEarning.StatusChoices.PAID)
-
-    def test_non_owner_instructor_cannot_open_case(self):
-        _, case = self.make_case()
-
-        with self.assertRaises(PermissionDenied):
-            get_instructor_case(case.id, self.other_user)

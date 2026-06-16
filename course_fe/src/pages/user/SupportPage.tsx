@@ -20,7 +20,9 @@ import {
   createSupportReply,
   type SupportTicket,
   type SupportReply,
+  type SupportTicketType,
 } from '../../services/support.api'
+import { getCourses } from '../../services/course.api'
 import { UserPagination } from "../../components/UserPagination"
 
 const sectionStagger = {
@@ -67,8 +69,11 @@ export function SupportPage() {
     subject: '',
     category: '',
     priority: '',
-    description: ''
+    description: '',
+    ticket_type: 'general' as SupportTicketType,
+    course: '' as string,
   })
+  const [myCourses, setMyCourses] = useState<{ id: number; title: string }[]>([])
 
   useWebSocket({
     path: `/ws/support/${selectedTicketId ?? 0}/`,
@@ -145,10 +150,25 @@ export function SupportPage() {
     faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const isDeletionRequest = ticketForm.ticket_type === 'course_deletion_request'
+
+  useEffect(() => {
+    if (!isDeletionRequest) return
+    const instructorId = (user as any)?.instructor_id ?? (user as any)?.instructor?.instructor_id
+    if (!instructorId) return
+    getCourses({ instructor_id: instructorId, page_size: 100 })
+      .then((res: any) => setMyCourses((res.results || []).map((c: any) => ({ id: c.id, title: c.title }))))
+      .catch(() => {})
+  }, [isDeletionRequest, user])
+
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!ticketForm.subject || !ticketForm.description) {
       toast.error(t('support.fill_subject_description'))
+      return
+    }
+    if (isDeletionRequest && !ticketForm.course) {
+      toast.error(t('support.deletion_pick_course', 'Vui lòng chọn khóa học cần gỡ.'))
       return
     }
     setIsSubmitting(true)
@@ -158,9 +178,11 @@ export function SupportPage() {
         message: ticketForm.description,
         priority: (ticketForm.priority || 'medium') as any,
         category: ticketForm.category || undefined,
+        ticket_type: ticketForm.ticket_type,
+        course: isDeletionRequest ? Number(ticketForm.course) : undefined,
       })
       toast.success(t('support.ticket_submitted'))
-      setTicketForm({ subject: '', category: '', priority: '', description: '' })
+      setTicketForm({ subject: '', category: '', priority: '', description: '', ticket_type: 'general', course: '' })
       setSelectedTab('tickets')
       fetchTickets()
     } catch {
@@ -573,6 +595,43 @@ export function SupportPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmitTicket} className="space-y-6">
+                  <div className="space-y-2">
+                    <label>{t('support.ticket_type', 'Loại yêu cầu')}</label>
+                    <Select
+                      value={ticketForm.ticket_type}
+                      onValueChange={(value) => setTicketForm(prev => ({ ...prev, ticket_type: value as SupportTicketType, course: '' }))}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">{t('support.type_general', 'Hỗ trợ chung')}</SelectItem>
+                        <SelectItem value="course_deletion_request">{t('support.type_deletion', 'Yêu cầu gỡ/xóa khóa học')}</SelectItem>
+                        <SelectItem value="refund">{t('support.type_refund', 'Hoàn tiền')}</SelectItem>
+                        <SelectItem value="copyright">{t('support.type_copyright', 'Bản quyền')}</SelectItem>
+                        <SelectItem value="other">{t('support.other', 'Khác')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {isDeletionRequest && (
+                    <div className="space-y-2">
+                      <label>{t('support.deletion_course', 'Khóa học cần gỡ')}</label>
+                      <Select
+                        value={ticketForm.course}
+                        onValueChange={(value) => setTicketForm(prev => ({ ...prev, course: value }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder={t('support.deletion_pick_course', 'Chọn khóa học của bạn')} /></SelectTrigger>
+                        <SelectContent>
+                          {myCourses.map(c => (
+                            <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {t('support.deletion_hint', 'Admin sẽ thẩm định và cân nhắc đền bù cho học viên trước khi gỡ/ẩn khóa học.')}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label>{t('support.subject')}</label>

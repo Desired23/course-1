@@ -1,32 +1,24 @@
 from django.urls import path
 
-from .cron_view import process_overdue_view
 from .views import (
     AdminCopyrightActionView,
     AdminCopyrightCaseDetailView,
+    AdminCopyrightCaseExportView,
     AdminCopyrightCaseListView,
+    AdminReportStatsView,
+    AdminReportExportView,
     AdminReportCaseDetailView,
     AdminReportListView,
     AdminReportResolveView,
     AdminReportReopenView,
-    InstructorCopyrightCaseDetailView,
-    InstructorCopyrightCaseListView,
-    InstructorCopyrightResponseView,
-    InstructorCopyrightSubmitFixView,
     ReportCreateView,
-    ReporterCopyrightCaseDetailView,
-    ReporterCopyrightEvidenceView,
 )
 
 urlpatterns = [
-    path('reports/cron/process-overdue/', process_overdue_view, name='reports-cron-process-overdue'),
     path('reports/', ReportCreateView.as_view(), name='report-create'),
-    path('reports/my/<int:case_id>/', ReporterCopyrightCaseDetailView.as_view(), name='copyright-reporter-detail'),
-    path('reports/my/<int:case_id>/evidence/', ReporterCopyrightEvidenceView.as_view(), name='copyright-reporter-evidence'),
-    path('reports/instructor/cases/', InstructorCopyrightCaseListView.as_view(), name='copyright-instructor-list'),
-    path('reports/instructor/cases/<int:case_id>/', InstructorCopyrightCaseDetailView.as_view(), name='copyright-instructor-detail'),
-    path('reports/instructor/cases/<int:case_id>/responses/', InstructorCopyrightResponseView.as_view(), name='copyright-instructor-response'),
-    path('reports/instructor/cases/<int:case_id>/submit-fix/', InstructorCopyrightSubmitFixView.as_view(), name='copyright-instructor-submit-fix'),
+    path('reports/admin/stats/', AdminReportStatsView.as_view(), name='admin-report-stats'),
+    path('reports/admin/export/', AdminReportExportView.as_view(), name='admin-report-export'),
+    path('reports/admin/copyright-cases/export/', AdminCopyrightCaseExportView.as_view(), name='admin-copyright-export'),
     path('reports/admin/copyright-cases/', AdminCopyrightCaseListView.as_view(), name='admin-copyright-list'),
     path('reports/admin/copyright-cases/<int:case_id>/', AdminCopyrightCaseDetailView.as_view(), name='admin-copyright-detail'),
     path('reports/admin/copyright-cases/<int:case_id>/action/', AdminCopyrightActionView.as_view(), name='admin-copyright-action'),

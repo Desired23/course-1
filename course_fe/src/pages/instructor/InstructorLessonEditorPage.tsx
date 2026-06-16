@@ -102,6 +102,7 @@ export function InstructorLessonEditorPage() {
   const codeCreatorRef = useRef<EnhancedCodeQuizCreatorHandle>(null)
   const [editedLesson, setEditedLesson] = useState<Lesson | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [showPreview, setShowPreview] = useState(false)
@@ -123,7 +124,7 @@ export function InstructorLessonEditorPage() {
           title: lesson.title,
           type: lesson.content_type || 'video',
           content_type: lesson.content_type || 'video',
-          duration: formatLessonDurationInput(lesson.duration),
+          duration: formatLessonDurationInput(lesson.duration, ''),
           is_free: lesson.is_free || false,
           description: lesson.description || '',
           videoUrl: lesson.video_url || '',
@@ -222,6 +223,11 @@ export function InstructorLessonEditorPage() {
   const handleSave = async (): Promise<boolean> => {
     if (!editedLesson) return false
 
+    if (isUploadingVideo) {
+      toast.error(t('instructor_lesson_editor_page.errors.video_uploading'))
+      return false
+    }
+
 
     if (!editedLesson.title.trim()) {
       toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
@@ -232,13 +238,15 @@ export function InstructorLessonEditorPage() {
     setIsSaving(true)
 
     try {
+      const isVideo = (editedLesson.content_type || editedLesson.type) === 'video'
       const updateData: any = {
         title: editedLesson.title,
         description: editedLesson.description,
         content_type: editedLesson.content_type || editedLesson.type,
         video_url: editedLesson.videoUrl,
         video_public_id: editedLesson.videoPublicId || undefined,
-        duration: parseLessonDurationInputToMinutes(editedLesson.duration),
+        // Video: thời lượng lấy từ video upload (đã điền sẵn). Non-video: luôn là 0.
+        duration: isVideo ? parseLessonDurationInputToMinutes(editedLesson.duration) : 0,
         is_free: editedLesson.is_free,
         content: editedLesson.content,
       }
@@ -296,6 +304,11 @@ export function InstructorLessonEditorPage() {
 
   const handleNext = () => {
       if (currentStep < steps.length - 1) {
+
+      if (isUploadingVideo) {
+        toast.error(t('instructor_lesson_editor_page.errors.video_uploading'))
+        return
+      }
 
       if (currentStep === 0 && !editedLesson?.title.trim()) {
         toast.error(t('instructor_lesson_editor_page.errors.enter_lesson_title'))
@@ -359,7 +372,7 @@ export function InstructorLessonEditorPage() {
             </div>
           )
         }
-        return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} onSaveVideo={handleVideoSave} />
+        return <ContentTab lesson={editedLesson} onUpdate={handleUpdate} onSaveVideo={handleVideoSave} onUploadingChange={setIsUploadingVideo} />
       case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
       case 3:
@@ -427,7 +440,7 @@ export function InstructorLessonEditorPage() {
                <Button variant="secondary" onClick={() => setShowPreview(true)}>
                   {t('instructor_lesson_editor_page.actions.preview')}
                </Button>
-               <Button onClick={handleSave} disabled={isSaving}>
+               <Button onClick={handleSave} disabled={isSaving || isUploadingVideo}>
                   {isSaving ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -505,12 +518,12 @@ export function InstructorLessonEditorPage() {
                   </Button>
 
                   {currentStep < steps.length - 1 ? (
-                    <Button onClick={handleNext} className="w-32">
+                    <Button onClick={handleNext} className="w-32" disabled={isUploadingVideo}>
                       {t('instructor_lesson_editor_page.actions.next')}
                       <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button onClick={handleFinish} className="w-32">
+                    <Button onClick={handleFinish} className="w-32" disabled={isSaving || isUploadingVideo}>
                       {t('instructor_lesson_editor_page.actions.finish')}
                     </Button>
                   )}

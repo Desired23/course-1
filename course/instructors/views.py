@@ -1,4 +1,6 @@
 from django.http import HttpResponse
+from django.utils import timezone
+from django.utils.dateparse import parse_date as _parse_date
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -20,6 +22,22 @@ from utils.permissions import RolePermissionFactory
 from utils.roles import is_active_admin, is_active_instructor
 from utils.pagination import paginate_queryset
 from utils.export_helpers import export_to_csv, export_to_excel
+
+
+def parse_date_param(raw, end_of_day=False):
+    if not raw:
+        return None
+    parsed = _parse_date(raw)
+    if parsed is None:
+        raise ValueError(f'Invalid date: {raw}')
+    if end_of_day:
+        return timezone.datetime(
+            parsed.year, parsed.month, parsed.day, 23, 59, 59, 999999,
+            tzinfo=timezone.get_current_timezone(),
+        )
+    return timezone.datetime(parsed.year, parsed.month, parsed.day, tzinfo=timezone.get_current_timezone())
+
+
 class InstructorListView(APIView):
     throttle_scope = 'search'
     def get(self, request):
@@ -102,8 +120,12 @@ class InstructorDashboardStatsView(APIView):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            data = get_instructor_dashboard_stats(instructor)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+            data = get_instructor_dashboard_stats(instructor, date_from, date_to)
             return Response(data)
+        except ValueError:
+            return Response({"error": "date_from/date_to must be YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -130,8 +152,13 @@ class InstructorCourseAnalyticsView(APIView):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            data = get_course_analytics(instructor, course_id)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+            group_by = request.query_params.get('group_by', 'month')
+            data = get_course_analytics(instructor, course_id, date_from, date_to, group_by)
             return Response(data)
+        except ValueError:
+            return Response({"error": "date_from/date_to must be YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -157,8 +184,13 @@ class InstructorAnalyticsTimeseriesView(APIView):
                 return Response({"error": "Instructor profile not found."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            data = get_instructor_analytics_timeseries(instructor, months)
+            date_from = parse_date_param(request.query_params.get('date_from'))
+            date_to = parse_date_param(request.query_params.get('date_to'), end_of_day=True)
+            group_by = request.query_params.get('group_by', 'month')
+            data = get_instructor_analytics_timeseries(instructor, months, date_from, date_to, group_by)
             return Response(data)
+        except ValueError:
+            return Response({"error": "months must be an integer and dates must be YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 

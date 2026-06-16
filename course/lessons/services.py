@@ -41,7 +41,10 @@ def _sync_lesson_transcript_generation(lesson, previous_snapshot=None, force=Fal
 
 
 def get_lessons(filters=None):
-    lessons = Lesson.objects.filter(content_type__in=Lesson.ContentType.values)
+    lessons = Lesson.objects.filter(
+        content_type__in=Lesson.ContentType.values,
+        is_deleted=False,
+    ).select_related('coursemodule__course__instructor')
     if filters:
         if filters.get('coursemodule_id'):
             lessons = lessons.filter(coursemodule_id=filters['coursemodule_id'])
@@ -73,10 +76,15 @@ def get_lessons(filters=None):
     return lessons
 
 
-def get_lesson_by_id(lesson_id):
+def get_lesson_by_id(lesson_id, user=None):
     try:
-        lesson = Lesson.objects.get(id=lesson_id)
-        serializer = LessonSerializer(lesson)
+        lesson = Lesson.objects.select_related('coursemodule__course__instructor').get(
+            id=lesson_id,
+            is_deleted=False,
+        )
+        from utils.course_access import check_lesson_access
+        check_lesson_access(user, lesson)
+        serializer = LessonSerializer(lesson, context={'user': user, 'media_allowed': True})
         return serializer.data
     except Lesson.DoesNotExist:
         raise ValidationError({"error": "Lesson not found."})

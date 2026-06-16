@@ -21,6 +21,13 @@ import { http } from './http'
 
 
 
+export type SupportTicketType =
+  | 'general'
+  | 'course_deletion_request'
+  | 'refund'
+  | 'copyright'
+  | 'other'
+
 export interface SupportTicket {
   id: number
   user: number | null
@@ -28,6 +35,11 @@ export interface SupportTicket {
   email: string
   subject: string
   message: string
+  ticket_type: SupportTicketType
+  course: number | null
+  course_title: string | null
+  metadata: Record<string, any>
+  resolution: Record<string, any>
   status: 'open' | 'in_progress' | 'resolved' | 'closed'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   created_at: string
@@ -85,8 +97,35 @@ export async function createSupportTicket(data: {
   message: string
   priority?: string
   category?: string
+  ticket_type?: SupportTicketType
+  course?: number
+  metadata?: Record<string, any>
 }): Promise<SupportTicket> {
   return http.post<SupportTicket>('/supports/create/', data)
+}
+
+// Admin: list tickets (optionally filter by type, e.g. course_deletion_request)
+export async function getAdminSupportTickets(params?: {
+  ticket_type?: SupportTicketType
+  status?: string
+  page?: number
+  page_size?: number
+}): Promise<PaginatedResponse<SupportTicket>> {
+  const searchParams = new URLSearchParams()
+  if (params?.ticket_type) searchParams.set('ticket_type', params.ticket_type)
+  if (params?.status) searchParams.set('status', params.status)
+  if (params?.page !== undefined) searchParams.set('page', String(params.page))
+  if (params?.page_size !== undefined) searchParams.set('page_size', String(params.page_size))
+  const qs = searchParams.toString()
+  return http.get<PaginatedResponse<SupportTicket>>(`/supports/${qs ? `?${qs}` : ''}`)
+}
+
+// Admin: resolve a ticket; non-reject actions execute the matching course moderation
+export async function resolveSupportTicket(
+  ticketId: number,
+  data: { action: 'reject' | 'archive' | 'hide' | 'hard_block' | 'delete'; notes?: string },
+): Promise<SupportTicket> {
+  return http.post<SupportTicket>(`/supports/${ticketId}/resolve/`, data)
 }
 
 export async function updateSupportTicket(

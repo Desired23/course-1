@@ -144,6 +144,9 @@ export interface AccessInfo {
   has_access: boolean
   access_type: 'admin' | 'instructor' | 'purchase' | 'subscription' | null
   in_subscription: boolean
+  // True when the course is in the user's plan but they haven't enrolled yet:
+  // they must use the "Đăng ký học" button before they can learn.
+  requires_enrollment?: boolean
   subscription_plan?: SubscriptionPlanRef | null
   hard_blocked?: boolean
 }
@@ -327,14 +330,23 @@ export async function updateCourse(
   return http.patch<CourseListItem>(`/courses/${courseId}/update`, data)
 }
 
-export type CourseModerationAction = 'approve' | 'reject' | 'archive' | 'hide' | 'hard_block' | 'unblock' | 'delete'
+export type CourseModerationAction =
+  | 'approve'
+  | 'reject'
+  | 'archive'
+  | 'dismiss'
+  | 'suspend_sale'
+  | 'freeze'
+  | 'takedown'
+  | 'restore'
 
 export async function moderateCourse(
   courseId: number,
   action: CourseModerationAction,
-  reason?: string
+  reason?: string,
+  options?: { count_as_strike?: boolean; with_refund?: boolean; with_hold?: boolean }
 ): Promise<CourseListItem> {
-  return http.post<CourseListItem>(`/courses/${courseId}/moderate`, { action, reason })
+  return http.post<CourseListItem>(`/courses/${courseId}/moderate`, { action, reason, ...options })
 }
 
 

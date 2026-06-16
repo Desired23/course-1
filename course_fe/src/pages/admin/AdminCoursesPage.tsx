@@ -493,7 +493,7 @@ export function AdminCoursesPage() {
               t('admin_courses.moderation.hide_course'),
               t('admin_courses.bulk.hide_description', { count: selectedCourseIds.length }),
               t('admin_courses.moderation.hide_course'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'hide'), t('admin_courses.toasts.bulk_hide_success')),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'suspend_sale'), t('admin_courses.toasts.bulk_hide_success')),
             ),
           },
           {
@@ -504,7 +504,7 @@ export function AdminCoursesPage() {
               t('admin_courses.moderation.block_course'),
               t('admin_courses.bulk.block_description', { count: selectedCourseIds.length }),
               t('admin_courses.moderation.block_course'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'hard_block'), t('admin_courses.toasts.bulk_block_success')),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'freeze'), t('admin_courses.toasts.bulk_block_success')),
               true,
             ),
           }] : []),
@@ -641,7 +641,7 @@ export function AdminCoursesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleModerateCourse(course.id, 'unblock')}
+                                onClick={() => handleModerateCourse(course.id, 'restore')}
                               >
                                 <Check className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">
@@ -654,7 +654,7 @@ export function AdminCoursesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleModerateCourse(course.id, 'hide')}
+                                onClick={() => handleModerateCourse(course.id, 'suspend_sale')}
                               >
                                 <X className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">{t('admin_courses.moderation.hide_course')}</span>
@@ -668,7 +668,7 @@ export function AdminCoursesPage() {
                                   t('admin_courses.moderation.block_course'),
                                   t('admin_courses.actions.block_description', { title: course.title }),
                                   t('admin_courses.moderation.block_course'),
-                                  () => handleModerateCourse(course.id, 'hard_block'),
+                                  () => handleModerateCourse(course.id, 'freeze'),
                                   true,
                                 )}
                               >

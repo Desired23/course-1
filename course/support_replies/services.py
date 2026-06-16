@@ -75,21 +75,33 @@ def _send_admin_reply_notification(reply):
         return
     try:
         from utils.mailer.mailer import send_email
+        import threading
 
-        sent = send_email(
-            subject=f'[Ticket #{ticket.id}] Support reply: {ticket.subject}',
-            to=recipient.email,
-            template_name='support_reply_notification.html',
-            context={
-                'ticket_id': ticket.id,
-                'user_name': recipient.full_name or recipient.email,
-                'ticket_subject': ticket.subject,
-                'reply_message': reply.message,
-                'ticket_status': ticket.status,
-            },
-        )
-        if not sent:
-            logger.warning('Failed to send support reply notification for ticket %s', ticket.id)
+        # Resolve ORM-backed values in the request thread; the worker thread only
+        # performs the blocking SMTP send so the reply response returns immediately.
+        subject = f'[Ticket #{ticket.id}] Support reply: {ticket.subject}'
+        to_email = recipient.email
+        context = {
+            'ticket_id': ticket.id,
+            'user_name': recipient.full_name or recipient.email,
+            'ticket_subject': ticket.subject,
+            'reply_message': reply.message,
+            'ticket_status': ticket.status,
+        }
+
+        def _send():
+            try:
+                if not send_email(
+                    subject=subject,
+                    to=to_email,
+                    template_name='support_reply_notification.html',
+                    context=context,
+                ):
+                    logger.warning('Failed to send support reply notification for ticket %s', ticket.id)
+            except Exception as exc:
+                logger.warning('Failed to send support reply notification: %s', exc)
+
+        threading.Thread(target=_send, daemon=True).start()
     except Exception as exc:
         logger.warning('Failed to send support reply notification: %s', exc)
 

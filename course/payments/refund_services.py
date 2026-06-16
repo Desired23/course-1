@@ -761,8 +761,9 @@ def get_refund_details(payment_id, payment_details_ids, user):
 
 
 def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None):
+    admin = resolve_admin_actor(admin_user)
     settings_value = get_refund_settings()
-    actor = f"admin:{admin_user.id}"
+    actor = f"admin:{admin.id}"
     results = []
 
     with transaction.atomic():
@@ -788,7 +789,7 @@ def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None
             detail.refund_request_time = timezone.now()
             detail.refund_amount = _calculate_refund_amount(payment, detail)
             detail.last_gateway_error = None
-            detail.processed_by_id = admin_user.id
+            detail.processed_by = admin
             _append_timeline(detail, "refund_requested", actor=actor, note=reason)
             _append_timeline(detail, "refund_approved", actor=actor, note="Tự động duyệt bởi admin")
             detail.refund_status = Payment_Details.RefundStatus.APPROVED
@@ -797,12 +798,90 @@ def admin_create_refund(payment_id, payment_details_ids, admin_user, reason=None
             _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
 
             _log_refund_activity(
-                admin_user.id, "REFUND_REQUESTED", detail,
+                admin.user_id, "REFUND_REQUESTED", detail,
                 f"Admin tạo refund cho course {detail.course_id} thuộc payment {payment_id}"
             )
             results.append(_serialize_refund_detail(detail))
 
     return {"message": "Yêu cầu hoàn tiền đã được tạo và gửi đến cổng thanh toán.", "results": results}
+
+
+def force_refund_recent_course_purchases(course, admin_user, reason=None, source_case=None, cutoff_days=30):
+    """Hoàn tiền cưỡng chế khi takedown / đóng băng vĩnh viễn một khóa học.
+
+    - Giao dịch <= cutoff_days ngày: tự refund 100% qua admin_create_refund
+      (vốn đã bỏ qua giới hạn 50% tiến độ và hoàn full giá).
+    - Giao dịch > cutoff_days ngày: KHÔNG refund tự động -> manual_compensation_required.
+    - Đã có refund lifecycle -> skipped_already_refunded.
+    - Gateway/earning fail từng giao dịch -> ghi errors, không làm hỏng toàn bộ.
+    """
+    from enrollments.models import Enrollment
+
+    course_id = getattr(course, 'id', course)
+    cutoff = timezone.now() - timedelta(days=cutoff_days)
+    reason = reason or "Hoàn tiền cưỡng chế do gỡ khóa học vi phạm bản quyền"
+
+    summary = {
+        'auto_refund_created': [],
+        'refund_processing': [],
+        'skipped_already_refunded': [],
+        'manual_compensation_required': [],
+        'errors': [],
+    }
+
+    details = (
+        Payment_Details.objects
+        .select_related('payment')
+        .filter(
+            course_id=course_id,
+            is_deleted=False,
+            payment__payment_type=Payment.PaymentType.COURSE_PURCHASE,
+            payment__payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
+        )
+    )
+
+    for detail in details:
+        payment = detail.payment
+        entry = {
+            'payment_id': payment.id,
+            'payment_detail_id': detail.id,
+            'user_id': payment.user_id,
+            'source_case_id': getattr(source_case, 'id', None),
+        }
+
+        if detail.refund_request_time or detail.refund_status in [
+            Payment_Details.RefundStatus.PROCESSING,
+            Payment_Details.RefundStatus.APPROVED,
+            Payment_Details.RefundStatus.SUCCESS,
+            Payment_Details.RefundStatus.REJECTED,
+            Payment_Details.RefundStatus.FAILED,
+            Payment_Details.RefundStatus.CANCELLED,
+        ]:
+            summary['skipped_already_refunded'].append(entry)
+            continue
+
+        enrollment = Enrollment.objects.filter(
+            payment=payment, user=payment.user, course_id=course_id, is_deleted=False,
+        ).first()
+        if not enrollment:
+            summary['skipped_already_refunded'].append({**entry, 'note': 'no_enrollment'})
+            continue
+
+        if payment.payment_date and payment.payment_date < cutoff:
+            summary['manual_compensation_required'].append(entry)
+            continue
+
+        try:
+            admin_create_refund(payment.id, [detail.id], admin_user, reason=reason)
+            detail.refresh_from_db()
+            if detail.refund_status == Payment_Details.RefundStatus.SUCCESS:
+                summary['auto_refund_created'].append(entry)
+            else:
+                summary['refund_processing'].append({**entry, 'status': detail.refund_status})
+        except Exception as exc:
+            summary['errors'].append({**entry, 'message': str(exc)})
+
+    return summary
 
 
 def get_user_refunds(user, refund_status_filter=None, search=None, date_from=None, date_to=None):

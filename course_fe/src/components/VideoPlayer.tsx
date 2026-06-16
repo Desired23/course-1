@@ -12,7 +12,6 @@ import {
   Settings,
   SkipBack,
   SkipForward,
-  Bookmark,
   CheckCircle,
   AlertCircle
 } from 'lucide-react'
@@ -32,8 +31,6 @@ interface VideoPlayerProps {
   onComplete?: () => void
   savedProgress?: number
   lessonId?: number
-  bookmarks?: number[]
-  onBookmarksChange?: (bookmarks: number[]) => void | Promise<void>
   completionThresholdPercent?: number
   restrictForwardSeeking?: boolean
   seekToleranceSeconds?: number
@@ -67,8 +64,6 @@ export function VideoPlayer({
   onComplete,
   savedProgress = 0,
   lessonId,
-  bookmarks = [],
-  onBookmarksChange,
   completionThresholdPercent = 85,
   restrictForwardSeeking = true,
   seekToleranceSeconds = 2,
@@ -315,10 +310,6 @@ export function VideoPlayer({
             e.preventDefault()
             toggleFullscreen()
             break
-          case 'b':
-            e.preventDefault()
-            addBookmark()
-            break
         }
       } catch (err) {
         console.log('Keyboard shortcut not available yet')
@@ -448,35 +439,6 @@ export function VideoPlayer({
     }
   }
 
-  const addBookmark = () => {
-    if (!playerRef.current || !playerReady) return
-
-    try {
-      const currentTime = playerRef.current.getCurrentTime()
-      const roundedTime = Math.floor(currentTime)
-      const nextBookmarks = Array.from(new Set([...bookmarks, roundedTime])).sort((a, b) => a - b)
-      void onBookmarksChange?.(nextBookmarks)
-      toast.success(t('video_player.bookmark_added', { time: formatTime(currentTime) }))
-    } catch (err) {
-      console.log('Bookmark not available yet')
-    }
-  }
-
-  const jumpToBookmark = (time: number) => {
-    if (!playerRef.current || !playerReady) return
-
-    try {
-      const maxAllowedTime = Math.min(duration, maxWatchedTimeRef.current + seekToleranceSeconds)
-      const safeTime = restrictForwardSeeking ? Math.min(time, maxAllowedTime) : time
-      if (safeTime + 0.5 < time) {
-        toast.warning(t('video_player.bookmark_unavailable'))
-      }
-      playerRef.current.seekTo(safeTime, true)
-    } catch (err) {
-      console.log('Jump to bookmark not available yet')
-    }
-  }
-
   useEffect(() => {
     if (!externalSeekRequest || !playerRef.current || !playerReady) return
 
@@ -585,24 +547,6 @@ export function VideoPlayer({
           </div>
 
 
-          {bookmarks.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap">
-              {bookmarks.map((bookmark, index) => (
-                <Button
-                  key={index}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => jumpToBookmark(bookmark)}
-                  className="h-6 px-2 text-xs text-white hover:bg-white/20"
-                >
-                  <Bookmark className="w-3 h-3 mr-1" />
-                  {formatTime(bookmark)}
-                </Button>
-              ))}
-            </div>
-          )}
-
-
           <div className="flex items-center justify-between text-white">
             <div className="flex items-center gap-2">
 
@@ -662,17 +606,6 @@ export function VideoPlayer({
 
             <div className="flex items-center gap-2">
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={addBookmark}
-                className="text-white hover:bg-white/20"
-                title="Add Bookmark (B)"
-              >
-                <Bookmark className="w-4 h-4" />
-              </Button>
-
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -712,7 +645,7 @@ export function VideoPlayer({
 
 
           <div className="text-xs text-white/60 text-center">
-            Shortcuts: Space (Play/Pause) • ← → (Skip 10s) • ↑ ↓ (Volume) • M (Mute) • F (Fullscreen) • B (Bookmark)
+            Shortcuts: Space (Play/Pause) • ← → (Skip 10s) • ↑ ↓ (Volume) • M (Mute) • F (Fullscreen)
           </div>
         </div>
         </div>

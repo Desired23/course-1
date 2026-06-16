@@ -21,8 +21,6 @@ import {
   Clock,
   Calendar,
   Tag,
-  Bookmark,
-  BookmarkCheck,
   Flag,
   MoreVertical,
   Edit,
@@ -46,7 +44,6 @@ import {
   deleteBlogPost,
   increaseViews,
   likeBlogPost,
-  bookmarkBlogPost,
   reportBlogPost,
 } from '../../services/blog-posts.api'
 import { showNotification } from '../../utils/notifications'
@@ -116,7 +113,6 @@ export function BlogPostDetailPage() {
   const { user, hasPermission } = useAuth()
   const { t } = useTranslation()
   const [post, setPost] = useState<BlogPostDetail | null>(null)
-  const [isBookmarked, setIsBookmarked] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -181,15 +177,6 @@ export function BlogPostDetailPage() {
       const updated = await likeBlogPost(Number(post.id))
       setIsLiked(prev => !prev)
       setPost({ ...post, likes: updated.likes })
-    } catch { /* silent */ }
-  }
-
-  const handleBookmark = async () => {
-    if (!user || !post) return
-    try {
-      const result = await bookmarkBlogPost(Number(post.id))
-      setIsBookmarked(result.bookmarked)
-      setPost({ ...post, bookmarks: result.count })
     } catch { /* silent */ }
   }
 
@@ -409,20 +396,6 @@ export function BlogPostDetailPage() {
                   >
                     <Heart className={`mr-2 h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
                     {post.likes}
-                  </Button>
-
-                  <Button
-                    variant={isBookmarked ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={handleBookmark}
-                    disabled={!user}
-                  >
-                    {isBookmarked ? (
-                      <BookmarkCheck className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Bookmark className="mr-2 h-4 w-4" />
-                    )}
-                    {post.bookmarks}
                   </Button>
 
                   <Button variant="outline" size="sm" onClick={handleShare}>

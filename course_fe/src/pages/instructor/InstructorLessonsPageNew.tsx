@@ -16,7 +16,7 @@ import { Textarea } from '../../components/ui/textarea'
 import { Label } from '../../components/ui/label'
 import { toast } from 'sonner'
 import { getErrorMessage } from '../../lib/apiError'
-import { formatLessonDurationInput, parseLessonDurationInputToMinutes } from '../../utils/lessonDuration'
+import { formatLessonDurationInput } from '../../utils/lessonDuration'
 import { getAllCourseModules, createCourseModule, deleteCourseModule, updateCourseModule } from "../../services/course-modules.api"
 import { getAllLessons, getLessonById, createLesson, deleteLesson as deleteLessonApi, updateLesson as updateLessonApi } from "../../services/lessons.api"
 import { getLessonQuiz } from "../../services/quiz-questions.api"
@@ -374,7 +374,7 @@ export function InstructorLessonsPageNew() {
         title: newLesson.title,
         content_type: newLesson.type as any,
         description: newLesson.description,
-        duration: parseLessonDurationInputToMinutes(newLesson.duration) ?? 5,
+        duration: 0,
         order: orderNum,
       })
 
@@ -384,7 +384,7 @@ export function InstructorLessonsPageNew() {
         type: created.content_type || newLesson.type,
         content_type: created.content_type || newLesson.type,
         description: created.description || '',
-        duration: newLesson.duration || '5 min',
+        duration: '',
         order: typeof created.order === 'number' ? created.order : orderNum,
         is_free: false,
         videoUrl: '',

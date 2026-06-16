@@ -417,10 +417,7 @@ export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, 
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setAnswers({})
-                  if (onProgressChange) {
-                    onProgressChange({})
-                  }
+                  handleRetry()
                   toast.info(t('quiz_player.progress_cleared'))
                 }}
               >

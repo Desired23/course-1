@@ -23,6 +23,17 @@ from courses.models import Course
 from users.models import User
 
 
+def _resolve_progress_enrollment(user, course):
+    """Trả enrollment dùng để ghi tiến độ học, hoặc None để bỏ qua.
+
+    Chỉ ghi tiến độ khi đã có enrollment thật (mua lẻ hoặc đã bấm "Đăng ký học"
+    cho gói). Các trường hợp chỉ có quyền xem mà không có enrollment (admin,
+    giảng viên của khóa, bài học miễn phí) -> trả None để bỏ qua, không báo lỗi.
+    Không tự tạo enrollment ở đây.
+    """
+    return Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
+
+
 def _active_course_lessons(course):
     return Lesson.objects.filter(
         coursemodule__course=course,
@@ -214,9 +225,9 @@ def update_learning_progress(user_id, lesson_id, progress_data):
         if not course:
             raise ValidationError({"lesson_id": "Lesson does not belong to any course."})
 
-        enrollment = Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
+        enrollment = _resolve_progress_enrollment(user, course)
         if not enrollment:
-            raise ValidationError({"enrollment": "User is not enrolled in the course."})
+            return None
 
         learning_progress, _created = LearningProgress.objects.get_or_create(
             user=user,
@@ -250,11 +261,11 @@ def update_lesson_progress(lesson_id, user_id, progress_data):
         user = User.objects.get(id=user_id)
         lesson = Lesson.objects.select_related('coursemodule__course').get(id=lesson_id)
         course = lesson.coursemodule.course if lesson.coursemodule else None
-        enrollment =  Enrollment.objects.filter(user=user, course=course, is_deleted=False).first()
-        if not enrollment:
-            raise ValidationError({"enrollment": "User is not enrolled in the course."})
         if not course:
             raise ValidationError({"lesson_id": "Lesson does not belong to any course."})
+        enrollment = _resolve_progress_enrollment(user, course)
+        if not enrollment:
+            return None
         learning_progress, _created = LearningProgress.objects.get_or_create(
             user=user,
             lesson=lesson,

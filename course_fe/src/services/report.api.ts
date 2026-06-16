@@ -1,4 +1,4 @@
-import { http } from './http'
+import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
 
 export type ReportTargetType =
   | 'review'
@@ -45,16 +45,10 @@ export type CopyrightCaseStatus =
   | 'escalated_legal'
 export type CopyrightSeverity = 'low' | 'medium' | 'high' | 'confirmed' | 'legal'
 export type CopyrightAdminAction =
-  | 'request_reporter_info'
-  | 'request_instructor_response'
-  | 'suspend_sale_hold'
-  | 'hide_lesson_hold'
-  | 'suspend_access_hold'
-  | 'confirm_takedown'
-  | 'reject_restore'
-  | 'close_insufficient'
-  | 'escalate_legal'
-  | 'restore_release'
+  | 'suspend_sale'
+  | 'freeze'
+  | 'takedown'
+  | 'restore'
 
 export interface ReportCase {
   id: string
@@ -70,7 +64,6 @@ export interface ReportCase {
   reason_breakdown: Partial<Record<ReportReason, number>>
   last_reported_at: string | null
   copyright_case_id: number | null
-  copyright_overdue: boolean
 }
 
 export interface IndividualReport {
@@ -126,10 +119,6 @@ export interface CopyrightCase {
   severity: CopyrightSeverity
   content_action: string
   financial_action: string
-  reporter_deadline_at: string | null
-  instructor_deadline_at: string | null
-  is_reporter_deadline_overdue: boolean
-  is_instructor_deadline_overdue: boolean
   reporter_count: number
   held_amount: string
   active_hold_count: number
@@ -212,47 +201,6 @@ export async function reopenAdminReport(
   return http.post(`/reports/admin/${targetType}/${targetId}/reopen/`, {})
 }
 
-export async function getReporterCopyrightCase(caseId: number): Promise<CopyrightCase> {
-  return http.get<CopyrightCase>(`/reports/my/${caseId}/`)
-}
-
-export async function submitReporterCopyrightEvidence(
-  caseId: number,
-  data: { message?: string; metadata?: Record<string, any>; attachments?: Array<Record<string, any>> },
-): Promise<CopyrightCase> {
-  return http.post<CopyrightCase>(`/reports/my/${caseId}/evidence/`, data)
-}
-
-export async function getInstructorCopyrightCases(params?: {
-  page?: number
-  page_size?: number
-}): Promise<PaginatedResponse<CopyrightCase>> {
-  return http.get<PaginatedResponse<CopyrightCase>>('/reports/instructor/cases/', params)
-}
-
-export async function getInstructorCopyrightCase(caseId: number): Promise<CopyrightCase> {
-  return http.get<CopyrightCase>(`/reports/instructor/cases/${caseId}/`)
-}
-
-export async function submitInstructorCopyrightResponse(
-  caseId: number,
-  data: {
-    response_type: 'dispute' | 'accept_and_fix' | 'request_clarification'
-    message?: string
-    metadata?: Record<string, any>
-    attachments?: Array<Record<string, any>>
-  },
-): Promise<CopyrightCase> {
-  return http.post<CopyrightCase>(`/reports/instructor/cases/${caseId}/responses/`, data)
-}
-
-export async function submitInstructorCopyrightFix(
-  caseId: number,
-  data: { message?: string },
-): Promise<CopyrightCase> {
-  return http.post<CopyrightCase>(`/reports/instructor/cases/${caseId}/submit-fix/`, data)
-}
-
 export async function getAdminCopyrightCases(params?: {
   status?: CopyrightCaseStatus
   severity?: CopyrightSeverity
@@ -273,9 +221,82 @@ export async function runAdminCopyrightAction(
     action: CopyrightAdminAction
     message?: string
     severity?: CopyrightSeverity
-    deadline_days?: number
-    share_reporter_evidence?: boolean
+    count_as_strike?: boolean
+    with_refund?: boolean
+    with_hold?: boolean
   },
 ): Promise<CopyrightCase> {
   return http.post<CopyrightCase>(`/reports/admin/copyright-cases/${caseId}/action/`, data)
+}
+
+export interface ReportStatsFilters {
+  date_from?: string
+  date_to?: string
+  type?: ReportTargetType
+  reason?: ReportReason
+  status?: ReportStatus
+  copyright_status?: CopyrightCaseStatus
+  severity?: CopyrightSeverity
+  instructor_id?: number
+  course_id?: number
+  group_by?: 'day' | 'week' | 'month'
+}
+
+export interface ReportStats {
+  summary: {
+    total_reports: number
+    open_cases: number
+    resolved_cases: number
+    dismissed_cases: number
+    critical_cases: number
+  }
+  by_status: Record<string, number>
+  by_target_type: Record<string, number>
+  by_reason: Record<string, number>
+  trend: Array<{ period: string | null; count: number }>
+  top_targets: Array<{ target_type: string; target_id: number; count: number }>
+  top_instructors: Array<{ instructor_id: number; instructor__user__full_name: string; count: number }>
+  copyright_financials: { active_holds: number; active_held_amount: string }
+}
+
+export async function getReportStatistics(filters?: ReportStatsFilters): Promise<ReportStats> {
+  return http.get<ReportStats>('/reports/admin/stats/', filters as Record<string, any>)
+}
+
+async function downloadCsv(endpoint: string, filename: string, filters?: Record<string, any>): Promise<void> {
+  const filtered = Object.fromEntries(
+    Object.entries(filters ?? {}).filter(([, value]) => value !== undefined && value !== null && value !== ''),
+  )
+  const query = Object.keys(filtered).length > 0
+    ? `?${new URLSearchParams(filtered as Record<string, string>).toString()}`
+    : ''
+  const token = getAccessToken()
+  const response = await fetch(`${API_BASE_URL}${endpoint}${query}`, {
+    headers: {
+      ...getApiTransportHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+  if (!response.ok) {
+    const message = await response.text().catch(() => '')
+    throw new Error(message || 'Export failed')
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadReportExport(filters?: ReportStatsFilters): Promise<void> {
+  return downloadCsv('/reports/admin/export/', 'reports.csv', filters as Record<string, any>)
+}
+
+export async function downloadCopyrightCaseExport(filters?: ReportStatsFilters): Promise<void> {
+  return downloadCsv('/reports/admin/copyright-cases/export/', 'copyright_cases.csv', filters as Record<string, any>)
 }

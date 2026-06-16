@@ -26,9 +26,10 @@ interface ContentTabProps {
   lesson: Lesson
   onUpdate: (updates: Partial<Lesson>) => void
   onSaveVideo?: (data: { videoUrl: string; videoPublicId: string; durationMinutes?: number }) => Promise<void>
+  onUploadingChange?: (uploading: boolean) => void
 }
 
-export function ContentTab({ lesson, onUpdate, onSaveVideo }: ContentTabProps) {
+export function ContentTab({ lesson, onUpdate, onSaveVideo, onUploadingChange }: ContentTabProps) {
   const { t } = useTranslation()
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
@@ -38,6 +39,7 @@ export function ContentTab({ lesson, onUpdate, onSaveVideo }: ContentTabProps) {
 
   const handleUpload = async (file: File) => {
     setIsUploading(true)
+    onUploadingChange?.(true)
     setUploadProgress(0)
 
     try {
@@ -81,6 +83,7 @@ export function ContentTab({ lesson, onUpdate, onSaveVideo }: ContentTabProps) {
       toast.error(t('lesson_editor.upload_failed_retry'))
     } finally {
       setIsUploading(false)
+      onUploadingChange?.(false)
       setTimeout(() => setUploadProgress(0), 900)
     }
   }

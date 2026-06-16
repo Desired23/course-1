@@ -435,6 +435,9 @@ def user_has_active_subscription_enrollment(user_id, course_id):
         is_deleted=False,
         subscription__status='active',
         subscription__is_deleted=False,
+        subscription__plan__plan_courses__course_id=course_id,
+        subscription__plan__plan_courses__status=PlanCourse.Status.ACTIVE,
+        subscription__plan__plan_courses__is_deleted=False,
     ).filter(
         Q(subscription__end_date__isnull=True) | Q(subscription__end_date__gte=now)
     ).exists()

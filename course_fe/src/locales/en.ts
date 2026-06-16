@@ -1112,7 +1112,7 @@ export const en = {
   },
   trending_courses: {
     title: "Trending courses",
-    subtitle: "Stay up to date with the most popular courses",
+    subtitle: "Courses with the most students",
     view_all: "View all",
     empty: "No trending courses yet",
   },
@@ -1548,6 +1548,7 @@ export const en = {
     continue_learning: "Continue learning",
     in_subscription: "In subscription",
     start_learning: "Start learning",
+    enroll_subscription: "Enroll to learn",
   },
   dashboard_sidebar: {
     back_to_platform: "Back to Platform",
@@ -3213,6 +3214,8 @@ export const en = {
     loading: "Loading course...",
     load_failed: "Failed to load course",
     not_enrolled: "You are not enrolled in this course.",
+    course_blocked: "This course is locked due to a policy violation. Please contact support.",
+    access_revoked: "Your access to this course has been revoked.",
     not_found: "Course not found",
     back_to_my_learning: "Back to My Learning",
     retry: "Retry",
@@ -4392,6 +4395,7 @@ export const en = {
       video_too_large: "Video size must be 200MB or less",
       upload_video_success: "Video uploaded successfully",
       upload_video_failed: "Video upload failed",
+      video_uploading: "Video is still uploading. Please wait for it to finish before saving.",
       objective_required: "Please enter a learning objective",
       requirement_required: "Please enter a requirement",
       audience_required: "Please enter a target audience",
@@ -9257,6 +9261,7 @@ export const en = {
       load_lesson_data: "Failed to load lesson data",
       enter_lesson_title: "Please enter a lesson title",
       save_lesson: "Failed to save lesson",
+      video_uploading: "Video is still uploading. Please wait for it to finish before saving.",
     },
     confirms: {
       unsaved_changes: "You have unsaved changes. Are you sure you want to leave?",

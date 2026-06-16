@@ -395,7 +395,7 @@ export function AdminCourseDetailPage() {
 
   const openModerationDialog = (action: Exclude<CourseModerationAction, 'delete' | 'archive'>) => {
     setModerationReason('')
-    const restoringHardBlock = action === 'unblock' && Boolean(course?.is_hard_blocked)
+    const restoringHardBlock = action === 'restore' && Boolean(course?.is_hard_blocked)
     const restoreTitle = restoringHardBlock
       ? t('admin_course_detail.moderation.unlock_title')
       : t('admin_course_detail.moderation.resume_title')
@@ -410,31 +410,37 @@ export function AdminCourseDetailPage() {
           ? t('admin_course_detail.moderation.approve_title')
           : action === 'reject'
             ? t('admin_course_detail.moderation.reject_title')
-            : action === 'hide'
+            : action === 'suspend_sale'
                 ? t('admin_course_detail.moderation.hide_title')
-                : action === 'hard_block'
+                : action === 'freeze'
                   ? t('admin_course_detail.moderation.block_title')
-                  : restoreTitle,
+                  : action === 'takedown'
+                    ? 'Gỡ vĩnh viễn (takedown)'
+                    : restoreTitle,
       description:
         action === 'approve'
           ? t('admin_course_detail.moderation.approve_description')
           : action === 'reject'
             ? t('admin_course_detail.moderation.reject_description')
-            : action === 'hide'
+            : action === 'suspend_sale'
                 ? t('admin_course_detail.moderation.hide_description')
-                : action === 'hard_block'
+                : action === 'freeze'
                   ? t('admin_course_detail.moderation.block_description')
-                  : restoreDescription,
+                  : action === 'takedown'
+                    ? 'Chặn cứng vĩnh viễn + hoàn tiền 100% cho người mua trong 30 ngày + hủy earning chưa trả + tính 1 gậy vi phạm. Cần điều chỉnh chi tiết (bỏ refund/strike) thì dùng trang Quản lý báo cáo.'
+                    : restoreDescription,
       confirmLabel:
         action === 'approve'
           ? t('admin_course_detail.moderation.approve_title')
           : action === 'reject'
             ? t('admin_course_detail.moderation.reject_title')
-            : action === 'hide'
+            : action === 'suspend_sale'
                 ? t('admin_course_detail.moderation.hide_title')
-                : action === 'hard_block'
+                : action === 'freeze'
                   ? t('admin_course_detail.moderation.block_title')
-                  : restoreTitle,
+                  : action === 'takedown'
+                    ? 'Gỡ vĩnh viễn'
+                    : restoreTitle,
       loading: false,
     })
   }
@@ -632,14 +638,14 @@ export function AdminCourseDetailPage() {
                 {course.status === 'published' && (
                   <>
                     {course.admin_hidden || course.is_hard_blocked ? (
-                      <DropdownMenuItem onClick={() => openModerationDialog('unblock')}>
+                      <DropdownMenuItem onClick={() => openModerationDialog('restore')}>
                         <CheckCircle className="h-4 w-4 mr-2" />
                         {course.is_hard_blocked
                           ? t('admin_course_detail.header.unlock_course')
                           : t('admin_course_detail.header.resume_sale')}
                       </DropdownMenuItem>
                     ) : (
-                      <DropdownMenuItem onClick={() => openModerationDialog('hide')}>
+                      <DropdownMenuItem onClick={() => openModerationDialog('suspend_sale')}>
                         <AlertCircle className="h-4 w-4 mr-2" />
                         {t('admin_course_detail.header.hide_course')}
                       </DropdownMenuItem>
@@ -647,9 +653,15 @@ export function AdminCourseDetailPage() {
                   </>
                 )}
                 {course.status === 'published' && !course.is_hard_blocked && (
-                  <DropdownMenuItem onClick={() => openModerationDialog('hard_block')}>
+                  <DropdownMenuItem onClick={() => openModerationDialog('freeze')}>
                     <XCircle className="h-4 w-4 mr-2" />
                     {t('admin_course_detail.header.block_course')}
+                  </DropdownMenuItem>
+                )}
+                {course.status === 'published' && (
+                  <DropdownMenuItem className="text-destructive" onClick={() => openModerationDialog('takedown')}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Gỡ vĩnh viễn (takedown)
                   </DropdownMenuItem>
                 )}
                 {course.status === 'published' && <DropdownMenuSeparator />}
@@ -1139,7 +1151,7 @@ export function AdminCourseDetailPage() {
                 {t('common.cancel')}
             </Button>
             <Button
-                variant={moderationState.action === 'reject' || moderationState.action === 'hard_block' ? 'destructive' : 'default'}
+                variant={moderationState.action === 'reject' || moderationState.action === 'freeze' || moderationState.action === 'takedown' ? 'destructive' : 'default'}
                 onClick={submitModeration}
                 disabled={moderationState.loading}
               >

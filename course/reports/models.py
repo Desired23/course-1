@@ -64,12 +64,7 @@ class Report(models.Model):
 class CopyrightCase(models.Model):
     class Status(models.TextChoices):
         UNDER_REVIEW = 'under_review', 'under_review'
-        NEEDS_REPORTER_INFO = 'needs_reporter_info', 'needs_reporter_info'
-        AWAITING_INSTRUCTOR_RESPONSE = 'awaiting_instructor_response', 'awaiting_instructor_response'
-        INSTRUCTOR_RESPONDED = 'instructor_responded', 'instructor_responded'
-        AWAITING_INSTRUCTOR_FIX = 'awaiting_instructor_fix', 'awaiting_instructor_fix'
         INSUFFICIENT_INFO = 'insufficient_info', 'insufficient_info'
-        RESOLVED_VALID = 'resolved_valid', 'resolved_valid'
         RESOLVED_REJECTED = 'resolved_rejected', 'resolved_rejected'
         TAKEDOWN = 'takedown', 'takedown'
         RESTORED = 'restored', 'restored'
@@ -115,8 +110,6 @@ class CopyrightCase(models.Model):
     severity = models.CharField(max_length=20, choices=Severity.choices, default=Severity.LOW)
     content_action = models.CharField(max_length=30, choices=ContentAction.choices, default=ContentAction.NONE)
     financial_action = models.CharField(max_length=30, choices=FinancialAction.choices, default=FinancialAction.NONE)
-    reporter_deadline_at = models.DateTimeField(null=True, blank=True)
-    instructor_deadline_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL, related_name='copyright_cases_created'
     )
@@ -153,8 +146,6 @@ class CopyrightCaseMessage(models.Model):
 
     class Visibility(models.TextChoices):
         ADMIN_ONLY = 'admin_only', 'admin_only'
-        SHARED_WITH_REPORTER = 'shared_with_reporter', 'shared_with_reporter'
-        SHARED_WITH_INSTRUCTOR = 'shared_with_instructor', 'shared_with_instructor'
 
     case = models.ForeignKey(CopyrightCase, on_delete=models.CASCADE, related_name='messages')
     actor = models.ForeignKey(
@@ -227,3 +218,39 @@ class InstructorEarningHold(models.Model):
 
     def __str__(self):
         return f"EarningHold #{self.id} earning {self.earning_id} case {self.case_id}"
+
+
+class InstructorStrike(models.Model):
+    instructor = models.ForeignKey(
+        'instructors.Instructor', on_delete=models.CASCADE, related_name='copyright_strikes'
+    )
+    source_case = models.ForeignKey(
+        CopyrightCase, null=True, blank=True, on_delete=models.SET_NULL, related_name='strikes'
+    )
+    reason = models.TextField(blank=True)
+    severity = models.CharField(max_length=20, default='standard')
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_strikes'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name='revoked_strikes'
+    )
+
+    class Meta:
+        db_table = 'InstructorStrikes'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['instructor', 'revoked_at']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['source_case'],
+                condition=models.Q(revoked_at__isnull=True),
+                name='unique_active_strike_per_case',
+            ),
+        ]
+
+    def __str__(self):
+        return f"Strike #{self.id} instructor {self.instructor_id} case {self.source_case_id}"

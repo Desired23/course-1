@@ -126,7 +126,9 @@ export function CourseCard({
   }
 
   const handleClick = () => {
-    if (accessible && numericCourseId) {
+    // Only a real enrollment opens the player. Subscription-plan access that hasn't
+    // been enrolled yet goes to the course detail page to use the "Đăng ký học" button.
+    if (isOwned && numericCourseId) {
       navigate(`/course-player/${numericCourseId}`)
       return
     }
@@ -345,8 +347,7 @@ export function CourseCard({
             ) : showSubscription ? (
               <div className="pt-2">
                 <Button size="sm" onClick={(e) => { e.stopPropagation(); handleClick() }}>
-                  <Play className="h-4 w-4 mr-2" />
-                  {t("course_card.start_learning")}
+                  {t("course_card.enroll_subscription")}
                 </Button>
               </div>
             ) : (
@@ -430,7 +431,7 @@ export function CourseCard({
           </div>
         )}
 
-        {accessible && (
+        {isOwned && (
           <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/40 transition-colors flex items-center justify-center">
             <div className="opacity-0 group-hover/card:opacity-100 transition-opacity">
               <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center">
@@ -490,8 +491,7 @@ export function CourseCard({
           ) : showSubscription ? (
             <div className="pt-2">
               <Button className="w-full" size="sm" onClick={(e) => { e.stopPropagation(); handleClick() }}>
-                <Play className="h-4 w-4 mr-2" />
-                {t("course_card.start_learning")}
+                {t("course_card.enroll_subscription")}
               </Button>
             </div>
           ) : (

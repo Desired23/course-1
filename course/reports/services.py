@@ -215,20 +215,10 @@ def get_report_cases(filters=None):
         .order_by('-last_reported_at')
     )
 
-    from django.utils import timezone
     from .models import CopyrightCase
-    now = timezone.now()
     copyright_map = {}
-    for c in CopyrightCase.objects.order_by('id').values(
-        'target_type', 'target_id', 'id', 'status', 'reporter_deadline_at', 'instructor_deadline_at',
-    ):
-        overdue = bool(
-            (c['status'] == CopyrightCase.Status.NEEDS_REPORTER_INFO
-                and c['reporter_deadline_at'] and c['reporter_deadline_at'] < now)
-            or (c['status'] == CopyrightCase.Status.AWAITING_INSTRUCTOR_RESPONSE
-                and c['instructor_deadline_at'] and c['instructor_deadline_at'] < now)
-        )
-        copyright_map[(c['target_type'], c['target_id'])] = {'id': c['id'], 'overdue': overdue}
+    for c in CopyrightCase.objects.order_by('id').values('target_type', 'target_id', 'id'):
+        copyright_map[(c['target_type'], c['target_id'])] = c['id']
 
     items = []
     for case in cases_qs:
@@ -264,8 +254,6 @@ def get_report_cases(filters=None):
 
         response_status = status_filter if status_filter not in (None, '', 'open') else 'pending'
 
-        cc = copyright_map.get((tt, tid))
-
         items.append({
             'id': f'{tt}-{tid}',
             'target_type': tt,
@@ -279,8 +267,7 @@ def get_report_cases(filters=None):
             'top_reason': top_reason,
             'reason_breakdown': reason_breakdown,
             'last_reported_at': case['last_reported_at'],
-            'copyright_case_id': cc['id'] if cc else None,
-            'copyright_overdue': cc['overdue'] if cc else False,
+            'copyright_case_id': copyright_map.get((tt, tid)),
         })
 
     return items

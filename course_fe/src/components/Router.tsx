@@ -55,8 +55,6 @@ const KNOWN_DYNAMIC_PATTERNS = [
   '/admin/users/:userId/edit',
   '/admin/courses/:courseId',
   '/course-player/:courseId',
-  '/reports/my/:caseId',
-  '/instructor/reports/:caseId',
 ]
 
 export function Router({ children }: { children: React.ReactNode }) {

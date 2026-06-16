@@ -59,15 +59,17 @@ export function useOwnedCourses() {
       const ids = new Set<number>()
       const enrolled = new Set<number>()
       const map = new Map<number, Enrollment>()
+      const subIds = new Set<number>()
       for (const e of enrollments) {
         if (e.status === 'active' || e.status === 'complete') {
           const cid = typeof e.course === 'object' ? e.course.course_id : e.course
+          // An enrollment (purchase OR subscription) only exists once the user has
+          // explicitly enrolled, so it always counts as a real, owned enrollment.
           ids.add(cid)
           enrolled.add(cid)
           map.set(cid, e)
         }
       }
-      const subIds = new Set<number>()
       for (const pc of planCourses) {
         if (pc.status === 'active') {
           ids.add(pc.course)

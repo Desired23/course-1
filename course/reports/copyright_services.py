@@ -13,7 +13,6 @@ from .models import CopyrightCase, CopyrightCaseMessage, InstructorEarningHold, 
 
 FINAL_STATUSES = {
     CopyrightCase.Status.INSUFFICIENT_INFO,
-    CopyrightCase.Status.RESOLVED_VALID,
     CopyrightCase.Status.RESOLVED_REJECTED,
     CopyrightCase.Status.TAKEDOWN,
     CopyrightCase.Status.RESTORED,
@@ -66,6 +65,16 @@ def _target_title(case):
     if case.course:
         return case.course.title
     return f'{case.target_type} #{case.target_id}'
+
+
+def _course_flags(course):
+    if not course:
+        return None
+    return {
+        'status': course.status,
+        'admin_hidden': course.admin_hidden,
+        'is_hard_blocked': course.is_hard_blocked,
+    }
 
 
 def create_or_update_copyright_case(report, metadata=None, attachments=None):
@@ -128,74 +137,6 @@ def create_or_update_copyright_case(report, metadata=None, attachments=None):
             )
 
     return case
-
-
-def get_case_for_report(report):
-    if report.reason != Report.Reason.COPYRIGHT:
-        return None
-    return (
-        CopyrightCase.objects
-        .filter(target_type=report.target_type, target_id=report.target_id)
-        .exclude(status__in=FINAL_STATUSES)
-        .order_by('-updated_at')
-        .first()
-    )
-
-
-def _reporter_can_access(case, user):
-    if not user or not getattr(user, 'id', None):
-        return False
-    if case.created_by_id == user.id:
-        return True
-    return Report.objects.filter(
-        reporter=user,
-        target_type=case.target_type,
-        target_id=case.target_id,
-        reason=Report.Reason.COPYRIGHT,
-    ).exists()
-
-
-def _instructor_can_access(case, user):
-    return bool(
-        user
-        and case.instructor
-        and case.instructor.user_id == user.id
-    )
-
-
-def get_reporter_case(case_id, user):
-    case = _case_queryset().filter(id=case_id).first()
-    if not case:
-        raise ValidationError('Copyright case not found.')
-    if not _reporter_can_access(case, user):
-        raise PermissionDenied('You do not have permission to view this copyright case.')
-    messages = case.messages.filter(
-        Q(actor=user)
-        | Q(visibility=CopyrightCaseMessage.Visibility.SHARED_WITH_REPORTER)
-        | Q(actor_role=CopyrightCaseMessage.ActorRole.SYSTEM)
-    ).select_related('actor')
-    return case, messages
-
-
-def get_instructor_case(case_id, user):
-    case = _case_queryset().filter(id=case_id).first()
-    if not case:
-        raise ValidationError('Copyright case not found.')
-    if not _instructor_can_access(case, user):
-        raise PermissionDenied('You do not have permission to view this copyright case.')
-    messages = case.messages.filter(
-        Q(actor=user)
-        | Q(visibility=CopyrightCaseMessage.Visibility.SHARED_WITH_INSTRUCTOR)
-        | Q(actor_role=CopyrightCaseMessage.ActorRole.SYSTEM)
-    ).select_related('actor')
-    return case, messages
-
-
-def list_instructor_cases(user):
-    instructor = getattr(user, 'instructor', None)
-    if not instructor:
-        raise PermissionDenied('Instructor profile not found.')
-    return _case_queryset().filter(instructor=instructor)
 
 
 def list_admin_cases(filters=None):
@@ -288,112 +229,28 @@ def _notify_user(user, case, title, message, code, action_url, sender=None, emai
                 send_copyright_instructor_response_required,
                 send_copyright_reporter_info_required,
             )
+            import threading
+            # Resolve everything that touches the ORM here (request thread); the
+            # worker thread only performs the blocking SMTP send.
             full_url = _frontend_url(action_url)
             course_title = _target_title(case)
-            if email_kind == 'reporter_info':
-                send_copyright_reporter_info_required(
-                    user.email, user.full_name, course_title, full_url, deadline
-                )
-            elif email_kind == 'instructor_response':
-                send_copyright_instructor_response_required(
-                    user.email, user.full_name, course_title, full_url, deadline
-                )
-            elif email_kind == 'decision':
-                send_copyright_case_decision(user.email, user.full_name, course_title, message, full_url)
+            user_email = user.email
+            user_name = user.full_name
+
+            def _send():
+                try:
+                    if email_kind == 'reporter_info':
+                        send_copyright_reporter_info_required(user_email, user_name, course_title, full_url, deadline)
+                    elif email_kind == 'instructor_response':
+                        send_copyright_instructor_response_required(user_email, user_name, course_title, full_url, deadline)
+                    elif email_kind == 'decision':
+                        send_copyright_case_decision(user_email, user_name, course_title, message, full_url)
+                except Exception:
+                    pass
+
+            threading.Thread(target=_send, daemon=True).start()
         except Exception:
             pass
-
-
-def submit_reporter_evidence(case_id, user, message='', metadata=None, attachments=None):
-    with transaction.atomic():
-        case = CopyrightCase.objects.select_for_update().filter(id=case_id).first()
-        if not case:
-            raise ValidationError('Copyright case not found.')
-        if not _reporter_can_access(case, user):
-            raise PermissionDenied('You do not have permission to update this copyright case.')
-        _create_case_message(
-            case,
-            actor=user,
-            actor_role=CopyrightCaseMessage.ActorRole.REPORTER,
-            message=message,
-            response_type='evidence_submitted',
-            attachments=attachments,
-            metadata=metadata,
-            visibility=CopyrightCaseMessage.Visibility.ADMIN_ONLY,
-        )
-        case.status = CopyrightCase.Status.UNDER_REVIEW
-        case.last_action_by = user
-        case.save(update_fields=['status', 'last_action_by', 'updated_at'])
-
-    _notify_admins(
-        case,
-        title='Copyright evidence submitted',
-        message=f'Reporter submitted more evidence for "{_target_title(case)}".',
-        code='copyright_reporter_info_submitted',
-    )
-    return _case_queryset().get(id=case.id)
-
-
-def submit_instructor_response(case_id, user, response_type, message='', metadata=None, attachments=None):
-    with transaction.atomic():
-        case = CopyrightCase.objects.select_for_update().filter(id=case_id).first()
-        if not case:
-            raise ValidationError('Copyright case not found.')
-        if not _instructor_can_access(case, user):
-            raise PermissionDenied('You do not have permission to update this copyright case.')
-        _create_case_message(
-            case,
-            actor=user,
-            actor_role=CopyrightCaseMessage.ActorRole.INSTRUCTOR,
-            message=message,
-            response_type=response_type,
-            attachments=attachments,
-            metadata=metadata,
-            visibility=CopyrightCaseMessage.Visibility.ADMIN_ONLY,
-        )
-        case.status = (
-            CopyrightCase.Status.AWAITING_INSTRUCTOR_FIX
-            if response_type == 'accept_and_fix'
-            else CopyrightCase.Status.INSTRUCTOR_RESPONDED
-        )
-        case.last_action_by = user
-        case.save(update_fields=['status', 'last_action_by', 'updated_at'])
-
-    _notify_admins(
-        case,
-        title='Instructor responded to copyright case',
-        message=f'Instructor responded for "{_target_title(case)}".',
-        code='copyright_instructor_responded',
-    )
-    return _case_queryset().get(id=case.id)
-
-
-def submit_instructor_fix(case_id, user, message=''):
-    with transaction.atomic():
-        case = CopyrightCase.objects.select_for_update().filter(id=case_id).first()
-        if not case:
-            raise ValidationError('Copyright case not found.')
-        if not _instructor_can_access(case, user):
-            raise PermissionDenied('You do not have permission to update this copyright case.')
-        _create_case_message(
-            case,
-            actor=user,
-            actor_role=CopyrightCaseMessage.ActorRole.INSTRUCTOR,
-            message=message,
-            response_type='fix_submitted',
-            visibility=CopyrightCaseMessage.Visibility.ADMIN_ONLY,
-        )
-        case.status = CopyrightCase.Status.INSTRUCTOR_RESPONDED
-        case.last_action_by = user
-        case.save(update_fields=['status', 'last_action_by', 'updated_at'])
-
-    _notify_admins(
-        case,
-        title='Instructor submitted copyright fix',
-        message=f'Instructor marked the fix complete for "{_target_title(case)}".',
-        code='copyright_instructor_responded',
-    )
-    return _case_queryset().get(id=case.id)
 
 
 def _apply_content_action(case, content_action):
@@ -637,7 +494,112 @@ def _notify_decision(case, actor, message):
         )
 
 
-def admin_action(case_id, actor, action, message='', severity=None, deadline_days=7, share_reporter_evidence=False):
+STRIKE_BAN_THRESHOLD = 3
+
+
+def _create_strike(case, actor, reason=''):
+    from .models import InstructorStrike
+    if not case.instructor_id:
+        return None
+    existing = InstructorStrike.objects.filter(source_case=case, revoked_at__isnull=True).first()
+    if existing:
+        return existing
+    return InstructorStrike.objects.create(
+        instructor_id=case.instructor_id,
+        source_case=case,
+        reason=reason or f'Copyright takedown case #{case.id}',
+        severity='copyright',
+        created_by=actor,
+    )
+
+
+def _active_strike_count(instructor_id):
+    from .models import InstructorStrike
+    return InstructorStrike.objects.filter(instructor_id=instructor_id, revoked_at__isnull=True).count()
+
+
+def _ban_instructor_for_strikes(case, actor):
+    """Strike thứ 3: ban tài khoản + ẩn TOÀN BỘ course của instructor khỏi marketplace.
+    Không hard-block các course không vi phạm (học viên cũ vẫn học được)."""
+    from courses.models import Course
+
+    instructor = case.instructor
+    user = instructor.user if instructor else None
+    if user and user.status != 'banned':
+        user.status = 'banned'
+        user.save(update_fields=['status'])
+    hidden = (
+        Course.objects
+        .filter(instructor_id=case.instructor_id, is_deleted=False, admin_hidden=False)
+        .exclude(id=case.course_id)
+        .update(admin_hidden=True, updated_at=timezone.now())
+    )
+    return {'banned_user_id': user.id if user else None, 'courses_hidden': hidden}
+
+
+def _handle_takedown_consequences(case, actor, count_as_strike=True, with_refund=True):
+    """Hệ quả của takedown: forced refund (Plan 4) + strike/auto-ban (Plan 5).
+
+    Cả refund lẫn strike đều optional — admin có thể bỏ qua và xử lý riêng ở
+    trang quản lý refund / quản lý vi phạm.
+    """
+    result = {'strike_created': False, 'active_strikes': None, 'auto_banned': False}
+
+    if with_refund and case.course_id:
+        try:
+            from payments.refund_services import force_refund_recent_course_purchases
+            result['refund'] = force_refund_recent_course_purchases(case.course, actor, source_case=case)
+        except Exception as exc:
+            result['refund'] = {'error': str(exc)}
+
+    if count_as_strike and case.instructor_id:
+        strike = _create_strike(case, actor)
+        result['strike_created'] = bool(strike)
+        active = _active_strike_count(case.instructor_id)
+        result['active_strikes'] = active
+        if active >= STRIKE_BAN_THRESHOLD:
+            result['ban'] = _ban_instructor_for_strikes(case, actor)
+            result['auto_banned'] = True
+    return result
+
+
+def get_or_create_admin_case(course_id, actor):
+    """Tìm (hoặc tạo) một copyright case cho khóa học, do admin chủ động mở
+    (không gắn report của người dùng). Dùng khi admin xử lý vi phạm trực tiếp
+    từ trang quản lý khóa học — để vẫn chạy qua cùng pipeline case/hold/refund."""
+    from courses.models import Course
+
+    course = (
+        Course.objects
+        .filter(id=course_id, is_deleted=False)
+        .select_related('instructor__user')
+        .first()
+    )
+    if not course:
+        raise ValidationError({'course': 'Course not found.'})
+
+    with transaction.atomic():
+        case = (
+            CopyrightCase.objects
+            .select_for_update()
+            .filter(target_type=Report.TargetType.COURSE, target_id=course_id)
+            .exclude(status__in=FINAL_STATUSES)
+            .first()
+        )
+        if not case:
+            case = CopyrightCase.objects.create(
+                target_type=Report.TargetType.COURSE,
+                target_id=course_id,
+                course=course,
+                instructor=course.instructor,
+                created_by=actor,
+                last_action_by=actor,
+            )
+    return case
+
+
+def admin_action(case_id, actor, action, message='', severity=None,
+                 count_as_strike=True, with_refund=True, with_hold=True):
     with transaction.atomic():
         case = CopyrightCase.objects.select_for_update().select_related(
             'course', 'lesson', 'instructor__user', 'created_by'
@@ -645,58 +607,26 @@ def admin_action(case_id, actor, action, message='', severity=None, deadline_day
         visibility = CopyrightCaseMessage.Visibility.ADMIN_ONLY
         response_type = action
         now = timezone.now()
+        prev_flags = _course_flags(case.course)
+        financial_summary = {}
 
-        if action == 'request_reporter_info':
-            case.status = CopyrightCase.Status.NEEDS_REPORTER_INFO
-            case.reporter_deadline_at = now + timedelta(days=deadline_days or 7)
-            case.last_action_by = actor
-            visibility = CopyrightCaseMessage.Visibility.SHARED_WITH_REPORTER
-            case.save(update_fields=['status', 'reporter_deadline_at', 'last_action_by', 'updated_at'])
-        elif action == 'request_instructor_response':
-            case.status = CopyrightCase.Status.AWAITING_INSTRUCTOR_RESPONSE
-            case.instructor_deadline_at = now + timedelta(days=deadline_days or 7)
-            case.last_action_by = actor
-            if severity:
-                case.severity = severity
-            visibility = CopyrightCaseMessage.Visibility.SHARED_WITH_INSTRUCTOR
-            if share_reporter_evidence:
-                case.messages.filter(actor_role=CopyrightCaseMessage.ActorRole.REPORTER).update(
-                    visibility=CopyrightCaseMessage.Visibility.SHARED_WITH_INSTRUCTOR
-                )
-            if case.severity == CopyrightCase.Severity.MEDIUM:
-                _apply_content_action(case, CopyrightCase.ContentAction.SALE_SUSPENDED)
-                hold_case_earnings(case, actor, message or 'Medium copyright risk')
-            elif case.severity == CopyrightCase.Severity.HIGH:
-                action_to_apply = (
-                    CopyrightCase.ContentAction.LESSON_HIDDEN
-                    if case.target_type == Report.TargetType.LESSON
-                    else CopyrightCase.ContentAction.ACCESS_SUSPENDED
-                )
-                _apply_content_action(case, action_to_apply)
-                hold_case_earnings(case, actor, message or 'High copyright risk')
-            case.save(update_fields=['status', 'instructor_deadline_at', 'severity', 'last_action_by', 'updated_at'])
-        elif action == 'suspend_sale_hold':
+        if action == 'suspend_sale':
             case.severity = severity or CopyrightCase.Severity.MEDIUM
             case.status = CopyrightCase.Status.UNDER_REVIEW
             case.last_action_by = actor
             case.save(update_fields=['severity', 'status', 'last_action_by', 'updated_at'])
             _apply_content_action(case, CopyrightCase.ContentAction.SALE_SUSPENDED)
-            hold_case_earnings(case, actor, message or 'Copyright report sale suspension')
-        elif action == 'hide_lesson_hold':
-            case.severity = severity or CopyrightCase.Severity.HIGH
-            case.status = CopyrightCase.Status.UNDER_REVIEW
-            case.last_action_by = actor
-            case.save(update_fields=['severity', 'status', 'last_action_by', 'updated_at'])
-            _apply_content_action(case, CopyrightCase.ContentAction.LESSON_HIDDEN)
-            hold_case_earnings(case, actor, message or 'Copyright report lesson hidden')
-        elif action == 'suspend_access_hold':
+            if with_hold:
+                financial_summary = hold_case_earnings(case, actor, message or 'Copyright report sale suspension')
+        elif action == 'freeze':
             case.severity = severity or CopyrightCase.Severity.HIGH
             case.status = CopyrightCase.Status.UNDER_REVIEW
             case.last_action_by = actor
             case.save(update_fields=['severity', 'status', 'last_action_by', 'updated_at'])
             _apply_content_action(case, CopyrightCase.ContentAction.ACCESS_SUSPENDED)
-            hold_case_earnings(case, actor, message or 'Copyright report access suspension')
-        elif action == 'confirm_takedown':
+            if with_hold:
+                financial_summary = hold_case_earnings(case, actor, message or 'Copyright report access suspension')
+        elif action == 'takedown':
             case.status = CopyrightCase.Status.TAKEDOWN
             case.severity = CopyrightCase.Severity.CONFIRMED
             case.resolved_by = actor
@@ -704,144 +634,47 @@ def admin_action(case_id, actor, action, message='', severity=None, deadline_day
             case.last_action_by = actor
             case.save(update_fields=['status', 'severity', 'resolved_by', 'resolved_at', 'last_action_by', 'updated_at'])
             _apply_content_action(case, CopyrightCase.ContentAction.TAKEDOWN)
-            adjust_case_earnings(case, actor)
+            if with_hold:
+                financial_summary = adjust_case_earnings(case, actor)
+            financial_summary['takedown'] = _handle_takedown_consequences(
+                case, actor, count_as_strike=count_as_strike, with_refund=with_refund
+            )
             _sync_reports_final(case, Report.Status.RESOLVED, 'copyright_takedown', message, actor)
-        elif action == 'reject_restore':
-            case.status = CopyrightCase.Status.RESOLVED_REJECTED
-            case.resolved_by = actor
-            case.resolved_at = now
-            case.last_action_by = actor
-            case.save(update_fields=['status', 'resolved_by', 'resolved_at', 'last_action_by', 'updated_at'])
-            _apply_content_action(case, CopyrightCase.ContentAction.RESTORED)
-            release_case_holds(case, actor)
-            _sync_reports_final(case, Report.Status.DISMISSED, 'copyright_rejected', message, actor)
-        elif action == 'close_insufficient':
-            case.status = CopyrightCase.Status.INSUFFICIENT_INFO
-            case.resolved_by = actor
-            case.resolved_at = now
-            case.last_action_by = actor
-            case.save(update_fields=['status', 'resolved_by', 'resolved_at', 'last_action_by', 'updated_at'])
-            _apply_content_action(case, CopyrightCase.ContentAction.RESTORED)
-            release_case_holds(case, actor)
-            _sync_reports_final(case, Report.Status.DISMISSED, 'copyright_insufficient_info', message, actor)
-        elif action == 'escalate_legal':
-            case.status = CopyrightCase.Status.ESCALATED_LEGAL
-            case.severity = CopyrightCase.Severity.LEGAL
-            case.last_action_by = actor
-            case.save(update_fields=['status', 'severity', 'last_action_by', 'updated_at'])
-            _apply_content_action(case, CopyrightCase.ContentAction.ACCESS_SUSPENDED)
-            hold_case_earnings(case, actor, message or 'Copyright legal escalation')
-        elif action == 'restore_release':
+        elif action == 'restore':
             case.status = CopyrightCase.Status.RESTORED
             case.resolved_by = actor
             case.resolved_at = now
             case.last_action_by = actor
             case.save(update_fields=['status', 'resolved_by', 'resolved_at', 'last_action_by', 'updated_at'])
             _apply_content_action(case, CopyrightCase.ContentAction.RESTORED)
-            release_case_holds(case, actor)
+            financial_summary = {'released_holds': release_case_holds(case, actor)}
             _sync_reports_final(case, Report.Status.DISMISSED, 'copyright_restored', message, actor)
         else:
             raise ValidationError({'action': 'Unsupported copyright action.'})
 
+        if case.course_id:
+            case.course.refresh_from_db()
+        audit_metadata = {
+            'previous_course_flags': prev_flags,
+            'next_course_flags': _course_flags(case.course),
+            'financial': financial_summary,
+        }
         _create_case_message(
             case,
             actor=actor,
             actor_role=CopyrightCaseMessage.ActorRole.ADMIN,
             message=message,
             response_type=response_type,
+            metadata=audit_metadata,
             visibility=visibility,
         )
 
     case = _case_queryset().get(id=case.id)
 
-    if action == 'request_reporter_info':
-        _notify_user(
-            case.created_by,
-            case,
-            title='Copyright report needs more information',
-            message=message or f'Please provide more information for "{_target_title(case)}".',
-            code='copyright_reporter_info_required',
-            action_url=f'/reports/my/{case.id}',
-            sender=actor,
-            email_kind='reporter_info',
-            deadline=case.reporter_deadline_at,
-        )
-    elif action == 'request_instructor_response':
-        instructor_user = case.instructor.user if case.instructor else None
-        _notify_user(
-            instructor_user,
-            case,
-            title='Copyright response required',
-            message=message or f'Please respond to the copyright report for "{_target_title(case)}".',
-            code='copyright_response_required',
-            action_url=f'/instructor/reports/{case.id}',
-            sender=actor,
-            email_kind='instructor_response',
-            deadline=case.instructor_deadline_at,
-        )
-    elif action in {'confirm_takedown', 'reject_restore', 'close_insufficient', 'restore_release'}:
+    if action in {'takedown', 'restore'}:
         _notify_decision(
             case,
             actor,
             message or f'Copyright case for "{_target_title(case)}" has been decided: {case.status}.',
         )
-    elif action == 'escalate_legal':
-        _notify_decision(
-            case,
-            actor,
-            message or f'Copyright case for "{_target_title(case)}" has been escalated for legal review.',
-        )
     return case
-
-
-INSTRUCTOR_OVERDUE_NOTICE = 'instructor_overdue_notice'
-
-
-def process_overdue_cases(actor=None):
-    """Quét các case bản quyền quá hạn và xử lý theo chính sách:
-    - Reporter quá hạn bổ sung thông tin -> tự đóng 'thiếu thông tin' (khôi phục nội dung + release hold).
-    - Instructor quá hạn phản hồi -> chỉ nhắc admin (đăng ghi chú hệ thống + thông báo), không tự đổi nội dung/earning.
-    """
-    now = timezone.now()
-    auto_closed = 0
-    admin_notified = 0
-
-    reporter_overdue = CopyrightCase.objects.filter(
-        status=CopyrightCase.Status.NEEDS_REPORTER_INFO,
-        reporter_deadline_at__isnull=False,
-        reporter_deadline_at__lt=now,
-    ).values_list('id', flat=True)
-    for case_id in list(reporter_overdue):
-        admin_action(
-            case_id,
-            actor,
-            'close_insufficient',
-            message='Tự động đóng do người báo cáo quá hạn bổ sung thông tin.',
-        )
-        auto_closed += 1
-
-    instructor_overdue = CopyrightCase.objects.filter(
-        status=CopyrightCase.Status.AWAITING_INSTRUCTOR_RESPONSE,
-        instructor_deadline_at__isnull=False,
-        instructor_deadline_at__lt=now,
-    )
-    for case in instructor_overdue:
-        if case.messages.filter(response_type=INSTRUCTOR_OVERDUE_NOTICE).exists():
-            continue
-        _create_case_message(
-            case,
-            actor=actor,
-            actor_role=CopyrightCaseMessage.ActorRole.SYSTEM,
-            message='Giảng viên đã quá hạn phản hồi. Cần admin xem xét xử lý (takedown / chuyển pháp lý / ngừng truy cập).',
-            response_type=INSTRUCTOR_OVERDUE_NOTICE,
-            visibility=CopyrightCaseMessage.Visibility.ADMIN_ONLY,
-        )
-        _notify_admins(
-            case,
-            title='Case bản quyền quá hạn phản hồi',
-            message=f'Giảng viên quá hạn phản hồi cho "{_target_title(case)}". Cần xử lý thủ công.',
-            code='copyright_case_instructor_overdue',
-        )
-        admin_notified += 1
-
-    return {'auto_closed': auto_closed, 'admin_notified': admin_notified}

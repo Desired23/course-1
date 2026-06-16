@@ -249,10 +249,14 @@ export interface CourseAnalytics {
 
 
 export async function getInstructorDashboardStats(
-  instructorId?: number
+  instructorId?: number,
+  dateFrom?: string,
+  dateTo?: string,
 ): Promise<InstructorDashboardStats> {
-  const query: Record<string, number> = {}
+  const query: Record<string, number | string> = {}
   if (instructorId) query.instructor_id = instructorId
+  if (dateFrom) query.date_from = dateFrom
+  if (dateTo) query.date_to = dateTo
   return http.get<InstructorDashboardStats>('/instructor/dashboard/stats/', query)
 }
 
@@ -323,9 +327,16 @@ export async function exportInstructorStudents(instructorId?: number, courseId?:
 
 
 export async function getInstructorCourseAnalytics(
-  courseId: number
+  courseId: number,
+  dateFrom?: string,
+  dateTo?: string,
+  groupBy?: 'day' | 'week' | 'month' | 'quarter' | 'year',
 ): Promise<CourseAnalytics> {
-  return http.get<CourseAnalytics>(`/instructor/courses/${courseId}/analytics/`)
+  const query: Record<string, string> = {}
+  if (dateFrom) query.date_from = dateFrom
+  if (dateTo) query.date_to = dateTo
+  if (groupBy) query.group_by = groupBy
+  return http.get<CourseAnalytics>(`/instructor/courses/${courseId}/analytics/`, query)
 }
 
 
@@ -343,9 +354,18 @@ export interface AnalyticsTimeseries {
 
 
 export async function getInstructorAnalyticsTimeseries(
-  months = 12
+  months = 12,
+  instructorId?: number,
+  dateFrom?: string,
+  dateTo?: string,
+  groupBy?: 'day' | 'week' | 'month' | 'quarter' | 'year',
 ): Promise<AnalyticsTimeseries> {
-  return http.get<AnalyticsTimeseries>(`/instructor/analytics/timeseries/?months=${months}`)
+  const query: Record<string, number | string> = { months }
+  if (instructorId) query.instructor_id = instructorId
+  if (dateFrom) query.date_from = dateFrom
+  if (dateTo) query.date_to = dateTo
+  if (groupBy) query.group_by = groupBy
+  return http.get<AnalyticsTimeseries>('/instructor/analytics/timeseries/', query)
 }
 
 

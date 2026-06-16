@@ -67,6 +67,7 @@ export function InstructorCourseLandingPage() {
   const [data, setData] = useState<Data>(initialData)
   const [activeTab, setActiveTab] = useState('basic')
   const [saving, setSaving] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Category[]>([])
@@ -130,6 +131,7 @@ export function InstructorCourseLandingPage() {
     if (kind === 'video' && !file.type.startsWith('video/')) return void toast.error(t('instructor_course_landing_page.toasts.invalid_video_file'))
     if (kind === 'image' && file.size > 5 * 1024 * 1024) return void toast.error(t('instructor_course_landing_page.toasts.image_too_large'))
     if (kind === 'video' && file.size > 200 * 1024 * 1024) return void toast.error(t('instructor_course_landing_page.toasts.video_too_large'))
+    if (kind === 'video') setUploadingVideo(true)
     try {
       const uploaded = await uploadFiles([file]); if (!uploaded?.length) throw new Error('Upload failed')
       const url = uploaded[0].url
@@ -138,9 +140,12 @@ export function InstructorCourseLandingPage() {
     } catch (err) {
       console.error(err)
       toast.error(t(kind === 'image' ? 'instructor_course_landing_page.toasts.upload_image_failed' : 'instructor_course_landing_page.toasts.upload_video_failed'))
+    } finally {
+      if (kind === 'video') setUploadingVideo(false)
     }
   }
   const save = async (status: 'draft' | 'submit_review') => {
+    if (uploadingVideo) return void (toast.error(t('instructor_course_landing_page.toasts.video_uploading')), setActiveTab('media'))
     if (!data.title.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.title_required')), setActiveTab('basic'))
     if (!data.subtitle.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.subtitle_required')), setActiveTab('basic'))
     if (!data.description.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.description_required')), setActiveTab('basic'))
@@ -195,7 +200,7 @@ export function InstructorCourseLandingPage() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end"><span className="text-sm text-muted-foreground">{t('instructor_course_landing_page.completion_label')}</span><div className="flex items-center gap-2"><Progress value={completion} className="w-24 h-2" /><span className="text-sm">{completion}%</span></div></div>
             <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
-            <Button onClick={() => save('submit_review')}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
+            <Button onClick={() => save('submit_review')} disabled={saving || uploadingVideo}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
           </div>
         </div>
       </motion.div>
@@ -261,10 +266,10 @@ export function InstructorCourseLandingPage() {
       </motion.div>
 
       <motion.div className="flex justify-between items-center pt-6 border-t" variants={fadeInUp}>
-        <Button variant="outline" onClick={() => save('draft')} disabled={saving}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
+        <Button variant="outline" onClick={() => save('draft')} disabled={saving || uploadingVideo}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
-          <Button onClick={() => save('submit_review')} disabled={saving}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
+          <Button onClick={() => save('submit_review')} disabled={saving || uploadingVideo}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
         </div>
       </motion.div>
       </motion.div>

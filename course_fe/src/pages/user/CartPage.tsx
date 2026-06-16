@@ -605,8 +605,7 @@ export function CartPage() {
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={isBulkDeleting}
-                onClick={(event) => {
-                  event.preventDefault()
+                onClick={() => {
                   handleBulkDeleteSelected()
                 }}
               >

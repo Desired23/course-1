@@ -35,34 +35,22 @@ def check_course_access(user, course):
     if enrollment:
 
         if enrollment.source == Enrollment.Source.SUBSCRIPTION:
-            if _subscription_still_valid(enrollment.subscription) or _has_active_subscription_for_course(user, course):
+            if _has_active_subscription_for_course(user, course):
                 return enrollment
 
             raise PermissionDenied(
-                "Gói đăng ký của bạn đã hết hạn. Vui lòng gia hạn để tiếp tục học."
+                "Khóa học này không còn nằm trong gói đăng ký của bạn."
             )
 
         return enrollment
 
 
     if _has_active_subscription_for_course(user, course):
-        from courses.models import Course
-        if course.status != Course.Status.PUBLISHED or course.admin_hidden:
-            raise PermissionDenied(
-                "Khóa học đã ngừng nhận học viên mới."
-            )
-
-        active_sub = _get_active_subscription_for_course(user, course)
-
-        enrollment = Enrollment.objects.create(
-            user=user,
-            course=course,
-            source=Enrollment.Source.SUBSCRIPTION,
-            subscription=active_sub,
-            enrollment_date=timezone.now(),
-            status=Enrollment.Status.Active,
+        # Có gói chứa khóa học nhưng chưa đăng ký: không tự tạo enrollment.
+        # Học viên phải bấm "Đăng ký học" để ghi danh trước khi học.
+        raise PermissionDenied(
+            "Bạn cần đăng ký khóa học này trong gói trước khi bắt đầu học."
         )
-        return enrollment
 
 
     raise PermissionDenied(
@@ -93,15 +81,33 @@ def is_course_buyable(course):
     return course_not_buyable_reason(course) is None
 
 
+def course_is_archived(course):
+    from courses.models import Course
+    return getattr(course, 'status', None) == Course.Status.ARCHIVED
+
+
+def ensure_course_interaction_allowed(course):
+    """Chặn các tương tác học tập/cộng đồng (comment, quiz, review) khi
+    khóa học đã được lưu trữ. Học viên cũ vẫn xem được nội dung."""
+    if course is not None and course_is_archived(course):
+        raise ValidationError(
+            "Khóa học đã được lưu trữ và không còn nhận tương tác/hỗ trợ."
+        )
+
+
 def check_lesson_access(user, lesson):
-
-    if lesson.is_free:
-        return None
-
 
     course = lesson.coursemodule.course if lesson.coursemodule else None
     if not course:
         raise ValidationError({"error": "Lesson không thuộc khóa học nào."})
+
+    if getattr(course, 'is_hard_blocked', False):
+        raise PermissionDenied(
+            "KhÃ³a há»c Ä‘ang bá»‹ khÃ³a do vi pháº¡m chÃ­nh sÃ¡ch. Vui lÃ²ng liÃªn há»‡ há»— trá»£."
+        )
+
+    if lesson.is_free:
+        return None
 
     return check_course_access(user, course)
 
@@ -152,7 +158,7 @@ def get_course_access_info(user, course):
         status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
         is_deleted=False,
     ).select_related('subscription').first()
-    if sub_enrollment and _subscription_still_valid(sub_enrollment.subscription):
+    if sub_enrollment and _has_active_subscription_for_course(user, course):
         return {
             "has_access": True,
             "access_type": "subscription",
@@ -161,9 +167,11 @@ def get_course_access_info(user, course):
 
 
     if _has_active_subscription_for_course(user, course):
+        # Có gói chứa khóa nhưng chưa ghi danh: cần bấm "Đăng ký học" trước khi học.
         return {
             "has_access": True,
             "access_type": "subscription",
+            "requires_enrollment": True,
             "subscription_plan": get_relevant_subscription_plan(user, course),
         }
 
@@ -219,14 +227,6 @@ def get_relevant_subscription_plan(user, course):
     }
 
 
-def _subscription_still_valid(subscription):
-    if not subscription:
-        return False
-    if subscription.is_deleted or subscription.status != 'active':
-        return False
-    return subscription.end_date is None or subscription.end_date >= timezone.now()
-
-
 def _has_active_subscription_for_course(user, course):
     now = timezone.now()
     from django.db.models import Q
@@ -241,19 +241,3 @@ def _has_active_subscription_for_course(user, course):
     ).filter(
         Q(end_date__isnull=True) | Q(end_date__gte=now)
     ).exists()
-
-
-def _get_active_subscription_for_course(user, course):
-    now = timezone.now()
-    from django.db.models import Q
-
-    return UserSubscription.objects.filter(
-        user=user,
-        status='active',
-        is_deleted=False,
-        plan__plan_courses__course=course,
-        plan__plan_courses__status='active',
-        plan__plan_courses__is_deleted=False,
-    ).filter(
-        Q(end_date__isnull=True) | Q(end_date__gte=now)
-    ).select_related('plan').first()

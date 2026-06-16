@@ -11,6 +11,7 @@ from .services import (
     update_support,
     update_admin_id,
     delete_support,
+    resolve_support_request,
 )
 from utils.permissions import RolePermissionFactory
 from utils.pagination import paginate_queryset
@@ -63,6 +64,12 @@ class SupportListView(APIView):
                 return paginate_queryset(supports, request, SupportSerializer)
             else:
                 supports = get_all_supports(actor=request.user)
+                ticket_type = request.query_params.get('ticket_type')
+                status_filter = request.query_params.get('status')
+                if ticket_type:
+                    supports = supports.filter(ticket_type=ticket_type)
+                if status_filter:
+                    supports = supports.filter(status=status_filter)
                 return paginate_queryset(supports, request, SupportSerializer)
         except ValidationError as e:
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
@@ -90,3 +97,19 @@ class SupportListView(APIView):
             return Response({"errors": str(e)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SupportResolveView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+
+    def post(self, request, support_id):
+        try:
+            result = resolve_support_request(
+                support_id,
+                request.data.get('action'),
+                actor=request.user,
+                notes=request.data.get('notes', ''),
+            )
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response({"errors": str(e)}, status=status.HTTP_400_BAD_REQUEST)

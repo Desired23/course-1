@@ -28,7 +28,7 @@ class LessonListView(APIView):
         if request.query_params.get('ordering'):
             filters['ordering'] = request.query_params['ordering']
         lessons = get_lessons(filters if filters else None)
-        return paginate_queryset(lessons, request, LessonSerializer)
+        return paginate_queryset(lessons, request, LessonSerializer, context={'user': request.user})
 
 class LessonDetailView(APIView):
     permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
@@ -36,7 +36,7 @@ class LessonDetailView(APIView):
 
     def get(self, request, lesson_id):
         try:
-            lesson = get_lesson_by_id(lesson_id)
+            lesson = get_lesson_by_id(lesson_id, user=request.user)
             return Response(lesson, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"error": e.detail}, status=status.HTTP_404_NOT_FOUND)
@@ -46,7 +46,10 @@ class LessonDetailView(APIView):
         self.check_permissions(request)
         try:
             updated_lesson = update_lesson(lesson_id, request.data, requesting_user=request.user)
-            return Response(LessonSerializer(updated_lesson).data, status=status.HTTP_200_OK)
+            return Response(
+                LessonSerializer(updated_lesson, context={'user': request.user, 'media_allowed': True}).data,
+                status=status.HTTP_200_OK,
+            )
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -66,7 +69,10 @@ class LessonCreateView(APIView):
         try:
             print ("Request data:", request.data)
             lesson = create_lesson(request.data, request.user.id)
-            return Response(LessonSerializer(lesson).data, status=status.HTTP_201_CREATED)
+            return Response(
+                LessonSerializer(lesson, context={'user': request.user, 'media_allowed': True}).data,
+                status=status.HTTP_201_CREATED,
+            )
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 

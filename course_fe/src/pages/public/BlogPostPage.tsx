@@ -13,7 +13,6 @@ import {
   Heart,
   MessageCircle,
   Share2,
-  Bookmark,
   ThumbsUp,
   ThumbsDown,
   Reply,
@@ -147,7 +146,6 @@ export function BlogPostPage() {
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set())
   const [isLiked, setIsLiked] = useState(false)
   const [isDisliked, setIsDisliked] = useState(false)
-  const [isBookmarked, setIsBookmarked] = useState(false)
   const [showShareMenu, setShowShareMenu] = useState(false)
 
   const postId = currentRoute.split('/blog/')[1]
@@ -280,11 +278,6 @@ export function BlogPostPage() {
     if (isLiked) setIsLiked(false)
     setIsDisliked(!isDisliked)
     toast.success(isDisliked ? t('blog_post_page.toasts.dislike_removed') : t('blog_post_page.toasts.post_disliked'))
-  }
-
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked)
-    toast.success(isBookmarked ? t('blog_post_page.toasts.bookmark_removed') : t('blog_post_page.toasts.bookmark_added'))
   }
 
   const handleShare = (platform: string) => {
@@ -600,15 +593,6 @@ export function BlogPostPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBookmark}
-                  className={isBookmarked ? 'text-yellow-500' : ''}
-                >
-                  <Bookmark size={16} className={isBookmarked ? 'fill-current' : ''} />
-                </Button>
-
                 <div className="relative">
                   <Button
                     variant="ghost"

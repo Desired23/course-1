@@ -44,6 +44,37 @@ class LessonSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
 
+    def _media_allowed(self, obj):
+        course = getattr(getattr(obj, 'coursemodule', None), 'course', None)
+        if getattr(course, 'is_hard_blocked', False):
+            return False
+        if obj.is_free:
+            return True
+        if self.context.get('media_allowed'):
+            return True
+        user = self.context.get('user')
+        request = self.context.get('request')
+        if user is None and request is not None:
+            user = getattr(request, 'user', None)
+        if not user:
+            return False
+        if not course:
+            return False
+        try:
+            from utils.course_access import has_existing_course_access
+            return has_existing_course_access(user, course)
+        except Exception:
+            return False
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if not self._media_allowed(instance):
+            data['video_url'] = None
+            data['video_public_id'] = None
+            data['signed_video_url'] = None
+            data['signed_video_expires_at'] = None
+        return data
+
     def validate_coursemodule(self, value):
         if value is None:
             raise serializers.ValidationError("Coursemodule is required.")
@@ -56,6 +87,8 @@ class LessonSerializer(serializers.ModelSerializer):
         return value
 
     def get_signed_video_url(self, obj):
+        if not self._media_allowed(obj):
+            return None
         cache = self.context.setdefault('_signed_video_cache', {})
         if obj.id not in cache:
             cache[obj.id] = build_signed_video_url(
@@ -66,6 +99,8 @@ class LessonSerializer(serializers.ModelSerializer):
         return signed_url
 
     def get_signed_video_expires_at(self, obj):
+        if not self._media_allowed(obj):
+            return None
         cache = self.context.setdefault('_signed_video_cache', {})
         if obj.id not in cache:
             cache[obj.id] = build_signed_video_url(

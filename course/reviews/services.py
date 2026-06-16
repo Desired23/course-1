@@ -30,6 +30,9 @@ def create_review(data):
     except Course.DoesNotExist:
         raise ValidationError({"course": "Khoa hoc khong ton tai."})
 
+    from utils.course_access import ensure_course_interaction_allowed
+    ensure_course_interaction_allowed(course)
+
     enrollment = Enrollment.objects.filter(
         user=user, course=course, is_deleted=False,
     ).exclude(status=Enrollment.Status.Cancelled).first()
@@ -134,6 +137,10 @@ def update_review(review_id, data, requesting_user=None):
 
     if requesting_user and review.user_id != requesting_user.id and not is_active_admin(requesting_user):
         raise PermissionDenied("Bạn không có quyền chỉnh sửa đánh giá này.")
+
+    if not is_active_admin(requesting_user):
+        from utils.course_access import ensure_course_interaction_allowed
+        ensure_course_interaction_allowed(review.course)
 
     serializer = ReviewSerializer(review, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):

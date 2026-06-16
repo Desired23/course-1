@@ -9,25 +9,19 @@ from .serializers import (
     AdminCopyrightActionSerializer,
     CopyrightCaseDetailSerializer,
     CopyrightCaseSerializer,
-    CopyrightEvidenceSerializer,
     CreateReportSerializer,
-    InstructorCopyrightResponseSerializer,
     ReportCaseSerializer,
     ReportCaseDetailSerializer,
     ResolveReportSerializer,
 )
+from django.http import HttpResponse
+
 from .services import create_report, get_report_cases, get_report_case_detail, resolve_report_case, reopen_report_case
+from .stats_services import export_copyright_cases_csv, export_reports_csv, get_report_statistics
 from .copyright_services import (
     admin_action,
     get_admin_case,
-    get_case_for_report,
-    get_instructor_case,
-    get_reporter_case,
     list_admin_cases,
-    list_instructor_cases,
-    submit_instructor_fix,
-    submit_instructor_response,
-    submit_reporter_evidence,
 )
 
 
@@ -55,11 +49,10 @@ class ReportCreateView(APIView):
             detail = getattr(exc, 'detail', str(exc))
             return Response({'errors': detail}, status=status.HTTP_400_BAD_REQUEST)
 
-        payload = {'message': 'Báo cáo đã được ghi nhận.', 'report_id': report.id}
-        copyright_case = get_case_for_report(report)
-        if copyright_case:
-            payload['case_id'] = copyright_case.id
-        return Response(payload, status=status.HTTP_201_CREATED)
+        return Response(
+            {'message': 'Báo cáo đã được ghi nhận.', 'report_id': report.id},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AdminReportListView(APIView):
@@ -138,122 +131,42 @@ def _error_response(exc):
     return Response({'errors': detail}, status=response_status)
 
 
-class ReporterCopyrightCaseDetailView(APIView):
-    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
-    throttle_scope = 'burst'
-
-    def get(self, request, case_id):
-        try:
-            case, messages = get_reporter_case(case_id, request.user)
-            return Response(
-                CopyrightCaseDetailSerializer(case, context={'visible_messages': messages}).data,
-                status=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return _error_response(exc)
+def _collect_report_filters(request):
+    keys = [
+        'date_from', 'date_to', 'type', 'reason', 'status',
+        'copyright_status', 'severity', 'instructor_id', 'course_id', 'group_by',
+    ]
+    return {k: request.query_params.get(k) for k in keys if request.query_params.get(k)}
 
 
-class ReporterCopyrightEvidenceView(APIView):
-    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
-    throttle_scope = 'burst'
-
-    def post(self, request, case_id):
-        serializer = CopyrightEvidenceSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response({'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-        d = serializer.validated_data
-        try:
-            case = submit_reporter_evidence(
-                case_id=case_id,
-                user=request.user,
-                message=d.get('message', ''),
-                metadata=d.get('metadata') or {},
-                attachments=d.get('attachments') or [],
-            )
-            visible_case, messages = get_reporter_case(case.id, request.user)
-            return Response(
-                CopyrightCaseDetailSerializer(visible_case, context={'visible_messages': messages}).data,
-                status=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return _error_response(exc)
-
-
-class InstructorCopyrightCaseListView(APIView):
-    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+class AdminReportStatsView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
     def get(self, request):
-        try:
-            cases = list_instructor_cases(request.user)
-            paginator = StandardPagination()
-            page = paginator.paginate_queryset(cases, request)
-            serializer = CopyrightCaseSerializer(page, many=True)
-            return paginator.get_paginated_response(serializer.data)
-        except Exception as exc:
-            return _error_response(exc)
+        return Response(get_report_statistics(_collect_report_filters(request)), status=status.HTTP_200_OK)
 
 
-class InstructorCopyrightCaseDetailView(APIView):
-    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+class AdminReportExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
-    def get(self, request, case_id):
-        try:
-            case, messages = get_instructor_case(case_id, request.user)
-            return Response(
-                CopyrightCaseDetailSerializer(case, context={'visible_messages': messages}).data,
-                status=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return _error_response(exc)
+    def get(self, request):
+        csv_data = export_reports_csv(_collect_report_filters(request))
+        response = HttpResponse(csv_data, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="reports.csv"'
+        return response
 
 
-class InstructorCopyrightResponseView(APIView):
-    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
+class AdminCopyrightCaseExportView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
     throttle_scope = 'burst'
 
-    def post(self, request, case_id):
-        serializer = InstructorCopyrightResponseSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response({'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-        d = serializer.validated_data
-        try:
-            case = submit_instructor_response(
-                case_id=case_id,
-                user=request.user,
-                response_type=d['response_type'],
-                message=d.get('message', ''),
-                metadata=d.get('metadata') or {},
-                attachments=d.get('attachments') or [],
-            )
-            visible_case, messages = get_instructor_case(case.id, request.user)
-            return Response(
-                CopyrightCaseDetailSerializer(visible_case, context={'visible_messages': messages}).data,
-                status=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return _error_response(exc)
-
-
-class InstructorCopyrightSubmitFixView(APIView):
-    permission_classes = [RolePermissionFactory(['instructor', 'admin'])]
-    throttle_scope = 'burst'
-
-    def post(self, request, case_id):
-        try:
-            case = submit_instructor_fix(
-                case_id=case_id,
-                user=request.user,
-                message=request.data.get('message', ''),
-            )
-            visible_case, messages = get_instructor_case(case.id, request.user)
-            return Response(
-                CopyrightCaseDetailSerializer(visible_case, context={'visible_messages': messages}).data,
-                status=status.HTTP_200_OK,
-            )
-        except Exception as exc:
-            return _error_response(exc)
+    def get(self, request):
+        csv_data = export_copyright_cases_csv(_collect_report_filters(request))
+        response = HttpResponse(csv_data, content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="copyright_cases.csv"'
+        return response
 
 
 class AdminCopyrightCaseListView(APIView):
@@ -303,8 +216,9 @@ class AdminCopyrightActionView(APIView):
                 action=d['action'],
                 message=d.get('message', ''),
                 severity=d.get('severity') or None,
-                deadline_days=d.get('deadline_days') or 7,
-                share_reporter_evidence=d.get('share_reporter_evidence', False),
+                count_as_strike=d.get('count_as_strike', True),
+                with_refund=d.get('with_refund', True),
+                with_hold=d.get('with_hold', True),
             )
             refreshed, messages = get_admin_case(case.id)
             return Response(

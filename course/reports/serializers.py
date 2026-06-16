@@ -26,7 +26,6 @@ class ReportCaseSerializer(serializers.Serializer):
     reason_breakdown = serializers.DictField(child=serializers.IntegerField())
     last_reported_at = serializers.DateTimeField(allow_null=True)
     copyright_case_id = serializers.IntegerField(allow_null=True, required=False)
-    copyright_overdue = serializers.BooleanField(required=False, default=False)
 
 
 class IndividualReportSerializer(serializers.Serializer):
@@ -87,8 +86,6 @@ class CopyrightCaseSerializer(serializers.ModelSerializer):
     reporter_count = serializers.SerializerMethodField()
     held_amount = serializers.SerializerMethodField()
     active_hold_count = serializers.SerializerMethodField()
-    is_reporter_deadline_overdue = serializers.SerializerMethodField()
-    is_instructor_deadline_overdue = serializers.SerializerMethodField()
 
     class Meta:
         model = CopyrightCase
@@ -111,10 +108,6 @@ class CopyrightCaseSerializer(serializers.ModelSerializer):
             'severity',
             'content_action',
             'financial_action',
-            'reporter_deadline_at',
-            'instructor_deadline_at',
-            'is_reporter_deadline_overdue',
-            'is_instructor_deadline_overdue',
             'reporter_count',
             'held_amount',
             'active_hold_count',
@@ -149,14 +142,6 @@ class CopyrightCaseSerializer(serializers.ModelSerializer):
 
     def get_active_hold_count(self, obj):
         return sum(1 for hold in obj.earning_holds.all() if hold.status == 'active')
-
-    def get_is_reporter_deadline_overdue(self, obj):
-        from django.utils import timezone
-        return bool(obj.reporter_deadline_at and obj.reporter_deadline_at < timezone.now())
-
-    def get_is_instructor_deadline_overdue(self, obj):
-        from django.utils import timezone
-        return bool(obj.instructor_deadline_at and obj.instructor_deadline_at < timezone.now())
 
 
 class CopyrightCaseDetailSerializer(CopyrightCaseSerializer):
@@ -194,31 +179,12 @@ class CopyrightCaseDetailSerializer(CopyrightCaseSerializer):
         ], many=True).data
 
 
-class CopyrightEvidenceSerializer(serializers.Serializer):
-    message = serializers.CharField(required=False, allow_blank=True, default='', max_length=4000)
-    metadata = serializers.JSONField(required=False, default=dict)
-    attachments = serializers.ListField(child=serializers.DictField(), required=False, default=list)
-
-
-class InstructorCopyrightResponseSerializer(serializers.Serializer):
-    response_type = serializers.ChoiceField(choices=['dispute', 'accept_and_fix', 'request_clarification'])
-    message = serializers.CharField(required=False, allow_blank=True, default='', max_length=4000)
-    metadata = serializers.JSONField(required=False, default=dict)
-    attachments = serializers.ListField(child=serializers.DictField(), required=False, default=list)
-
-
 class AdminCopyrightActionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=[
-        'request_reporter_info',
-        'request_instructor_response',
-        'suspend_sale_hold',
-        'hide_lesson_hold',
-        'suspend_access_hold',
-        'confirm_takedown',
-        'reject_restore',
-        'close_insufficient',
-        'escalate_legal',
-        'restore_release',
+        'suspend_sale',
+        'freeze',
+        'takedown',
+        'restore',
     ])
     message = serializers.CharField(required=False, allow_blank=True, default='', max_length=4000)
     severity = serializers.ChoiceField(
@@ -226,5 +192,6 @@ class AdminCopyrightActionSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
     )
-    deadline_days = serializers.IntegerField(required=False, min_value=1, max_value=30, default=7)
-    share_reporter_evidence = serializers.BooleanField(required=False, default=False)
+    count_as_strike = serializers.BooleanField(required=False, default=True)
+    with_refund = serializers.BooleanField(required=False, default=True)
+    with_hold = serializers.BooleanField(required=False, default=True)

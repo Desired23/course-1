@@ -17,12 +17,27 @@ class Support(models.Model):
         ('urgent', 'urgent'),
     ]
 
+    TYPE_CHOICES = [
+        ('general', 'general'),
+        ('course_deletion_request', 'course_deletion_request'),
+        ('refund', 'refund'),
+        ('copyright', 'copyright'),
+        ('other', 'other'),
+    ]
+
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='support_user')
     name = models.CharField(max_length=100, null=True, blank=True)
     email = models.EmailField(max_length=100)
     subject = models.CharField(max_length=255)
     message = models.TextField()
+    ticket_type = models.CharField(max_length=32, choices=TYPE_CHOICES, default='general')
+    course = models.ForeignKey(
+        'courses.Course', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='support_tickets',
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    resolution = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     created_at = models.DateTimeField(auto_now_add=True)

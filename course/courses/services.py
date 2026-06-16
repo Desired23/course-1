@@ -76,14 +76,6 @@ def recalc_course_students(course_id):
     Course.objects.filter(id=course_id).update(total_students=total)
 
 
-def course_has_student_access(course):
-    return Enrollment.objects.filter(
-        course=course,
-        is_deleted=False,
-        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
-    ).exists()
-
-
 def recalc_course_structure(course_id):
     from coursemodules.models import CourseModule
     from lessons.models import Lesson
@@ -397,10 +389,6 @@ def update_course(course_id, data, requesting_user=None):
                     raise ValidationError(
                         f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
                     )
-                if normalized_status == Course.Status.ARCHIVED and course_has_student_access(course):
-                    raise ValidationError(
-                        "Không thể lưu trữ khóa học đang có học viên học hoặc đã hoàn thành."
-                    )
             payload['status'] = normalized_status
 
         serializer = CourseSerializer(course, data=payload, partial=True)
@@ -561,14 +549,36 @@ def validate_course_data(data):
     return {"errors": serializer.errors}
 
 
-def moderate_course(course_id, action, reason=''):
+# Hành động xử lý vi phạm — đi qua copyright-case pipeline (hold/refund/strike).
+COURSE_VIOLATION_ACTIONS = {'suspend_sale', 'freeze', 'takedown', 'restore'}
+
+
+def moderate_course(course_id, action, reason='', actor=None,
+                    count_as_strike=True, with_refund=True, with_hold=True):
     from rest_framework.exceptions import NotFound
+
+    action = (action or '').strip().lower()
+
+    # Vi phạm bản quyền: tái dùng pipeline case (tạo case do admin chủ động nếu
+    # chưa có report nào), để hold/refund/strike chạy thống nhất ở mọi nơi.
+    if action in COURSE_VIOLATION_ACTIONS:
+        from reports.copyright_services import get_or_create_admin_case, admin_action
+        case = get_or_create_admin_case(course_id, actor)
+        admin_action(
+            case.id, actor, action, message=reason,
+            count_as_strike=count_as_strike, with_refund=with_refund, with_hold=with_hold,
+        )
+        try:
+            return Course.objects.get(id=course_id)
+        except Course.DoesNotExist:
+            raise NotFound("Course not found.")
+
+    # Vòng đời duyệt bài.
     try:
         course = Course.objects.get(id=course_id, is_deleted=False)
     except Course.DoesNotExist:
         raise NotFound("Course not found.")
 
-    action = (action or '').strip().lower()
     if action == 'approve':
         course.status = Course.Status.PUBLISHED
         course.admin_hidden = False
@@ -580,45 +590,12 @@ def moderate_course(course_id, action, reason=''):
         course.admin_hidden = True
     elif action == 'dismiss':
         pass
-    elif action == 'hide':
-        course.admin_hidden = True
-    elif action == 'hard_block':
-        course.is_hard_blocked = True
-        course.admin_hidden = True
-    elif action == 'unblock':
-        course.is_hard_blocked = False
-        course.admin_hidden = False
-        if course.status == Course.Status.ARCHIVED:
-            course.status = Course.Status.PUBLISHED
-    elif action == 'delete':
-        if _course_has_bound_data(course):
-            raise ValidationError({
-                'error': 'Khóa học đã có dữ liệu học tập/giao dịch. Dùng hide hoặc hard_block thay vì xóa.'
-            })
-        course.is_deleted = True
-        course.deleted_at = timezone.now()
     else:
-        raise ValidationError({'error': 'Invalid action. Use: approve, reject, archive, dismiss, hide, hard_block, unblock, delete'})
+        raise ValidationError({
+            'error': 'Invalid action. Use: approve, reject, archive, dismiss, '
+                     'suspend_sale, freeze, takedown, restore'
+        })
 
     course.save()
-    try:
-        if action in ('reject', 'archive', 'hide', 'hard_block', 'unblock', 'delete'):
-            from notifications.services import create_notification
-            instructor_user_id = course.instructor.user_id if course.instructor else None
-            if instructor_user_id:
-                if action in ('reject', 'archive', 'unblock'):
-                    return course
-                if action == 'hard_block':
-                    action = 'hide'
-                create_notification(
-                    receiver_id=instructor_user_id,
-                    title="Khóa học của bạn đã bị xử lý",
-                    message=f"Khóa học \"{course.title}\" đã bị {'gỡ xuống' if action == 'hide' else 'xóa'} do vi phạm chính sách.",
-                    type='other',
-                    related_id=course.id,
-                    notification_code='course_moderated',
-                )
-    except Exception:
-        pass
     return course
 

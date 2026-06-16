@@ -204,32 +204,21 @@ export function LessonEditorMain({
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.type')}</label>
-                          <Select
-                            value={newLesson.type}
-                            onValueChange={(value) => onNewLessonChange({ ...newLesson, type: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="video">{t('lesson_editor_main.lesson_types.video')}</SelectItem>
-                              <SelectItem value="quiz">{t('lesson_editor_main.lesson_types.quiz')}</SelectItem>
-                              <SelectItem value="code">{t('lesson_editor_main.lesson_types.code')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-medium mb-1 block">{t('common.duration')}</label>
-                          <Input
-                            placeholder="5:00"
-                            value={newLesson.duration}
-                            onChange={(e) => onNewLessonChange({ ...newLesson, duration: e.target.value })}
-                          />
-                        </div>
+                      <div>
+                        <label className="text-xs font-medium mb-1 block">{t('lesson_editor_main.type')}</label>
+                        <Select
+                          value={newLesson.type}
+                          onValueChange={(value) => onNewLessonChange({ ...newLesson, type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="video">{t('lesson_editor_main.lesson_types.video')}</SelectItem>
+                            <SelectItem value="quiz">{t('lesson_editor_main.lesson_types.quiz')}</SelectItem>
+                            <SelectItem value="code">{t('lesson_editor_main.lesson_types.code')}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       <div>

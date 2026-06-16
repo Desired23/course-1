@@ -159,11 +159,7 @@ export function NotificationSidebar({
       case 'refund_requested':
         return '/admin/refunds'
 
-      // Copyright workflow
-      case 'copyright_reporter_info_required':
-        return relatedId ? `/reports/my/${relatedId}` : '/notifications'
-      case 'copyright_response_required':
-        return relatedId ? `/instructor/reports/${relatedId}` : '/instructor/reports'
+      // Copyright workflow (admin-managed; reporter/instructor in-app flow removed)
       case 'copyright_instructor_responded':
       case 'copyright_reporter_info_submitted':
         return relatedId ? `/admin/reports?tab=copyright&case=${relatedId}` : '/admin/reports?tab=copyright'

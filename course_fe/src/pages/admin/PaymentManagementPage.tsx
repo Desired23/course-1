@@ -517,21 +517,21 @@ export function PaymentManagementPage() {
   }
 
   const runConfirmedAction = async () => {
-    if (!confirmState.action) return
+    const action = confirmState.action
+    if (!action) return
+    setConfirmState({
+      open: false,
+      title: '',
+      description: '',
+      confirmLabel: t('common.confirm'),
+      destructive: false,
+      loading: false,
+      action: null,
+    })
     try {
-      setConfirmState(prev => ({ ...prev, loading: true }))
-      await confirmState.action()
-      setConfirmState({
-        open: false,
-        title: '',
-        description: '',
-        confirmLabel: t('common.confirm'),
-        destructive: false,
-        loading: false,
-        action: null,
-      })
+      await action()
     } catch {
-      setConfirmState(prev => ({ ...prev, loading: false }))
+      toast.error(t('payment_management.refund_action_failed'))
     }
   }
 

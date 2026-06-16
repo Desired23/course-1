@@ -228,7 +228,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
           variant="outline"
           className="w-full mt-4"
           onClick={() => {
-            if (userRole === 'admin') navigate('/admin/reports')
+            if (userRole === 'admin') navigate('/admin')
             else if (userRole === 'instructor') navigate('/instructor')
             else navigate('/my-learning')
           }}

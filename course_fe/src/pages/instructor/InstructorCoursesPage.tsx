@@ -236,8 +236,8 @@ export function InstructorCoursesPage() {
       return [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_to_draft')) }]
     }
     if (course.status === 'published') {
-      if ((course.total_students || 0) > 0) return []
-      return [{ label: t('instructor_courses.archive'), run: () => handleCourseStatusChange(course, 'archived', t('instructor_courses.confirm_archive')) }]
+      // Plan 1: cho phép archive kể cả khi đã có học viên (học viên cũ vẫn xem được).
+      return [{ label: t('instructor_courses.archive'), run: () => handleCourseStatusChange(course, 'archived', t('instructor_courses.confirm_archive_keep_access', 'Lưu trữ khóa học? Khóa học sẽ ngừng bán và khóa mọi tương tác (Q&A, bình luận, đánh giá, quiz), nhưng học viên đã mua vẫn xem được nội dung.')) }]
     }
     return []
   }
@@ -552,7 +552,7 @@ export function InstructorCoursesPage() {
                           )}
                           {course.status === 'published' && (course.total_students || 0) > 0 && (
                             <span className="text-xs text-amber-600">
-                              {t('instructor_courses.cannot_archive_has_students', 'Không thể lưu trữ khóa học đang có học viên.')}
+                              {t('instructor_courses.archive_keeps_access_notice', 'Lưu trữ sẽ ngừng bán và khóa tương tác; học viên đã mua vẫn xem được nội dung.')}
                             </span>
                           )}
                           <div className="flex flex-wrap gap-2">

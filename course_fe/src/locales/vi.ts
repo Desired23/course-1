@@ -1112,7 +1112,7 @@
   },
   trending_courses: {
     title: "Khóa học xu hướng",
-    subtitle: "Cập nhật những khóa học được yêu thích nhất",
+    subtitle: "Những khóa học có nhiều học viên nhất",
     view_all: "Xem tất cả",
     empty: "Chưa có khóa học xu hướng",
   },
@@ -1548,6 +1548,7 @@
     continue_learning: "Tiếp tục học",
     in_subscription: "Trong gói đăng ký",
     start_learning: "Học ngay",
+    enroll_subscription: "Đăng ký học",
   },
   dashboard_sidebar: {
     back_to_platform: "Quay lại nền tảng",
@@ -3214,6 +3215,8 @@
     loading: "Đang tải khóa học...",
     load_failed: "Không thể tải khóa học",
     not_enrolled: "Bạn chưa đăng ký khóa học này.",
+    course_blocked: "Khóa học đang bị khóa do vi phạm chính sách. Vui lòng liên hệ hỗ trợ.",
+    access_revoked: "Quyền truy cập khóa học đã bị thu hồi.",
     not_found: "Không tìm thấy khóa học",
     back_to_my_learning: "Quay lại học tập của tôi",
     retry: "Thử lại",
@@ -4393,6 +4396,7 @@
       video_too_large: "Kích thước video phải nhỏ hơn hoặc bằng 200MB",
       upload_video_success: "Tải video lên thành công",
       upload_video_failed: "Tải video lên thất bại",
+      video_uploading: "Video đang được tải lên, vui lòng đợi tải xong rồi mới lưu.",
       objective_required: "Vui lòng nhập mục tiêu học tập",
       requirement_required: "Vui lòng nhập yêu cầu",
       audience_required: "Vui lòng nhập đối tượng học viên",
@@ -9258,6 +9262,7 @@
       load_lesson_data: "Không thể tải dữ liệu bài học",
       enter_lesson_title: "Vui lòng nhập tiêu đề bài học",
       save_lesson: "Không thể lưu bài học",
+      video_uploading: "Video đang được tải lên, vui lòng đợi tải xong rồi mới lưu.",
     },
     confirms: {
       unsaved_changes: "Bạn có thay đổi chưa lưu. Bạn có chắc muốn rời đi không?",

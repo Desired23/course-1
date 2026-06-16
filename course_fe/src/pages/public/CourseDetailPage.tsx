@@ -87,7 +87,7 @@ export function CourseDetailPage() {
   const { user, isAuthenticated } = useAuth()
   const { openChatWithUser } = useChat()
   const { navigate, currentRoute } = useRouter()
-  const { isOwned: isEnrolled, refresh: refreshOwned } = useOwnedCourses()
+  const { refresh: refreshOwned } = useOwnedCourses()
 
 
   useEffect(() => {
@@ -125,11 +125,11 @@ export function CourseDetailPage() {
   const isCourseInSubscription = accessInfo?.in_subscription || false
   const subscriptionPlan = accessInfo?.subscription_plan || null
   const reviewProgress = Number(courseData?.user_enrollment?.progress ?? 0)
-  const canReviewCourse = canAccessCourse && reviewProgress > 50
+  const isArchivedCourse = courseData?.status === 'archived'
+  const canReviewCourse = canAccessCourse && reviewProgress > 50 && !isArchivedCourse
 
 
   const courseId = courseData?.id || 0
-  const enrolled = isEnrolled(courseId)
 
   const isFree = courseData ? getEffectivePrice(courseData) === 0 : false
 
@@ -294,7 +294,7 @@ export function CourseDetailPage() {
   const courseRating = courseData ? parseDecimal(courseData.rating) : 0
   const hasDiscount = !discountExpired && effectivePrice < regularPrice
   const discountEndDate = courseData?.discount_end_date || null
-  const needsSubscriptionEnrollment = canAccessCourse && accessType === 'subscription' && !enrolled
+  const needsSubscriptionEnrollment = canAccessCourse && accessType === 'subscription' && !!accessInfo?.requires_enrollment
   const canGoToPlayerDirectly = canAccessCourse && !needsSubscriptionEnrollment
 
   const handleAddToCart = async () => {
@@ -996,8 +996,15 @@ export function CourseDetailPage() {
             <div className="space-y-4" id="reviews">
                <h3 className="text-xl font-bold">{t('course_detail.student_feedback')}</h3>
 
+               {isArchivedCourse && (
+                 <Card className="mb-4 border-amber-300 bg-amber-50">
+                   <CardContent className="p-4 text-sm text-amber-800">
+                     {t('course_detail.archived_banner', 'Khóa học này đã được lưu trữ và không còn nhận hỗ trợ từ giảng viên. Bạn vẫn có thể xem nội dung đã mua.')}
+                   </CardContent>
+                 </Card>
+               )}
 
-               {isAuthenticated && canAccessCourse && !canReviewCourse && (
+               {isAuthenticated && canAccessCourse && !isArchivedCourse && !canReviewCourse && (
                  <Card className="mb-4">
                    <CardContent className="p-4 text-sm text-muted-foreground">
                      {t('course_detail.review_requires_progress', 'Bạn cần học hơn 50% khóa học trước khi đánh giá.')}

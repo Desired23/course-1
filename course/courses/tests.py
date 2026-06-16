@@ -73,7 +73,9 @@ class InstructorCourseStatusTests(TestCase):
             published_date=timezone.now(),
         )
 
-    def test_instructor_cannot_archive_course_with_active_student_access(self):
+    def test_instructor_can_archive_course_with_active_student_access(self):
+        # Plan 1: archive = ngừng bán nhưng học viên cũ vẫn xem; cho phép archive
+        # ngay cả khi có học viên đang học.
         student = make_user("student", username="active_course_student")
         Enrollment.objects.create(
             user=student,
@@ -88,9 +90,9 @@ class InstructorCourseStatusTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.status_code, 200, response.content)
         self.course.refresh_from_db()
-        self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+        self.assertEqual(self.course.status, Course.Status.ARCHIVED)
 
     def test_instructor_restore_archived_course_sends_to_review(self):
         self.course.status = Course.Status.ARCHIVED

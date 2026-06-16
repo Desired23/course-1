@@ -171,6 +171,11 @@ def submit_quiz(data, user):
 
         check_lesson_access(user, lesson)
 
+        from utils.course_access import ensure_course_interaction_allowed
+        ensure_course_interaction_allowed(
+            lesson.coursemodule.course if lesson.coursemodule else None
+        )
+
         try:
             enrollment = Enrollment.objects.get(
                 user=user,

@@ -12,7 +12,6 @@ import {
   Video,
   Code,
   HelpCircle,
-  Clock,
   Eye,
   EyeOff,
   ChevronDown,
@@ -95,23 +94,6 @@ export function BasicTab({ lesson, onUpdate }: BasicTabProps) {
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-
-      <div className="space-y-2">
-        <Label htmlFor="duration">
-          <Clock className="h-3.5 w-3.5 inline mr-1" />
-          {t('lesson_editor.duration')}
-        </Label>
-        <Input
-          id="duration"
-          value={lesson.duration}
-          onChange={(e) => onUpdate({ duration: e.target.value })}
-          placeholder={t('lesson_editor.duration_placeholder')}
-        />
-        <p className="text-xs text-muted-foreground">
-          {t('lesson_editor.duration_hint')}
-        </p>
       </div>
 
 

@@ -53,7 +53,6 @@ function AppContent() {
     }
   }, [darkMode])
 
-
   const isPlayerPage = currentPath.startsWith('/course/') && currentPath.includes('/learn')
   const isAuthPage = currentPath === '/login' || currentPath === '/signup'
   const isCheckoutPage = currentPath.startsWith('/checkout') || currentPath.startsWith('/payment/result')

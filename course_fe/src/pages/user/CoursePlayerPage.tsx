@@ -444,6 +444,7 @@ export function CoursePlayerPage() {
 
   const isInstructorPreview = course?.access_info?.access_type === 'instructor'
   const isAdminView = course?.access_info?.access_type === 'admin'
+  const isArchivedCourse = course?.status === 'archived'
   const isPreviewMode = !['purchase', 'subscription', 'admin', 'instructor'].includes(
     course?.access_info?.access_type ?? ''
   )
@@ -514,7 +515,15 @@ export function CoursePlayerPage() {
         if (courseData.access_info && !courseData.access_info.has_access) {
           setCourse(null)
           setCourseProgress(null)
-          setError(t('course_player.not_enrolled'))
+          setError(courseData.access_info.hard_blocked
+            ? t('course_player.course_blocked')
+            : t('course_player.not_enrolled'))
+          return
+        }
+        // Course is in the user's plan but not enrolled yet: send them to the
+        // course page to use the "Đăng ký học" button before learning.
+        if (courseData.access_info?.requires_enrollment) {
+          navigate(`/course/${courseId}`)
           return
         }
         setCourse(courseData)
@@ -637,10 +646,12 @@ export function CoursePlayerPage() {
     }
   }
 
-  const transformComment = async (c: LessonComment, replies: LessonComment[]): Promise<any> => {
+  const transformComment = async (c: LessonComment): Promise<any> => {
     const { name, initials } = await resolveCommentUser(c.user)
+    let replies: LessonComment[] = []
+    try { replies = await getAllReplies(c.id) } catch {}
     const transformedReplies = await Promise.all(
-      replies.map(async (r) => transformComment(r, []))
+      replies.map((r) => transformComment(r))
     )
     return {
       id: c.id,
@@ -660,11 +671,7 @@ export function CoursePlayerPage() {
     try {
       const rootComments = await getAllLessonComments(lessonId)
       const transformed = await Promise.all(
-        rootComments.map(async (rc) => {
-          let replies: LessonComment[] = []
-          try { replies = await getAllReplies(rc.id) } catch {}
-          return transformComment(rc, replies)
-        })
+        rootComments.map((rc) => transformComment(rc))
       )
       setComments(transformed)
     } catch {
@@ -745,8 +752,16 @@ export function CoursePlayerPage() {
         if (!cancelled) {
           setLessonResources(resources)
         }
-      } catch {
+      } catch (err: any) {
         if (!cancelled) {
+          // Quyền truy cập có thể bị thu hồi giữa chừng (admin chặn khóa học do
+          // vi phạm chính sách). Endpoint tài nguyên theo bài có enforce quyền,
+          // nên 403 ở đây nghĩa là phải đưa học viên ra khỏi trình phát.
+          if (err?.status === 403) {
+            toast.error(getErrorMessage(err, t('course_player.access_revoked')))
+            navigate('/my-learning')
+            return
+          }
           setLessonResources([])
         }
       } finally {
@@ -837,23 +852,9 @@ export function CoursePlayerPage() {
     setSeekRequest({ seconds, nonce: Date.now() })
   }
 
-  const handleBookmarksChange = async (nextBookmarks: number[]) => {
-    if (!currentLessonId) return
-    const lessonNotes = notes.filter(note => note.lessonId === currentLessonId)
-
-    try {
-      await persistLearningDataForLesson(currentLessonId, lessonNotes, nextBookmarks)
-      setBookmarksByLesson(prev => ({
-        ...prev,
-        [currentLessonId]: nextBookmarks,
-      }))
-    } catch {
-      toast.error(t('course_player.save_bookmark_failed'))
-    }
-  }
-
   const handlePostComment = async () => {
     if (isPreviewMode) { toast.info(t('course_player.preview_feature_locked')); return }
+    if (isArchivedCourse) { toast.info(t('course_player.archived_locked', 'Khóa học đã lưu trữ — không còn nhận tương tác.')); return }
     if (!newComment.trim() || !currentLessonId) return
     try {
       await createLessonComment({ lesson: currentLessonId, content: newComment.trim() })
@@ -866,6 +867,7 @@ export function CoursePlayerPage() {
   }
 
   const handlePostReply = async (parentId: number, content: string) => {
+    if (isArchivedCourse) { toast.info(t('course_player.archived_locked', 'Khóa học đã lưu trữ — không còn nhận tương tác.')); return }
     if (!content.trim() || !currentLessonId) return
     try {
       await createLessonComment({ lesson: currentLessonId, content: content.trim(), parent_comment: parentId })
@@ -1011,6 +1013,8 @@ export function CoursePlayerPage() {
     } finally {
       completionInFlightRef.current.delete(lessonId)
     }
+    // Chỉ tự chuyển bài với bài dạng video; bài quiz/code để người học tự bấm Next.
+    if (findLesson(curriculum, lessonId)?.type !== 'video') return
     setTimeout(() => {
       const next = findNextLesson(curriculum, lessonId)
       if (next) {
@@ -1288,8 +1292,6 @@ export function CoursePlayerPage() {
                   url={currentLesson.videoUrl || ''}
                   title={currentLesson.title}
                   transcript={currentTranscript}
-                  bookmarks={bookmarksByLesson[currentLessonId!] || []}
-                  onBookmarksChange={handleBookmarksChange}
                   onProgress={handleVideoProgress}
                   onComplete={() => handleLessonComplete(currentLessonId!)}
                   savedProgress={getSavedProgressForLesson(currentLessonId!)}
@@ -1303,8 +1305,6 @@ export function CoursePlayerPage() {
                   url={currentLesson.videoUrl || undefined}
                   title={currentLesson.title}
                   lessonId={currentLessonId!}
-                  bookmarks={bookmarksByLesson[currentLessonId!] || []}
-                  onBookmarksChange={handleBookmarksChange}
                   onProgress={handleVideoProgress}
                   onComplete={() => handleLessonComplete(currentLessonId!)}
                   savedProgress={getSavedProgressForLesson(currentLessonId!)}
@@ -1464,6 +1464,11 @@ export function CoursePlayerPage() {
 
                 <TabsContent value="comments" className="mt-0">
                    <div className="flex flex-col h-full">
+                      {isArchivedCourse && (
+                        <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                          {t('course_player.archived_banner', 'Khóa học này đã được lưu trữ và không còn nhận hỗ trợ từ giảng viên.')}
+                        </div>
+                      )}
                       <div className="mb-6">
                          <h3 className="font-medium mb-2">{t('course_player.add_comment')}</h3>
                          <div className="flex gap-3">
@@ -1478,7 +1483,7 @@ export function CoursePlayerPage() {
                                className="w-full bg-muted/30 border rounded-md p-2 text-sm min-h-[80px] focus:outline-none focus:ring-1 focus:ring-primary resize-none mb-2"
                              />
                              <div className="flex justify-end">
-                               <Button size="sm" disabled={!newComment.trim()} onClick={handlePostComment}>
+                               <Button size="sm" disabled={!newComment.trim() || isArchivedCourse} onClick={handlePostComment}>
                                  {t('course_player.post_comment')}
                                </Button>
                              </div>

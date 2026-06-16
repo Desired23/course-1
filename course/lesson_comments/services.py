@@ -15,7 +15,16 @@ def _broadcast_comment(lesson_id, action, payload):
         {"type": "send_comment", "data": {"action": action, "comment": payload}},
     )
 
+def _ensure_lesson_interaction_allowed(lesson_id):
+    from lessons.models import Lesson
+    from utils.course_access import ensure_course_interaction_allowed
+    lesson = Lesson.objects.select_related('coursemodule__course').filter(id=lesson_id).first()
+    course = lesson.coursemodule.course if lesson and lesson.coursemodule else None
+    ensure_course_interaction_allowed(course)
+
+
 def create_lesson_comment(user_id, lesson_id, content, parent_comment=None):
+    _ensure_lesson_interaction_allowed(lesson_id)
     try:
         serializer = LessonCommentSerializer(data={
             'user': user_id,
@@ -32,6 +41,9 @@ def create_lesson_comment(user_id, lesson_id, content, parent_comment=None):
     except Exception as e:
         raise ValidationError(f"Error creating lesson comment: {str(e)}")
 def update_lesson_comment(comment_id, content, votes=None):
+    existing = LessonComment.objects.filter(id=comment_id).first()
+    if existing:
+        _ensure_lesson_interaction_allowed(existing.lesson_id)
     try:
         comment = LessonComment.objects.get(id=comment_id)
         if content:

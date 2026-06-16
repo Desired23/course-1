@@ -189,6 +189,11 @@ export interface RevenueBreakdown {
   net_revenue: number
   retail_count: number
   subscription_count: number
+  estimated_revenue: number
+  realized_revenue: number
+  refunded_amount: number
+  transaction_count: number
+  refund_rate: number
 }
 
 export interface RevenueMonthlyEntry {
@@ -199,6 +204,11 @@ export interface RevenueMonthlyEntry {
   refunded: number
   net: number
   transactions?: number
+  estimated_revenue?: number
+  realized_revenue?: number
+  refunded_amount?: number
+  transaction_count?: number
+  refund_rate?: number
 }
 
 export interface CommissionAnalytics {
@@ -245,10 +255,15 @@ export interface CourseRevenueDetailRow {
   instructor_name: string | null
   category_name: string
   revenue: number
+  retail_revenue?: number
+  subscription_revenue?: number
   refunded: number
   net_revenue: number
+  realized_revenue?: number
   transactions: number
+  transaction_count?: number
   enrollments: number
+  enrollment_count?: number
 }
 
 export interface CategoryRevenueRow {
@@ -349,6 +364,40 @@ export interface EarningPayoutMetrics {
   per_instructor: EarningPayoutInstructorRow[]
 }
 
+export interface PromotionStatsRow {
+  promotion_id: number
+  code: string
+  owner_type: string
+  owner_name: string | null
+  used_count: number
+  discount_amount: number
+  total_discount: number
+  revenue_after_discount: number
+  status: string
+}
+
+export interface CreationStatsRow {
+  period: string
+  new_users: number
+  new_instructors: number
+  new_orders: number
+  new_refunds: number
+  new_payouts: number
+}
+
+export interface BestSellingCourseRow {
+  course_id: number
+  title: string
+  instructor_name: string | null
+  enrollment_count: number
+  retail_enrollment_count: number
+  subscription_enrollment_count: number
+  revenue: number
+  realized_revenue: number
+  refunded: number
+  rating: number
+}
+
 export interface ImportResult {
   success?: number
   created?: number
@@ -368,9 +417,15 @@ export async function getAdminRevenueBreakdown(dateFrom?: string, dateTo?: strin
   return http.get<RevenueBreakdown>('/admin/analytics/revenue-breakdown/', rangeParams(dateFrom, dateTo))
 }
 
-export async function getAdminRevenueMonthlyBreakdown(months = 12, dateFrom?: string, dateTo?: string): Promise<RevenueMonthlyEntry[]> {
+export async function getAdminRevenueMonthlyBreakdown(
+  months = 12,
+  dateFrom?: string,
+  dateTo?: string,
+  groupBy?: 'day' | 'week' | 'month' | 'quarter' | 'year',
+): Promise<RevenueMonthlyEntry[]> {
   return http.get<RevenueMonthlyEntry[]>('/admin/analytics/revenue-monthly-breakdown/', {
     months,
+    ...(groupBy ? { group_by: groupBy } : {}),
     ...rangeParams(dateFrom, dateTo),
   })
 }
@@ -422,10 +477,36 @@ export async function getAdminEarningPayoutMetrics(limit = 100, dateFrom?: strin
   })
 }
 
+export async function getAdminPromotionStats(limit = 100, dateFrom?: string, dateTo?: string): Promise<PromotionStatsRow[]> {
+  return http.get<PromotionStatsRow[]>('/admin/analytics/promotions/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+export async function getAdminCreationStats(
+  groupBy: 'day' | 'week' | 'month' | 'quarter' | 'year' = 'month',
+  dateFrom?: string,
+  dateTo?: string,
+): Promise<CreationStatsRow[]> {
+  return http.get<CreationStatsRow[]>('/admin/analytics/creation/', {
+    group_by: groupBy,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
+export async function getAdminBestSellingCourses(limit = 20, dateFrom?: string, dateTo?: string): Promise<BestSellingCourseRow[]> {
+  return http.get<BestSellingCourseRow[]>('/admin/analytics/best-selling/', {
+    limit,
+    ...rangeParams(dateFrom, dateTo),
+  })
+}
+
 export type BulkReportKey =
   | 'revenue_monthly'
   | 'revenue_quarterly'
   | 'revenue_yearly'
+  | 'realized_revenue'
   | 'revenue_instructor'
   | 'revenue_course'
   | 'revenue_category'
@@ -433,6 +514,9 @@ export type BulkReportKey =
   | 'subscription_metrics'
   | 'earning_payout'
   | 'refunds'
+  | 'promotion_stats'
+  | 'creation_stats'
+  | 'best_selling_courses'
 
 export async function exportAdminBulkReports(
   reports: BulkReportKey[],

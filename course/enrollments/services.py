@@ -5,7 +5,7 @@ from .models import Enrollment
 from django.utils import timezone
 from courses.models import Course
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from activity_logs.services import log_activity
 
 logger = logging.getLogger(__name__)
@@ -76,6 +76,22 @@ def create_enrollment(data):
             'certificate_issue_date': None,
         }
 
+        if dataCopy.get('source') == Enrollment.Source.SUBSCRIPTION and not dataCopy.get('subscription'):
+            from subscription_plans.models import UserSubscription
+            sub = UserSubscription.objects.filter(
+                user_id=dataCopy.get('user'),
+                status='active',
+                is_deleted=False,
+                plan__plan_courses__course_id=dataCopy.get('course'),
+                plan__plan_courses__status='active',
+                plan__plan_courses__is_deleted=False,
+            ).filter(
+                Q(end_date__isnull=True) | Q(end_date__gte=timezone.now())
+            ).first()
+            if not sub:
+                raise ValidationError({"subscription": "Bạn không có gói đăng ký phù hợp cho khóa học này."})
+            dataCopy['subscription'] = sub.id
+
         if dataCopy.get('user') and dataCopy.get('course'):
             existing = Enrollment.objects.filter(
                 user_id=dataCopy.get('user'),
@@ -144,9 +160,11 @@ def create_enrollment(data):
         raise
 
 def get_enrollment_by_user(user_id):
+    # Khóa học bị admin chặn truy cập (vi phạm chính sách) được ẩn khỏi "Khóa học
+    # của tôi". Khi admin khôi phục (is_hard_blocked=False) thì tự hiện lại.
     return Enrollment.objects.select_related(
         'course__instructor__user', 'course__category'
-    ).filter(user=user_id, is_deleted=False)
+    ).filter(user=user_id, is_deleted=False).exclude(course__is_hard_blocked=True)
 
 def find_enrollment_by_id(enrollment_id):
     try:

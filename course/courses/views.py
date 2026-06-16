@@ -206,5 +206,9 @@ class CourseModerationView(APIView):
             course_id,
             request.data.get('action'),
             request.data.get('reason', ''),
+            actor=request.user,
+            count_as_strike=request.data.get('count_as_strike', True),
+            with_refund=request.data.get('with_refund', True),
+            with_hold=request.data.get('with_hold', True),
         )
         return Response(CourseSerializer(course).data, status=status.HTTP_200_OK)
