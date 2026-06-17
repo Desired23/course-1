@@ -25,6 +25,8 @@ import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 type SortBy = 'recent_access' | 'newest_enrollment' | 'oldest_enrollment' | 'title_asc' | 'progress_desc'
 type LearningTab = 'all' | 'in-progress' | 'completed' | 'plan-courses' | 'bookmarks' | 'learning-paths'
 
+const MY_LEARNING_PAGE_SIZE = 6
+
 let learningPathsCache: { userId: string; paths: LearningPathSummary[]; loaded: boolean } | null = null
 
 function getCachedLearningPaths(userId: string | null) {
@@ -79,7 +81,6 @@ export function MyLearningPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('recent_access')
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(6)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
@@ -89,7 +90,6 @@ export function MyLearningPage() {
   const [planSearch, setPlanSearch] = useState('')
   const [debouncedPlanSearch, setDebouncedPlanSearch] = useState('')
   const [planCurrentPage, setPlanCurrentPage] = useState(1)
-  const [planPageSize, setPlanPageSize] = useState(6)
   const [planTotalCount, setPlanTotalCount] = useState(0)
   const [planTotalPages, setPlanTotalPages] = useState(1)
   const [recentCourses, setRecentCourses] = useState<Enrollment[]>([])
@@ -184,7 +184,7 @@ export function MyLearningPage() {
 
     getMyEnrollments({
       page: currentPage,
-      page_size: pageSize,
+      page_size: MY_LEARNING_PAGE_SIZE,
       status: statusFilter,
       search: debouncedSearch || undefined,
       sort_by: sortBy,
@@ -225,7 +225,7 @@ export function MyLearningPage() {
     return () => {
       cancelled = true
     }
-  }, [selectedTab, currentPage, pageSize, debouncedSearch, sortBy, isCourseTab, t])
+  }, [selectedTab, currentPage, debouncedSearch, sortBy, isCourseTab, t])
 
   useEffect(() => {
     if (!isPlanCoursesTab) return
@@ -236,7 +236,7 @@ export function MyLearningPage() {
 
     getMySubscriptionCourses({
       page: planCurrentPage,
-      page_size: planPageSize,
+      page_size: MY_LEARNING_PAGE_SIZE,
       search: debouncedPlanSearch || undefined,
     })
       .then((res) => {
@@ -259,7 +259,7 @@ export function MyLearningPage() {
     return () => {
       cancelled = true
     }
-  }, [isPlanCoursesTab, planCurrentPage, planPageSize, debouncedPlanSearch, t])
+  }, [isPlanCoursesTab, planCurrentPage, debouncedPlanSearch, t])
 
   useEffect(() => {
     const cached = getCachedLearningPaths(userCacheKey)
@@ -316,11 +316,11 @@ export function MyLearningPage() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedTab, search, sortBy, pageSize])
+  }, [selectedTab, search, sortBy])
 
   useEffect(() => {
     setPlanCurrentPage(1)
-  }, [debouncedPlanSearch, planPageSize])
+  }, [debouncedPlanSearch])
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages)
@@ -338,7 +338,7 @@ export function MyLearningPage() {
 
   const renderCardSkeleton = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-      {Array.from({ length: pageSize }).map((_, index) => (
+      {Array.from({ length: MY_LEARNING_PAGE_SIZE }).map((_, index) => (
         <div key={`skeleton-${index}`} className="overflow-hidden rounded-lg border bg-card p-4 space-y-4">
           <Skeleton className="h-40 w-full rounded-md" />
           <Skeleton className="h-5 w-4/5" />
@@ -713,7 +713,7 @@ export function MyLearningPage() {
           </TabsList>
 
           {isCourseTab && (
-            <motion.div variants={fadeInUp} className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <motion.div variants={fadeInUp} className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
               <input
                 className="h-9 rounded-md border px-3 text-sm"
                 value={search}
@@ -726,11 +726,6 @@ export function MyLearningPage() {
                 <option value="oldest_enrollment">{t('my_learning.sort_oldest_enrollment')}</option>
                 <option value="title_asc">{t('my_learning.sort_title')}</option>
                 <option value="progress_desc">{t('my_learning.sort_progress')}</option>
-              </select>
-              <select className="h-9 rounded-md border px-3 text-sm" value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))}>
-                <option value="6">{t('my_learning.page_size.six')}</option>
-                <option value="9">{t('my_learning.page_size.nine')}</option>
-                <option value="12">{t('my_learning.page_size.twelve')}</option>
               </select>
               <Button
                 variant="ghost"
@@ -746,18 +741,13 @@ export function MyLearningPage() {
           )}
 
           {isPlanCoursesTab && (
-            <motion.div variants={fadeInUp} className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <motion.div variants={fadeInUp} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
               <input
                 className="h-9 rounded-md border px-3 text-sm"
                 value={planSearch}
                 onChange={(event) => setPlanSearch(event.target.value)}
                 placeholder={t('my_learning.plan_search_placeholder')}
               />
-              <select className="h-9 rounded-md border px-3 text-sm" value={String(planPageSize)} onChange={(event) => setPlanPageSize(Number(event.target.value))}>
-                <option value="6">{t('my_learning.page_size.six')}</option>
-                <option value="9">{t('my_learning.page_size.nine')}</option>
-                <option value="12">{t('my_learning.page_size.twelve')}</option>
-              </select>
               <Button
                 variant="ghost"
                 className="h-9"

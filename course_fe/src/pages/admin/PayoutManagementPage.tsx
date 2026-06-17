@@ -4,13 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Badge } from '../../components/ui/badge'
-import { Label } from '../../components/ui/label'
-import { Textarea } from '../../components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import AutoApproveToggle from '../../components/admin/AutoApproveToggle'
-import { DollarSign, Download, RefreshCw, Check, X } from 'lucide-react'
+import { DollarSign, Download, RefreshCw, Play } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
@@ -18,8 +14,7 @@ import { UserPagination } from '../../components/UserPagination'
 import { exportInstructorPayouts } from '../../services/admin.api'
 import {
   getInstructorPayoutsPage,
-  approvePayout,
-  rejectPayout,
+  runMonthlyPayouts,
   formatPayoutAmount,
   getPayoutStatusLabel,
   getPayoutStatusColor,
@@ -37,20 +32,14 @@ export function PayoutManagementPage() {
   const [payoutExportStatus, setPayoutExportStatus] = useState('')
   const [payoutExportInstructorId, setPayoutExportInstructorId] = useState('')
   const [isPayoutExporting, setIsPayoutExporting] = useState(false)
-  // Admin payout management (request approval flow)
+  // Admin payout management (automatic periodic payouts, view-only history)
   const [managedPayouts, setManagedPayouts] = useState<InstructorPayout[]>([])
   const [payoutsLoading, setPayoutsLoading] = useState(false)
-  const [payoutFilterStatus, setPayoutFilterStatus] = useState<PayoutStatus | ''>('pending')
+  const [payoutFilterStatus, setPayoutFilterStatus] = useState<PayoutStatus | ''>('')
   const [payoutFilterInstructorId, setPayoutFilterInstructorId] = useState('')
   const [payoutsMgmtPage, setPayoutsMgmtPage] = useState(1)
   const [payoutsMgmtTotalPages, setPayoutsMgmtTotalPages] = useState(1)
-  const [approveTarget, setApproveTarget] = useState<InstructorPayout | null>(null)
-  const [approveTxnId, setApproveTxnId] = useState('')
-  const [approveFee, setApproveFee] = useState('')
-  const [approveNotes, setApproveNotes] = useState('')
-  const [rejectTarget, setRejectTarget] = useState<InstructorPayout | null>(null)
-  const [rejectNotes, setRejectNotes] = useState('')
-  const [payoutActionSubmitting, setPayoutActionSubmitting] = useState(false)
+  const [isRunningPayouts, setIsRunningPayouts] = useState(false)
 
   const loadManagedPayouts = useCallback(async () => {
     setPayoutsLoading(true)
@@ -75,39 +64,17 @@ export function PayoutManagementPage() {
     void loadManagedPayouts()
   }, [loadManagedPayouts])
 
-  const submitApprovePayout = async () => {
-    if (!approveTarget) return
-    setPayoutActionSubmitting(true)
+  const handleRunPayouts = async () => {
+    setIsRunningPayouts(true)
     try {
-      await approvePayout(approveTarget.id, {
-        transaction_id: approveTxnId.trim() || undefined,
-        fee: approveFee ? Number(approveFee) : 0,
-        notes: approveNotes.trim() || undefined,
-      })
-      toast.success(`Đã duyệt payout #${approveTarget.id}`)
-      setApproveTarget(null)
-      setApproveTxnId(''); setApproveFee(''); setApproveNotes('')
+      const res = await runMonthlyPayouts()
+      toast.success(`Đã chạy đợt chi trả: tạo ${res.payouts_created} payout`)
+      setPayoutsMgmtPage(1)
       await loadManagedPayouts()
     } catch (err: any) {
-      toast.error(err?.message || 'Duyệt payout thất bại')
+      toast.error(err?.message || 'Chạy đợt chi trả thất bại')
     } finally {
-      setPayoutActionSubmitting(false)
-    }
-  }
-
-  const submitRejectPayout = async () => {
-    if (!rejectTarget) return
-    setPayoutActionSubmitting(true)
-    try {
-      await rejectPayout(rejectTarget.id, { notes: rejectNotes.trim() || undefined })
-      toast.success(`Đã từ chối payout #${rejectTarget.id}`)
-      setRejectTarget(null)
-      setRejectNotes('')
-      await loadManagedPayouts()
-    } catch (err: any) {
-      toast.error(err?.message || 'Từ chối payout thất bại')
-    } finally {
-      setPayoutActionSubmitting(false)
+      setIsRunningPayouts(false)
     }
   }
 
@@ -129,24 +96,21 @@ export function PayoutManagementPage() {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      <div>
-        <h1 className="text-3xl mb-2">Rút tiền giảng viên</h1>
-        <p className="text-muted-foreground">Duyệt yêu cầu rút tiền và xuất dữ liệu payout của giảng viên.</p>
-      </div>
-
-      <div className="max-w-sm">
-        <AutoApproveToggle
-          settingKey="auto_approve_payout"
-          label={t('auto_approve.payout.label')}
-          description={t('auto_approve.payout.description')}
-        />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl mb-2">Chi trả giảng viên</h1>
+          <p className="text-muted-foreground">Hệ thống tự động chi trả định kỳ cho giảng viên. Theo dõi lịch sử và xuất dữ liệu payout tại đây.</p>
+        </div>
+        <Button className="gap-2" disabled={isRunningPayouts} onClick={() => void handleRunPayouts()}>
+          <Play className="h-4 w-4" /> {isRunningPayouts ? 'Đang chạy...' : 'Chạy payout ngay'}
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            Duyệt yêu cầu rút tiền
+            Lịch sử chi trả
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -191,8 +155,8 @@ export function PayoutManagementPage() {
                 <TableHead>Số tiền</TableHead>
                 <TableHead>Phương thức</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                <TableHead>Ngày yêu cầu</TableHead>
-                <TableHead className="w-[160px]">Thao tác</TableHead>
+                <TableHead>Ngày tạo</TableHead>
+                <TableHead>Ngày xử lý</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -208,20 +172,7 @@ export function PayoutManagementPage() {
                   <TableCell><Badge variant="outline">{p.payment_method || '-'}</Badge></TableCell>
                   <TableCell><Badge className={getPayoutStatusColor(p.status)}>{getPayoutStatusLabel(p.status)}</Badge></TableCell>
                   <TableCell>{new Date(p.request_date).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    {p.status === 'pending' ? (
-                      <div className="flex gap-1">
-                        <Button size="sm" onClick={() => { setApproveTarget(p); setApproveTxnId(''); setApproveFee(''); setApproveNotes('') }}>
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => { setRejectTarget(p); setRejectNotes('') }}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{p.transaction_id || '-'}</span>
-                    )}
-                  </TableCell>
+                  <TableCell>{p.processed_date ? new Date(p.processed_date).toLocaleDateString() : '-'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -333,53 +284,6 @@ export function PayoutManagementPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!approveTarget} onOpenChange={(open) => { if (!open) setApproveTarget(null) }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Duyệt payout #{approveTarget?.id}</DialogTitle>
-            <DialogDescription>
-              Số tiền: {approveTarget ? formatPayoutAmount(approveTarget.amount) : ''}. Nhập mã giao dịch sau khi đã chuyển khoản.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Mã giao dịch</Label>
-              <Input value={approveTxnId} onChange={(e) => setApproveTxnId(e.target.value)} placeholder="VD: FT24..." />
-            </div>
-            <div className="space-y-1">
-              <Label>Phí (VND)</Label>
-              <Input type="number" min={0} value={approveFee} onChange={(e) => setApproveFee(e.target.value)} placeholder="0" />
-            </div>
-            <div className="space-y-1">
-              <Label>Ghi chú</Label>
-              <Textarea value={approveNotes} onChange={(e) => setApproveNotes(e.target.value)} />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setApproveTarget(null)}>Hủy</Button>
-              <Button disabled={payoutActionSubmitting} onClick={() => void submitApprovePayout()}>Duyệt</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!rejectTarget} onOpenChange={(open) => { if (!open) setRejectTarget(null) }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Từ chối payout #{rejectTarget?.id}</DialogTitle>
-            <DialogDescription>Số dư sẽ được hoàn lại cho giảng viên.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label>Lý do</Label>
-              <Textarea value={rejectNotes} onChange={(e) => setRejectNotes(e.target.value)} placeholder="Lý do từ chối" />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setRejectTarget(null)}>Hủy</Button>
-              <Button variant="destructive" disabled={payoutActionSubmitting} onClick={() => void submitRejectPayout()}>Từ chối</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   )
 }

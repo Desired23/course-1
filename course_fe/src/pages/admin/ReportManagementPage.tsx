@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog'
 import {
   DropdownMenu,
@@ -191,7 +192,7 @@ export function ReportManagementPage() {
   const [withHold, setWithHold] = useState(true)
   const [stats, setStats] = useState<ReportStats | null>(null)
   const [statsFilters, setStatsFilters] = useState<ReportStatsFilters>({ group_by: 'day' })
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [selectedCase, setSelectedCase] = useState<ReportCase | null>(null)
   const [caseDetail, setCaseDetail] = useState<ReportCaseDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -294,6 +295,9 @@ export function ReportManagementPage() {
       setCopyrightDetail(detail)
       setCopyrightSeverity(detail.severity)
       setCopyrightMessage('')
+      setCountAsStrike(true)
+      setWithRefund(true)
+      setWithHold(true)
     } catch {
       toast.error('Không thể tải chi tiết case bản quyền.')
     }
@@ -308,7 +312,7 @@ export function ReportManagementPage() {
         action,
         message: copyrightMessage,
         severity: copyrightSeverity,
-        count_as_strike: action === 'takedown' ? countAsStrike : undefined,
+        count_as_strike: (action === 'freeze' || action === 'takedown') ? countAsStrike : undefined,
         with_refund: action === 'takedown' ? withRefund : undefined,
         with_hold: (action === 'suspend_sale' || action === 'freeze' || action === 'takedown') ? withHold : undefined,
       })
@@ -558,7 +562,11 @@ export function ReportManagementPage() {
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <p className="text-sm text-muted-foreground py-8 text-center">Đang tải...</p>
+                  <div className="space-y-3 py-2">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                      <Skeleton key={`report-case-skeleton-${index}`} className="h-14 w-full" />
+                    ))}
+                  </div>
                 ) : displayedCases.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">
                     Không có báo cáo nào.
@@ -871,8 +879,8 @@ export function ReportManagementPage() {
             {(() => {
               const detail = copyrightDetail || selectedCopyrightCase
               const actions: Array<{ label: string; action: CopyrightAdminAction; destructive?: boolean; hidden?: boolean; desc?: string; fields?: Array<'severity'> }> = [
-                { label: 'Ngừng bán', action: 'suspend_sale', fields: ['severity'], desc: 'Ẩn khóa khỏi marketplace (ngừng bán); học viên đã mua vẫn học. Tuỳ chọn hold earning.' },
-                { label: 'Đóng băng truy cập', action: 'freeze', fields: ['severity'], desc: 'Chặn cứng cả học viên đã mua (block access). Tuỳ chọn hold earning.' },
+                { label: 'Ngừng bán', action: 'suspend_sale', fields: ['severity'], desc: 'Ẩn khóa khỏi marketplace (ngừng bán); học viên đã mua vẫn học. Không tính gậy vi phạm.' },
+                { label: 'Đóng băng truy cập', action: 'freeze', fields: ['severity'], desc: 'Chặn cứng cả học viên đã mua (block access). Tuỳ chọn hold earning + tính 1 gậy vi phạm.' },
                 { label: 'Xác nhận vi phạm / takedown', action: 'takedown', destructive: true, desc: 'Gỡ bỏ vĩnh viễn (block cứng). Tuỳ chọn: hủy earning chưa trả + HOÀN TIỀN 100% cho người mua trong 30 ngày (trên 30 ngày vào danh sách đền bù thủ công) + tính 1 gậy vi phạm (gậy thứ 3 tự ban giảng viên). Bỏ tick để xử lý riêng ở trang refund/earning.' },
                 { label: 'Khôi phục', action: 'restore', desc: 'Khôi phục nội dung (bỏ ẩn/bỏ block) và giải phóng toàn bộ hold earning về khả dụng.' },
               ]
@@ -946,15 +954,18 @@ export function ReportManagementPage() {
                           </label>
                         )}
 
+                        {(selected.action === 'freeze' || selected.action === 'takedown') && (
+                          <label className="flex items-center gap-2 text-sm">
+                            <Checkbox checked={countAsStrike} onCheckedChange={(value) => setCountAsStrike(value === true)} />
+                            <span>Tính vụ này là 1 gậy vi phạm bản quyền (gậy thứ 3 sẽ tự ban giảng viên)</span>
+                          </label>
+                        )}
+
                         {selected.action === 'takedown' && (
                           <>
                             <label className="flex items-center gap-2 text-sm">
                               <Checkbox checked={withRefund} onCheckedChange={(value) => setWithRefund(value === true)} />
                               <span>Tự hoàn tiền 100% cho người mua trong 30 ngày (bỏ tick để xử lý riêng ở trang refund)</span>
-                            </label>
-                            <label className="flex items-center gap-2 text-sm">
-                              <Checkbox checked={countAsStrike} onCheckedChange={(value) => setCountAsStrike(value === true)} />
-                              <span>Tính vụ này là 1 gậy vi phạm bản quyền (gậy thứ 3 sẽ tự ban giảng viên)</span>
                             </label>
                           </>
                         )}

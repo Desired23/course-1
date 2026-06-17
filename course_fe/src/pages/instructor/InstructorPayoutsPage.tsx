@@ -5,8 +5,6 @@ import { formatCurrency, formatDate } from "../../utils/formatters"
 import { getMyInstructorProfile } from "../../services/instructor.api"
 import {
   getInstructorPayoutsPage,
-  requestPayout,
-  getMinPayout,
   formatPayoutAmount,
   type InstructorPayout,
 } from "../../services/instructor-payouts.api"
@@ -24,24 +22,19 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { Skeleton } from '../../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert"
 import { UserPagination } from "../../components/UserPagination"
 import { motion } from 'motion/react'
-import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Info, Crown, Loader2, Download } from "lucide-react"
+import { DollarSign, CheckCircle, Clock, TrendingUp, CreditCard, AlertCircle, Crown, Loader2, Download } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { listItemTransition } from '../../lib/motion'
 import { useNotificationRefetch } from "../../hooks/useNotificationRefetch"
 
 const EARNINGS_PER_PAGE = 10
 const PAYOUTS_PER_PAGE = 10
-// Minimum withdrawal threshold (VND). Backend (`min_payout` system setting) is the
-// authoritative source; this mirrors its default for client-side UX validation.
-const MIN_PAYOUT = 500000
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -89,16 +82,10 @@ export function InstructorPayoutsPage() {
   const [loading, setLoading] = useState(true)
   const [earningsLoading, setEarningsLoading] = useState(false)
   const [payoutsLoading, setPayoutsLoading] = useState(false)
-  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'earnings' | 'history' | 'methods'>('earnings')
   const [payoutExportDateFrom, setPayoutExportDateFrom] = useState('')
   const [payoutExportDateTo, setPayoutExportDateTo] = useState('')
   const [isPayoutExporting, setIsPayoutExporting] = useState(false)
-  const [selectedMethod, setSelectedMethod] = useState('')
-  const [payoutAmount, setPayoutAmount] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  // Live min-payout threshold from backend; MIN_PAYOUT is the fallback default.
-  const [minPayout, setMinPayout] = useState<number>(MIN_PAYOUT)
 
   useEffect(() => {
     if (user && !user.roles?.includes('instructor')) {
@@ -130,7 +117,6 @@ export function InstructorPayoutsPage() {
       }
     }
     fetchBase()
-    getMinPayout().then((v) => { if (!cancelled && v > 0) setMinPayout(v) }).catch(() => {})
     return () => { cancelled = true }
   }, [user?.id])
 
@@ -251,41 +237,6 @@ export function InstructorPayoutsPage() {
     return statusMap[status] || status
   }
 
-  const handleRequestPayout = async () => {
-    if (!selectedMethod) return toast.error(t('instructor_payouts.select_method_error'))
-    if (!payoutAmount || parseFloat(payoutAmount) <= 0) return toast.error(t('instructor_payouts.invalid_amount_error'))
-    const amount = parseFloat(payoutAmount)
-    if (amount < minPayout) return toast.error(t('instructor_payouts.minimum_amount_error'))
-    if (amount > availableBalance) return toast.error(t('instructor_payouts.insufficient_balance_error', { amount: formatCurrency(availableBalance) }))
-
-    setIsSubmitting(true)
-    try {
-      await requestPayout({
-        amount,
-        payout_method_id: Number(selectedMethod),
-        period: new Date().toISOString().slice(0, 7),
-      })
-      setIsRequestDialogOpen(false)
-      setSelectedMethod('')
-      setPayoutAmount('')
-      toast.success(t('instructor_payouts.request_success'))
-      if (instructorId) {
-        const [sumRes, payoutsRes] = await Promise.all([
-          getInstructorEarningsSummary(instructorId),
-          getInstructorPayoutsPage({ instructor_id: instructorId, page: historyPage, page_size: PAYOUTS_PER_PAGE }),
-        ])
-        setSummary(sumRes)
-        setPayouts(payoutsRes.results || [])
-        setPayoutsTotalPages(payoutsRes.total_pages || 1)
-        setPayoutsTotalCount(payoutsRes.count || 0)
-      }
-    } catch {
-      toast.error(t('instructor_payouts.request_failed'))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const earningsStart = earningsTotalCount === 0 ? 0 : (earningsPage - 1) * EARNINGS_PER_PAGE + 1
   const earningsEnd = Math.min(earningsPage * EARNINGS_PER_PAGE, earningsTotalCount)
   const payoutsStart = payoutsTotalCount === 0 ? 0 : (historyPage - 1) * PAYOUTS_PER_PAGE + 1
@@ -343,62 +294,6 @@ export function InstructorPayoutsPage() {
           <h1 className="text-3xl font-bold">{t('instructor_payouts.title')}</h1>
           <p className="text-muted-foreground">{t('instructor_payouts.subtitle')}</p>
         </div>
-        <Dialog open={isRequestDialogOpen} onOpenChange={setIsRequestDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2" disabled={availableBalance < minPayout}>
-              <DollarSign className="h-4 w-4" />
-              {t('instructor_payouts.request_button')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('instructor_payouts.request_dialog_title')}</DialogTitle>
-              <DialogDescription>{t('instructor_payouts.request_dialog_desc')}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">{t('instructor_payouts.available_balance')}</span>
-                  <span className="text-2xl font-bold text-green-600">{formatCurrency(availableBalance)}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs pt-2 border-t border-muted-foreground/20">
-                  <span className="text-muted-foreground">{t('instructor_payouts.from_sales')}</span>
-                  <span className="font-medium">{formatCurrency(salesEarnings)}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground">{t('instructor_payouts.from_subscriptions')}</span>
-                  <span className="font-medium">{formatCurrency(subscriptionEarnings)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">{t('instructor_payouts.withdraw_amount')}</Label>
-                <Input id="amount" type="number" placeholder="0.00" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} max={availableBalance} min={minPayout} />
-                <p className="text-xs text-muted-foreground">{t('instructor_payouts.amount_hint', { amount: formatCurrency(minPayout) })}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="method">{t('instructor_payouts.payment_method')}</Label>
-                <Select value={selectedMethod} onValueChange={setSelectedMethod}>
-                  <SelectTrigger><SelectValue placeholder={t('instructor_payouts.select_method')} /></SelectTrigger>
-                  <SelectContent>
-                    {payoutMethods.map((method) => (
-                      <SelectItem key={String(method.id)} value={String(method.id)}>
-                        {method.method_type === 'bank_transfer'
-                          ? `${method.bank_name} - ****${method.masked_account?.slice(-4) || ''}`
-                          : `${method.method_type} - ${method.masked_account || method.nickname || ''}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsRequestDialogOpen(false)}>{t('common.cancel')}</Button>
-              <Button onClick={handleRequestPayout} disabled={isSubmitting}>{isSubmitting ? t('instructor_payouts.submitting') : t('instructor_payouts.submit_request')}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </motion.div>
 
       <motion.div className="grid grid-cols-1 md:grid-cols-4 gap-4" variants={fadeInUp}>
@@ -408,34 +303,12 @@ export function InstructorPayoutsPage() {
         <Card className="app-interactive"><CardHeader className="pb-3"><div className="flex items-center justify-between"><CardDescription>{t('instructor_payouts.successful_requests')}</CardDescription><CheckCircle className="h-4 w-4 text-muted-foreground" /></div></CardHeader><CardContent><div className="text-2xl font-bold">{completedPayouts}</div><p className="text-xs text-muted-foreground mt-1">{t('instructor_payouts.completed_transactions')}</p></CardContent></Card>
       </motion.div>
 
-      {availableBalance < minPayout && (
-        <motion.div variants={fadeInUp}>
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertTitle>{t('instructor_payouts.low_balance_title')}</AlertTitle>
-          <AlertDescription>{t('instructor_payouts.low_balance_desc')}</AlertDescription>
-        </Alert>
-        </motion.div>
-      )}
-
-      {lockedBalance > 0 && (
-        <motion.div variants={fadeInUp}>
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>{t('instructor_payouts.locked_earnings_title')}</AlertTitle>
-          <AlertDescription>{t('instructor_payouts.locked_earnings_desc', { amount: formatCurrency(lockedBalance) })}</AlertDescription>
-        </Alert>
-        </motion.div>
-      )}
-
       {heldBalance > 0 && (
         <motion.div variants={fadeInUp}>
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Đang giữ earning do report bản quyền</AlertTitle>
-            <AlertDescription>
-              {formatPayoutAmount(heldBalance)} đang bị loại khỏi số dư có thể payout cho tới khi admin xử lý xong.
-            </AlertDescription>
+            <AlertTitle>{t('instructor_payouts.copyright_hold_title')}</AlertTitle>
+            <AlertDescription>{t('instructor_payouts.copyright_hold_desc', { amount: formatPayoutAmount(heldBalance) })}</AlertDescription>
           </Alert>
         </motion.div>
       )}
@@ -530,7 +403,7 @@ export function InstructorPayoutsPage() {
                               {earning.status === 'available' ? t('instructor_payouts.available') : earning.status === 'pending' ? t('instructor_payouts.pending_processing') : t('instructor_payouts.paid')}
                             </Badge>
                             {earning.active_hold && (
-                              <Badge variant="destructive">Đang giữ do report bản quyền</Badge>
+                              <Badge variant="destructive">{t('instructor_payouts.copyright_hold_badge')}</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -585,7 +458,7 @@ export function InstructorPayoutsPage() {
                         status: payoutStatusFilter !== 'all' ? payoutStatusFilter.toUpperCase() : undefined,
                       })
                     } catch {
-                      toast.error(t('instructor_payouts.export_failed', 'Xuất dữ liệu thất bại'))
+                      toast.error(t('instructor_payouts.export_failed'))
                     } finally {
                       setIsPayoutExporting(false)
                     }
@@ -608,7 +481,7 @@ export function InstructorPayoutsPage() {
                         status: payoutStatusFilter !== 'all' ? payoutStatusFilter.toUpperCase() : undefined,
                       })
                     } catch {
-                      toast.error(t('instructor_payouts.export_failed', 'Xuất dữ liệu thất bại'))
+                      toast.error(t('instructor_payouts.export_failed'))
                     } finally {
                       setIsPayoutExporting(false)
                     }

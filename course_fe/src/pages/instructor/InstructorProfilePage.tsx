@@ -95,6 +95,10 @@ type SectionDraft = {
 
 const EMPTY_SECTION: SectionDraft = { title: '', content: '', type: 'text', visible: true, images: [] }
 
+function formatContentHours(hours: number) {
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(1)
+}
+
 export function InstructorProfilePage() {
   const { user, hasPermission } = useAuth()
   const { t } = useTranslation()
@@ -151,7 +155,7 @@ export function InstructorProfilePage() {
             averageRating: dashStats.average_rating,
             totalReviews: dashStats.total_reviews,
             coursesCompleted: 0,
-            totalHours: 0,
+            totalHours: dashStats.total_content_hours,
           })
         } catch (err) {
           console.error('Failed to load instructor dashboard stats:', err)
@@ -385,7 +389,7 @@ export function InstructorProfilePage() {
           </div>
           {canEditProfile && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => window.open(`/instructor/${user?.id}/profile`, '_blank')}>
+              <Button variant="outline" onClick={() => instructor && window.open(`/instructor/${instructor.id}/profile`, '_blank')} disabled={!instructor}>
                 <Eye className="h-4 w-4 mr-2" />
                 {t('instructor_profile_page.actions.view_public_profile')}
               </Button>
@@ -537,7 +541,7 @@ export function InstructorProfilePage() {
                     <div className="text-sm text-muted-foreground">{t('instructor_profile_page.stats.average_rating')}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-purple-600">{stats.totalHours}h</div>
+                    <div className="text-3xl font-bold text-purple-600">{formatContentHours(stats.totalHours)}h</div>
                     <div className="text-sm text-muted-foreground">{t('instructor_profile_page.stats.content_hours')}</div>
                   </div>
                 </div>

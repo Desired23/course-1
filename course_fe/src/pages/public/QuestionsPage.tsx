@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { type Question, getQuestions, deleteQuestion } from '../../services/qa.api'
 import { QuestionCard } from '../../components/qa/QuestionCard'
 import { toast } from 'sonner'
+import { confirmDialog } from '../../utils/confirmDialog'
 
 type SortOption = 'newest' | 'votes' | 'unanswered'
 type TabOption = 'all' | 'mine'
@@ -86,7 +87,7 @@ export function QuestionsPage() {
   }
 
   const handleDelete = async (question: Question) => {
-    if (!confirm('Bạn có chắc muốn xóa câu hỏi này?')) return
+    if (!await confirmDialog('Bạn có chắc muốn xóa câu hỏi này?')) return
     try {
       await deleteQuestion(question.id)
       toast.success('Đã xóa câu hỏi')

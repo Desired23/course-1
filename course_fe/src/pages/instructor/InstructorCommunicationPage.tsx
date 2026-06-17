@@ -1,44 +1,36 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
+import {
+  Button as AntButton,
+  Form as AntForm,
+  Input as AntInput,
+  Radio as AntRadio,
+  Select as AntSelect,
+} from 'antd'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Badge } from "../../components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "../../components/ui/dialog"
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
-import { ScrollArea } from "../../components/ui/scroll-area"
 import { Progress } from "../../components/ui/progress"
 import { UserPagination } from "../../components/UserPagination"
 import {
   Send,
-  Search,
-  Clock,
-  Bell,
-  Mail,
-  Megaphone,
-  User,
-  Flag,
-  MoreVertical,
-  Paperclip,
   Trash2,
   Edit,
   Users,
   TrendingUp,
-  Star,
   Info,
   PlusCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
-import { useChat } from '../../contexts/ChatContext'
 import { getCourses, type CourseListItem } from '../../services/course.api'
-import { getInstructorDashboardStats, getMyInstructorProfile, type InstructorDashboardStats } from '../../services/instructor.api'
+import { getMyInstructorProfile } from '../../services/instructor.api'
 import {
   createInstructorAnnouncement,
   getInstructorAnnouncements,
@@ -46,7 +38,6 @@ import {
   updateInstructorAnnouncement,
   type InstructorAnnouncement,
 } from '../../services/notification.api'
-import { reportConversationMessage } from '../../services/chat.api'
 import { formatRelativeTime } from '../../utils/formatters'
 
 const sectionStagger = {
@@ -70,19 +61,6 @@ const fadeInUp = {
     },
   },
 }
-
-
-
-
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
-
 type AnnouncementView = InstructorAnnouncement & {
   id: string
   sentAt: string
@@ -103,16 +81,6 @@ function mapAnnouncementToView(item: InstructorAnnouncement): AnnouncementView {
 export function InstructorCommunicationPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const {
-    state: chatState,
-    setActiveConversation,
-    sendMessage,
-  } = useChat()
-  const [activeTab, setActiveTab] = useState('announcements')
-  const [summaryLoading, setSummaryLoading] = useState(false)
-  const [dashboardStats, setDashboardStats] = useState<InstructorDashboardStats | null>(null)
-  const [conversationQuery, setConversationQuery] = useState('')
-  const [conversationPage, setConversationPage] = useState(1)
   const [announcementTypeFilter, setAnnouncementTypeFilter] = useState('all')
   const [announcementPage, setAnnouncementPage] = useState(1)
   const [announcementLoading, setAnnouncementLoading] = useState(false)
@@ -124,7 +92,6 @@ export function InstructorCommunicationPage() {
     educational: { used: 0, limit: 4 },
     promotional: { used: 0, limit: 2 },
   })
-  const [messageInput, setMessageInput] = useState('')
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false)
   const [showEditAnnouncementDialog, setShowEditAnnouncementDialog] = useState(false)
   const [announcementEditing, setAnnouncementEditing] = useState<AnnouncementView | null>(null)
@@ -138,24 +105,6 @@ export function InstructorCommunicationPage() {
     title: '',
     content: '',
   })
-  useEffect(() => {
-    let cancelled = false
-    async function fetchCommunicationSummary() {
-      try {
-        setSummaryLoading(true)
-        const dashboard = await getInstructorDashboardStats()
-        if (cancelled) return
-        setDashboardStats(dashboard)
-      } catch (err) {
-        console.error('Failed to load communication summary:', err)
-      } finally {
-        if (!cancelled) setSummaryLoading(false)
-      }
-    }
-    fetchCommunicationSummary()
-    return () => { cancelled = true }
-  }, [])
-
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
@@ -207,59 +156,6 @@ export function InstructorCommunicationPage() {
     return () => { cancelled = true }
   }, [user?.id])
 
-  const filteredConversations = useMemo(() => {
-    const keyword = conversationQuery.trim().toLowerCase()
-    return chatState.conversations.map((conversation) => {
-      const participant = conversation.participants.find((item) => item.id !== user?.id)
-      return {
-        ...conversation,
-        student: {
-          name: participant?.name || 'Student',
-          avatar: participant?.avatar || '',
-          initials: getInitials(participant?.name || 'Student'),
-        },
-        timestamp: conversation.lastMessage
-          ? formatRelativeTime(conversation.lastMessage.timestamp)
-          : formatRelativeTime(conversation.updatedAt),
-        unread: conversation.unreadCount,
-        online: participant?.online ?? false,
-        lastMessageText: conversation.lastMessage?.content || 'Chưa có tin nhắn',
-      }
-    }).filter((conversation) => {
-      return conversation.student.name.toLowerCase().includes(keyword)
-    })
-  }, [chatState.conversations, conversationQuery, user?.id])
-  useEffect(() => {
-    setConversationPage(1)
-  }, [conversationQuery])
-
-  const CONVERSATIONS_PER_PAGE = 8
-  const conversationTotalPages = Math.max(1, Math.ceil(filteredConversations.length / CONVERSATIONS_PER_PAGE))
-  const paginatedConversations = filteredConversations.slice(
-    (conversationPage - 1) * CONVERSATIONS_PER_PAGE,
-    conversationPage * CONVERSATIONS_PER_PAGE
-  )
-
-  useEffect(() => {
-    if (conversationPage > conversationTotalPages) setConversationPage(conversationTotalPages)
-  }, [conversationPage, conversationTotalPages])
-
-  useEffect(() => {
-    if (chatState.activeConversationId && chatState.conversations.some((conversation) => conversation.id === chatState.activeConversationId)) {
-      return
-    }
-
-    const firstConversationId = chatState.conversations[0]?.id ?? null
-    if (firstConversationId) {
-      setActiveConversation(firstConversationId)
-      return
-    }
-
-    if (chatState.activeConversationId) {
-      setActiveConversation(null)
-    }
-  }, [chatState.activeConversationId, chatState.conversations, setActiveConversation])
-
   const filteredAnnouncements = announcements.filter((a) =>
     announcementTypeFilter === 'all' ? true : a.type === announcementTypeFilter
   )
@@ -277,65 +173,6 @@ export function InstructorCommunicationPage() {
   useEffect(() => {
     if (announcementPage > announcementTotalPages) setAnnouncementPage(announcementTotalPages)
   }, [announcementPage, announcementTotalPages])
-
-
-  const currentConversation = useMemo(() => {
-    const conversation = chatState.conversations.find(
-      (item) => item.id === chatState.activeConversationId
-    )
-    if (!conversation) return null
-    const participant = conversation.participants.find((item) => item.id !== user?.id)
-    return {
-      ...conversation,
-      student: {
-        name: participant?.name || 'Student',
-        avatar: participant?.avatar || '',
-        initials: getInitials(participant?.name || 'Student'),
-      },
-      online: participant?.online ?? false,
-    }
-  }, [chatState.activeConversationId, chatState.conversations, user?.id])
-  const currentParticipant = currentConversation?.participants.find((participant) => participant.id !== user?.id)
-  const currentMessages = useMemo(() => {
-    const messages = chatState.activeConversationId
-      ? (chatState.messages[chatState.activeConversationId] || [])
-      : []
-    return messages.map((message) => ({
-      ...message,
-      sender: message.senderId === String(user?.id) ? 'instructor' : 'student',
-      attachments: [] as string[],
-      timestamp: formatRelativeTime(message.timestamp),
-    }))
-  }, [chatState.activeConversationId, chatState.messages, user?.id])
-  const averageRating = dashboardStats?.average_rating ?? 0
-
-
-  const handleSendMessage = async () => {
-    const content = messageInput.trim()
-    if (!content || !chatState.activeConversationId || !user) return
-
-    await sendMessage(chatState.activeConversationId, {
-      senderId: String(user.id),
-      senderName: user.name || user.username || user.email,
-      senderAvatar: user.avatar,
-      content,
-      type: 'text',
-    })
-    setMessageInput('')
-    toast.success(t('instructor_communication_page.message_sent'))
-  }
-
-  const handleReportMessage = async (messageId: string) => {
-    const reason = window.prompt(t('instructor_communication_page.report_reason_prompt'), '')?.trim()
-    if (!reason) return
-    try {
-      await reportConversationMessage(Number(messageId), { reason })
-      toast.success(t('instructor_communication_page.report_sent'))
-    } catch (err: any) {
-      toast.error(err?.message || t('instructor_communication_page.report_failed'))
-    }
-  }
-
 
   const handleSendAnnouncement = async () => {
     if (!announcementData.title.trim() || !announcementData.content.trim()) {
@@ -468,208 +305,8 @@ export function InstructorCommunicationPage() {
         </p>
       </motion.div>
 
-      <motion.div className="grid grid-cols-1 gap-4 mb-6" variants={fadeInUp}>
-        {/* new messages (chat) stat hidden across all roles */}
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{t('instructor_communication_page.average_rating')}</p>
-                <p className="text-2xl mt-1">{summaryLoading ? '...' : averageRating.toFixed(1)}</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center">
-                <Star className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-
       <motion.div variants={fadeInUp}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="relative grid w-full grid-cols-1 p-1">
-          {/* messages (chat) tab hidden across all roles */}
-          <TabsTrigger value="announcements" className="relative gap-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'announcements' && <motion.span layoutId="instructor-communication-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10 inline-flex items-center gap-2">
-              <Megaphone className="w-4 h-4" />
-              {t('instructor_communication_page.announcements_tab')}
-            </span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="messages">
-          <Card>
-            <CardContent className="p-0">
-              <div className="grid md:grid-cols-3 h-[600px]">
-
-                <div className="border-r">
-                  <div className="p-4 border-b">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder={t('instructor_communication_page.search_students_placeholder')}
-                        className="pl-10"
-                        value={conversationQuery}
-                        onChange={(e) => setConversationQuery(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <ScrollArea className="h-[540px]">
-                    {paginatedConversations.map((conv) => (
-                      <div
-                        key={conv.id}
-                        className={`p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors ${
-                          chatState.activeConversationId === conv.id ? 'bg-muted' : ''
-                        }`}
-                        onClick={() => setActiveConversation(conv.id)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="relative">
-                            <Avatar>
-                              <AvatarFallback>{getInitials(conv.participants.find((item) => item.id !== user?.id)?.name || 'ST')}</AvatarFallback>
-                            </Avatar>
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <p className="text-sm truncate">{conv.participants.find((item) => item.id !== user?.id)?.name || t('instructor_communication_page.student_fallback')}</p>
-                              <span className="text-xs text-muted-foreground">
-                                {conv.lastMessage ? formatRelativeTime(conv.lastMessage.timestamp) : formatRelativeTime(conv.updatedAt)}
-                              </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {conv.lastMessage?.content || t('instructor_communication_page.no_messages_fallback')}
-                            </p>
-                          </div>
-
-                          {conv.unreadCount > 0 && (
-                            <Badge variant="default" className="ml-2">
-                              {conv.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {filteredConversations.length > 0 && (
-                      <div className="p-3 border-t">
-                        <UserPagination
-                          currentPage={conversationPage}
-                          totalPages={conversationTotalPages}
-                          onPageChange={setConversationPage}
-                        />
-                      </div>
-                    )}
-                  </ScrollArea>
-                </div>
-
-
-                <div className="md:col-span-2 flex flex-col">
-                  {chatState.activeConversationId ? (
-                    <>
-
-                      <div className="p-4 border-b">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarFallback>{getInitials(currentParticipant?.name || 'ST')}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{currentParticipant?.name || 'Student'}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {currentConversation?.online ? t('instructor_communication_page.online') : t('instructor_communication_page.offline')}
-                              </p>
-                            </div>
-                          </div>
-
-                          <Button variant="ghost" size="sm" className="hidden">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-
-                      <ScrollArea className="flex-1 p-4">
-                        <div className="space-y-4">
-                          {currentMessages.map((msg) => (
-                            <div
-                              key={msg.id}
-                              className={`flex ${msg.sender === 'instructor' ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div className={`max-w-[70%] ${msg.sender === 'instructor' ? 'bg-primary text-primary-foreground' : 'bg-muted'} rounded-lg p-3`}>
-                                <div className="flex items-start justify-between gap-3">
-                                  <p className="text-sm flex-1">{msg.content}</p>
-                                  {msg.sender !== 'instructor' && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 px-2 text-xs"
-                                      onClick={() => void handleReportMessage(msg.id)}
-                                    >
-                                      <Flag className="w-3 h-3 mr-1" />
-                                      {t('instructor_communication_page.report')}
-                                    </Button>
-                                  )}
-                                </div>
-                                {msg.attachments.length > 0 && (
-                                  <div className="mt-2 pt-2 border-t border-current/10">
-                                    {msg.attachments.map((file, idx) => (
-                                      <div key={idx} className="flex items-center gap-2 text-xs">
-                                        <Paperclip className="w-3 h-3" />
-                                        <span>{file}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                                <p className="text-xs mt-2 opacity-70">{msg.timestamp}</p>
-                              </div>
-                            </div>
-                          ))}
-                          {currentMessages.length === 0 && (
-                            <div className="text-center py-10 text-sm text-muted-foreground">
-                              {t('instructor_communication_page.no_messages_in_conversation')}
-                            </div>
-                          )}
-                        </div>
-                      </ScrollArea>
-
-
-                      <div className="p-4 border-t">
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" className="hidden">
-                            <Paperclip className="w-4 h-4" />
-                          </Button>
-                          <Input
-                            placeholder={t('instructor_communication_page.message_placeholder')}
-                            value={messageInput}
-                            onChange={(e) => setMessageInput(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && void handleSendMessage()}
-                          />
-                          <Button onClick={handleSendMessage}>
-                            <Send className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="text-center">
-                        <Mail className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">{t('instructor_communication_page.select_conversation')}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-
-        <TabsContent value="announcements" className="space-y-4">
+        <div className="space-y-4">
           <Card>
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -706,90 +343,90 @@ export function InstructorCommunicationPage() {
                       </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4">
-                      <div>
-                        <Label>{t('instructor_communication_page.announcement_type')}</Label>
-                        <RadioGroup
+                    <AntForm layout="vertical" onFinish={handleSendAnnouncement} className="mt-1">
+                      <AntForm.Item
+                        label={t('instructor_communication_page.announcement_type')}
+                        required
+                      >
+                        <AntRadio.Group
                           value={announcementData.type}
-                          onValueChange={(value) => setAnnouncementData({ ...announcementData, type: value })}
-                          className="grid grid-cols-2 gap-4 mt-2"
+                          onChange={(event) => setAnnouncementData({ ...announcementData, type: event.target.value })}
+                          className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2"
                         >
-                          <Card
-                            className={`cursor-pointer ${announcementData.type === 'educational' ? 'border-primary' : ''}`}
-                            onClick={() => setAnnouncementData({ ...announcementData, type: 'educational' })}
+                          <label
+                            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                              announcementData.type === 'educational' ? 'border-primary' : 'border-border'
+                            }`}
                           >
-                            <CardContent className="p-4 flex items-start gap-3">
-                              <RadioGroupItem value="educational" id="educational" />
-                              <div className="flex-1">
-                                <Label htmlFor="educational" className="cursor-pointer">
-                                  {t('instructor_communication_page.educational')}
-                                </Label>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {t('instructor_communication_page.educational_description')}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
+                            <AntRadio value="educational" />
+                            <span className="min-w-0">
+                              <span className="block font-medium">
+                                {t('instructor_communication_page.educational')}
+                              </span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {t('instructor_communication_page.educational_description')}
+                              </span>
+                            </span>
+                          </label>
 
-                          <Card
-                            className={`cursor-pointer ${announcementData.type === 'promotional' ? 'border-primary' : ''}`}
-                            onClick={() => setAnnouncementData({ ...announcementData, type: 'promotional' })}
+                          <label
+                            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                              announcementData.type === 'promotional' ? 'border-primary' : 'border-border'
+                            }`}
                           >
-                            <CardContent className="p-4 flex items-start gap-3">
-                              <RadioGroupItem value="promotional" id="promotional" />
-                              <div className="flex-1">
-                                <Label htmlFor="promotional" className="cursor-pointer">
-                                  {t('instructor_communication_page.promotional')}
-                                </Label>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {t('instructor_communication_page.promotional_description')}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </RadioGroup>
-                      </div>
+                            <AntRadio value="promotional" />
+                            <span className="min-w-0">
+                              <span className="block font-medium">
+                                {t('instructor_communication_page.promotional')}
+                              </span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {t('instructor_communication_page.promotional_description')}
+                              </span>
+                            </span>
+                          </label>
+                        </AntRadio.Group>
+                      </AntForm.Item>
 
-                      <div>
-                        <Label htmlFor="title">{t('instructor_communication_page.title_label')}</Label>
-                        <Input
-                          id="title"
+                      <AntForm.Item
+                        label={t('instructor_communication_page.title_label')}
+                        required
+                      >
+                        <AntInput
                           placeholder={t('instructor_communication_page.announcement_title_placeholder')}
                           value={announcementData.title}
-                          onChange={(e) => setAnnouncementData({ ...announcementData, title: e.target.value })}
+                          onChange={(event) => setAnnouncementData({ ...announcementData, title: event.target.value })}
                         />
-                      </div>
+                      </AntForm.Item>
 
-                      <div>
-                        <Label htmlFor="content">{t('instructor_communication_page.content_label')}</Label>
-                        <Textarea
-                          id="content"
+                      <AntForm.Item
+                        label={t('instructor_communication_page.content_label')}
+                        required
+                      >
+                        <AntInput.TextArea
                           placeholder={t('instructor_communication_page.announcement_content_placeholder')}
-                          rows={6}
+                          rows={4}
                           value={announcementData.content}
-                          onChange={(e) => setAnnouncementData({ ...announcementData, content: e.target.value })}
+                          onChange={(event) => setAnnouncementData({ ...announcementData, content: event.target.value })}
                         />
-                      </div>
+                      </AntForm.Item>
 
-                      <div>
-                        <Label htmlFor="targetCourse">{t('instructor_communication_page.send_to')}</Label>
-                        <Select
+                      <AntForm.Item label={t('instructor_communication_page.send_to')}>
+                        <AntSelect
                           value={announcementData.targetCourse}
-                          onValueChange={(value) => setAnnouncementData({ ...announcementData, targetCourse: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">{t('instructor_communication_page.all_students')}</SelectItem>
-                            {instructorCourses.map((course) => (
-                              <SelectItem key={course.id} value={String(course.id)}>
-                                {course.title}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          onChange={(value) => setAnnouncementData({ ...announcementData, targetCourse: value })}
+                          getPopupContainer={(triggerNode) => triggerNode.parentElement ?? document.body}
+                          options={[
+                            {
+                              value: 'all',
+                              label: t('instructor_communication_page.all_students'),
+                            },
+                            ...instructorCourses.map((course) => ({
+                              value: String(course.id),
+                              label: course.title,
+                            })),
+                          ]}
+                        />
+                      </AntForm.Item>
 
                       <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">
                         <div className="flex gap-2">
@@ -806,17 +443,20 @@ export function InstructorCommunicationPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowAnnouncementDialog(false)}>
-                        {t('instructor_communication_page.cancel')}
-                      </Button>
-                      <Button onClick={handleSendAnnouncement} disabled={announcementSubmitting}>
-                        <Send className="w-4 h-4 mr-2" />
-                        {t('instructor_communication_page.send_announcement')}
-                      </Button>
-                    </DialogFooter>
+                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <AntButton onClick={() => setShowAnnouncementDialog(false)}>
+                          {t('instructor_communication_page.cancel')}
+                        </AntButton>
+                        <AntButton
+                          type="primary"
+                          htmlType="submit"
+                          loading={announcementSubmitting}
+                          icon={<Send className="h-4 w-4" />}
+                        >
+                          {t('instructor_communication_page.send_announcement')}
+                        </AntButton>
+                      </div>
+                    </AntForm>
                   </DialogContent>
                 </Dialog>
 
@@ -959,8 +599,7 @@ export function InstructorCommunicationPage() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-        </Tabs>
+        </div>
       </motion.div>
 
     </motion.div>

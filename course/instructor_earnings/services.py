@@ -14,15 +14,20 @@ from payments.models import Payment
 def exclude_open_refund_earnings(qs):
     from payment_details.models import Payment_Details
     open_refund_statuses = [
-        Payment_Details.RefundStatus.PENDING,
         Payment_Details.RefundStatus.PROCESSING,
         Payment_Details.RefundStatus.APPROVED,
         Payment_Details.RefundStatus.SUCCESS,
     ]
     return qs.exclude(
-        payment__payment_details__course=F('course'),
-        payment__payment_details__refund_status__in=open_refund_statuses,
-        payment__payment_details__is_deleted=False,
+        Q(payment__payment_details__course=F('course')) &
+        Q(payment__payment_details__is_deleted=False) &
+        (
+            Q(payment__payment_details__refund_status__in=open_refund_statuses) |
+            Q(
+                payment__payment_details__refund_status=Payment_Details.RefundStatus.PENDING,
+                payment__payment_details__refund_request_time__isnull=False,
+            )
+        )
     )
 
 
@@ -107,8 +112,8 @@ def get_instructor_earnings_by_instructor_id(instructor_id, status=None, source=
         earnings = (
             InstructorEarning.objects
             .filter(instructor=instructor, is_deleted=False)
-            .select_related('course', 'payment', 'user_subscription__plan', 'instructor__user')
-            .prefetch_related('copyright_holds')
+            .select_related('course', 'payment__user', 'user_subscription__user', 'user_subscription__payment', 'user_subscription__plan', 'instructor__user')
+            .prefetch_related('copyright_holds', 'payment__payment_details')
             .order_by('-earning_date', '-id')
         )
 
@@ -135,8 +140,8 @@ def get_instructor_earnings(status=None, earning_id=None, source=None):
             earnings = (
                 InstructorEarning.objects
                 .filter(is_deleted=False)
-                .select_related('course', 'payment', 'user_subscription__plan', 'instructor__user')
-                .prefetch_related('copyright_holds')
+                .select_related('course', 'payment__user', 'user_subscription__user', 'user_subscription__payment', 'user_subscription__plan', 'instructor__user')
+                .prefetch_related('copyright_holds', 'payment__payment_details')
                 .order_by('-earning_date', '-id')
             )
             if status:
@@ -206,7 +211,6 @@ def update_earnings_available():
 
             from payment_details.models import Payment_Details
             open_refund_statuses = [
-                Payment_Details.RefundStatus.PENDING,
                 Payment_Details.RefundStatus.PROCESSING,
                 Payment_Details.RefundStatus.APPROVED,
                 Payment_Details.RefundStatus.SUCCESS,
@@ -217,9 +221,15 @@ def update_earnings_available():
                 payment__payment_date__lt=refund_time,
                 user_subscription__isnull=True,
             ).exclude(
-                payment__payment_details__course=F('course'),
-                payment__payment_details__refund_status__in=open_refund_statuses,
-                payment__payment_details__is_deleted=False,
+                Q(payment__payment_details__course=F('course')) &
+                Q(payment__payment_details__is_deleted=False) &
+                (
+                    Q(payment__payment_details__refund_status__in=open_refund_statuses) |
+                    Q(
+                        payment__payment_details__refund_status=Payment_Details.RefundStatus.PENDING,
+                        payment__payment_details__refund_request_time__isnull=False,
+                    )
+                )
             ).select_for_update()
 
             sub_settle_time = timezone.now() - timedelta(days=1)

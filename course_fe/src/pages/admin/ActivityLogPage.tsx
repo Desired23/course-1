@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { TableFilter, FilterConfig } from '../../components/FilterComponents'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
+import { Skeleton } from '../../components/ui/skeleton'
 import {
   Activity,
   LogIn,
@@ -414,10 +415,7 @@ export function ActivityLogPage() {
           <CardTitle>{t('activity_log_page.table.title', { count: filteredLogs.length })}</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">{t('activity_log_page.table.loading')}</div>
-          ) : (
-            <Table>
+          <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('activity_log_page.table.user')}</TableHead>
@@ -429,7 +427,18 @@ export function ActivityLogPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map((log) => (
+                {isLoading ? (
+                  Array.from({ length: 8 }).map((_, index) => (
+                    <TableRow key={`activity-log-skeleton-${index}`}>
+                      <TableCell><Skeleton className="h-10 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -460,7 +469,7 @@ export function ActivityLogPage() {
                     <TableCell className="text-sm whitespace-nowrap">{log.created_at.toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
-                {filteredLogs.length === 0 && (
+                {!isLoading && filteredLogs.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="h-24 text-center text-sm text-muted-foreground">
                       {t('activity_log_page.table.empty')}
@@ -469,7 +478,6 @@ export function ActivityLogPage() {
                 )}
               </TableBody>
             </Table>
-          )}
         </CardContent>
       </Card>
       </motion.div>

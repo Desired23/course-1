@@ -7,6 +7,7 @@ from django.utils import timezone
 from admins.dashboard_services import (
     get_admin_best_selling_courses,
     get_admin_creation_stats,
+    get_admin_dashboard_stats,
     get_admin_promotion_stats,
     get_admin_revenue_breakdown,
     get_admin_revenue_by_course,
@@ -92,14 +93,34 @@ class AdminStatisticsServiceTests(TestCase):
         self.assertEqual(stats['estimated_revenue'], 300.0)
         self.assertEqual(stats['realized_revenue'], 200.0)
         self.assertEqual(stats['refunded_amount'], 300.0)
-        self.assertEqual(stats['transaction_count'], 3)
-        self.assertEqual(stats['refund_rate'], 50.0)
+        self.assertEqual(stats['transaction_count'], 2)
+        self.assertEqual(stats['refund_rate'], 60.0)
+
+    def test_dashboard_stats_include_today_estimated_and_realized_revenue(self):
+        today_course = self._course('Today')
+        pending_refund_course = self._course('Pending Refund')
+        old_course = self._course('Old')
+
+        self._purchase(today_course, Decimal('120.00'), progress=60)
+        self._purchase(pending_refund_course, Decimal('80.00'), progress=10)
+        old_payment, _ = self._purchase(old_course, Decimal('50.00'), progress=60)
+        Payment.objects.filter(id=old_payment.id).update(payment_date=timezone.now() - timedelta(days=40))
+
+        stats = get_admin_dashboard_stats()
+
+        self.assertEqual(stats['today_estimated_revenue'], 200.0)
+        self.assertEqual(stats['today_realized_revenue'], 120.0)
+        self.assertEqual(stats['this_month_estimated_revenue'], 200.0)
+        self.assertEqual(stats['this_month_realized_revenue'], 120.0)
+        self.assertEqual(stats['total_estimated_revenue'], 250.0)
+        self.assertEqual(stats['total_realized_revenue'], 170.0)
 
     def test_course_revenue_splits_retail_and_subscription(self):
         course = self._course('Split')
         retail_payment, _ = self._purchase(course, Decimal('120.00'), progress=60)
         plan = SubscriptionPlan.objects.create(name='Monthly', price=Decimal('200.00'), duration_days=30)
         sub_payment = self._completed_payment(self._user('subscriber'), Decimal('200.00'), Payment.PaymentType.SUBSCRIPTION)
+        Payment.objects.filter(id=sub_payment.id).update(payment_date=timezone.now() - timedelta(days=40))
         subscription = UserSubscription.objects.create(
             user=sub_payment.user,
             plan=plan,

@@ -537,20 +537,8 @@ def _ban_instructor_for_strikes(case, actor):
     return {'banned_user_id': user.id if user else None, 'courses_hidden': hidden}
 
 
-def _handle_takedown_consequences(case, actor, count_as_strike=True, with_refund=True):
-    """Hệ quả của takedown: forced refund (Plan 4) + strike/auto-ban (Plan 5).
-
-    Cả refund lẫn strike đều optional — admin có thể bỏ qua và xử lý riêng ở
-    trang quản lý refund / quản lý vi phạm.
-    """
+def _handle_strike_consequences(case, actor, count_as_strike=True):
     result = {'strike_created': False, 'active_strikes': None, 'auto_banned': False}
-
-    if with_refund and case.course_id:
-        try:
-            from payments.refund_services import force_refund_recent_course_purchases
-            result['refund'] = force_refund_recent_course_purchases(case.course, actor, source_case=case)
-        except Exception as exc:
-            result['refund'] = {'error': str(exc)}
 
     if count_as_strike and case.instructor_id:
         strike = _create_strike(case, actor)
@@ -560,6 +548,24 @@ def _handle_takedown_consequences(case, actor, count_as_strike=True, with_refund
         if active >= STRIKE_BAN_THRESHOLD:
             result['ban'] = _ban_instructor_for_strikes(case, actor)
             result['auto_banned'] = True
+    return result
+
+
+def _handle_takedown_consequences(case, actor, count_as_strike=True, with_refund=True):
+    """Hệ quả của takedown: forced refund (Plan 4) + strike/auto-ban (Plan 5).
+
+    Cả refund lẫn strike đều optional — admin có thể bỏ qua và xử lý riêng ở
+    trang quản lý refund / quản lý vi phạm.
+    """
+    result = _handle_strike_consequences(case, actor, count_as_strike=count_as_strike)
+
+    if with_refund and case.course_id:
+        try:
+            from payments.refund_services import force_refund_recent_course_purchases
+            result['refund'] = force_refund_recent_course_purchases(case.course, actor, source_case=case)
+        except Exception as exc:
+            result['refund'] = {'error': str(exc)}
+
     return result
 
 
@@ -626,6 +632,9 @@ def admin_action(case_id, actor, action, message='', severity=None,
             _apply_content_action(case, CopyrightCase.ContentAction.ACCESS_SUSPENDED)
             if with_hold:
                 financial_summary = hold_case_earnings(case, actor, message or 'Copyright report access suspension')
+            financial_summary['strike'] = _handle_strike_consequences(
+                case, actor, count_as_strike=count_as_strike
+            )
         elif action == 'takedown':
             case.status = CopyrightCase.Status.TAKEDOWN
             case.severity = CopyrightCase.Severity.CONFIRMED

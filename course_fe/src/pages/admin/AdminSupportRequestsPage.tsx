@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog'
+import { Skeleton } from '../../components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Textarea } from '../../components/ui/textarea'
@@ -29,7 +30,7 @@ const RESOLVE_ACTIONS: { value: ResolveAction; label: string; desc: string; dest
 export function AdminSupportRequestsPage() {
   const { hasPermission } = useAuth()
   const [tickets, setTickets] = useState<SupportTicket[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState<SupportTicketType>('course_deletion_request')
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'resolved'>('all')
   const [selected, setSelected] = useState<SupportTicket | null>(null)
@@ -129,7 +130,18 @@ export function AdminSupportRequestsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tickets.map(ticket => (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={`support-ticket-skeleton-${index}`}>
+                    <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-24" /></TableCell>
+                  </TableRow>
+                ))
+              ) : tickets.map(ticket => (
                 <TableRow key={ticket.id}>
                   <TableCell>{ticket.id}</TableCell>
                   <TableCell>{ticket.course_title || '—'}</TableCell>

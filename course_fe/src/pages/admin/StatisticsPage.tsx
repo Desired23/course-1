@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { DatePicker, Segmented, Select as AntSelect, Space } from 'antd'
+import { DatePicker, Select as AntSelect, Space, Table as AntTable } from 'antd'
+import type { TableColumnsType } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { Download, RefreshCw, Search } from 'lucide-react'
 import { toast } from 'sonner'
@@ -16,15 +17,12 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog'
 import { Input } from '../../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   exportAdminBulkReports,
   formatAdminCurrency,
   getAdminBestSellingCourses,
-  getAdminCreationStats,
   getAdminDashboardStats,
   getAdminEarningPayoutMetrics,
   getAdminPromotionStats,
@@ -37,7 +35,6 @@ import {
   type BestSellingCourseRow,
   type BulkReportKey,
   type CourseRevenueDetailRow,
-  type CreationStatsRow,
   type EarningPayoutMetrics,
   type InstructorRevenueRow,
   type PromotionStatsRow,
@@ -47,9 +44,8 @@ import {
 } from '../../services/admin.api'
 import { getReportStatistics, type ReportStats } from '../../services/report.api'
 
-type MainTab = 'overview' | 'revenue' | 'courses' | 'instructors' | 'refunds' | 'promotions' | 'reports' | 'creation'
-type DatePreset = 'all' | '7d' | '30d' | 'this_month' | 'this_quarter' | 'this_year' | 'custom'
-type GroupBy = 'day' | 'week' | 'month' | 'quarter' | 'year'
+type MainTab = 'overview' | 'revenue' | 'courses' | 'instructors' | 'refunds' | 'promotions' | 'reports'
+type GroupBy = 'day' | 'month' | 'quarter' | 'year'
 
 interface DateRange {
   dateFrom?: string
@@ -96,23 +92,11 @@ const reportOptions: Array<{ key: BulkReportKey; label: string }> = [
   { key: 'earning_payout', label: 'Thu nhập/chi trả nâng cao' },
   { key: 'refunds', label: 'Hoàn tiền' },
   { key: 'promotion_stats', label: 'Mã giảm giá' },
-  { key: 'creation_stats', label: 'Tạo mới' },
   { key: 'best_selling_courses', label: 'Bán chạy' },
-]
-
-const presetOptions: Array<{ label: string; value: DatePreset }> = [
-  { label: 'Tháng này', value: 'this_month' },
-  { label: '7 ngày', value: '7d' },
-  { label: '30 ngày', value: '30d' },
-  { label: 'Quý này', value: 'this_quarter' },
-  { label: 'Năm nay', value: 'this_year' },
-  { label: 'Toàn bộ', value: 'all' },
-  { label: 'Tùy chỉnh', value: 'custom' },
 ]
 
 const groupByOptions: Array<{ label: string; value: GroupBy }> = [
   { label: 'Ngày', value: 'day' },
-  { label: 'Tuần', value: 'week' },
   { label: 'Tháng', value: 'month' },
   { label: 'Quý', value: 'quarter' },
   { label: 'Năm', value: 'year' },
@@ -120,36 +104,6 @@ const groupByOptions: Array<{ label: string; value: GroupBy }> = [
 
 function isoDate(date: Date) {
   return date.toISOString().slice(0, 10)
-}
-
-function startOfQuarter(date: Date) {
-  return new Date(date.getFullYear(), Math.floor(date.getMonth() / 3) * 3, 1)
-}
-
-function dateRangeFromPreset(preset: DatePreset): DateRange {
-  if (preset === 'all') return {}
-  const now = new Date()
-  const end = isoDate(now)
-  if (preset === '7d') {
-    const start = new Date(now)
-    start.setDate(start.getDate() - 6)
-    return { dateFrom: isoDate(start), dateTo: end }
-  }
-  if (preset === '30d') {
-    const start = new Date(now)
-    start.setDate(start.getDate() - 29)
-    return { dateFrom: isoDate(start), dateTo: end }
-  }
-  if (preset === 'this_month') {
-    return { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: end }
-  }
-  if (preset === 'this_quarter') {
-    return { dateFrom: isoDate(startOfQuarter(now)), dateTo: end }
-  }
-  if (preset === 'this_year') {
-    return { dateFrom: isoDate(new Date(now.getFullYear(), 0, 1)), dateTo: end }
-  }
-  return {}
 }
 
 function rangeToPickerValue(range: DateRange): [Dayjs, Dayjs] | null {
@@ -181,11 +135,6 @@ function downloadText(filename: string, content: string, type: string) {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
-}
-
-function rowsToCsv(headers: string[], rows: Array<Array<string | number>>) {
-  const escape = (value: string | number) => `"${String(value ?? '').replace(/"/g, '""')}"`
-  return '\ufeff' + [headers.map(escape).join(','), ...rows.map((row) => row.map(escape).join(','))].join('\n')
 }
 
 function rowsToExcelHtml(title: string, headers: string[], rows: Array<Array<string | number>>) {
@@ -235,7 +184,7 @@ function Metric({ title, value, hint }: { title: string; value: string; hint?: s
   )
 }
 
-function DataTable<T>({ model, loading }: { model: TableModel<T>; loading: boolean }) {
+function DataTable<T>({ model, loading, toolbar }: { model: TableModel<T>; loading: boolean; toolbar?: ReactNode }) {
   const [search, setSearch] = useState('')
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -244,55 +193,42 @@ function DataTable<T>({ model, loading }: { model: TableModel<T>; loading: boole
       model.columns.some((column) => (column.searchValue?.(row) ?? String(column.exportValue(row))).toLowerCase().includes(needle)),
     )
   }, [model, search])
+  const columns: TableColumnsType<T> = useMemo(() => model.columns.map((column, index) => ({
+    title: column.label,
+    key: `${column.label}-${index}`,
+    align: column.align,
+    render: (_value, row) => column.render(row),
+    sorter: (a, b) => {
+      const aValue = column.exportValue(a)
+      const bValue = column.exportValue(b)
+      const aNumber = Number(aValue)
+      const bNumber = Number(bValue)
+      if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) return aNumber - bNumber
+      return String(aValue ?? '').localeCompare(String(bValue ?? ''), 'vi')
+    },
+  })), [model.columns])
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <CardHeader className="space-y-3">
         <CardTitle className="text-base">{model.title}</CardTitle>
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong bảng" className="pl-9" />
         </div>
+        {toolbar}
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {model.columns.map((column) => (
-                  <TableHead key={column.label} className={column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : ''}>
-                    {column.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={model.columns.length} className="h-24 text-center text-muted-foreground">
-                    Đang tải dữ liệu...
-                  </TableCell>
-                </TableRow>
-              ) : visibleRows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={model.columns.length} className="h-24 text-center text-muted-foreground">
-                    {emptyMessage}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                visibleRows.map((row, index) => (
-                  <TableRow key={index}>
-                    {model.columns.map((column) => (
-                      <TableCell key={column.label} className={column.align === 'right' ? 'text-right' : column.align === 'center' ? 'text-center' : ''}>
-                        {column.render(row)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <AntTable<T>
+          columns={columns}
+          dataSource={visibleRows}
+          loading={loading}
+          locale={{ emptyText: emptyMessage }}
+          pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: [10, 20, 50], showTotal: (total) => `${total} dong` }}
+          rowKey={(_row, index) => String(index)}
+          scroll={{ x: 'max-content' }}
+          size="middle"
+        />
       </CardContent>
     </Card>
   )
@@ -386,21 +322,6 @@ function buildPromotionTable(rows: PromotionStatsRow[]): TableModel<PromotionSta
   }
 }
 
-function buildCreationTable(rows: CreationStatsRow[]): TableModel<CreationStatsRow> {
-  return {
-    title: 'Tạo mới theo thời gian',
-    rows,
-    columns: [
-      { label: 'Thời gian', render: (row) => row.period, exportValue: (row) => row.period, searchValue: (row) => row.period },
-      numberColumn('User mới', (row) => row.new_users),
-      numberColumn('Giảng viên mới', (row) => row.new_instructors),
-      numberColumn('Đơn hàng mới', (row) => row.new_orders),
-      numberColumn('Refund mới', (row) => row.new_refunds),
-      numberColumn('Payout mới', (row) => row.new_payouts),
-    ],
-  }
-}
-
 function buildReportTable(rows: ReportTrendRow[]): TableModel<ReportTrendRow> {
   return {
     title: 'Báo cáo theo thời gian',
@@ -427,35 +348,44 @@ function buildBestSellingTable(rows: BestSellingCourseRow[]): TableModel<BestSel
   }
 }
 
-function exportTable<T>(model: TableModel<T>, format: 'csv' | 'excel') {
+function withPeriodColumn<T>(model: TableModel<T>, periodLabel: string): TableModel<T> {
+  return {
+    ...model,
+    columns: [
+      {
+        label: 'Khoảng thời gian',
+        render: () => periodLabel,
+        exportValue: () => periodLabel,
+        searchValue: () => periodLabel,
+      },
+      ...model.columns,
+    ],
+  }
+}
+
+function exportTable<T>(model: TableModel<T>) {
   const headers = model.columns.map((column) => column.label)
   const rows = model.rows.map((row) => model.columns.map((column) => column.exportValue(row)))
-  if (format === 'excel') {
-    downloadText('statistics_current_table.xls', rowsToExcelHtml(model.title, headers, rows), 'application/vnd.ms-excel;charset=utf-8')
-    return
-  }
-  downloadText('statistics_current_table.csv', rowsToCsv(headers, rows), 'text/csv;charset=utf-8')
+  downloadText('statistics_current_table.xls', rowsToExcelHtml(model.title, headers, rows), 'application/vnd.ms-excel;charset=utf-8')
 }
 
 export function StatisticsPage() {
   const { canAccess } = useAuth()
   const [activeTab, setActiveTab] = useState<MainTab>('overview')
-  const [preset, setPreset] = useState<DatePreset>('this_month')
   const [groupBy, setGroupBy] = useState<GroupBy>('month')
-  const initialRange = dateRangeFromPreset('this_month')
+  const now = new Date()
+  const initialRange = { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: isoDate(now) }
   const [draftRange, setDraftRange] = useState<DateRange>(initialRange)
   const [appliedRange, setAppliedRange] = useState<DateRange>(initialRange)
   const [refreshKey, setRefreshKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [bulkOpen, setBulkOpen] = useState(false)
-  const [bulkFormat, setBulkFormat] = useState<'csv' | 'excel'>('excel')
   const [selectedReports, setSelectedReports] = useState<BulkReportKey[]>([
     'realized_revenue',
     'revenue_course',
     'revenue_instructor',
     'refunds',
     'promotion_stats',
-    'creation_stats',
     'best_selling_courses',
   ])
 
@@ -467,7 +397,6 @@ export function StatisticsPage() {
   const [earningPayout, setEarningPayout] = useState<EarningPayoutMetrics | null>(null)
   const [refunds, setRefunds] = useState<RefundAnalytics | null>(null)
   const [promotions, setPromotions] = useState<PromotionStatsRow[]>([])
-  const [creationRows, setCreationRows] = useState<CreationStatsRow[]>([])
   const [bestSelling, setBestSelling] = useState<BestSellingCourseRow[]>([])
   const [reportStats, setReportStats] = useState<ReportStats | null>(null)
 
@@ -477,7 +406,7 @@ export function StatisticsPage() {
       setLoading(true)
       try {
         const months = monthsBetween(appliedRange)
-        const reportGroupBy = groupBy === 'day' || groupBy === 'week' ? groupBy : 'month'
+        const reportGroupBy = 'month'
         const [
           breakdownRes,
           dashboardRes,
@@ -487,7 +416,6 @@ export function StatisticsPage() {
           earningPayoutRes,
           refundRes,
           promotionRes,
-          creationRes,
           bestSellingRes,
           reportStatsRes,
         ] = await Promise.all([
@@ -499,7 +427,6 @@ export function StatisticsPage() {
           getAdminEarningPayoutMetrics(100, appliedRange.dateFrom, appliedRange.dateTo),
           getAdminRefundAnalytics(appliedRange.dateFrom, appliedRange.dateTo),
           getAdminPromotionStats(100, appliedRange.dateFrom, appliedRange.dateTo),
-          getAdminCreationStats(groupBy, appliedRange.dateFrom, appliedRange.dateTo),
           getAdminBestSellingCourses(20, appliedRange.dateFrom, appliedRange.dateTo),
           getReportStatistics({
             date_from: appliedRange.dateFrom,
@@ -516,7 +443,6 @@ export function StatisticsPage() {
         setEarningPayout(earningPayoutRes)
         setRefunds(refundRes)
         setPromotions(promotionRes)
-        setCreationRows(creationRes)
         setBestSelling(bestSellingRes)
         setReportStats(reportStatsRes)
       } catch (err: any) {
@@ -547,34 +473,23 @@ export function StatisticsPage() {
     count: row.count,
   }))
 
+  const appliedPeriodLabel = rangeLabel(appliedRange)
   const tables = {
-    overview: buildBestSellingTable(bestSelling),
+    overview: withPeriodColumn(buildBestSellingTable(bestSelling), appliedPeriodLabel),
     revenue: buildRevenueTable(revenueRows),
-    courses: buildCourseTable(courses),
-    instructors: buildInstructorTable(instructors),
-    refunds: buildRefundTable(refundRows),
-    promotions: buildPromotionTable(promotions),
+    courses: withPeriodColumn(buildCourseTable(courses), appliedPeriodLabel),
+    instructors: withPeriodColumn(buildInstructorTable(instructors), appliedPeriodLabel),
+    refunds: withPeriodColumn(buildRefundTable(refundRows), appliedPeriodLabel),
+    promotions: withPeriodColumn(buildPromotionTable(promotions), appliedPeriodLabel),
     reports: buildReportTable(reportTrendRows),
-    creation: buildCreationTable(creationRows),
   } satisfies Record<MainTab, TableModel<any>>
 
   const currentTable = tables[activeTab]
   const paidOut = earningPayout?.payout_processed_net ?? instructors.reduce((sum, row) => sum + (row.paid ?? 0), 0)
   const payable = earningPayout?.payable_earnings ?? instructors.reduce((sum, row) => sum + (row.pending ?? 0) + (row.available ?? 0), 0)
 
-  function handlePresetChange(value: DatePreset) {
-    setPreset(value)
-    if (value === 'custom') {
-      setDraftRange(appliedRange)
-      return
-    }
-    const nextRange = dateRangeFromPreset(value)
-    setDraftRange(nextRange)
-    setAppliedRange(nextRange)
-  }
-
   function applyRange() {
-    setAppliedRange(preset === 'custom' ? draftRange : dateRangeFromPreset(preset))
+    setAppliedRange(draftRange)
   }
 
   async function exportBulk() {
@@ -583,7 +498,7 @@ export function StatisticsPage() {
       return
     }
     try {
-      await exportAdminBulkReports(selectedReports, bulkFormat, appliedRange.dateFrom, appliedRange.dateTo)
+      await exportAdminBulkReports(selectedReports, 'excel', appliedRange.dateFrom, appliedRange.dateTo)
       toast.success('Đã tạo file export')
       setBulkOpen(false)
     } catch (err: any) {
@@ -595,6 +510,46 @@ export function StatisticsPage() {
     setSelectedReports((current) => checked ? Array.from(new Set([...current, key])) : current.filter((item) => item !== key))
   }
 
+  const tableToolbar = (
+    <div className="flex flex-col gap-3 rounded-md border bg-muted/20 p-3 xl:flex-row xl:items-end xl:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+        <Space wrap size={[8, 8]} className="min-w-0">
+          <span className="text-xs font-medium text-muted-foreground">Nhóm</span>
+          <AntSelect<GroupBy>
+            value={groupBy}
+            options={groupByOptions}
+            onChange={setGroupBy}
+            style={{ width: 104 }}
+          />
+          <span className="text-xs font-medium text-muted-foreground">Khoảng thời gian</span>
+          <RangePicker
+            value={rangeToPickerValue(draftRange)}
+            format="YYYY-MM-DD"
+            allowClear
+            placeholder={['Từ ngày', 'Đến ngày']}
+            onChange={(_, values) => setDraftRange({
+              dateFrom: values[0] || undefined,
+              dateTo: values[1] || undefined,
+            })}
+            style={{ width: 248 }}
+          />
+        </Space>
+      </div>
+
+      <Space wrap size={[8, 8]}>
+        <Button onClick={applyRange}>Áp dụng</Button>
+        <Button variant="outline" size="icon" onClick={() => setRefreshKey((key) => key + 1)} disabled={loading} aria-label="Tải lại">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+        <Button variant="outline" onClick={() => exportTable(currentTable)}>
+          <Download className="mr-2 h-4 w-4" />
+          Excel
+        </Button>
+        <Button variant="secondary" onClick={() => setBulkOpen(true)}>Export nâng cao</Button>
+      </Space>
+    </div>
+  )
+
   return (
     <div className="space-y-5 p-4 md:p-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -604,135 +559,8 @@ export function StatisticsPage() {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="max-w-full overflow-x-auto pb-1 lg:pb-0">
-              <Segmented<DatePreset>
-                value={preset}
-                options={presetOptions}
-                onChange={handlePresetChange}
-                className="whitespace-nowrap"
-              />
-            </div>
-
-            <Space wrap size={[8, 8]} className="min-w-0">
-              <span className="text-xs font-medium text-muted-foreground">Nhóm</span>
-              <AntSelect<GroupBy>
-                value={groupBy}
-                options={groupByOptions}
-                onChange={setGroupBy}
-                style={{ width: 104 }}
-              />
-              <RangePicker
-                value={rangeToPickerValue(draftRange)}
-                format="YYYY-MM-DD"
-                allowClear
-                disabled={preset !== 'custom'}
-                placeholder={['Từ ngày', 'Đến ngày']}
-                onChange={(_, values) => setDraftRange({
-                  dateFrom: values[0] || undefined,
-                  dateTo: values[1] || undefined,
-                })}
-                style={{ width: 248 }}
-              />
-            </Space>
-          </div>
-
-          <Space wrap size={[8, 8]}>
-            <Button onClick={applyRange} disabled={preset !== 'custom'}>Áp dụng</Button>
-            <Button variant="outline" size="icon" onClick={() => setRefreshKey((key) => key + 1)} disabled={loading} aria-label="Tải lại">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="outline" onClick={() => exportTable(currentTable, 'csv')}>
-              <Download className="mr-2 h-4 w-4" />
-              CSV
-            </Button>
-            <Button variant="outline" onClick={() => exportTable(currentTable, 'excel')}>
-              <Download className="mr-2 h-4 w-4" />
-              Excel
-            </Button>
-            <Button variant="secondary" onClick={() => setBulkOpen(true)}>Export nâng cao</Button>
-          </Space>
-
-          <div className="hidden">
-            <label className="text-xs font-medium text-muted-foreground">Khoảng thời gian</label>
-            <Select value={preset} onValueChange={(value) => setPreset(value as DatePreset)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="this_month">Tháng này</SelectItem>
-                <SelectItem value="7d">7 ngày</SelectItem>
-                <SelectItem value="30d">30 ngày</SelectItem>
-                <SelectItem value="this_quarter">Quý này</SelectItem>
-                <SelectItem value="this_year">Năm nay</SelectItem>
-                <SelectItem value="all">Toàn bộ</SelectItem>
-                <SelectItem value="custom">Tùy chọn</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="hidden">
-            <label className="text-xs font-medium text-muted-foreground">Nhóm theo</label>
-            <Select value={groupBy} onValueChange={(value) => setGroupBy(value as GroupBy)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="day">Ngày</SelectItem>
-                <SelectItem value="week">Tuần</SelectItem>
-                <SelectItem value="month">Tháng</SelectItem>
-                <SelectItem value="quarter">Quý</SelectItem>
-                <SelectItem value="year">Năm</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="hidden">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Từ ngày</label>
-              <Input
-                type="date"
-                value={draftRange.dateFrom ?? ''}
-                disabled={preset !== 'custom'}
-                onChange={(event) => setDraftRange((range) => ({ ...range, dateFrom: event.target.value || undefined }))}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Đến ngày</label>
-              <Input
-                type="date"
-                value={draftRange.dateTo ?? ''}
-                disabled={preset !== 'custom'}
-                onChange={(event) => setDraftRange((range) => ({ ...range, dateTo: event.target.value || undefined }))}
-              />
-            </div>
-          </div>
-
-          <div className="hidden">
-            <Button onClick={applyRange}>Áp dụng</Button>
-            <Button variant="outline" size="icon" onClick={() => setRefreshKey((key) => key + 1)} disabled={loading} aria-label="Tải lại">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button variant="outline" onClick={() => exportTable(currentTable, 'csv')}>
-              <Download className="mr-2 h-4 w-4" />
-              CSV
-            </Button>
-            <Button variant="outline" onClick={() => exportTable(currentTable, 'excel')}>
-              <Download className="mr-2 h-4 w-4" />
-              Excel
-            </Button>
-            <Button variant="secondary" onClick={() => setBulkOpen(true)}>Export nâng cao</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric title="Doanh thu tạm tính" value={formatAdminCurrency(breakdown?.estimated_revenue ?? breakdown?.net_revenue ?? 0)} />
-        <Metric title="Doanh thu thực" value={formatAdminCurrency(breakdown?.realized_revenue ?? 0)} />
-        <Metric title="Hoàn tiền" value={formatAdminCurrency(breakdown?.refunded_amount ?? breakdown?.total_refunded ?? 0)} />
-        <Metric title="Giao dịch" value={String(breakdown?.transaction_count ?? 0)} hint={`${breakdown?.refund_rate ?? 0}% hoàn tiền`} />
-      </div>
-
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as MainTab)} className="space-y-4">
-        <TabsList className="grid h-auto grid-cols-2 gap-1 md:grid-cols-4 xl:grid-cols-8">
+        <TabsList className="grid h-auto grid-cols-2 gap-1 md:grid-cols-4 xl:grid-cols-7">
           <TabsTrigger value="overview">Tổng quan</TabsTrigger>
           <TabsTrigger value="revenue">Doanh thu</TabsTrigger>
           <TabsTrigger value="courses">Khóa học</TabsTrigger>
@@ -740,7 +568,6 @@ export function StatisticsPage() {
           <TabsTrigger value="refunds">Hoàn tiền</TabsTrigger>
           <TabsTrigger value="promotions">Mã giảm giá</TabsTrigger>
           <TabsTrigger value="reports">Báo cáo</TabsTrigger>
-          <TabsTrigger value="creation">Tạo mới</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -750,7 +577,7 @@ export function StatisticsPage() {
             <Metric title="Khóa học" value={String(dashboard?.total_courses ?? 0)} />
             <Metric title="Ghi danh" value={String(dashboard?.total_enrollments ?? 0)} />
           </div>
-          <DataTable model={tables.overview} loading={loading} />
+          <DataTable model={tables.overview} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="revenue" className="space-y-4">
@@ -759,11 +586,11 @@ export function StatisticsPage() {
             <Metric title="Gói đăng ký" value={formatAdminCurrency(breakdown?.subscription_revenue ?? 0)} />
             <Metric title="Tỷ lệ hoàn tiền" value={`${breakdown?.refund_rate ?? 0}%`} />
           </div>
-          <DataTable model={tables.revenue} loading={loading} />
+          <DataTable model={tables.revenue} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="courses" className="space-y-4">
-          <DataTable model={tables.courses} loading={loading} />
+          <DataTable model={tables.courses} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="instructors" className="space-y-4">
@@ -773,7 +600,7 @@ export function StatisticsPage() {
             <Metric title="Đã chi trả" value={formatAdminCurrency(paidOut)} />
             <Metric title="Giao dịch" value={String(instructors.reduce((sum, row) => sum + (row.transactions ?? 0), 0))} />
           </div>
-          <DataTable model={tables.instructors} loading={loading} />
+          <DataTable model={tables.instructors} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="refunds" className="space-y-4">
@@ -782,25 +609,15 @@ export function StatisticsPage() {
             <Metric title="Tổng tiền hoàn" value={formatAdminCurrency(refunds?.total_refunded_amount ?? 0)} />
             <Metric title="Trạng thái" value={String(refundRows.length)} />
           </div>
-          <DataTable model={tables.refunds} loading={loading} />
+          <DataTable model={tables.refunds} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="promotions" className="space-y-4">
-          <DataTable model={tables.promotions} loading={loading} />
+          <DataTable model={tables.promotions} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <Metric title="Tổng báo cáo" value={String(reportStats?.summary.total_reports ?? 0)} />
-            <Metric title="Case mở" value={String(reportStats?.summary.open_cases ?? 0)} />
-            <Metric title="Đã xử lý" value={String(reportStats?.summary.resolved_cases ?? 0)} />
-            <Metric title="Nghiêm trọng" value={String(reportStats?.summary.critical_cases ?? 0)} />
-          </div>
-          <DataTable model={tables.reports} loading={loading} />
-        </TabsContent>
-
-        <TabsContent value="creation" className="space-y-4">
-          <DataTable model={tables.creation} loading={loading} />
+          <DataTable model={tables.reports} loading={loading} toolbar={tableToolbar} />
         </TabsContent>
       </Tabs>
 
@@ -812,16 +629,6 @@ export function StatisticsPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="w-44">
-              <Select value={bulkFormat} onValueChange={(value) => setBulkFormat(value as 'csv' | 'excel')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="excel">Excel</SelectItem>
-                  <SelectItem value="csv">CSV zip</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid gap-2 sm:grid-cols-2">
               {reportOptions.map((option) => (
                 <label key={option.key} className="flex items-center gap-2 rounded-md border p-3 text-sm">

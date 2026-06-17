@@ -144,11 +144,11 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
         destroyOnHidden
         keyboard
         maskClosable
-        width="calc(100vw - 2rem)"
+        width="fit-content"
         zIndex={parsedZIndex}
         onCancel={() => setOpen(false)}
         styles={{
-          content: {
+          container: {
             background: "transparent",
             boxShadow: "none",
             padding: 0,
@@ -165,7 +165,7 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
           data-slot="dialog-content"
           style={{ ...interactiveTransitionStyle, ...(style ?? {}) }}
           className={cn(
-            "bg-background relative mx-auto grid w-full max-w-[calc(100vw-2rem)] gap-4 rounded-lg border p-6 shadow-xl sm:max-w-lg",
+            "bg-background relative mx-auto grid w-[calc(100vw-2rem)] max-w-md gap-4 rounded-lg border p-6 shadow-xl",
             className,
           )}
           {...props}

@@ -2,9 +2,6 @@ from django.urls import path
 from .cron_view import run_payouts_view, settle_earnings_view
 from .views import (
     InstructorPayoutView,
-    InstructorPayoutRequestView,
-    AdminPayoutApproveView,
-    AdminPayoutRejectView,
     AdminMonthlyPayoutRunView,
     InstructorPayoutExportView,
 )
@@ -16,11 +13,5 @@ urlpatterns = [
     path('instructor-payouts/export/', InstructorPayoutExportView.as_view(), name='instructor-payout-export'),
     path('instructor-payouts/delete/<int:payout_id>/', InstructorPayoutView.as_view(), name='delete_instructor_payout'),
 
-
-    path('instructor/payouts/request/', InstructorPayoutRequestView.as_view(), name='instructor-payout-request'),
-
-
-    path('admin/payouts/<int:payout_id>/approve/', AdminPayoutApproveView.as_view(), name='admin-payout-approve'),
-    path('admin/payouts/<int:payout_id>/reject/', AdminPayoutRejectView.as_view(), name='admin-payout-reject'),
     path('admin/payouts/run-monthly/', AdminMonthlyPayoutRunView.as_view(), name='admin-payout-run-monthly'),
 ]

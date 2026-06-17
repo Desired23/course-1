@@ -57,6 +57,18 @@ def _reactivate_existing_enrollment(existing, data):
         existing.save(update_fields=list(dict.fromkeys(fields)))
     return existing
 
+
+def _update_instructor_level_for_enrollment(enrollment):
+    try:
+        instructor = enrollment.course.instructor if enrollment.course else None
+        if not instructor:
+            return
+        from instructor_levels.services import check_and_upgrade_instructor_level
+        check_and_upgrade_instructor_level(instructor)
+    except Exception:
+        logger.exception("Failed to update instructor level after enrollment %s", enrollment.id)
+
+
 def create_enrollment(data):
     try:
 
@@ -101,6 +113,7 @@ def create_enrollment(data):
                 if not existing.is_deleted and existing.status in OWNED_ENROLLMENT_STATUSES:
                     return EnrollmentCreateSerializer(existing).data
                 existing = _reactivate_existing_enrollment(existing, dataCopy)
+                _update_instructor_level_for_enrollment(existing)
                 return EnrollmentCreateSerializer(existing).data
 
         serializer = EnrollmentCreateSerializer(data=dataCopy)
@@ -110,6 +123,7 @@ def create_enrollment(data):
                     enrollment = serializer.save(enrollment_date=dataCopy['enrollment_date'])
                     course = Course.objects.get(id=dataCopy.get('course'))
                     Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
+                    _update_instructor_level_for_enrollment(enrollment)
                     log_activity(
                         user_id=enrollment.user.id,
                         action="ENROLL",

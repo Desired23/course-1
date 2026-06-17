@@ -9,6 +9,7 @@ import { Separator } from '../../components/ui/separator'
 import { Progress } from '../../components/ui/progress'
 import { Label } from '../../components/ui/label'
 import { Textarea } from '../../components/ui/textarea'
+import { Checkbox } from '../../components/ui/checkbox'
 import {
   ArrowLeft,
   Users,
@@ -166,6 +167,11 @@ const fadeInUp = {
   },
 }
 
+const STRIKE_MODERATION_ACTIONS: Array<Exclude<CourseModerationAction, 'delete' | 'archive'>> = [
+  'freeze',
+  'takedown',
+]
+
 
 
 export function AdminCourseDetailPage() {
@@ -191,6 +197,7 @@ export function AdminCourseDetailPage() {
     loading: false,
   })
   const [moderationReason, setModerationReason] = useState('')
+  const [moderationCountAsStrike, setModerationCountAsStrike] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'students' | 'reviews' | 'instructor' | 'analytics'>('overview')
   const [studentRows, setStudentRows] = useState<CourseStudentRow[]>([])
   const [studentPage, setStudentPage] = useState(1)
@@ -395,6 +402,7 @@ export function AdminCourseDetailPage() {
 
   const openModerationDialog = (action: Exclude<CourseModerationAction, 'delete' | 'archive'>) => {
     setModerationReason('')
+    setModerationCountAsStrike(STRIKE_MODERATION_ACTIONS.includes(action))
     const restoringHardBlock = action === 'restore' && Boolean(course?.is_hard_blocked)
     const restoreTitle = restoringHardBlock
       ? t('admin_course_detail.moderation.unlock_title')
@@ -450,7 +458,14 @@ export function AdminCourseDetailPage() {
     if (!numId) return
     try {
       setModerationState(prev => ({ ...prev, loading: true }))
-      await moderateCourse(numId, moderationState.action, moderationReason.trim() || undefined)
+      await moderateCourse(
+        numId,
+        moderationState.action,
+        moderationReason.trim() || undefined,
+        STRIKE_MODERATION_ACTIONS.includes(moderationState.action)
+          ? { count_as_strike: moderationCountAsStrike }
+          : undefined,
+      )
       const courseData = await getCourseByIdApi(numId)
       setCourse(prev => prev ? {
         ...prev,
@@ -1141,6 +1156,15 @@ export function AdminCourseDetailPage() {
                   rows={4}
                 />
               </div>
+              {STRIKE_MODERATION_ACTIONS.includes(moderationState.action) && (
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={moderationCountAsStrike}
+                    onCheckedChange={(value) => setModerationCountAsStrike(value === true)}
+                  />
+                  <span>Tính hành động này là 1 gậy vi phạm bản quyền (gậy thứ 3 sẽ tự ban giảng viên)</span>
+                </label>
+              )}
             </div>
             <DialogFooter>
               <Button

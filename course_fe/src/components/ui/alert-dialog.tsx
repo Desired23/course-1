@@ -101,7 +101,7 @@ function AlertDialogContent({ className, children, ...props }: AlertDialogConten
       destroyOnHidden
       maskClosable={false}
       keyboard
-      width={520}
+      width="min(420px, calc(100vw - 2rem))"
       onCancel={() => setOpen(false)}
     >
       <div

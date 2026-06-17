@@ -10,11 +10,8 @@ const InstructorCourseDetailPage = lazy(() => import('../pages/instructor/Instru
 const InstructorAnalyticsPage = lazy(() => import('../pages/instructor/InstructorAnalyticsPage').then((module) => ({ default: module.InstructorAnalyticsPage })))
 const InstructorDiscountsPage = lazy(() => import('../pages/instructor/InstructorDiscountsPage').then((module) => ({ default: module.InstructorDiscountsPage })))
 const InstructorLessonsPageNew = lazy(() => import('../pages/instructor/InstructorLessonsPageNew').then((module) => ({ default: module.InstructorLessonsPageNew })))
-const InstructorEarningsPage = lazy(() => import('../pages/instructor/InstructorEarningsPage').then((module) => ({ default: module.InstructorEarningsPage })))
-const InstructorSubscriptionRevenuePage = lazy(() => import('../pages/instructor/InstructorSubscriptionRevenuePage').then((module) => ({ default: module.InstructorSubscriptionRevenuePage })))
 const InstructorPayoutsPage = lazy(() => import('../pages/instructor/InstructorPayoutsPage').then((module) => ({ default: module.InstructorPayoutsPage })))
 const InstructorProfilePage = lazy(() => import('../pages/instructor/InstructorProfilePage').then((module) => ({ default: module.InstructorProfilePage })))
-const InstructorResourcesPage = lazy(() => import('../pages/instructor/InstructorResourcesPage').then((module) => ({ default: module.InstructorResourcesPage })))
 const InstructorStudentsPage = lazy(() => import('../pages/instructor/InstructorStudentsPage').then((module) => ({ default: module.InstructorStudentsPage })))
 const InstructorOnboardingPage = lazy(() => import('../pages/instructor/InstructorOnboardingPage').then((module) => ({ default: module.InstructorOnboardingPage })))
 const InstructorCourseLandingPage = lazy(() => import('../pages/instructor/InstructorCourseLandingPage').then((module) => ({ default: module.InstructorCourseLandingPage })))
@@ -138,7 +135,7 @@ export const instructorRoutes: RouteConfig[] = [
     element: (
       <RequireAuth roles={['instructor', 'admin']}>
         <InstructorLayout>
-          <InstructorEarningsPage />
+          <InstructorAnalyticsPage />
         </InstructorLayout>
       </RequireAuth>
     )
@@ -148,7 +145,7 @@ export const instructorRoutes: RouteConfig[] = [
     element: (
       <RequireAuth roles={['instructor', 'admin']}>
         <InstructorLayout>
-          <InstructorSubscriptionRevenuePage />
+          <InstructorAnalyticsPage />
         </InstructorLayout>
       </RequireAuth>
     )
@@ -175,19 +172,6 @@ export const instructorRoutes: RouteConfig[] = [
       </RequireAuth>
     )
   },
-
-
-  {
-    path: '/instructor/resources',
-    element: (
-      <RequireAuth roles={['instructor', 'admin']}>
-        <InstructorLayout>
-          <InstructorResourcesPage />
-        </InstructorLayout>
-      </RequireAuth>
-    )
-  },
-
 
   {
     path: '/instructor/students',

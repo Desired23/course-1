@@ -23,6 +23,7 @@ import { getLessonQuiz } from "../../services/quiz-questions.api"
 import { getCourseById } from "../../services/course.api"
 import { generateLessonTranscript } from "../../services/transcript.api"
 import { useTranslation } from 'react-i18next'
+import { confirmDialog } from '../../utils/confirmDialog'
 
 
 
@@ -245,7 +246,7 @@ export function InstructorLessonsPageNew() {
   }, [])
 
   const handleBulkDelete = useCallback(async () => {
-    if (!confirm(t('instructor_lessons_page_new.confirms.delete_lessons', { count: selectedLessonIds.size }))) {
+    if (!await confirmDialog(t('instructor_lessons_page_new.confirms.delete_lessons', { count: selectedLessonIds.size }))) {
       return
     }
 

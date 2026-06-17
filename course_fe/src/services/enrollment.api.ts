@@ -78,6 +78,7 @@ export interface CourseProgress {
   total_lessons: number
   completed_lessons: number
   total_time_spent: number
+  certificate_verification_code?: string | null
   lessons: LessonProgress[]
 }
 

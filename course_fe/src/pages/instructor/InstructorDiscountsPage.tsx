@@ -1,19 +1,16 @@
 import { useState, useEffect, useMemo } from "react"
 import { motion } from 'motion/react'
+import {
+  Button as AntButton,
+  Input as AntInput,
+  Modal as AntModal,
+  Select as AntSelect,
+} from 'antd'
 
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
 import { Badge } from "../../components/ui/badge"
 import { Card } from "../../components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "../../components/ui/dialog-fixed"
 import {
   Table,
   TableBody,
@@ -29,7 +26,6 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
-import { Checkbox } from "../../components/ui/checkbox"
 import {
   Search,
   Plus,
@@ -37,7 +33,6 @@ import {
   Edit,
   Trash2,
   Tag,
-  DollarSign,
   Users,
   Calendar,
   Copy
@@ -48,6 +43,7 @@ import { toast } from "sonner"
 import { useAuth } from "../../contexts/AuthContext"
 import { getMyInstructorProfile } from "../../services/instructor.api"
 import { useTranslation } from "react-i18next"
+import { confirmDialog } from "../../utils/confirmDialog"
 import {
   getInstructorPromotions,
   getInstructorPromotionsPage,
@@ -73,7 +69,6 @@ interface Discount {
   status: 'active' | 'expired' | 'disabled'
   applicableCourses: string[]
   applicableCourseIds: number[]
-  revenue: number
 }
 
 const ITEMS_PER_PAGE = 10
@@ -119,7 +114,6 @@ function promotionToDiscount(p: Promotion, coursesMap: Map<number, string>): Dis
     status: statusMap[p.status] ?? 'active',
     applicableCourses: p.applicable_courses.map(id => coursesMap.get(id) || `Course #${id}`),
     applicableCourseIds: p.applicable_courses,
-    revenue: typeof p.revenue === 'number' ? p.revenue : 0,
   }
 }
 
@@ -160,6 +154,11 @@ export function InstructorDiscountsPage() {
   const [discounts, setDiscounts] = useState<Discount[]>([])
 
   const [allDiscountsForStats, setAllDiscountsForStats] = useState<Discount[]>([])
+
+  const courseOptions = useMemo(
+    () => instructorCourses.map((course) => ({ value: course.id, label: course.title })),
+    [instructorCourses],
+  )
 
   const backendStatus = useMemo<PromotionStatus | undefined>(() => {
     if (selectedStatus === 'all') return undefined
@@ -297,13 +296,27 @@ export function InstructorDiscountsPage() {
       : t('instructor_discounts_page.types.fixed_amount')
   }
 
-  const handleCourseToggle = (courseId: string) => {
-    setNewDiscount(prev => ({
-      ...prev,
-      selectedCourses: prev.selectedCourses.includes(courseId)
-        ? prev.selectedCourses.filter(id => id !== courseId)
-        : [...prev.selectedCourses, courseId]
-    }))
+  const resetDiscountForm = () => {
+    setNewDiscount({
+      code: '',
+      type: 'percentage',
+      value: '',
+      description: '',
+      usageLimit: '',
+      expiry: '',
+      selectedCourses: []
+    })
+  }
+
+  const closeCreateDialog = () => {
+    setIsCreateDialogOpen(false)
+    resetDiscountForm()
+  }
+
+  const closeEditDialog = () => {
+    setIsEditDialogOpen(false)
+    setEditingDiscount(null)
+    resetDiscountForm()
   }
 
   const handleCreateDiscount = async () => {
@@ -338,15 +351,7 @@ export function InstructorDiscountsPage() {
       }
       toast.success(t('instructor_discounts_page.toasts.discount_created'))
       setIsCreateDialogOpen(false)
-      setNewDiscount({
-        code: '',
-        type: 'percentage',
-        value: '',
-        description: '',
-        usageLimit: '',
-        expiry: '',
-        selectedCourses: []
-      })
+      resetDiscountForm()
     } catch (err: any) {
       console.error(t('instructor_discounts_page.errors.create_discount_console'), err)
       toast.error(err?.message || t('instructor_discounts_page.toasts.failed_to_create_discount'))
@@ -402,15 +407,7 @@ export function InstructorDiscountsPage() {
       toast.success(t('instructor_discounts_page.toasts.discount_updated'))
       setIsEditDialogOpen(false)
       setEditingDiscount(null)
-      setNewDiscount({
-        code: '',
-        type: 'percentage',
-        value: '',
-        description: '',
-        usageLimit: '',
-        expiry: '',
-        selectedCourses: []
-      })
+      resetDiscountForm()
     } catch (err: any) {
       console.error(t('instructor_discounts_page.errors.update_discount_console'), err)
       toast.error(err?.message || t('instructor_discounts_page.toasts.failed_to_update_discount'))
@@ -426,7 +423,7 @@ export function InstructorDiscountsPage() {
 
   const handleDeleteDiscount = async (discountId: number) => {
     const discount = discounts.find(d => d.id === discountId)
-    if (discount && confirm(t('instructor_discounts_page.confirms.delete_discount', { code: discount.code }))) {
+    if (discount && await confirmDialog(t('instructor_discounts_page.confirms.delete_discount', { code: discount.code }))) {
       try {
         await deletePromotion(discountId)
         setRefreshKey((prev) => prev + 1)
@@ -452,9 +449,127 @@ export function InstructorDiscountsPage() {
     }
   }
 
-  const totalRevenue = allDiscountsForStats.reduce((sum, d) => sum + d.revenue, 0)
   const totalUsage = allDiscountsForStats.reduce((sum, d) => sum + d.usedCount, 0)
   const activeDiscounts = allDiscountsForStats.filter(d => d.status === 'active').length
+
+  const renderDiscountForm = (mode: 'create' | 'edit') => {
+    const isEdit = mode === 'edit'
+    const submitLabel = isSubmitting
+      ? t(isEdit ? 'instructor_discounts_page.actions.updating' : 'instructor_discounts_page.actions.creating')
+      : t(isEdit ? 'instructor_discounts_page.actions.update_discount' : 'instructor_discounts_page.actions.create_discount')
+    const handleSubmit = isEdit ? handleUpdateDiscount : handleCreateDiscount
+    const handleCancel = isEdit ? closeEditDialog : closeCreateDialog
+
+    return (
+      <div className="space-y-4 pt-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              {t('instructor_discounts_page.form.discount_code')}
+            </label>
+            <AntInput
+              value={newDiscount.code}
+              onChange={(e) => setNewDiscount(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+              placeholder={t('instructor_discounts_page.form.discount_code_placeholder')}
+              className="uppercase"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              {t('instructor_discounts_page.form.type')}
+            </label>
+            <AntSelect
+              value={newDiscount.type}
+              onChange={(value: 'percentage' | 'fixed') => setNewDiscount(prev => ({ ...prev, type: value }))}
+              options={[
+                { value: 'percentage', label: t('instructor_discounts_page.types.percentage') },
+                { value: 'fixed', label: t('instructor_discounts_page.types.fixed_amount') },
+              ]}
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            {newDiscount.type === 'percentage'
+              ? t('instructor_discounts_page.form.percentage_value')
+              : t('instructor_discounts_page.form.amount_value')}
+          </label>
+          <AntInput
+            type="number"
+            value={newDiscount.value}
+            onChange={(e) => setNewDiscount(prev => ({ ...prev, value: e.target.value }))}
+            placeholder={newDiscount.type === 'percentage'
+              ? t('instructor_discounts_page.form.percentage_placeholder')
+              : t('instructor_discounts_page.form.amount_placeholder')}
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            {t('instructor_discounts_page.form.description')}
+          </label>
+          <AntInput
+            value={newDiscount.description}
+            onChange={(e) => setNewDiscount(prev => ({ ...prev, description: e.target.value }))}
+            placeholder={t('instructor_discounts_page.form.description_placeholder')}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              {t('instructor_discounts_page.form.usage_limit')}
+            </label>
+            <AntInput
+              type="number"
+              value={newDiscount.usageLimit}
+              onChange={(e) => setNewDiscount(prev => ({ ...prev, usageLimit: e.target.value }))}
+              placeholder={t('instructor_discounts_page.form.usage_limit_placeholder')}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium">
+              {t('instructor_discounts_page.form.expiry_date')}
+            </label>
+            <AntInput
+              type="date"
+              value={newDiscount.expiry}
+              onChange={(e) => setNewDiscount(prev => ({ ...prev, expiry: e.target.value }))}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            {t('instructor_discounts_page.form.applicable_courses')}
+          </label>
+          <AntSelect
+            mode="multiple"
+            showSearch
+            allowClear
+            value={newDiscount.selectedCourses}
+            options={courseOptions}
+            optionFilterProp="label"
+            placeholder={t('instructor_discounts_page.form.applicable_courses')}
+            maxTagCount="responsive"
+            onChange={(selectedCourses) => setNewDiscount(prev => ({ ...prev, selectedCourses }))}
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4">
+          <AntButton onClick={handleCancel}>
+            {t('instructor_discounts_page.actions.cancel')}
+          </AntButton>
+          <AntButton type="primary" onClick={handleSubmit} loading={isSubmitting}>
+            {submitLabel}
+          </AntButton>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <motion.div
@@ -478,142 +593,15 @@ export function InstructorDiscountsPage() {
                   </p>
                 </div>
               </div>
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    {t('instructor_discounts_page.actions.create_discount')}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>{t('instructor_discounts_page.create_dialog.title')}</DialogTitle>
-                    <DialogDescription>
-                      {t('instructor_discounts_page.create_dialog.description')}
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="code">{t('instructor_discounts_page.form.discount_code')}</Label>
-                        <Input
-                          id="code"
-                          value={newDiscount.code}
-                          onChange={(e) => setNewDiscount(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                          placeholder={t('instructor_discounts_page.form.discount_code_placeholder')}
-                          className="mt-1.5 uppercase"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="type">{t('instructor_discounts_page.form.type')}</Label>
-                        <Select
-                          value={newDiscount.type}
-                          onValueChange={(value: any) => setNewDiscount(prev => ({ ...prev, type: value }))}
-                        >
-                          <SelectTrigger className="mt-1.5">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="percentage">{t('instructor_discounts_page.types.percentage')}</SelectItem>
-                            <SelectItem value="fixed">{t('instructor_discounts_page.types.fixed_amount')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="value">
-                        {newDiscount.type === 'percentage'
-                          ? t('instructor_discounts_page.form.percentage_value')
-                          : t('instructor_discounts_page.form.amount_value')}
-                      </Label>
-                      <Input
-                        id="value"
-                        type="number"
-                        value={newDiscount.value}
-                        onChange={(e) => setNewDiscount(prev => ({ ...prev, value: e.target.value }))}
-                        placeholder={newDiscount.type === 'percentage'
-                          ? t('instructor_discounts_page.form.percentage_placeholder')
-                          : t('instructor_discounts_page.form.amount_placeholder')}
-                        className="mt-1.5"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="description">{t('instructor_discounts_page.form.description')}</Label>
-                      <Input
-                        id="description"
-                        value={newDiscount.description}
-                        onChange={(e) => setNewDiscount(prev => ({ ...prev, description: e.target.value }))}
-                        placeholder={t('instructor_discounts_page.form.description_placeholder')}
-                        className="mt-1.5"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="usageLimit">{t('instructor_discounts_page.form.usage_limit')}</Label>
-                        <Input
-                          id="usageLimit"
-                          type="number"
-                          value={newDiscount.usageLimit}
-                          onChange={(e) => setNewDiscount(prev => ({ ...prev, usageLimit: e.target.value }))}
-                          placeholder={t('instructor_discounts_page.form.usage_limit_placeholder')}
-                          className="mt-1.5"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="expiry">{t('instructor_discounts_page.form.expiry_date')}</Label>
-                        <Input
-                          id="expiry"
-                          type="date"
-                          value={newDiscount.expiry}
-                          onChange={(e) => setNewDiscount(prev => ({ ...prev, expiry: e.target.value }))}
-                          className="mt-1.5"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="mb-3 block">{t('instructor_discounts_page.form.applicable_courses')}</Label>
-                      <div className="space-y-2 border rounded-lg p-4">
-                        {instructorCourses.map((course) => (
-                          <div
-                            key={course.id}
-                            className="flex items-center gap-3 p-3 hover:bg-muted/50 rounded-lg cursor-pointer"
-                            onClick={() => handleCourseToggle(course.id)}
-                          >
-                            <Checkbox
-                              id={`course-${course.id}`}
-                              checked={newDiscount.selectedCourses.includes(course.id)}
-                              onCheckedChange={() => handleCourseToggle(course.id)}
-                            />
-                            <Label htmlFor={`course-${course.id}`} className="cursor-pointer flex-1">
-                              {course.title}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 justify-end pt-4">
-                      <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                        {t('instructor_discounts_page.actions.cancel')}
-                      </Button>
-                      <Button onClick={handleCreateDiscount} disabled={isSubmitting}>
-                        {isSubmitting
-                          ? t('instructor_discounts_page.actions.creating')
-                          : t('instructor_discounts_page.actions.create_discount')}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <AntButton type="primary" onClick={() => setIsCreateDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                {t('instructor_discounts_page.actions.create_discount')}
+              </AntButton>
             </div>
           </motion.div>
 
 
-          <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" variants={fadeInUp}>
+          <motion.div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" variants={fadeInUp}>
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
@@ -633,17 +621,6 @@ export function InstructorDiscountsPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">{t('instructor_discounts_page.stats.total_usage')}</p>
                   <p className="text-2xl font-bold">{totalUsage.toLocaleString()}</p>
-                </div>
-              </div>
-            </Card>
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('instructor_discounts_page.stats.revenue_generated')}</p>
-                  <p className="text-2xl font-bold">{totalRevenue.toLocaleString('vi-VN')}₫</p>
                 </div>
               </div>
             </Card>
@@ -694,7 +671,6 @@ export function InstructorDiscountsPage() {
                   <TableHead>{t('instructor_discounts_page.table.headers.value')}</TableHead>
                   <TableHead>{t('instructor_discounts_page.table.headers.usage')}</TableHead>
                   <TableHead>{t('instructor_discounts_page.table.headers.courses')}</TableHead>
-                  <TableHead>{t('instructor_discounts_page.table.headers.revenue')}</TableHead>
                   <TableHead>{t('instructor_discounts_page.table.headers.expiry')}</TableHead>
                   <TableHead>{t('instructor_discounts_page.table.headers.status')}</TableHead>
                   <TableHead className="text-right">{t('instructor_discounts_page.table.headers.actions')}</TableHead>
@@ -703,13 +679,13 @@ export function InstructorDiscountsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {t('instructor_discounts_page.table.loading')}
                     </TableCell>
                   </TableRow>
                 ) : discounts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {t('instructor_discounts_page.table.empty')}
                     </TableCell>
                   </TableRow>
@@ -761,9 +737,6 @@ export function InstructorDiscountsPage() {
                               count: discount.applicableCourses.length,
                             })}
                           </div>
-                        </TableCell>
-                        <TableCell className="font-medium text-green-600 dark:text-green-400">
-                          {discount.revenue.toLocaleString('vi-VN')}₫
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2 text-sm">
@@ -832,134 +805,33 @@ export function InstructorDiscountsPage() {
       </motion.div>
 
 
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{t('instructor_discounts_page.edit_dialog.title')}</DialogTitle>
-                <DialogDescription>
-                  {t('instructor_discounts_page.edit_dialog.description')}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-code">{t('instructor_discounts_page.form.discount_code')}</Label>
-                    <Input
-                      id="edit-code"
-                      value={newDiscount.code}
-                      onChange={(e) => setNewDiscount(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
-                      placeholder={t('instructor_discounts_page.form.discount_code_placeholder')}
-                      className="mt-1.5 uppercase"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-type">{t('instructor_discounts_page.form.type')}</Label>
-                    <Select
-                      value={newDiscount.type}
-                      onValueChange={(value: any) => setNewDiscount(prev => ({ ...prev, type: value }))}
-                    >
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="percentage">{t('instructor_discounts_page.types.percentage')}</SelectItem>
-                        <SelectItem value="fixed">{t('instructor_discounts_page.types.fixed_amount')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+          <AntModal
+            open={isCreateDialogOpen}
+            title={t('instructor_discounts_page.create_dialog.title')}
+            onCancel={closeCreateDialog}
+            footer={null}
+            width={720}
+            destroyOnClose
+          >
+            <p className="mb-4 text-sm text-muted-foreground">
+              {t('instructor_discounts_page.create_dialog.description')}
+            </p>
+            {renderDiscountForm('create')}
+          </AntModal>
 
-                <div>
-                  <Label htmlFor="edit-value">
-                    {newDiscount.type === 'percentage'
-                      ? t('instructor_discounts_page.form.percentage_value')
-                      : t('instructor_discounts_page.form.amount_value')}
-                  </Label>
-                  <Input
-                    id="edit-value"
-                    type="number"
-                    value={newDiscount.value}
-                    onChange={(e) => setNewDiscount(prev => ({ ...prev, value: e.target.value }))}
-                    placeholder={newDiscount.type === 'percentage'
-                      ? t('instructor_discounts_page.form.percentage_placeholder')
-                      : t('instructor_discounts_page.form.amount_placeholder')}
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="edit-description">{t('instructor_discounts_page.form.description')}</Label>
-                  <Input
-                    id="edit-description"
-                    value={newDiscount.description}
-                    onChange={(e) => setNewDiscount(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder={t('instructor_discounts_page.form.description_placeholder')}
-                    className="mt-1.5"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-usageLimit">{t('instructor_discounts_page.form.usage_limit')}</Label>
-                    <Input
-                      id="edit-usageLimit"
-                      type="number"
-                      value={newDiscount.usageLimit}
-                      onChange={(e) => setNewDiscount(prev => ({ ...prev, usageLimit: e.target.value }))}
-                      placeholder={t('instructor_discounts_page.form.usage_limit_placeholder')}
-                      className="mt-1.5"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-expiry">{t('instructor_discounts_page.form.expiry_date')}</Label>
-                    <Input
-                      id="edit-expiry"
-                      type="date"
-                      value={newDiscount.expiry}
-                      onChange={(e) => setNewDiscount(prev => ({ ...prev, expiry: e.target.value }))}
-                      className="mt-1.5"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-3 block">{t('instructor_discounts_page.form.applicable_courses')}</Label>
-                  <div className="space-y-2 border rounded-lg p-4">
-                    {instructorCourses.map((course) => (
-                      <div
-                        key={course.id}
-                        className="flex items-center gap-3 p-3 hover:bg-muted/50 rounded-lg cursor-pointer"
-                        onClick={() => handleCourseToggle(course.id)}
-                      >
-                        <Checkbox
-                          id={`edit-course-${course.id}`}
-                          checked={newDiscount.selectedCourses.includes(course.id)}
-                          onCheckedChange={() => handleCourseToggle(course.id)}
-                        />
-                        <Label htmlFor={`edit-course-${course.id}`} className="cursor-pointer flex-1">
-                          {course.title}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-3 justify-end pt-4">
-                  <Button variant="outline" onClick={() => {
-                    setIsEditDialogOpen(false)
-                    setEditingDiscount(null)
-                  }}>
-                    {t('instructor_discounts_page.actions.cancel')}
-                  </Button>
-                  <Button onClick={handleUpdateDiscount} disabled={isSubmitting}>
-                    {isSubmitting
-                      ? t('instructor_discounts_page.actions.updating')
-                      : t('instructor_discounts_page.actions.update_discount')}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <AntModal
+            open={isEditDialogOpen}
+            title={t('instructor_discounts_page.edit_dialog.title')}
+            onCancel={closeEditDialog}
+            footer={null}
+            width={720}
+            destroyOnClose
+          >
+            <p className="mb-4 text-sm text-muted-foreground">
+              {t('instructor_discounts_page.edit_dialog.description')}
+            </p>
+            {renderDiscountForm('edit')}
+          </AntModal>
     </motion.div>
   )
 }

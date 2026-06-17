@@ -339,28 +339,30 @@ export function InstructorPublicProfilePage() {
                 <p className="text-lg text-muted-foreground">{instructor.specialization || ''}</p>
               </div>
 
-              <div className="flex flex-wrap gap-4 sm:gap-6">
-                <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  <span className="font-medium">{rating}</span>
-                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.rating')}</span>
+              {showStats && (
+                <div className="flex flex-wrap gap-4 sm:gap-6">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                    <span className="font-medium">{rating}</span>
+                    <span className="text-muted-foreground">{t('instructor_public_profile.stats.rating')}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    <span className="font-medium">{formatStudentCount(instructor.total_students)}</span>
+                    <span className="text-muted-foreground">{t('instructor_public_profile.stats.students')}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    <span className="font-medium">{instructor.total_courses}</span>
+                    <span className="text-muted-foreground">{t('instructor_public_profile.stats.courses')}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="h-5 w-5" />
+                    <span className="font-medium">{followersCount}</span>
+                    <span className="text-muted-foreground">{t('instructor_public_profile.stats.followers')}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  <span className="font-medium">{formatStudentCount(instructor.total_students)}</span>
-                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.students')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />
-                  <span className="font-medium">{instructor.total_courses}</span>
-                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.courses')}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-5 w-5" />
-                  <span className="font-medium">{followersCount}</span>
-                  <span className="text-muted-foreground">{t('instructor_public_profile.stats.followers')}</span>
-                </div>
-              </div>
+              )}
 
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
                 <Button onClick={handleFollowClick} variant={following ? 'outline' : 'default'}>

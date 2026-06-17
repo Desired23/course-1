@@ -59,6 +59,8 @@ def _clamped_int(raw, default, minimum=1, maximum=100):
 
 
 def _group_revenue_rows(rows, period):
+    if period in {'quarter', 'year'} and rows and ('Q' in str(rows[0].get('date', '')) or len(str(rows[0].get('date', ''))) == 4):
+        return rows
     grouped = {}
     for row in rows:
         year = row['date'][:4]
@@ -110,12 +112,11 @@ def _report_sheet(report_key, date_from=None, date_to=None):
             'revenue_yearly': 'year',
         }[report_key]
         rows = get_admin_revenue_monthly_breakdown(36, date_from, date_to, period)
-        rows = _group_revenue_rows(rows, period)
         label = {'month': 'Tháng', 'quarter': 'Quý', 'year': 'Năm'}[period]
         return {
             'title': f'Doanh thu theo {label.lower()}',
-            'headers': [label, 'Doanh thu bán lẻ', 'Doanh thu gói đăng ký', 'Doanh thu gộp', 'Đã hoàn tiền', 'Doanh thu thuần', 'Giao dịch'],
-            'rows': [[r['date'], r['retail'], r['subscription'], r['gross'], r['refunded'], r['net'], r['transactions']] for r in rows],
+            'headers': [label, 'Doanh thu tạm tính', 'Doanh thu thực', 'Hoàn tiền', 'Giao dịch', 'Tỷ lệ hoàn tiền'],
+            'rows': [[r['date'], r['estimated_revenue'], r['realized_revenue'], r['refunded_amount'], r['transaction_count'], r['refund_rate']] for r in rows],
         }
 
     if report_key == 'realized_revenue':

@@ -486,6 +486,48 @@ class SerializerTest(TestCase):
         self.assertEqual(data['usage_seconds'], 600)
         self.assertEqual(data['earning_period_start'], "2026-01-01")
 
+    def test_refunded_retail_row_allocates_order_discount_and_zeroes_instructor_net(self):
+        from payment_details.models import Payment_Details
+
+        payment = Payment.objects.create(
+            user=self.student,
+            payment_method="vnpay",
+            amount=Decimal("549000.00"),
+            discount_amount=Decimal("39999.00"),
+            total_amount=Decimal("509001.00"),
+            payment_status="completed",
+        )
+        Payment_Details.objects.create(
+            payment=payment,
+            course=self.course,
+            price=Decimal("549000.00"),
+            discount=Decimal("0.00"),
+            final_price=Decimal("549000.00"),
+            refund_status=Payment_Details.RefundStatus.SUCCESS,
+            refund_amount=Decimal("509001.00"),
+            refund_request_time=timezone.now(),
+            refund_date=timezone.now(),
+        )
+        earning = InstructorEarning.objects.create(
+            instructor=self.instructor,
+            course=self.course,
+            payment=payment,
+            amount=Decimal("549000.00"),
+            net_amount=Decimal("384300.00"),
+            platform_commission_rate=Decimal("30.00"),
+            instructor_share_rate=Decimal("70.00"),
+            status="pending",
+        )
+
+        data = InstructorEarningSerializer(earning).data
+
+        self.assertEqual(data["sale_price"], "549000.00")
+        self.assertEqual(data["platform_discount_amount"], "39999.00")
+        self.assertEqual(data["paid_amount"], "509001.00")
+        self.assertEqual(data["refund_amount"], "509001.00")
+        self.assertEqual(data["instructor_refund_amount"], "356300.70")
+        self.assertEqual(data["instructor_net_after_refund"], "0.00")
+
     def test_subscription_breakdown_uses_recorded_usage_seconds(self):
         plan = _make_plan("P usage")
         payment = _make_payment(self.student)

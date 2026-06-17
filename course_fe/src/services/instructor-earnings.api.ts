@@ -13,6 +13,12 @@ export interface InstructorEarning {
   user_subscription: number | null
   amount: string
   net_amount: string
+  sale_price: string | null
+  platform_discount_amount: string | null
+  paid_amount: string | null
+  platform_fee_amount: string | null
+  instructor_refund_amount: string | null
+  instructor_net_after_refund: string | null
   status: 'pending' | 'available' | 'paid' | 'cancelled'
   active_hold?: {
     hold_id: number
@@ -26,8 +32,15 @@ export interface InstructorEarning {
   course_title: string | null
   payment_transaction_id: string | null
   plan_name: string | null
+  student_name: string | null
+  student_email: string | null
+  payment_date: string | null
   earning_source: 'retail' | 'subscription'
   commission_rate_applied: string | null
+  refund_status: string | null
+  refund_amount: string | null
+  refund_date: string | null
+  refund_reason: string | null
   created_at: string
   // Snapshot fields
   platform_commission_rate: string | null
@@ -74,6 +87,8 @@ export interface EarningsListParams {
   status?: string
   source?: string
   search?: string
+  date_from?: string
+  date_to?: string
   sort_by?: 'newest' | 'oldest' | 'earnings_desc' | 'earnings_asc' | 'course_asc' | 'course_desc'
   page?: number
   page_size?: number
@@ -114,6 +129,8 @@ export async function getInstructorEarnings(
     status: params?.status,
     source: params?.source,
     search: params?.search,
+    date_from: params?.date_from,
+    date_to: params?.date_to,
     sort_by: params?.sort_by,
     page: params?.page,
     page_size: params?.page_size,

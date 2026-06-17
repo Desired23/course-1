@@ -64,10 +64,25 @@ class InstructorEarningsView(APIView):
             if earning_id:
                 return Response(earnings, status=status.HTTP_200_OK)
 
+            date_from = parse_date(request.query_params.get('date_from') or '')
+            date_to = parse_date(request.query_params.get('date_to') or '')
+            if request.query_params.get('date_from') and date_from is None:
+                return Response({"error": "date_from must be YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+            if request.query_params.get('date_to') and date_to is None:
+                return Response({"error": "date_to must be YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+            if date_from:
+                earnings = earnings.filter(earning_date__date__gte=date_from)
+            if date_to:
+                earnings = earnings.filter(earning_date__date__lte=date_to)
+
             if search:
                 earnings = earnings.filter(
                     Q(course__title__icontains=search)
                     | Q(instructor__user__full_name__icontains=search)
+                    | Q(payment__user__full_name__icontains=search)
+                    | Q(payment__user__email__icontains=search)
+                    | Q(user_subscription__user__full_name__icontains=search)
+                    | Q(user_subscription__user__email__icontains=search)
                     | Q(user_subscription__plan__name__icontains=search)
                 )
 

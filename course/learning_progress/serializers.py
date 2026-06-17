@@ -48,4 +48,5 @@ class CourseLearningProgressSerializer(serializers.Serializer):
     total_lessons = serializers.IntegerField()
     completed_lessons = serializers.IntegerField()
     total_time_spent = serializers.IntegerField()
+    certificate_verification_code = serializers.CharField(allow_null=True, required=False)
     lessons = LearningProgressSerializer(many=True)

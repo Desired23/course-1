@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from "../../components/Router"
 import { QuizPlayer, type Quiz, type QuizQuestion } from "../../components/QuizPlayer"
 import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
@@ -484,6 +484,11 @@ export function CoursePlayerPage() {
   const [issuingCert, setIssuingCert] = useState(false)
   const [certCode, setCertCode] = useState<string | null>(null)
 
+  const applyCourseProgress = useCallback((progressData: CourseProgress) => {
+    setCourseProgress(progressData)
+    setCertCode(progressData.certificate_verification_code ?? null)
+  }, [])
+
   async function handleIssueCertificate() {
     try {
       setIssuingCert(true)
@@ -510,11 +515,13 @@ export function CoursePlayerPage() {
       try {
         setLoading(true)
         setError(null)
+        setCertCode(null)
         const courseData = await getCourseById(courseId)
         if (cancelled) return
         if (courseData.access_info && !courseData.access_info.has_access) {
           setCourse(null)
           setCourseProgress(null)
+          setCertCode(null)
           setError(courseData.access_info.hard_blocked
             ? t('course_player.course_blocked')
             : t('course_player.not_enrolled'))
@@ -530,7 +537,7 @@ export function CoursePlayerPage() {
         try {
           const progressData = await getCourseProgress(courseId)
           if (cancelled) return
-          setCourseProgress(progressData)
+          applyCourseProgress(progressData)
         } catch (e) {
           // progress load failure is non-critical — course still usable
           console.error('getCourseProgress failed:', e)
@@ -543,7 +550,7 @@ export function CoursePlayerPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [courseId, t])
+  }, [courseId, t, applyCourseProgress])
 
 
   useEffect(() => {
@@ -1002,7 +1009,7 @@ export function CoursePlayerPage() {
     if (!silent) toast.success(t('course_player.lesson_completed'))
     try {
       await updateLessonProgress({ lesson_id: lessonId, progress_percentage: 100, is_completed: true })
-      try { const updated = await getCourseProgress(courseId); setCourseProgress(updated) } catch {}
+      try { const updated = await getCourseProgress(courseId); applyCourseProgress(updated) } catch {}
     } catch (err) {
       toast.error(getErrorMessage(err, t('course_player.load_failed')))
       setLocallyCompletedLessons(prev => {

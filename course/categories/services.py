@@ -80,6 +80,6 @@ def get_top_categories(limit=6):
             )
         )
         .filter(course_count__gt=0)
-        .order_by('order', 'name')[:limit]
+        .order_by('-course_count', 'order', 'name')[:limit]
     )
 

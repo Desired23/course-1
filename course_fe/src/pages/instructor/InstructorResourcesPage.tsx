@@ -43,6 +43,18 @@ interface Resource {
   updatedAt: string
 }
 
+interface ResourceLessonOption {
+  id: number | string
+  title: string
+}
+
+interface InstructorResourcesPageProps {
+  courseId?: number
+  courseTitle?: string
+  lessonOptions?: ResourceLessonOption[]
+  embedded?: boolean
+}
+
 const ITEMS_PER_PAGE = 10
 
 const sectionStagger: any = {
@@ -92,17 +104,19 @@ function attachmentToResource(att: LessonAttachment): Resource {
   }
 }
 
-export function InstructorResourcesPage() {
+export function InstructorResourcesPage({ courseId, courseTitle, lessonOptions = [], embedded = false }: InstructorResourcesPageProps = {}) {
   const { t } = useTranslation()
   const { user } = useAuth()
+  const scopedCourseId = courseId ? String(courseId) : ''
+  const isCourseScoped = Boolean(scopedCourseId)
 
   const [resources, setResources] = useState<Resource[]>([])
-  const [courses, setCourses] = useState<{id: string; name: string}[]>([])
+  const [courses, setCourses] = useState<{ id: string; name: string }[]>([])
   const [instructorId, setInstructorId] = useState<number | null>(null)
 
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [filterCourse, setFilterCourse] = useState<string>('all')
+  const [filterCourse, setFilterCourse] = useState<string>(scopedCourseId || 'all')
   const [filterType, setFilterType] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'newest' | 'downloads' | 'title'>('newest')
   const [currentPage, setCurrentPage] = useState(1)
@@ -116,7 +130,7 @@ export function InstructorResourcesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
 
   const [formData, setFormData] = useState({
-    courseId: '',
+    courseId: scopedCourseId,
     title: '',
     description: '',
     type: 'pdf' as Resource['type'],
@@ -133,10 +147,22 @@ export function InstructorResourcesPage() {
   }, [searchTerm])
 
   useEffect(() => {
+    if (!isCourseScoped) return
+    setFilterCourse(scopedCourseId)
+    setCourses([{ id: scopedCourseId, name: courseTitle || t('instructor_resources.course') }])
+    setFormData((prev) => ({
+      ...prev,
+      courseId: scopedCourseId,
+      lessonId: lessonOptions.some((lesson) => String(lesson.id) === prev.lessonId) ? prev.lessonId : '',
+    }))
+  }, [courseTitle, isCourseScoped, lessonOptions, scopedCourseId, t])
+
+  useEffect(() => {
     setCurrentPage(1)
   }, [debouncedSearch, filterCourse, filterType, sortBy])
 
   useEffect(() => {
+    if (isCourseScoped) return
     if (!user?.id) return
     let cancelled = false
 
@@ -157,18 +183,18 @@ export function InstructorResourcesPage() {
 
     fetchBaseData()
     return () => { cancelled = true }
-  }, [user?.id])
+  }, [isCourseScoped, user?.id])
 
   useEffect(() => {
-    if (!instructorId) return
+    if (!isCourseScoped && !instructorId) return
     let cancelled = false
 
     async function fetchResourcesPage() {
       try {
         setIsLoading(true)
         const res = await getAttachmentsPage({
-          instructor_id: instructorId,
-          course_id: filterCourse === 'all' ? undefined : Number(filterCourse),
+          instructor_id: isCourseScoped ? undefined : instructorId || undefined,
+          course_id: isCourseScoped ? Number(scopedCourseId) : filterCourse === 'all' ? undefined : Number(filterCourse),
           file_type: filterType === 'all' ? undefined : filterType,
           search: debouncedSearch || undefined,
           sort_by: sortBy,
@@ -195,7 +221,7 @@ export function InstructorResourcesPage() {
 
     fetchResourcesPage()
     return () => { cancelled = true }
-  }, [instructorId, currentPage, debouncedSearch, filterCourse, filterType, sortBy, refreshKey])
+  }, [currentPage, debouncedSearch, filterCourse, filterType, instructorId, isCourseScoped, refreshKey, scopedCourseId, sortBy])
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages)
@@ -203,7 +229,7 @@ export function InstructorResourcesPage() {
 
   const resetForm = () => {
     setFormData({
-      courseId: '',
+      courseId: scopedCourseId,
       title: '',
       description: '',
       type: 'pdf',
@@ -325,12 +351,12 @@ export function InstructorResourcesPage() {
 
   return (
     <motion.div
-      className="p-8"
+      className={embedded ? "space-y-6" : "p-8"}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      <motion.div className="max-w-7xl mx-auto" variants={sectionStagger} initial="hidden" animate="show">
+      <motion.div className={embedded ? "space-y-6" : "max-w-7xl mx-auto"} variants={sectionStagger} initial="hidden" animate="show">
         <motion.div className="mb-8" variants={fadeInUp}>
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -350,28 +376,45 @@ export function InstructorResourcesPage() {
                   <DialogDescription>{t('instructor_resources.upload_description')}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={isCourseScoped ? "space-y-2" : "grid grid-cols-2 gap-4"}>
+                    {!isCourseScoped && (
+                      <div className="space-y-2">
+                        <Label htmlFor="course">{t('instructor_resources.course')}</Label>
+                        <Select value={formData.courseId} onValueChange={(value) => setFormData({ ...formData, courseId: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('instructor_resources.select_course')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {courses.map(course => (
+                              <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div className="space-y-2">
-                      <Label htmlFor="course">{t('instructor_resources.course')}</Label>
-                      <Select value={formData.courseId} onValueChange={(value) => setFormData({ ...formData, courseId: value })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={t('instructor_resources.select_course')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {courses.map(course => (
-                            <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lessonId">{t('instructor_resources.lesson_id')}</Label>
-                      <Input
-                        id="lessonId"
-                        value={formData.lessonId}
-                        onChange={(e) => setFormData({ ...formData, lessonId: e.target.value })}
-                        placeholder={t('instructor_resources.lesson_id_placeholder')}
-                      />
+                      <Label htmlFor="lessonId">{isCourseScoped ? t('instructor_resources.lesson') : t('instructor_resources.lesson_id')}</Label>
+                      {isCourseScoped ? (
+                        <Select value={formData.lessonId} onValueChange={(value) => setFormData({ ...formData, lessonId: value })}>
+                          <SelectTrigger id="lessonId">
+                            <SelectValue placeholder={t('instructor_resources.select_lesson')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {lessonOptions.length === 0 ? (
+                              <SelectItem value="__no_lessons" disabled>{t('instructor_resources.no_lessons')}</SelectItem>
+                            ) : lessonOptions.map((lesson) => (
+                              <SelectItem key={lesson.id} value={String(lesson.id)}>{lesson.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          id="lessonId"
+                          value={formData.lessonId}
+                          onChange={(e) => setFormData({ ...formData, lessonId: e.target.value })}
+                          placeholder={t('instructor_resources.lesson_id_placeholder')}
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -443,15 +486,17 @@ export function InstructorResourcesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder={t('instructor_resources.search_placeholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
             </div>
-            <Select value={filterCourse} onValueChange={setFilterCourse}>
-              <SelectTrigger className="w-56"><SelectValue placeholder={t('instructor_resources.all_courses')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('instructor_resources.all_courses')}</SelectItem>
-                {courses.map(course => (
-                  <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isCourseScoped && (
+              <Select value={filterCourse} onValueChange={setFilterCourse}>
+                <SelectTrigger className="w-56"><SelectValue placeholder={t('instructor_resources.all_courses')} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('instructor_resources.all_courses')}</SelectItem>
+                  {courses.map(course => (
+                    <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-48"><SelectValue placeholder={t('instructor_resources.all_types')} /></SelectTrigger>
               <SelectContent>

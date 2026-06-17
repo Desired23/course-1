@@ -146,7 +146,7 @@ export function AdminUsersPage() {
   const [selectedRole, setSelectedRole] = useState<string>("all")
   const [selectedStatus, setSelectedStatus] = useState<string>("all")
   const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)

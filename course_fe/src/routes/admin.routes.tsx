@@ -20,7 +20,6 @@ const AdminBlogPostsPage = lazy(() => import('../pages/admin/AdminBlogPostsPage'
 const AdminQAPage = lazy(() => import('../pages/admin/AdminQAPage').then((module) => ({ default: module.AdminQAPage })))
 const ReviewManagementPage = lazy(() => import('../pages/admin/ReviewManagementPage').then((module) => ({ default: module.ReviewManagementPage })))
 const ReportManagementPage = lazy(() => import('../pages/admin/ReportManagementPage').then((module) => ({ default: module.ReportManagementPage })))
-const AdminSupportRequestsPage = lazy(() => import('../pages/admin/AdminSupportRequestsPage').then((module) => ({ default: module.AdminSupportRequestsPage })))
 const ActivityLogPage = lazy(() => import('../pages/admin/ActivityLogPage').then((module) => ({ default: module.ActivityLogPage })))
 const AdminInstructorApplicationsPage = lazy(() => import('../pages/admin/AdminInstructorApplicationsPage').then((module) => ({ default: module.AdminInstructorApplicationsPage })))
 const PayoutManagementPage = lazy(() => import('../pages/admin/PayoutManagementPage').then((module) => ({ default: module.PayoutManagementPage })))
@@ -74,7 +73,6 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/newsletter', page: <AdminNewsletterPage /> },
   { path: '/admin/reviews', page: <ReviewManagementPage /> },
   { path: '/admin/reports', page: <ReportManagementPage /> },
-  { path: '/admin/support-requests', page: <AdminSupportRequestsPage /> },
   { path: '/admin/refunds', page: <PaymentManagementPage /> },
   { path: '/admin/instructor-applications', page: <AdminInstructorApplicationsPage /> },
   { path: '/admin/subscriptions', page: <AdminSubscriptionPage /> },

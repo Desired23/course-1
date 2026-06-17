@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
 import { Badge } from './ui/badge'
+import { confirmDialog } from '../utils/confirmDialog'
 
 interface Section {
   id: number
@@ -193,8 +194,8 @@ export function DraggableSectionCard({
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => {
-                      if (confirm(t('section_drag_drop.actions.delete_confirm', { title: section.title, count: section.lessons.length }))) {
+                    onClick={async () => {
+                      if (await confirmDialog(t('section_drag_drop.actions.delete_confirm', { title: section.title, count: section.lessons.length }))) {
                         onDeleteSection(section.id)
                       }
                     }}

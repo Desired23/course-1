@@ -21,6 +21,7 @@ import { toast } from 'sonner'
 import { getErrorMessage } from "../../lib/apiError"
 import { listItemTransition } from '../../lib/motion'
 import { useNotificationRefetch } from '../../hooks/useNotificationRefetch'
+import { confirmDialog } from '../../utils/confirmDialog'
 
 const ITEMS_PER_PAGE = 6
 
@@ -247,7 +248,7 @@ export function InstructorCoursesPage() {
     nextStatus: CourseListItem['status'],
     confirmationMessage: string
   ) => {
-    if (!window.confirm(confirmationMessage)) return
+    if (!await confirmDialog(confirmationMessage)) return
     try {
       setMutatingCourseId(course.id)
       await updateCourse(course.id, { status: nextStatus })
@@ -261,7 +262,7 @@ export function InstructorCoursesPage() {
   }
 
   const handleDeleteCourse = async (course: CourseListItem) => {
-    if (!window.confirm(t('instructor_courses.confirm_delete', { title: course.title }))) return
+    if (!await confirmDialog(t('instructor_courses.confirm_delete', { title: course.title }))) return
     try {
       setMutatingCourseId(course.id)
       await deleteCourse(course.id)

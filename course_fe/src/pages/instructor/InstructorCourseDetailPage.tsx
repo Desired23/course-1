@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowLeft, BookOpen, DollarSign, Eye, MessageCircle, Star, TrendingUp, Users } from "lucide-react"
 import { toast } from "sonner"
 
+import { InstructorResourcesPage } from "./InstructorResourcesPage"
 import { PreviewCourseModal } from "../../components/PreviewCourseModal"
 import { useRouter } from "../../components/Router"
 import { Badge } from "../../components/ui/badge"
@@ -17,6 +18,7 @@ import { UserPagination } from "../../components/UserPagination"
 import { getReviewsByCourse } from "../../services/review.api"
 import { deleteCourse, formatDuration, formatPrice, getCourseById, parseDecimal, updateCourse, type CourseDetail } from "../../services/course.api"
 import { getInstructorCourseAnalytics, type CourseAnalytics } from "../../services/instructor.api"
+import { confirmDialog } from "../../utils/confirmDialog"
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -55,7 +57,7 @@ export function InstructorCourseDetailPage() {
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isMutating, setIsMutating] = useState(false)
-  const [activeTab, setActiveTab] = useState<'analytics' | 'content' | 'reviews'>('analytics')
+  const [activeTab, setActiveTab] = useState<'analytics' | 'content' | 'resources' | 'reviews'>('analytics')
 
   const renderCourseDetailSkeleton = () => (
     <div className="p-8 space-y-6">
@@ -154,7 +156,7 @@ export function InstructorCourseDetailPage() {
   }, [courseId, reviewPage])
 
   const handleStatusChange = async (nextStatus: "pending" | "draft" | "archived" | "published", confirmation: string) => {
-    if (!course || !window.confirm(confirmation)) return
+    if (!course || !await confirmDialog(confirmation)) return
 
     try {
       setIsMutating(true)
@@ -173,7 +175,7 @@ export function InstructorCourseDetailPage() {
   }
 
   const handleDeleteCourse = async () => {
-    if (!course || !window.confirm(t("instructor_course_detail_page.delete_confirm", { title: course.title }))) return
+    if (!course || !await confirmDialog(t("instructor_course_detail_page.delete_confirm", { title: course.title }))) return
 
     try {
       setIsMutating(true)
@@ -381,7 +383,7 @@ export function InstructorCourseDetailPage() {
       </motion.div>
 
       <motion.div variants={fadeInUp}>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'analytics' | 'content' | 'reviews')} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'analytics' | 'content' | 'resources' | 'reviews')} className="space-y-6">
         <TabsList className="relative p-1">
           <TabsTrigger value="analytics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'analytics' && (
@@ -412,6 +414,16 @@ export function InstructorCourseDetailPage() {
               />
             )}
             <span className="relative z-10">{t("instructor_course_detail_page.reviews_tab", { count: totalReviews })}</span>
+          </TabsTrigger>
+          <TabsTrigger value="resources" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'resources' && (
+              <motion.span
+                layoutId="instructor-course-detail-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t("instructor_course_detail_page.resources_tab")}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -550,6 +562,20 @@ export function InstructorCourseDetailPage() {
               ))}
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="resources">
+          <InstructorResourcesPage
+            embedded
+            courseId={course.id}
+            courseTitle={course.title}
+            lessonOptions={(course.modules || []).flatMap((mod) =>
+              mod.lessons.map((lesson) => ({
+                id: lesson.lesson_id,
+                title: `${mod.title} - ${lesson.title}`,
+              }))
+            )}
+          />
         </TabsContent>
 
         <TabsContent value="reviews">

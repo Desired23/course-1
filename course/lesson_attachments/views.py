@@ -16,7 +16,6 @@ from .serializers import LessonAttachmentSerializer
 from .services import (
     create_lesson_attachment,
     get_lesson_attachments_by_lesson,
-    find_lesson_attachment_by_id,
     update_lesson_attachment,
     delete_lesson_attachment,
     get_all_lesson_attachments,
@@ -24,6 +23,34 @@ from .services import (
 from .models import LessonAttachment
 from utils.course_access import check_course_access
 from utils.permissions import RolePermissionFactory
+
+
+def _ensure_instructor_can_manage_lesson(user, lesson_id):
+    if is_active_admin(user):
+        return
+    if not is_active_instructor(user):
+        raise PermissionDenied("You do not have permission to manage lesson resources.")
+
+    lesson = Lesson.objects.select_related('coursemodule__course').filter(id=lesson_id, is_deleted=False).first()
+    course = lesson.coursemodule.course if lesson and lesson.coursemodule else None
+    if not course:
+        raise ValidationError({"error": "Lesson does not belong to a course."})
+    if course.instructor_id != user.instructor.id:
+        raise PermissionDenied("You can only manage resources for your own courses.")
+
+
+def _ensure_instructor_can_manage_attachment(user, attachment):
+    if is_active_admin(user):
+        return
+    if not is_active_instructor(user):
+        raise PermissionDenied("You do not have permission to manage lesson resources.")
+
+    lesson = attachment.lesson
+    course = lesson.coursemodule.course if lesson and lesson.coursemodule else None
+    if not course:
+        raise ValidationError({"error": "Lesson does not belong to a course."})
+    if course.instructor_id != user.instructor.id:
+        raise PermissionDenied("You can only manage resources for your own courses.")
 
 
 def _attachment_filename(attachment):
@@ -57,14 +84,19 @@ class LessonAttachmentManagementView(APIView):
         if not self._is_admin_or_instructor(request.user):
             return Response({"errors": {"error": "Bạn không có quyền truy cập."}}, status=status.HTTP_403_FORBIDDEN)
         try:
+            _ensure_instructor_can_manage_lesson(request.user, request.data.get('lesson'))
             lesson_attachment = create_lesson_attachment(request.data)
             return Response(lesson_attachment, status=status.HTTP_201_CREATED)
+        except PermissionDenied as e:
+            return Response({"errors": {"error": str(e)}}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request, lesson_id):
         try:
-            if not self._is_admin_or_instructor(request.user):
+            if self._is_admin_or_instructor(request.user):
+                _ensure_instructor_can_manage_lesson(request.user, lesson_id)
+            else:
                 lesson = Lesson.objects.select_related('coursemodule__course').filter(id=lesson_id, is_deleted=False).first()
                 if not lesson or not lesson.coursemodule or not lesson.coursemodule.course:
                     raise ValidationError({"error": "Lesson không tồn tại."})
@@ -80,16 +112,28 @@ class LessonAttachmentManagementView(APIView):
         if not self._is_admin_or_instructor(request.user):
             return Response({"errors": {"error": "Bạn không có quyền truy cập."}}, status=status.HTTP_403_FORBIDDEN)
         try:
+            attachment = LessonAttachment.objects.select_related('lesson__coursemodule__course').get(id=attachment_id)
+            _ensure_instructor_can_manage_attachment(request.user, attachment)
             updated_lesson_attachment = update_lesson_attachment(attachment_id, request.data)
             return Response(updated_lesson_attachment, status=status.HTTP_200_OK)
+        except LessonAttachment.DoesNotExist:
+            return Response({"errors": {"error": "Lesson attachment not found."}}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied as e:
+            return Response({"errors": {"error": str(e)}}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, attachment_id):
         if not self._is_admin_or_instructor(request.user):
             return Response({"errors": {"error": "Bạn không có quyền truy cập."}}, status=status.HTTP_403_FORBIDDEN)
         try:
+            attachment = LessonAttachment.objects.select_related('lesson__coursemodule__course').get(id=attachment_id)
+            _ensure_instructor_can_manage_attachment(request.user, attachment)
             response = delete_lesson_attachment(attachment_id)
             return Response(response, status=status.HTTP_204_NO_CONTENT)
+        except LessonAttachment.DoesNotExist:
+            return Response({"errors": {"error": "Lesson attachment not found."}}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied as e:
+            return Response({"errors": {"error": str(e)}}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -99,8 +143,14 @@ class LessonAttachmentDetailView(APIView):
 
     def get(self, request, attachment_id):
         try:
-            lesson_attachment = find_lesson_attachment_by_id(attachment_id)
-            return Response(lesson_attachment, status=status.HTTP_200_OK)
+            attachment = LessonAttachment.objects.select_related('lesson__coursemodule__course').get(id=attachment_id)
+            _ensure_instructor_can_manage_attachment(request.user, attachment)
+            serializer = LessonAttachmentSerializer(attachment)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except LessonAttachment.DoesNotExist:
+            return Response({"errors": {"error": "Lesson attachment not found."}}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionDenied as e:
+            return Response({"errors": {"error": str(e)}}, status=status.HTTP_403_FORBIDDEN)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -168,6 +218,8 @@ class LessonAttachmentListView(APIView):
             filters = {}
             if request.query_params.get('instructor_id'):
                 filters['instructor_id'] = request.query_params.get('instructor_id')
+            if is_active_instructor(request.user) and not is_active_admin(request.user):
+                filters['instructor_id'] = request.user.instructor.id
             if request.query_params.get('course_id'):
                 filters['course_id'] = request.query_params.get('course_id')
             if request.query_params.get('file_type'):

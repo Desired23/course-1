@@ -10,7 +10,7 @@ import { CourseStickyNav } from "../../components/CourseStickyNav"
 import { LearningGoals } from "../../components/LearningGoals"
 import { toast } from "sonner"
 import { getErrorMessage } from "../../lib/apiError"
-import { getCourseById, type CourseDetail, parseDecimal, getEffectivePrice, formatPrice, getLevelLabel, formatDuration } from "../../services/course.api"
+import { getCourseById, getCourses, type CourseDetail, type CourseListItem, parseDecimal, getEffectivePrice, hasActiveDiscount, formatPrice, formatDuration } from "../../services/course.api"
 import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
 import { getInitials } from "../../services/instructor.api"
 import { extractRouteParams } from "../../utils/routeHelpers"
@@ -57,6 +57,9 @@ const fadeInUp = {
   },
 }
 
+const isPublicCourseListItem = (course: CourseListItem) =>
+  course.status === 'published' && course.is_public && !course.admin_hidden && !course.is_hard_blocked
+
 export function CourseDetailPage() {
   const { t } = useTranslation()
 
@@ -74,6 +77,8 @@ export function CourseDetailPage() {
   const [discountExpired, setDiscountExpired] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
   const [coursePromos, setCoursePromos] = useState<HomepagePromotion[]>([])
+  const [relatedCourses, setRelatedCourses] = useState<CourseListItem[]>([])
+  const [instructorCourses, setInstructorCourses] = useState<CourseListItem[]>([])
 
   const handleDiscountExpire = useCallback(() => {
     setDiscountExpired(true)
@@ -286,6 +291,74 @@ export function CourseDetailPage() {
     if (courseData) loadReviews(courseData.id)
   }, [courseData, loadReviews])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRelatedCourses() {
+      if (!courseData?.category?.category_id) {
+        setRelatedCourses([])
+        return
+      }
+
+      setRelatedCourses([])
+      try {
+        const res = await getCourses({
+          category_id: courseData.category.category_id,
+          status: 'published',
+          ordering: '-total_students',
+          page_size: 8,
+        })
+        if (!cancelled) {
+          setRelatedCourses(
+            res.results
+              .filter((course) => course.id !== courseData.id && isPublicCourseListItem(course))
+              .slice(0, 4)
+          )
+        }
+      } catch (err) {
+        console.error('[CourseDetail] Failed to load related courses:', err)
+        if (!cancelled) setRelatedCourses([])
+      }
+    }
+
+    loadRelatedCourses()
+    return () => { cancelled = true }
+  }, [courseData?.category?.category_id, courseData?.id])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInstructorCourses() {
+      if (!courseData?.instructor?.instructor_id) {
+        setInstructorCourses([])
+        return
+      }
+
+      setInstructorCourses([])
+      try {
+        const res = await getCourses({
+          instructor_id: courseData.instructor.instructor_id,
+          status: 'published',
+          ordering: '-total_students',
+          page_size: 8,
+        })
+        if (!cancelled) {
+          setInstructorCourses(
+            res.results
+              .filter((course) => course.id !== courseData.id && isPublicCourseListItem(course))
+              .slice(0, 4)
+          )
+        }
+      } catch (err) {
+        console.error('[CourseDetail] Failed to load instructor courses:', err)
+        if (!cancelled) setInstructorCourses([])
+      }
+    }
+
+    loadInstructorCourses()
+    return () => { cancelled = true }
+  }, [courseData?.instructor?.instructor_id, courseData?.id])
+
 
   const rawEffectivePrice = courseData ? getEffectivePrice(courseData) : 0
   const regularPrice = courseData ? parseDecimal(courseData.price) : 0
@@ -296,6 +369,70 @@ export function CourseDetailPage() {
   const discountEndDate = courseData?.discount_end_date || null
   const needsSubscriptionEnrollment = canAccessCourse && accessType === 'subscription' && !!accessInfo?.requires_enrollment
   const canGoToPlayerDirectly = canAccessCourse && !needsSubscriptionEnrollment
+
+  const renderRecommendationCards = (courses: CourseListItem[]) => (
+    <div
+      className="grid gap-4"
+      style={{
+        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 360px))',
+        justifyContent: 'start',
+      }}
+    >
+      {courses.map((course, index) => {
+        const recommendationPrice = getEffectivePrice(course)
+        const recommendationRegularPrice = parseDecimal(course.price)
+        const recommendationRating = parseDecimal(course.rating)
+        const showRegularPrice = hasActiveDiscount(course) && recommendationRegularPrice > recommendationPrice
+
+        return (
+          <motion.div
+            key={course.id}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={listItemTransition(index)}
+          >
+            <button
+              type="button"
+              onClick={() => navigate(`/course/${course.id}`)}
+              className="group flex h-full w-full overflow-hidden rounded-lg border bg-card text-left text-card-foreground transition-colors"
+            >
+              <div className="h-24 w-32 shrink-0 overflow-hidden bg-muted">
+                <ImageWithFallback
+                  src={course.thumbnail || ''}
+                  alt={course.title}
+                  className="h-24 w-32 object-cover transition-transform group-hover:scale-105"
+                />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col p-3">
+                <h3 className="line-clamp-2 text-sm font-semibold group-hover:text-primary">
+                  {course.title}
+                </h3>
+                <p className="mt-1 truncate text-xs text-muted-foreground">
+                  {course.instructor_name || t('course_detail.by_instructor')}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                    {recommendationRating.toFixed(1)}
+                  </span>
+                  <span>({course.total_reviews.toLocaleString()})</span>
+                  <span>{formatDuration(course.duration)}</span>
+                </div>
+                <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
+                  <span className="text-sm font-bold text-foreground">{formatPrice(recommendationPrice)}</span>
+                  {showRegularPrice && (
+                    <span className="text-xs text-muted-foreground line-through">
+                      {formatPrice(recommendationRegularPrice)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          </motion.div>
+        )
+      })}
+    </div>
+  )
 
   const handleAddToCart = async () => {
     if (!courseData) return
@@ -990,6 +1127,58 @@ export function CourseDetailPage() {
                   </div>
                </CardContent>
             </Card>
+            )}
+
+
+            {relatedCourses.length > 0 && (
+              <section className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">{t('course_detail.related_courses')}</h2>
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      {t('course_detail.related_courses_desc', {
+                        category: courseData.category?.name || t('common.courses'),
+                      })}
+                    </p>
+                  </div>
+                  {courseData.category && (
+                    <button
+                      type="button"
+                      className="inline-flex shrink-0 items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium"
+                      onClick={() => navigate(`/courses?category=${courseData.category?.category_id}`)}
+                    >
+                      {t('course_detail.view_all_related')}
+                    </button>
+                  )}
+                </div>
+                {renderRecommendationCards(relatedCourses)}
+              </section>
+            )}
+
+
+            {instructorCourses.length > 0 && (
+              <section className="space-y-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0 space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">{t('course_detail.instructor_courses')}</h2>
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      {t('course_detail.instructor_courses_desc', {
+                        instructor: courseData.instructor?.full_name || t('course_detail.by_instructor'),
+                      })}
+                    </p>
+                  </div>
+                  {courseData.instructor?.instructor_id && (
+                    <button
+                      type="button"
+                      className="inline-flex shrink-0 items-center justify-center rounded-md border bg-background px-4 py-2 text-sm font-medium"
+                      onClick={handleOpenInstructorProfile}
+                    >
+                      {t('course_detail.view_instructor_profile_short')}
+                    </button>
+                  )}
+                </div>
+                {renderRecommendationCards(instructorCourses)}
+              </section>
             )}
 
 

@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'motion/react'
+import { Select as AntSelect } from 'antd'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Badge } from '../../components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Switch } from '../../components/ui/switch'
-import { Checkbox } from '../../components/ui/checkbox'
-import { ArrowLeft, Plus, Trash2, Search, BookOpen, Loader2, Percent } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Percent } from 'lucide-react'
 import { useRouter } from '../../components/Router'
 import { toast } from 'sonner'
 import { createSubscriptionPlan } from '../../services/admin.api'
@@ -54,6 +53,7 @@ export function CreateSubscriptionPlanPage() {
   const [planCourseSearch, setPlanCourseSearch] = useState('')
   const [planCourseOptions, setPlanCourseOptions] = useState<CourseListItem[]>([])
   const [selectedPlanCourseIds, setSelectedPlanCourseIds] = useState<number[]>([])
+  const [selectedPlanCourseLabels, setSelectedPlanCourseLabels] = useState<Record<number, string>>({})
   const [planCoursesLoading, setPlanCoursesLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -98,7 +98,18 @@ export function CreateSubscriptionPlanPage() {
   const annualDiscountPercent = Number.isFinite(monthlyPrice) && monthlyPrice > 0 && hasAnnualMonthlyPrice
     ? Math.max(0, ((monthlyPrice - annualMonthlyPrice) / monthlyPrice) * 100)
     : 0
-  const selectedPlanCourseIdSet = new Set(selectedPlanCourseIds)
+
+  const getCourseOptionLabel = (course: CourseListItem) =>
+    `${course.title}${course.instructor_name ? ` - ${course.instructor_name}` : ''}`
+
+  const planCourseSelectOptions = useMemo(() => {
+    const optionMap = new Map<number, string>()
+    planCourseOptions.forEach((course) => optionMap.set(course.id, getCourseOptionLabel(course)))
+    Object.entries(selectedPlanCourseLabels).forEach(([courseId, label]) => {
+      optionMap.set(Number(courseId), label)
+    })
+    return Array.from(optionMap.entries()).map(([value, label]) => ({ value, label }))
+  }, [planCourseOptions, selectedPlanCourseLabels])
 
   const updatePlanFeature = (index: number, value: string) => {
     setPlanForm(prev => ({
@@ -118,12 +129,15 @@ export function CreateSubscriptionPlanPage() {
     }))
   }
 
-  const togglePlanCourseSelection = (courseId: number, checked: boolean) => {
-    setSelectedPlanCourseIds(prev => {
-      if (checked) {
-        return prev.includes(courseId) ? prev : [...prev, courseId]
-      }
-      return prev.filter(id => id !== courseId)
+  const handlePlanCoursesChange = (courseIds: number[]) => {
+    setSelectedPlanCourseIds(courseIds)
+    setSelectedPlanCourseLabels(prev => {
+      const next: Record<number, string> = {}
+      courseIds.forEach((courseId) => {
+        const course = planCourseOptions.find((item) => item.id === courseId)
+        next[courseId] = course ? getCourseOptionLabel(course) : prev[courseId] || String(courseId)
+      })
+      return next
     })
   }
 
@@ -321,65 +335,21 @@ export function CreateSubscriptionPlanPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  placeholder={t('subscriptions_page.admin.form.course_search_placeholder')}
-                  value={planCourseSearch}
-                  onChange={(e) => setPlanCourseSearch(e.target.value)}
-                />
-              </div>
-              <div className="max-h-96 overflow-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[48px]" />
-                      <TableHead>{t('subscriptions_page.admin.form.course_table.course')}</TableHead>
-                      <TableHead>{t('subscriptions_page.admin.form.course_table.price')}</TableHead>
-                      <TableHead>{t('subscriptions_page.admin.form.course_table.students')}</TableHead>
-                      <TableHead>{t('subscriptions_page.admin.form.course_table.rating')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {planCoursesLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
-                          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                          {t('common.loading')}
-                        </TableCell>
-                      </TableRow>
-                    ) : planCourseOptions.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="h-24 text-center text-sm text-muted-foreground">
-                          {t('subscriptions_page.admin.form.courses_empty')}
-                        </TableCell>
-                      </TableRow>
-                    ) : planCourseOptions.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedPlanCourseIdSet.has(course.id)}
-                            onCheckedChange={(checked) => togglePlanCourseSelection(course.id, Boolean(checked))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-start gap-2">
-                            <BookOpen className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="font-medium leading-tight">{course.title}</p>
-                              <p className="text-xs text-muted-foreground">{course.instructor_name || t('common.unknown')}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatCurrency(Number(course.discount_price || course.price) || 0)}</TableCell>
-                        <TableCell>{Number(course.total_students || 0).toLocaleString('vi-VN')}</TableCell>
-                        <TableCell>{Number(course.rating || 0).toFixed(1)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <AntSelect
+                mode="multiple"
+                allowClear
+                showSearch
+                filterOption={false}
+                maxTagCount="responsive"
+                value={selectedPlanCourseIds}
+                options={planCourseSelectOptions}
+                loading={planCoursesLoading}
+                placeholder={t('subscriptions_page.admin.form.course_search_placeholder')}
+                notFoundContent={planCoursesLoading ? t('common.loading') : t('subscriptions_page.admin.form.courses_empty')}
+                onSearch={setPlanCourseSearch}
+                onChange={handlePlanCoursesChange}
+                style={{ width: '100%' }}
+              />
             </CardContent>
           </Card>
         </motion.div>

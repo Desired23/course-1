@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { motion } from 'motion/react'
+import { Input as AntInput, InputNumber, Select as AntSelect, Switch as AntSwitch } from 'antd'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Switch } from '../../components/ui/switch'
 import { Checkbox } from '../../components/ui/checkbox'
+import { Skeleton } from '../../components/ui/skeleton'
 import { AdminBulkActionBar } from '../../components/admin/AdminBulkActionBar'
 import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import {
@@ -37,9 +39,11 @@ import { useAuth } from '../../contexts/AuthContext'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { toast } from 'sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
-import { getAdminSubscriptionPlans, getPlanSubscribers, getAdminSubscriptionMetrics, getAdminRevenueMonthlyBreakdown, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan, type SubscriptionMetrics } from '../../services/admin.api'
+import { getAdminSubscriptionPlans, getPlanSubscribers, getAdminSubscriptionMetrics, getAdminRevenueMonthlyBreakdown, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan, addPlanCourse, removePlanCourse, type SubscriptionMetrics } from '../../services/admin.api'
 import { useRouter } from '../../components/Router'
 import { useTranslation } from 'react-i18next'
+import { getCourses, type CourseListItem } from '../../services/course.api'
+import { getPlanCourses, type PlanCourse } from '../../services/subscription.api'
 interface SubscriptionPlan {
   id: string
   name: string
@@ -118,9 +122,17 @@ export function AdminSubscriptionPage() {
   const [revenueData, setRevenueData] = useState<{month: string; revenue: number}[]>([])
   const [planDistribution, setPlanDistribution] = useState<{name: string; value: number; color: string}[]>([])
   const [subMetrics, setSubMetrics] = useState<SubscriptionMetrics | null>(null)
+  const [dataLoading, setDataLoading] = useState(true)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [isEditPlanOpen, setIsEditPlanOpen] = useState(false)
   const [editPlanForm, setEditPlanForm] = useState({ name: '', description: '', price: '', isActive: true, isPopular: false })
+  const [savingEditPlan, setSavingEditPlan] = useState(false)
+  const [editPlanCourseSearch, setEditPlanCourseSearch] = useState('')
+  const [editPlanCourseOptions, setEditPlanCourseOptions] = useState<CourseListItem[]>([])
+  const [editPlanCourseIds, setEditPlanCourseIds] = useState<number[]>([])
+  const [initialEditPlanCourseIds, setInitialEditPlanCourseIds] = useState<number[]>([])
+  const [editPlanCourseLabels, setEditPlanCourseLabels] = useState<Record<number, string>>({})
+  const [editPlanCoursesLoading, setEditPlanCoursesLoading] = useState(false)
 
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
@@ -194,6 +206,7 @@ export function AdminSubscriptionPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setDataLoading(true)
         const [apiPlans, metrics, monthly] = await Promise.all([
           getAdminSubscriptionPlans(),
           getAdminSubscriptionMetrics(),
@@ -226,6 +239,8 @@ export function AdminSubscriptionPage() {
         await reloadSubscriptions(apiPlans)
       } catch {
         toast.error(t('subscriptions_page.admin.toasts.load_failed'))
+      } finally {
+        setDataLoading(false)
       }
     }
     fetchData()
@@ -234,28 +249,118 @@ export function AdminSubscriptionPage() {
   const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
-  const openEditPlan = (plan: SubscriptionPlan) => {
+  const getCourseOptionLabel = (course: CourseListItem) =>
+    `${course.title}${course.instructor_name ? ` - ${course.instructor_name}` : ''}`
+
+  const getPlanCourseLabel = (planCourse: PlanCourse) =>
+    `${planCourse.course_title}${planCourse.course_instructor ? ` - ${planCourse.course_instructor}` : ''}`
+
+  useEffect(() => {
+    if (!isEditPlanOpen) return
+
+    let cancelled = false
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setEditPlanCoursesLoading(true)
+        const res = await getCourses({
+          page: 1,
+          page_size: 50,
+          status: 'published',
+          search: editPlanCourseSearch.trim() || undefined,
+          ordering: '-total_students',
+        })
+        if (!cancelled) {
+          setEditPlanCourseOptions(res.results || [])
+        }
+      } catch {
+        if (!cancelled) {
+          setEditPlanCourseOptions([])
+          toast.error(t('subscriptions_page.admin.form.courses_load_failed'))
+        }
+      } finally {
+        if (!cancelled) setEditPlanCoursesLoading(false)
+      }
+    }, 250)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [isEditPlanOpen, editPlanCourseSearch, t])
+
+  const editPlanCourseSelectOptions = useMemo(() => {
+    const optionMap = new Map<number, string>()
+    editPlanCourseOptions.forEach((course) => optionMap.set(course.id, getCourseOptionLabel(course)))
+    Object.entries(editPlanCourseLabels).forEach(([courseId, label]) => {
+      optionMap.set(Number(courseId), label)
+    })
+    return Array.from(optionMap.entries()).map(([value, label]) => ({ value, label }))
+  }, [editPlanCourseOptions, editPlanCourseLabels])
+
+  const openEditPlan = async (plan: SubscriptionPlan) => {
     setEditingPlan(plan)
     setEditPlanForm({ name: plan.name, description: plan.description, price: String(plan.price), isActive: plan.isActive, isPopular: plan.isPopular })
+    setEditPlanCourseSearch('')
+    setEditPlanCourseOptions([])
+    setEditPlanCourseIds([])
+    setInitialEditPlanCourseIds([])
+    setEditPlanCourseLabels({})
     setIsEditPlanOpen(true)
+    setEditPlanCoursesLoading(true)
+    try {
+      const planCourses = await getPlanCourses(Number(plan.id))
+      const activeCourseIds = planCourses.map((item) => item.course)
+      const labels = planCourses.reduce<Record<number, string>>((acc, item) => {
+        acc[item.course] = getPlanCourseLabel(item)
+        return acc
+      }, {})
+      setEditPlanCourseIds(activeCourseIds)
+      setInitialEditPlanCourseIds(activeCourseIds)
+      setEditPlanCourseLabels(labels)
+    } catch {
+      toast.error(t('subscriptions_page.admin.form.courses_load_failed'))
+    } finally {
+      setEditPlanCoursesLoading(false)
+    }
   }
 
   const handleSaveEditPlan = async () => {
     if (!editingPlan) return
+    const parsedPrice = Number(editPlanForm.price)
+    if (!editPlanForm.name.trim() || !Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      toast.error(t('subscriptions_page.admin.validation.name_price_required'))
+      return
+    }
+
+    const planId = Number(editingPlan.id)
+    const initialIds = new Set(initialEditPlanCourseIds)
+    const nextIds = new Set(editPlanCourseIds)
+    const courseIdsToAdd = editPlanCourseIds.filter((courseId) => !initialIds.has(courseId))
+    const courseIdsToRemove = initialEditPlanCourseIds.filter((courseId) => !nextIds.has(courseId))
+
     try {
-      await updateSubscriptionPlan(Number(editingPlan.id), {
-        name: editPlanForm.name,
-        description: editPlanForm.description,
-        price: Number(editPlanForm.price),
+      setSavingEditPlan(true)
+      await updateSubscriptionPlan(planId, {
+        name: editPlanForm.name.trim(),
+        description: editPlanForm.description.trim(),
+        price: parsedPrice,
         status: editPlanForm.isActive ? 'active' : 'inactive',
         is_featured: editPlanForm.isPopular,
       })
+      for (const courseId of courseIdsToAdd) {
+        await addPlanCourse(planId, courseId)
+      }
+      for (const courseId of courseIdsToRemove) {
+        await removePlanCourse(planId, courseId)
+      }
       toast.success(t('subscriptions_page.admin.plan_updated', 'Plan updated'))
       const apiPlans = await getAdminSubscriptionPlans()
       setPlans(apiPlans.map(mapPlan))
       setIsEditPlanOpen(false)
-    } catch {
-      toast.error(t('subscriptions_page.admin.plan_update_failed', 'Failed to update plan'))
+    } catch (error: any) {
+      toast.error(error?.message || t('subscriptions_page.admin.plan_update_failed', 'Failed to update plan'))
+    } finally {
+      setSavingEditPlan(false)
     }
   }
 
@@ -430,6 +535,20 @@ export function AdminSubscriptionPage() {
   const activeSubscribers = subMetrics?.active_subscribers ?? 0
   const arpu = activeSubscribers ? Math.round(totalSubscriptionRevenue / activeSubscribers) : 0
 
+  const renderSubscriptionTableSkeleton = () => (
+    Array.from({ length: 6 }).map((_, index) => (
+      <TableRow key={`subscription-skeleton-${index}`}>
+        <TableCell><Skeleton className="h-5 w-5" /></TableCell>
+        <TableCell><Skeleton className="h-10 w-40" /></TableCell>
+        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+        <TableCell className="text-right"><Skeleton className="ml-auto h-8 w-8" /></TableCell>
+      </TableRow>
+    ))
+  )
+
   return (
     <motion.div
       className="space-y-6"
@@ -479,7 +598,7 @@ export function AdminSubscriptionPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(totalSubscriptionRevenue)}</div>
+                {dataLoading ? <Skeleton className="h-8 w-32" /> : <div className="text-2xl font-bold">{formatCurrency(totalSubscriptionRevenue)}</div>}
               </CardContent>
             </Card>
 
@@ -489,7 +608,7 @@ export function AdminSubscriptionPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeSubscribers.toLocaleString('vi-VN')}</div>
+                {dataLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{activeSubscribers.toLocaleString('vi-VN')}</div>}
               </CardContent>
             </Card>
 
@@ -499,7 +618,7 @@ export function AdminSubscriptionPage() {
                 <Target className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(arpu)}</div>
+                {dataLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{formatCurrency(arpu)}</div>}
                 <p className="text-xs text-muted-foreground mt-1">
                   {t('subscriptions_page.admin.overview.arpu_description')}
                 </p>
@@ -514,7 +633,7 @@ export function AdminSubscriptionPage() {
                 <CardDescription>{t('subscriptions_page.admin.overview.revenue_growth_description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] w-full min-w-0">
+                {dataLoading ? <Skeleton className="h-[300px] w-full" /> : <div className="h-[300px] w-full min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={revenueData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -524,7 +643,7 @@ export function AdminSubscriptionPage() {
                       <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
                     </AreaChart>
                   </ResponsiveContainer>
-                </div>
+                </div>}
               </CardContent>
             </Card>
 
@@ -534,7 +653,7 @@ export function AdminSubscriptionPage() {
                 <CardDescription>{t('subscriptions_page.admin.overview.plan_distribution_description')}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] w-full min-w-0">
+                {dataLoading ? <Skeleton className="h-[300px] w-full" /> : <div className="h-[300px] w-full min-w-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -561,7 +680,7 @@ export function AdminSubscriptionPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </div>}
               </CardContent>
             </Card>
           </div>
@@ -570,7 +689,22 @@ export function AdminSubscriptionPage() {
 
         <TabsContent value="plans" className="space-y-6 mt-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {plans.map((plan) => (
+            {dataLoading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <Card key={`subscription-plan-skeleton-${index}`}>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-36" />
+                    <Skeleton className="h-4 w-full" />
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Skeleton className="h-8 w-32" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : plans.map((plan) => (
               <Card key={plan.id} className={`relative overflow-hidden ${plan.isPopular ? 'border-blue-500 shadow-md' : ''}`}>
                 {plan.isPopular && (
                   <div className="absolute top-0 right-0 bg-blue-500 text-white text-xs px-3 py-1 rounded-bl-lg font-medium">
@@ -751,7 +885,7 @@ export function AdminSubscriptionPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSubscriptions.map((sub) => (
+                  {dataLoading ? renderSubscriptionTableSkeleton() : filteredSubscriptions.map((sub) => (
                     <TableRow key={sub.id}>
                       <TableCell>
                         <Checkbox
@@ -814,7 +948,7 @@ export function AdminSubscriptionPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredSubscriptions.length === 0 && (
+                  {!dataLoading && filteredSubscriptions.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="h-24 text-center text-sm text-muted-foreground">
                         {t('subscriptions_page.admin.subscriptions_table.empty')}
@@ -872,7 +1006,7 @@ export function AdminSubscriptionPage() {
         onConfirm={runConfirmedAction}
       />
       <Dialog open={isEditPlanOpen} onOpenChange={setIsEditPlanOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t('subscriptions_page.admin.plan_card.edit')}</DialogTitle>
             <DialogDescription>{editingPlan?.name}</DialogDescription>
@@ -880,30 +1014,64 @@ export function AdminSubscriptionPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-1">
               <Label>{t('subscriptions_page.admin.create_dialog.name_label')}</Label>
-              <Input value={editPlanForm.name} onChange={e => setEditPlanForm(p => ({ ...p, name: e.target.value }))} />
+              <AntInput value={editPlanForm.name} onChange={e => setEditPlanForm(p => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label>{t('subscriptions_page.admin.create_dialog.description_label')}</Label>
-              <Input value={editPlanForm.description} onChange={e => setEditPlanForm(p => ({ ...p, description: e.target.value }))} />
+              <AntInput value={editPlanForm.description} onChange={e => setEditPlanForm(p => ({ ...p, description: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label>{t('subscriptions_page.admin.create_dialog.price_label')}</Label>
-              <Input type="number" value={editPlanForm.price} onChange={e => setEditPlanForm(p => ({ ...p, price: e.target.value }))} />
+              <InputNumber
+                min={0}
+                value={editPlanForm.price === '' ? null : Number(editPlanForm.price)}
+                onChange={(value) => setEditPlanForm(p => ({ ...p, price: value === null ? '' : String(value) }))}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>{t('subscriptions_page.admin.form.plan_courses')}</Label>
+                <Badge variant="outline">
+                  {t('subscriptions_page.admin.form.courses_selected', { count: editPlanCourseIds.length })}
+                </Badge>
+              </div>
+              <AntSelect
+                mode="multiple"
+                allowClear
+                showSearch
+                filterOption={false}
+                maxTagCount="responsive"
+                value={editPlanCourseIds}
+                options={editPlanCourseSelectOptions}
+                loading={editPlanCoursesLoading}
+                placeholder={t('subscriptions_page.admin.form.course_search_placeholder')}
+                notFoundContent={editPlanCoursesLoading ? t('common.loading') : t('subscriptions_page.admin.form.courses_empty')}
+                onSearch={setEditPlanCourseSearch}
+                onChange={(value) => setEditPlanCourseIds(value)}
+                style={{ width: '100%' }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('subscriptions_page.admin.form.course_search_placeholder')}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Switch checked={editPlanForm.isActive} onCheckedChange={v => setEditPlanForm(p => ({ ...p, isActive: v }))} />
+                <AntSwitch checked={editPlanForm.isActive} onChange={v => setEditPlanForm(p => ({ ...p, isActive: v }))} />
                 <Label>{t('subscriptions_page.admin.actions.activate')}</Label>
               </div>
               <div className="flex items-center gap-2">
-                <Switch checked={editPlanForm.isPopular} onCheckedChange={v => setEditPlanForm(p => ({ ...p, isPopular: v }))} />
+                <AntSwitch checked={editPlanForm.isPopular} onChange={v => setEditPlanForm(p => ({ ...p, isPopular: v }))} />
                 <Label>{t('subscriptions_page.admin.actions.mark_featured')}</Label>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditPlanOpen(false)}>{t('common.cancel')}</Button>
-            <Button onClick={() => void handleSaveEditPlan()}><Save className="w-4 h-4 mr-2" />{t('common.save', 'Save')}</Button>
+            <Button variant="outline" onClick={() => setIsEditPlanOpen(false)} disabled={savingEditPlan}>{t('common.cancel')}</Button>
+            <Button onClick={() => void handleSaveEditPlan()} disabled={savingEditPlan}>
+              <Save className="w-4 h-4 mr-2" />
+              {savingEditPlan ? t('common.loading') : t('common.save', 'Save')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -28,6 +28,7 @@ import { QuizTab } from './QuizTab'
 import { LessonPreviewModal } from './LessonPreviewModal'
 import { EnhancedCodeQuizCreator } from './EnhancedCodeQuizCreator'
 import { useTranslation } from 'react-i18next'
+import { confirmDialog } from '../utils/confirmDialog'
 
 interface Lesson {
   id: number
@@ -98,9 +99,9 @@ export function LessonEditorDialog({
     }
   }, [open, isDirty, editedLesson])
 
-  const handleClose = () => {
+  const handleClose = async () => {
     if (isDirty) {
-      const confirmed = window.confirm(
+      const confirmed = await confirmDialog(
         t('lesson_editor_dialog.unsaved_changes_confirm')
       )
       if (!confirmed) return

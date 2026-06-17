@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/button"
 import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
 import { Skeleton } from '../../components/ui/skeleton'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "../../components/ui/hover-card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Input } from "../../components/ui/input"
@@ -26,7 +27,7 @@ import {
   Crown,
 } from 'lucide-react'
 import { getInstructorDashboardStats, getMyInstructorProfile, type Instructor, type InstructorDashboardStats } from '../../services/instructor.api'
-import { getCourses, type CourseListItem, formatPrice, parseDecimal } from '../../services/course.api'
+import { getCourses, type CourseListItem, parseDecimal } from '../../services/course.api'
 import { listItemTransition } from '../../lib/motion'
 
 const sectionStagger = {
@@ -49,6 +50,33 @@ const fadeInUp = {
       ease: [0.22, 1, 0.36, 1],
     },
   },
+}
+
+function formatMoney(amount: number): string {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount || 0)
+}
+
+function formatMinutes(minutes: number): string {
+  if (minutes >= 60) {
+    return `${(minutes / 60).toFixed(minutes % 60 === 0 ? 0 : 1)} giờ`
+  }
+  return `${minutes.toLocaleString('vi-VN')} phút`
+}
+
+function formatLevelValue(value: number, type: 'number' | 'money' | 'minutes'): string {
+  if (type === 'money') return formatMoney(value)
+  if (type === 'minutes') return formatMinutes(value)
+  return value.toLocaleString('vi-VN')
+}
+
+function getLevelMetricLabel(label: 'students' | 'revenue' | 'plan_minutes'): string {
+  if (label === 'students') return 'Học viên'
+  if (label === 'revenue') return 'Doanh thu'
+  return 'Phút học Pro'
 }
 
 export function InstructorDashboard() {
@@ -74,8 +102,8 @@ export function InstructorDashboard() {
 
   const renderDashboardSkeleton = () => (
     <div className="p-4 md:p-8 space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, index) => (
           <div key={`instructor-dashboard-skeleton-${index}`} className="rounded-lg border bg-card p-5 space-y-3">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-8 w-20" />
@@ -252,20 +280,91 @@ export function InstructorDashboard() {
     )
   }
 
+  const estimatedEarnings = stats.estimated_earnings ?? stats.total_earnings
+  const realizedEarnings = stats.realized_earnings ?? 0
+  const thisMonthEstimatedEarnings = stats.this_month_estimated_earnings ?? stats.this_month_earnings
+  const thisMonthRealizedEarnings = stats.this_month_realized_earnings ?? 0
+  const pendingEarnings = stats.pending_earnings ?? 0
+  const payableEarnings = (stats.available_earnings ?? 0) + (stats.pending_payouts ?? 0)
+  const levelProgress = stats.level_progress
+  const reachedLevelThresholds = levelProgress?.items.filter((item) => item.met).length ?? 0
+  const totalLevelThresholds = levelProgress?.items.length ?? 0
+  const levelThresholdSummary = levelProgress
+    ? levelProgress.is_max_level
+      ? 'Cấp cao nhất'
+      : `${reachedLevelThresholds}/${totalLevelThresholds} ngưỡng lên ${levelProgress.target_level_name}`
+    : 'Chưa có ngưỡng'
+
   return (
     <motion.div className="p-4 md:p-8" variants={sectionStagger} initial="hidden" animate="show">
-      {instructorProfile?.level && (
-        <motion.div className="mb-4 flex items-center gap-2" variants={fadeInUp}>
-          <Badge variant="secondary">
-            <Crown className="mr-1 h-3 w-3" />
-            {instructorProfile.level.name}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            Phí nền tảng: retail {instructorProfile.level.commission_rate}% / subscription {instructorProfile.level.plan_commission_rate}% &nbsp;·&nbsp; GV nhận: retail {100 - Number(instructorProfile.level.commission_rate)}% / subscription {100 - Number(instructorProfile.level.plan_commission_rate)}%
-          </span>
-        </motion.div>
-      )}
-      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" variants={fadeInUp}>
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-8" variants={fadeInUp}>
+        <HoverCard openDelay={150} closeDelay={100}>
+          <HoverCardTrigger asChild>
+            <Card className="app-interactive cursor-default" tabIndex={0}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Cấp độ giảng viên</CardTitle>
+                <Crown className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="truncate text-2xl">{levelProgress?.level_name ?? instructorProfile?.level?.name ?? 'Chưa có'}</div>
+                <p className="text-xs text-muted-foreground">
+                  {levelThresholdSummary}
+                </p>
+              </CardContent>
+            </Card>
+          </HoverCardTrigger>
+          <HoverCardContent align="start" className="w-80">
+            {levelProgress ? (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{levelProgress.level_name}</p>
+                    {levelProgress.using_default && <Badge variant="outline">Mặc định</Badge>}
+                    {levelProgress.locked && <Badge variant="secondary">Đã khóa</Badge>}
+                  </div>
+                  {levelProgress.level_description && (
+                    <p className="text-sm text-muted-foreground">{levelProgress.level_description}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Phí nền tảng: retail {levelProgress.commission_rate}% / Pro {levelProgress.plan_commission_rate}%
+                  </p>
+                  {levelProgress.target_level_name ? (
+                    <p className="text-xs text-muted-foreground">
+                      Tiến độ lên cấp tiếp theo: {levelProgress.target_level_name}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Đã đạt cấp cao nhất.</p>
+                  )}
+                </div>
+
+                {!levelProgress.is_max_level && (
+                  <div className="space-y-3">
+                    {levelProgress.items.map((item) => (
+                      <div key={item.label} className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-3 text-sm">
+                          <span>{getLevelMetricLabel(item.label)}</span>
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {item.target > 0
+                              ? `${formatLevelValue(item.current, item.value_type)} / ${formatLevelValue(item.target, item.value_type)}`
+                              : 'Không yêu cầu'}
+                          </span>
+                        </div>
+                        <Progress value={item.progress} className="h-2" />
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{item.met ? 'Đã đạt' : 'Đang tiến tới'}</span>
+                          <span>{item.progress}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Chưa có cấp độ giảng viên.</p>
+            )}
+          </HoverCardContent>
+        </HoverCard>
+
         <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('instructor_dashboard.total_courses')}</CardTitle>
@@ -297,15 +396,28 @@ export function InstructorDashboard() {
 
         <Card className="app-interactive">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('instructor_dashboard.total_earnings')}</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('instructor_dashboard.estimated_earnings')}</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl">{formatPrice(stats.total_earnings)}</div>
+            <div className="text-2xl">{formatMoney(estimatedEarnings)}</div>
             <p className="text-xs text-muted-foreground">
               {t('instructor_dashboard.this_month_revenue_gain', {
-                amount: formatPrice(stats.this_month_earnings),
+                amount: formatMoney(thisMonthEstimatedEarnings),
               })}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="app-interactive">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t('instructor_dashboard.realized_earnings')}</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl">{formatMoney(realizedEarnings)}</div>
+            <p className="text-xs text-muted-foreground">
+              {t('instructor_dashboard.from_processed_payouts')}
             </p>
           </CardContent>
         </Card>
@@ -441,7 +553,7 @@ export function InstructorDashboard() {
                                     </span>
                                   </div>
                                 )}
-                                <span className="font-medium text-green-600">{formatPrice(earnings)}</span>
+                                <span className="font-medium text-green-600">{formatMoney(earnings)}</span>
                               </div>
                             </div>
 
@@ -542,7 +654,7 @@ export function InstructorDashboard() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">{t('instructor_dashboard.this_month_earnings_label')}</span>
-                    <span className="font-medium text-green-600">{formatPrice(stats.this_month_earnings)}</span>
+                    <span className="font-medium text-green-600">{formatMoney(thisMonthEstimatedEarnings)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -558,21 +670,21 @@ export function InstructorDashboard() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="text-center">
-                  <div className="text-2xl font-medium">{formatPrice(stats.this_month_earnings)}</div>
-                  <p className="text-sm text-muted-foreground">{t('instructor_dashboard.this_month')}</p>
+                  <div className="text-2xl font-medium">{formatMoney(pendingEarnings)}</div>
+                  <p className="text-sm text-muted-foreground">{t('instructor_dashboard.pending_earnings')}</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-medium">{formatPrice(stats.this_month_earnings * 12)}</div>
-                  <p className="text-sm text-muted-foreground">{t('instructor_dashboard.projected_annual')}</p>
+                  <div className="text-2xl font-medium">{formatMoney(payableEarnings)}</div>
+                  <p className="text-sm text-muted-foreground">{t('instructor_dashboard.payable_earnings')}</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-medium">{formatPrice(stats.total_earnings)}</div>
-                  <p className="text-sm text-muted-foreground">{t('instructor_dashboard.all_time')}</p>
+                  <div className="text-2xl font-medium">{formatMoney(realizedEarnings)}</div>
+                  <p className="text-sm text-muted-foreground">{t('instructor_dashboard.realized_earnings')}</p>
                 </div>
               </div>
 
               <div className="text-center">
-                <Button variant="outline" onClick={() => navigate('/instructor/earnings')}>
+                <Button variant="outline" onClick={() => navigate('/instructor/analytics')}>
                   {t('instructor_dashboard.view_detailed_earnings')}
                 </Button>
               </div>

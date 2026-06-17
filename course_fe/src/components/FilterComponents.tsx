@@ -1,15 +1,10 @@
 import React, { useState } from "react"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
+import { Badge as AntBadge, Button as AntButton, Checkbox as AntCheckbox, DatePicker, Input as AntInput, InputNumber, Select as AntSelect, Tag } from "antd"
 import { Label } from "./ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { Badge } from "./ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Checkbox } from "./ui/checkbox"
-import { Calendar } from "./ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
-import { Calendar as CalendarIcon, Filter, X, Search, SlidersHorizontal } from "lucide-react"
+import { Filter, X, Search, SlidersHorizontal } from "lucide-react"
 import { format } from "date-fns"
+import dayjs, { type Dayjs } from "dayjs"
 import { useTranslation } from "react-i18next"
 
 export interface FilterOption {
@@ -30,6 +25,24 @@ export interface FilterConfig {
 
 export interface FilterState {
   [key: string]: any
+}
+
+const { RangePicker } = DatePicker
+
+function toDayjs(value: unknown): Dayjs | null {
+  return typeof value === "string" && value ? dayjs(value) : null
+}
+
+function toRangeValue(value: any): [Dayjs | null, Dayjs | null] | null {
+  if (!value?.from && !value?.to) return null
+  return [toDayjs(value.from), toDayjs(value.to)]
+}
+
+function hasFilterValue(value: any): boolean {
+  if (value === null || value === undefined || value === "" || value === false) return false
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === "object") return Object.values(value).some(hasFilterValue)
+  return true
 }
 
 interface TableFilterProps {
@@ -69,13 +82,7 @@ function TableFilterBase({
     onReset?.()
   }
 
-  const activeFilterCount = Object.values(filters).filter(
-    (value) =>
-      value !== null &&
-      value !== undefined &&
-      value !== "" &&
-      (Array.isArray(value) ? value.length > 0 : true),
-  ).length
+  const activeFilterCount = Object.values(filters).filter(hasFilterValue).length
 
   const renderFilterInput = (config: FilterConfig) => {
     const value = filters[config.key]
@@ -83,176 +90,122 @@ function TableFilterBase({
     switch (config.type) {
       case "search":
         return (
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={
-                config.placeholder ||
-                t("filter_components.search_placeholder", {
-                  label: config.label.toLowerCase(),
-                })
-              }
-              value={value || ""}
-              onChange={(e) => updateFilter(config.key, e.target.value)}
-              className="pl-8"
-            />
-          </div>
+          <AntInput
+            allowClear
+            prefix={<Search className="h-4 w-4 text-muted-foreground" />}
+            placeholder={
+              config.placeholder ||
+              t("filter_components.search_placeholder", {
+                label: config.label.toLowerCase(),
+              })
+            }
+            value={value || ""}
+            onChange={(e) => updateFilter(config.key, e.target.value)}
+          />
         )
 
       case "select":
         return (
-          <Select value={value || "all"} onValueChange={(val) => updateFilter(config.key, val === "all" ? "" : val)}>
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  config.placeholder ||
-                  t("filter_components.select_placeholder", {
-                    label: config.label.toLowerCase(),
-                  })
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("filter_components.all")}</SelectItem>
-              {config.options?.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex items-center justify-between w-full">
-                    <span>{option.label}</span>
-                    {showCount && option.count !== undefined && (
-                      <Badge variant="secondary" className="ml-2">
-                        {option.count}
-                      </Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AntSelect
+            value={value || "all"}
+            onChange={(val) => updateFilter(config.key, val === "all" ? "" : val)}
+            placeholder={
+              config.placeholder ||
+              t("filter_components.select_placeholder", {
+                label: config.label.toLowerCase(),
+              })
+            }
+            options={[
+              { label: t("filter_components.all"), value: "all" },
+              ...(config.options || []).map((option) => ({
+                value: option.value,
+                label: (
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate">{option.label}</span>
+                    {showCount && option.count !== undefined && <Tag className="m-0">{option.count}</Tag>}
+                  </span>
+                ),
+              })),
+            ]}
+            style={{ width: "100%" }}
+          />
         )
 
       case "multiselect":
         return (
-          <div className="space-y-2">
-            {config.options?.map((option) => (
-              <div key={option.value} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`${config.key}-${option.value}`}
-                  checked={value?.includes(option.value) || false}
-                  onCheckedChange={(checked) => {
-                    const currentValues = value || []
-                    const newValues = checked
-                      ? [...currentValues, option.value]
-                      : currentValues.filter((v: string) => v !== option.value)
-                    updateFilter(config.key, newValues)
-                  }}
-                />
-                <Label htmlFor={`${config.key}-${option.value}`} className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span>{option.label}</span>
-                    {showCount && option.count !== undefined && (
-                      <Badge variant="secondary" className="ml-2">
-                        {option.count}
-                      </Badge>
-                    )}
-                  </div>
-                </Label>
-              </div>
-            ))}
-          </div>
+          <AntSelect
+            mode="multiple"
+            allowClear
+            maxTagCount="responsive"
+            value={value || []}
+            onChange={(nextValue) => updateFilter(config.key, nextValue)}
+            placeholder={config.placeholder || t("filter_components.select_placeholder", { label: config.label.toLowerCase() })}
+            options={(config.options || []).map((option) => ({
+              value: option.value,
+              label: showCount && option.count !== undefined ? `${option.label} (${option.count})` : option.label,
+            }))}
+            style={{ width: "100%" }}
+          />
         )
 
       case "date":
         return (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {value ? format(new Date(value), "dd/MM/yyyy") : config.placeholder || t("filter_components.pick_date")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={value ? new Date(value) : undefined}
-                onSelect={(date) => updateFilter(config.key, date?.toISOString())}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            allowClear
+            format="DD/MM/YYYY"
+            placeholder={config.placeholder || t("filter_components.pick_date")}
+            value={toDayjs(value)}
+            onChange={(date) => updateFilter(config.key, date ? date.toISOString() : "")}
+            style={{ width: "100%" }}
+          />
         )
 
       case "daterange":
         return (
-          <div className="grid grid-cols-2 gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {value?.from ? format(new Date(value.from), "dd/MM") : t("filter_components.from_date")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={value?.from ? new Date(value.from) : undefined}
-                  onSelect={(date) => updateFilter(config.key, { ...value, from: date?.toISOString() })}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {value?.to ? format(new Date(value.to), "dd/MM") : t("filter_components.to_date")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={value?.to ? new Date(value.to) : undefined}
-                  onSelect={(date) => updateFilter(config.key, { ...value, to: date?.toISOString() })}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          <RangePicker
+            allowClear
+            format="DD/MM/YYYY"
+            placeholder={[t("filter_components.from_date"), t("filter_components.to_date")]}
+            value={toRangeValue(value) as any}
+            onChange={(dates) =>
+              updateFilter(config.key, {
+                from: dates?.[0] ? dates[0].toISOString() : "",
+                to: dates?.[1] ? dates[1].toISOString() : "",
+              })
+            }
+            style={{ width: "100%" }}
+          />
         )
 
       case "number":
         return (
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              type="number"
+            <InputNumber
               placeholder={t("filter_components.number_min", { value: config.min || 0 })}
-              value={value?.min || ""}
-              onChange={(e) => updateFilter(config.key, { ...value, min: e.target.value })}
+              value={value?.min ?? null}
+              onChange={(nextValue) => updateFilter(config.key, { ...value, min: nextValue ?? "" })}
               min={config.min}
               max={config.max}
+              style={{ width: "100%" }}
             />
-            <Input
-              type="number"
+            <InputNumber
               placeholder={t("filter_components.number_max", {
                 value: config.max ?? t("filter_components.infinity"),
               })}
-              value={value?.max || ""}
-              onChange={(e) => updateFilter(config.key, { ...value, max: e.target.value })}
+              value={value?.max ?? null}
+              onChange={(nextValue) => updateFilter(config.key, { ...value, max: nextValue ?? "" })}
               min={config.min}
               max={config.max}
+              style={{ width: "100%" }}
             />
           </div>
         )
 
       case "checkbox":
         return (
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id={config.key}
-              checked={value || false}
-              onCheckedChange={(checked) => updateFilter(config.key, checked)}
-            />
-            <Label htmlFor={config.key}>{config.placeholder || config.label}</Label>
-          </div>
+          <AntCheckbox checked={Boolean(value)} onChange={(event) => updateFilter(config.key, event.target.checked)}>
+            {config.placeholder || config.label}
+          </AntCheckbox>
         )
 
       default:
@@ -267,18 +220,18 @@ function TableFilterBase({
           <CardTitle className="flex items-center gap-2">
             <Filter className="h-4 w-4" />
             {resolvedTitle}
-            {activeFilterCount > 0 && <Badge variant="secondary">{activeFilterCount}</Badge>}
+            {activeFilterCount > 0 && <AntBadge count={activeFilterCount} size="small" />}
           </CardTitle>
           <div className="flex items-center gap-2">
             {activeFilterCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
+              <AntButton type="text" size="small" onClick={resetFilters}>
                 <X className="h-4 w-4 mr-1" />
                 {t("filter_components.clear_filters")}
-              </Button>
+              </AntButton>
             )}
-            <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)}>
+            <AntButton type="text" size="small" onClick={() => setIsExpanded(!isExpanded)}>
               <SlidersHorizontal className="h-4 w-4" />
-            </Button>
+            </AntButton>
           </div>
         </div>
       </CardHeader>
@@ -299,7 +252,7 @@ function TableFilterBase({
               <div className="flex flex-wrap gap-2">
                 <span className="text-sm text-muted-foreground">{t("filter_components.active_filters")}</span>
                 {Object.entries(filters).map(([key, value]) => {
-                  if (!value || (Array.isArray(value) && value.length === 0)) return null
+                  if (!hasFilterValue(value)) return null
 
                   const config = configs.find((item) => item.key === key)
                   if (!config) return null
@@ -330,17 +283,16 @@ function TableFilterBase({
                   }
 
                   return (
-                    <Badge key={key} variant="secondary" className="gap-1">
+                    <Tag
+                      key={key}
+                      closable
+                      onClose={(event) => {
+                        event.preventDefault()
+                        updateFilter(key, config.type === "multiselect" ? [] : "")
+                      }}
+                    >
                       {config.label}: {displayValue}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 hover:bg-transparent"
-                        onClick={() => updateFilter(key, config.type === "multiselect" ? [] : "")}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </Badge>
+                    </Tag>
                   )
                 })}
               </div>
@@ -373,24 +325,15 @@ export function QuickSearch({
   }
 
   return (
-    <div className={`relative ${className}`}>
-      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-      <Input
+    <div className={className}>
+      <AntInput
+        allowClear
+        prefix={<Search className="h-4 w-4 text-muted-foreground" />}
         placeholder={placeholder || t("filter_components.quick_search_placeholder")}
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
-        className="pl-8"
+        onClear={() => handleSearch("")}
       />
-      {query && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute right-1 top-1 h-6 w-6 p-0"
-          onClick={() => handleSearch("")}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      )}
     </div>
   )
 }
@@ -407,18 +350,7 @@ function SimpleSelect({ label, value, options, onChange, className = "" }: Simpl
   return (
     <div className={className}>
       {label && <Label className="mb-1.5 block">{label}</Label>}
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <AntSelect value={value} onChange={onChange} options={options} style={{ width: "100%" }} />
     </div>
   )
 }

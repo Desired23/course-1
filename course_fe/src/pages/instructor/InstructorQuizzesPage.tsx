@@ -22,6 +22,7 @@ import { getQuestionsByLesson, createQuizQuestion, updateQuizQuestion, deleteQui
 import { getAllCourseModules } from '../../services/course-modules.api'
 import { getAllCourses } from '../../services/course.api'
 import { useTranslation } from 'react-i18next'
+import { confirmDialog } from '../../utils/confirmDialog'
 
 interface Quiz {
   id: string
@@ -272,7 +273,7 @@ export function InstructorQuizzesPage() {
   }
 
   const handleDeleteQuiz = async (quizId: string) => {
-    if (confirm(t('instructor_quizzes_page.confirms.delete_quiz'))) {
+    if (await confirmDialog(t('instructor_quizzes_page.confirms.delete_quiz'))) {
       try {
         await deleteLessonApi(Number(quizId))
         setRefreshKey((prev) => prev + 1)
@@ -339,7 +340,7 @@ export function InstructorQuizzesPage() {
 
   const handleDeleteQuestion = async (questionId: string) => {
     if (!selectedQuiz) return
-    if (confirm(t('instructor_quizzes_page.confirms.delete_question'))) {
+    if (await confirmDialog(t('instructor_quizzes_page.confirms.delete_question'))) {
       try {
         await deleteQuizQuestion(Number(questionId))
         const updatedQuiz = {

@@ -1,7 +1,9 @@
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 
+from certificates.models import Certificate
 from coursemodules.models import CourseModule
 from courses.models import Course
 from enrollments.models import Enrollment
@@ -103,6 +105,24 @@ class LearningProgressSyncTests(TestCase):
         self.assertIsNotNone(self.enrollment.completion_date)
         self.assertEqual(course_progress["overall_progress"], 100.0)
         self.assertEqual(course_progress["completed_lessons"], 2)
+
+    def test_course_progress_includes_existing_certificate_code(self):
+        certificate = Certificate.objects.create(
+            user=self.student,
+            course=self.course,
+            enrollment=self.enrollment,
+            verification_code="progress-cert-code",
+            student_name=self.student.full_name,
+            course_title=self.course.title,
+            completion_date=timezone.now(),
+        )
+
+        course_progress = get_course_progress(self.student.id, self.course.id)
+
+        self.assertEqual(
+            course_progress["certificate_verification_code"],
+            certificate.verification_code,
+        )
 
     def test_completed_enrollment_progress_is_locked(self):
         for lesson in self.lessons:

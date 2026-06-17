@@ -135,7 +135,13 @@ export interface AdminDashboardStats {
   published_courses: number
   pending_courses: number
   total_revenue: number
+  total_estimated_revenue: number
+  total_realized_revenue: number
   this_month_revenue: number
+  this_month_estimated_revenue: number
+  this_month_realized_revenue: number
+  today_estimated_revenue: number
+  today_realized_revenue: number
   total_enrollments: number
   this_month_enrollments: number
   active_students: number
@@ -785,6 +791,19 @@ export async function managePlanCourses(planId: number, data?: Record<string, an
     return http.post(`/subscription-plans/admin/${planId}/courses/`, data)
   }
   return fetchAllPages<any>(`/subscription-plans/admin/${planId}/courses/`)
+}
+
+export async function addPlanCourse(planId: number, courseId: number, addedReason = ''): Promise<any> {
+  return http.post(`/subscription-plans/admin/${planId}/courses/`, {
+    course_id: courseId,
+    added_reason: addedReason,
+  })
+}
+
+export async function removePlanCourse(planId: number, courseId: number): Promise<any> {
+  return http.delete(`/subscription-plans/admin/${planId}/courses/`, {
+    course_id: courseId,
+  })
 }
 
 

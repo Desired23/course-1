@@ -31,6 +31,7 @@ import { getQuestionsByLesson } from '../../services/quiz-questions.api'
 import { getAttachmentsByLesson } from '../../services/lesson-attachments.api'
 import { useTranslation } from 'react-i18next'
 import { formatLessonDurationInput, parseLessonDurationInputToMinutes } from '../../utils/lessonDuration'
+import { confirmDialog } from '../../utils/confirmDialog'
 
 interface Lesson {
   id: number
@@ -206,9 +207,9 @@ export function InstructorLessonEditorPage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isDirty, editedLesson])
 
-  const handleBackNavigation = () => {
+  const handleBackNavigation = async () => {
     if (isDirty) {
-      const confirmed = window.confirm(
+      const confirmed = await confirmDialog(
         t('instructor_lesson_editor_page.confirms.unsaved_changes')
       )
       if (!confirmed) return

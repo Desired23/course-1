@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { GripVertical, Play, FileText, HelpCircle, Code, Clock, Edit3, Eye, Trash2, Captions, RefreshCw, Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
+import { confirmDialog } from '../utils/confirmDialog'
 
 interface Lesson {
   id: number
@@ -245,9 +246,9 @@ export function DraggableLessonCard({
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0 hover:bg-destructive/10 transition-all duration-200"
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation()
-            if (confirm(t('lesson_drag_drop.confirm_delete'))) {
+            if (await confirmDialog(t('lesson_drag_drop.confirm_delete'))) {
               onDelete(lesson.id)
             }
           }}

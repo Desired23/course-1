@@ -47,6 +47,7 @@ import {
   reportBlogPost,
 } from '../../services/blog-posts.api'
 import { showNotification } from '../../utils/notifications'
+import { confirmDialog } from '../../utils/confirmDialog'
 import { useTranslation } from 'react-i18next'
 import { listItemTransition } from '../../lib/motion'
 
@@ -207,7 +208,7 @@ export function BlogPostDetailPage() {
   }
 
   const handleDeletePost = async () => {
-    if (!post || !window.confirm('Bạn có chắc muốn xóa bài viết này không?')) return
+    if (!post || !await confirmDialog('Bạn có chắc muốn xóa bài viết này không?')) return
     try {
       await deleteBlogPost(Number(post.id))
       showNotification.success('Đã xóa bài viết')

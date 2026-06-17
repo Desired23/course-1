@@ -35,13 +35,6 @@ export interface InstructorPayout {
   processed_by: number | null
 }
 
-export interface PayoutRequestData {
-  amount: number
-  payout_method_id: number
-  notes?: string
-  period: string
-}
-
 export interface PaginatedPayoutResponse<T> {
   count: number
   next: string | null
@@ -132,32 +125,22 @@ export async function getMyPayouts(instructorId: number): Promise<InstructorPayo
 }
 
 
-export async function requestPayout(data: PayoutRequestData): Promise<InstructorPayout> {
-  return http.post<InstructorPayout>('/instructor/payouts/request/', data)
+export interface RunMonthlyPayoutsResult {
+  period: string
+  settled_to_available: number
+  completed_pending: number
+  payouts_created: number
+  total_amount: string
+  detail: unknown[]
 }
 
 
-// Live minimum-payout threshold (VND). Backend is the authoritative enforcer;
-// the UI fetches this so client-side validation tracks admin changes.
-export async function getMinPayout(): Promise<number> {
-  const res = await http.get<{ min_payout: string }>('/platform-settings/payout/')
-  return parseDecimal(res?.min_payout) || 0
-}
-
-
-export async function approvePayout(
-  payoutId: number,
-  data: { transaction_id?: string; fee?: number; notes?: string } = {},
-): Promise<InstructorPayout> {
-  return http.put<InstructorPayout>(`/admin/payouts/${payoutId}/approve/`, data)
-}
-
-
-export async function rejectPayout(
-  payoutId: number,
-  data: { notes?: string } = {},
-): Promise<InstructorPayout> {
-  return http.put<InstructorPayout>(`/admin/payouts/${payoutId}/reject/`, data)
+// Trigger an automatic periodic payout run on demand (admin). The backend
+// settles eligible earnings and pays out the available balance immediately.
+export async function runMonthlyPayouts(
+  data: { notes?: string; settle_first?: boolean } = {},
+): Promise<RunMonthlyPayoutsResult> {
+  return http.post<RunMonthlyPayoutsResult>('/admin/payouts/run-monthly/', data)
 }
 
 

@@ -140,8 +140,37 @@ export interface InstructorDashboardStats {
   new_students_this_month: number
   total_earnings: number
   this_month_earnings: number
+  estimated_earnings: number
+  this_month_estimated_earnings: number
+  pending_earnings: number
+  available_earnings: number
+  pending_payouts: number
+  realized_earnings: number
+  this_month_realized_earnings: number
   average_rating: number
   total_reviews: number
+  total_content_minutes: number
+  total_content_hours: number
+  total_plan_minutes: number
+  level_progress: {
+    level_name: string
+    level_description: string | null
+    target_level_name: string | null
+    target_level_description: string | null
+    commission_rate: number
+    plan_commission_rate: number
+    locked: boolean
+    using_default: boolean
+    is_max_level: boolean
+    items: Array<{
+      label: 'students' | 'revenue' | 'plan_minutes'
+      current: number
+      target: number
+      value_type: 'number' | 'money' | 'minutes'
+      progress: number
+      met: boolean
+    }>
+  } | null
   course_stats: Array<{
     course_id: number
     title: string
@@ -342,10 +371,20 @@ export async function getInstructorCourseAnalytics(
 
 
 export interface AnalyticsTimeseries {
-  revenue_trend: Array<{ date: string; revenue: number }>
+  revenue_trend: Array<{ date: string; revenue: number; retail_revenue?: number; subscription_revenue?: number; transaction_count?: number }>
   enrollment_trend: Array<{ date: string; enrollments: number }>
   engagement_trend: Array<{ date: string; active_learners: number; completions: number }>
-  top_courses: Array<{ course_id: number; title: string; students: number; rating: number; revenue: number }>
+  top_courses: Array<{
+    course_id: number
+    title: string
+    students: number
+    rating: number
+    revenue: number
+    retail_revenue?: number
+    subscription_revenue?: number
+    transaction_count?: number
+    refund_rate?: number
+  }>
   rating_distribution: Record<string, number>
 }
 

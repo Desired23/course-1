@@ -242,7 +242,7 @@ export function MobileMenu() {
                       <Button
                         variant="ghost"
                         className="w-full justify-start"
-                        onClick={() => handleNavigate('/instructor/earnings')}
+                        onClick={() => handleNavigate('/instructor/analytics')}
                       >
                         <DollarSign className="h-4 w-4 mr-3" />
                         {t('mobile_menu.earnings')}

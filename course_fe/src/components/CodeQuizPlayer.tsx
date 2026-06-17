@@ -37,6 +37,7 @@ import { useTranslation } from 'react-i18next'
 import { useUIStore } from '../stores/ui.store'
 import { useQuizStore } from '../stores/quiz.store'
 import { getQuizResultByEnrollmentAndLesson, upsertQuizResultDraft } from '../services/quiz-results.api'
+import { confirmDialog } from '../utils/confirmDialog'
 import {
   SUPPORTED_LANGUAGES,
   runTestCases,
@@ -248,9 +249,9 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
   }, [code, selectedLanguage, lessonId, enrollmentId, question.id, isSubmitted])
 
 
-  const handleLanguageChange = (languageId: string) => {
+  const handleLanguageChange = async (languageId: string) => {
     const newLang = parseInt(languageId)
-    if (confirm(t('code_quiz_player.confirm_change_language'))) {
+    if (await confirmDialog(t('code_quiz_player.confirm_change_language'))) {
       setSelectedLanguage(newLang)
       setCode(resolveStarterCode(question.starterCode, newLang))
     }
@@ -322,7 +323,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
     const { passed, total, percentage } = calculateScore(testResults)
 
     if (passed < total) {
-      if (!confirm(t('code_quiz_player.submit_anyway', { passed, total }))) {
+      if (!await confirmDialog(t('code_quiz_player.submit_anyway', { passed, total }))) {
         return
       }
     }
@@ -343,8 +344,8 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
   }
 
 
-  const handleReset = () => {
-    if (confirm(t('code_quiz_player.reset_confirm'))) {
+  const handleReset = async () => {
+    if (await confirmDialog(t('code_quiz_player.reset_confirm'))) {
       setCode(resolveStarterCode(question.starterCode, selectedLanguage))
       setTestResults([])
       setIsSubmitted(false)

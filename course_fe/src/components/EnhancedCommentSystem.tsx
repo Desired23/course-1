@@ -24,6 +24,7 @@ import {
   Pin
 } from 'lucide-react'
 import { showNotification, withPermissionCheck, withAuthCheck } from '../utils/notifications'
+import { confirmDialog } from '../utils/confirmDialog'
 import { getErrorMessage } from '../lib/apiError'
 import {
   getBlogComments,
@@ -374,8 +375,8 @@ export function EnhancedCommentSystem({
     })
   }
 
-  const handleDelete = (commentId: string) => {
-    if (!window.confirm(t('enhanced_comment_system.confirm_delete'))) return
+  const handleDelete = async (commentId: string) => {
+    if (!await confirmDialog(t('enhanced_comment_system.confirm_delete'))) return
 
     if (onDeleteComment) {
       onDeleteComment(commentId)

@@ -2,6 +2,7 @@ from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
+from utils.revenue_reporting import earning_is_final_for_report
 
 
 VALID_GROUP_BY = {'day', 'week', 'month', 'quarter', 'year'}
@@ -31,12 +32,57 @@ def _period_label(value, group_by):
     return local.strftime('%Y-%m')
 
 
+def _course_refund_rate(course, earnings_qs):
+    from payment_details.models import Payment_Details
+
+    if hasattr(earnings_qs, 'filter'):
+        retail_earnings = list(earnings_qs.filter(course=course, payment__isnull=False))
+    else:
+        retail_earnings = [
+            earning for earning in earnings_qs
+            if earning.course_id == course.id and earning.payment_id
+        ]
+    transaction_count = len(retail_earnings)
+    if not transaction_count:
+        return 0
+    payment_ids = [earning.payment_id for earning in retail_earnings]
+    refunded_count = Payment_Details.objects.filter(
+        payment_id__in=payment_ids,
+        course=course,
+        is_deleted=False,
+        refund_status=Payment_Details.RefundStatus.SUCCESS,
+    ).count()
+    return round(refunded_count / transaction_count * 100, 1)
+
+
+def _level_progress_item(label, current, target, value_type='number'):
+    target_value = float(target or 0)
+    current_value = float(current or 0)
+    return {
+        'label': label,
+        'current': current_value,
+        'target': target_value,
+        'value_type': value_type,
+        'progress': 100 if target_value <= 0 else round(min(current_value / target_value * 100, 100), 1),
+        'met': target_value <= 0 or current_value >= target_value,
+    }
+
+
 def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
     print(f"Calculating dashboard stats for instructor {instructor.id}...")
     from courses.models import Course
     from enrollments.models import Enrollment
     from reviews.models import Review
     from instructor_earnings.models import InstructorEarning
+    from instructor_payouts.models import InstructorPayout
+    from instructor_levels.services import (
+        check_and_upgrade_instructor_level,
+        get_default_instructor_level,
+        get_next_instructor_level,
+    )
+    from subscription_plans.models import SubscriptionUsage
+
+    check_and_upgrade_instructor_level(instructor)
 
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -60,7 +106,13 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
     )
     enrollments_qs = _apply_date_range(enrollments_qs, 'enrollment_date', date_from, date_to)
     total_students = enrollments_qs.values('user_id').distinct().count()
-    new_students_this_month = enrollments_qs.filter(enrollment_date__gte=month_start).count()
+    new_students_this_month = (
+        enrollments_qs
+        .filter(enrollment_date__gte=month_start)
+        .values('user_id')
+        .distinct()
+        .count()
+    )
 
     earnings_qs = InstructorEarning.objects.filter(
         instructor=instructor, is_deleted=False
@@ -70,6 +122,61 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
     this_month_earnings = earnings_qs.filter(
         earning_date__gte=month_start
     ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    pending_earnings = earnings_qs.filter(
+        status=InstructorEarning.StatusChoices.PENDING,
+    ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    available_earnings = earnings_qs.filter(
+        status=InstructorEarning.StatusChoices.AVAILABLE,
+        instructor_payout__isnull=True,
+    ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    this_month_pending_earnings = earnings_qs.filter(
+        status=InstructorEarning.StatusChoices.PENDING,
+        earning_date__gte=month_start,
+    ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    this_month_available_earnings = earnings_qs.filter(
+        status=InstructorEarning.StatusChoices.AVAILABLE,
+        instructor_payout__isnull=True,
+        earning_date__gte=month_start,
+    ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+
+    payouts_qs = InstructorPayout.objects.filter(
+        instructor=instructor,
+        is_deleted=False,
+    )
+    pending_payouts_qs = _apply_date_range(
+        payouts_qs.filter(status=InstructorPayout.PayoutStatusChoices.PENDING),
+        'request_date',
+        date_from,
+        date_to,
+    )
+    processed_payouts_qs = _apply_date_range(
+        payouts_qs.filter(status=InstructorPayout.PayoutStatusChoices.PROCESSED),
+        'processed_date',
+        date_from,
+        date_to,
+    )
+    pending_payouts = sum(
+        (payout.net_amount if payout.net_amount is not None else payout.amount)
+        for payout in pending_payouts_qs
+    )
+    realized_earnings = sum(
+        (payout.net_amount if payout.net_amount is not None else payout.amount)
+        for payout in processed_payouts_qs
+    )
+    this_month_pending_payouts = sum(
+        (payout.net_amount if payout.net_amount is not None else payout.amount)
+        for payout in pending_payouts_qs.filter(request_date__gte=month_start)
+    )
+    this_month_realized_earnings = sum(
+        (payout.net_amount if payout.net_amount is not None else payout.amount)
+        for payout in processed_payouts_qs.filter(processed_date__gte=month_start)
+    )
+    estimated_earnings = pending_earnings + available_earnings + pending_payouts
+    this_month_estimated_earnings = (
+        this_month_pending_earnings
+        + this_month_available_earnings
+        + this_month_pending_payouts
+    )
 
     reviews_qs = Review.objects.filter(
         course_id__in=course_ids, is_deleted=False, status='approved'
@@ -77,6 +184,34 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
     reviews_qs = _apply_date_range(reviews_qs, 'created_at', date_from, date_to)
     avg_rating = reviews_qs.aggregate(avg=Avg('rating'))['avg'] or 0
     total_reviews = reviews_qs.count()
+    total_content_minutes = courses_for_counts.aggregate(t=Sum('duration'))['t'] or 0
+    total_plan_minutes = (
+        SubscriptionUsage.objects
+        .filter(course__instructor=instructor)
+        .aggregate(t=Sum('consumed_minutes'))['t'] or 0
+    )
+
+    level = instructor.level or get_default_instructor_level()
+    using_default_level = instructor.level is None and level is not None
+    next_level = get_next_instructor_level(level)
+    level_progress = None
+    if level:
+        level_progress = {
+            'level_name': level.name,
+            'level_description': level.description,
+            'target_level_name': next_level.name if next_level else None,
+            'target_level_description': next_level.description if next_level else None,
+            'commission_rate': float(level.commission_rate or 0),
+            'plan_commission_rate': float(level.plan_commission_rate or 0),
+            'locked': instructor.level_locked,
+            'using_default': using_default_level,
+            'is_max_level': next_level is None,
+            'items': [
+                _level_progress_item('students', total_students, next_level.min_students, 'number'),
+                _level_progress_item('revenue', total_earnings, next_level.min_revenue, 'money'),
+                _level_progress_item('plan_minutes', total_plan_minutes, next_level.min_plan_minutes, 'minutes'),
+            ] if next_level else [],
+        }
 
     course_stats = []
     for course in courses_qs.order_by('-created_at'):
@@ -113,8 +248,19 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
         'new_students_this_month': new_students_this_month,
         'total_earnings': float(total_earnings),
         'this_month_earnings': float(this_month_earnings),
+        'estimated_earnings': float(estimated_earnings),
+        'this_month_estimated_earnings': float(this_month_estimated_earnings),
+        'pending_earnings': float(pending_earnings),
+        'available_earnings': float(available_earnings),
+        'pending_payouts': float(pending_payouts),
+        'realized_earnings': float(realized_earnings),
+        'this_month_realized_earnings': float(this_month_realized_earnings),
         'average_rating': round(float(avg_rating), 2),
         'total_reviews': total_reviews,
+        'total_content_minutes': total_content_minutes,
+        'total_content_hours': round(total_content_minutes / 60, 2),
+        'total_plan_minutes': total_plan_minutes,
+        'level_progress': level_progress,
         'course_stats': course_stats,
     }
 
@@ -341,15 +487,43 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
     if date_from or date_to:
         revenue_groups = {}
         revenue_qs = _apply_date_range(
-            InstructorEarning.objects.filter(instructor=instructor, is_deleted=False),
+            InstructorEarning.objects
+            .filter(instructor=instructor, is_deleted=False)
+            .select_related('course', 'payment', 'user_subscription__payment')
+            .prefetch_related('payment__payment_details', 'payment__enrollments'),
             'earning_date',
             date_from,
             date_to,
         )
-        for row in revenue_qs.values('earning_date', 'net_amount'):
-            label = _period_label(row['earning_date'], group_by)
-            revenue_groups[label] = revenue_groups.get(label, Decimal('0')) + (row['net_amount'] or Decimal('0'))
-        revenue_trend = [{'date': label, 'revenue': float(revenue_groups[label])} for label in sorted(revenue_groups)]
+        finalized_earnings = [
+            earning for earning in revenue_qs
+            if earning_is_final_for_report(earning, now)
+        ]
+        for earning in finalized_earnings:
+            label = _period_label(earning.earning_date, group_by)
+            target = revenue_groups.setdefault(label, {
+                'revenue': Decimal('0'),
+                'retail_revenue': Decimal('0'),
+                'subscription_revenue': Decimal('0'),
+                'transaction_count': 0,
+            })
+            amount = earning.net_amount or Decimal('0')
+            target['revenue'] += amount
+            if earning.payment_id:
+                target['retail_revenue'] += amount
+            if earning.user_subscription_id:
+                target['subscription_revenue'] += amount
+            target['transaction_count'] += 1
+        revenue_trend = [
+            {
+                'date': label,
+                'revenue': float(revenue_groups[label]['revenue']),
+                'retail_revenue': float(revenue_groups[label]['retail_revenue']),
+                'subscription_revenue': float(revenue_groups[label]['subscription_revenue']),
+                'transaction_count': revenue_groups[label]['transaction_count'],
+            }
+            for label in sorted(revenue_groups)
+        ]
 
         enrollment_groups = {}
         enrollment_qs = _apply_date_range(
@@ -386,13 +560,29 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
         ]
 
         top_courses = []
-        for course in courses_qs.order_by('-total_students')[:5]:
+        for course in courses_qs.order_by('-total_students'):
+            course_earnings = [
+                earning for earning in finalized_earnings
+                if earning.course_id == course.id
+            ]
+            course_revenue = {
+                'revenue': sum((earning.net_amount or Decimal('0') for earning in course_earnings), Decimal('0')),
+                'retail_revenue': sum((earning.net_amount or Decimal('0') for earning in course_earnings if earning.payment_id), Decimal('0')),
+                'subscription_revenue': sum((earning.net_amount or Decimal('0') for earning in course_earnings if earning.user_subscription_id), Decimal('0')),
+                'transaction_count': len(course_earnings),
+            }
+            if not course_revenue['transaction_count'] and not enrollment_qs.filter(course=course).exists():
+                continue
             top_courses.append({
                 'course_id': course.id,
                 'title': course.title,
                 'students': enrollment_qs.filter(course=course).values('user_id').distinct().count(),
                 'rating': float(course.rating or 0),
-                'revenue': float(revenue_qs.filter(course=course).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')),
+                'revenue': float(course_revenue['revenue']),
+                'retail_revenue': float(course_revenue['retail_revenue']),
+                'subscription_revenue': float(course_revenue['subscription_revenue']),
+                'transaction_count': course_revenue['transaction_count'],
+                'refund_rate': _course_refund_rate(course, finalized_earnings),
             })
 
         reviews_qs = _apply_date_range(
@@ -427,11 +617,32 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
         label = month_start.strftime('%Y-%m')
 
 
-        rev = InstructorEarning.objects.filter(
-            instructor=instructor, is_deleted=False,
-            earning_date__gte=month_start, earning_date__lt=month_end
-        ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-        revenue_trend.append({'date': label, 'revenue': float(rev)})
+        revenue_qs = (
+            InstructorEarning.objects
+            .filter(
+                instructor=instructor, is_deleted=False,
+                earning_date__gte=month_start, earning_date__lt=month_end,
+            )
+            .select_related('course', 'payment', 'user_subscription__payment')
+            .prefetch_related('payment__payment_details', 'payment__enrollments')
+        )
+        finalized_earnings = [
+            earning for earning in revenue_qs
+            if earning_is_final_for_report(earning, now)
+        ]
+        rev = {
+            'revenue': sum((earning.net_amount or Decimal('0') for earning in finalized_earnings), Decimal('0')),
+            'retail_revenue': sum((earning.net_amount or Decimal('0') for earning in finalized_earnings if earning.payment_id), Decimal('0')),
+            'subscription_revenue': sum((earning.net_amount or Decimal('0') for earning in finalized_earnings if earning.user_subscription_id), Decimal('0')),
+            'transaction_count': len(finalized_earnings),
+        }
+        revenue_trend.append({
+            'date': label,
+            'revenue': float(rev['revenue']),
+            'retail_revenue': float(rev['retail_revenue']),
+            'subscription_revenue': float(rev['subscription_revenue']),
+            'transaction_count': rev['transaction_count'],
+        })
 
 
         enr_count = Enrollment.objects.filter(
@@ -460,17 +671,33 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
 
 
     top_courses = []
-    for course in courses_qs.order_by('-total_students')[:5]:
+    for course in courses_qs.order_by('-total_students'):
+        course_earnings_qs = (
+            InstructorEarning.objects
+            .filter(course=course, instructor=instructor, is_deleted=False)
+            .select_related('course', 'payment', 'user_subscription__payment')
+            .prefetch_related('payment__payment_details', 'payment__enrollments')
+        )
+        finalized_course_earnings = [
+            earning for earning in course_earnings_qs
+            if earning_is_final_for_report(earning, now)
+        ]
+        course_revenue = {
+            'revenue': sum((earning.net_amount or Decimal('0') for earning in finalized_course_earnings), Decimal('0')),
+            'retail_revenue': sum((earning.net_amount or Decimal('0') for earning in finalized_course_earnings if earning.payment_id), Decimal('0')),
+            'subscription_revenue': sum((earning.net_amount or Decimal('0') for earning in finalized_course_earnings if earning.user_subscription_id), Decimal('0')),
+            'transaction_count': len(finalized_course_earnings),
+        }
         top_courses.append({
             'course_id': course.id,
             'title': course.title,
             'students': course.total_students or 0,
             'rating': float(course.rating or 0),
-            'revenue': float(
-                InstructorEarning.objects.filter(
-                    course=course, instructor=instructor, is_deleted=False
-                ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-            ),
+            'revenue': float(course_revenue['revenue']),
+            'retail_revenue': float(course_revenue['retail_revenue']),
+            'subscription_revenue': float(course_revenue['subscription_revenue']),
+            'transaction_count': course_revenue['transaction_count'],
+            'refund_rate': _course_refund_rate(course, finalized_course_earnings),
         })
 
 

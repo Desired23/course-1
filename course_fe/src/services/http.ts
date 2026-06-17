@@ -393,8 +393,11 @@ class HttpService {
     })
   }
 
-  async delete<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE' })
+  async delete<T>(endpoint: string, data?: any): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
+    })
   }
 
   async upload<T>(endpoint: string, formData: FormData, retry = true): Promise<T> {

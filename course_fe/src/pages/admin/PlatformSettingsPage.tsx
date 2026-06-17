@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { HARDCODED_BACKUP_HOME_SCHEMA } from '../../features/home/hardcodedBackupSchema'
 import { saveHomeSchemaV2 } from '../../features/home/service'
 import { normalizeHomeSchemaV2 } from '../../features/home/schema'
+import { confirmDialog } from '../../utils/confirmDialog'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -50,7 +51,7 @@ export function PlatformSettingsPage() {
   }
 
   const restoreOriginalUi = async () => {
-    const confirmed = window.confirm(t('admin_home_layout.confirm.load_fake_data_description'))
+    const confirmed = await confirmDialog(t('admin_home_layout.confirm.load_fake_data_description'))
     if (!confirmed) return
 
     try {

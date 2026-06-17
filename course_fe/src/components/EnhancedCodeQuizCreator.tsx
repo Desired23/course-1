@@ -36,6 +36,7 @@ import { Alert, AlertDescription } from './ui/alert'
 import { CodeExecutionDebugPanel, type DebugExecutionResult } from './CodeExecutionDebugPanel'
 import { CodeEditor } from './CodeEditor'
 import { SUPPORTED_LANGUAGES, CODE_LESSON_LANGUAGES, generateStarterCode, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, type ExecutionMode, type TestResult } from '../utils/judge0'
+import { confirmDialog } from '../utils/confirmDialog'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { toast } from 'sonner'
@@ -424,10 +425,10 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
     return next
   }
 
-  const handleExecutionModeChange = (mode: ExecutionMode) => {
+  const handleExecutionModeChange = async (mode: ExecutionMode) => {
     if (mode === formData.executionMode) return
     const hasStarter = Object.values(formData.starterCode || {}).some((v) => (v || '').trim())
-    if (hasStarter && !window.confirm(t('enhanced_code_quiz_creator.confirm_mode_change'))) return
+    if (hasStarter && !await confirmDialog(t('enhanced_code_quiz_creator.confirm_mode_change'))) return
     setStarterEdited({})
     updateFormData((prev) => ({
       ...prev,

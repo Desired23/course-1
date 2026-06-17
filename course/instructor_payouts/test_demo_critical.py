@@ -1,26 +1,25 @@
-"""Demo-critical regression tests for instructor payout requests.
+"""Demo-critical regression tests for automatic instructor payouts.
 
-Focus: a payout request can never exceed the instructor's AVAILABLE balance,
-and a valid request assigns available earnings (FIFO) to the new payout so the
-same earnings cannot be paid out twice.
+Focus: the periodic payout run gathers a teacher's AVAILABLE earnings, creates a
+payout that is immediately PROCESSED (no manual request/approval), marks those
+earnings PAID, and never pays the same earning twice. Pre-existing PENDING
+payouts left over from the old manual flow get completed instead of hanging.
 """
 from decimal import Decimal
 
 from django.contrib.auth.hashers import make_password
 from django.test import TestCase
-from rest_framework.exceptions import ValidationError
 
 from courses.models import Course
 from instructor_earnings.models import InstructorEarning
 from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
 from instructor_payouts.models import InstructorPayout
-from instructor_payouts.services import request_instructor_payout
-from systems_settings.models import PlatformSetting
+from instructor_payouts.services import auto_create_instructor_payouts
 from users.models import User
 
 
-class PayoutRequestTests(TestCase):
+class AutoPayoutTests(TestCase):
     def setUp(self):
         level = InstructorLevel.objects.create(
             name="Bronze", description="level",
@@ -33,19 +32,13 @@ class PayoutRequestTests(TestCase):
             full_name="Payout Teacher", status="active",
         )
         self.instructor = Instructor.objects.create(user=instr_user, level=level)
-        # Keep the threshold low so the balance-based assertions below stay valid;
-        # a dedicated test exercises the min_payout rejection.
-        PlatformSetting.objects.update_or_create(
-            singleton_key=1,
-            defaults={"min_payout": Decimal("50")},
-        )
         self.course = Course.objects.create(
             title="Payout Course", shortdescription="x", description="x",
             instructor=self.instructor, category_id=None, subcategory_id=None,
             price=Decimal("100.00"), level="beginner", language="English",
             duration=60, total_lessons=1, thumbnail="/static/img.jpg",
         )
-        # Two AVAILABLE earnings totalling 150.00 net.
+        # Two AVAILABLE earnings totalling 150.00 net, not yet linked to a payout.
         for net in (Decimal("100.00"), Decimal("50.00")):
             InstructorEarning.objects.create(
                 instructor=self.instructor, course=self.course,
@@ -53,37 +46,51 @@ class PayoutRequestTests(TestCase):
                 status=InstructorEarning.StatusChoices.AVAILABLE,
             )
 
-    def test_request_exceeding_available_balance_is_rejected(self):
-        with self.assertRaises(ValidationError):
-            request_instructor_payout(self.instructor, Decimal("200.00"), payout_method_id=None)
-        self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 0)
+    def test_run_creates_processed_payout_and_marks_earnings_paid(self):
+        result = auto_create_instructor_payouts(settle_first=False)
 
-    def test_request_below_min_payout_is_rejected(self):
-        with self.assertRaises(ValidationError):
-            request_instructor_payout(self.instructor, Decimal("40.00"), payout_method_id=None)
-        self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 0)
-
-    def test_non_positive_amount_is_rejected(self):
-        with self.assertRaises(ValidationError):
-            request_instructor_payout(self.instructor, Decimal("-10.00"), payout_method_id=None)
-        self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 0)
-
-    def test_valid_request_assigns_available_earnings(self):
-        request_instructor_payout(self.instructor, Decimal("150.00"), payout_method_id=None)
+        self.assertEqual(result["payouts_created"], 1)
 
         payout = InstructorPayout.objects.get(instructor=self.instructor)
-        self.assertEqual(payout.amount, Decimal("150.00"))
-        # Merged payout flow auto-approves on request (auto_approve_payout defaults True),
-        # so a valid request is immediately PROCESSED.
         self.assertEqual(payout.status, InstructorPayout.PayoutStatusChoices.PROCESSED)
+        self.assertEqual(payout.amount, Decimal("150.00"))
+        self.assertEqual(payout.net_amount, Decimal("150.00"))
+        self.assertIsNotNone(payout.processed_date)
 
-        # Both earnings are now bound to this payout -> cannot be requested again.
+        # Both earnings are now bound to this payout and PAID.
         assigned = InstructorEarning.objects.filter(instructor_payout=payout)
         self.assertEqual(assigned.count(), 2)
+        self.assertTrue(all(e.status == InstructorEarning.StatusChoices.PAID for e in assigned))
 
-        unassigned_available = InstructorEarning.objects.filter(
-            instructor=self.instructor,
-            status=InstructorEarning.StatusChoices.AVAILABLE,
-            instructor_payout__isnull=True,
+    def test_run_is_idempotent_no_double_payout(self):
+        auto_create_instructor_payouts(settle_first=False)
+        # Earnings are PAID and linked, so a second run pays nothing more.
+        result = auto_create_instructor_payouts(settle_first=False)
+        self.assertEqual(result["payouts_created"], 0)
+        self.assertEqual(InstructorPayout.objects.filter(instructor=self.instructor).count(), 1)
+
+    def test_leftover_pending_payout_is_completed(self):
+        # Simulate a payout left PENDING by the removed manual-approval flow.
+        pending = InstructorPayout.objects.create(
+            instructor=self.instructor, amount=Decimal("75.00"),
+            payment_method="bank_transfer", period="2024-06",
+            status=InstructorPayout.PayoutStatusChoices.PENDING,
         )
-        self.assertEqual(unassigned_available.count(), 0)
+        InstructorEarning.objects.create(
+            instructor=self.instructor, course=self.course,
+            amount=Decimal("75.00"), net_amount=Decimal("75.00"),
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+            instructor_payout=pending,
+        )
+
+        auto_create_instructor_payouts(settle_first=False)
+
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, InstructorPayout.PayoutStatusChoices.PROCESSED)
+        self.assertEqual(pending.net_amount, Decimal("75.00"))
+        self.assertTrue(
+            InstructorEarning.objects.filter(
+                instructor_payout=pending,
+                status=InstructorEarning.StatusChoices.PAID,
+            ).exists()
+        )

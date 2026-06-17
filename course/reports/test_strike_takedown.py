@@ -62,6 +62,23 @@ class TakedownPipelineTests(TestCase):
         admin_action(case.id, self.admin_user, 'takedown', count_as_strike=False)
         self.assertEqual(InstructorStrike.objects.filter(instructor=self.instructor).count(), 0)
 
+    def test_suspend_sale_creates_no_strike(self):
+        case = self._case(self._course('C1'))
+        admin_action(case.id, self.admin_user, 'suspend_sale', message='temporary hide')
+        self.assertEqual(InstructorStrike.objects.filter(instructor=self.instructor).count(), 0)
+
+    def test_freeze_creates_strike(self):
+        case = self._case(self._course('C1'))
+        admin_action(case.id, self.admin_user, 'freeze', message='suspend access')
+        self.assertEqual(
+            InstructorStrike.objects.filter(instructor=self.instructor, revoked_at__isnull=True).count(), 1
+        )
+
+    def test_freeze_without_strike_flag_creates_no_strike(self):
+        case = self._case(self._course('C1'))
+        admin_action(case.id, self.admin_user, 'freeze', count_as_strike=False)
+        self.assertEqual(InstructorStrike.objects.filter(instructor=self.instructor).count(), 0)
+
     def test_third_strike_bans_instructor_and_hides_other_courses(self):
         clean_course = self._course('Clean course')  # không vi phạm
         for i in range(3):

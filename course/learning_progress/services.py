@@ -341,12 +341,21 @@ def get_course_progress(user_id, course_id):
             for p in progresses
         ]
 
+        from certificates.models import Certificate
+        certificate_code = Certificate.objects.filter(
+            user=user,
+            course=course,
+            is_deleted=False,
+            revoked=False,
+        ).values_list('verification_code', flat=True).first()
+
         result = {
             'course_id': course_id,
             'overall_progress': float(stats['overall_progress']),
             'total_lessons': total_lessons,
             'completed_lessons': stats['completed_lessons'],
             'total_time_spent': stats['total_time_spent'],
+            'certificate_verification_code': certificate_code,
             'lessons': lesson_data
         }
 

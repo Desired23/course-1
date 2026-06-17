@@ -990,9 +990,9 @@ export function AiLearningPathDialog({
         style={{
           zIndex: 280,
           opacity: 1,
-          width: 'min(980px, calc(100vw - 1rem))',
-          height: 'min(820px, calc(100vh - 1rem))',
-          maxWidth: '980px',
+          width: 'min(860px, calc(100vw - 1rem))',
+          height: 'min(760px, calc(100vh - 1rem))',
+          maxWidth: '860px',
           maxHeight: 'calc(100vh - 1rem)',
           backgroundColor: '#020617',
           backgroundImage: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)',
@@ -1024,7 +1024,7 @@ export function AiLearningPathDialog({
 
         <div
           className={isDesktopDialogLayout ? 'flex-1 min-h-0 overflow-hidden grid' : 'flex-1 min-h-0 overflow-hidden flex flex-col'}
-          style={isDesktopDialogLayout ? { gridTemplateColumns: '320px minmax(0, 1fr)' } : undefined}
+          style={isDesktopDialogLayout ? { gridTemplateColumns: '280px minmax(0, 1fr)' } : undefined}
         >
           <aside
             className={

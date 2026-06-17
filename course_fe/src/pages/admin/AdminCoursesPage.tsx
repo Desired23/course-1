@@ -50,7 +50,7 @@ export function AdminCoursesPage() {
   const { t } = useTranslation()
 
   const [courses, setCourses] = useState<CourseListItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')

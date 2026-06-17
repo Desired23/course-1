@@ -13,7 +13,7 @@ function RouteLoadingFallback() {
   const { t } = useTranslation()
 
   return (
-    <div className="flex min-h-[40vh] items-center justify-center p-6">
+    <div className="flex items-center justify-center px-4 py-6">
       <div className="text-sm text-muted-foreground">{t('app_routes.loading')}</div>
     </div>
   )
