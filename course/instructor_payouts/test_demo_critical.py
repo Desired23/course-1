@@ -16,6 +16,7 @@ from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
 from instructor_payouts.models import InstructorPayout
 from instructor_payouts.services import auto_create_instructor_payouts
+from utils.test_helpers import auth_client, make_user
 from users.models import User
 
 
@@ -94,3 +95,46 @@ class AutoPayoutTests(TestCase):
                 status=InstructorEarning.StatusChoices.PAID,
             ).exists()
         )
+
+
+class InstructorPayoutAdminSearchTests(TestCase):
+    def setUp(self):
+        self.admin_user = make_user("admin", username="payout_search_admin")
+        self.client = auth_client(self.admin_user)
+
+        self.alice_user = make_user(
+            "instructor",
+            username="alice_payout_teacher",
+            email="alice_payout@example.com",
+            full_name="Alice Nguyen",
+        )
+        self.bob_user = make_user(
+            "instructor",
+            username="bob_payout_teacher",
+            email="bob_payout@example.com",
+            full_name="Bob Tran",
+        )
+
+        InstructorPayout.objects.create(
+            instructor=self.alice_user.instructor,
+            amount=Decimal("100.00"),
+            payment_method="bank_transfer",
+            period="2026-06",
+            status=InstructorPayout.PayoutStatusChoices.PROCESSED,
+        )
+        InstructorPayout.objects.create(
+            instructor=self.bob_user.instructor,
+            amount=Decimal("200.00"),
+            payment_method="bank_transfer",
+            period="2026-06",
+            status=InstructorPayout.PayoutStatusChoices.PROCESSED,
+        )
+
+    def test_admin_can_search_payouts_by_instructor_name(self):
+        response = self.client.get("/api/instructor-payouts/", {"search": "alice"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        result = response.data["results"][0]
+        self.assertEqual(result["instructor_name"], "Alice Nguyen")
+        self.assertEqual(result["instructor_email"], "alice_payout@example.com")

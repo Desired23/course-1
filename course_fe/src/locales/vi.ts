@@ -9110,7 +9110,7 @@
   },
   instructor_students_page: {
     title: "Học viên của tôi",
-    subtitle: "Theo dõi việc ghi danh và tiến độ học tập của học viên trên các khóa học của bạn",
+    subtitle: "Theo dõi danh sách học viên và tình hình ghi danh trên các khóa học của bạn",
     actions: {
       export_csv: "Xuất CSV",
       retry: "Thử lại",
@@ -9150,7 +9150,7 @@
     },
     course_table: {
       title: "Học viên theo khóa học ({{count}} khóa)",
-      description: "Phân tích ghi danh và tiến độ học tập theo từng khóa học",
+      description: "Phân tích ghi danh và kết quả theo từng khóa học",
       headers: {
         course: "Khóa học",
         total_students: "Tổng học viên",
@@ -9185,7 +9185,7 @@
     },
     dialog: {
       student_details: "Chi tiết học viên",
-      description: "Tiến độ chi tiết của học viên trên các khóa học của bạn",
+      description: "Thông tin ghi danh của học viên trên các khóa học của bạn",
       metrics: {
         total_courses: "Tổng khóa học",
         active_courses: "Khóa đang học",

@@ -9109,7 +9109,7 @@ export const en = {
   },
   instructor_students_page: {
     title: "My Students",
-    subtitle: "Track student enrollment and progress across your courses",
+    subtitle: "Track students and enrollment activity across your courses",
     actions: {
       export_csv: "Export CSV",
       retry: "Retry",
@@ -9149,7 +9149,7 @@ export const en = {
     },
     course_table: {
       title: "Students by Course ({{count}} courses)",
-      description: "Student enrollment and progress breakdown per course",
+      description: "Student enrollment and outcomes by course",
       headers: {
         course: "Course",
         total_students: "Total Students",
@@ -9184,7 +9184,7 @@ export const en = {
     },
     dialog: {
       student_details: "Student details",
-      description: "Detailed progress across your courses",
+      description: "Enrollment information across your courses",
       metrics: {
         total_courses: "Total Courses",
         active_courses: "Active Courses",

@@ -8,14 +8,16 @@ import { useRouter } from "./Router"
 import { useTranslation } from "react-i18next"
 import { getAdminDashboardStats } from '../services/admin.api'
 import { getAdminRefunds } from '../services/payment.api'
-import { getAdminReports } from '../services/report.api'
+import { getAdminReports, type ReportPriority } from '../services/report.api'
 import { useNotificationRefetch } from '../hooks/useNotificationRefetch'
+
+type TaskPriority = ReportPriority | 'urgent'
 
 interface Task {
   id: string
   title: string
   description: string
-  priority: 'low' | 'medium' | 'high' | 'urgent'
+  priority: TaskPriority
   status: 'pending' | 'in_progress' | 'completed'
   actionUrl?: string
 }
@@ -23,6 +25,20 @@ interface Task {
 interface PendingTasksProps {
   userRole: 'admin' | 'instructor' | 'user'
   className?: string
+}
+
+const reportPriorityRank: Record<ReportPriority, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+}
+
+function getHighestReportPriority(reports: Array<{ priority: ReportPriority }>): ReportPriority {
+  return reports.reduce<ReportPriority>(
+    (highest, report) => reportPriorityRank[report.priority] > reportPriorityRank[highest] ? report.priority : highest,
+    'low',
+  )
 }
 
 export function PendingTasks({ userRole, className }: PendingTasksProps) {
@@ -52,7 +68,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
         const [stats, refundsRes, reportsRes] = await Promise.all([
           getAdminDashboardStats(),
           getAdminRefunds({ status: 'pending', page: 1, page_size: 1 }),
-          getAdminReports({ page: 1, page_size: 1 }),
+          getAdminReports({ page: 1, page_size: 100 }),
         ])
         if (cancelled) return
 
@@ -85,7 +101,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
             id: 'reported-content',
             title: t('pending_tasks.mock.admin.review_reported_content_title'),
             description: t('pending_tasks.mock.admin.review_reported_content_description', { count: reportsRes.count }),
-            priority: 'high',
+            priority: getHighestReportPriority(reportsRes.results),
             status: 'in_progress',
             actionUrl: '/admin/reports',
           })
@@ -107,7 +123,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
 
   const filteredTasks = tasks.filter(task => {
     if (filter === 'pending') return task.status === 'pending'
-    if (filter === 'urgent') return task.priority === 'urgent' || task.priority === 'high'
+    if (filter === 'urgent') return task.priority === 'urgent' || task.priority === 'critical' || task.priority === 'high'
     return true
   })
 
@@ -116,6 +132,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
       low: { color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20', icon: Clock },
       medium: { color: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20', icon: Clock },
       high: { color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20', icon: AlertCircle },
+      critical: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', icon: AlertCircle },
       urgent: { color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20', icon: AlertCircle },
     }
     return configs[priority as keyof typeof configs] || configs.low
@@ -131,7 +148,7 @@ export function PendingTasks({ userRole, className }: PendingTasksProps) {
   }
 
   const pendingCount = tasks.filter(t => t.status === 'pending').length
-  const urgentCount = tasks.filter(t => t.priority === 'urgent' || t.priority === 'high').length
+  const urgentCount = tasks.filter(t => t.priority === 'urgent' || t.priority === 'critical' || t.priority === 'high').length
 
   return (
     <Card className={cn("p-6", className)}>

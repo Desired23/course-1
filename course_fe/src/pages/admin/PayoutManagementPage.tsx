@@ -132,9 +132,9 @@ export function PayoutManagementPage() {
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Instructor ID (tùy chọn)</label>
+              <label className="text-sm font-medium">Tên giảng viên (tùy chọn)</label>
               <Input
-                placeholder="Để trống = tất cả"
+                placeholder="Nhập tên giảng viên"
                 value={payoutFilterInstructorSearch}
                 onChange={(e) => { setPayoutsMgmtPage(1); setPayoutFilterInstructorSearch(e.target.value) }}
               />
@@ -150,7 +150,7 @@ export function PayoutManagementPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
-                <TableHead>Instructor</TableHead>
+                <TableHead>Giảng viên</TableHead>
                 <TableHead>Số tiền</TableHead>
                 <TableHead>Phương thức</TableHead>
                 <TableHead>Trạng thái</TableHead>
@@ -195,9 +195,9 @@ export function PayoutManagementPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium">Instructor ID (tùy chọn)</label>
+              <label className="text-sm font-medium">Tên giảng viên (tùy chọn)</label>
               <Input
-                placeholder="Để trống = tất cả"
+                placeholder="Nhập tên giảng viên"
                 value={payoutExportInstructorSearch}
                 onChange={(e) => setPayoutExportInstructorSearch(e.target.value)}
               />

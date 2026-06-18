@@ -18,6 +18,8 @@ Mặc định script sẽ:
 Biến môi trường hữu ích:
     SEED_UPLOAD_VIDEOS=0                 Không upload video thiếu.
     SEED_ALLOW_LOCAL_VIDEO_FALLBACK=1    Cho phép dùng đường dẫn local nếu không upload.
+    SEED_UPLOAD_THUMBNAILS=0             Không upload thumbnail local mới.
+    SEED_ALLOW_LOCAL_THUMBNAIL_FALLBACK=1 Cho phép dùng thumbnail local nếu không upload.
     SEED_REQUIRE_THUMBNAILS=1            Fail nếu course không có thumbnail phù hợp.
 """
 
@@ -128,6 +130,7 @@ class CourseSpec:
     videos: list[str]
     published_at: datetime
     fallback_thumbnail: str
+    thumbnail_filename: str | None = None
     featured: bool = False
 
 
@@ -212,6 +215,13 @@ VIDEO_LIBRARY = {
         VideoSpec("habit", "Xây_dựng_thói_quen_vận_động.mp4", "Xây dựng thói quen vận động", 11),
         VideoSpec("video_basic", "Dựng_video_cơ_bản.mp4", "Dựng video cơ bản", 12),
         VideoSpec("countdown", "10 Seconds Countdown Timer - YouTube.mp4", "Thực hành dựng đếm ngược", 4),
+        VideoSpec("py_core", "Bí_Mật_Cốt_Lõi_Của_Python.mp4", "Bí mật cốt lõi của Python", 16),
+        VideoSpec("py_errors", "Giải_Mã_Lỗi_Ma_Python.mp4", "Giải mã lỗi Python", 9),
+        VideoSpec("py_listcomp", "List_Comprehension_X3_Tốc_Độ.mp4", "List comprehension tăng tốc", 10),
+        VideoSpec("py_resources", "Quản_lý_tài_nguyên_Python.mp4", "Quản lý tài nguyên Python", 12),
+        VideoSpec("py_generator", "Tối_ưu_RAM__Generator_vs_List.mp4", "Tối ưu RAM với Generator", 11),
+        VideoSpec("math_examples", "Học_Toán_Qua_Bài_Mẫu.mp4", "Học toán qua bài mẫu", 12),
+        VideoSpec("math_score", "Điểm_tuyệt_đối_môn_Toán.mp4", "Điểm tuyệt đối môn Toán", 10),
     ]
 }
 
@@ -250,6 +260,7 @@ COURSE_SPECS = [
         videos=["market_research", "mkt_message", "promo_content", "mkt_eval"],
         published_at=dt("2026-01-20 10:00"),
         fallback_thumbnail=KNOWN_THUMBNAILS["Digital Marketing Toàn Diện Từ A đến Z"],
+        thumbnail_filename="Nghiên_cứu_thị_trường.png",
         featured=True,
     ),
     CourseSpec(
@@ -274,6 +285,7 @@ COURSE_SPECS = [
         videos=["py_var", "py_var", "py_var", "py_var"],
         published_at=dt("2026-01-26 15:00"),
         fallback_thumbnail=KNOWN_THUMBNAILS["Nhập Môn Lập Trình Python Cho Người Mới"],
+        thumbnail_filename="Biến_và_Kiểu_dữ_liệu.png",
         featured=True,
     ),
     CourseSpec(
@@ -298,6 +310,7 @@ COURSE_SPECS = [
         videos=["accounting", "invest", "accounting", "invest"],
         published_at=dt("2026-02-10 09:30"),
         fallback_thumbnail=KNOWN_THUMBNAILS["Tài Chính Cá Nhân & Đầu Tư Thông Minh"],
+        thumbnail_filename="Nguyên_tắc_kế_toán.png",
     ),
     CourseSpec(
         key="english",
@@ -321,6 +334,7 @@ COURSE_SPECS = [
         videos=["english", "english", "cert_prep", "cert_prep"],
         published_at=dt("2026-02-18 14:00"),
         fallback_thumbnail=KNOWN_THUMBNAILS["Tiếng Anh Giao Tiếp & Luyện Thi Chứng Chỉ"],
+        thumbnail_filename="Học_Tiếng_Anh_Giao_Tiếp.png",
     ),
     CourseSpec(
         key="productivity",
@@ -344,6 +358,7 @@ COURSE_SPECS = [
         videos=["time_block", "energy", "execution", "habit"],
         published_at=dt("2026-03-01 08:30"),
         fallback_thumbnail=KNOWN_THUMBNAILS["Tư Duy & Năng Suất Đỉnh Cao"],
+        thumbnail_filename="Sức_mạnh_Time_Blocking.png",
         featured=True,
     ),
     CourseSpec(
@@ -368,6 +383,57 @@ COURSE_SPECS = [
         videos=["video_basic", "countdown", "video_basic", "countdown"],
         published_at=dt("2026-03-20 16:00"),
         fallback_thumbnail=KNOWN_THUMBNAILS["Dựng Video Cơ Bản Cho Người Mới Bắt Đầu"],
+        thumbnail_filename="Dựng_video_cơ_bản.png",
+    ),
+    CourseSpec(
+        key="python_advanced",
+        title="Python Thực Chiến: Debug, List Comprehension và Generator",
+        short="Luyện tư duy Python thực tế qua debug, list comprehension, generator và quản lý tài nguyên.",
+        description="Khóa học nối tiếp Python nhập môn, tập trung vào các kỹ thuật nhỏ nhưng thường gặp trong dự án thật.",
+        category="Phát triển",
+        subcategory="Ngôn ngữ lập trình",
+        instructor_key="instructor_linh",
+        level=Course.Level.INTERMEDIATE,
+        price=money(699000),
+        objectives=[
+            "Đọc và xử lý lỗi Python phổ biến",
+            "Viết list comprehension rõ ràng",
+            "Dùng generator để tiết kiệm bộ nhớ",
+            "Quản lý tài nguyên bằng context manager",
+        ],
+        requirements="Đã biết biến, kiểu dữ liệu và hàm cơ bản trong Python.",
+        audience=["Học viên đã học Python cơ bản", "Sinh viên làm bài tập lớn", "Người muốn viết code gọn hơn"],
+        tags=["python", "debugging", "generator", "list-comprehension"],
+        module_titles=["Python sâu hơn", "Tối ưu và quản lý tài nguyên"],
+        videos=["py_core", "py_errors", "py_listcomp", "py_resources", "py_generator"],
+        published_at=dt("2026-03-28 09:00"),
+        fallback_thumbnail="",
+        thumbnail_filename="Bí_Mật_Cốt_Lõi_Của_Python.png",
+        featured=True,
+    ),
+    CourseSpec(
+        key="math",
+        title="Toán Nền Tảng Qua Bài Mẫu",
+        short="Ôn lại tư duy giải toán bằng bài mẫu và chiến lược tránh sai sót khi làm bài.",
+        description="Khóa học dành cho học viên muốn củng cố nền tảng toán thông qua ví dụ rõ ràng, ngắn và dễ luyện.",
+        category="Giáo dục & Luyện thi",
+        subcategory="Toán học",
+        instructor_key="instructor_an",
+        level=Course.Level.BEGINNER,
+        price=money(299000),
+        objectives=[
+            "Đọc đề và tách dữ kiện",
+            "Giải bài mẫu theo từng bước",
+            "Kiểm tra kết quả để tránh mất điểm",
+        ],
+        requirements="Nắm phép tính cơ bản và có vở ghi để luyện bài.",
+        audience=["Học sinh cần ôn nền tảng", "Phụ huynh muốn kèm con học", "Người học lại toán cơ bản"],
+        tags=["math", "exam-prep", "problem-solving"],
+        module_titles=["Học qua bài mẫu", "Chiến lược đạt điểm cao"],
+        videos=["math_examples", "math_score", "math_examples", "math_score"],
+        published_at=dt("2026-04-08 09:30"),
+        fallback_thumbnail="",
+        thumbnail_filename="Học_Toán_Qua_Bài_Mẫu.png",
     ),
 ]
 
@@ -449,6 +515,45 @@ def pick_thumbnail(spec: CourseSpec, cache_rows, allow_known_fallback=False):
     if best:
         return best
     return spec.fallback_thumbnail if allow_known_fallback else ""
+
+
+def upload_thumbnail(filename: str):
+    from utils.upload.cloudinary_upload import upload_file_to_cloudinary
+
+    source_path = REPO_ROOT / filename
+    if not source_path.exists():
+        raise SeedError(f"Không tìm thấy thumbnail nguồn: {source_path}")
+
+    print(f"[upload] thumbnail {filename}")
+    result = upload_file_to_cloudinary(
+        [str(source_path)],
+        folder="course-thumbnails",
+        resource_type="image",
+        delivery_type="upload",
+    )[0]
+    return result["url"]
+
+
+def resolve_local_thumbnail(spec: CourseSpec, thumbnail_cache):
+    if not spec.thumbnail_filename:
+        return ""
+
+    if spec.thumbnail_filename in thumbnail_cache:
+        return thumbnail_cache[spec.thumbnail_filename]
+
+    upload_mode = os.getenv("SEED_UPLOAD_THUMBNAILS", "auto").strip().lower()
+    allow_local = env_bool("SEED_ALLOW_LOCAL_THUMBNAIL_FALLBACK", False)
+    source_path = REPO_ROOT / spec.thumbnail_filename
+    if not source_path.exists():
+        return ""
+
+    if upload_mode not in {"0", "false", "no", "off"}:
+        thumbnail_cache[spec.thumbnail_filename] = upload_thumbnail(spec.thumbnail_filename)
+    elif allow_local:
+        thumbnail_cache[spec.thumbnail_filename] = source_path.as_uri()
+    else:
+        return ""
+    return thumbnail_cache[spec.thumbnail_filename]
 
 
 def cache_settings():
@@ -537,8 +642,11 @@ def prepare_assets():
 
     course_thumbnails = {}
     missing_thumbnails = []
+    uploaded_thumbnail_cache = {}
     for spec in COURSE_SPECS:
         thumbnail = pick_thumbnail(spec, thumbnail_cache, allow_known_thumbnail_fallback)
+        if not thumbnail:
+            thumbnail = resolve_local_thumbnail(spec, uploaded_thumbnail_cache)
         if not thumbnail:
             missing_thumbnails.append(spec.title)
         course_thumbnails[spec.key] = thumbnail
@@ -586,6 +694,8 @@ def seed_users():
         "student_minh": ("minh.student", "minh.student@example.com", "Đỗ Minh", "0900000102", dt("2026-01-06 10:00")),
         "student_hoa": ("hoa.student", "hoa.student@example.com", "Nguyễn Mai Hoa", "0900000103", dt("2026-01-08 10:00")),
         "student_quang": ("quang.student", "quang.student@example.com", "Vũ Đức Quang", "0900000104", dt("2026-01-09 10:00")),
+        "student_nam": ("nam.student", "nam.student@example.com", "Trần Hải Nam", "0900000105", dt("2026-01-10 10:00")),
+        "student_thao": ("thao.student", "thao.student@example.com", "Phạm Minh Thảo", "0900000106", dt("2026-01-11 10:00")),
     }
 
     users = {}
@@ -738,6 +848,7 @@ def seed_categories():
         "Giảng dạy & Học thuật": ["Ngôn ngữ"],
         "Phát triển cá nhân": ["Năng suất cá nhân"],
         "Nhiếp ảnh & Video": ["Quay & Dựng video"],
+        "Giáo dục & Luyện thi": ["Toán học"],
     }
     categories = {}
     order = 1
@@ -802,7 +913,7 @@ QUIZ_BANK = {
             "explanation": "Dùng print(a + b).",
             "test_cases": [
                 {"input_data": "2 3", "expected_output": "5", "is_hidden": False, "order_number": 1},
-                {"input_data": "-5 5", "expected_output": "0", "is_hidden": True, "order_number": 2},
+                {"input_data": "10 20", "expected_output": "30", "is_hidden": False, "order_number": 2},
             ],
         },
     ],
@@ -821,6 +932,30 @@ QUIZ_BANK = {
     "video": [
         make_mc("Timeline trong phần mềm dựng video dùng để làm gì?", ["Tô màu", "Sắp xếp clip theo thời gian", "Tính tiền", "Gửi email"], 1, "Timeline là nơi xếp clip theo trình tự."),
         make_tf("Nên kiểm tra lại video sau khi xuất trước khi đăng tải.", True, "Xem lại giúp phát hiện lỗi."),
+    ],
+    "python_advanced": [
+        make_mc("Generator hữu ích nhất khi nào?", ["Khi cần tiết kiệm bộ nhớ", "Khi muốn xóa file", "Khi đổi tên biến", "Khi thiết kế ảnh"], 0, "Generator tạo dữ liệu dần nên tiết kiệm RAM."),
+        {
+            "question_text": "Viết chương trình đọc 2 số nguyên và in tổng.",
+            "question_type": QuizQuestion.QuestionType.CODE,
+            "difficulty": QuizQuestion.DifficultyLevel.EASY,
+            "points": 20,
+            "correct_answer": "Chấm bằng test cases",
+            "description": "Input gồm hai số nguyên cách nhau bởi dấu cách. Output là tổng.",
+            "starter_code": "a, b = map(int, input().split())\nprint(a + b)\n",
+            "time_limit": 5,
+            "memory_limit": 128000,
+            "allowed_languages": [71, 63],
+            "explanation": "Đọc hai số và in tổng bằng print(a + b).",
+            "test_cases": [
+                {"input_data": "1 2", "expected_output": "3", "is_hidden": False, "order_number": 1},
+                {"input_data": "7 8", "expected_output": "15", "is_hidden": False, "order_number": 2},
+            ],
+        },
+    ],
+    "math": [
+        make_mc("Khi giải bài toán mẫu, bước đầu tiên nên là gì?", ["Đoán đáp án", "Tách dữ kiện", "Bỏ qua đề", "Viết kết quả ngay"], 1, "Tách dữ kiện giúp chọn đúng hướng giải."),
+        make_tf("Sau khi tính xong nên kiểm tra lại đơn vị và điều kiện đề bài.", True, "Kiểm tra giúp tránh mất điểm vì lỗi nhỏ."),
     ],
 }
 
@@ -944,7 +1079,7 @@ def create_transcript_sample(lesson, topic, at):
 
 
 def seed_payment_methods(users):
-    for key in ["student_lan", "student_minh", "student_hoa", "student_quang"]:
+    for key in ["student_lan", "student_minh", "student_hoa", "student_quang", "student_nam", "student_thao"]:
         user = users[key]
         method = UserPaymentMethod.objects.create(
             user=user,
@@ -989,6 +1124,36 @@ def seed_promotions(admin, instructors, courses, categories):
     english_promo.applicable_courses.add(courses["english"])
     created(english_promo, dt("2026-03-20 08:00"))
 
+    advanced_python_promo = Promotion.objects.create(
+        code="PYADV75",
+        description="Giảm 75.000đ cho khóa Python thực chiến.",
+        discount_type=Promotion.DiscountTypeChoices.FIXED_AMOUNT,
+        discount_value=money(75000),
+        start_date=dt("2026-03-28 00:00"),
+        end_date=dt("2026-06-30 23:59"),
+        usage_limit=120,
+        min_purchase=money(500000),
+        instructor=instructors["instructor_linh"],
+        status=Promotion.StatusChoices.ACTIVE,
+    )
+    advanced_python_promo.applicable_courses.add(courses["python_advanced"])
+    created(advanced_python_promo, dt("2026-03-28 10:00"))
+
+    math_promo = Promotion.objects.create(
+        code="MATH50",
+        description="Giảm 50.000đ cho khóa Toán nền tảng.",
+        discount_type=Promotion.DiscountTypeChoices.FIXED_AMOUNT,
+        discount_value=money(50000),
+        start_date=dt("2026-04-08 00:00"),
+        end_date=dt("2026-06-30 23:59"),
+        usage_limit=100,
+        min_purchase=money(200000),
+        instructor=instructors["instructor_an"],
+        status=Promotion.StatusChoices.ACTIVE,
+    )
+    math_promo.applicable_courses.add(courses["math"])
+    created(math_promo, dt("2026-04-08 10:00"))
+
     homepage_promo = Promotion.objects.create(
         code="SUMMER2026",
         description="Mã admin hiển thị trang chủ cho nhóm Marketing.",
@@ -1005,7 +1170,13 @@ def seed_promotions(admin, instructors, courses, categories):
     )
     homepage_promo.applicable_categories.add(categories["Marketing"])
     created(homepage_promo, dt("2026-06-01 08:00"))
-    return {"python": py_promo, "english": english_promo, "summer": homepage_promo}
+    return {
+        "python": py_promo,
+        "english": english_promo,
+        "python_advanced": advanced_python_promo,
+        "math": math_promo,
+        "summer": homepage_promo,
+    }
 
 
 def create_payment(user, items, paid_at, method=Payment.PaymentMethod.VNPAY, status=Payment.PaymentStatus.COMPLETED):
@@ -1159,6 +1330,26 @@ def seed_orders_and_learning(users, courses, lessons_by_course, promotions):
     earnings["quang_english"] = generate_earnings(payment, details, dt("2026-04-02 19:10"), InstructorEarning.StatusChoices.AVAILABLE)
 
     payment, details = create_payment(
+        users["student_nam"],
+        [{"course": courses["python_advanced"], "price": money(699000), "discount": money(75000), "promotion": promotions["python_advanced"]}],
+        dt("2026-03-30 20:30"),
+        Payment.PaymentMethod.VNPAY,
+    )
+    payments["nam_python_advanced"] = payment
+    [enrollments["nam_python_advanced"]] = create_purchase_enrollments(payment, details, dt("2026-03-30 20:35"))
+    earnings["nam_python_advanced"] = generate_earnings(payment, details, dt("2026-03-30 20:40"), InstructorEarning.StatusChoices.AVAILABLE)
+
+    payment, details = create_payment(
+        users["student_thao"],
+        [{"course": courses["math"], "price": money(299000), "discount": money(50000), "promotion": promotions["math"]}],
+        dt("2026-04-18 09:00"),
+        Payment.PaymentMethod.VNPAY,
+    )
+    payments["thao_math"] = payment
+    [enrollments["thao_math"]] = create_purchase_enrollments(payment, details, dt("2026-04-18 09:05"))
+    earnings["thao_math"] = generate_earnings(payment, details, dt("2026-04-18 09:10"), InstructorEarning.StatusChoices.AVAILABLE)
+
+    payment, details = create_payment(
         users["student_minh"],
         [{"course": courses["video"], "price": money(429000)}],
         dt("2026-05-28 21:00"),
@@ -1178,6 +1369,16 @@ def seed_orders_and_learning(users, courses, lessons_by_course, promotions):
     [enrollments["hoa_python"]] = create_purchase_enrollments(payment, details, dt("2026-06-05 10:03"))
     earnings["hoa_python"] = generate_earnings(payment, details, dt("2026-06-05 10:08"), InstructorEarning.StatusChoices.PENDING)
 
+    payment, details = create_payment(
+        users["student_lan"],
+        [{"course": courses["math"], "price": money(299000), "discount": money(50000), "promotion": promotions["math"]}],
+        dt("2026-06-02 08:00"),
+        Payment.PaymentMethod.MOMO,
+    )
+    payments["lan_math"] = payment
+    [enrollments["lan_math"]] = create_purchase_enrollments(payment, details, dt("2026-06-02 08:04"))
+    earnings["lan_math"] = generate_earnings(payment, details, dt("2026-06-02 08:08"), InstructorEarning.StatusChoices.PENDING)
+
     pending_payment, pending_details = create_payment(
         users["student_quang"],
         [{"course": courses["finance"], "price": money(459000)}],
@@ -1187,7 +1388,7 @@ def seed_orders_and_learning(users, courses, lessons_by_course, promotions):
     )
     payments["quang_finance_pending"] = pending_payment
 
-    for promo in [promotions["python"], promotions["english"]]:
+    for promo in Promotion.objects.all():
         used = Payment_Details.objects.filter(promotion=promo, payment__payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]).count()
         update_obj(promo, dt("2026-06-05 10:10"), used_count=used)
 
@@ -1203,13 +1404,16 @@ def seed_orders_and_learning(users, courses, lessons_by_course, promotions):
 def seed_progress_and_results(users, courses, lessons_by_course, enrollments):
     complete_map = {
         "lan_marketing": dt("2026-03-15 18:00"),
+        "nam_python_advanced": dt("2026-05-18 20:00"),
         "minh_finance": dt("2026-05-05 20:00"),
+        "thao_math": dt("2026-05-24 10:00"),
         "minh_video": dt("2026-06-05 21:00"),
     }
     partial_progress = {
         "lan_python": (Decimal("80.00"), dt("2026-04-25 20:00")),
         "hoa_productivity": (Decimal("45.00"), dt("2026-04-10 08:00")),
         "quang_english": (Decimal("35.00"), dt("2026-05-08 21:00")),
+        "lan_math": (Decimal("30.00"), dt("2026-06-12 08:30")),
         "hoa_python": (Decimal("20.00"), dt("2026-06-12 12:00")),
     }
 
@@ -1219,7 +1423,10 @@ def seed_progress_and_results(users, courses, lessons_by_course, enrollments):
         "minh_finance": "finance",
         "hoa_productivity": "productivity",
         "quang_english": "english",
+        "nam_python_advanced": "python_advanced",
+        "thao_math": "math",
         "minh_video": "video",
+        "lan_math": "math",
         "hoa_python": "python",
     }
 
@@ -1317,7 +1524,9 @@ def create_quiz_result(enrollment, lesson, at, passed=True):
 def seed_certificates(users, courses, enrollments):
     certificate_specs = {
         "lan_marketing": dt("2026-03-16 09:00"),
+        "nam_python_advanced": dt("2026-05-19 09:00"),
         "minh_finance": dt("2026-05-06 09:00"),
+        "thao_math": dt("2026-05-25 09:00"),
         "minh_video": dt("2026-06-06 09:00"),
     }
     certificates = {}
@@ -1344,9 +1553,12 @@ def seed_reviews(users, courses, enrollments):
     specs = [
         ("lan_marketing", 5, "Nội dung marketing có ví dụ thực tế, dễ áp dụng.", dt("2026-03-17 20:00")),
         ("lan_python", 4, "Bài Python dễ hiểu, phần code quiz rất hữu ích.", dt("2026-04-26 21:00")),
+        ("nam_python_advanced", 5, "Phần debug và generator giúp tôi hiểu vì sao code chạy tốn RAM.", dt("2026-05-20 20:30")),
         ("minh_finance", 5, "Giúp tôi lập lại ngân sách cá nhân rõ ràng hơn.", dt("2026-05-07 21:00")),
+        ("thao_math", 5, "Bài toán mẫu ngắn, dễ luyện lại trước khi kiểm tra.", dt("2026-05-26 20:00")),
         ("hoa_productivity", 5, "Khóa miễn phí nhưng rất chỉn chu, time blocking dùng được ngay.", dt("2026-04-12 08:30")),
         ("quang_english", 4, "Phần luyện nói theo tình huống khá sát nhu cầu đi làm.", dt("2026-05-09 21:15")),
+        ("lan_math", 4, "Course Toán mới học được một phần nhưng cách trình bày rõ ràng.", dt("2026-06-12 09:00")),
         ("minh_video", 2, "Bài thực hành có đoạn clip bị nghi dùng lại chưa rõ bản quyền.", dt("2026-06-07 22:00")),
     ]
     reviews = {}
@@ -1369,33 +1581,47 @@ def seed_reviews(users, courses, enrollments):
 
 
 def seed_payouts(earnings):
-    paid_earnings = earnings["lan_bundle"] + earnings["minh_finance"]
-    instructor_groups = {}
-    for earning in paid_earnings:
-        instructor_groups.setdefault(earning.instructor, []).append(earning)
-
-    for instructor, group in instructor_groups.items():
-        total = sum((earning.net_amount for earning in group), money(0))
-        payout = InstructorPayout.objects.create(
-            instructor=instructor,
-            amount=total,
-            fee=money(0),
-            net_amount=total,
-            payment_method=InstructorPayoutMethod.MethodType.BANK_TRANSFER,
-            transaction_id=f"PAYOUT-20260430-{instructor.id}",
-            status=InstructorPayout.PayoutStatusChoices.PROCESSED,
-            processed_date=dt("2026-04-30 17:00"),
-            period="2026-04",
-            notes="Chi trả doanh thu các giao dịch đã qua thời hạn hoàn tiền.",
-        )
-        created(payout, dt("2026-04-30 16:00"))
+    def create_payout(group, period, requested_at, processed_at):
+        instructor_groups = {}
         for earning in group:
-            update_obj(
-                earning,
-                dt("2026-04-30 17:00"),
-                status=InstructorEarning.StatusChoices.PAID,
-                instructor_payout=payout,
+            instructor_groups.setdefault(earning.instructor, []).append(earning)
+
+        for instructor, instructor_earnings in instructor_groups.items():
+            total = sum((earning.net_amount for earning in instructor_earnings), money(0))
+            payout = InstructorPayout.objects.create(
+                instructor=instructor,
+                amount=total,
+                fee=money(0),
+                net_amount=total,
+                payment_method=InstructorPayoutMethod.MethodType.BANK_TRANSFER,
+                transaction_id=f"PAYOUT-{period.replace('-', '')}-{instructor.id}",
+                status=InstructorPayout.PayoutStatusChoices.PROCESSED,
+                processed_date=processed_at,
+                period=period,
+                notes="Chi trả doanh thu các giao dịch đã qua thời hạn hoàn tiền.",
             )
+            created(payout, requested_at)
+            update_obj(payout, processed_at, processed_date=processed_at)
+            for earning in instructor_earnings:
+                update_obj(
+                    earning,
+                    processed_at,
+                    status=InstructorEarning.StatusChoices.PAID,
+                    instructor_payout=payout,
+                )
+
+    create_payout(
+        earnings["lan_bundle"] + earnings["minh_finance"],
+        "2026-04",
+        dt("2026-04-30 16:00"),
+        dt("2026-04-30 17:00"),
+    )
+    create_payout(
+        earnings["nam_python_advanced"] + earnings["thao_math"],
+        "2026-06",
+        dt("2026-06-17 15:00"),
+        dt("2026-06-17 16:00"),
+    )
 
 
 def seed_refund_and_moderation(users, courses, payments, enrollments, earnings, certificates, reviews):

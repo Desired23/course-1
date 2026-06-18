@@ -92,8 +92,7 @@ export function InstructorStudentsPage() {
   const renderStudentTableSkeleton = () => (
     <div className="space-y-2 py-2">
       {Array.from({ length: 8 }).map((_, index) => (
-        <div key={`student-row-skeleton-${index}`} className="grid grid-cols-7 gap-3 items-center">
-          <Skeleton className="h-9 w-full" />
+        <div key={`student-row-skeleton-${index}`} className="grid grid-cols-6 gap-3 items-center">
           <Skeleton className="h-9 w-full" />
           <Skeleton className="h-9 w-full" />
           <Skeleton className="h-9 w-full" />
@@ -473,7 +472,6 @@ export function InstructorStudentsPage() {
               <TableRow>
                 <TableHead>{t('instructor_students_page.student_table.headers.student')}</TableHead>
                 <TableHead className="text-center">{t('instructor_students_page.student_table.headers.courses')}</TableHead>
-                <TableHead className="text-center">{t('instructor_students_page.student_table.headers.avg_progress')}</TableHead>
                 <TableHead className="text-center">{t('instructor_students_page.student_table.headers.completions')}</TableHead>
                 <TableHead>{t('instructor_students_page.student_table.headers.latest_course')}</TableHead>
                 <TableHead>{t('instructor_students_page.student_table.headers.last_access')}</TableHead>
@@ -490,12 +488,6 @@ export function InstructorStudentsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{student.total_courses}</TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <Progress value={student.average_progress} className="h-2 w-20" />
-                      <span className="text-sm">{student.average_progress}%</span>
-                    </div>
-                  </TableCell>
                   <TableCell className="text-center">{student.completion_count}</TableCell>
                   <TableCell>
                     <div className="max-w-[220px]">
@@ -569,7 +561,7 @@ export function InstructorStudentsPage() {
 
           {selectedStudent && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="p-4">
                     <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.total_courses')}</p>
@@ -580,12 +572,6 @@ export function InstructorStudentsPage() {
                   <CardContent className="p-4">
                     <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.active_courses')}</p>
                     <p className="text-2xl font-bold">{selectedStudent.active_course_count}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-sm text-muted-foreground">{t('instructor_students_page.dialog.metrics.avg_progress')}</p>
-                    <p className="text-2xl font-bold">{selectedStudent.average_progress}%</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -614,68 +600,6 @@ export function InstructorStudentsPage() {
                   <p>{selectedStudent.enrolled_at ? new Date(selectedStudent.enrolled_at).toLocaleString() : '-'}</p>
                 </div>
               </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('instructor_students_page.dialog.progress.title')}</CardTitle>
-                  <CardDescription>{t('instructor_students_page.dialog.progress.description')}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('instructor_students_page.dialog.progress.headers.course')}</TableHead>
-                        <TableHead>{t('instructor_students_page.dialog.progress.headers.status')}</TableHead>
-                        <TableHead className="text-center">{t('instructor_students_page.dialog.progress.headers.progress')}</TableHead>
-                        <TableHead className="text-center">{t('instructor_students_page.dialog.progress.headers.lessons')}</TableHead>
-                        <TableHead className="text-center">{t('instructor_students_page.dialog.progress.headers.time_spent')}</TableHead>
-                        <TableHead>{t('instructor_students_page.dialog.progress.headers.last_access')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedStudent.courses.map((course) => (
-                        <TableRow key={course.enrollment_id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{course.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {t('instructor_students_page.dialog.progress.enrolled_on', {
-                                  date: course.enrollment_date ? new Date(course.enrollment_date).toLocaleDateString() : '-',
-                                })}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={course.status === 'complete' ? 'default' : 'secondary'}>
-                              {getCourseStatusLabel(course.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <Progress value={course.progress} className="h-2 w-24" />
-                              <span className="text-sm">{course.progress}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {t('instructor_students_page.dialog.progress.lessons_value', {
-                              completed: course.completed_lessons,
-                              total: course.total_lessons || 0,
-                            })}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {t('instructor_students_page.dialog.progress.time_spent_value', {
-                              minutes: course.time_spent_minutes,
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            {course.last_access_date ? new Date(course.last_access_date).toLocaleString() : '-'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
             </div>
           )}
         </DialogContent>
