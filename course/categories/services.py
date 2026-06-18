@@ -49,8 +49,29 @@ def get_subcategories(category_id):
         return subcategories
     except Category.DoesNotExist:
         raise ValidationError({"error": "Category not found."})
-def get_active_categories():
-    return Category.objects.filter(status='active')
+def get_active_categories(has_courses=False):
+    categories = Category.objects.filter(status='active')
+    if not has_courses:
+        return categories
+
+    published_course_filter = {
+        'status': 'published',
+        'is_public': True,
+        'is_deleted': False,
+    }
+
+    def course_exists(path):
+        return Q(**{
+            f'{path}__{key}': value
+            for key, value in published_course_filter.items()
+        })
+
+    return categories.filter(
+        course_exists('category_courses') |
+        course_exists('subcategory_courses') |
+        course_exists('subcategories__category_courses') |
+        course_exists('subcategories__subcategory_courses')
+    ).distinct()
 
 
 def move_category_to_top(category_id):

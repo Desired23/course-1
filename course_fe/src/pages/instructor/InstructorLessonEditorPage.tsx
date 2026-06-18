@@ -24,7 +24,6 @@ import { ResourcesTab } from '../../components/ResourcesTab'
 import { QuizTab } from '../../components/QuizTab'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { EnhancedCodeQuizCreator, type EnhancedCodeQuizCreatorHandle } from '../../components/EnhancedCodeQuizCreator'
-import { TranscriptEditorPanel } from '../../components/TranscriptEditorPanel'
 import { getLessonById, updateLesson as updateLessonApi } from '../../services/lessons.api'
 import { getCourseModuleById } from '../../services/course-modules.api'
 import { getQuestionsByLesson } from '../../services/quiz-questions.api'
@@ -377,12 +376,7 @@ export function InstructorLessonEditorPage() {
       case 2:
         return <ResourcesTab lesson={editedLesson} onUpdate={handleUpdate} />
       case 3:
-        return (
-          <TranscriptEditorPanel
-            lessonId={editedLesson.id}
-            videoUrl={editedLesson.signedVideoUrl || editedLesson.videoUrl}
-          />
-        )
+        return null
       default:
         return null
     }

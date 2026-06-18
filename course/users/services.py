@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 import requests
 import secrets
 from .preferences import apply_privacy_to_user_payload
-from django.db.models import Q
+from django.db.models import Q, F
 JWT_SECRET = settings.SECRET_KEY
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_MINUTES = 300
@@ -145,26 +145,115 @@ def _sync_role_records(user, roles):
     notify_role_updated(user.id)
 
 
-def update_user_by_admin(user_id, data):
+def update_user_by_admin(user_id, data, admin_actor=None):
     try:
         user = User.objects.select_related('admin', 'instructor').get(id=user_id)
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
 
     data = dict(data)
+    plan_course_action = data.pop('plan_course_action', None)
     # Accept an additive multi-role list ('roles'); fall back to a single 'user_type'
     # for backward compatibility. Roles are applied via the Admin/Instructor records.
     roles = data.pop('roles', None)
     if roles is None and 'user_type' in data:
         roles = [data.pop('user_type')]
 
+    if _requires_plan_course_ban_confirmation(user, data):
+        impacted_plan_courses = _get_active_plan_courses_for_instructor(user.instructor.id)
+        if impacted_plan_courses and plan_course_action not in {'keep', 'remove'}:
+            return {
+                'requires_confirmation': True,
+                'code': 'instructor_courses_in_active_plans',
+                'message': (
+                    'Instructor has courses in active subscription plans. '
+                    "Confirm with plan_course_action='remove' or 'keep'."
+                ),
+                'plan_course_action_options': ['remove', 'keep'],
+                'impacted_plan_courses': _serialize_impacted_plan_courses(impacted_plan_courses),
+            }
+
     serializer = Userserializers(user, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
         updated_user = serializer.save()
+        if updated_user.is_deleted or updated_user.status != User.StatusChoices.ACTIVE:
+            invalidate_all_sessions(updated_user.id)
+        if (
+            plan_course_action == 'remove'
+            and updated_user.status == User.StatusChoices.BANNED
+            and getattr(updated_user, 'instructor', None)
+            and not updated_user.instructor.is_deleted
+        ):
+            updated_user.plan_course_removal_result = _schedule_instructor_plan_course_removals(
+                updated_user.instructor.id,
+                admin_actor=admin_actor,
+            )
         if roles is not None:
             _sync_role_records(updated_user, roles)
         return updated_user
     raise ValidationError(serializer.errors)
+
+
+def _requires_plan_course_ban_confirmation(user, data):
+    requested_status = data.get('status')
+    if requested_status != User.StatusChoices.BANNED:
+        return False
+    if user.status == User.StatusChoices.BANNED:
+        return False
+    instructor = getattr(user, 'instructor', None)
+    return bool(instructor and not instructor.is_deleted)
+
+
+def _get_active_plan_courses_for_instructor(instructor_id):
+    from subscription_plans.models import PlanCourse
+
+    return list(
+        PlanCourse.objects.filter(
+            course__instructor_id=instructor_id,
+            course__is_deleted=False,
+            plan__is_deleted=False,
+            plan__status='active',
+            is_deleted=False,
+            status=PlanCourse.Status.ACTIVE,
+        ).select_related('plan', 'course').order_by('plan_id', 'course_id')
+    )
+
+
+def _serialize_impacted_plan_courses(plan_courses):
+    return [
+        {
+            'plan_course_id': pc.id,
+            'plan_id': pc.plan_id,
+            'plan_name': pc.plan.name if pc.plan else None,
+            'course_id': pc.course_id,
+            'course_title': pc.course.title if pc.course else None,
+            'scheduled_removal_at': pc.scheduled_removal_at,
+        }
+        for pc in plan_courses
+    ]
+
+
+def _schedule_instructor_plan_course_removals(instructor_id, admin_actor=None):
+    from subscription_plans.services import schedule_plan_course_removal
+
+    scheduled = []
+    skipped = []
+    for pc in _get_active_plan_courses_for_instructor(instructor_id):
+        if pc.scheduled_removal_at is not None:
+            skipped.append(pc.id)
+            continue
+        result = schedule_plan_course_removal(
+            pc.id,
+            admin_actor,
+            reason='Instructor banned by admin',
+        )
+        scheduled.append(result)
+    return {
+        'scheduled_count': len(scheduled),
+        'skipped_count': len(skipped),
+        'scheduled': scheduled,
+        'skipped_plan_course_ids': skipped,
+    }
 
 
 def delete_user(user_id, request=None):
@@ -185,6 +274,7 @@ def delete_user(user_id, request=None):
             user.deleted_by = request.user
         user.status = User.StatusChoices.INACTIVE
         user.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'status'])
+        invalidate_all_sessions(user_id)
         return {"message": "User deleted successfully."}
     except User.DoesNotExist:
         raise ValidationError({"error": "User not found."})
@@ -284,6 +374,7 @@ def _issue_auth_tokens(user, remember_me=False):
         'email': user.email,
         'roles': roles,
         'token_type': 'access',
+        'token_version': user.auth_token_version,
         'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         "iat": datetime.now(dt_timezone.utc)
     }
@@ -494,6 +585,7 @@ def refresh_token(token):
         'email': user.email,
         'roles': roles,
         'token_type': 'access',
+        'token_version': user.auth_token_version,
         'exp': datetime.now(dt_timezone.utc) + timedelta(minutes=ACCESS_TOKEN_MINUTES),
         "iat": datetime.now(dt_timezone.utc)
     }
@@ -541,6 +633,17 @@ def revoke_refresh_token(jti):
 def revoke_all_refresh_tokens_for_user(user_id):
     from .models import RefreshToken
     RefreshToken.objects.filter(user_id=user_id, revoked_at__isnull=True).update(revoked_at=timezone.now())
+
+
+def invalidate_all_sessions(user_id):
+    """Force-expire every outstanding token for a user.
+
+    Bumps ``auth_token_version`` so all previously issued access tokens are
+    rejected at the auth layer, and revokes all refresh tokens so they cannot
+    mint new ones.
+    """
+    User.objects.filter(id=user_id).update(auth_token_version=F('auth_token_version') + 1)
+    revoke_all_refresh_tokens_for_user(user_id)
 
 
 
@@ -593,6 +696,7 @@ def confirm_reset_password(token, new_password):
 
     user.password_hash = make_password(new_password)
     user.save()
+    invalidate_all_sessions(user.id)
     log_activity(
         user_id=user.id,
         action="PASSWORD_CHANGED",
@@ -688,6 +792,7 @@ def ban_user(user_id, admin_id=None):
             raise ValidationError({"error": "User is already banned."})
         user.status = 'banned'
         user.save()
+        invalidate_all_sessions(user_id)
         log_activity(
             user_id=admin_id,
             action="USER_BANNED",
@@ -774,7 +879,8 @@ def change_password_self(user_id, current_password, new_password):
 
     user.password_hash = make_password(new_password)
     user.save(update_fields=['password_hash'])
-    revoke_all_refresh_tokens_for_user(user_id)
+    invalidate_all_sessions(user_id)
+    user.refresh_from_db(fields=['auth_token_version'])
     log_activity(
         user_id=user_id,
         action="PASSWORD_CHANGED",
@@ -875,7 +981,7 @@ def confirm_email_change_self(token):
     user.email = new_email
     user.pending_email = None
     user.save(update_fields=['email', 'pending_email'])
-    revoke_all_refresh_tokens_for_user(user.id)
+    invalidate_all_sessions(user.id)
     log_activity(
         user_id=user.id,
         action="EMAIL_CHANGED",
@@ -902,7 +1008,7 @@ def deactivate_user_self(user_id, password):
 
     user.status = User.StatusChoices.INACTIVE
     user.save(update_fields=['status'])
-    revoke_all_refresh_tokens_for_user(user_id)
+    invalidate_all_sessions(user_id)
     log_activity(
         user_id=user_id,
         action="ACCOUNT_DEACTIVATED",
@@ -932,7 +1038,7 @@ def delete_user_self(user_id, password):
     user.deleted_by = user
     user.status = User.StatusChoices.INACTIVE
     user.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'status'])
-    revoke_all_refresh_tokens_for_user(user_id)
+    invalidate_all_sessions(user_id)
     log_activity(
         user_id=user_id,
         action="ACCOUNT_DELETED",

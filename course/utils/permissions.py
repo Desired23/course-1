@@ -4,6 +4,7 @@ from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from django.conf import settings
 import jwt
 from users.models import User
+from users.token_utils import is_token_version_current
 JWT_SECRET = settings.SECRET_KEY
 def RolePermissionFactory(roles):
     class _RolePermission(BasePermission):
@@ -23,6 +24,8 @@ def RolePermissionFactory(roles):
                     raise AuthenticationFailed("Tài khoản bị cấm.")
                 if user.status == User.StatusChoices.INACTIVE:
                     raise AuthenticationFailed("Tài khoản chưa kích hoạt.")
+                if not is_token_version_current(user, payload):
+                    raise AuthenticationFailed("Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.")
             except User.DoesNotExist:
                 raise AuthenticationFailed("Người dùng không tồn tại.")
             except jwt.ExpiredSignatureError:

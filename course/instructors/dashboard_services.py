@@ -225,6 +225,7 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
         c_reviews = _apply_date_range(c_reviews, 'created_at', date_from, date_to)
         c_rating = c_reviews.aggregate(avg=Avg('rating'))['avg'] or 0
         c_earnings = earnings_qs.filter(course=course).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+        c_refund_rate = _course_refund_rate(course, earnings_qs)
 
         course_stats.append({
             'course_id': course.id,
@@ -235,6 +236,7 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
             'total_reviews': c_reviews.count(),
             'earnings': float(c_earnings),
             'completion_rate': c_completion_rate,
+            'refund_rate': c_refund_rate,
         })
 
     return {

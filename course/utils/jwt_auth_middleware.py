@@ -2,6 +2,7 @@ import jwt
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from users.models import User
+from users.token_utils import is_token_version_current
 from urllib.parse import parse_qs
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
@@ -28,7 +29,7 @@ class JWTAuthMiddleware(BaseMiddleware):
             try:
                 payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
                 user = await get_user(payload["user_id"])
-                if user and user.status == "active":
+                if user and user.status == "active" and is_token_version_current(user, payload):
                     scope["user"] = user
             except jwt.ExpiredSignatureError:
                 scope["user"] = AnonymousUser()

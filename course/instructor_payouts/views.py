@@ -28,6 +28,7 @@ class InstructorPayoutView(APIView):
         period = request.query_params.get("period")
         processed_by = request.query_params.get("processed_by")
         instructor_id = request.query_params.get("instructor_id")
+        instructor_search = request.query_params.get("search") or request.query_params.get("instructor_name")
         payout_id = request.query_params.get("payout_id")
 
         try:
@@ -47,7 +48,8 @@ class InstructorPayoutView(APIView):
                 payouts = get_all_payouts_as_admin(
                     status=status_payout,
                     period=period,
-                    processed_by=processed_by
+                    processed_by=processed_by,
+                    search=instructor_search
                 )
                 return paginate_queryset(payouts, request, InstructorPayoutSerializer)
 
@@ -113,9 +115,12 @@ class InstructorPayoutExportView(APIView):
 
         if is_active_admin(request.user):
             instructor_id = request.query_params.get('instructor_id')
+            instructor_search = request.query_params.get('search') or request.query_params.get('instructor_name')
             qs = InstructorPayout.objects.filter(is_deleted=False)
             if instructor_id:
                 qs = qs.filter(instructor_id=instructor_id)
+            if instructor_search:
+                qs = qs.filter(instructor__user__full_name__icontains=instructor_search.strip())
         elif is_active_instructor(request.user):
             qs = InstructorPayout.objects.filter(
                 instructor=request.user.instructor, is_deleted=False

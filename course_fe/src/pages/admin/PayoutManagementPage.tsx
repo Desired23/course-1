@@ -30,13 +30,13 @@ export function PayoutManagementPage() {
   const [payoutExportDateFrom, setPayoutExportDateFrom] = useState('')
   const [payoutExportDateTo, setPayoutExportDateTo] = useState('')
   const [payoutExportStatus, setPayoutExportStatus] = useState('')
-  const [payoutExportInstructorId, setPayoutExportInstructorId] = useState('')
+  const [payoutExportInstructorSearch, setPayoutExportInstructorSearch] = useState('')
   const [isPayoutExporting, setIsPayoutExporting] = useState(false)
   // Admin payout management (automatic periodic payouts, view-only history)
   const [managedPayouts, setManagedPayouts] = useState<InstructorPayout[]>([])
   const [payoutsLoading, setPayoutsLoading] = useState(false)
   const [payoutFilterStatus, setPayoutFilterStatus] = useState<PayoutStatus | ''>('')
-  const [payoutFilterInstructorId, setPayoutFilterInstructorId] = useState('')
+  const [payoutFilterInstructorSearch, setPayoutFilterInstructorSearch] = useState('')
   const [payoutsMgmtPage, setPayoutsMgmtPage] = useState(1)
   const [payoutsMgmtTotalPages, setPayoutsMgmtTotalPages] = useState(1)
   const [isRunningPayouts, setIsRunningPayouts] = useState(false)
@@ -46,7 +46,7 @@ export function PayoutManagementPage() {
     try {
       const res = await getInstructorPayoutsPage({
         status: payoutFilterStatus || undefined,
-        instructor_id: payoutFilterInstructorId ? Number(payoutFilterInstructorId) : undefined,
+        search: payoutFilterInstructorSearch.trim() || undefined,
         page: payoutsMgmtPage,
         page_size: ITEMS_PER_PAGE,
       })
@@ -58,7 +58,7 @@ export function PayoutManagementPage() {
     } finally {
       setPayoutsLoading(false)
     }
-  }, [payoutFilterStatus, payoutFilterInstructorId, payoutsMgmtPage])
+  }, [payoutFilterStatus, payoutFilterInstructorSearch, payoutsMgmtPage])
 
   useEffect(() => {
     void loadManagedPayouts()
@@ -134,10 +134,9 @@ export function PayoutManagementPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Instructor ID (tùy chọn)</label>
               <Input
-                type="number"
                 placeholder="Để trống = tất cả"
-                value={payoutFilterInstructorId}
-                onChange={(e) => { setPayoutsMgmtPage(1); setPayoutFilterInstructorId(e.target.value) }}
+                value={payoutFilterInstructorSearch}
+                onChange={(e) => { setPayoutsMgmtPage(1); setPayoutFilterInstructorSearch(e.target.value) }}
               />
             </div>
             <div className="flex items-end">
@@ -167,7 +166,10 @@ export function PayoutManagementPage() {
               ) : managedPayouts.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-sm">#{p.id}</TableCell>
-                  <TableCell>{p.instructor}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{p.instructor_name || '-'}</div>
+                    {p.instructor_email && <div className="text-sm text-muted-foreground">{p.instructor_email}</div>}
+                  </TableCell>
                   <TableCell className="font-semibold">{formatPayoutAmount(p.amount)}</TableCell>
                   <TableCell><Badge variant="outline">{p.payment_method || '-'}</Badge></TableCell>
                   <TableCell><Badge className={getPayoutStatusColor(p.status)}>{getPayoutStatusLabel(p.status)}</Badge></TableCell>
@@ -195,10 +197,9 @@ export function PayoutManagementPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium">Instructor ID (tùy chọn)</label>
               <Input
-                type="number"
                 placeholder="Để trống = tất cả"
-                value={payoutExportInstructorId}
-                onChange={(e) => setPayoutExportInstructorId(e.target.value)}
+                value={payoutExportInstructorSearch}
+                onChange={(e) => setPayoutExportInstructorSearch(e.target.value)}
               />
             </div>
             <div className="space-y-1">
@@ -241,7 +242,7 @@ export function PayoutManagementPage() {
                 try {
                   setIsPayoutExporting(true)
                   await exportInstructorPayouts('csv', {
-                    instructorId: payoutExportInstructorId ? Number(payoutExportInstructorId) : undefined,
+                    instructorSearch: payoutExportInstructorSearch.trim() || undefined,
                     dateFrom: payoutExportDateFrom || undefined,
                     dateTo: payoutExportDateTo || undefined,
                     status: payoutExportStatus || undefined,
@@ -264,7 +265,7 @@ export function PayoutManagementPage() {
                 try {
                   setIsPayoutExporting(true)
                   await exportInstructorPayouts('excel', {
-                    instructorId: payoutExportInstructorId ? Number(payoutExportInstructorId) : undefined,
+                    instructorSearch: payoutExportInstructorSearch.trim() || undefined,
                     dateFrom: payoutExportDateFrom || undefined,
                     dateTo: payoutExportDateTo || undefined,
                     status: payoutExportStatus || undefined,

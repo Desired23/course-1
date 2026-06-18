@@ -21,7 +21,8 @@ import {
   User,
   Search,
   Check,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react"
 
 interface InstructorHeaderProps {
@@ -106,7 +107,12 @@ export function InstructorHeader({ title, subtitle, className }: InstructorHeade
                 )}
               </div>
               <div className="max-h-[350px] overflow-y-auto">
-                {notifState.notifications.length === 0 ? (
+                {!notifState.loaded ? (
+                  <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>{t('common.loading')}</span>
+                  </div>
+                ) : notifState.notifications.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center">
                     <Bell className="h-8 w-8 mb-2 opacity-20" />
                     {t('instructor_header.no_notifications')}

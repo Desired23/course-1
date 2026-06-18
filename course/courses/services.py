@@ -16,7 +16,7 @@ INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS = {
     Course.Status.DRAFT: {Course.Status.PENDING},
     Course.Status.PENDING: {Course.Status.DRAFT},
     Course.Status.REJECTED: {Course.Status.DRAFT, Course.Status.PENDING},
-    Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PENDING},
+    Course.Status.ARCHIVED: {Course.Status.DRAFT, Course.Status.PENDING, Course.Status.PUBLISHED},
     Course.Status.PUBLISHED: {Course.Status.ARCHIVED, Course.Status.DRAFT},
 }
 
@@ -384,11 +384,29 @@ def update_course(course_id, data, requesting_user=None):
             if normalized_status not in valid_statuses:
                 raise ValidationError("Invalid course status.")
             if normalized_status != old_status:
+                if course.admin_hidden or course.is_hard_blocked:
+                    raise ValidationError(
+                        "Khóa học đang bị admin ngừng bán hoặc khóa, giảng viên không thể tự đổi trạng thái."
+                    )
                 allowed_next_statuses = INSTRUCTOR_ALLOWED_STATUS_TRANSITIONS.get(old_status, set())
                 if normalized_status not in allowed_next_statuses:
                     raise ValidationError(
                         f"Instructors cannot change course status from '{old_status}' to '{normalized_status}'."
                     )
+                if normalized_status == Course.Status.DRAFT:
+                    has_students = Enrollment.objects.filter(
+                        course=course,
+                        is_deleted=False,
+                        status__in=[
+                            Enrollment.Status.Active,
+                            Enrollment.Status.Complete,
+                            Enrollment.Status.SUSPENDED,
+                        ],
+                    ).exists()
+                    if has_students:
+                        raise ValidationError(
+                            "Không thể chuyển khóa học về nháp khi đã có học viên."
+                        )
             payload['status'] = normalized_status
 
         serializer = CourseSerializer(course, data=payload, partial=True)
@@ -598,4 +616,3 @@ def moderate_course(course_id, action, reason='', actor=None,
 
     course.save()
     return course
-

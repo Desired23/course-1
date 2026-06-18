@@ -60,15 +60,16 @@ interface QuizPlayerProps {
   onNext?: () => void
   savedProgress?: Record<number, number | number[]>
   onProgressChange?: (answers: Record<number, number | number[]>) => void
+  initiallyCompleted?: boolean
 }
 
-export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, onNext, savedProgress, onProgressChange }: QuizPlayerProps) {
+export function QuizPlayer({ quiz, lessonId, enrollmentId, onComplete, onClose, onNext, savedProgress, onProgressChange, initiallyCompleted }: QuizPlayerProps) {
   const { t } = useTranslation()
   const { saveQuizAnswer, getQuizAnswer } = useQuizStore()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<number, number | number[]>>(savedProgress || {})
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [showResults, setShowResults] = useState(false)
+  const [isSubmitted, setIsSubmitted] = useState(!!initiallyCompleted)
+  const [showResults, setShowResults] = useState(!!initiallyCompleted)
   const [timeRemaining, setTimeRemaining] = useState(quiz.timeLimit ? quiz.timeLimit * 60 : null)
 
 

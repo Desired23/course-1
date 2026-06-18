@@ -5,6 +5,7 @@ import { ArrowLeft, BookOpen, DollarSign, Eye, MessageCircle, Star, TrendingUp, 
 import { toast } from "sonner"
 
 import { InstructorResourcesPage } from "./InstructorResourcesPage"
+import { CourseTransactionsTab } from "../../components/CourseTransactionsTab"
 import { PreviewCourseModal } from "../../components/PreviewCourseModal"
 import { useRouter } from "../../components/Router"
 import { Badge } from "../../components/ui/badge"
@@ -57,7 +58,13 @@ export function InstructorCourseDetailPage() {
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [isMutating, setIsMutating] = useState(false)
-  const [activeTab, setActiveTab] = useState<'analytics' | 'content' | 'resources' | 'reviews'>('analytics')
+  const [activeTab, setActiveTab] = useState<'analytics' | 'content' | 'resources' | 'reviews' | 'transactions'>(() => {
+    if (typeof window !== 'undefined') {
+      const tab = new URLSearchParams(window.location.search).get('tab')
+      if (tab === 'transactions') return 'transactions'
+    }
+    return 'analytics'
+  })
 
   const renderCourseDetailSkeleton = () => (
     <div className="p-8 space-y-6">
@@ -207,6 +214,14 @@ export function InstructorCourseDetailPage() {
       },
     ]
 
+    if (course.admin_hidden || course.is_hard_blocked) {
+      return actions.map((action) => (
+        <Button key={action.key} variant={action.variant ?? "default"} onClick={action.onClick} disabled={isMutating}>
+          {action.label}
+        </Button>
+      ))
+    }
+
     if (course.status === "draft") {
       actions.push({
         key: "submit",
@@ -216,21 +231,21 @@ export function InstructorCourseDetailPage() {
     }
 
     if (course.status === "archived") {
-      if (!course.content_changed_since_publish) {
+      actions.push({
+        key: "restore",
+        label: t("instructor_course_detail_page.restore_published"),
+        onClick: () => handleStatusChange("published", t("instructor_course_detail_page.confirm_restore_published")),
+        variant: "outline",
+      })
+
+      if ((course.total_students || 0) === 0) {
         actions.push({
-          key: "restore",
-          label: t("instructor_course_detail_page.restore_published"),
-          onClick: () => handleStatusChange("published", t("instructor_course_detail_page.confirm_restore_published")),
+          key: "draft",
+          label: t("instructor_course_detail_page.move_to_draft"),
+          onClick: () => handleStatusChange("draft", t("instructor_course_detail_page.confirm_move_archived_to_draft")),
           variant: "outline",
         })
       }
-
-      actions.push({
-        key: "draft",
-        label: t("instructor_course_detail_page.move_to_draft"),
-        onClick: () => handleStatusChange("draft", t("instructor_course_detail_page.confirm_move_archived_to_draft")),
-        variant: "outline",
-      })
     }
 
     if (["pending", "rejected"].includes(course.status)) {
@@ -383,7 +398,7 @@ export function InstructorCourseDetailPage() {
       </motion.div>
 
       <motion.div variants={fadeInUp}>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'analytics' | 'content' | 'resources' | 'reviews')} className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'analytics' | 'content' | 'resources' | 'reviews' | 'transactions')} className="space-y-6">
         <TabsList className="relative p-1">
           <TabsTrigger value="analytics" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'analytics' && (
@@ -394,6 +409,16 @@ export function InstructorCourseDetailPage() {
               />
             )}
             <span className="relative z-10">{t("instructor_course_detail_page.analytics_tab")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="transactions" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+            {activeTab === 'transactions' && (
+              <motion.span
+                layoutId="instructor-course-detail-tabs-glider"
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute inset-0 rounded-md bg-background shadow-sm"
+              />
+            )}
+            <span className="relative z-10">{t("instructor_course_detail_page.transactions_tab")}</span>
           </TabsTrigger>
           <TabsTrigger value="content" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'content' && (
@@ -524,6 +549,13 @@ export function InstructorCourseDetailPage() {
               <p>{analyticsError || t("instructor_course_detail_page.analytics_data_not_available")}</p>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="transactions">
+          <Card className="app-surface-elevated p-6">
+            <h3 className="font-medium mb-4">{t("instructor_course_detail_page.transactions_tab")}</h3>
+            <CourseTransactionsTab courseId={courseId} />
+          </Card>
         </TabsContent>
 
         <TabsContent value="content">

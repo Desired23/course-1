@@ -411,6 +411,7 @@ export const useAuthStore = create<AuthState>()(
       canAccess: (requiredRoles, requiredPermissions) => {
         const state = get()
         if (!state.user) return false
+        if (state.user.status === 'banned' || state.user.status === 'inactive') return false
 
         if (requiredRoles && requiredRoles.length > 0) {
           if (!state.hasAnyRole(requiredRoles)) return false

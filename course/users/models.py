@@ -35,6 +35,8 @@ class User(models.Model):
         default=StatusChoices.ACTIVE
     )
 
+    auth_token_version = models.PositiveIntegerField(default=0)
+
     class Meta:
         db_table = 'Users'
         ordering = ['-created_at']

@@ -20,6 +20,8 @@ export type PayoutStatus = 'pending' | 'processed' | 'cancelled' | 'failed'
 export interface InstructorPayout {
   id: number
   instructor: number
+  instructor_name?: string | null
+  instructor_email?: string | null
   amount: string
   fee: string
   net_amount: string | null
@@ -52,12 +54,14 @@ export async function getInstructorPayouts(params?: {
   status?: PayoutStatus
   period?: string
   instructor_id?: number
+  search?: string
   payout_id?: number
 }): Promise<InstructorPayout[]> {
   const query: Record<string, string | number> = {}
   if (params?.status) query.status = params.status
   if (params?.period) query.period = params.period
   if (params?.instructor_id) query.instructor_id = params.instructor_id
+  if (params?.search) query.search = params.search
   if (params?.payout_id) query.payout_id = params.payout_id
 
   const all: InstructorPayout[] = []
@@ -90,6 +94,7 @@ export async function getInstructorPayoutsPage(params?: {
   status?: PayoutStatus
   period?: string
   instructor_id?: number
+  search?: string
   payout_id?: number
   page?: number
   page_size?: number
@@ -98,6 +103,7 @@ export async function getInstructorPayoutsPage(params?: {
   if (params?.status) query.status = params.status
   if (params?.period) query.period = params.period
   if (params?.instructor_id) query.instructor_id = params.instructor_id
+  if (params?.search) query.search = params.search
   if (params?.payout_id) query.payout_id = params.payout_id
   if (params?.page) query.page = params.page
   if (params?.page_size) query.page_size = params.page_size

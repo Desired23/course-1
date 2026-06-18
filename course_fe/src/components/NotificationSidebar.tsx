@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { Bell, X, Check, Trash2, Settings } from "lucide-react"
+import { Bell, X, Check, Trash2, Settings, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "./Router"
 import { markNotificationAsRead as apiMarkAsRead, markAllNotificationsAsRead } from "../services/notification.api"
@@ -130,13 +130,30 @@ export function NotificationSidebar({
     }
   }
 
+  const isRemovedCopyrightDecisionRoute = (url: string | null | undefined) => {
+    if (!url) return false
+
+    try {
+      const parsed = new URL(url, window.location.origin)
+      if (parsed.origin !== window.location.origin) return false
+      return /^\/reports\/my\/[^/]+$/.test(parsed.pathname) || /^\/instructor\/reports\/[^/]+$/.test(parsed.pathname)
+    } catch {
+      return /^\/reports\/my\/[^/]+$/.test(url) || /^\/instructor\/reports\/[^/]+$/.test(url)
+    }
+  }
+
   const getNotificationLink = (notification: any): string | null => {
     const actionUrl = notification.action_url ?? notification.actionUrl
-    if (actionUrl) return actionUrl
-
     const code = notification.notification_code ?? notification.notificationCode
     const relatedId = notification.related_id ?? notification.relatedId
     const type = notification.type
+
+    if (code === 'copyright_case_decision') {
+      if (isRemovedCopyrightDecisionRoute(actionUrl)) return null
+      return actionUrl || null
+    }
+
+    if (actionUrl) return actionUrl
 
     // Route by notification_code. related_id is NOT always a course id (it can be a
     // certificate / review / answer / payment id), so we never blindly link to /course/:id.
@@ -164,7 +181,6 @@ export function NotificationSidebar({
       case 'copyright_reporter_info_submitted':
         return relatedId ? `/admin/reports?tab=copyright&case=${relatedId}` : '/admin/reports?tab=copyright'
       case 'copyright_case_decision':
-        if (notification.actionUrl) return notification.actionUrl
         return null
 
       // Payments & refund results (student)
@@ -335,7 +351,12 @@ export function NotificationSidebar({
 
 
           <div className="flex-1 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {!notifState.loaded ? (
+              <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500 dark:text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{t('common.loading')}</span>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <Bell className="w-16 h-16 mx-auto mb-4 opacity-30" />
                 <p className="text-sm">{t('notification_sidebar.empty_title')}</p>

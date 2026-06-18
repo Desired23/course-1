@@ -33,6 +33,7 @@ class InstructorEarningsView(APIView):
         instructor_id_raw = request.query_params.get('instructor_id', None)
         earning_id = request.query_params.get('earning_id', None)
         source = request.query_params.get('source', None)
+        course_id_raw = request.query_params.get('course_id', None)
         search = get_search_param(request)
         sort_by = get_sort_param(
             request,
@@ -63,6 +64,12 @@ class InstructorEarningsView(APIView):
 
             if earning_id:
                 return Response(earnings, status=status.HTTP_200_OK)
+
+            if course_id_raw:
+                try:
+                    earnings = earnings.filter(course_id=int(course_id_raw))
+                except (TypeError, ValueError):
+                    return Response({"error": "course_id must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
 
             date_from = parse_date(request.query_params.get('date_from') or '')
             date_to = parse_date(request.query_params.get('date_to') or '')

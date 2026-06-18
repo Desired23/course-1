@@ -35,8 +35,6 @@ import {
   MessageSquare,
   FileText,
   Download,
-  PanelRightOpen,
-  PanelRightClose,
   Loader2,
   AlertCircle,
   Award,
@@ -118,6 +116,7 @@ interface CurriculumLesson {
 
 const LESSON_COMPLETION_THRESHOLD_PERCENT = 85
 const LESSON_PROGRESS_SYNC_STEP = 10
+const PLAYER_VIEWPORT_STYLE: React.CSSProperties = { maxWidth: 'min(100%, 120dvh)' }
 
 interface CourseNoteItem {
   id: number
@@ -359,10 +358,6 @@ export function CoursePlayerPage() {
   const [expandedSections, setExpandedSections] = useState<Record<number, boolean>>({})
   const [activeContentTab, setActiveContentTab] = useState<'overview' | 'notes' | 'comments' | 'resources'>('overview')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isCurriculumCollapsed, setIsCurriculumCollapsed] = useState(() => {
-    try { const s = localStorage.getItem('curriculumSidebarCollapsed'); return s ? JSON.parse(s) : false }
-    catch { return false }
-  })
 
 
   const notesKey = `courseNotes_${courseId}`
@@ -588,9 +583,6 @@ export function CoursePlayerPage() {
   }, [deepLink.commentId, comments, commentsLoading])
 
 
-  useEffect(() => {
-    try { localStorage.setItem('curriculumSidebarCollapsed', JSON.stringify(isCurriculumCollapsed)) } catch {}
-  }, [isCurriculumCollapsed])
   useEffect(() => {
     try { localStorage.setItem(notesKey, JSON.stringify(notes)) } catch {}
   }, [notes, notesKey])
@@ -1204,7 +1196,7 @@ export function CoursePlayerPage() {
           <div className="flex items-center gap-2">
             <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="lg:hidden">
+                <Button variant="outline" size="icon">
                   <List className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -1257,7 +1249,7 @@ export function CoursePlayerPage() {
               className="flex-shrink-0"
             >
               {currentLesson.type === 'quiz' ? (
-                <div className="bg-muted/50 p-6 overflow-y-auto">
+                <div className="bg-muted/50 px-4 py-6 sm:px-6 overflow-x-hidden overflow-y-auto"><div className="max-w-5xl mx-auto">
                   {quizLoading ? (
                     <div className="flex justify-center py-16">
                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1276,6 +1268,7 @@ export function CoursePlayerPage() {
                       lessonId={currentLessonId!}
                       enrollmentId={course.user_enrollment?.enrollment_id}
                       savedProgress={quizProgress[currentLessonId!]?.answers}
+                      initiallyCompleted={!!quizProgress[currentLessonId!]?.completedAt}
                       onProgressChange={(answers) => {
                         setQuizProgress(prev => ({
                           ...prev,
@@ -1292,39 +1285,47 @@ export function CoursePlayerPage() {
                       onNext={() => goToNextLesson()}
                     />
                   )}
-                </div>
+                </div></div>
               ) : isDirectVideoUrl(currentLesson.videoUrl) ? (
-                <TranscriptVideoPlayer
-                  key={currentLessonId}
-                  url={currentLesson.videoUrl || ''}
-                  title={currentLesson.title}
-                  transcript={currentTranscript}
-                  onProgress={handleVideoProgress}
-                  onComplete={() => handleLessonComplete(currentLessonId!)}
-                  savedProgress={getSavedProgressForLesson(currentLessonId!)}
-                  completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
-                  restrictForwardSeeking={!isInstructorPreview}
-                  externalSeekRequest={seekRequest}
-                />
+                <div className="bg-black px-0 sm:px-4">
+                  <div className="mx-auto w-full" style={PLAYER_VIEWPORT_STYLE}>
+                    <TranscriptVideoPlayer
+                      key={currentLessonId}
+                      url={currentLesson.videoUrl || ''}
+                      title={currentLesson.title}
+                      transcript={currentTranscript}
+                      onProgress={handleVideoProgress}
+                      onComplete={() => handleLessonComplete(currentLessonId!)}
+                      savedProgress={getSavedProgressForLesson(currentLessonId!)}
+                      completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
+                      restrictForwardSeeking={!isInstructorPreview}
+                      externalSeekRequest={seekRequest}
+                    />
+                  </div>
+                </div>
               ) : (
-                <VideoPlayer
-                  key={currentLessonId}
-                  url={currentLesson.videoUrl || undefined}
-                  title={currentLesson.title}
-                  lessonId={currentLessonId!}
-                  onProgress={handleVideoProgress}
-                  onComplete={() => handleLessonComplete(currentLessonId!)}
-                  savedProgress={getSavedProgressForLesson(currentLessonId!)}
-                  completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
-                  restrictForwardSeeking={!isInstructorPreview}
-                  externalSeekRequest={seekRequest}
-                />
+                <div className="bg-black px-0 sm:px-4">
+                  <div className="mx-auto w-full" style={PLAYER_VIEWPORT_STYLE}>
+                    <VideoPlayer
+                      key={currentLessonId}
+                      url={currentLesson.videoUrl || undefined}
+                      title={currentLesson.title}
+                      lessonId={currentLessonId!}
+                      onProgress={handleVideoProgress}
+                      onComplete={() => handleLessonComplete(currentLessonId!)}
+                      savedProgress={getSavedProgressForLesson(currentLessonId!)}
+                      completionThresholdPercent={LESSON_COMPLETION_THRESHOLD_PERCENT}
+                      restrictForwardSeeking={!isInstructorPreview}
+                      externalSeekRequest={seekRequest}
+                    />
+                  </div>
+                </div>
               )}
             </motion.div>
           </AnimatePresence>
 
 
-          <div className="border-b bg-card p-4 flex-shrink-0">
+          <div className="border-b bg-card px-6 py-4 flex-shrink-0">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-medium">{course.title}</h2>
@@ -1335,11 +1336,11 @@ export function CoursePlayerPage() {
               </Button>
             </div>
             <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-              <Button variant="outline" onClick={goToPreviousLesson} disabled={!findPrevLesson(curriculum, currentLessonId!)} className="w-full sm:flex-1">
+              <Button variant="outline" onClick={goToPreviousLesson} disabled={!findPrevLesson(curriculum, currentLessonId!)} className="w-full sm:w-auto sm:shrink-0 sm:min-w-[120px] sm:max-w-[180px]">
                 <ChevronLeft className="w-4 h-4 mr-2" />
                 {t('course_player.previous_lesson')}
               </Button>
-              <div className="text-center min-w-0">
+              <div className="text-center flex-1 min-w-0 px-2">
                 <p className="text-sm font-medium truncate">{currentLesson.title}</p>
                 <p className="text-xs text-muted-foreground">{currentLesson.duration}</p>
               </div>
@@ -1347,7 +1348,7 @@ export function CoursePlayerPage() {
                 variant="default"
                 onClick={goToNextLesson}
                 disabled={!findNextLesson(curriculum, currentLessonId!) || (!isInstructorPreview && !currentLessonCompleted)}
-                className="w-full sm:flex-1"
+                className="w-full sm:w-auto sm:shrink-0 sm:min-w-[120px] sm:max-w-[180px]"
                 title={!isInstructorPreview && !currentLessonCompleted
                   ? t('course_player.complete_current_required', { percent: LESSON_COMPLETION_THRESHOLD_PERCENT })
                   : undefined}
@@ -1569,55 +1570,6 @@ export function CoursePlayerPage() {
         </div>
 
 
-        <motion.div
-          initial={false}
-          animate={{ width: isCurriculumCollapsed ? '3rem' : '24rem' }}
-          transition={{
-            duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.base,
-            ease: MOTION_EASING.standard,
-          }}
-          className="hidden lg:block relative border-l bg-card flex-shrink-0"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsCurriculumCollapsed(!isCurriculumCollapsed)}
-            className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full border bg-background p-0 shadow-md hover:shadow-lg transition-all"
-          >
-            {isCurriculumCollapsed ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
-          </Button>
-
-          <AnimatePresence mode="wait">
-            {isCurriculumCollapsed ? (
-              <motion.div
-                key="collapsed"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.fast }}
-                onClick={() => setIsCurriculumCollapsed(false)}
-                className="flex flex-col items-center justify-start h-full pt-6 cursor-pointer hover:bg-muted/30 transition-colors"
-              >
-                <div className="text-center space-y-4">
-                  <div className="text-2xl font-bold">{curriculum.reduce((acc, s) => acc + s.lectures, 0)}</div>
-                  <div className="h-32" />
-                  <p className="rotate-90 text-xl font-bold tracking-wider whitespace-nowrap mt-16">{t('course_player.lessons_label')}</p>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="expanded"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: shouldReduceMotion ? 0.01 : MOTION_DURATIONS.fast }}
-                className="h-full"
-              >
-                <CurriculumSidebar />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
       </motion.div>
       {reportTarget && (
         <ReportDialog

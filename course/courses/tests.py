@@ -94,16 +94,45 @@ class InstructorCourseStatusTests(TestCase):
         self.course.refresh_from_db()
         self.assertEqual(self.course.status, Course.Status.ARCHIVED)
 
-    def test_instructor_restore_archived_course_sends_to_review(self):
+    def test_instructor_can_restore_archived_course_to_published(self):
         self.course.status = Course.Status.ARCHIVED
         self.course.save(update_fields=["status", "updated_at"])
 
         response = self.client.patch(
             f"/api/courses/{self.course.id}/update",
-            {"status": Course.Status.PENDING},
+            {"status": Course.Status.PUBLISHED},
             format="json",
         )
 
         self.assertEqual(response.status_code, 200, response.content)
         self.course.refresh_from_db()
-        self.assertEqual(self.course.status, Course.Status.PENDING)
+        self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+
+    def test_instructor_cannot_restore_admin_archived_course(self):
+        self.course.status = Course.Status.ARCHIVED
+        self.course.admin_hidden = True
+        self.course.save(update_fields=["status", "admin_hidden", "updated_at"])
+
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/update",
+            {"status": Course.Status.PUBLISHED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.ARCHIVED)
+
+    def test_instructor_cannot_change_status_when_admin_suspended_sale(self):
+        self.course.admin_hidden = True
+        self.course.save(update_fields=["admin_hidden", "updated_at"])
+
+        response = self.client.patch(
+            f"/api/courses/{self.course.id}/update",
+            {"status": Course.Status.ARCHIVED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.PUBLISHED)

@@ -596,10 +596,11 @@ export async function exportAdminPayments(format: 'csv' | 'excel' = 'csv'): Prom
 
 export async function exportInstructorPayouts(
   format: 'csv' | 'excel' = 'csv',
-  options?: { instructorId?: number; dateFrom?: string; dateTo?: string; status?: string }
+  options?: { instructorId?: number; instructorSearch?: string; dateFrom?: string; dateTo?: string; status?: string }
 ): Promise<void> {
   const params = new URLSearchParams({ format })
   if (options?.instructorId) params.set('instructor_id', String(options.instructorId))
+  if (options?.instructorSearch) params.set('search', options.instructorSearch)
   if (options?.dateFrom) params.set('date_from', options.dateFrom)
   if (options?.dateTo) params.set('date_to', options.dateTo)
   if (options?.status) params.set('status', options.status)

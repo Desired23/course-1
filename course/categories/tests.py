@@ -1,7 +1,7 @@
 from django.test import TestCase
 
 from categories.models import Category
-from categories.services import get_top_categories
+from categories.services import get_active_categories, get_top_categories
 from courses.models import Course
 
 
@@ -40,3 +40,44 @@ class TopCategoryServiceTests(TestCase):
             one_course.id,
         ])
         self.assertEqual([category.course_count for category in categories], [3, 2, 1])
+
+
+class ActiveCategoryServiceTests(TestCase):
+    def test_can_filter_active_categories_to_only_categories_with_courses(self):
+        parent = Category.objects.create(name="Parent", status="active")
+        subcategory = Category.objects.create(
+            name="Subcategory",
+            parent_category=parent,
+            status="active",
+        )
+        empty = Category.objects.create(name="Empty", status="active")
+        draft_only = Category.objects.create(name="Draft Only", status="active")
+        inactive = Category.objects.create(name="Inactive", status="inactive")
+
+        Course.objects.create(
+            title="Published Course",
+            category=parent,
+            subcategory=subcategory,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+        )
+        Course.objects.create(
+            title="Draft Course",
+            category=draft_only,
+            status=Course.Status.DRAFT,
+            is_public=True,
+        )
+        Course.objects.create(
+            title="Inactive Category Course",
+            category=inactive,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+        )
+
+        categories = list(get_active_categories(has_courses=True))
+
+        self.assertIn(parent, categories)
+        self.assertIn(subcategory, categories)
+        self.assertNotIn(empty, categories)
+        self.assertNotIn(draft_only, categories)
+        self.assertNotIn(inactive, categories)

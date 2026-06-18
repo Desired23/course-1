@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import { Search, X, Clock, TrendingUp, BookOpen, User, FileText } from "lucide-react"
+import { Loader2, Search, X, Clock, TrendingUp, BookOpen, User, FileText } from "lucide-react"
 import { useRouter } from "./Router"
 import { getCourses, type CourseListItem } from "../services/course.api"
 import { Input } from "./ui/input"
@@ -82,6 +82,7 @@ export function GlobalSearch() {
   const [allInstructors, setAllInstructors] = useState<Instructor[]>([])
   const [allArticles, setAllArticles] = useState<BlogPost[]>([])
   const [metaLoaded, setMetaLoaded] = useState(false)
+  const [courseSearchLoading, setCourseSearchLoading] = useState(false)
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [popularSearches, setPopularSearches] = useState<string[]>([])
   const { navigate } = useRouter()
@@ -128,10 +129,13 @@ export function GlobalSearch() {
       setCourseResults([])
       setInstructorResults([])
       setArticleResults([])
+      setCourseSearchLoading(false)
       return
     }
 
     const normalizedQuery = normalizeSearchText(query)
+    setCourseResults([])
+    setCourseSearchLoading(true)
 
     const filteredInstructors = allInstructors
       .filter((instructor) =>
@@ -164,16 +168,22 @@ export function GlobalSearch() {
     setInstructorResults(filteredInstructors)
     setArticleResults(filteredArticles)
 
+    let cancelled = false
     const timer = setTimeout(async () => {
       try {
         const res = await getCourses({ search: query, page_size: 5, status: 'published' })
-        setCourseResults(res.results)
+        if (!cancelled) setCourseResults(res.results)
       } catch {
-        setCourseResults([])
+        if (!cancelled) setCourseResults([])
+      } finally {
+        if (!cancelled) setCourseSearchLoading(false)
       }
     }, 300)
 
-    return () => clearTimeout(timer)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
   }, [query, allInstructors, allArticles])
 
 
@@ -338,7 +348,14 @@ export function GlobalSearch() {
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-h-[600px] overflow-y-auto z-50">
 
-          {query.length > 2 && (courseResults.length > 0 || instructorResults.length > 0 || articleResults.length > 0) && (
+          {query.length > 2 && (!metaLoaded || courseSearchLoading) && (
+            <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500 dark:text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{t("common.loading")}</span>
+            </div>
+          )}
+
+          {query.length > 2 && metaLoaded && !courseSearchLoading && (courseResults.length > 0 || instructorResults.length > 0 || articleResults.length > 0) && (
             <div className="p-4">
               {courseResults.length > 0 && (
                 <>
@@ -444,7 +461,7 @@ export function GlobalSearch() {
           )}
 
 
-          {query.length > 2 && courseResults.length === 0 && instructorResults.length === 0 && articleResults.length === 0 && (
+          {query.length > 2 && metaLoaded && !courseSearchLoading && courseResults.length === 0 && instructorResults.length === 0 && articleResults.length === 0 && (
             <div className="p-8 text-center text-gray-500 dark:text-gray-400">
               <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p className="text-sm">{t("global_search.no_results", { query })}</p>

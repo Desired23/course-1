@@ -19,6 +19,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [fetchProfile])
 
+  useEffect(() => {
+    if (user?.status === 'banned' || user?.status === 'inactive') {
+      logout()
+      toast.error(
+        user.status === 'banned'
+          ? 'Tai khoan cua ban da bi khoa.'
+          : 'Tai khoan cua ban chua duoc kich hoat.'
+      )
+      window.location.href = '/login'
+    }
+  }, [user?.status, logout])
+
 
   useEffect(() => {
     const unsubscribe = onSessionExpired(() => {

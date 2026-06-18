@@ -1,44 +1,57 @@
-"use client";
+import * as React from "react"
+import { Tooltip as AntTooltip } from "antd"
+import { cn } from "./utils"
 
-import * as React from "react";
-import * as HoverCardPrimitive from "@radix-ui/react-hover-card";
+const HoverCardContext = React.createContext<{
+  title: React.ReactNode
+  setTitle: (t: React.ReactNode) => void
+  openDelay?: number
+  closeDelay?: number
+} | null>(null)
 
-import { cn } from "./utils";
-
-function HoverCard({
-  ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
-  return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />;
-}
-
-function HoverCardTrigger({
-  ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Trigger>) {
+function HoverCard({ children, openDelay, closeDelay }: {
+  children?: React.ReactNode
+  openDelay?: number
+  closeDelay?: number
+}) {
+  const [title, setTitle] = React.useState<React.ReactNode>(null)
   return (
-    <HoverCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />
-  );
+    <HoverCardContext.Provider value={{ title, setTitle, openDelay, closeDelay }}>
+      {children}
+    </HoverCardContext.Provider>
+  )
 }
 
-function HoverCardContent({
-  className,
-  align = "center",
-  sideOffset = 4,
-  ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Content>) {
+function HoverCardTrigger({ children, asChild: _a }: { children?: React.ReactNode; asChild?: boolean }) {
+  const ctx = React.useContext(HoverCardContext)
+  const child = React.Children.only(children) as React.ReactElement<any>
   return (
-    <HoverCardPrimitive.Portal data-slot="hover-card-portal">
-      <HoverCardPrimitive.Content
-        data-slot="hover-card-content"
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-md border p-4 shadow-md outline-hidden",
-          className,
-        )}
-        {...props}
-      />
-    </HoverCardPrimitive.Portal>
-  );
+    <AntTooltip
+      title={ctx?.title}
+      mouseEnterDelay={(ctx?.openDelay ?? 0) / 1000}
+      mouseLeaveDelay={(ctx?.closeDelay ?? 100) / 1000}
+      overlayInnerStyle={{ padding: 0, background: 'transparent', boxShadow: 'none' }}
+    >
+      {child}
+    </AntTooltip>
+  )
 }
 
-export { HoverCard, HoverCardTrigger, HoverCardContent };
+function HoverCardContent({ children, className, align: _align, sideOffset: _s }: {
+  children?: React.ReactNode
+  className?: string
+  align?: string
+  sideOffset?: number
+}) {
+  const ctx = React.useContext(HoverCardContext)
+  React.useEffect(() => {
+    ctx?.setTitle(
+      <div className={cn("bg-popover text-popover-foreground rounded-md border p-4 shadow-md w-80", className)}>
+        {children}
+      </div>
+    )
+  })
+  return null
+}
+
+export { HoverCard, HoverCardTrigger, HoverCardContent }

@@ -1,11 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge } from './ui/badge'
-import { Card } from './ui/card'
-import { ScrollArea } from './ui/scroll-area'
-import { AlertCircle, PlayCircle } from 'lucide-react'
+import { AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatTranscriptTime, type LessonTranscriptDTO } from '../services/transcript.api'
+import type { LessonTranscriptDTO } from '../services/transcript.api'
 
 export interface TranscriptVideoProgressPayload {
   percentage: number
@@ -55,15 +52,6 @@ export function TranscriptVideoPlayer({
     setDuration(0)
     setVideoError(null)
   }, [url])
-
-  const activeSegmentId = useMemo(() => {
-    if (!transcript) return null
-    const currentMs = Math.floor(currentTime * 1000)
-    const active = transcript.segments.find(
-      (segment) => currentMs >= segment.start_ms && currentMs <= segment.end_ms
-    )
-    return active?.id ?? null
-  }, [currentTime, transcript])
 
   const syncProgress = (nextCurrentTime: number, nextDuration: number) => {
     const updatedMaxWatched = Math.max(maxWatchedTimeRef.current, nextCurrentTime)
@@ -116,12 +104,6 @@ export function TranscriptVideoPlayer({
     }
   }
 
-  const seekToTime = (seconds: number) => {
-    if (!videoRef.current) return
-    videoRef.current.currentTime = seconds
-    setCurrentTime(seconds)
-  }
-
   useEffect(() => {
     if (!externalSeekRequest || !videoRef.current) return
     const safeSeconds = Math.max(0, Math.min(externalSeekRequest.seconds, duration || Number.MAX_SAFE_INTEGER))
@@ -130,85 +112,35 @@ export function TranscriptVideoPlayer({
   }, [externalSeekRequest, duration])
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-      <Card className="overflow-hidden">
-        <div className="border-b px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h3 className="font-medium">{title}</h3>
-              {transcript && (
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Badge variant="outline">Transcript</Badge>
-                  <span>{transcript.language_code}</span>
-                </div>
-              )}
-            </div>
+    <div className="bg-black">
+      {videoError ? (
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 px-6 text-center text-white/80">
+          <AlertCircle className="h-10 w-10 text-red-300" />
+          <div>
+            <p className="font-medium text-white">{t('video_player.unavailable_title')}</p>
+            <p className="mt-1 text-sm text-white/70">{videoError}</p>
           </div>
         </div>
-        <div className="bg-black">
-          {videoError ? (
-            <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 px-6 text-center text-white/80">
-              <AlertCircle className="h-10 w-10 text-red-300" />
-              <div>
-                <p className="font-medium text-white">{t('video_player.unavailable_title')}</p>
-                <p className="mt-1 text-sm text-white/70">{videoError}</p>
-              </div>
-            </div>
-          ) : (
-            <video
-              ref={videoRef}
-              src={url}
-              controls
-              className="aspect-video w-full"
-              onLoadedMetadata={handleLoadedMetadata}
-              onTimeUpdate={handleTimeUpdate}
-              onSeeking={handleSeeking}
-              onError={() => setVideoError(t('video_player.source_load_failed'))}
-              onEnded={() => {
-                if (!completionTriggeredRef.current) {
-                  completionTriggeredRef.current = true
-                  onComplete?.()
-                }
-              }}
-              controlsList="nodownload"
-              onContextMenu={e => e.preventDefault()}
-            />
-          )}
-        </div>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <div className="border-b px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium">Transcript</h4>
-            <span className="text-xs text-muted-foreground">{formatTranscriptTime(currentTime * 1000)}</span>
-          </div>
-        </div>
-        {!transcript ? (
-          <div className="p-6 text-sm text-muted-foreground">Published transcript is not available for this lesson.</div>
-        ) : (
-          <ScrollArea className="h-[32rem]">
-            <div className="space-y-2 p-4">
-              {transcript.segments.map((segment) => (
-                <button
-                  key={segment.id}
-                  type="button"
-                  onClick={() => seekToTime(segment.start_ms / 1000)}
-                  className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                    activeSegmentId === segment.id ? 'border-primary bg-primary/5' : 'hover:bg-muted'
-                  }`}
-                >
-                  <div className="mb-2 flex items-center gap-2 text-xs text-primary">
-                    <PlayCircle className="h-3.5 w-3.5" />
-                    <span>{formatTranscriptTime(segment.start_ms)}</span>
-                  </div>
-                  <p className="text-sm leading-6">{segment.text}</p>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
-      </Card>
+      ) : (
+        <video
+          ref={videoRef}
+          src={url}
+          controls
+          className="aspect-video w-full"
+          onLoadedMetadata={handleLoadedMetadata}
+          onTimeUpdate={handleTimeUpdate}
+          onSeeking={handleSeeking}
+          onError={() => setVideoError(t('video_player.source_load_failed'))}
+          onEnded={() => {
+            if (!completionTriggeredRef.current) {
+              completionTriggeredRef.current = true
+              onComplete?.()
+            }
+          }}
+          controlsList="nodownload"
+          onContextMenu={e => e.preventDefault()}
+        />
+      )}
     </div>
   )
 }

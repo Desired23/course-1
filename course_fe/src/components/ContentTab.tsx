@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Upload, Video, FileText, X, CheckCircle, Play } from 'lucide-react'
 import { toast } from 'sonner'
+import { Progress as AntProgress } from 'antd'
 import { Button } from './ui/button'
 import { Label } from './ui/label'
 import { Card } from './ui/card'
-import { Progress } from './ui/progress'
-import { uploadFiles } from '../services/upload.api'
+import { uploadFileWithProgress } from '../services/upload.api'
 import { cloudinarySecondsToLessonMinutes, formatLessonDurationInput } from '../utils/lessonDuration'
 
 interface Lesson {
@@ -43,37 +43,24 @@ export function ContentTab({ lesson, onUpdate, onSaveVideo, onUploadingChange }:
     setUploadProgress(0)
 
     try {
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 95) {
-            clearInterval(interval)
-            return prev
-          }
-          return prev + 5
-        })
-      }, 180)
-
-      const uploaded = await uploadFiles([file], {
+      const uploaded = await uploadFileWithProgress(file, {
         folder: 'lesson-videos',
         resource_type: 'video',
         delivery_type: 'authenticated',
-      })
-      if (!uploaded?.length) throw new Error(t('lesson_editor.upload_failed'))
-
-      clearInterval(interval)
+      }, setUploadProgress)
       setUploadProgress(100)
 
-      const uploadedUrl = uploaded[0].url
+      const uploadedUrl = uploaded.url
       setUploadedFile(uploadedUrl)
-      const durationMinutes = cloudinarySecondsToLessonMinutes(uploaded[0].duration)
+      const durationMinutes = cloudinarySecondsToLessonMinutes(uploaded.duration)
       onUpdate({
         videoUrl: uploadedUrl,
-        videoPublicId: uploaded[0].public_id,
+        videoPublicId: uploaded.public_id,
         ...(durationMinutes != null ? { duration: formatLessonDurationInput(durationMinutes) } : {}),
       })
       await onSaveVideo?.({
         videoUrl: uploadedUrl,
-        videoPublicId: uploaded[0].public_id,
+        videoPublicId: uploaded.public_id,
         durationMinutes,
       })
 
@@ -154,7 +141,7 @@ export function ContentTab({ lesson, onUpdate, onSaveVideo, onUploadingChange }:
                       <span className="text-muted-foreground">{t('lesson_editor.uploading')}</span>
                       <span className="font-semibold">{uploadProgress}%</span>
                     </div>
-                    <Progress value={uploadProgress} className="h-2" />
+                    <AntProgress percent={uploadProgress} size="small" />
                   </div>
                 )}
               </div>

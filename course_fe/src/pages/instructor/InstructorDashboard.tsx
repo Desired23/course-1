@@ -25,6 +25,8 @@ import {
   Edit,
   Loader2,
   Crown,
+  RotateCcw,
+  Receipt,
 } from 'lucide-react'
 import { getInstructorDashboardStats, getMyInstructorProfile, type Instructor, type InstructorDashboardStats } from '../../services/instructor.api'
 import { getCourses, type CourseListItem, parseDecimal } from '../../services/course.api'
@@ -524,9 +526,10 @@ export function InstructorDashboard() {
                 ) : (
                   courses.map((course, index) => {
                     const extra = courseStatsMap.get(course.id)
-                    const completionRate = extra?.completion_rate ?? 0
+                    const refundRate = extra?.refund_rate ?? 0
                     const newStudentsThisMonth = extra?.new_students_this_month ?? 0
-                    const earnings = extra?.earnings ?? parseDecimal(course.price)
+                    const earnings = extra?.earnings ?? 0
+                    const rating = parseDecimal(course.rating)
 
                     return (
                       <motion.div
@@ -534,56 +537,72 @@ export function InstructorDashboard() {
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={listItemTransition(index)}
-                        className="app-interactive flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg"
+                        className="app-interactive p-4 border rounded-lg space-y-3"
                       >
-                        <div className="flex-1 w-full">
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-2 gap-2">
-                            <div>
-                              <h3 className="font-medium text-lg sm:text-base">{course.title}</h3>
-                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-muted-foreground mt-1 sm:mt-0">
-                                <span>
-                                  {course.total_students.toLocaleString()} {t('instructor_dashboard.students_suffix')}
-                                </span>
-                                {parseDecimal(course.rating) > 0 && (
-                                  <div className="flex items-center gap-1">
-                                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                    <span>{parseDecimal(course.rating).toFixed(1)}</span>
-                                    <span className="hidden sm:inline">
-                                      ({course.total_reviews} {t('instructor_dashboard.reviews_suffix')})
-                                    </span>
-                                  </div>
-                                )}
-                                <span className="font-medium text-green-600">{formatMoney(earnings)}</span>
-                              </div>
-                            </div>
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                          <h3 className="font-medium text-lg sm:text-base">{course.title}</h3>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button variant="ghost" size="sm" onClick={() => navigate(`/course/${course.id}`)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              {t('instructor_dashboard.view_course')}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/instructor/courses/${course.id}`, undefined, { tab: 'transactions' })}
+                            >
+                              <Receipt className="h-4 w-4 mr-1" />
+                              {t('instructor_dashboard.view_transactions')}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setEditCourseId(course.id)}>
+                              <Edit className="h-4 w-4 mr-1" />
+                              {t('instructor_dashboard.edit_course')}
+                            </Button>
+                          </div>
+                        </div>
 
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => navigate(`/course/${course.id}`)}>
-                                <Eye className="h-4 w-4 mr-1" />
-                                {t('instructor_dashboard.view_course')}
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => setEditCourseId(course.id)}>
-                                <Edit className="h-4 w-4 mr-1" />
-                                {t('instructor_dashboard.edit_course')}
-                              </Button>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Users className="h-3.5 w-3.5" />
+                              {t('instructor_dashboard.students_label')}
                             </div>
+                            <p className="font-semibold mt-0.5">{course.total_students.toLocaleString()}</p>
+                            {newStudentsThisMonth > 0 && (
+                              <p className="text-xs text-green-600">
+                                {t('instructor_dashboard.new_students_this_month', { count: newStudentsThisMonth })}
+                              </p>
+                            )}
                           </div>
 
-                          <div className="flex items-center gap-2 text-sm">
-                            <span>{t('instructor_dashboard.completion_rate_label')}</span>
-                            <div className="flex-1 max-w-[200px]">
-                              <Progress value={completionRate} className="h-2" />
+                          <div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Star className="h-3.5 w-3.5" />
+                              {t('instructor_dashboard.rating_label')}
                             </div>
-                            <span>{completionRate}%</span>
-                          </div>
-
-                          {newStudentsThisMonth > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {t('instructor_dashboard.new_students_this_month', {
-                                count: newStudentsThisMonth,
-                              })}
+                            <p className="font-semibold mt-0.5">
+                              {rating > 0 ? rating.toFixed(1) : '—'}
+                              <span className="text-xs text-muted-foreground font-normal">
+                                {' '}({course.total_reviews})
+                              </span>
                             </p>
-                          )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              {t('instructor_dashboard.refund_label')}
+                            </div>
+                            <p className="font-semibold mt-0.5">{refundRate}%</p>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <DollarSign className="h-3.5 w-3.5" />
+                              {t('instructor_dashboard.est_revenue_label')}
+                            </div>
+                            <p className="font-semibold mt-0.5 text-green-600">{formatMoney(earnings)}</p>
+                          </div>
                         </div>
                       </motion.div>
                     )

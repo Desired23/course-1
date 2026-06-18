@@ -180,6 +180,7 @@ export interface InstructorDashboardStats {
     total_reviews: number
     earnings: number
     completion_rate: number
+    refund_rate: number
   }>
 }
 

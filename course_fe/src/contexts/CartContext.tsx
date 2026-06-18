@@ -30,6 +30,7 @@ export function useCart() {
     cartItems: store.cartItems,
     orderCoupon: store.orderCoupon,
     appliedPromotion: store.appliedPromotion,
+    isLoading: store.isLoading,
     addToCart: store.addToCart,
     addToCartFromApi: store.addToCartFromApi,
     removeFromCart: store.removeFromCart,

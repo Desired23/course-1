@@ -31,6 +31,7 @@ interface NotificationState {
 }
 
 type NotificationAction =
+  | { type: 'SET_LOADING' }
   | { type: 'SET_NOTIFICATIONS'; payload: Notification[] }
   | { type: 'ADD_NOTIFICATION'; payload: Omit<Notification, 'id' | 'timestamp' | 'read'> & { id?: string } }
   | { type: 'UPDATE_NOTIFICATIONS_BY_CODE'; payload: { notificationCode: string; title?: string; message?: string } }
@@ -66,6 +67,9 @@ function mapApiNotification(n: ApiNotification): Notification {
 
 const notificationReducer = (state: NotificationState, action: NotificationAction): NotificationState => {
   switch (action.type) {
+    case 'SET_LOADING':
+      return { ...state, loaded: false }
+
     case 'SET_NOTIFICATIONS': {
       const unread = action.payload.filter(n => !n.read).length
       return { notifications: action.payload, unreadCount: unread, loaded: true }
@@ -184,6 +188,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return
     }
     let cancelled = false
+    dispatch({ type: 'SET_LOADING' })
     ;(async () => {
       try {
         const res = await getNotificationsByUser(userId, 1, 50)
@@ -192,6 +197,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error('[Notification] Failed to fetch:', err)
+        if (!cancelled) {
+          dispatch({ type: 'SET_NOTIFICATIONS', payload: [] })
+        }
       }
     })()
     return () => { cancelled = true }

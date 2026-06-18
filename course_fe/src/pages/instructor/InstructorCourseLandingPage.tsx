@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
+import { Progress as AntProgress } from 'antd'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -17,7 +18,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { getCourseById, createCourse, updateCourse } from "../../services/course.api"
 import { getMyInstructorProfile } from "../../services/instructor.api"
 import { getActiveCategories, getSubcategories, type Category } from "../../services/category.api"
-import { uploadFiles } from "../../services/upload.api"
+import { uploadFileWithProgress } from "../../services/upload.api"
 
 type Item = { id: number; text: string }
 type Data = {
@@ -67,7 +68,10 @@ export function InstructorCourseLandingPage() {
   const [data, setData] = useState<Data>(initialData)
   const [activeTab, setActiveTab] = useState('basic')
   const [saving, setSaving] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [imageUploadProgress, setImageUploadProgress] = useState(0)
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0)
   const [showPreview, setShowPreview] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [subcategories, setSubcategories] = useState<Category[]>([])
@@ -79,6 +83,7 @@ export function InstructorCourseLandingPage() {
   const [newTag, setNewTag] = useState('')
   const imageRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLInputElement>(null)
+  const isUploadingMedia = uploadingImage || uploadingVideo
 
   useEffect(() => { getActiveCategories({ page_size: 100 }).then((res) => setCategories(res.results.filter((c) => c.parent_category === null))).catch(console.error) }, [])
   useEffect(() => {
@@ -131,21 +136,29 @@ export function InstructorCourseLandingPage() {
     if (kind === 'video' && !file.type.startsWith('video/')) return void toast.error(t('instructor_course_landing_page.toasts.invalid_video_file'))
     if (kind === 'image' && file.size > 5 * 1024 * 1024) return void toast.error(t('instructor_course_landing_page.toasts.image_too_large'))
     if (kind === 'video' && file.size > 200 * 1024 * 1024) return void toast.error(t('instructor_course_landing_page.toasts.video_too_large'))
+    if (kind === 'image') setUploadingImage(true)
     if (kind === 'video') setUploadingVideo(true)
+    if (kind === 'image') setImageUploadProgress(0)
+    if (kind === 'video') setVideoUploadProgress(0)
     try {
-      const uploaded = await uploadFiles([file]); if (!uploaded?.length) throw new Error('Upload failed')
-      const url = uploaded[0].url
+      const uploaded = await uploadFileWithProgress(file, { resource_type: kind }, kind === 'image' ? setImageUploadProgress : setVideoUploadProgress)
+      const url = uploaded.url
       setData((prev) => ({ ...prev, ...(kind === 'image' ? { courseImagePreview: url } : { promotionalVideoPreview: url }) }))
       toast.success(t(kind === 'image' ? 'instructor_course_landing_page.toasts.upload_image_success' : 'instructor_course_landing_page.toasts.upload_video_success'))
     } catch (err) {
       console.error(err)
       toast.error(t(kind === 'image' ? 'instructor_course_landing_page.toasts.upload_image_failed' : 'instructor_course_landing_page.toasts.upload_video_failed'))
     } finally {
+      if (kind === 'image') setUploadingImage(false)
       if (kind === 'video') setUploadingVideo(false)
+      setTimeout(() => {
+        if (kind === 'image') setImageUploadProgress(0)
+        if (kind === 'video') setVideoUploadProgress(0)
+      }, 900)
     }
   }
   const save = async (status: 'draft' | 'submit_review') => {
-    if (uploadingVideo) return void (toast.error(t('instructor_course_landing_page.toasts.video_uploading')), setActiveTab('media'))
+    if (isUploadingMedia) return void (toast.error(t('instructor_course_landing_page.toasts.video_uploading')), setActiveTab('media'))
     if (!data.title.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.title_required')), setActiveTab('basic'))
     if (!data.subtitle.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.subtitle_required')), setActiveTab('basic'))
     if (!data.description.trim()) return void (toast.error(t('instructor_course_landing_page.toasts.description_required')), setActiveTab('basic'))
@@ -200,7 +213,7 @@ export function InstructorCourseLandingPage() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end"><span className="text-sm text-muted-foreground">{t('instructor_course_landing_page.completion_label')}</span><div className="flex items-center gap-2"><Progress value={completion} className="w-24 h-2" /><span className="text-sm">{completion}%</span></div></div>
             <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
-            <Button onClick={() => save('submit_review')} disabled={saving || uploadingVideo}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
+            <Button onClick={() => save('submit_review')} disabled={saving || isUploadingMedia}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
           </div>
         </div>
       </motion.div>
@@ -254,8 +267,8 @@ export function InstructorCourseLandingPage() {
         </TabsContent>
 
         <TabsContent value="media" className="space-y-6">
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.media.image_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.media.image_description')}</CardDescription></CardHeader><CardContent className="space-y-4">{data.courseImagePreview ? <div className="relative"><img src={data.courseImagePreview} alt={t('instructor_course_landing_page.media.course_thumbnail_alt')} className="w-full max-w-2xl rounded-lg border" /><Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setData({ ...data, courseImagePreview: null })}><Trash2 className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.media.remove_image')}</Button></div> : <div className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-primary transition-colors" onClick={() => imageRef.current?.click()}><ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><p className="mb-2">{t('instructor_course_landing_page.media.image_dropzone')}</p><p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.media.image_formats')}</p></div>}<input ref={imageRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadAsset(e.target.files[0], 'image')} /></CardContent></Card>
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.media.video_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.media.video_description')}</CardDescription></CardHeader><CardContent className="space-y-4">{data.promotionalVideoPreview ? <div className="relative"><video src={data.promotionalVideoPreview} controls className="w-full max-w-2xl rounded-lg border" /><Button variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => setData({ ...data, promotionalVideoPreview: null })}><Trash2 className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.media.remove_video')}</Button></div> : <div className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-primary transition-colors" onClick={() => videoRef.current?.click()}><Video className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><p className="mb-2">{t('instructor_course_landing_page.media.video_dropzone')}</p><p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.media.video_formats')}</p></div>}<input ref={videoRef} type="file" accept="video/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadAsset(e.target.files[0], 'video')} /><p className="text-sm p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">{t('instructor_course_landing_page.media.video_tip')}</p></CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.media.image_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.media.image_description')}</CardDescription></CardHeader><CardContent className="space-y-4">{data.courseImagePreview ? <div className="relative w-full max-w-2xl aspect-video overflow-hidden rounded-lg border bg-muted"><img src={data.courseImagePreview} alt={t('instructor_course_landing_page.media.course_thumbnail_alt')} className="h-full w-full object-cover" /><Button variant="destructive" size="sm" className="absolute top-2 right-2" disabled={uploadingImage} onClick={() => setData({ ...data, courseImagePreview: null })}><Trash2 className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.media.remove_image')}</Button></div> : <div className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${uploadingImage ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:border-primary'}`} onClick={() => !uploadingImage && imageRef.current?.click()}><ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><p className="mb-2">{uploadingImage ? t('instructor_course_landing_page.media.uploading_image') : t('instructor_course_landing_page.media.image_dropzone')}</p><p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.media.image_formats')}</p></div>}{uploadingImage && <div className="max-w-2xl"><AntProgress percent={imageUploadProgress} size="small" /></div>}<input ref={imageRef} type="file" accept="image/*" className="hidden" disabled={uploadingImage} onChange={(e) => e.target.files?.[0] && uploadAsset(e.target.files[0], 'image')} /></CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.media.video_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.media.video_description')}</CardDescription></CardHeader><CardContent className="space-y-4">{data.promotionalVideoPreview ? <div className="relative"><video src={data.promotionalVideoPreview} controls className="w-full max-w-2xl rounded-lg border" /><Button variant="destructive" size="sm" className="absolute top-2 right-2" disabled={uploadingVideo} onClick={() => setData({ ...data, promotionalVideoPreview: null })}><Trash2 className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.media.remove_video')}</Button></div> : <div className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${uploadingVideo ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:border-primary'}`} onClick={() => !uploadingVideo && videoRef.current?.click()}><Video className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><p className="mb-2">{uploadingVideo ? t('instructor_course_landing_page.media.uploading_video') : t('instructor_course_landing_page.media.video_dropzone')}</p><p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.media.video_formats')}</p></div>}{uploadingVideo && <div className="max-w-2xl"><AntProgress percent={videoUploadProgress} size="small" /></div>}<input ref={videoRef} type="file" accept="video/*" className="hidden" disabled={uploadingVideo} onChange={(e) => e.target.files?.[0] && uploadAsset(e.target.files[0], 'video')} /><p className="text-sm p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200">{t('instructor_course_landing_page.media.video_tip')}</p></CardContent></Card>
         </TabsContent>
 
         <TabsContent value="pricing" className="space-y-6">
@@ -266,10 +279,10 @@ export function InstructorCourseLandingPage() {
       </motion.div>
 
       <motion.div className="flex justify-between items-center pt-6 border-t" variants={fadeInUp}>
-        <Button variant="outline" onClick={() => save('draft')} disabled={saving || uploadingVideo}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
+        <Button variant="outline" onClick={() => save('draft')} disabled={saving || isUploadingMedia}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
-          <Button onClick={() => save('submit_review')} disabled={saving || uploadingVideo}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
+          <Button onClick={() => save('submit_review')} disabled={saving || isUploadingMedia}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
         </div>
       </motion.div>
       </motion.div>

@@ -42,6 +42,7 @@ export type PaginatedCategories = PaginatedResponse<Category>
 export interface CategoryListParams {
   page?: number
   page_size?: number
+  has_courses?: boolean
 }
 
 
@@ -51,29 +52,34 @@ export interface CategoryListParams {
 
 
 
-let __activeCategoriesCache: Promise<PaginatedCategories> | null = null
-let __activeCategoriesCacheTime = 0
+let __activeCategoriesCache = new Map<string, { promise: Promise<PaginatedCategories>; time: number }>()
 
 export async function getActiveCategories(
   params?: CategoryListParams
 ): Promise<PaginatedCategories> {
   const now = Date.now()
-
-  if (__activeCategoriesCache && now - __activeCategoriesCacheTime < 60000) {
-    return __activeCategoriesCache
-  }
-  const promise = http.get<PaginatedCategories>('/categories/active', {
+  const requestParams = {
     page: params?.page ?? 1,
     page_size: params?.page_size ?? 100,
+    has_courses: params?.has_courses,
+  }
+  const cacheKey = JSON.stringify(requestParams)
+
+  const cached = __activeCategoriesCache.get(cacheKey)
+  if (cached && now - cached.time < 60000) {
+    return cached.promise
+  }
+  const promise = http.get<PaginatedCategories>('/categories/active', {
+    page: requestParams.page,
+    page_size: requestParams.page_size,
+    has_courses: requestParams.has_courses,
   })
-  __activeCategoriesCache = promise
-  __activeCategoriesCacheTime = now
+  __activeCategoriesCache.set(cacheKey, { promise, time: now })
   return promise
 }
 
 export function clearCategoryCache(): void {
-  __activeCategoriesCache = null
-  __activeCategoriesCacheTime = 0
+  __activeCategoriesCache.clear()
 }
 
 

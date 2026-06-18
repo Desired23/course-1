@@ -478,17 +478,14 @@ def _sync_reports_final(case, report_status, action, notes, admin):
 def _notify_decision(case, actor, message):
     reporter = case.created_by
     instructor_user = case.instructor.user if case.instructor else None
-    for user, path in [
-        (reporter, f'/reports/my/{case.id}'),
-        (instructor_user, f'/instructor/reports/{case.id}'),
-    ]:
+    for user in [reporter, instructor_user]:
         _notify_user(
             user,
             case,
             title='Copyright case decision',
             message=message,
             code='copyright_case_decision',
-            action_url=path,
+            action_url=None,
             sender=actor,
             email_kind='decision',
         )
@@ -528,6 +525,8 @@ def _ban_instructor_for_strikes(case, actor):
     if user and user.status != 'banned':
         user.status = 'banned'
         user.save(update_fields=['status'])
+        from users.services import invalidate_all_sessions
+        invalidate_all_sessions(user.id)
     hidden = (
         Course.objects
         .filter(instructor_id=case.instructor_id, is_deleted=False, admin_hidden=False)

@@ -21,6 +21,48 @@ import {
 } from '../services/report.api'
 import { uploadFiles } from '../services/upload.api'
 
+const MAX_REPORT_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024
+const ALLOWED_REPORT_ATTACHMENT_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'application/pdf',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'text/plain',
+])
+const REPORT_ATTACHMENT_ACCEPT = Array.from(ALLOWED_REPORT_ATTACHMENT_MIME_TYPES).join(',')
+
+function getReportFileValidationError(files: File[]): string | null {
+  for (const file of files) {
+    const mimeType = file.type || 'application/octet-stream'
+    if (file.size > MAX_REPORT_ATTACHMENT_SIZE_BYTES) {
+      return `"${file.name}" vượt quá giới hạn 25MB.`
+    }
+    if (!ALLOWED_REPORT_ATTACHMENT_MIME_TYPES.has(mimeType)) {
+      return `"${file.name}" không đúng định dạng. Chỉ hỗ trợ ảnh, video, PDF, Word, Excel, PowerPoint, ZIP hoặc TXT.`
+    }
+  }
+  return null
+}
+
+function getSubmitErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
+    return error.message
+  }
+  return 'Gửi báo cáo thất bại. Vui lòng thử lại.'
+}
+
 interface ReportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -53,9 +95,27 @@ export function ReportDialog({
     setFiles([])
   }
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || [])
+    const validationError = getReportFileValidationError(selectedFiles)
+    if (validationError) {
+      toast.error(validationError)
+      setFiles([])
+      event.target.value = ''
+      return
+    }
+    setFiles(selectedFiles)
+  }
+
   const handleSubmit = async () => {
     if (!reason) {
       toast.error('Vui lòng chọn lý do báo cáo.')
+      return
+    }
+
+    const validationError = getReportFileValidationError(files)
+    if (validationError) {
+      toast.error(validationError)
       return
     }
 
@@ -81,8 +141,8 @@ export function ReportDialog({
       toast.success('Báo cáo đã được ghi nhận. Cảm ơn bạn!')
       onOpenChange(false)
       resetForm()
-    } catch {
-      toast.error('Gửi báo cáo thất bại. Vui lòng thử lại.')
+    } catch (error) {
+      toast.error(getSubmitErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -137,7 +197,8 @@ export function ReportDialog({
             <Input
               type="file"
               multiple
-              onChange={(e) => setFiles(Array.from(e.target.files || []))}
+              accept={REPORT_ATTACHMENT_ACCEPT}
+              onChange={handleFileChange}
             />
             {files.length > 0 && (
               <p className="text-xs text-muted-foreground">{files.length} tệp đã chọn</p>

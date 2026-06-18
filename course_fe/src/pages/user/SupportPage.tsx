@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../../components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../components/ui/accordion"
-import { HelpCircle, MessageCircle, Phone, Mail, Search, Send, Clock, CheckCircle, ArrowRight } from 'lucide-react'
+import { HelpCircle, MessageCircle, Phone, Mail, Search, Send, Clock, CheckCircle, ArrowRight, Loader2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -53,6 +53,7 @@ export function SupportPage() {
   const [selectedTab, setSelectedTab] = useState("help")
   const [searchQuery, setSearchQuery] = useState("")
   const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [ticketsLoading, setTicketsLoading] = useState(true)
   const [ticketSearch, setTicketSearch] = useState("")
   const [ticketStatus, setTicketStatus] = useState<"all" | "open" | "in_progress" | "resolved">("all")
   const [ticketPriority, setTicketPriority] = useState<"all" | "low" | "medium" | "high" | "urgent">("all")
@@ -63,6 +64,7 @@ export function SupportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null)
   const [ticketReplies, setTicketReplies] = useState<Record<number, SupportReply[]>>({})
+  const [replyLoadingTicketId, setReplyLoadingTicketId] = useState<number | null>(null)
   const [replyDrafts, setReplyDrafts] = useState<Record<number, string>>({})
   const [replySubmittingId, setReplySubmittingId] = useState<number | null>(null)
   const [ticketForm, setTicketForm] = useState({
@@ -89,6 +91,7 @@ export function SupportPage() {
   })
 
   const fetchTickets = async () => {
+    setTicketsLoading(true)
     try {
       const data = await getSupportTickets({
         user_id: user?.id ? Number(user.id) : undefined,
@@ -107,6 +110,8 @@ export function SupportPage() {
       setTickets([])
       setTicketTotalPages(1)
       setTicketTotalCount(0)
+    } finally {
+      setTicketsLoading(false)
     }
   }
 
@@ -201,11 +206,14 @@ export function SupportPage() {
     setSelectedTicketId(ticketId)
     if (ticketReplies[ticketId]) return
 
+    setReplyLoadingTicketId(ticketId)
     try {
       const replies = await getSupportReplies(ticketId)
       setTicketReplies(prev => ({ ...prev, [ticketId]: replies }))
     } catch {
       toast.error(t('support.ticket_thread_load_failed', 'Không thể tải hội thoại ticket'))
+    } finally {
+      setReplyLoadingTicketId(null)
     }
   }
 
@@ -467,7 +475,12 @@ export function SupportPage() {
                 </Card>
 
                 <div className="space-y-4">
-                  {filteredTickets.map((ticket) => (
+                  {ticketsLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{t('common.loading')}</span>
+                    </div>
+                  ) : filteredTickets.map((ticket) => (
                     <Card key={ticket.id}>
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between mb-2">
@@ -514,7 +527,12 @@ export function SupportPage() {
                                 <p className="text-xs text-muted-foreground mb-1">{t('support.original_request', 'Yêu cầu ban đầu')}</p>
                                 <p className="text-sm whitespace-pre-wrap">{ticket.message}</p>
                               </div>
-                              {(ticketReplies[ticket.id] || []).map((reply) => (
+                              {replyLoadingTicketId === ticket.id ? (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <span>{t('common.loading')}</span>
+                                </div>
+                              ) : (ticketReplies[ticket.id] || []).map((reply) => (
                                 <div key={reply.id} className="rounded-md bg-background p-3 border">
                                   <div className="flex items-center justify-between gap-3">
                                     <p className="text-sm font-medium">
@@ -527,7 +545,7 @@ export function SupportPage() {
                                   <p className="text-sm mt-2 whitespace-pre-wrap">{reply.message}</p>
                                 </div>
                               ))}
-                              {(ticketReplies[ticket.id] || []).length === 0 && (
+                              {replyLoadingTicketId !== ticket.id && (ticketReplies[ticket.id] || []).length === 0 && (
                                 <p className="text-sm text-muted-foreground">{t('support.no_replies_yet', 'Chưa có phản hồi nào cho ticket này')}</p>
                               )}
                             </div>
@@ -560,7 +578,7 @@ export function SupportPage() {
                     </Card>
                   ))}
 
-                  {filteredTickets.length === 0 && (
+                  {!ticketsLoading && filteredTickets.length === 0 && (
                     <div className="text-center py-8">
                       <MessageCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
                       <h3 className="mb-2">{t('support.no_tickets')}</h3>
@@ -571,7 +589,7 @@ export function SupportPage() {
                   )}
                 </div>
 
-                {filteredTickets.length > 0 && (
+                {!ticketsLoading && filteredTickets.length > 0 && (
                   <div className="mt-4 flex items-center justify-between">
                     <p className="text-sm text-muted-foreground">
                       {t('support.pagination_summary', { page: ticketPage, totalPages: ticketTotalPages, total: ticketTotalCount })}

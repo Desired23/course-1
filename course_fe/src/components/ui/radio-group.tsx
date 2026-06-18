@@ -1,45 +1,44 @@
-"use client";
+import * as React from "react"
+import { Radio } from "antd"
+import { cn } from "./utils"
 
-import * as React from "react";
-import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { CircleIcon } from "lucide-react";
+const RadioGroupContext = React.createContext<{
+  value?: string
+  onValueChange?: (value: string) => void
+  disabled?: boolean
+} | null>(null)
 
-import { cn } from "./utils";
+const RadioGroup = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & {
+    value?: string
+    onValueChange?: (value: string) => void
+    disabled?: boolean
+  }
+>(({ className, value, onValueChange, disabled, children, ...props }, ref) => (
+  <RadioGroupContext.Provider value={{ value, onValueChange, disabled }}>
+    <div ref={ref} role="radiogroup" className={cn("grid gap-2", className)} {...props}>
+      {children}
+    </div>
+  </RadioGroupContext.Provider>
+))
+RadioGroup.displayName = "RadioGroup"
 
-function RadioGroup({
-  className,
-  ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Root>) {
+const RadioGroupItem = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { value: string }
+>(({ className, value, ...props }, _ref) => {
+  const group = React.useContext(RadioGroupContext)
   return (
-    <RadioGroupPrimitive.Root
-      data-slot="radio-group"
-      className={cn("grid gap-3", className)}
-      {...props}
+    <Radio
+      value={value}
+      checked={group?.value === value}
+      disabled={group?.disabled ?? (props.disabled as boolean)}
+      onChange={() => group?.onValueChange?.(value)}
+      className={cn(className)}
     />
-  );
-}
+  )
+})
+RadioGroupItem.displayName = "RadioGroupItem"
 
-function RadioGroupItem({
-  className,
-  ...props
-}: React.ComponentProps<typeof RadioGroupPrimitive.Item>) {
-  return (
-    <RadioGroupPrimitive.Item
-      data-slot="radio-group-item"
-      className={cn(
-        "border-input text-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 aspect-square size-4 shrink-0 rounded-full border shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
-        className,
-      )}
-      {...props}
-    >
-      <RadioGroupPrimitive.Indicator
-        data-slot="radio-group-indicator"
-        className="relative flex items-center justify-center"
-      >
-        <CircleIcon className="fill-primary absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2" />
-      </RadioGroupPrimitive.Indicator>
-    </RadioGroupPrimitive.Item>
-  );
-}
-
-export { RadioGroup, RadioGroupItem };
+export { RadioGroup, RadioGroupItem }

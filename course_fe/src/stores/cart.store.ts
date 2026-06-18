@@ -91,6 +91,7 @@ interface CartState {
   cartItems: Course[]
   orderCoupon: Coupon | null
   appliedPromotion: AppliedPromotion | null
+  isLoading: boolean
   _synced: boolean
   lastSyncedAt: number | null
 
@@ -120,11 +121,13 @@ export const useCartStore = create<CartState>()(
         cartItems: [],
         orderCoupon: null,
         appliedPromotion: null,
+        isLoading: false,
         _synced: false,
         lastSyncedAt: null,
 
 
         loadCart: async (userId) => {
+          set({ isLoading: true })
           try {
             const items = await getAllCartByUser(userId)
             const courses = items.map(cartItemToCourse)
@@ -132,6 +135,8 @@ export const useCartStore = create<CartState>()(
           } catch {
 
             set({ cartItems: [], _synced: true, lastSyncedAt: Date.now() })
+          } finally {
+            set({ isLoading: false })
           }
         },
 
@@ -205,7 +210,7 @@ export const useCartStore = create<CartState>()(
           }
         },
 
-        clearCart: () => set({ cartItems: [], orderCoupon: null, appliedPromotion: null, _synced: false, lastSyncedAt: null }),
+        clearCart: () => set({ cartItems: [], orderCoupon: null, appliedPromotion: null, isLoading: false, _synced: false, lastSyncedAt: null }),
 
         mergeCart: (serverItems) => {
           const state = get()

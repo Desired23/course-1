@@ -76,7 +76,8 @@ class CategoryMoveToTopView(APIView):
 class ActiveCategoryListView(APIView):
     throttle_scope = 'search'
     def get(self, request):
-        categories = get_active_categories()
+        has_courses = str(request.query_params.get('has_courses', '')).lower() in ('1', 'true', 'yes')
+        categories = get_active_categories(has_courses=has_courses)
         return paginate_queryset(categories, request, CategoriesSerializer)
 
 class SubcategoryListView(APIView):

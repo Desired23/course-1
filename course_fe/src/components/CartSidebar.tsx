@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { ShoppingCart, Tag, Trash2, X } from "lucide-react"
+import { Loader2, ShoppingCart, Tag, Trash2, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useCart } from "../contexts/CartContext"
 import { useRouter } from "./Router"
@@ -12,7 +12,7 @@ interface CartSidebarProps {
 export function CartSidebar({ onHover }: CartSidebarProps) {
   const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
-  const { cartItems, removeFromCart, getTotalPrice, getSavings } = useCart()
+  const { cartItems, isLoading, removeFromCart, getTotalPrice, getSavings } = useCart()
   const { navigate } = useRouter()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const hoverTimeoutRef = useRef<NodeJS.Timeout>()
@@ -82,7 +82,12 @@ export function CartSidebar({ onHover }: CartSidebarProps) {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {cartItems.length === 0 ? (
+            {isLoading && cartItems.length === 0 ? (
+              <div className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500 dark:text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{t('common.loading')}</span>
+              </div>
+            ) : cartItems.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <ShoppingCart className="w-16 h-16 mx-auto mb-4 opacity-30" />
                 <p className="text-sm">{t('cart.empty_title')}</p>

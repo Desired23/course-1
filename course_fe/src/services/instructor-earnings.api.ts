@@ -84,6 +84,7 @@ export interface EarningsSummary {
 
 export interface EarningsListParams {
   instructor_id?: number
+  course_id?: number
   status?: string
   source?: string
   search?: string
@@ -126,6 +127,7 @@ export async function getInstructorEarnings(
 ): Promise<PaginatedResponse<InstructorEarning>> {
   const query = buildListQuery({
     instructor_id: params?.instructor_id,
+    course_id: params?.course_id,
     status: params?.status,
     source: params?.source,
     search: params?.search,

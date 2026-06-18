@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Progress as AntProgress } from 'antd'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { Input } from "../../components/ui/input"
@@ -16,7 +17,7 @@ import { useAuth } from "../../contexts/AuthContext"
 import { createCourse } from "../../services/course.api"
 import { getMyInstructorProfile } from "../../services/instructor.api"
 import { getActiveCategories, getSubcategories, type Category } from "../../services/category.api"
-import { uploadFiles } from "../../services/upload.api"
+import { uploadFileWithProgress } from "../../services/upload.api"
 
 interface CourseData {
   title: string
@@ -70,6 +71,7 @@ export function InstructorCreateCoursePage() {
   const [direction, setDirection] = useState(0)
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false)
+  const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0)
   const [apiCategories, setApiCategories] = useState<Category[]>([])
   const [apiSubcategories, setApiSubcategories] = useState<Category[]>([])
   const [instructorId, setInstructorId] = useState<number | null>(null)
@@ -125,6 +127,7 @@ export function InstructorCreateCoursePage() {
   }
 
   const handleSubmit = async (saveStatus: 'draft' | 'submit_review') => {
+    if (isUploadingThumbnail) return
     if (saveStatus === 'submit_review' && !validateCurrentStep()) return
     try {
       setIsSaving(true)
@@ -179,9 +182,9 @@ export function InstructorCreateCoursePage() {
     if (file.size > 5 * 1024 * 1024) return void toast.error(t('instructor_create_course_page.toasts.image_too_large'))
     try {
       setIsUploadingThumbnail(true)
-      const uploaded = await uploadFiles([file])
-      if (!uploaded?.length) throw new Error('Upload failed')
-      const uploadedUrl = uploaded[0].url
+      setThumbnailUploadProgress(0)
+      const uploaded = await uploadFileWithProgress(file, { resource_type: 'image' }, setThumbnailUploadProgress)
+      const uploadedUrl = uploaded.url
       setThumbnailPreview(uploadedUrl)
       setData((prev) => ({ ...prev, thumbnail: uploadedUrl }))
       toast.success(t('instructor_create_course_page.toasts.upload_success'))
@@ -190,6 +193,7 @@ export function InstructorCreateCoursePage() {
       toast.error(t('instructor_create_course_page.toasts.upload_failed'))
     } finally {
       setIsUploadingThumbnail(false)
+      setTimeout(() => setThumbnailUploadProgress(0), 900)
     }
   }
 
@@ -367,7 +371,9 @@ export function InstructorCreateCoursePage() {
                     <p className="text-sm text-muted-foreground mb-3">{t('instructor_create_course_page.pricing_media.thumbnail_hint')}</p>
                     {thumbnailPreview ? (
                       <div className="space-y-4">
-                        <img src={thumbnailPreview} alt={t('instructor_create_course_page.pricing_media.thumbnail_alt')} className="w-full max-w-2xl rounded-lg shadow-md border" />
+                        <div className="w-full max-w-2xl aspect-video overflow-hidden rounded-lg border bg-muted shadow-md">
+                          <img src={thumbnailPreview} alt={t('instructor_create_course_page.pricing_media.thumbnail_alt')} className="h-full w-full object-cover" />
+                        </div>
                         <label htmlFor="thumbnailInput" className="cursor-pointer">
                           <div className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">{t('instructor_create_course_page.pricing_media.change_image')}</div>
                           <input id="thumbnailInput" type="file" accept="image/*" className="hidden" onChange={handleThumbnailChange} />
@@ -383,7 +389,11 @@ export function InstructorCreateCoursePage() {
                         <p className="text-sm text-muted-foreground mt-4">{t('instructor_create_course_page.pricing_media.drag_drop_hint')}</p>
                       </div>
                     )}
-                    {isUploadingThumbnail && <p className="mt-4 text-sm text-muted-foreground">{t('instructor_create_course_page.pricing_media.uploading_image')}</p>}
+                    {isUploadingThumbnail && (
+                      <div className="mt-4 max-w-2xl">
+                        <AntProgress percent={thumbnailUploadProgress} size="small" />
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

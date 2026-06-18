@@ -10,13 +10,7 @@ import { reducedRouteTransitionVariants, routeTransition, routeTransitionVariant
 import { CommunityLayout } from '../components/community/CommunityLayout'
 
 function RouteLoadingFallback() {
-  const { t } = useTranslation()
-
-  return (
-    <div className="flex items-center justify-center px-4 py-6">
-      <div className="text-sm text-muted-foreground">{t('app_routes.loading')}</div>
-    </div>
-  )
+  return <div aria-busy="true" aria-live="polite" />
 }
 
 export function AppRoutes() {

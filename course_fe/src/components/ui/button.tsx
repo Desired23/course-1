@@ -1,6 +1,10 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+
+function Slot({ children, ...props }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) {
+  const child = React.Children.only(children) as React.ReactElement<any>
+  return React.cloneElement(child, { ...props, ...child.props, className: [props.className, child.props.className].filter(Boolean).join(' ') } as any)
+}
 
 import { cn } from "./utils";
 

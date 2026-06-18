@@ -16,9 +16,20 @@ from rest_framework.test import APIClient
 from unittest.mock import patch
 
 from admins.models import Admin
+from courses.models import Course
 from instructors.models import Instructor
+from subscription_plans.models import PlanCourse, SubscriptionPlan
 from users.models import User
-from users.services import confirm_reset_password, login, refresh_token, register, get_users, user_reset_password
+from users.services import (
+    _issue_auth_tokens,
+    confirm_reset_password,
+    get_users,
+    login,
+    refresh_token,
+    register,
+    update_user_by_admin,
+    user_reset_password,
+)
 from utils.mailer.mailer import send_reset_password
 from utils.test_helpers import make_user
 
@@ -151,3 +162,59 @@ class GetUsersFilterTests(TestCase):
         self.assertEqual(get_users({"user_type": "admin"}).count(), 1)
         self.assertEqual(get_users({"user_type": "instructor"}).count(), 1)
         self.assertEqual(get_users({"user_type": "student"}).count(), 2)
+
+
+class AdminBanInstructorPlanConfirmationTests(TestCase):
+    def setUp(self):
+        self.admin = make_user("admin", username="plan_ban_admin")
+        self.instructor_user = make_user("instructor", username="plan_ban_instructor")
+        self.course = Course.objects.create(
+            title="Course in Plan",
+            instructor=self.instructor_user.instructor,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+            price="100.00",
+        )
+        self.plan = SubscriptionPlan.objects.create(
+            name="Pro Plan",
+            price="1000.00",
+            duration_days=30,
+            status=SubscriptionPlan.Status.ACTIVE,
+        )
+        self.plan_course = PlanCourse.objects.create(plan=self.plan, course=self.course)
+
+    def test_admin_ban_instructor_with_plan_course_requires_confirmation(self):
+        result = update_user_by_admin(self.instructor_user.id, {"status": User.StatusChoices.BANNED})
+
+        self.instructor_user.refresh_from_db()
+        self.assertEqual(self.instructor_user.status, User.StatusChoices.ACTIVE)
+        self.assertTrue(result["requires_confirmation"])
+        self.assertEqual(result["code"], "instructor_courses_in_active_plans")
+        self.assertEqual(result["impacted_plan_courses"][0]["plan_course_id"], self.plan_course.id)
+
+    def test_confirm_remove_bans_user_and_schedules_plan_course_removal(self):
+        result = update_user_by_admin(
+            self.instructor_user.id,
+            {"status": User.StatusChoices.BANNED, "plan_course_action": "remove"},
+        )
+
+        self.instructor_user.refresh_from_db()
+        self.plan_course.refresh_from_db()
+        self.assertIsInstance(result, User)
+        self.assertEqual(self.instructor_user.status, User.StatusChoices.BANNED)
+        self.assertIsNotNone(self.plan_course.scheduled_removal_at)
+        self.assertEqual(result.plan_course_removal_result["scheduled_count"], 1)
+
+    def test_admin_update_endpoint_returns_conflict_when_confirmation_needed(self):
+        token = _issue_auth_tokens(self.admin)["access_token"]
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+
+        response = client.patch(
+            f"/api/users/{self.instructor_user.id}/update",
+            {"status": User.StatusChoices.BANNED},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.data["code"], "instructor_courses_in_active_plans")

@@ -26,8 +26,14 @@ class UserManagementView(APIView):
         return paginate_queryset(users, request, Userserializers)
     def patch(self, request, user_id):
         try:
-            user = update_user_by_admin (user_id,request.data)
-            return Response(Userserializers(user).data, status=status.HTTP_200_OK)
+            user = update_user_by_admin(user_id, request.data, admin_actor=request.user)
+            if isinstance(user, dict) and user.get('requires_confirmation'):
+                return Response(user, status=status.HTTP_409_CONFLICT)
+            data = Userserializers(user).data
+            removal_result = getattr(user, 'plan_course_removal_result', None)
+            if removal_result is not None:
+                data['plan_course_removal_result'] = removal_result
+            return Response(data, status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
     def delete(self, request, user_id):

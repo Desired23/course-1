@@ -1,4 +1,5 @@
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q
 from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
@@ -134,7 +135,7 @@ def auto_create_instructor_payouts(processed_by=None, notes='', settle_first=Tru
 
 def get_payouts_for_instructor(instructor_id, status=None, period=None):
     try:
-        queryset = InstructorPayout.objects.filter(instructor=instructor_id)
+        queryset = InstructorPayout.objects.select_related("instructor__user", "processed_by").filter(instructor=instructor_id)
 
         if status:
             queryset = queryset.filter(status=status)
@@ -148,9 +149,9 @@ def get_payouts_for_instructor(instructor_id, status=None, period=None):
         raise ValidationError(f"Error retrieving payouts: {str(e)}")
 
 
-def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
+def get_all_payouts_as_admin(status=None, period=None, processed_by=None, search=None):
     try:
-        queryset = InstructorPayout.objects.select_related("instructor", "processed_by").all()
+        queryset = InstructorPayout.objects.select_related("instructor__user", "processed_by").all()
 
         if processed_by:
             queryset = queryset.filter(processed_by__admin=processed_by)
@@ -158,6 +159,13 @@ def get_all_payouts_as_admin(status=None, period=None, processed_by=None):
             queryset = queryset.filter(status=status)
         if period:
             queryset = queryset.filter(period=period)
+        if search:
+            search = search.strip()
+            queryset = queryset.filter(
+                Q(instructor__user__full_name__icontains=search)
+                | Q(instructor__user__email__icontains=search)
+                | Q(instructor__user__username__icontains=search)
+            )
 
         return queryset
     except Exception as e:

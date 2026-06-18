@@ -227,11 +227,21 @@ export function InstructorCoursesPage() {
   }
 
   const getAvailableActions = (course: CourseListItem) => {
+    if (course.admin_hidden || course.is_hard_blocked) {
+      return []
+    }
     if (course.status === 'draft') {
       return [{ label: t('instructor_courses.submit_for_review'), run: () => handleCourseStatusChange(course, 'pending', t('instructor_courses.confirm_submit_for_review')) }]
     }
     if (course.status === 'archived') {
-      return [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_archived_to_draft')) }]
+      const actions = [
+        { label: t('instructor_courses.restore_published'), run: () => handleCourseStatusChange(course, 'published', t('instructor_courses.confirm_restore_published')) },
+      ]
+      // Không cho về nháp nếu khóa đã có học viên (đồng bộ với guard ở backend).
+      if ((course.total_students || 0) === 0) {
+        actions.push({ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_archived_to_draft')) })
+      }
+      return actions
     }
     if (['pending', 'rejected'].includes(course.status)) {
       return [{ label: t('instructor_courses.move_to_draft'), run: () => handleCourseStatusChange(course, 'draft', t('instructor_courses.confirm_move_to_draft')) }]

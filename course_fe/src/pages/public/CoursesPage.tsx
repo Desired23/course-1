@@ -195,7 +195,7 @@ export function CoursesPage() {
     const maxRetries = 3
 
     function loadCategories() {
-      getActiveCategories({ page: 1, page_size: 200 })
+      getActiveCategories({ page: 1, page_size: 200, has_courses: true })
         .then(res => {
           if (!cancelled) {
             setCategoryTree(buildCategoryTree(res.results))

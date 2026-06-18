@@ -96,7 +96,7 @@ export function CheckoutPage() {
   const { t } = useTranslation()
   const { navigate, currentRoute } = useRouter()
   const { user } = useAuth()
-  const { cartItems, orderCoupon, appliedPromotion, loadCart, syncCartIfStale } = useCart()
+  const { cartItems, orderCoupon, appliedPromotion, isLoading: cartLoading, loadCart, syncCartIfStale } = useCart()
   const gatewayOptions: Array<{
     id: GatewayMethod
     title: string
@@ -364,6 +364,19 @@ export function CheckoutPage() {
 
     toast.error(t("checkout.create_payment_url_failed"))
     setIsProcessing(false)
+  }
+
+  if (cartLoading && cartItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-background py-8">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto flex max-w-2xl items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>{t("common.loading")}</span>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (cartItems.length === 0) {

@@ -143,7 +143,6 @@ const DialogContent = React.forwardRef<HTMLDivElement, DialogContentProps>(
         centered
         destroyOnHidden
         keyboard
-        maskClosable
         width="fit-content"
         zIndex={parsedZIndex}
         onCancel={() => setOpen(false)}

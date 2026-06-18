@@ -42,6 +42,26 @@ class ArchiveReadOnlyTests(TestCase):
         self.course.refresh_from_db()
         self.assertEqual(self.course.status, Course.Status.ARCHIVED)
 
+    def test_published_course_with_students_cannot_move_to_draft(self):
+        with self.assertRaises(ValidationError):
+            update_course(self.course.id, {"status": "draft"}, requesting_user=self.instructor)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+
+    def test_archived_course_with_students_cannot_move_to_draft(self):
+        self._archive()
+        with self.assertRaises(ValidationError):
+            update_course(self.course.id, {"status": "draft"}, requesting_user=self.instructor)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.ARCHIVED)
+
+    def test_archived_course_without_students_can_move_to_draft(self):
+        Enrollment.objects.filter(course=self.course).delete()
+        self._archive()
+        update_course(self.course.id, {"status": "draft"}, requesting_user=self.instructor)
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.status, Course.Status.DRAFT)
+
     def test_archived_course_is_not_buyable(self):
         self._archive()
         self.assertFalse(is_course_buyable(self.course))

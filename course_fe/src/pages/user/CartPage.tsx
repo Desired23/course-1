@@ -94,6 +94,7 @@ export function CartPage() {
     removeCoupon,
     orderCoupon,
     appliedPromotion,
+    isLoading,
     loadCart,
   } = useCart()
 
@@ -260,6 +261,17 @@ export function CartPage() {
   }
 
   const listBottomSpacingClass = isCheckoutExpanded ? 'pb-[32rem] sm:pb-[28rem]' : 'pb-40 sm:pb-44'
+
+  if (isLoading && cartItems.length === 0) {
+    return (
+      <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{t('common.loading')}</span>
+        </div>
+      </div>
+    )
+  }
 
   if (cartItems.length === 0) {
     return (
