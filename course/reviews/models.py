@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from courses.models import Course
 from users.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -32,6 +33,13 @@ class Review(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'course'],
+                condition=Q(is_deleted=False),
+                name='unique_active_review_per_user_course',
+            )
+        ]
 
     def __str__(self):
         return f'Review by {self.user} for {self.course}'

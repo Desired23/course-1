@@ -29,6 +29,7 @@ export const REPORT_REASON_LABELS: Record<ReportReason, string> = {
 }
 
 export type ReportStatus = 'pending' | 'reviewing' | 'resolved' | 'dismissed'
+export type AdminReportListStatus = 'open' | 'processed'
 export type ReportPriority = 'low' | 'medium' | 'high' | 'critical'
 export type ReportAction = 'approve' | 'dismiss' | 'hide' | 'delete' | 'close' | 'revoke'
 export type CopyrightCaseStatus =
@@ -52,6 +53,7 @@ export type CopyrightAdminAction =
 
 export interface ReportCase {
   id: string
+  report_id: number
   target_type: ReportTargetType
   target_id: number
   report_count: number
@@ -60,10 +62,18 @@ export interface ReportCase {
   title: string | null
   owner_name: string | null
   snippet: string | null
-  top_reason: ReportReason | null
-  reason_breakdown: Partial<Record<ReportReason, number>>
-  last_reported_at: string | null
+  reason: ReportReason
+  reason_label: string
+  description: string
+  metadata?: Record<string, any>
+  attachments?: Array<Record<string, any>>
+  reporter_name: string | null
+  reporter_email: string | null
+  reported_at: string
+  processed_at: string | null
+  processed_by_name: string | null
   copyright_case_id: number | null
+  moderation_url: string | null
 }
 
 export interface IndividualReport {
@@ -140,6 +150,13 @@ export interface ReportCaseDetail {
   context?: ReportCaseContext
 }
 
+export interface ReportItemDetail extends ReportCase {
+  created_at: string
+  resolved_at: string | null
+  action_taken: string
+  resolution_notes: string
+}
+
 interface PaginatedResponse<T> {
   count: number
   next: string | null
@@ -162,10 +179,10 @@ export async function createReport(data: {
   return http.post('/reports/', data)
 }
 
-// Admin: list of cases (aggregated)
+// Admin: list of individual report items
 export async function getAdminReports(params?: {
   type?: ReportTargetType
-  status?: ReportStatus | 'open'
+  status?: ReportStatus | AdminReportListStatus
   priority?: ReportPriority
   search?: string
   date_from?: string
@@ -174,6 +191,18 @@ export async function getAdminReports(params?: {
   page_size?: number
 }): Promise<PaginatedResponse<ReportCase>> {
   return http.get<PaginatedResponse<ReportCase>>('/reports/admin/', params)
+}
+
+export async function getAdminReportItem(reportId: number): Promise<ReportItemDetail> {
+  return http.get<ReportItemDetail>(`/reports/admin/items/${reportId}/`)
+}
+
+export async function markAdminReportProcessed(reportId: number): Promise<ReportItemDetail> {
+  return http.post<ReportItemDetail>(`/reports/admin/items/${reportId}/mark-processed/`, {})
+}
+
+export async function markAdminReportUnprocessed(reportId: number): Promise<ReportItemDetail> {
+  return http.post<ReportItemDetail>(`/reports/admin/items/${reportId}/mark-unprocessed/`, {})
 }
 
 // Admin: individual reports for one content item

@@ -1,13 +1,29 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Badge } from './ui/badge'
-import { Switch } from './ui/switch'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+} from './AntdCompat'
 import {
   Plus,
   Trash2,
@@ -20,8 +36,6 @@ import {
   CheckCircle2,
   Save
 } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Alert, AlertDescription } from './ui/alert'
 import { SUPPORTED_LANGUAGES, type TestCase } from '../utils/judge0'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'

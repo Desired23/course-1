@@ -6,13 +6,29 @@ import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { DraggableQuestionCard } from "../../components/QuizQuestionDragDrop"
 import { QuestionWizard, type QuizQuestion } from "../../components/QuestionWizard"
-import { Button } from "../../components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "../../components/ui/dialog"
-import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { Textarea } from "../../components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from "../../components/AntdCompat"
 import { UserPagination } from "../../components/UserPagination"
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'

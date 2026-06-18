@@ -1,7 +1,5 @@
 from datetime import datetime, time
 
-from django.db import models as django_models
-from django.db.models import Count, Max
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.exceptions import ValidationError
@@ -53,36 +51,35 @@ def create_report(reporter, target_type, target_id, reason, description='', meta
     if reporter and owner_id and reporter.id == owner_id:
         raise ValidationError({'detail': 'Bạn không thể báo cáo nội dung của chính mình.'})
 
+    metadata = metadata or {}
+    attachments = attachments or []
+    description = description or ''
+
     existing = None
     if reporter:
         existing = Report.objects.filter(
             reporter=reporter,
             target_type=target_type,
             target_id=target_id,
+            reason=reason,
+            description=description,
+            metadata=metadata,
+            attachments=attachments,
             status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
         ).first()
 
     if existing:
-        if reason and reason != existing.reason:
-            existing.reason = reason
-        if description:
-            existing.description = description
-        if metadata:
-            existing.metadata = metadata
-        if attachments:
-            existing.attachments = attachments
-        existing.save(update_fields=['reason', 'description', 'metadata', 'attachments', 'updated_at'])
-        report = existing
-    else:
-        report = Report.objects.create(
-            reporter=reporter,
-            target_type=target_type,
-            target_id=target_id,
-            reason=reason,
-            description=description,
-            metadata=metadata or {},
-            attachments=attachments or [],
-        )
+        return existing
+
+    report = Report.objects.create(
+        reporter=reporter,
+        target_type=target_type,
+        target_id=target_id,
+        reason=reason,
+        description=description,
+        metadata=metadata,
+        attachments=attachments,
+    )
 
     _sync_counter(target_type, target_id, reason, description)
 
@@ -149,126 +146,177 @@ def _reason_label(reason):
 
 def _sync_counter(target_type, target_id, reason, description):
     try:
-        count = Report.objects.filter(
+        open_reports = Report.objects.filter(
             target_type=target_type,
             target_id=target_id,
             status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
-        ).count()
-        now = timezone.now()
+        )
+        count = open_reports.count()
+        latest = open_reports.order_by('-created_at', '-id').first()
+        last_reason = (latest.reason or latest.description) if latest else None
+        last_reported_at = latest.created_at if latest else None
 
         if target_type == 'review':
             from reviews.models import Review
             Review.objects.filter(id=target_id).update(
-                report_count=count, last_report_reason=reason or description, last_reported_at=now
+                report_count=count, last_report_reason=last_reason, last_reported_at=last_reported_at
             )
         elif target_type == 'question':
             from questions.models import Question
             Question.objects.filter(id=target_id).update(
-                report_count=count, last_report_reason=reason or description, last_reported_at=now
+                report_count=count, last_report_reason=last_reason, last_reported_at=last_reported_at
             )
         elif target_type == 'blog_post':
             from blog_posts.models import BlogPost
             BlogPost.objects.filter(id=target_id).update(
-                report_count=count, last_report_reason=reason or description, last_reported_at=now
+                report_count=count, last_report_reason=last_reason, last_reported_at=last_reported_at
             )
         elif target_type == 'message':
             from realtime.models import Message
             Message.objects.filter(id=target_id).update(
-                report_count=count, last_report_reason=reason or description, last_reported_at=now
+                report_count=count, last_report_reason=last_reason, last_reported_at=last_reported_at
             )
     except Exception:
         pass
 
 
-def get_report_cases(filters=None):
-    filters = filters or {}
-    target_type_filter = filters.get('type')
-    status_filter = filters.get('status', 'pending')
-    priority_filter = filters.get('priority')
-    search = (filters.get('search') or '').strip().lower()
-    date_from, date_to = _to_datetime_range(filters.get('date_from'), filters.get('date_to'))
-
+def _status_values(status_filter):
     report_status_map = {
         'pending': [Report.Status.PENDING],
         'reviewing': [Report.Status.REVIEWING],
         'resolved': [Report.Status.RESOLVED],
         'dismissed': [Report.Status.DISMISSED],
         'open': [Report.Status.PENDING, Report.Status.REVIEWING],
+        'processed': [Report.Status.RESOLVED, Report.Status.DISMISSED],
     }
-    statuses = report_status_map.get(status_filter, [Report.Status.PENDING])
+    return report_status_map.get(status_filter or 'open', report_status_map['open'])
 
-    qs = Report.objects.filter(status__in=statuses)
+
+def _find_copyright_case_id(report):
+    if report.reason != Report.Reason.COPYRIGHT:
+        return None
+    from .models import CopyrightCase
+    case = (
+        CopyrightCase.objects
+        .filter(target_type=report.target_type, target_id=report.target_id)
+        .order_by('-id')
+        .values('id')
+        .first()
+    )
+    return case['id'] if case else None
+
+
+def _get_moderation_url(report, obj):
+    if report.reason == Report.Reason.COPYRIGHT:
+        case_id = _find_copyright_case_id(report)
+        return f'/admin/reports?case={case_id}' if case_id else None
+    if report.target_type == Report.TargetType.COURSE:
+        return f'/admin/courses/{report.target_id}'
+    if report.target_type == Report.TargetType.LESSON:
+        return f'/instructor/lessons/{report.target_id}/edit'
+    if report.target_type == Report.TargetType.REVIEW:
+        return f'/admin/reviews?review={report.target_id}'
+    if report.target_type == Report.TargetType.QUESTION:
+        return f'/qa/{report.target_id}'
+    if report.target_type == Report.TargetType.ANSWER and obj is not None:
+        question_id = getattr(obj, 'question_id', None)
+        return f'/qa/{question_id}?answer={report.target_id}' if question_id else None
+    if report.target_type == Report.TargetType.BLOG_POST and obj is not None:
+        slug = getattr(obj, 'slug', None)
+        return f'/blog/{slug}' if slug else None
+    if report.target_type == Report.TargetType.BLOG_COMMENT and obj is not None:
+        post = getattr(obj, 'blog_post', None)
+        slug = getattr(post, 'slug', None)
+        return f'/blog/{slug}?comment={report.target_id}' if slug else None
+    if report.target_type == Report.TargetType.LESSON_COMMENT and obj is not None:
+        try:
+            lesson = obj.lesson
+            module = lesson.coursemodule if lesson else None
+            course = module.course if module else None
+            if course and lesson:
+                return f'/course-player/{course.id}?lesson={lesson.id}&comment={report.target_id}'
+        except Exception:
+            return None
+    return None
+
+
+def _serialize_report_item(report):
+    adapter = get_adapter(report.target_type)
+    obj = adapter['get_object'](report.target_id) if adapter else None
+    title = adapter['get_title'](obj) if adapter and obj else f'{report.target_type} #{report.target_id}'
+    snippet = adapter['get_snippet'](obj) if adapter and obj else ''
+    owner_name = _get_owner_name(adapter, obj) if adapter else None
+    open_count = Report.objects.filter(
+        target_type=report.target_type,
+        target_id=report.target_id,
+        status__in=[Report.Status.PENDING, Report.Status.REVIEWING],
+    ).count()
+
+    return {
+        'id': str(report.id),
+        'report_id': report.id,
+        'target_type': report.target_type,
+        'target_id': report.target_id,
+        'report_count': open_count,
+        'priority': _derive_priority(open_count),
+        'status': report.status,
+        'title': title,
+        'owner_name': owner_name,
+        'snippet': snippet,
+        'reason': report.reason,
+        'reason_label': _reason_label(report.reason),
+        'description': report.description,
+        'metadata': report.metadata,
+        'attachments': report.attachments,
+        'reporter_name': report.reporter.full_name if report.reporter else None,
+        'reporter_email': report.reporter.email if report.reporter else None,
+        'reported_at': report.created_at,
+        'processed_at': report.resolved_at,
+        'processed_by_name': report.resolved_by.full_name if report.resolved_by else None,
+        'copyright_case_id': _find_copyright_case_id(report),
+        'moderation_url': _get_moderation_url(report, obj),
+    }
+
+
+def get_report_cases(filters=None):
+    filters = filters or {}
+    target_type_filter = filters.get('type')
+    reason_filter = filters.get('reason')
+    status_filter = filters.get('status', 'open')
+    priority_filter = filters.get('priority')
+    search = (filters.get('search') or '').strip().lower()
+    date_from, date_to = _to_datetime_range(filters.get('date_from'), filters.get('date_to'))
+
+    qs = Report.objects.select_related('reporter', 'resolved_by').filter(status__in=_status_values(status_filter))
     if target_type_filter:
         qs = qs.filter(target_type=target_type_filter)
+    if reason_filter:
+        qs = qs.filter(reason=reason_filter)
     if date_from:
         qs = qs.filter(created_at__gte=date_from)
     if date_to:
         qs = qs.filter(created_at__lte=date_to)
 
-    cases_qs = (
-        qs
-        .values('target_type', 'target_id')
-        .annotate(
-            report_count=Count('id'),
-            last_reported_at=Max('created_at'),
-        )
-        .order_by('-last_reported_at')
-    )
-
-    from .models import CopyrightCase
-    copyright_map = {}
-    for c in CopyrightCase.objects.order_by('id').values('target_type', 'target_id', 'id'):
-        copyright_map[(c['target_type'], c['target_id'])] = c['id']
-
     items = []
-    for case in cases_qs:
-        tt = case['target_type']
-        tid = case['target_id']
-        report_count = case['report_count']
-        priority = _derive_priority(report_count)
+    for report in qs.order_by('-created_at', '-id'):
+        item = _serialize_report_item(report)
 
-        if priority_filter and priority != priority_filter:
+        if priority_filter and item['priority'] != priority_filter:
             continue
-
-        adapter = get_adapter(tt)
-        if not adapter:
-            continue
-        obj = adapter['get_object'](tid)
-
-        title = adapter['get_title'](obj) if obj else f'{tt} #{tid}'
-        owner_name = _get_owner_name(adapter, obj)
-        snippet = adapter['get_snippet'](obj) if obj else ''
 
         if search:
-            haystacks = [title, owner_name or '', snippet]
+            haystacks = [
+                item['title'] or '',
+                item['owner_name'] or '',
+                item['snippet'] or '',
+                item['description'] or '',
+                item['reporter_name'] or '',
+                item['reporter_email'] or '',
+            ]
             if not any(search in h.lower() for h in haystacks):
                 continue
 
-        reason_qs = (
-            qs.filter(target_type=tt, target_id=tid)
-            .values('reason')
-            .annotate(count=Count('id'))
-        )
-        reason_breakdown = {r['reason']: r['count'] for r in reason_qs}
-        top_reason = max(reason_breakdown, key=reason_breakdown.get) if reason_breakdown else 'other'
-
-        response_status = status_filter if status_filter not in (None, '', 'open') else 'pending'
-
-        items.append({
-            'id': f'{tt}-{tid}',
-            'target_type': tt,
-            'target_id': tid,
-            'report_count': report_count,
-            'priority': priority,
-            'status': response_status,
-            'title': title,
-            'owner_name': owner_name,
-            'snippet': snippet,
-            'top_reason': top_reason,
-            'reason_breakdown': reason_breakdown,
-            'last_reported_at': case['last_reported_at'],
-            'copyright_case_id': copyright_map.get((tt, tid)),
-        })
+        items.append(item)
 
     return items
 
@@ -293,10 +341,6 @@ def get_report_case_detail(target_type, target_id):
         raise ValidationError({'target_type': 'Loại nội dung không hợp lệ.'})
 
     obj = adapter['get_object'](target_id)
-
-    Report.objects.filter(
-        target_type=target_type, target_id=target_id, status=Report.Status.PENDING
-    ).update(status=Report.Status.REVIEWING)
 
     reports = Report.objects.filter(
         target_type=target_type, target_id=target_id
@@ -334,6 +378,54 @@ def get_report_case_detail(target_type, target_id):
             pass
 
     return result
+
+
+def get_report_item_detail(report_id):
+    report = Report.objects.select_related('reporter', 'resolved_by').filter(id=report_id).first()
+    if not report:
+        raise ValidationError({'report_id': 'Report not found.'})
+
+    item = _serialize_report_item(report)
+    item['created_at'] = report.created_at
+    item['resolved_at'] = report.resolved_at
+    item['action_taken'] = report.action_taken
+    item['resolution_notes'] = report.resolution_notes
+    return item
+
+
+def mark_report_processed(report_id, admin=None):
+    report = Report.objects.filter(id=report_id).first()
+    if not report:
+        raise ValidationError({'report_id': 'Report not found.'})
+    now = timezone.now()
+    report.status = Report.Status.RESOLVED
+    report.resolved_by = admin
+    report.action_taken = 'marked_processed'
+    report.resolution_notes = ''
+    report.resolved_at = now
+    report.updated_at = now
+    report.save(update_fields=[
+        'status', 'resolved_by', 'action_taken', 'resolution_notes', 'resolved_at', 'updated_at'
+    ])
+    _sync_counter(report.target_type, report.target_id, report.reason, report.description)
+    return get_report_item_detail(report.id)
+
+
+def mark_report_unprocessed(report_id, admin=None):
+    report = Report.objects.filter(id=report_id).first()
+    if not report:
+        raise ValidationError({'report_id': 'Report not found.'})
+    report.status = Report.Status.PENDING
+    report.resolved_by = None
+    report.action_taken = ''
+    report.resolution_notes = ''
+    report.resolved_at = None
+    report.updated_at = timezone.now()
+    report.save(update_fields=[
+        'status', 'resolved_by', 'action_taken', 'resolution_notes', 'resolved_at', 'updated_at'
+    ])
+    _sync_counter(report.target_type, report.target_id, report.reason, report.description)
+    return get_report_item_detail(report.id)
 
 
 def resolve_report_case(target_type, target_id, action, notes='', admin=None):

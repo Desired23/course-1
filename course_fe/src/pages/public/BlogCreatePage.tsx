@@ -37,6 +37,7 @@ export function BlogCreatePage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [uploadingEditorImage, setUploadingEditorImage] = useState(false)
 
   useEffect(() => {
     getActiveCategories().then((r) => setCategories(r.results)).catch((e) => toast.error(getErrorMessage(e, 'Không thể tải danh mục.')))
@@ -108,6 +109,7 @@ export function BlogCreatePage() {
   const removeTag = (tag: string) => setTags((prev) => prev.filter((t) => t !== tag))
 
   const handleSave = async (publishStatus: 'draft' | 'published') => {
+    if (uploadingEditorImage) return
     if (!title.trim()) {
       toast.error('Vui lòng nhập tiêu đề bài viết')
       return
@@ -172,7 +174,7 @@ export function BlogCreatePage() {
               variant="outline"
               size="sm"
               onClick={() => handleSave('draft')}
-              disabled={saving || publishing}
+              disabled={saving || publishing || uploadingEditorImage}
             >
               <Save className="mr-2 h-4 w-4" />
               {saving ? 'Đang lưu...' : isEditing ? 'Cập nhật nháp' : 'Lưu nháp'}
@@ -180,7 +182,7 @@ export function BlogCreatePage() {
             <Button
               size="sm"
               onClick={() => handleSave('published')}
-              disabled={saving || publishing}
+              disabled={saving || publishing || uploadingEditorImage}
             >
               <Send className="mr-2 h-4 w-4" />
               {publishing ? 'Đang lưu...' : isEditing ? 'Cập nhật bài viết' : 'Gửi duyệt'}
@@ -287,6 +289,7 @@ export function BlogCreatePage() {
               onChange={setContent}
               placeholder="Bắt đầu viết bài của bạn tại đây... Sử dụng thanh công cụ phía trên để định dạng văn bản, thêm ảnh, liên kết và nhiều hơn nữa."
               minHeight="500px"
+              onUploadingChange={setUploadingEditorImage}
             />
           </div>
 
@@ -401,7 +404,7 @@ export function BlogCreatePage() {
                 variant="outline"
                 className="flex-1"
                 onClick={() => handleSave('draft')}
-                disabled={saving || publishing}
+                disabled={saving || publishing || uploadingEditorImage}
               >
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? 'Đang lưu...' : isEditing ? 'Cập nhật nháp' : 'Lưu nháp'}
@@ -409,7 +412,7 @@ export function BlogCreatePage() {
               <Button
                 className="flex-1"
                 onClick={() => handleSave('published')}
-                disabled={saving || publishing}
+                disabled={saving || publishing || uploadingEditorImage}
               >
                 <Send className="mr-2 h-4 w-4" />
                 {publishing ? 'Đang lưu...' : isEditing ? 'Cập nhật bài viết' : 'Gửi duyệt'}

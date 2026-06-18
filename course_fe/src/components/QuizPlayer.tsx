@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Progress } from './ui/progress'
-import { RadioGroup, RadioGroupItem } from './ui/radio-group'
-import { Label } from './ui/label'
-import { Checkbox } from './ui/checkbox'
-import { Alert, AlertDescription } from './ui/alert'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Checkbox,
+  Label,
+  Progress,
+  RadioGroup,
+  RadioGroupItem,
+} from './AntdCompat'
 import {
   CheckCircle2,
   XCircle,

@@ -19,7 +19,27 @@ from utils.pagination import paginate_queryset, StandardPagination
 from django.conf import settings
 import jwt
 from users.models import User
+from users.token_utils import is_token_version_current
 from utils.list_params import get_search_param
+
+
+def _get_optional_active_user(request):
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        if payload.get("token_type") == "refresh":
+            return None
+        user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
+        if user.is_deleted or user.status != User.StatusChoices.ACTIVE:
+            return None
+        if not is_token_version_current(user, payload):
+            return None
+        return user
+    except Exception:
+        return None
 
 
 class CourseStatsView(APIView):
@@ -91,15 +111,7 @@ class CourseListView(APIView):
                 return Response({"message": f"Tham số không hợp lệ: {e}"}, status=status.HTTP_400_BAD_REQUEST)
 
             from utils.roles import is_active_admin
-            requester = None
-            auth_header = request.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                token = auth_header.split(" ", 1)[1]
-                try:
-                    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-                    requester = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
-                except Exception:
-                    requester = None
+            requester = _get_optional_active_user(request)
             is_owner_view = False
             if requester and is_active_instructor(requester):
                 owner_instructor = getattr(requester, 'instructor', None)
@@ -143,15 +155,7 @@ class CourseListView(APIView):
 class CourseDetailView(APIView):
     throttle_scope = 'search'
     def get(self, request, course_id):
-        user = None
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ", 1)[1]
-            try:
-                payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
-                user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
-            except Exception:
-                user = None
+        user = _get_optional_active_user(request)
         course = get_course_by_id(course_id, user=user)
         return Response(course, status=status.HTTP_200_OK)
 

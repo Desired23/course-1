@@ -403,11 +403,11 @@ export function InstructorCreateCoursePage() {
         <div className="flex justify-between mt-8">
           <Button variant="outline" onClick={() => { setDirection(-1); setCurrentStep((s) => Math.max(1, s - 1)) }} disabled={currentStep === 1} size="lg"><ArrowLeft className="w-4 h-4 mr-2" />{t('common.back')}</Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleSubmit('draft')} size="lg" disabled={isSaving}><Save className="w-4 h-4 mr-2" />{isSaving ? t('instructor_create_course_page.actions.saving') : t('instructor_create_course_page.actions.save_draft')}</Button>
+            <Button variant="outline" onClick={() => handleSubmit('draft')} size="lg" disabled={isSaving || isUploadingThumbnail}><Save className="w-4 h-4 mr-2" />{isSaving ? t('instructor_create_course_page.actions.saving') : t('instructor_create_course_page.actions.save_draft')}</Button>
             {currentStep < totalSteps ? (
               <Button onClick={() => { if (!validateCurrentStep()) return; setDirection(1); setCurrentStep((s) => Math.min(totalSteps, s + 1)) }} className="bg-purple-600 hover:bg-purple-700" size="lg">{t('common.next')}<ArrowRight className="w-4 h-4 ml-2" /></Button>
             ) : (
-              <Button onClick={() => handleSubmit('submit_review')} className="bg-green-600 hover:bg-green-700" size="lg" disabled={isSaving}><Check className="w-4 h-4 mr-2" />{isSaving ? t('instructor_create_course_page.actions.creating') : t('instructor_create_course_page.actions.create_course')}</Button>
+              <Button onClick={() => handleSubmit('submit_review')} className="bg-green-600 hover:bg-green-700" size="lg" disabled={isSaving || isUploadingThumbnail}><Check className="w-4 h-4 mr-2" />{isSaving ? t('instructor_create_course_page.actions.creating') : t('instructor_create_course_page.actions.create_course')}</Button>
             )}
           </div>
         </div>

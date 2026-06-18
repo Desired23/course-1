@@ -44,36 +44,7 @@ interface ReviewsContextType {
 const ReviewsContext = createContext<ReviewsContextType | undefined>(undefined)
 
 
-const MOCK_REVIEWS: Review[] = [
-  {
-    review_id: 1,
-    course_id: '1',
-    user_id: '1',
-    rating: 5,
-    comment: 'Excellent course! Very comprehensive and well-structured.',
-    review_date: '2024-01-20T10:00:00Z',
-    status: 'approved',
-    likes: 12,
-    report_count: 0,
-    user_name: 'John Doe',
-    helpful_votes: []
-  },
-  {
-    review_id: 2,
-    course_id: '1',
-    user_id: '2',
-    rating: 4,
-    comment: 'Great content, but could use more practical examples.',
-    review_date: '2024-01-22T14:30:00Z',
-    status: 'approved',
-    likes: 8,
-    report_count: 0,
-    user_name: 'Jane Smith',
-    instructor_response: 'Thank you for your feedback! I\'ll add more examples in the next update.',
-    response_date: '2024-01-23T09:00:00Z',
-    helpful_votes: []
-  }
-]
+const MOCK_REVIEWS: Review[] = []
 
 export function ReviewsProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()

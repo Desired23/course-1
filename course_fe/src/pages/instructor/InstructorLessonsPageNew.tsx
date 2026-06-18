@@ -4,16 +4,12 @@ import { DarkModeToggle } from "../../components/DarkModeToggle"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
 import { useRouter } from "../../components/Router"
 import { AnimatePresence } from 'motion/react'
-import { Button } from '../../components/ui/button'
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label, Textarea } from '../../components/AntdCompat'
 import { CourseStatsHorizontal } from '../../components/CourseStatsHorizontal'
 import { LessonEditorMain } from '../../components/LessonEditorMain'
 import { CourseOutlineSidebar } from '../../components/CourseOutlineSidebar'
 import { LessonPreviewModal } from '../../components/LessonPreviewModal'
 import { CheckSquare, ArrowLeft } from 'lucide-react'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog'
-import { Input } from '../../components/ui/input'
-import { Textarea } from '../../components/ui/textarea'
-import { Label } from '../../components/ui/label'
 import { toast } from 'sonner'
 import { getErrorMessage } from '../../lib/apiError'
 import { formatLessonDurationInput } from '../../utils/lessonDuration'

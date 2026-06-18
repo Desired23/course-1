@@ -1,13 +1,16 @@
 import {
+  Badge,
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from './AntdCompat'
 import {
   Monitor,
   Smartphone,
@@ -34,7 +37,7 @@ import {
 } from 'lucide-react'
 import { VideoPlayerPreview } from './VideoPlayerPreview'
 import { QuizPreview } from './QuizPreview'
-import { cn } from './ui/utils'
+import { cn } from './AntdCompat'
 import { useState, useEffect, useRef } from 'react'
 import { CommentItem } from './CommentItem'
 import { useTranslation } from 'react-i18next'

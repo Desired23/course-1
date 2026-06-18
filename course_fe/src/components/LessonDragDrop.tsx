@@ -2,8 +2,7 @@ import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
 import { useTranslation } from 'react-i18next'
 import { GripVertical, Play, FileText, HelpCircle, Code, Clock, Edit3, Eye, Trash2, Captions, RefreshCw, Loader2 } from 'lucide-react'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
+import { Badge, Button } from './AntdCompat'
 import { confirmDialog } from '../utils/confirmDialog'
 
 interface Lesson {

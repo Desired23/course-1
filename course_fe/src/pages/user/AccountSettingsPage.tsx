@@ -267,6 +267,7 @@ export function AccountSettingsPage() {
 
 
   const handleProfileUpdate = async () => {
+    if (isUploadingAvatar) return
     if (!validateProfile()) {
       toast.error(t('account_settings.fix_validation_errors'))
       return
@@ -511,7 +512,7 @@ export function AccountSettingsPage() {
               </Alert>
             )}
 
-            <Button onClick={handleProfileUpdate} disabled={isSaving}>
+            <Button onClick={handleProfileUpdate} disabled={isSaving || isUploadingAvatar}>
               {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
               {isSaving ? t('account_settings.saving') : t('account_settings.save_changes')}
             </Button>

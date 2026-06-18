@@ -3,20 +3,20 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from courses.models import Course
+from enrollments.models import Enrollment
 from reviews.models import Review
-from utils.test_helpers import make_user
+from utils.test_helpers import auth_client, make_user
 
 
 class HomepageReviewListViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.course = Course.objects.create(title="Django Basics", status=Course.Status.PUBLISHED)
-        self.user = make_user("student", username="review_student")
 
     def _review(self, **kwargs):
         defaults = {
             "course": self.course,
-            "user": self.user,
+            "user": make_user("student", username=f"review_student_{Review.objects.count() + 1}"),
             "rating": 5,
             "comment": "Great course",
             "status": Review.StatusChoices.APPROVED,
@@ -44,3 +44,87 @@ class HomepageReviewListViewTests(TestCase):
         response = self.client.get("/api/reviews/homepage/", {"limit": "10"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual([item["review_id"] for item in response.data], [visible.id])
+
+
+class ReviewWriteFlowTests(TestCase):
+    def setUp(self):
+        self.instructor_user = make_user("instructor", username="review_instructor")
+        self.student = make_user("student", username="review_owner")
+        self.course = Course.objects.create(
+            title="Django Basics",
+            status=Course.Status.PUBLISHED,
+            instructor=self.instructor_user.instructor,
+        )
+        Enrollment.objects.create(
+            user=self.student,
+            course=self.course,
+            status=Enrollment.Status.Active,
+            progress=75,
+        )
+
+    def test_second_review_submission_updates_existing_review(self):
+        client = auth_client(self.student)
+
+        first = client.post(
+            "/api/reviews/create/",
+            {"course": self.course.id, "rating": 5, "comment": "Good"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 201, first.content)
+
+        second = client.post(
+            "/api/reviews/create/",
+            {"course": self.course.id, "rating": 2, "comment": "Updated"},
+            format="json",
+        )
+        self.assertEqual(second.status_code, 201, second.content)
+        self.assertEqual(Review.objects.filter(user=self.student, course=self.course, is_deleted=False).count(), 1)
+
+        review = Review.objects.get(user=self.student, course=self.course, is_deleted=False)
+        self.assertEqual(review.rating, 2)
+        self.assertEqual(review.comment, "Updated")
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.total_reviews, 1)
+        self.assertEqual(str(self.course.rating), "2.00")
+
+    def test_student_cannot_set_instructor_response_on_own_review(self):
+        review = Review.objects.create(
+            course=self.course,
+            user=self.student,
+            rating=4,
+            comment="Original",
+            status=Review.StatusChoices.APPROVED,
+        )
+        client = auth_client(self.student)
+
+        response = client.patch(
+            f"/api/reviews/update/{review.id}/",
+            {"comment": "Edited", "instructor_response": "Fake reply"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        review.refresh_from_db()
+        self.assertEqual(review.comment, "Edited")
+        self.assertIsNone(review.instructor_response)
+
+    def test_course_instructor_can_add_instructor_response(self):
+        review = Review.objects.create(
+            course=self.course,
+            user=self.student,
+            rating=4,
+            comment="Helpful",
+            status=Review.StatusChoices.APPROVED,
+        )
+        client = auth_client(self.instructor_user)
+
+        response = client.patch(
+            f"/api/reviews/update/{review.id}/",
+            {"instructor_response": "Thanks for learning and sharing feedback."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        review.refresh_from_db()
+        self.assertEqual(review.instructor_response, "Thanks for learning and sharing feedback.")
+        self.assertIsNotNone(review.response_at)

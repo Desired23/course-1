@@ -127,6 +127,8 @@ def create_course(data):
     try:
         payload = data.copy()
         payload.pop('duration', None)
+        payload.pop('status', None)
+        payload['status'] = Course.Status.DRAFT
         serializer = CourseSerializer(data=payload)
         if serializer.is_valid():
             course = serializer.save()

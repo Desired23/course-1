@@ -65,6 +65,9 @@ export interface AppliedPromotion {
   validationResponse: ValidatePromotionResponse
 }
 
+type CartToastOptions = {
+  suppressSuccessToast?: boolean
+}
 
 function cartItemToCourse(item: CartItem): Course {
   const course = item.course_detail
@@ -98,8 +101,8 @@ interface CartState {
 
   loadCart: (userId: number) => Promise<void>
   syncCartIfStale: (userId: number, maxAgeMs?: number) => Promise<void>
-  addToCart: (course: Course) => void
-  addToCartFromApi: (userId: number, courseId: number, courseMeta: Partial<Course>) => Promise<void>
+  addToCart: (course: Course, options?: CartToastOptions) => void
+  addToCartFromApi: (userId: number, courseId: number, courseMeta: Partial<Course> & CartToastOptions) => Promise<void>
   removeFromCart: (courseId: string) => void
   clearCart: () => void
   mergeCart: (serverItems: Course[]) => void
@@ -162,14 +165,16 @@ export const useCartStore = create<CartState>()(
         },
 
 
-        addToCart: (course) => {
+        addToCart: (course, options) => {
           const state = get()
           if (state.cartItems.find(item => item.id === course.id)) {
             toast.info(i18n.t('cart_store.already_in_cart'))
             return
           }
           set({ cartItems: [...state.cartItems, course] })
-          toast.success(i18n.t('cart_store.added_to_cart'))
+          if (!options?.suppressSuccessToast) {
+            toast.success(i18n.t('cart_store.added_to_cart'))
+          }
         },
 
 
@@ -183,7 +188,9 @@ export const useCartStore = create<CartState>()(
             const created = await addToCartApi({ user: userId, course: courseId })
             const newCourse = cartItemToCourse(created)
             set({ cartItems: [...get().cartItems, newCourse], lastSyncedAt: Date.now(), _synced: true })
-            toast.success(i18n.t('cart_store.added_to_cart'))
+            if (!courseMeta.suppressSuccessToast) {
+              toast.success(i18n.t('cart_store.added_to_cart'))
+            }
           } catch {
             toast.error(i18n.t('cart_store.add_to_cart_failed'))
           }

@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { Card } from './ui/card'
-import { Badge } from './ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import {
+  Badge,
+  Button,
+  Card,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from './AntdCompat'
 import { Loader2, Plus, Trash2, GripVertical, CheckCircle, Circle, HelpCircle, Edit2, X, Save, Code2 } from 'lucide-react'
-import { cn } from './ui/utils'
+import { cn } from './AntdCompat'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import {
@@ -112,14 +118,17 @@ function getQuestionTypeLabel(type: QuizQuestion['type'], t: (key: string) => st
 
 export function QuizTab({ lesson, onUpdate }: QuizTabProps) {
   const { t } = useTranslation()
-  const [quizData, setQuizData] = useState<QuizData>(
-    lesson.quizData || {
+  const [quizData, setQuizData] = useState<QuizData>(() => {
+    const base = {
       title: lesson.title,
       description: '',
       passingScore: 70,
       questions: [],
     }
-  )
+    return lesson.quizData
+      ? { ...base, ...lesson.quizData, questions: lesson.quizData.questions ?? [] }
+      : base
+  })
   const [isLoading, setIsLoading] = useState(false)
   const [isSavingQuestion, setIsSavingQuestion] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null)

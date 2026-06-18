@@ -1,8 +1,14 @@
-import { Button } from './ui/button'
-import { Card } from './ui/card'
-import { Input } from './ui/input'
-import { Textarea } from './ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import {
+  Button,
+  Card,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Textarea,
+} from './AntdCompat'
 import { Plus, Save } from 'lucide-react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'

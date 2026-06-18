@@ -73,6 +73,21 @@ class InstructorCourseStatusTests(TestCase):
             published_date=timezone.now(),
         )
 
+    def test_created_course_ignores_pending_status_and_stays_draft(self):
+        response = self.client.post(
+            "/api/courses/create",
+            {
+                "title": "New Instructor Course",
+                "status": Course.Status.PENDING,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.content)
+        created = Course.objects.get(id=response.data["id"])
+        self.assertEqual(created.status, Course.Status.DRAFT)
+        self.assertEqual(response.data["status"], Course.Status.DRAFT)
+
     def test_instructor_can_archive_course_with_active_student_access(self):
         # Plan 1: archive = ngừng bán nhưng học viên cũ vẫn xem; cho phép archive
         # ngay cả khi có học viên đang học.

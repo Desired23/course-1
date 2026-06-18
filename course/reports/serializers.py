@@ -14,6 +14,7 @@ class CreateReportSerializer(serializers.Serializer):
 
 class ReportCaseSerializer(serializers.Serializer):
     id = serializers.CharField()
+    report_id = serializers.IntegerField()
     target_type = serializers.ChoiceField(choices=Report.TargetType.choices)
     target_id = serializers.IntegerField()
     report_count = serializers.IntegerField()
@@ -22,10 +23,25 @@ class ReportCaseSerializer(serializers.Serializer):
     title = serializers.CharField(allow_blank=True, allow_null=True)
     owner_name = serializers.CharField(allow_blank=True, allow_null=True)
     snippet = serializers.CharField(allow_blank=True, allow_null=True)
-    top_reason = serializers.CharField(allow_blank=True, allow_null=True)
-    reason_breakdown = serializers.DictField(child=serializers.IntegerField())
-    last_reported_at = serializers.DateTimeField(allow_null=True)
+    reason = serializers.CharField()
+    reason_label = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    metadata = serializers.JSONField(required=False, default=dict)
+    attachments = serializers.ListField(required=False, default=list)
+    reporter_name = serializers.CharField(allow_blank=True, allow_null=True)
+    reporter_email = serializers.CharField(allow_blank=True, allow_null=True)
+    reported_at = serializers.DateTimeField()
+    processed_at = serializers.DateTimeField(allow_null=True)
+    processed_by_name = serializers.CharField(allow_blank=True, allow_null=True)
     copyright_case_id = serializers.IntegerField(allow_null=True, required=False)
+    moderation_url = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+
+
+class ReportItemDetailSerializer(ReportCaseSerializer):
+    created_at = serializers.DateTimeField()
+    resolved_at = serializers.DateTimeField(allow_null=True)
+    action_taken = serializers.CharField(allow_blank=True)
+    resolution_notes = serializers.CharField(allow_blank=True)
 
 
 class IndividualReportSerializer(serializers.Serializer):

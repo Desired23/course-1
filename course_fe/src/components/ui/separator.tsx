@@ -7,7 +7,7 @@ const Separator = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement> & { orientation?: "horizontal" | "vertical"; decorative?: boolean }
 >(({ className, orientation = "horizontal", decorative: _decorative, ...props }, _ref) => (
   <Divider
-    type={orientation === "vertical" ? "vertical" : "horizontal"}
+    orientation={orientation === "vertical" ? "vertical" : "horizontal"}
     className={cn(orientation === "horizontal" ? "my-1" : "mx-1 h-full", className)}
     {...(props as any)}
   />

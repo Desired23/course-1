@@ -1,3 +1,4 @@
+import { Dropdown } from "antd"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "../contexts/AuthContext"
 import { useNotifications } from "../contexts/NotificationContext"
@@ -83,16 +84,11 @@ export function InstructorHeader({ title, subtitle, className }: InstructorHeade
             />
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {notifState.unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
+          <Dropdown
+            trigger={["click"]}
+            placement="bottomRight"
+            popupRender={() => (
+              <div className="w-80 bg-popover text-popover-foreground rounded-md border shadow-md overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b">
                 <h4 className="font-semibold text-sm">{t('instructor_header.notifications')}</h4>
                 {notifState.unreadCount > 0 && (
@@ -170,8 +166,16 @@ export function InstructorHeader({ title, subtitle, className }: InstructorHeade
                   ))
                 )}
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </div>
+            )}
+          >
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              {notifState.unreadCount > 0 && (
+                <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
+              )}
+            </Button>
+          </Dropdown>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

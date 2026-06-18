@@ -1,18 +1,21 @@
 import { useRef } from 'react'
 import { useDrag, useDrop } from 'react-dnd'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeader, CardContent, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { GripVertical, Plus, Edit3, Trash2, MoreVertical, Copy, MoveUp, MoveDown } from 'lucide-react'
-import { DraggableLessonCard } from './LessonDragDrop'
 import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './ui/dropdown-menu'
-import { Badge } from './ui/badge'
+} from './AntdCompat'
+import { GripVertical, Plus, Edit3, Trash2, MoreVertical, Copy, MoveUp, MoveDown } from 'lucide-react'
+import { DraggableLessonCard } from './LessonDragDrop'
 import { confirmDialog } from '../utils/confirmDialog'
 
 interface Section {
@@ -179,11 +182,6 @@ export function DraggableSectionCard({
                     <Plus className="h-4 w-4 mr-2" />
                     {t('section_drag_drop.actions.add_lesson')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Copy className="h-4 w-4 mr-2" />
-                    {t('section_drag_drop.actions.duplicate_section')}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <MoveUp className="h-4 w-4 mr-2" />
                     {t('section_drag_drop.actions.move_up')}

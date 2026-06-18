@@ -57,6 +57,7 @@ import {
   getAllReviewsByInstructor,
   type Review,
 } from '../../services/review.api'
+import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -86,6 +87,7 @@ export function InstructorPublicProfilePage() {
   const { isFollowing, toggleFollow, getFollowersCount } = useFollow()
   const { user } = useAuth()
   const { openChatWithUser } = useChat()
+  const { isEnrolled, isInSubscription, getProgress } = useOwnedCourses()
 
   const instructorId = params?.instructorId || '1'
   const following = isFollowing(instructorId)
@@ -271,6 +273,9 @@ export function InstructorPublicProfilePage() {
       currency: 'VND' as const,
       showAddToCart: true,
       discountEndDate: hasDiscount ? course.discount_end_date : undefined,
+      isOwned: isEnrolled(course.id),
+      inSubscription: isInSubscription(course.id),
+      progress: getProgress(course.id),
     }
   })
 

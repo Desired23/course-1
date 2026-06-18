@@ -46,6 +46,7 @@ def auth_token(user):
         "email": user.email,
         "user_type": [user.user_type],
         "token_type": "access",
+        "token_version": user.auth_token_version,
         "exp": 9999999999,
         "iat": 1,
     }

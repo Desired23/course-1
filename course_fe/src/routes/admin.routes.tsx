@@ -14,7 +14,6 @@ const PaymentManagementPage = lazy(() => import('../pages/admin/PaymentManagemen
 const AdminDiscountsPage = lazy(() => import('../pages/admin/AdminDiscountsPage').then((module) => ({ default: module.AdminDiscountsPage })))
 const AdminCategoriesPage = lazy(() => import('../pages/admin/AdminCategoriesPage').then((module) => ({ default: module.AdminCategoriesPage })))
 const StatisticsPage = lazy(() => import('../pages/admin/StatisticsPage').then((module) => ({ default: module.StatisticsPage })))
-const PermissionsPage = lazy(() => import('../pages/admin/PermissionsPage').then((module) => ({ default: module.PermissionsPage })))
 const PlatformSettingsPage = lazy(() => import('../pages/admin/PlatformSettingsPage').then((module) => ({ default: module.PlatformSettingsPage })))
 const AdminBlogPostsPage = lazy(() => import('../pages/admin/AdminBlogPostsPage').then((module) => ({ default: module.AdminBlogPostsPage })))
 const AdminQAPage = lazy(() => import('../pages/admin/AdminQAPage').then((module) => ({ default: module.AdminQAPage })))
@@ -53,6 +52,14 @@ function AdminAnalyticsRedirect() {
   return null
 }
 
+function AdminPermissionsRedirect() {
+  const { navigate } = useRouter()
+  useEffect(() => {
+    navigate('/admin/users')
+  }, [navigate])
+  return null
+}
+
 const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin', page: <AdminDashboard /> },
   { path: '/admin/users', page: <AdminUsersPage /> },
@@ -66,7 +73,7 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/analytics', page: <AdminAnalyticsRedirect /> },
   { path: '/admin/categories', page: <AdminCategoriesPage /> },
   { path: '/admin/statistics', page: <StatisticsPage /> },
-  { path: '/admin/permissions', page: <PermissionsPage /> },
+  { path: '/admin/permissions', page: <AdminPermissionsRedirect /> },
   { path: '/admin/settings', page: <PlatformSettingsPage /> },
   { path: '/admin/blog', page: <AdminBlogPostsPage /> },
   { path: '/admin/qa', page: <AdminQAPage /> },

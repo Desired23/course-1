@@ -1,11 +1,19 @@
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Switch } from './ui/switch'
-import { Badge } from './ui/badge'
-import { Card } from './ui/card'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
+import {
+  Badge,
+  Card,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  Textarea,
+} from './AntdCompat'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {

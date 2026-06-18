@@ -3,21 +3,31 @@ import { useRouter } from "../../components/Router"
 import { QuizPlayer, type Quiz, type QuizQuestion } from "../../components/QuizPlayer"
 import { VideoPlayer, type VideoProgressPayload } from "../../components/VideoPlayer"
 import { TranscriptVideoPlayer } from "../../components/TranscriptVideoPlayer"
-import { Button } from "../../components/ui/button"
-import { Card, CardContent } from "../../components/ui/card"
-import { Progress } from "../../components/ui/progress"
-import { Separator } from "../../components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
-import { Textarea } from "../../components/ui/textarea"
-import { Avatar, AvatarFallback } from "../../components/ui/avatar"
-import { Badge } from "../../components/ui/badge"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../../components/ui/sheet"
 import {
+  Avatar,
+  AvatarFallback,
+  Badge,
+  Button,
+  Card,
+  CardContent,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu"
+  Progress,
+  Separator,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+} from "../../components/AntdCompat"
 import { ReportDialog } from "../../components/ReportDialog"
 import { motion, AnimatePresence, useReducedMotion, type Variants } from 'motion/react'
 import {
@@ -1208,8 +1218,12 @@ export function CoursePlayerPage() {
                 <CurriculumSidebar />
               </SheetContent>
             </Sheet>
-            <Progress value={overallProgress} className="w-24 hidden sm:block" />
-            <span className="text-sm text-muted-foreground hidden sm:inline">{t('course_player.progress_complete', { percent: Math.round(overallProgress) })}</span>
+            <div className="hidden shrink-0 items-center gap-2 sm:flex">
+              <Progress value={overallProgress} className="w-20 md:w-24" />
+              <span className="min-w-10 whitespace-nowrap text-right text-sm text-muted-foreground">
+                {Math.round(overallProgress)}%
+              </span>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -1360,7 +1374,7 @@ export function CoursePlayerPage() {
           </div>
 
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8 sm:py-8">
             <Tabs value={activeContentTab} onValueChange={(value) => setActiveContentTab(value as 'overview' | 'notes' | 'comments' | 'resources')} className="h-full flex flex-col">
               <div className="border-b flex-shrink-0">
                 <TabsList className="relative h-12 w-full justify-start overflow-x-auto rounded-none bg-transparent p-1">
@@ -1382,7 +1396,7 @@ export function CoursePlayerPage() {
                   </TabsTrigger>
                 </TabsList>
               </div>
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="flex-1 overflow-y-auto">
                 <TabsContent value="overview" className="mt-0">
                   <div className="space-y-6">
                     <div>

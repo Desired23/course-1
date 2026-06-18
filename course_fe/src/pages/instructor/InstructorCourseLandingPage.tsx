@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { useTranslation } from 'react-i18next'
-import { Progress as AntProgress } from 'antd'
+import { Input as AntInput, InputNumber, Progress as AntProgress, Select as AntSelect, Tag as AntTag } from 'antd'
 import { Button } from "../../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
-import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { Textarea } from "../../components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Badge } from "../../components/ui/badge"
 import { Progress } from "../../components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
@@ -29,7 +25,24 @@ type Data = {
 type CourseStatus = 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
 
 const initialData: Data = { title: '', subtitle: '', description: '', category: '', subcategory: '', language: 'Vietnamese', level: '', learningObjectives: [], requirements: [], targetAudience: [], courseImagePreview: null, promotionalVideoPreview: null, price: '', currency: 'VND', tags: [] }
-const getId = (value: unknown) => typeof value === 'number' ? String(value) : typeof value === 'object' && value && typeof (value as Record<string, unknown>).id === 'number' ? String((value as Record<string, number>).id) : ''
+const getId = (value: unknown) => {
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'string') return value
+  if (typeof value !== 'object' || !value) return ''
+  const record = value as Record<string, unknown>
+  if (typeof record.id === 'number') return String(record.id)
+  if (typeof record.category_id === 'number') return String(record.category_id)
+  return ''
+}
+const normalizeTextArray = (value: unknown) => {
+  if (Array.isArray(value)) return value.map(String).filter(Boolean)
+  if (typeof value === 'string') return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+  return []
+}
+const normalizePrice = (value: unknown) => {
+  const numericValue = typeof value === 'number' ? value : parseFloat(String(value || ''))
+  return Number.isFinite(numericValue) && numericValue > 0 ? String(numericValue) : ''
+}
 const normalizeLanguage = (value?: string | null) => ['english', 'japanese', 'chinese'].includes(value?.trim().toLowerCase() || '') ? value!.trim() : 'Vietnamese'
 const levelOptions = [
   { value: 'all_levels', label: 'All levels' },
@@ -65,6 +78,7 @@ export function InstructorCourseLandingPage() {
   const { user } = useAuth()
   const { t } = useTranslation()
   const courseId = params?.courseId || 'new'
+  const isCreatingCourse = courseId === 'new'
   const [data, setData] = useState<Data>(initialData)
   const [activeTab, setActiveTab] = useState('basic')
   const [saving, setSaving] = useState(false)
@@ -105,10 +119,10 @@ export function InstructorCourseLandingPage() {
           setData({
             title: course.title || '', subtitle: course.shortdescription || '', description: course.description || '',
             category: getId(course.category), subcategory: getId(course.subcategory), language: normalizeLanguage(course.language), level: course.level || '',
-            learningObjectives: (course.learning_objectives || []).map((text: string, i: number) => ({ id: i + 1, text })),
-            requirements: course.requirements ? course.requirements.split('\n').filter(Boolean).map((text: string, i: number) => ({ id: i + 1, text })) : [],
-            targetAudience: (course.target_audience || []).map((text: string, i: number) => ({ id: i + 1, text })),
-            courseImagePreview: course.thumbnail || null, promotionalVideoPreview: course.promotional_video || null, price: course.price ? String(parseFloat(course.price)) : '', currency: 'VND', tags: course.tags || [],
+            learningObjectives: normalizeTextArray(course.learning_objectives).map((text, i) => ({ id: i + 1, text })),
+            requirements: normalizeTextArray(course.requirements).map((text, i) => ({ id: i + 1, text })),
+            targetAudience: normalizeTextArray(course.target_audience).map((text, i) => ({ id: i + 1, text })),
+            courseImagePreview: course.thumbnail || null, promotionalVideoPreview: course.promotional_video || null, price: normalizePrice(course.price), currency: 'VND', tags: normalizeTextArray(course.tags),
           })
         }
       } catch (err) {
@@ -167,8 +181,8 @@ export function InstructorCourseLandingPage() {
     try {
       setSaving(true)
       const nextStatus =
-        courseId === 'new'
-          ? status === 'submit_review' ? 'pending' : 'draft'
+        isCreatingCourse
+          ? 'draft'
           : currentCourseStatus === 'draft' || currentCourseStatus === 'rejected'
             ? status === 'submit_review' ? 'pending' : 'draft'
             : currentCourseStatus
@@ -177,7 +191,7 @@ export function InstructorCourseLandingPage() {
         level: data.level || 'all_levels', language: data.language || 'Vietnamese', price: data.price ? Number(data.price) : 0, thumbnail: data.courseImagePreview || null, promotional_video: data.promotionalVideoPreview || null,
         learning_objectives: data.learningObjectives.map((x) => x.text), requirements: data.requirements.map((x) => x.text).join('\n'), target_audience: data.targetAudience.map((x) => x.text), tags: data.tags, status: nextStatus,
       }
-      if (courseId === 'new') { if (instructorId) payload.instructor = instructorId; await createCourse(payload) } else { await updateCourse(Number(courseId), payload) }
+      if (isCreatingCourse) { if (instructorId) payload.instructor = instructorId; await createCourse(payload) } else { await updateCourse(Number(courseId), payload) }
       setCurrentCourseStatus(nextStatus as CourseStatus)
       const toastKey = nextStatus === 'pending'
         ? 'instructor_course_landing_page.toasts.submitted_review'
@@ -213,7 +227,7 @@ export function InstructorCourseLandingPage() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col items-end"><span className="text-sm text-muted-foreground">{t('instructor_course_landing_page.completion_label')}</span><div className="flex items-center gap-2"><Progress value={completion} className="w-24 h-2" /><span className="text-sm">{completion}%</span></div></div>
             <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
-            <Button onClick={() => save('submit_review')} disabled={saving || isUploadingMedia}><Save className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.save_publish')}</Button>
+            <Button onClick={() => save(isCreatingCourse ? 'draft' : 'submit_review')} disabled={saving || isUploadingMedia}><Save className="h-4 w-4 mr-2" />{isCreatingCourse ? t('instructor_course_landing_page.save_draft') : t('instructor_course_landing_page.save_publish')}</Button>
           </div>
         </div>
       </motion.div>
@@ -248,22 +262,22 @@ export function InstructorCourseLandingPage() {
 
         <TabsContent value="basic">
           <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.basic.title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.basic.description')}</CardDescription></CardHeader><CardContent className="space-y-4">
-            <div><Label htmlFor="title">{t('instructor_course_landing_page.basic.course_title')}</Label><Input id="title" placeholder={t('instructor_course_landing_page.basic.course_title_placeholder')} value={data.title} onChange={(e) => setData({ ...data, title: e.target.value })} maxLength={60} /><p className="text-xs text-muted-foreground mt-1">{t('instructor_course_landing_page.basic.title_hint', { count: data.title.length })}</p></div>
-            <div><Label htmlFor="subtitle">{t('instructor_course_landing_page.basic.subtitle')}</Label><Input id="subtitle" placeholder={t('instructor_course_landing_page.basic.subtitle_placeholder')} value={data.subtitle} onChange={(e) => setData({ ...data, subtitle: e.target.value })} maxLength={120} /><p className="text-xs text-muted-foreground mt-1">{t('instructor_course_landing_page.basic.subtitle_hint', { count: data.subtitle.length })}</p></div>
-            <div><Label htmlFor="description">{t('instructor_course_landing_page.basic.course_description')}</Label><Textarea id="description" placeholder={t('instructor_course_landing_page.basic.course_description_placeholder')} value={data.description} onChange={(e) => setData({ ...data, description: e.target.value })} rows={8} /><p className="text-xs text-muted-foreground mt-1">{t('instructor_course_landing_page.basic.description_hint', { count: data.description.length })}</p></div>
+            <div><label htmlFor="title" className="text-sm font-medium">{t('instructor_course_landing_page.basic.course_title')}</label><AntInput id="title" className="mt-2" placeholder={t('instructor_course_landing_page.basic.course_title_placeholder')} value={data.title} onChange={(e) => setData({ ...data, title: e.target.value })} maxLength={60} showCount /><p className="text-xs text-muted-foreground mt-1">{t('instructor_course_landing_page.basic.title_hint', { count: data.title.length })}</p></div>
+            <div><label htmlFor="subtitle" className="text-sm font-medium">{t('instructor_course_landing_page.basic.subtitle')}</label><AntInput id="subtitle" className="mt-2" placeholder={t('instructor_course_landing_page.basic.subtitle_placeholder')} value={data.subtitle} onChange={(e) => setData({ ...data, subtitle: e.target.value })} maxLength={120} showCount /><p className="text-xs text-muted-foreground mt-1">{t('instructor_course_landing_page.basic.subtitle_hint', { count: data.subtitle.length })}</p></div>
+            <div><label htmlFor="description" className="text-sm font-medium">{t('instructor_course_landing_page.basic.course_description')}</label><AntInput.TextArea id="description" className="mt-2" placeholder={t('instructor_course_landing_page.basic.course_description_placeholder')} value={data.description} onChange={(e) => setData({ ...data, description: e.target.value })} rows={8} showCount /><p className="text-xs text-muted-foreground mt-1">{t('instructor_course_landing_page.basic.description_hint', { count: data.description.length })}</p></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><Label>{t('instructor_course_landing_page.basic.category')}</Label><Select value={data.category} onValueChange={(value) => setData({ ...data, category: value, subcategory: '' })}><SelectTrigger><SelectValue placeholder={t('instructor_course_landing_page.basic.category_placeholder')} /></SelectTrigger><SelectContent>{categories.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-              <div><Label>{t('instructor_course_landing_page.basic.subcategory')}</Label><Select value={data.subcategory} onValueChange={(value) => setData({ ...data, subcategory: value })} disabled={!data.category}><SelectTrigger><SelectValue placeholder={t('instructor_course_landing_page.basic.subcategory_placeholder')} /></SelectTrigger><SelectContent>{subcategories.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-              <div><Label>{t('instructor_course_landing_page.basic.level')}</Label><Select value={data.level} onValueChange={(value) => setData({ ...data, level: value })}><SelectTrigger><SelectValue placeholder={t('instructor_course_landing_page.basic.level_placeholder')} /></SelectTrigger><SelectContent>{levelOptions.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent></Select></div>
-              <div><Label>{t('instructor_course_landing_page.basic.language')}</Label><Select value={data.language} onValueChange={(value) => setData({ ...data, language: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Vietnamese">{t('instructor_course_landing_page.languages.vietnamese')}</SelectItem><SelectItem value="English">{t('instructor_course_landing_page.languages.english')}</SelectItem><SelectItem value="Japanese">{t('instructor_course_landing_page.languages.japanese')}</SelectItem><SelectItem value="Chinese">{t('instructor_course_landing_page.languages.chinese')}</SelectItem></SelectContent></Select></div>
+              <div><label className="text-sm font-medium">{t('instructor_course_landing_page.basic.category')}</label><AntSelect className="mt-2 w-full" value={data.category || undefined} placeholder={t('instructor_course_landing_page.basic.category_placeholder')} onChange={(value) => setData({ ...data, category: value, subcategory: '' })} options={categories.map((c) => ({ value: String(c.id), label: c.name }))} /></div>
+              <div><label className="text-sm font-medium">{t('instructor_course_landing_page.basic.subcategory')}</label><AntSelect className="mt-2 w-full" value={data.subcategory || undefined} placeholder={t('instructor_course_landing_page.basic.subcategory_placeholder')} onChange={(value) => setData({ ...data, subcategory: value })} disabled={!data.category} options={subcategories.map((c) => ({ value: String(c.id), label: c.name }))} /></div>
+              <div><label className="text-sm font-medium">{t('instructor_course_landing_page.basic.level')}</label><AntSelect className="mt-2 w-full" value={data.level || undefined} placeholder={t('instructor_course_landing_page.basic.level_placeholder')} onChange={(value) => setData({ ...data, level: value })} options={levelOptions} /></div>
+              <div><label className="text-sm font-medium">{t('instructor_course_landing_page.basic.language')}</label><AntSelect className="mt-2 w-full" value={data.language || undefined} onChange={(value) => setData({ ...data, language: value })} options={[{ value: 'Vietnamese', label: t('instructor_course_landing_page.languages.vietnamese') }, { value: 'English', label: t('instructor_course_landing_page.languages.english') }, { value: 'Japanese', label: t('instructor_course_landing_page.languages.japanese') }, { value: 'Chinese', label: t('instructor_course_landing_page.languages.chinese') }]} /></div>
             </div>
           </CardContent></Card>
         </TabsContent>
 
         <TabsContent value="target" className="space-y-6">
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.objectives_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.objectives_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.target.objectives_placeholder')} value={newObjective} onChange={(e) => setNewObjective(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('learningObjectives', newObjective, setNewObjective, 'instructor_course_landing_page.toasts.objective_required')} /><Button onClick={() => addItem('learningObjectives', newObjective, setNewObjective, 'instructor_course_landing_page.toasts.objective_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.learningObjectives, (id) => removeItem('learningObjectives', id), true)}</CardContent></Card>
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.requirements_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.requirements_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.target.requirements_placeholder')} value={newRequirement} onChange={(e) => setNewRequirement(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('requirements', newRequirement, setNewRequirement, 'instructor_course_landing_page.toasts.requirement_required')} /><Button onClick={() => addItem('requirements', newRequirement, setNewRequirement, 'instructor_course_landing_page.toasts.requirement_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.requirements, (id) => removeItem('requirements', id))}</CardContent></Card>
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.audience_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.audience_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.target.audience_placeholder')} value={newAudience} onChange={(e) => setNewAudience(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addItem('targetAudience', newAudience, setNewAudience, 'instructor_course_landing_page.toasts.audience_required')} /><Button onClick={() => addItem('targetAudience', newAudience, setNewAudience, 'instructor_course_landing_page.toasts.audience_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.targetAudience, (id) => removeItem('targetAudience', id))}</CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.objectives_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.objectives_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><AntInput placeholder={t('instructor_course_landing_page.target.objectives_placeholder')} value={newObjective} onChange={(e) => setNewObjective(e.target.value)} onPressEnter={() => addItem('learningObjectives', newObjective, setNewObjective, 'instructor_course_landing_page.toasts.objective_required')} /><Button onClick={() => addItem('learningObjectives', newObjective, setNewObjective, 'instructor_course_landing_page.toasts.objective_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.learningObjectives, (id) => removeItem('learningObjectives', id), true)}</CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.requirements_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.requirements_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><AntInput placeholder={t('instructor_course_landing_page.target.requirements_placeholder')} value={newRequirement} onChange={(e) => setNewRequirement(e.target.value)} onPressEnter={() => addItem('requirements', newRequirement, setNewRequirement, 'instructor_course_landing_page.toasts.requirement_required')} /><Button onClick={() => addItem('requirements', newRequirement, setNewRequirement, 'instructor_course_landing_page.toasts.requirement_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.requirements, (id) => removeItem('requirements', id))}</CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.target.audience_title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.target.audience_description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><AntInput placeholder={t('instructor_course_landing_page.target.audience_placeholder')} value={newAudience} onChange={(e) => setNewAudience(e.target.value)} onPressEnter={() => addItem('targetAudience', newAudience, setNewAudience, 'instructor_course_landing_page.toasts.audience_required')} /><Button onClick={() => addItem('targetAudience', newAudience, setNewAudience, 'instructor_course_landing_page.toasts.audience_required')}><Plus className="h-4 w-4" /></Button></div>{renderItemList(data.targetAudience, (id) => removeItem('targetAudience', id))}</CardContent></Card>
         </TabsContent>
 
         <TabsContent value="media" className="space-y-6">
@@ -272,8 +286,8 @@ export function InstructorCourseLandingPage() {
         </TabsContent>
 
         <TabsContent value="pricing" className="space-y-6">
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.pricing.title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.pricing.description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="col-span-2"><Label>{t('instructor_course_landing_page.pricing.price_label')}</Label><Input type="number" placeholder="499000" value={data.price} onChange={(e) => setData({ ...data, price: e.target.value })} /></div><div><Label>{t('instructor_course_landing_page.pricing.currency_label')}</Label><Select value={data.currency} onValueChange={(value) => setData({ ...data, currency: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="VND">{t('instructor_course_landing_page.pricing.vnd')}</SelectItem></SelectContent></Select></div></div><div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200"><p className="text-sm mb-2"><strong>{t('instructor_course_landing_page.pricing.suggestions_title')}</strong></p><ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground"><li>{t('instructor_course_landing_page.pricing.short_course')}</li><li>{t('instructor_course_landing_page.pricing.medium_course')}</li><li>{t('instructor_course_landing_page.pricing.long_course')}</li></ul></div></CardContent></Card>
-          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.tags.title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.tags.description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><Input placeholder={t('instructor_course_landing_page.tags.placeholder')} value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && addTag()} /><Button onClick={addTag} disabled={data.tags.length >= 10}><Plus className="h-4 w-4" /></Button></div>{data.tags.length > 0 && <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <Badge key={tag} variant="secondary" className="gap-2">{tag}<X className="w-3 h-3 cursor-pointer" onClick={() => setData((prev) => ({ ...prev, tags: prev.tags.filter((item) => item !== tag) }))} /></Badge>)}</div>}<p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.tags.count', { count: data.tags.length })}</p></CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.pricing.title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.pricing.description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-1 md:grid-cols-3 gap-4"><div className="col-span-2"><label className="text-sm font-medium">{t('instructor_course_landing_page.pricing.price_label')}</label><InputNumber className="mt-2 w-full" min={0} step={1000} placeholder="499000" value={data.price ? Number(data.price) : null} onChange={(value) => setData({ ...data, price: value === null ? '' : String(value) })} /></div><div><label className="text-sm font-medium">{t('instructor_course_landing_page.pricing.currency_label')}</label><AntSelect className="mt-2 w-full" value={data.currency} onChange={(value) => setData({ ...data, currency: value })} options={[{ value: 'VND', label: t('instructor_course_landing_page.pricing.vnd') }]} /></div></div><div className="p-4 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200"><p className="text-sm mb-2"><strong>{t('instructor_course_landing_page.pricing.suggestions_title')}</strong></p><ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground"><li>{t('instructor_course_landing_page.pricing.short_course')}</li><li>{t('instructor_course_landing_page.pricing.medium_course')}</li><li>{t('instructor_course_landing_page.pricing.long_course')}</li></ul></div></CardContent></Card>
+          <Card><CardHeader><CardTitle>{t('instructor_course_landing_page.tags.title')}</CardTitle><CardDescription>{t('instructor_course_landing_page.tags.description')}</CardDescription></CardHeader><CardContent className="space-y-4"><div className="flex gap-2"><AntInput placeholder={t('instructor_course_landing_page.tags.placeholder')} value={newTag} onChange={(e) => setNewTag(e.target.value)} onPressEnter={addTag} /><Button onClick={addTag} disabled={data.tags.length >= 10}><Plus className="h-4 w-4" /></Button></div>{data.tags.length > 0 && <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <AntTag key={tag} closable onClose={(event) => { event.preventDefault(); setData((prev) => ({ ...prev, tags: prev.tags.filter((item) => item !== tag) })) }}>{tag}</AntTag>)}</div>}<p className="text-sm text-muted-foreground">{t('instructor_course_landing_page.tags.count', { count: data.tags.length })}</p></CardContent></Card>
         </TabsContent>
       </Tabs>
       </motion.div>
@@ -282,7 +296,9 @@ export function InstructorCourseLandingPage() {
         <Button variant="outline" onClick={() => save('draft')} disabled={saving || isUploadingMedia}>{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_draft')}</Button>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => courseId !== 'new' && window.open(`/course/${courseId}`, '_blank')} disabled={courseId === 'new'}><Eye className="h-4 w-4 mr-2" />{t('instructor_course_landing_page.preview')}</Button>
-          <Button onClick={() => save('submit_review')} disabled={saving || isUploadingMedia}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
+          {!isCreatingCourse && (
+            <Button onClick={() => save('submit_review')} disabled={saving || isUploadingMedia}><Save className="h-4 w-4 mr-2" />{saving ? t('instructor_course_landing_page.saving') : t('instructor_course_landing_page.save_publish')}</Button>
+          )}
         </div>
       </motion.div>
       </motion.div>

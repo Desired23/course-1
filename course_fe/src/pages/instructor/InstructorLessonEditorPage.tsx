@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { useRouter } from '../../components/Router'
 import { useUIStore } from '../../stores'
-import { Button } from '../../components/ui/button'
-import { Switch } from '../../components/ui/switch'
-import { Label } from '../../components/ui/label'
+import { Button, Label, Switch } from '../../components/AntdCompat'
 import {
   Save,
   FileText,
@@ -16,7 +14,7 @@ import {
   CheckCircle2,
   ArrowLeft
 } from 'lucide-react'
-import { cn } from '../../components/ui/utils'
+import { cn } from '../../components/AntdCompat'
 import { toast } from 'sonner'
 import { BasicTab } from '../../components/BasicTab'
 import { ContentTab } from '../../components/ContentTab'

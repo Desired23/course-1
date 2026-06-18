@@ -10,6 +10,23 @@ interface RouterContextType {
 
 export const RouterContext = React.createContext<RouterContextType | null>(null)
 
+function normalizeRoute(route: Route): { route: Route; external: boolean } {
+  if (typeof window === 'undefined') {
+    return { route, external: false }
+  }
+
+  try {
+    const url = new URL(route, window.location.origin)
+    if (url.origin !== window.location.origin) {
+      return { route: url.href, external: true }
+    }
+
+    return { route: `${url.pathname}${url.search}${url.hash}`, external: false }
+  } catch {
+    return { route, external: false }
+  }
+}
+
 
 
 
@@ -66,9 +83,17 @@ export function Router({ children }: { children: React.ReactNode }) {
   )
 
   const navigate = (route: Route, routeParams?: Record<string, string>, queryParams?: Record<string, string>) => {
+    const normalized = normalizeRoute(route)
+    if (normalized.external) {
+      window.location.assign(normalized.route)
+      return
+    }
 
-    let fullUrl = route
-    const routePath = route.split('?')[0]
+    let fullUrl = normalized.route
+    const hashIndex = fullUrl.indexOf('#')
+    const hash = hashIndex >= 0 ? fullUrl.slice(hashIndex) : ''
+    const routeWithoutHash = hashIndex >= 0 ? fullUrl.slice(0, hashIndex) : fullUrl
+    const routePath = routeWithoutHash.split('?')[0]
     if (queryParams && Object.keys(queryParams).length > 0) {
       const searchParams = new URLSearchParams()
       Object.entries(queryParams).forEach(([key, value]) => {
@@ -77,7 +102,7 @@ export function Router({ children }: { children: React.ReactNode }) {
         }
       })
       const qs = searchParams.toString()
-      if (qs) fullUrl = `${route}?${qs}`
+      fullUrl = qs ? `${routePath}?${qs}${hash}` : `${routePath}${hash}`
     }
 
     setCurrentRoute(fullUrl)

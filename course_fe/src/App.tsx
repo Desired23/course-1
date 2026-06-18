@@ -38,7 +38,6 @@ import { AiLearningPathLauncher } from './components/AiLearningPathLauncher'
 import { BottomNav } from './components/BottomNav'
 
 import { AuthModal } from './components/auth/AuthModal'
-import { PromoBar } from './components/PromoBar'
 
 function AppContent() {
   const { currentRoute } = useRouter()
@@ -76,7 +75,6 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
 
-      {!hideHeaderFooter && <PromoBar />}
       {!hideHeaderFooter && <Header />}
 
 

@@ -65,7 +65,7 @@ function mapButtonSize(size?: string) {
   return size
 }
 
-export function Button({ variant, size, type, children, ...props }: any) {
+export const Button = forwardRef<any, any>(function Button({ variant, size, type, children, ...props }, ref) {
   if (props.asChild) {
     const child = React.Children.only(children)
     if (!React.isValidElement(child)) return child
@@ -79,6 +79,7 @@ export function Button({ variant, size, type, children, ...props }: any) {
   return (
     <AntButton
       {...props}
+      ref={ref}
       type={mapButtonType(type, variant) as any}
       htmlType={type === 'button' ? 'button' : props.htmlType}
       size={mapButtonSize(size) as any}
@@ -86,7 +87,7 @@ export function Button({ variant, size, type, children, ...props }: any) {
       {children}
     </AntButton>
   )
-}
+})
 
 export function Badge({ variant, className, children }: any) {
   const color = variant === 'secondary' ? 'default' : undefined
@@ -270,7 +271,7 @@ export function TabsContent(_props: any) {
 }
 
 export function Separator({ className, orientation }: any) {
-  return <Divider type={orientation === 'vertical' ? 'vertical' : 'horizontal'} className={className} />
+  return <Divider orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'} className={className} />
 }
 
 export function Alert({ className, children }: any) {
@@ -343,7 +344,7 @@ export function DropdownMenuItem({ children, onClick, className, disabled }: any
   const ctx = useContext(DropdownMenuContext)
   ctx?.registerItem({
     key: `${ctx.items.length}`,
-    label: children,
+    label: <span className="flex items-center gap-2 whitespace-nowrap">{children}</span>,
     danger: typeof className === 'string' && className.includes('red'),
     disabled,
     onClick,
@@ -442,7 +443,7 @@ export function SheetContent({ side = 'right', className, children }: any) {
       open={!!ctx?.open}
       onClose={() => ctx?.onOpenChange(false)}
       placement={side}
-      width={384}
+      size={384}
       className={className}
       closable={false}
     >

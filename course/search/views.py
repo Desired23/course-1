@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.models import User
+from users.token_utils import is_token_version_current
 
 from .services import get_search_suggestions, track_search_event
 
@@ -23,6 +24,8 @@ def _get_optional_authenticated_user(request):
             return None
         user = User.objects.select_related('instructor', 'admin').get(id=payload["user_id"])
         if user.status != User.StatusChoices.ACTIVE:
+            return None
+        if not is_token_version_current(user, payload):
             return None
         return user
     except Exception:

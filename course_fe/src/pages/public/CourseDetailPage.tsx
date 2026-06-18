@@ -14,7 +14,7 @@ import { getCourseById, getCourses, type CourseDetail, type CourseListItem, pars
 import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
 import { getInitials } from "../../services/instructor.api"
 import { extractRouteParams } from "../../utils/routeHelpers"
-import { getReviewsByCourse, createReview, reportReview, type Review } from "../../services/review.api"
+import { getReviewsByCourse, createReview, updateReview, reportReview, type Review } from "../../services/review.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
 import { useOwnedCourses } from "../../hooks/useOwnedCourses"
 import { createEnrollment } from "../../services/enrollment.api"
@@ -32,7 +32,7 @@ import { motion } from 'motion/react'
 import { listItemTransition } from '../../lib/motion'
 import {
   Star, Users, Clock, Globe, Languages, Play, FileText,
-  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen, Flag, Tag
+  Check, Zap, Crown, Lock, Loader2, MessageSquare, BookOpen, Flag, Tag, Edit2
 } from 'lucide-react'
 
 const sectionStagger = {
@@ -73,6 +73,7 @@ export function CourseDetailPage() {
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [newRating, setNewRating] = useState(5)
   const [newComment, setNewComment] = useState('')
+  const [editingOwnReview, setEditingOwnReview] = useState(false)
   const [submittingReview, setSubmittingReview] = useState(false)
   const [discountExpired, setDiscountExpired] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
@@ -93,6 +94,7 @@ export function CourseDetailPage() {
   const { openChatWithUser } = useChat()
   const { navigate, currentRoute } = useRouter()
   const { refresh: refreshOwned } = useOwnedCourses()
+  const currentUserReview = reviews.find((review) => String(review.user) === user?.id)
 
 
   useEffect(() => {
@@ -444,7 +446,7 @@ export function CourseDetailPage() {
 
 
     if (isAuthenticated && user?.id) {
-      await addToCartFromApi(parseInt(user.id), courseData.id, {})
+      await addToCartFromApi(parseInt(user.id), courseData.id, { suppressSuccessToast: true })
     } else {
 
       addToCart({
@@ -458,7 +460,7 @@ export function CourseDetailPage() {
         rating: courseRating,
         studentsCount: courseData.total_students,
         duration: formatDuration(courseData.duration)
-      })
+      }, { suppressSuccessToast: true })
     }
     toast.success(t('course_detail.added_to_cart_toast'), { description: courseData.title })
   }
@@ -479,8 +481,14 @@ export function CourseDetailPage() {
     if (!isAuthenticated || !user || !courseData || submittingReview) return
     setSubmittingReview(true)
     try {
-      await createReview({ course: courseData.id, rating: newRating, comment: newComment || undefined })
-      toast.success(t('course_detail.review_submitted'))
+      if (currentUserReview) {
+        await updateReview(currentUserReview.review_id, { rating: newRating, comment: newComment })
+        toast.success(t('course_detail.review_updated'))
+        setEditingOwnReview(false)
+      } else {
+        await createReview({ course: courseData.id, rating: newRating, comment: newComment || undefined })
+        toast.success(t('course_detail.review_submitted'))
+      }
       setNewComment('')
       setNewRating(5)
       loadReviews(courseData.id)
@@ -489,6 +497,13 @@ export function CourseDetailPage() {
     } finally {
       setSubmittingReview(false)
     }
+  }
+
+  const handleEditOwnReview = () => {
+    if (!currentUserReview) return
+    setNewRating(currentUserReview.rating)
+    setNewComment(currentUserReview.comment || '')
+    setEditingOwnReview(true)
   }
 
   const handleReportReview = async (review: Review) => {
@@ -1201,10 +1216,37 @@ export function CourseDetailPage() {
                  </Card>
                )}
 
-               {isAuthenticated && canReviewCourse && (
+               {isAuthenticated && canReviewCourse && currentUserReview && !editingOwnReview && (
                  <Card className="mb-4">
                    <CardContent className="p-4 space-y-3">
-                     <p className="font-medium">{t('course_detail.write_review')}</p>
+                     <div className="flex flex-wrap items-start justify-between gap-3">
+                       <div>
+                         <p className="font-medium">{t('course_detail.your_review')}</p>
+                         <div className="mt-2 flex items-center gap-1">
+                           {[1, 2, 3, 4, 5].map((s) => (
+                             <Star key={s} className={`h-5 w-5 ${s <= currentUserReview.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                           ))}
+                           <span className="ml-2 text-sm text-muted-foreground">{currentUserReview.rating}/5</span>
+                         </div>
+                       </div>
+                       <Button size="sm" variant="outline" onClick={handleEditOwnReview}>
+                         <Edit2 className="h-4 w-4 mr-1" />
+                         {t('course_detail.edit_review')}
+                       </Button>
+                     </div>
+                     {currentUserReview.comment && (
+                       <p className="text-sm text-muted-foreground">{currentUserReview.comment}</p>
+                     )}
+                   </CardContent>
+                 </Card>
+               )}
+
+               {isAuthenticated && canReviewCourse && (!currentUserReview || editingOwnReview) && (
+                 <Card className="mb-4">
+                   <CardContent className="p-4 space-y-3">
+                     <p className="font-medium">
+                       {currentUserReview ? t('course_detail.edit_review') : t('course_detail.write_review')}
+                     </p>
                      <div className="flex items-center gap-1">
                        {[1, 2, 3, 4, 5].map((s) => (
                          <button key={s} onClick={() => setNewRating(s)} className="focus:outline-none">
@@ -1219,10 +1261,25 @@ export function CourseDetailPage() {
                        placeholder={t('course_detail.review_placeholder')}
                        className="w-full border rounded-md p-2 text-sm min-h-[80px] resize-y"
                      />
-                     <Button size="sm" onClick={handleSubmitReview} disabled={submittingReview}>
-                       {submittingReview ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <MessageSquare className="h-4 w-4 mr-1" />}
-                       {t('course_detail.submit_review')}
-                     </Button>
+                     <div className="flex flex-wrap gap-2">
+                       <Button size="sm" onClick={handleSubmitReview} disabled={submittingReview}>
+                         {submittingReview ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+                         {currentUserReview ? t('course_detail.update_review') : t('course_detail.submit_review')}
+                       </Button>
+                       {editingOwnReview && (
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           onClick={() => {
+                             setEditingOwnReview(false)
+                             setNewComment('')
+                             setNewRating(5)
+                           }}
+                         >
+                           {t('common.cancel')}
+                         </Button>
+                       )}
+                     </div>
                    </CardContent>
                  </Card>
                )}

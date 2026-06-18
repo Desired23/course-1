@@ -88,6 +88,25 @@ def create_enrollment(data):
             'certificate_issue_date': None,
         }
 
+        try:
+            course = Course.objects.get(id=dataCopy.get('course'), is_deleted=False)
+        except Course.DoesNotExist:
+            raise ValidationError({"course_id": "Course not found."})
+
+        if dataCopy.get('source') == Enrollment.Source.PURCHASE:
+            from utils.course_access import course_requires_payment, payment_covers_course_for_purchase
+            if (
+                course_requires_payment(course)
+                and not payment_covers_course_for_purchase(
+                    dataCopy.get('payment'),
+                    dataCopy.get('user'),
+                    course,
+                )
+            ):
+                raise ValidationError({
+                    "payment": "KhÃ³a há»c tráº£ phÃ­ cáº§n thanh toÃ¡n hoÃ n táº¥t trÆ°á»›c khi ghi danh."
+                })
+
         if dataCopy.get('source') == Enrollment.Source.SUBSCRIPTION and not dataCopy.get('subscription'):
             from subscription_plans.models import UserSubscription
             sub = UserSubscription.objects.filter(
@@ -111,6 +130,16 @@ def create_enrollment(data):
             ).first()
             if existing:
                 if not existing.is_deleted and existing.status in OWNED_ENROLLMENT_STATUSES:
+                    if (
+                        dataCopy.get('source') == Enrollment.Source.PURCHASE
+                        and dataCopy.get('payment')
+                    ):
+                        from utils.course_access import purchase_enrollment_has_valid_payment
+                        if not purchase_enrollment_has_valid_payment(existing, course):
+                            existing.source = Enrollment.Source.PURCHASE
+                            existing.payment_id = dataCopy.get('payment')
+                            existing.status = Enrollment.Status.Active
+                            existing.save(update_fields=['source', 'payment', 'status', 'updated_at'])
                     return EnrollmentCreateSerializer(existing).data
                 existing = _reactivate_existing_enrollment(existing, dataCopy)
                 _update_instructor_level_for_enrollment(existing)
@@ -121,7 +150,6 @@ def create_enrollment(data):
             try:
                 with transaction.atomic():
                     enrollment = serializer.save(enrollment_date=dataCopy['enrollment_date'])
-                    course = Course.objects.get(id=dataCopy.get('course'))
                     Course.objects.filter(id=course.id).update(total_students=F('total_students') + 1)
                     _update_instructor_level_for_enrollment(enrollment)
                     log_activity(

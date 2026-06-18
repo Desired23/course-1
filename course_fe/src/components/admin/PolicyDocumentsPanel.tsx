@@ -22,6 +22,7 @@ export function PolicyDocumentsPanel() {
   const [policies, setPolicies] = useState<LegalPolicies>(emptyPolicies)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingEditorImage, setUploadingEditorImage] = useState(false)
   const [preview, setPreview] = useState(false)
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function PolicyDocumentsPanel() {
   }
 
   const handleSave = async () => {
+    if (uploadingEditorImage) return
     try {
       setSaving(true)
       const updated = await updatePolicyDocuments(policies)
@@ -77,7 +79,7 @@ export function PolicyDocumentsPanel() {
               {preview ? <Pencil className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
               {preview ? t('admin_policy.policies.edit_mode') : t('admin_policy.policies.preview_mode')}
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || uploadingEditorImage}>
               <Save className="mr-2 h-4 w-4" />
               {saving ? t('admin_policy.saving') : t('admin_policy.policies.save')}
             </Button>
@@ -113,6 +115,7 @@ export function PolicyDocumentsPanel() {
                   onChange={(html) => setPolicy(key, html)}
                   placeholder={t('admin_policy.policies.placeholder')}
                   minHeight="300px"
+                  onUploadingChange={setUploadingEditorImage}
                 />
               )}
             </TabsContent>

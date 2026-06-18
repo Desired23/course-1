@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -109,6 +109,7 @@ interface BlogRichEditorProps {
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: string
+  onUploadingChange?: (uploading: boolean) => void
 }
 
 function ToolbarBtn({
@@ -139,8 +140,9 @@ function ToolbarBtn({
   )
 }
 
-export function BlogRichEditor({ content, onChange, placeholder, minHeight = '400px' }: BlogRichEditorProps) {
+export function BlogRichEditor({ content, onChange, placeholder, minHeight = '400px', onUploadingChange }: BlogRichEditorProps) {
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -180,9 +182,14 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
   const handleImageUpload = async (file: File) => {
     if (!file.type.startsWith('image/')) return
     try {
+      setIsUploadingImage(true)
+      onUploadingChange?.(true)
       const [uploaded] = await uploadFiles([file], { folder: 'blog', resource_type: 'image' })
       editor.chain().focus().setImage({ src: uploaded.url }).run()
     } catch {
+    } finally {
+      setIsUploadingImage(false)
+      onUploadingChange?.(false)
     }
   }
 
@@ -345,6 +352,7 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
         </ToolbarBtn>
         <ToolbarBtn
           onClick={() => imageInputRef.current?.click()}
+          disabled={isUploadingImage}
           title="Chèn ảnh từ máy tính"
         >
           <ImageIcon className="h-4 w-4" />
@@ -354,6 +362,7 @@ export function BlogRichEditor({ content, onChange, placeholder, minHeight = '40
           type="file"
           accept="image/*"
           className="hidden"
+          disabled={isUploadingImage}
           onChange={(e) => {
             const f = e.target.files?.[0]
             if (f) handleImageUpload(f)

@@ -11,13 +11,7 @@ from admins.models import Admin
 
 
 def auto_create_instructor_payouts(processed_by=None, notes='', settle_first=True):
-    """Tự động chi trả định kỳ cho giảng viên (mô hình Udemy).
 
-    Không còn bước giảng viên gửi yêu cầu hay admin duyệt thủ công: đợt chạy này
-    gom toàn bộ earning AVAILABLE chưa thuộc payout nào của từng giảng viên, tạo
-    payout đã ở trạng thái PROCESSED (coi như đã chi trả) và đánh dấu earning PAID.
-    Các payout PENDING còn tồn từ luồng cũ cũng được hoàn tất để không bị treo.
-    """
     from payment_methods.models import InstructorPayoutMethod
 
     period = timezone.now().strftime("%Y-%m-%d %H:%M")
@@ -36,8 +30,6 @@ def auto_create_instructor_payouts(processed_by=None, notes='', settle_first=Tru
 
             from instructor_earnings.services import exclude_active_hold_earnings, exclude_open_refund_earnings
 
-            # Hoàn tất các payout PENDING còn sót từ luồng duyệt thủ công cũ:
-            # không còn ai duyệt nên đánh dấu PROCESSED để chúng không treo mãi.
             pending_payouts = InstructorPayout.objects.select_for_update().filter(
                 status=InstructorPayout.PayoutStatusChoices.PENDING,
                 is_deleted=False,
@@ -54,8 +46,7 @@ def auto_create_instructor_payouts(processed_by=None, notes='', settle_first=Tru
                 )
                 completed_pending += 1
 
-            # Gom earning AVAILABLE chưa thuộc payout nào, bỏ qua earning đang bị
-            # giữ (report bản quyền) hoặc còn refund đang mở.
+
             earnings_qs = exclude_active_hold_earnings(exclude_open_refund_earnings(InstructorEarning.objects.filter(
                 status=InstructorEarning.StatusChoices.AVAILABLE,
                 instructor_payout__isnull=True,

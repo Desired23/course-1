@@ -1,13 +1,27 @@
 import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Progress } from './ui/progress'
-import { Label } from './ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Alert, AlertDescription } from './ui/alert'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Separator } from './ui/separator'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Label,
+  Progress,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from './AntdCompat'
 import { CodeEditor } from './CodeEditor'
 import {
   Play,
@@ -478,7 +492,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
   }
 
   return (
-    <div className="flex gap-0 relative min-h-[600px]">
+    <div className="flex gap-0 relative min-h-[600px] overflow-hidden w-full">
 
       <motion.div
         initial={false}
@@ -646,10 +660,10 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
       <div className="flex-1 flex flex-col min-w-0">
         <Card className="border-0 rounded-none flex-1 flex flex-col">
           <CardHeader className="border-b bg-muted/30 flex-shrink-0">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
 
-              <div className="flex items-center gap-4">
-                <div className="w-48">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-40">
                   <Label className="text-xs">{t('code_quiz_player.language')}</Label>
                   <Select value={selectedLanguage.toString()} onValueChange={handleLanguageChange}>
                     <SelectTrigger className="mt-1 h-9">
@@ -671,7 +685,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
               </div>
 
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button variant="outline" size="sm" onClick={handleReset}>
                   <RefreshCw className="h-4 w-4 mr-2" />
                   {t('code_quiz_player.reset')}
@@ -760,7 +774,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                   <TabsContent value="summary" className="flex-1 overflow-y-auto p-4 mt-0">
                     <div className="space-y-4">
 
-                      <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                         <div className="text-center">
                           <div className="text-2xl font-bold">{score?.total}</div>
                           <div className="text-xs text-muted-foreground">{t('code_quiz_player.total')}</div>

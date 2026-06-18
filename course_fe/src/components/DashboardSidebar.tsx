@@ -6,7 +6,6 @@ import {
   Bell,
   BookOpen,
   Calendar,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CreditCard,
@@ -35,8 +34,8 @@ import { useAuth } from "../contexts/AuthContext"
 import { useUIStore } from "../stores"
 import { cn } from "./ui/utils"
 import { useRouter } from "./Router"
+import { Collapse } from "antd"
 import { Button } from "./ui/button"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 
 interface SidebarItem {
@@ -95,7 +94,6 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
       items: [
         { label: t("dashboard_sidebar.items.users"), icon: <Users className="h-5 w-5" />, href: "/admin/users" },
         { label: t("dashboard_sidebar.items.instructor_apps"), icon: <Award className="h-5 w-5" />, href: "/admin/instructor-applications" },
-        { label: t("dashboard_sidebar.items.permissions"), icon: <Shield className="h-5 w-5" />, href: "/admin/permissions" },
       ],
     },
     {
@@ -256,41 +254,35 @@ export function DashboardSidebar({ type, className }: DashboardSidebarProps) {
               ? adminGroups.map((group) => {
                   const groupOpen = sidebarCollapsed ? false : adminSidebarGroups[group.key] ?? group.key === activeAdminGroup
                   const groupActive = group.items.some((item) => isRouteActive(currentPath, item.href))
-                  return (
-                    <Collapsible
-                      key={group.key}
-                      open={groupOpen}
-                      onOpenChange={(open) => setAdminSidebarGroupOpen(group.key, open)}
-                    >
-                      <div className="rounded-xl border border-transparent bg-background/40">
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className={cn(
-                              "w-full px-3",
-                              sidebarCollapsed ? "justify-center" : "justify-between",
-                              groupActive && "bg-secondary/60"
-                            )}
-                          >
-                            {sidebarCollapsed ? (
-                              group.items[0]?.icon
-                            ) : (
-                              <>
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                  {group.label}
-                                </span>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform", groupOpen && "rotate-180")} />
-                              </>
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
-                        {sidebarCollapsed ? (
-                          <div className="mt-2 space-y-1">{group.items.map(renderItem)}</div>
-                        ) : (
-                          <CollapsibleContent className="space-y-1 px-1 pb-1">{group.items.map(renderItem)}</CollapsibleContent>
-                        )}
+                  if (sidebarCollapsed) {
+                    return (
+                      <div key={group.key} className="rounded-xl border border-transparent bg-background/40">
+                        <div className="flex w-full justify-center px-3 py-2 text-muted-foreground">{group.items[0]?.icon}</div>
+                        <div className="mt-2 space-y-1">{group.items.map(renderItem)}</div>
                       </div>
-                    </Collapsible>
+                    )
+                  }
+                  return (
+                    <Collapse
+                      key={group.key}
+                      ghost
+                      activeKey={groupOpen ? [group.key] : []}
+                      onChange={(keys) =>
+                        setAdminSidebarGroupOpen(group.key, (keys as string[]).includes(group.key))
+                      }
+                      className={cn("sidebar-collapse rounded-xl border border-transparent bg-background/40", groupActive && "bg-secondary/60")}
+                      items={[
+                        {
+                          key: group.key,
+                          label: (
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {group.label}
+                            </span>
+                          ),
+                          children: <div className="space-y-1">{group.items.map(renderItem)}</div>,
+                        },
+                      ]}
+                    />
                   )
                 })
               : (type === "instructor" ? instructorItems : userItems).map(renderItem)}

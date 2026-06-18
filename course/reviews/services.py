@@ -11,6 +11,31 @@ from users.models import User
 from utils.roles import is_active_admin
 
 
+def _is_course_instructor(user, review):
+    instructor = getattr(user, 'instructor', None)
+    return bool(
+        instructor
+        and not instructor.is_deleted
+        and review.course
+        and review.course.instructor_id == instructor.id
+    )
+
+
+def _filter_review_owner_payload(data):
+    return {
+        field: data[field]
+        for field in ('rating', 'comment')
+        if field in data
+    }
+
+
+def _save_instructor_response(review, response):
+    review.instructor_response = response.strip() if isinstance(response, str) else response
+    review.response_at = timezone.now() if review.instructor_response else None
+    review.save(update_fields=['instructor_response', 'response_at', 'updated_at'])
+    return review
+
+
 def create_review(data):
     user_id = data.get('user_id') or data.get('user')
     if user_id is None:
@@ -131,20 +156,41 @@ def count_like_review(review_id):
 
 def update_review(review_id, data, requesting_user=None):
     try:
-        review = Review.objects.get(id=review_id, is_deleted=False)
+        review = Review.objects.select_related('course').get(id=review_id, is_deleted=False)
     except Review.DoesNotExist:
         raise ValidationError({"error": "Khong tim thay danh gia."})
 
-    if requesting_user and review.user_id != requesting_user.id and not is_active_admin(requesting_user):
+    data = data.copy()
+    admin = is_active_admin(requesting_user)
+    is_owner = bool(requesting_user and review.user_id == requesting_user.id)
+    is_instructor = bool(requesting_user and _is_course_instructor(requesting_user, review))
+
+    if not (admin or is_owner or is_instructor):
         raise PermissionDenied("Bạn không có quyền chỉnh sửa đánh giá này.")
 
-    if not is_active_admin(requesting_user):
+    if is_instructor and not admin and not is_owner:
+        extra_fields = set(data.keys()) - {'instructor_response'}
+        if extra_fields or 'instructor_response' not in data:
+            raise PermissionDenied("Giang vien chi co the phan hoi danh gia.")
+        return _save_instructor_response(review, data.get('instructor_response'))
+
+    if is_owner and not admin:
         from utils.course_access import ensure_course_interaction_allowed
         ensure_course_interaction_allowed(review.course)
+        data = _filter_review_owner_payload(data)
+        if not data:
+            raise ValidationError({"error": "Khong co du lieu danh gia can cap nhat."})
 
     serializer = ReviewSerializer(review, data=data, partial=True)
     if serializer.is_valid(raise_exception=True):
-        return serializer.save()
+        updated = serializer.save()
+        if 'instructor_response' in data:
+            updated.response_at = timezone.now() if updated.instructor_response else None
+            updated.save(update_fields=['response_at'])
+        if {'rating', 'status'} & set(data.keys()):
+            from courses.services import recalc_course_rating
+            recalc_course_rating(updated.course_id)
+        return updated
     raise ValidationError(serializer.errors)
 
 

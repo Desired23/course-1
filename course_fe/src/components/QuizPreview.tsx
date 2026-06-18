@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import { Card } from './ui/card'
-import { Button } from './ui/button'
-import { RadioGroup, RadioGroupItem } from './ui/radio-group'
-import { Checkbox } from './ui/checkbox'
-import { Label } from './ui/label'
-import { Badge } from './ui/badge'
-import { Progress } from './ui/progress'
+import {
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  Label,
+  Progress,
+  RadioGroup,
+  RadioGroupItem,
+} from './AntdCompat'
 import {
   HelpCircle,
   CheckCircle,
@@ -15,7 +18,7 @@ import {
   ChevronRight,
   ChevronLeft
 } from 'lucide-react'
-import { cn } from './ui/utils'
+import { cn } from './AntdCompat'
 import { useTranslation } from 'react-i18next'
 
 interface QuizQuestion {

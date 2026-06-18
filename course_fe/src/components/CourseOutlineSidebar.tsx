@@ -9,9 +9,8 @@ import {
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react'
-import { Badge } from './ui/badge'
-import { Button } from './ui/button'
-import { cn } from './ui/utils'
+import { Badge, Button } from './AntdCompat'
+import { cn } from './AntdCompat'
 import { SectionTreeItem } from './SectionTreeItem'
 
 interface Lesson {

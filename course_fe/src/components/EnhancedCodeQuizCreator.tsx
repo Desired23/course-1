@@ -1,14 +1,30 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Badge } from './ui/badge'
-import { Switch } from './ui/switch'
-import { Separator } from './ui/separator'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
+  Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+} from './AntdCompat'
 import {
   Plus,
   Trash2,
@@ -31,8 +47,6 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Alert, AlertDescription } from './ui/alert'
 import { CodeExecutionDebugPanel, type DebugExecutionResult } from './CodeExecutionDebugPanel'
 import { CodeEditor } from './CodeEditor'
 import { SUPPORTED_LANGUAGES, CODE_LESSON_LANGUAGES, generateStarterCode, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, type ExecutionMode, type TestResult } from '../utils/judge0'

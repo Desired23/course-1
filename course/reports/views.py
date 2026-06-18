@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from utils.pagination import paginate_queryset, StandardPagination
+from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
 
 from .serializers import (
@@ -12,11 +12,21 @@ from .serializers import (
     CreateReportSerializer,
     ReportCaseSerializer,
     ReportCaseDetailSerializer,
+    ReportItemDetailSerializer,
     ResolveReportSerializer,
 )
 from django.http import HttpResponse
 
-from .services import create_report, get_report_cases, get_report_case_detail, resolve_report_case, reopen_report_case
+from .services import (
+    create_report,
+    get_report_cases,
+    get_report_case_detail,
+    get_report_item_detail,
+    mark_report_processed,
+    mark_report_unprocessed,
+    resolve_report_case,
+    reopen_report_case,
+)
 from .stats_services import export_copyright_cases_csv, export_reports_csv, get_report_statistics
 from .copyright_services import (
     admin_action,
@@ -62,7 +72,8 @@ class AdminReportListView(APIView):
     def get(self, request):
         cases = get_report_cases({
             'type': request.query_params.get('type'),
-            'status': request.query_params.get('status', 'pending'),
+            'status': request.query_params.get('status', 'open'),
+            'reason': request.query_params.get('reason'),
             'priority': request.query_params.get('priority'),
             'search': request.query_params.get('search'),
             'date_from': request.query_params.get('date_from'),
@@ -72,6 +83,45 @@ class AdminReportListView(APIView):
         page = paginator.paginate_queryset(cases, request)
         serializer = ReportCaseSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class AdminReportItemDetailView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def get(self, request, report_id):
+        try:
+            detail = get_report_item_detail(report_id)
+        except Exception as exc:
+            detail_msg = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail_msg}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ReportItemDetailSerializer(detail).data)
+
+
+class AdminReportMarkProcessedView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, report_id):
+        try:
+            detail = mark_report_processed(report_id, admin=request.user)
+        except Exception as exc:
+            detail_msg = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail_msg}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ReportItemDetailSerializer(detail).data, status=status.HTTP_200_OK)
+
+
+class AdminReportMarkUnprocessedView(APIView):
+    permission_classes = [RolePermissionFactory(['admin'])]
+    throttle_scope = 'burst'
+
+    def post(self, request, report_id):
+        try:
+            detail = mark_report_unprocessed(report_id, admin=request.user)
+        except Exception as exc:
+            detail_msg = getattr(exc, 'detail', str(exc))
+            return Response({'errors': detail_msg}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(ReportItemDetailSerializer(detail).data, status=status.HTTP_200_OK)
 
 
 class AdminReportCaseDetailView(APIView):

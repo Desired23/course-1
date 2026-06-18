@@ -6,8 +6,8 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription
-} from './ui/dialog'
-import { Button } from './ui/button'
+} from './AntdCompat'
+import { Button } from './AntdCompat'
 import {
   Save,
   X,
@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   CheckCircle2
 } from 'lucide-react'
-import { cn } from './ui/utils'
+import { cn } from './AntdCompat'
 import { toast } from 'sonner'
 import { BasicTab } from './BasicTab'
 import { ContentTab } from './ContentTab'

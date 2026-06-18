@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Card } from './ui/card'
+import { Button, Card, Input, Label } from './AntdCompat'
 import {
   Upload,
   Paperclip,
@@ -14,7 +11,7 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react'
-import { cn } from './ui/utils'
+import { cn } from './AntdCompat'
 import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
 import { uploadFiles } from '../services/upload.api'

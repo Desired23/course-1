@@ -298,6 +298,7 @@ export function InstructorProfilePage() {
   }
 
   const handleSaveSection = () => {
+    if (isUploadingImages) return
     if (!sectionDraft.title.trim()) return
     let updatedSections: InstructorCustomSection[]
     if (editingSectionId) {
@@ -976,7 +977,7 @@ export function InstructorProfilePage() {
               <Button variant="outline" onClick={() => setIsAddingSectionOpen(false)}>
                 {t('instructor_profile_page.actions.cancel')}
               </Button>
-              <Button onClick={handleSaveSection} disabled={!sectionDraft.title.trim()}>
+              <Button onClick={handleSaveSection} disabled={!sectionDraft.title.trim() || isUploadingImages}>
                 {editingSectionId
                   ? t('instructor_profile_page.customize.save_section')
                   : t('instructor_profile_page.customize.add_section')}

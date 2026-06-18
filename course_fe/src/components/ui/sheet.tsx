@@ -152,8 +152,7 @@ const SheetContent = React.forwardRef<HTMLDivElement, SheetContentProps>(
         destroyOnHidden
         keyboard
         maskClosable
-        width={side === "left" || side === "right" ? size : undefined}
-        height={side === "top" || side === "bottom" ? size : undefined}
+        size={size}
         onClose={() => setOpen(false)}
         styles={{
           body: { padding: 0 },

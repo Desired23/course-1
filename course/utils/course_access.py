@@ -1,11 +1,71 @@
 
 
+from decimal import Decimal
+
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from enrollments.models import Enrollment
 from subscription_plans.models import PlanCourse, UserSubscription
 from utils.roles import is_active_admin, is_active_instructor
+
+
+def course_requires_payment(course):
+    return (getattr(course, 'price', None) or Decimal('0.00')) > Decimal('0.00')
+
+
+def purchase_enrollment_has_valid_payment(enrollment, course=None):
+    course = course or getattr(enrollment, 'course', None)
+    if not course_requires_payment(course):
+        return True
+
+    payment = getattr(enrollment, 'payment', None)
+    if not payment:
+        return False
+
+    try:
+        from payment_details.models import Payment_Details
+        from payments.models import Payment
+    except Exception:
+        return False
+
+    if payment.is_deleted:
+        return False
+    if payment.user_id != enrollment.user_id:
+        return False
+    if payment.payment_type != Payment.PaymentType.COURSE_PURCHASE:
+        return False
+    if payment.payment_status != Payment.PaymentStatus.COMPLETED:
+        return False
+
+    return Payment_Details.objects.filter(
+        payment=payment,
+        course=course,
+        is_deleted=False,
+    ).exclude(refund_status=Payment_Details.RefundStatus.SUCCESS).exists()
+
+
+def payment_covers_course_for_purchase(payment_id, user_id, course):
+    if not course_requires_payment(course):
+        return True
+    if not payment_id:
+        return False
+
+    try:
+        from payment_details.models import Payment_Details
+        from payments.models import Payment
+    except Exception:
+        return False
+
+    return Payment_Details.objects.filter(
+        payment_id=payment_id,
+        payment__user_id=user_id,
+        payment__payment_type=Payment.PaymentType.COURSE_PURCHASE,
+        payment__payment_status=Payment.PaymentStatus.COMPLETED,
+        payment__is_deleted=False,
+        course=course,
+        is_deleted=False,
+    ).exclude(refund_status=Payment_Details.RefundStatus.SUCCESS).exists()
 
 
 def check_course_access(user, course):
@@ -40,6 +100,14 @@ def check_course_access(user, course):
 
             raise PermissionDenied(
                 "Khóa học này không còn nằm trong gói đăng ký của bạn."
+            )
+
+        if enrollment.source == Enrollment.Source.PURCHASE:
+            if purchase_enrollment_has_valid_payment(enrollment, course):
+                return enrollment
+
+            raise PermissionDenied(
+                "KhÃ´ng tÃ¬m tháº¥y thanh toÃ¡n há»£p lá»‡ cho khÃ³a há»c nÃ y."
             )
 
         return enrollment
@@ -123,7 +191,8 @@ def has_course_access(user, course):
 def has_existing_course_access(user, course):
     if not user:
         return False
-    return bool(get_course_access_info(user, course).get('has_access'))
+    info = get_course_access_info(user, course)
+    return bool(info.get('has_access') and not info.get('requires_enrollment'))
 
 
 def get_course_access_info(user, course):
@@ -145,9 +214,9 @@ def get_course_access_info(user, course):
         source=Enrollment.Source.PURCHASE,
         status__in=[Enrollment.Status.Active, Enrollment.Status.Complete],
         is_deleted=False,
-    ).exists()
+    ).select_related('payment').first()
 
-    if purchase_enrollment:
+    if purchase_enrollment and purchase_enrollment_has_valid_payment(purchase_enrollment, course):
         return {"has_access": True, "access_type": "purchase"}
 
 

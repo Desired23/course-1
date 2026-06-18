@@ -181,6 +181,7 @@ export function InstructorOnboardingPage() {
   }
 
   const handleSubmit = async () => {
+    if (uploadingQuestionId !== null) return
     if (!form || !validateForm()) return
 
     const payload = {
@@ -413,13 +414,13 @@ export function InstructorOnboardingPage() {
               ))}
 
               <div className="pt-4 flex items-center gap-3">
-                <Button onClick={handleSubmit} disabled={submitting}>
+                <Button onClick={handleSubmit} disabled={submitting || uploadingQuestionId !== null}>
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {myLatestApplication?.status === "changes_requested"
                     ? t("instructor_onboarding_page.resubmit")
                     : t("instructor_onboarding_page.submit")}
                 </Button>
-                <Button variant="outline" onClick={() => navigate("/instructor")} disabled={submitting}>
+                <Button variant="outline" onClick={() => navigate("/instructor")} disabled={submitting || uploadingQuestionId !== null}>
                   {t("instructor_onboarding_page.cancel")}
                 </Button>
               </div>

@@ -163,12 +163,6 @@ def get_admin_case(case_id):
     case = _case_queryset().filter(id=case_id).first()
     if not case:
         raise ValidationError('Copyright case not found.')
-    Report.objects.filter(
-        target_type=case.target_type,
-        target_id=case.target_id,
-        reason=Report.Reason.COPYRIGHT,
-        status=Report.Status.PENDING,
-    ).update(status=Report.Status.REVIEWING, updated_at=timezone.now())
     return case, case.messages.select_related('actor').all()
 
 

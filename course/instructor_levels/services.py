@@ -44,13 +44,27 @@ def ordered_instructor_levels():
     )
 
 
+def _level_index(levels, level):
+    if not level:
+        return -1
+    for index, candidate in enumerate(levels):
+        if candidate.id == level.id:
+            return index
+    return -1
+
+
 def get_next_instructor_level(level):
     if not level:
         return None
 
     levels = ordered_instructor_levels()
-    current_rank = _level_rank(level)
-    return next((candidate for candidate in levels if _level_rank(candidate) > current_rank), None)
+    current_index = _level_index(levels, level)
+    if current_index >= 0:
+        next_index = current_index + 1
+        return levels[next_index] if next_index < len(levels) else None
+
+    current_key = _level_sort_key(level)
+    return next((candidate for candidate in levels if _level_sort_key(candidate) > current_key), None)
 
 
 def _instructor_level_metrics(instructor):
@@ -99,8 +113,9 @@ def check_and_upgrade_instructor_level(instructor):
         return None
 
     metrics = _instructor_level_metrics(instructor)
+    levels = ordered_instructor_levels()
     target_level = None
-    for level in ordered_instructor_levels():
+    for level in levels:
         if _meets_level(level, metrics):
             target_level = level
     if target_level is None:
@@ -110,8 +125,13 @@ def check_and_upgrade_instructor_level(instructor):
         return None
 
     current_level = instructor.level
-    if current_level and _level_rank(target_level) <= _level_rank(current_level):
-        return None
+    if current_level:
+        current_index = _level_index(levels, current_level)
+        target_index = _level_index(levels, target_level)
+        if current_index >= 0 and target_index <= current_index:
+            return None
+        if current_index < 0 and _level_sort_key(target_level) <= _level_sort_key(current_level):
+            return None
 
     old_level_name = current_level.name if current_level else 'Chưa có'
     instructor.level = target_level
@@ -161,10 +181,8 @@ def check_and_upgrade_instructor_levels():
     from instructors.models import Instructor
     from subscription_plans.models import SubscriptionUsage
 
-    levels = list(
-        InstructorLevel.objects.filter(is_deleted=False, min_plan_minutes__gt=0)
-        .order_by('-min_plan_minutes')
-    )
+    all_levels = ordered_instructor_levels()
+    levels = [level for level in all_levels if level.min_plan_minutes > 0]
     if not levels:
         return {"upgraded": [], "detail": "Không có level nào có ngưỡng min_plan_minutes > 0."}
 
@@ -195,13 +213,13 @@ def check_and_upgrade_instructor_levels():
             for lvl in levels:
                 if total_minutes >= lvl.min_plan_minutes:
                     target_level = lvl
-                    break
 
             if target_level is None:
                 continue
 
-            current_min = instructor.level.min_plan_minutes if instructor.level else -1
-            if target_level.min_plan_minutes > current_min:
+            current_index = _level_index(all_levels, instructor.level)
+            target_index = _level_index(all_levels, target_level)
+            if current_index < 0 or target_index > current_index:
                 old_level_name = instructor.level.name if instructor.level else 'Chưa có'
                 instructor.level = target_level
                 instructor.save(update_fields=['level', 'updated_at'])

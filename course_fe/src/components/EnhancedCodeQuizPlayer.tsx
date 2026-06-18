@@ -1,10 +1,28 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
-import { Button } from './ui/button'
-import { Badge } from './ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Alert, AlertDescription } from './ui/alert'
-import { Separator } from './ui/separator'
+import {
+  Alert,
+  AlertDescription,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from './AntdCompat'
 import {
   BookOpen,
   Code2,
@@ -25,12 +43,10 @@ import {
 } from 'lucide-react'
 import { EnhancedCodeQuizData } from './EnhancedCodeQuizCreator'
 import Editor from '@monaco-editor/react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { SUPPORTED_LANGUAGES, runTestCases, wrapUserCode, generateStarterCode, type TestResult } from '../utils/judge0'
 import { useQuizStore } from '../stores/quiz.store'
 import { getQuizResultByEnrollmentAndLesson, upsertQuizResultDraft } from '../services/quiz-results.api'
 import { toast } from 'sonner'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible'
 import { useTranslation } from 'react-i18next'
 
 interface EnhancedCodeQuizPlayerProps {

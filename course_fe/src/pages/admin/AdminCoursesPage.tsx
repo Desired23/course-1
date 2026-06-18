@@ -507,6 +507,18 @@ export function AdminCoursesPage() {
               () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'freeze'), t('admin_courses.toasts.bulk_block_success')),
               true,
             ),
+          },
+          {
+            key: 'takedown',
+            label: t('admin_courses.moderation.takedown_course'),
+            destructive: true,
+            onClick: () => openConfirm(
+              t('admin_courses.bulk.takedown_title'),
+              t('admin_courses.bulk.takedown_description', { count: selectedCourseIds.length }),
+              t('admin_courses.moderation.takedown_course'),
+              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'takedown'), t('admin_courses.toasts.bulk_takedown_success')),
+              true,
+            ),
           }] : []),
           {
             key: 'delete',
@@ -620,7 +632,7 @@ export function AdminCoursesPage() {
                             </div>
                           </div>
 
-                          <div className="flex gap-2 flex-shrink-0">
+                          <div className="flex flex-wrap justify-end gap-2 flex-shrink-0">
                             <Button
                               variant={course.is_featured ? 'default' : 'outline'}
                               size="sm"
@@ -674,6 +686,22 @@ export function AdminCoursesPage() {
                               >
                                 <X className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">{t('admin_courses.moderation.block_course')}</span>
+                              </Button>
+                            )}
+                            {course.status === 'published' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openConfirm(
+                                  t('admin_courses.moderation.takedown_course'),
+                                  t('admin_courses.actions.takedown_description', { title: course.title }),
+                                  t('admin_courses.moderation.takedown_course'),
+                                  () => handleModerateCourse(course.id, 'takedown'),
+                                  true,
+                                )}
+                              >
+                                <X className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">{t('admin_courses.moderation.takedown_course')}</span>
                               </Button>
                             )}
                             <Button

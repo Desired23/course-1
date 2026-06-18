@@ -899,6 +899,7 @@ QUIZ_BANK = {
     ],
     "python": [
         make_mc("Hàm nào dùng để in ra màn hình trong Python?", ["echo()", "printf()", "print()", "console.log()"], 2, "print() là hàm in chuẩn của Python."),
+        make_tf("Trong Python, input() luôn trả về chuỗi trước khi ép kiểu.", True, "Cần ép kiểu nếu muốn tính toán số học."),
         {
             "question_text": "Viết chương trình đọc 2 số nguyên và in tổng.",
             "question_type": QuizQuestion.QuestionType.CODE,
@@ -935,6 +936,7 @@ QUIZ_BANK = {
     ],
     "python_advanced": [
         make_mc("Generator hữu ích nhất khi nào?", ["Khi cần tiết kiệm bộ nhớ", "Khi muốn xóa file", "Khi đổi tên biến", "Khi thiết kế ảnh"], 0, "Generator tạo dữ liệu dần nên tiết kiệm RAM."),
+        make_tf("List comprehension phù hợp khi muốn tạo danh sách mới từ dữ liệu có sẵn.", True, "Cú pháp này giúp biến đổi và lọc dữ liệu ngắn gọn."),
         {
             "question_text": "Viết chương trình đọc 2 số nguyên và in tổng.",
             "question_type": QuizQuestion.QuestionType.CODE,
@@ -964,6 +966,17 @@ def seed_courses(categories, instructors, assets):
     courses = {}
     lessons_by_course = {}
     for spec in COURSE_SPECS:
+        question_bank = QUIZ_BANK[spec.key]
+        quiz_questions = [
+            question
+            for question in question_bank
+            if question["question_type"] != QuizQuestion.QuestionType.CODE
+        ]
+        code_questions = [
+            question
+            for question in question_bank
+            if question["question_type"] == QuizQuestion.QuestionType.CODE
+        ]
         course_created_at = spec.published_at - timedelta(days=6)
         course_created_at = course_created_at.replace(hour=9, minute=0)
         course = Course.objects.create(
@@ -1024,27 +1037,47 @@ def seed_courses(categories, instructors, assets):
                 lessons.append(lesson)
                 lesson_order += 1
 
-            quiz = Lesson.objects.create(
-                coursemodule=module,
-                title=f"Bài {module_idx}.Q: Quiz {module_title}",
-                description="Bài kiểm tra cuối chương.",
-                content_type=Lesson.ContentType.QUIZ,
-                content='{"passingScore": 70, "attempts": 0}',
-                duration=8,
-                is_free=False,
-                order=lesson_order,
-                status=Lesson.Status.PUBLISHED,
-            )
-            created(quiz, module_created_at.replace(hour=14))
-            for idx, question_data in enumerate(QUIZ_BANK[spec.key], start=1):
-                test_cases = question_data.get("test_cases", [])
-                payload = {key: value for key, value in question_data.items() if key != "test_cases"}
-                question = QuizQuestion.objects.create(lesson=quiz, order_number=idx, **payload)
-                created(question, module_created_at.replace(hour=14, minute=idx))
-                for test_case in test_cases:
-                    quiz_test_case = QuizTestCase.objects.create(question=question, **test_case)
-                    created(quiz_test_case, module_created_at.replace(hour=14, minute=idx))
-            lessons.append(quiz)
+            if quiz_questions:
+                quiz = Lesson.objects.create(
+                    coursemodule=module,
+                    title=f"Bài {module_idx}.Q: Quiz {module_title}",
+                    description="Bài kiểm tra cuối chương.",
+                    content_type=Lesson.ContentType.QUIZ,
+                    content='{"passingScore": 70, "attempts": 0}',
+                    duration=8,
+                    is_free=False,
+                    order=lesson_order,
+                    status=Lesson.Status.PUBLISHED,
+                )
+                created(quiz, module_created_at.replace(hour=14))
+                for idx, question_data in enumerate(quiz_questions, start=1):
+                    question = QuizQuestion.objects.create(lesson=quiz, order_number=idx, **question_data)
+                    created(question, module_created_at.replace(hour=14, minute=idx))
+                lessons.append(quiz)
+                lesson_order += 1
+
+            if module_idx == len(spec.module_titles):
+                for code_idx, question_data in enumerate(code_questions, start=1):
+                    code_lesson = Lesson.objects.create(
+                        coursemodule=module,
+                        title=f"Bài {module_idx}.C{code_idx}: Bài code tính tổng 2 số",
+                        description=question_data.get("description") or "Bài code thực hành cuối khóa.",
+                        content_type=Lesson.ContentType.CODE,
+                        duration=10,
+                        is_free=False,
+                        order=lesson_order,
+                        status=Lesson.Status.PUBLISHED,
+                    )
+                    created(code_lesson, module_created_at.replace(hour=15, minute=code_idx))
+                    test_cases = question_data.get("test_cases", [])
+                    payload = {key: value for key, value in question_data.items() if key != "test_cases"}
+                    question = QuizQuestion.objects.create(lesson=code_lesson, order_number=1, **payload)
+                    created(question, module_created_at.replace(hour=15, minute=code_idx))
+                    for test_case in test_cases:
+                        quiz_test_case = QuizTestCase.objects.create(question=question, **test_case)
+                        created(quiz_test_case, module_created_at.replace(hour=15, minute=code_idx))
+                    lessons.append(code_lesson)
+                    lesson_order += 1
 
         courses[spec.key] = course
         lessons_by_course[spec.key] = lessons
@@ -1451,7 +1484,7 @@ def seed_progress_and_results(users, courses, lessons_by_course, enrollments):
                     notes="Hoàn thành trong seed review.",
                 )
                 created(progress, enrollment.enrollment_date)
-                if lesson.content_type == Lesson.ContentType.QUIZ:
+                if lesson.content_type in [Lesson.ContentType.QUIZ, Lesson.ContentType.CODE]:
                     create_quiz_result(enrollment, lesson, completed_at.replace(hour=20), passed=True)
             update_obj(
                 enrollment,
@@ -1573,8 +1606,6 @@ def seed_reviews(users, courses, enrollments):
             likes=2 if rating >= 4 else 0,
         )
         created(review, at)
-        if rating >= 4:
-            update_obj(review, at.replace(day=min(28, at.day + 2)), instructor_response="Cảm ơn bạn đã học và phản hồi!", response_at=at.replace(day=min(28, at.day + 2)))
         reviews[enrollment_key] = review
     recalc_all_courses()
     return reviews
@@ -1928,6 +1959,35 @@ def validate_business_rules():
             errors.append(f"Instructor #{instructor.id} không có user hợp lệ.")
         if not instructor.level:
             errors.append(f"Instructor #{instructor.id} không có level.")
+
+    for lesson in Lesson.objects.prefetch_related("quiz_question_lesson__test_cases"):
+        active_questions = [question for question in lesson.quiz_question_lesson.all() if not question.is_deleted]
+        code_questions = [
+            question
+            for question in active_questions
+            if question.question_type == QuizQuestion.QuestionType.CODE
+        ]
+        quiz_questions = [
+            question
+            for question in active_questions
+            if question.question_type != QuizQuestion.QuestionType.CODE
+        ]
+        if lesson.content_type == Lesson.ContentType.VIDEO and active_questions:
+            errors.append(f"Video lesson #{lesson.id} không được có quiz/code question.")
+        if lesson.content_type == Lesson.ContentType.QUIZ:
+            if code_questions:
+                errors.append(f"Quiz lesson #{lesson.id} đang chứa code question.")
+            if len(quiz_questions) < 2:
+                errors.append(f"Quiz lesson #{lesson.id} phải có ít nhất 2 câu hỏi quiz.")
+        if lesson.content_type == Lesson.ContentType.CODE:
+            if quiz_questions:
+                errors.append(f"Code lesson #{lesson.id} đang chứa câu hỏi quiz thường.")
+            if len(code_questions) != 1:
+                errors.append(f"Code lesson #{lesson.id} phải có đúng 1 code question.")
+            for question in code_questions:
+                active_test_cases = [case for case in question.test_cases.all() if not case.is_deleted]
+                if not active_test_cases:
+                    errors.append(f"Code question #{question.id} phải có test case.")
 
     for enrollment in Enrollment.objects.select_related("course", "payment", "user"):
         if enrollment.course and enrollment.course.published_date and enrollment.enrollment_date:

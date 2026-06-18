@@ -28,6 +28,7 @@ class User(models.Model):
     deleted_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_users')
     is_deleted = models.BooleanField(default=False)
     last_login = models.DateTimeField(blank=True, null=True)
+    auth_token_version = models.PositiveIntegerField(default=0)
 
     status = models.CharField(
         max_length=8,

@@ -10,9 +10,15 @@ from instructor_payouts.models import InstructorPayout
 from instructors.models import Instructor
 from lessons.models import Lesson
 from notifications.models import Notification
-from reports.copyright_services import admin_action
+from reports.copyright_services import admin_action, get_admin_case
 from reports.models import CopyrightCase, InstructorEarningHold, Report
-from reports.services import create_report
+from reports.services import (
+    create_report,
+    get_report_case_detail,
+    get_report_cases,
+    mark_report_processed,
+    mark_report_unprocessed,
+)
 from users.models import User
 
 
@@ -23,6 +29,117 @@ def make_user(username, email=None):
         password_hash='x',
         full_name=username.title(),
     )
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', FRONTEND_URL='http://testserver')
+class ReportItemWorkflowTests(TestCase):
+    def setUp(self):
+        self.admin_user = make_user('admin')
+        Admin.objects.create(user=self.admin_user, department='Ops', role='admin', is_super_admin=True)
+
+        self.instructor_user = make_user('teacher')
+        self.instructor = Instructor.objects.create(user=self.instructor_user)
+
+        self.reporter = make_user('reporter')
+        self.course = Course.objects.create(
+            title='Reported Course',
+            shortdescription='Short',
+            description='Desc',
+            instructor=self.instructor,
+            price=Decimal('100.00'),
+            level='beginner',
+            language='English',
+            duration=60,
+            total_lessons=1,
+            status=Course.Status.PUBLISHED,
+        )
+
+    def test_same_user_different_description_creates_separate_reports(self):
+        first = create_report(
+            self.reporter,
+            Report.TargetType.COURSE,
+            self.course.id,
+            Report.Reason.SPAM,
+            'Spam in title',
+        )
+        second = create_report(
+            self.reporter,
+            Report.TargetType.COURSE,
+            self.course.id,
+            Report.Reason.SPAM,
+            'Spam in preview video',
+        )
+
+        self.assertNotEqual(first.id, second.id)
+        self.assertEqual(
+            Report.objects.filter(target_type=Report.TargetType.COURSE, target_id=self.course.id).count(),
+            2,
+        )
+
+    def test_identical_open_report_returns_existing_without_overwriting(self):
+        first = create_report(
+            self.reporter,
+            Report.TargetType.COURSE,
+            self.course.id,
+            Report.Reason.SPAM,
+            'Same report',
+            metadata={'source': 'button'},
+            attachments=[],
+        )
+        duplicate = create_report(
+            self.reporter,
+            Report.TargetType.COURSE,
+            self.course.id,
+            Report.Reason.SPAM,
+            'Same report',
+            metadata={'source': 'button'},
+            attachments=[],
+        )
+
+        first.refresh_from_db()
+        self.assertEqual(first.id, duplicate.id)
+        self.assertEqual(first.description, 'Same report')
+        self.assertEqual(Report.objects.filter(target_type=Report.TargetType.COURSE, target_id=self.course.id).count(), 1)
+
+    def test_admin_list_returns_individual_reports(self):
+        first = create_report(self.reporter, Report.TargetType.COURSE, self.course.id, Report.Reason.SPAM, 'One')
+        second = create_report(self.reporter, Report.TargetType.COURSE, self.course.id, Report.Reason.OFFENSIVE, 'Two')
+
+        report_ids = [item['report_id'] for item in get_report_cases({'status': 'open'})]
+
+        self.assertIn(first.id, report_ids)
+        self.assertIn(second.id, report_ids)
+        self.assertEqual(len([rid for rid in report_ids if rid in [first.id, second.id]]), 2)
+
+    def test_opening_details_does_not_change_report_status(self):
+        report = create_report(self.reporter, Report.TargetType.COURSE, self.course.id, Report.Reason.COPYRIGHT, 'Copied')
+
+        get_report_case_detail(Report.TargetType.COURSE, self.course.id)
+        get_admin_case(CopyrightCase.objects.get(source_report=report).id)
+
+        report.refresh_from_db()
+        self.assertEqual(report.status, Report.Status.PENDING)
+
+    def test_mark_processed_and_unprocessed_only_changes_selected_report(self):
+        first = create_report(self.reporter, Report.TargetType.COURSE, self.course.id, Report.Reason.SPAM, 'One')
+        second = create_report(self.reporter, Report.TargetType.COURSE, self.course.id, Report.Reason.OFFENSIVE, 'Two')
+
+        mark_report_processed(first.id, admin=self.admin_user)
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(first.status, Report.Status.RESOLVED)
+        self.assertEqual(first.action_taken, 'marked_processed')
+        self.assertIsNotNone(first.resolved_at)
+        self.assertEqual(first.resolved_by_id, self.admin_user.id)
+        self.assertEqual(second.status, Report.Status.PENDING)
+
+        mark_report_unprocessed(first.id, admin=self.admin_user)
+
+        first.refresh_from_db()
+        self.assertEqual(first.status, Report.Status.PENDING)
+        self.assertEqual(first.action_taken, '')
+        self.assertIsNone(first.resolved_at)
 
 
 @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', FRONTEND_URL='http://testserver')

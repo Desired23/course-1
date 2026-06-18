@@ -1,19 +1,30 @@
 import { useState, useEffect } from 'react'
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
-} from './ui/dialog'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Switch } from './ui/switch'
-import { Badge } from './ui/badge'
-import { Separator } from './ui/separator'
-import { Card, CardContent } from './ui/card'
-import { Checkbox } from './ui/checkbox'
-import { RadioGroup, RadioGroupItem } from './ui/radio-group'
-import { ScrollArea } from './ui/scroll-area'
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
+  ScrollArea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
+  Switch,
+  Textarea,
+} from './AntdCompat'
 import {
   CheckCircle2,
   ChevronRight,

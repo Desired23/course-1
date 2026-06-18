@@ -189,7 +189,7 @@ export function CourseCard({
           originalPrice: originalPriceVal,
           studentsCount: studentsVal,
           duration,
-        })
+        }, { suppressSuccessToast: true })
         toast.success(t("course_card.added_to_cart"))
       }
     } finally {

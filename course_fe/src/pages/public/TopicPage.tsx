@@ -17,6 +17,7 @@ import { useRouter } from '../../components/Router'
 import { formatCategoryName, BreadcrumbItem } from '../../utils/navigation'
 import { useTranslation } from 'react-i18next'
 import { listItemTransition } from '../../lib/motion'
+import { useOwnedCourses } from '../../hooks/useOwnedCourses'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -85,6 +86,7 @@ const topicMetadata: Record<string, {
 export default function TopicPage() {
   const { t } = useTranslation()
   const { currentRoute, navigate } = useRouter()
+  const { isEnrolled, isInSubscription, getProgress } = useOwnedCourses()
 
 
   const pathParts = currentRoute.split('/').filter(Boolean)
@@ -162,6 +164,9 @@ export default function TopicPage() {
       bestseller: course.total_students > 100000,
       currency: 'VND' as const,
       discountEndDate: hasDiscount ? course.discount_end_date : undefined,
+      isOwned: isEnrolled(course.id),
+      inSubscription: isInSubscription(course.id),
+      progress: getProgress(course.id),
     }
   })
 

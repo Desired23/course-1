@@ -148,6 +148,7 @@ export function AdminBlogPostsPage() {
   })
 
   const handleCreatePost = async () => {
+    if (isUploadingFeaturedImage) return
     try {
       const created = await createBlogPost({
         title: formData.title,
@@ -169,6 +170,7 @@ export function AdminBlogPostsPage() {
   }
 
   const handleUpdatePost = async () => {
+    if (isUploadingFeaturedImage) return
     if (!selectedPost) return
     try {
       const updated = await updateBlogPost(Number(selectedPost.id), {
@@ -443,6 +445,7 @@ export function AdminBlogPostsPage() {
                     id="featuredImage"
                     type="file"
                     accept="image/*"
+                    disabled={isUploadingFeaturedImage}
                     onChange={(e) => handleFeaturedImageUpload(e.target.files?.[0])}
                   />
                   {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">{t('admin_blog_posts.uploading')}</p>}
@@ -475,7 +478,7 @@ export function AdminBlogPostsPage() {
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                 {t('common.cancel')}
               </Button>
-              <Button onClick={handleCreatePost}>
+              <Button onClick={handleCreatePost} disabled={isUploadingFeaturedImage}>
                 {t('admin_blog_posts.create_post')}
               </Button>
             </DialogFooter>
@@ -827,6 +830,7 @@ export function AdminBlogPostsPage() {
                   id="edit-featuredImage"
                   type="file"
                   accept="image/*"
+                  disabled={isUploadingFeaturedImage}
                   onChange={(e) => handleFeaturedImageUpload(e.target.files?.[0])}
                 />
                 {isUploadingFeaturedImage && <p className="text-sm text-muted-foreground">{t('admin_blog_posts.uploading')}</p>}
@@ -866,7 +870,7 @@ export function AdminBlogPostsPage() {
             }}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleUpdatePost}>
+            <Button onClick={handleUpdatePost} disabled={isUploadingFeaturedImage}>
               {t('admin_blog_posts.update_post')}
             </Button>
           </DialogFooter>
