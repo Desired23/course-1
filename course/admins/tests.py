@@ -10,8 +10,13 @@ from admins.dashboard_services import (
     get_admin_dashboard_stats,
     get_admin_earning_payout_metrics,
     get_admin_promotion_stats,
+    get_admin_course_analytics,
+    get_admin_revenue_analytics,
     get_admin_revenue_breakdown,
+    get_admin_revenue_by_category,
     get_admin_revenue_by_course,
+    get_admin_subscription_metrics,
+    get_admin_top_courses_by_revenue,
 )
 from admins.models import Admin
 from courses.models import Course
@@ -97,6 +102,85 @@ class AdminStatisticsServiceTests(TestCase):
         self.assertEqual(stats['refunded_amount'], 300.0)
         self.assertEqual(stats['transaction_count'], 2)
         self.assertEqual(stats['refund_rate'], 60.0)
+
+    def test_revenue_analytics_returns_estimated_and_realized_fields(self):
+        eligible_course = self._course('Analytics Eligible')
+        realized_course = self._course('Analytics Realized')
+
+        self._purchase(eligible_course, Decimal('100.00'), progress=10)
+        self._purchase(realized_course, Decimal('200.00'), progress=60)
+
+        row = get_admin_revenue_analytics(months=1)[0]
+
+        self.assertEqual(row['revenue'], 300.0)
+        self.assertEqual(row['estimated_revenue'], 300.0)
+        self.assertEqual(row['realized_revenue'], 200.0)
+        self.assertEqual(row['transaction_count'], 1)
+
+    def test_top_course_and_category_revenue_include_estimated_unfinalized_revenue(self):
+        course = self._course('Estimated Course')
+        self._purchase(course, Decimal('100.00'), progress=10)
+        plan = SubscriptionPlan.objects.create(name='Estimated Plan', price=Decimal('200.00'), duration_days=30)
+        sub_payment = self._completed_payment(
+            self._user('estimated-subscriber'),
+            Decimal('200.00'),
+            Payment.PaymentType.SUBSCRIPTION,
+        )
+        sub_payment.subscription_plan = plan
+        sub_payment.save(update_fields=['subscription_plan'])
+        subscription = UserSubscription.objects.create(
+            user=sub_payment.user,
+            plan=plan,
+            payment=sub_payment,
+            start_date=timezone.now(),
+            end_date=timezone.now() + timedelta(days=30),
+        )
+        InstructorEarning.objects.create(
+            instructor=course.instructor,
+            course=course,
+            user_subscription=subscription,
+            amount=Decimal('80.00'),
+            net_amount=Decimal('56.00'),
+            earning_period_start=timezone.now().date(),
+        )
+
+        course_row = get_admin_course_analytics()[0]
+        top_row = get_admin_top_courses_by_revenue()[0]
+        category_row = get_admin_revenue_by_category()[0]
+
+        self.assertEqual(course_row['estimated_revenue'], 180.0)
+        self.assertEqual(course_row['realized_revenue'], 0.0)
+        self.assertEqual(course_row['transactions'], 2)
+        self.assertEqual(top_row['estimated_revenue'], 180.0)
+        self.assertEqual(category_row['estimated_revenue'], 180.0)
+        self.assertEqual(category_row['transaction_count'], 0)
+
+    def test_subscription_metrics_split_estimated_and_realized_revenue(self):
+        plan = SubscriptionPlan.objects.create(name='Metrics Plan', price=Decimal('100.00'), duration_days=30)
+        pending_payment = self._completed_payment(
+            self._user('metrics-pending-subscriber'),
+            Decimal('100.00'),
+            Payment.PaymentType.SUBSCRIPTION,
+        )
+        pending_payment.subscription_plan = plan
+        pending_payment.save(update_fields=['subscription_plan'])
+        realized_payment = self._completed_payment(
+            self._user('metrics-realized-subscriber'),
+            Decimal('200.00'),
+            Payment.PaymentType.SUBSCRIPTION,
+        )
+        realized_payment.subscription_plan = plan
+        realized_payment.save(update_fields=['subscription_plan'])
+        Payment.objects.filter(id=realized_payment.id).update(payment_date=timezone.now() - timedelta(days=40))
+
+        metrics = get_admin_subscription_metrics()
+        plan_row = next(row for row in metrics['per_plan'] if row['plan_id'] == plan.id)
+
+        self.assertEqual(metrics['total_revenue'], 300.0)
+        self.assertEqual(metrics['total_estimated_revenue'], 300.0)
+        self.assertEqual(metrics['total_realized_revenue'], 200.0)
+        self.assertEqual(plan_row['estimated_revenue'], 300.0)
+        self.assertEqual(plan_row['realized_revenue'], 200.0)
 
     def test_dashboard_stats_include_today_estimated_and_realized_revenue(self):
         today_course = self._course('Today')

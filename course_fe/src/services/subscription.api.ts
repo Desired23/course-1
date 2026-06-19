@@ -109,6 +109,8 @@ export interface UserSubscription {
   plan_name: string
   plan_detail?: SubscriptionPlanListItem
   is_active: boolean
+  billing_cycle?: 'monthly' | 'yearly'
+  payment_total_amount?: string | null
 }
 
 export interface PaginatedResponse<T> {
@@ -203,6 +205,14 @@ export function getDurationLabel(type: string): string {
     case 'annual': return 'Hàng năm'
     case 'lifetime': return 'Trọn đời'
     default: return type
+  }
+}
+
+export function getBillingCycleLabel(type?: string): string {
+  switch (type) {
+    case 'yearly': return 'Hàng năm'
+    case 'monthly': return 'Hàng tháng'
+    default: return type || ''
   }
 }
 

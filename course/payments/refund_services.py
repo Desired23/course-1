@@ -116,10 +116,19 @@ def _serialize_refund_detail(detail):
     }
 
 def _calculate_refund_amount(payment, detail):
-    if not payment.amount:
+    # Allocate the amount actually paid (total_amount, net of all discounts)
+    # proportionally to each detail's final_price. The weight base must be the
+    # sum of final_price (already net of per-course discounts), NOT payment.amount
+    # (the gross total before discounts) — otherwise per-course discounts are
+    # subtracted twice and the refund comes out too low.
+    final_price_total = sum(
+        (Decimal(d.final_price) for d in payment.payment_details.all()),
+        Decimal("0"),
+    )
+    if not final_price_total:
         return detail.final_price
     return (
-        (Decimal(detail.final_price) / Decimal(payment.amount)) * Decimal(payment.total_amount)
+        (Decimal(detail.final_price) / final_price_total) * Decimal(payment.total_amount)
     ).quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
 
 

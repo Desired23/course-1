@@ -244,7 +244,12 @@ def create_enrollments_from_payment(payment):
             return
 
         try:
-            subscribe_to_plan(payment.user, payment.subscription_plan_id, payment.id)
+            subscribe_to_plan(
+                payment.user,
+                payment.subscription_plan_id,
+                payment.id,
+                billing_cycle=payment.billing_cycle,
+            )
         except Exception as e:
             logger.warning("Failed to create subscription for payment %s: %s", payment.id, e)
         return

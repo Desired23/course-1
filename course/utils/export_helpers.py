@@ -2,11 +2,24 @@ import csv
 import io
 
 from django.http import HttpResponse
+from django.utils import timezone
+
+
+def dated_export_filename(filename, extension):
+    extension = extension.lstrip('.')
+    suffix = f'.{extension}'
+    base = filename[:-len(suffix)] if filename.endswith(suffix) else filename
+    timestamp = timezone.localtime().strftime('%Y%m%d_%H%M%S')
+    return f'{base}_{timestamp}.{extension}'
+
+
+def export_content_disposition(filename, extension):
+    return f'attachment; filename="{dated_export_filename(filename, extension)}"'
 
 
 def export_to_csv(headers, rows, filename):
     response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
-    response['Content-Disposition'] = f'attachment; filename="{filename}.csv"'
+    response['Content-Disposition'] = export_content_disposition(filename, 'csv')
     writer = csv.writer(response)
     writer.writerow(headers)
     writer.writerows(rows)
@@ -42,7 +55,7 @@ def export_to_excel(headers, rows, filename, sheet_title='Sheet1'):
         buf.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+    response['Content-Disposition'] = export_content_disposition(filename, 'xlsx')
     return response
 
 
@@ -80,7 +93,7 @@ def export_workbook_to_excel(sheets, filename):
         buf.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    response['Content-Disposition'] = f'attachment; filename="{filename}.xlsx"'
+    response['Content-Disposition'] = export_content_disposition(filename, 'xlsx')
     return response
 
 
@@ -95,9 +108,9 @@ def export_sheets_to_zip_csv(sheets, filename):
             writer.writerow(sheet.get('headers') or [])
             writer.writerows(sheet.get('rows') or [])
             safe_name = ''.join(ch if ch.isalnum() or ch in ('-', '_') else '_' for ch in str(sheet.get('title') or 'report'))
-            archive.writestr(f'{safe_name}.csv', '\ufeff' + csv_buf.getvalue())
+            archive.writestr(dated_export_filename(safe_name, 'csv'), '\ufeff' + csv_buf.getvalue())
     buf.seek(0)
 
     response = HttpResponse(buf.getvalue(), content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{filename}.zip"'
+    response['Content-Disposition'] = export_content_disposition(filename, 'zip')
     return response

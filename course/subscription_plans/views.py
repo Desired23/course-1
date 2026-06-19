@@ -203,7 +203,8 @@ class UserSubscribeView(APIView):
                     {"error": "plan_id is required."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            result = subscribe_to_plan(request.user, plan_id, payment_id)
+            billing_cycle = request.data.get('billing_cycle')
+            result = subscribe_to_plan(request.user, plan_id, payment_id, billing_cycle=billing_cycle)
             return Response(result, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)

@@ -15,10 +15,14 @@ def published_course_count(instructor):
 
 
 def student_count(instructor):
+    from enrollments.constants import OWNED_ENROLLMENT_STATUSES
     from enrollments.models import Enrollment
     return (
         Enrollment.objects.filter(
-            course__instructor=instructor, course__is_deleted=False, is_deleted=False
+            course__instructor=instructor,
+            course__is_deleted=False,
+            is_deleted=False,
+            status__in=OWNED_ENROLLMENT_STATUSES,
         )
         .values('user').distinct().count()
     )
@@ -28,5 +32,5 @@ def average_rating(instructor):
     from reviews.models import Review
     avg = Review.objects.filter(
         course__instructor=instructor, is_deleted=False
-    ).aggregate(value=Avg('rating'))['value']
+    ).exclude(status=Review.StatusChoices.REJECTED).aggregate(value=Avg('rating'))['value']
     return round(float(avg), 2) if avg is not None else 0.0

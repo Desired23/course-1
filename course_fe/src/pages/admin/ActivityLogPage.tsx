@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 import { cleanupActivityLogs, getActivityLogs as getActivityLogsApi } from '../../services/admin.api'
 import type { ActivityLog as ApiActivityLog } from '../../services/admin.api'
+import { timestampedFilename } from '../../services/download'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'motion/react'
 
@@ -302,7 +303,7 @@ export function ActivityLogPage() {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `activity-logs-${new Date().toISOString().split('T')[0]}.csv`
+    link.download = timestampedFilename('activity-logs.csv')
     link.click()
   }
 

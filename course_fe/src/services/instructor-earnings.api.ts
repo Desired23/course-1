@@ -2,7 +2,8 @@
 
 
 
-import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
+import { downloadBlob } from './download'
+import { http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 export interface InstructorEarning {
@@ -196,23 +197,11 @@ export async function exportInstructorEarnings(
   if (instructorId) params.set('instructor_id', String(instructorId))
   if (dateFrom) params.set('date_from', dateFrom)
   if (dateTo) params.set('date_to', dateTo)
-  const token = getAccessToken()
-  const response = await fetch(`${API_BASE_URL}/instructor-earnings/export/?${params.toString()}`, {
-    headers: {
-      ...getApiTransportHeaders(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-  if (!response.ok) throw new Error('Export failed')
-  const blob = await response.blob()
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `instructor_earnings.${format === 'excel' ? 'xlsx' : 'csv'}`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
+  await downloadBlob(
+    `/instructor-earnings/export/?${params.toString()}`,
+    `instructor_earnings.${format === 'excel' ? 'xlsx' : 'csv'}`,
+    { errorMessage: 'Export failed' },
+  )
 }
 
 export function parseEarningAmount(val: string | null | undefined): number {

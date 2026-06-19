@@ -55,6 +55,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useTranslation } from 'react-i18next'
 import { getCourseStudents, type CourseStudentRow } from '../../services/course.api'
 import { getInstructorCourseAnalytics } from '../../services/instructor.api'
+import { useNotificationRefetch } from '../../hooks/useNotificationRefetch'
 
 interface CourseDetail {
   id: string
@@ -224,9 +225,20 @@ export function AdminCourseDetailPage() {
   const [studentTotalPages, setStudentTotalPages] = useState(1)
   const [studentLoading, setStudentLoading] = useState(false)
   const [certificatePreviewing, setCertificatePreviewing] = useState(false)
+  const [courseRefetchTick, setCourseRefetchTick] = useState(0)
 
 
   const courseId = currentRoute.split('/admin/courses/')[1]
+
+  useNotificationRefetch(
+    ['course_status_changed_by_admin'],
+    (notification) => {
+      const relatedId = notification.related_id ? String(notification.related_id) : null
+      if (!relatedId || relatedId === String(courseId)) {
+        setCourseRefetchTick((value) => value + 1)
+      }
+    },
+  )
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -333,7 +345,7 @@ export function AdminCourseDetailPage() {
       }
     }
     fetchCourseData()
-  }, [courseId, t])
+  }, [courseId, courseRefetchTick, t])
 
   useEffect(() => {
     const numId = Number(courseId)
@@ -1012,7 +1024,7 @@ export function AdminCourseDetailPage() {
                         </TableCell>
                         <TableCell>{student.enrolled_at ? new Date(student.enrolled_at).toLocaleDateString() : '-'}</TableCell>
                         <TableCell>
-                          <div className="space-y-1">
+                          <div className="flex flex-col items-start gap-1">
                             <Progress value={student.average_progress} className="w-20" />
                             <span className="text-xs text-muted-foreground">{student.average_progress}%</span>
                           </div>

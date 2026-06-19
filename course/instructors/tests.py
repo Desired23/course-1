@@ -13,8 +13,10 @@ from instructor_payouts.models import InstructorPayout
 from instructors.models import Instructor
 from instructors.dashboard_services import get_instructor_analytics_timeseries, get_instructor_dashboard_stats
 from instructors.services import create_instructor
+from instructors.stats import average_rating, student_count
 from payment_details.models import Payment_Details
 from payments.models import Payment
+from reviews.models import Review
 from subscription_plans.models import SubscriptionPlan, SubscriptionUsage, UserSubscription
 from users.models import User
 from utils.test_helpers import make_user
@@ -130,6 +132,40 @@ class InstructorDashboardStatsTests(TestCase):
 
         self.assertEqual(stats["total_students"], 2)
         self.assertEqual(stats["new_students_this_month"], 2)
+
+    def test_dashboard_and_stats_count_owned_student_statuses_only(self):
+        user = make_user("instructor", username="owned_status_instructor")
+        instructor = user.instructor
+        course = Course.objects.create(title="Owned Status Course", instructor=instructor)
+        statuses = [
+            Enrollment.Status.Active,
+            Enrollment.Status.Complete,
+            Enrollment.Status.SUSPENDED,
+            Enrollment.Status.Cancelled,
+            Enrollment.Status.Expired,
+        ]
+        for index, status in enumerate(statuses):
+            Enrollment.objects.create(
+                user=make_user("student", username=f"owned_status_student_{index}"),
+                course=course,
+                status=status,
+                enrollment_date=timezone.now(),
+            )
+
+        stats = get_instructor_dashboard_stats(instructor)
+
+        self.assertEqual(stats["total_students"], 3)
+        self.assertEqual(student_count(instructor), 3)
+
+    def test_average_rating_includes_pending_and_excludes_rejected_reviews(self):
+        user = make_user("instructor", username="rating_policy_instructor")
+        instructor = user.instructor
+        course = Course.objects.create(title="Rating Policy Course", instructor=instructor)
+        Review.objects.create(course=course, user=make_user("student", username="inst_rating_approved"), rating=4, status=Review.StatusChoices.APPROVED)
+        Review.objects.create(course=course, user=make_user("student", username="inst_rating_pending"), rating=2, status=Review.StatusChoices.PENDING)
+        Review.objects.create(course=course, user=make_user("student", username="inst_rating_rejected"), rating=1, status=Review.StatusChoices.REJECTED)
+
+        self.assertEqual(average_rating(instructor), 3.0)
 
     def test_dashboard_includes_instructor_level_progress(self):
         user = make_user("instructor", username="level_progress_instructor")

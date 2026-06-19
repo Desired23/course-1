@@ -68,6 +68,7 @@ def get_next_instructor_level(level):
 
 
 def _instructor_level_metrics(instructor):
+    from enrollments.constants import OWNED_ENROLLMENT_STATUSES
     from enrollments.models import Enrollment
     from instructor_earnings.models import InstructorEarning
     from subscription_plans.models import SubscriptionUsage
@@ -77,7 +78,7 @@ def _instructor_level_metrics(instructor):
         .filter(
             course__instructor=instructor,
             is_deleted=False,
-            status=Enrollment.Status.Active,
+            status__in=OWNED_ENROLLMENT_STATUSES,
         )
         .values('user_id')
         .distinct()

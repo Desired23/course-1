@@ -18,8 +18,6 @@ import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import {
   Plus,
   Edit,
-  Users,
-  DollarSign,
   Star,
   Crown,
   Gift,
@@ -28,7 +26,6 @@ import {
   Pause,
   X,
   BarChart3,
-  Target,
   Clock,
   Zap,
   Shield,
@@ -36,10 +33,9 @@ import {
   MoreHorizontal
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { toast } from 'sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
-import { getAdminSubscriptionPlans, getPlanSubscribers, getAdminSubscriptionMetrics, getAdminRevenueMonthlyBreakdown, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan, addPlanCourse, removePlanCourse, type SubscriptionMetrics } from '../../services/admin.api'
+import { getAdminSubscriptionPlans, getPlanSubscribers, adminExtendSubscription, adminCancelSubscription, updateSubscriptionPlan, deleteSubscriptionPlan, addPlanCourse, removePlanCourse } from '../../services/admin.api'
 import { useRouter } from '../../components/Router'
 import { useTranslation } from 'react-i18next'
 import { getCourses, type CourseListItem } from '../../services/course.api'
@@ -113,15 +109,12 @@ const fadeInUp = {
 export function AdminSubscriptionPage() {
   const { canAccess } = useAuth(); const { t } = useTranslation()
   const { navigate } = useRouter()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState('plans')
   const [subscriptionSearchQuery, setSubscriptionSearchQuery] = useState('')
   const [subscriptionStatusFilter, setSubscriptionStatusFilter] = useState<'all' | Subscription['status']>('all')
 
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
-  const [revenueData, setRevenueData] = useState<{month: string; revenue: number}[]>([])
-  const [planDistribution, setPlanDistribution] = useState<{name: string; value: number; color: string}[]>([])
-  const [subMetrics, setSubMetrics] = useState<SubscriptionMetrics | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [isEditPlanOpen, setIsEditPlanOpen] = useState(false)
@@ -207,35 +200,9 @@ export function AdminSubscriptionPage() {
     const fetchData = async () => {
       try {
         setDataLoading(true)
-        const [apiPlans, metrics, monthly] = await Promise.all([
-          getAdminSubscriptionPlans(),
-          getAdminSubscriptionMetrics(),
-          getAdminRevenueMonthlyBreakdown(6),
-        ])
-        const metricsByPlan = new Map(metrics.per_plan.map(p => [String(p.plan_id), p]))
-        const mapped: SubscriptionPlan[] = apiPlans.map(p => {
-          const base = mapPlan(p)
-          const m = metricsByPlan.get(base.id)
-          if (m) {
-            base.subscriberCount = m.active_subscribers
-            base.revenue = m.revenue
-            base.churnRate = m.churn_rate
-          }
-          return base
-        })
+        const apiPlans = await getAdminSubscriptionPlans()
+        const mapped = apiPlans.map(mapPlan)
         setPlans(mapped)
-        setSubMetrics(metrics)
-        const colors = ['#94a3b8', '#3b82f6', '#eab308', '#ef4444', '#22c55e', '#a855f7']
-        const total = mapped.reduce((s, p) => s + p.subscriberCount, 0) || 1
-        setPlanDistribution(mapped.map((p, i) => ({
-          name: p.name,
-          value: Math.round((p.subscriberCount / total) * 100),
-          color: colors[i % colors.length]
-        })))
-        setRevenueData(monthly.map(r => ({
-          month: new Date(r.date).toLocaleString('en', { month: 'short' }),
-          revenue: r.subscription
-        })))
         await reloadSubscriptions(apiPlans)
       } catch {
         toast.error(t('subscriptions_page.admin.toasts.load_failed'))
@@ -530,11 +497,6 @@ export function AdminSubscriptionPage() {
     })
   }, [subscriptions, subscriptionSearchQuery, subscriptionStatusFilter, plans])
 
-
-  const totalSubscriptionRevenue = subMetrics?.total_revenue ?? 0
-  const activeSubscribers = subMetrics?.active_subscribers ?? 0
-  const arpu = activeSubscribers ? Math.round(totalSubscriptionRevenue / activeSubscribers) : 0
-
   const renderSubscriptionTableSkeleton = () => (
     Array.from({ length: 6 }).map((_, index) => (
       <TableRow key={`subscription-skeleton-${index}`}>
@@ -572,11 +534,7 @@ export function AdminSubscriptionPage() {
 
       <motion.div variants={fadeInUp}>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="relative grid w-full grid-cols-3 max-w-[500px] p-1">
-          <TabsTrigger value="overview" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-            {activeTab === 'overview' && <motion.span layoutId="admin-subscription-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
-            <span className="relative z-10">{t('subscriptions_page.admin.tabs.overview')}</span>
-          </TabsTrigger>
+        <TabsList className="relative grid w-full grid-cols-2 max-w-[360px] p-1">
           <TabsTrigger value="plans" className="relative data-[state=active]:bg-transparent data-[state=active]:shadow-none">
             {activeTab === 'plans' && <motion.span layoutId="admin-subscription-tabs-glider" transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 rounded-md bg-background shadow-sm" />}
             <span className="relative z-10">{t('subscriptions_page.admin.tabs.plans')}</span>
@@ -586,105 +544,6 @@ export function AdminSubscriptionPage() {
             <span className="relative z-10">{t('subscriptions_page.admin.tabs.subscriptions')}</span>
           </TabsTrigger>
         </TabsList>
-
-
-        <TabsContent value="overview" className="space-y-6 mt-6">
-
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.overview.monthly_revenue')}</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {dataLoading ? <Skeleton className="h-8 w-32" /> : <div className="text-2xl font-bold">{formatCurrency(totalSubscriptionRevenue)}</div>}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.overview.total_subscriptions')}</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {dataLoading ? <Skeleton className="h-8 w-20" /> : <div className="text-2xl font-bold">{activeSubscribers.toLocaleString('vi-VN')}</div>}
-              </CardContent>
-            </Card>
-
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('subscriptions_page.admin.overview.arpu_title')}</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {dataLoading ? <Skeleton className="h-8 w-28" /> : <div className="text-2xl font-bold">{formatCurrency(arpu)}</div>}
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t('subscriptions_page.admin.overview.arpu_description')}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('subscriptions_page.admin.overview.revenue_growth_title')}</CardTitle>
-                <CardDescription>{t('subscriptions_page.admin.overview.revenue_growth_description')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dataLoading ? <Skeleton className="h-[300px] w-full" /> : <div className="h-[300px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={revenueData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                      <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${value/1000000}M`} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Area type="monotone" dataKey="revenue" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('subscriptions_page.admin.overview.plan_distribution_title')}</CardTitle>
-                <CardDescription>{t('subscriptions_page.admin.overview.plan_distribution_description')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dataLoading ? <Skeleton className="h-[300px] w-full" /> : <div className="h-[300px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={planDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {planDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex justify-center gap-4 mt-4">
-                    {planDistribution.map((item, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                        {item.name} ({item.value}%)
-                      </div>
-                    ))}
-                  </div>
-                </div>}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
 
 
         <TabsContent value="plans" className="space-y-6 mt-6">
@@ -704,6 +563,19 @@ export function AdminSubscriptionPage() {
                   </CardContent>
                 </Card>
               ))
+            ) : plans.length === 0 ? (
+              <Card className="md:col-span-2 lg:col-span-3">
+                <CardContent className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+                  <div>
+                    <h3 className="text-lg font-semibold">{t('subscriptions_page.admin.empty_plans_title')}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{t('subscriptions_page.admin.empty_plans_description')}</p>
+                  </div>
+                  <Button onClick={() => navigate('/admin/subscriptions/new')}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    {t('subscriptions_page.admin.create_plan')}
+                  </Button>
+                </CardContent>
+              </Card>
             ) : plans.map((plan) => (
               <Card key={plan.id} className={`relative overflow-hidden ${plan.isPopular ? 'border-blue-500 shadow-md' : ''}`}>
                 {plan.isPopular && (

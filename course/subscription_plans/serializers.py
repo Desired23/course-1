@@ -94,6 +94,8 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     plan_name = serializers.CharField(source='plan.name', read_only=True)
     plan_detail = SubscriptionPlanListSerializer(source='plan', read_only=True)
     is_active = serializers.BooleanField(read_only=True)
+    billing_cycle = serializers.SerializerMethodField()
+    payment_total_amount = serializers.DecimalField(source='payment.total_amount', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = UserSubscription
@@ -102,10 +104,18 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
             'start_date', 'end_date', 'auto_renew',
             'cancelled_at', 'created_at',
             'plan_name', 'plan_detail', 'is_active',
+            'billing_cycle', 'payment_total_amount',
         ]
         read_only_fields = [
             'id', 'created_at', 'cancelled_at',
         ]
+
+    def get_billing_cycle(self, obj):
+        if obj.payment and obj.payment.billing_cycle:
+            return obj.payment.billing_cycle
+        if obj.start_date and obj.end_date:
+            return 'yearly' if (obj.end_date - obj.start_date).days >= 360 else 'monthly'
+        return 'monthly'
 
 
 class UserSubscriptionListSerializer(serializers.ModelSerializer):
@@ -114,6 +124,8 @@ class UserSubscriptionListSerializer(serializers.ModelSerializer):
     is_active = serializers.BooleanField(read_only=True)
     user_name = serializers.CharField(source='user.full_name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
+    billing_cycle = serializers.SerializerMethodField()
+    payment_total_amount = serializers.DecimalField(source='payment.total_amount', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = UserSubscription
@@ -121,7 +133,15 @@ class UserSubscriptionListSerializer(serializers.ModelSerializer):
             'id', 'plan', 'plan_name', 'status',
             'start_date', 'end_date', 'auto_renew', 'cancelled_at',
             'plan_detail', 'is_active', 'user', 'user_name', 'user_email',
+            'billing_cycle', 'payment_total_amount',
         ]
+
+    def get_billing_cycle(self, obj):
+        if obj.payment and obj.payment.billing_cycle:
+            return obj.payment.billing_cycle
+        if obj.start_date and obj.end_date:
+            return 'yearly' if (obj.end_date - obj.start_date).days >= 360 else 'monthly'
+        return 'monthly'
 
 
 class CourseSubscriptionConsentSerializer(serializers.ModelSerializer):

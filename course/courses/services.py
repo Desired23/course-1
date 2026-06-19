@@ -6,6 +6,7 @@ from .serializers import CourseSerializer, CourseDetailSerializer
 from activity_logs.services import log_activity
 from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import Coalesce
+from enrollments.constants import OWNED_ENROLLMENT_STATUSES
 from enrollments.models import Enrollment
 from learning_progress.models import LearningProgress
 from reviews.models import Review
@@ -71,7 +72,7 @@ def recalc_course_students(course_id):
     total = Enrollment.objects.filter(
         course_id=course_id,
         is_deleted=False,
-        status__in=[Enrollment.Status.Active, Enrollment.Status.Complete, Enrollment.Status.SUSPENDED],
+        status__in=OWNED_ENROLLMENT_STATUSES,
     ).count()
     Course.objects.filter(id=course_id).update(total_students=total)
 
@@ -85,6 +86,7 @@ def recalc_course_structure(course_id):
             'lessons',
             filter=Q(
                 lessons__is_deleted=False,
+                lessons__status=Lesson.Status.PUBLISHED,
                 lessons__content_type__in=supported_content_types,
             ),
         ),
@@ -93,6 +95,7 @@ def recalc_course_structure(course_id):
                 'lessons__duration',
                 filter=Q(
                     lessons__is_deleted=False,
+                    lessons__status=Lesson.Status.PUBLISHED,
                     lessons__content_type__in=supported_content_types,
                 ),
             ),
@@ -100,14 +103,16 @@ def recalc_course_structure(course_id):
         ),
     )
 
-    total_modules = modules.count()
+    total_modules = 0
     total_lessons = 0
     total_duration = 0
     modules_to_update = []
 
     for module in modules:
-        total_lessons += module.lesson_count
-        total_duration += module.duration_total
+        if module.status == 'Published':
+            total_modules += 1
+            total_lessons += module.lesson_count
+            total_duration += module.duration_total
         next_duration = module.duration_total or None
         if module.duration != next_duration:
             module.duration = next_duration
@@ -399,11 +404,7 @@ def update_course(course_id, data, requesting_user=None):
                     has_students = Enrollment.objects.filter(
                         course=course,
                         is_deleted=False,
-                        status__in=[
-                            Enrollment.Status.Active,
-                            Enrollment.Status.Complete,
-                            Enrollment.Status.SUSPENDED,
-                        ],
+                        status__in=OWNED_ENROLLMENT_STATUSES,
                     ).exists()
                     if has_students:
                         raise ValidationError(
@@ -451,6 +452,22 @@ def update_course(course_id, data, requesting_user=None):
                         f"from '{old_status}' to '{updated_course.status}'{reason_suffix}"
                     ),
                 )
+
+                if is_admin:
+                    try:
+                        from notifications.services import notify_admins
+                        notify_admins(
+                            title="Trang thai khoa hoc da thay doi",
+                            message=f"Khoa hoc \"{updated_course.title}\" da chuyen tu {old_status} sang {updated_course.status}.",
+                            type="course",
+                            notification_code="course_status_changed_by_admin",
+                            related_id=updated_course.id,
+                            sender_id=requesting_user.id if requesting_user else None,
+                            action_url=f"/admin/courses/{updated_course.id}",
+                            force=True,
+                        )
+                    except Exception:
+                        pass
 
                 if is_admin and send_notification:
                     instructor_user_id = updated_course.instructor.user.id if updated_course.instructor else None

@@ -16,6 +16,9 @@ class Payment(models.Model):
     class PaymentType(models.TextChoices):
         COURSE_PURCHASE = 'course_purchase', 'Course Purchase'
         SUBSCRIPTION = 'subscription', 'Subscription'
+    class BillingCycle(models.TextChoices):
+        MONTHLY = 'monthly', 'Monthly'
+        YEARLY = 'yearly', 'Yearly'
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payment_user_id')
     payment_type = models.CharField(
@@ -44,6 +47,12 @@ class Payment(models.Model):
         max_length=20,
         choices=PaymentMethod.choices,
         default=PaymentMethod.VNPAY
+    )
+    billing_cycle = models.CharField(
+        max_length=20,
+        choices=BillingCycle.choices,
+        null=True,
+        blank=True,
     )
     momo_request_type = models.CharField(max_length=20, null=True, blank=True)
     promotion = models.ForeignKey(

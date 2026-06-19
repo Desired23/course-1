@@ -334,6 +334,7 @@ export function LessonPreviewModal({
                  title={lesson.title}
                  duration={lesson.duration}
                  className="w-full h-full border-0 rounded-none"
+                 fill
                />
              </div>
 

@@ -28,6 +28,8 @@ from notifications.services import create_notification
 from users.preferences import format_datetime_for_user
 from utils.admin_actors import resolve_admin_actor, actor_user_id
 
+SUBSCRIPTION_BILLING_CYCLES = {'monthly', 'yearly'}
+
 
 def create_subscription_plan(data, admin_actor=None):
     try:
@@ -122,15 +124,6 @@ def add_course_to_plan(plan_id, course_id, admin_actor=None, added_reason=None):
         course = Course.objects.get(id=course_id, is_deleted=False)
 
 
-        consent = CourseSubscriptionConsent.objects.filter(
-            course=course, is_deleted=False
-        ).first()
-        if not consent or consent.consent_status != CourseSubscriptionConsent.ConsentStatus.OPTED_IN:
-            raise ValidationError({
-                "error": "Instructor chưa opt-in khóa học này vào plan. "
-                         "Instructor phải chấp thuận trước."
-            })
-
         pc, created = PlanCourse.objects.get_or_create(
             plan=plan, course=course,
             defaults={
@@ -199,7 +192,42 @@ def get_plan_courses(plan_id):
     return pcs
 
 
-def subscribe_to_plan(user, plan_id, payment_id=None):
+def _infer_billing_cycle_from_payment(plan, payment):
+    if not payment or getattr(payment, 'payment_type', None) != 'subscription':
+        return None
+
+    billing_cycle = getattr(payment, 'billing_cycle', None)
+    if billing_cycle in SUBSCRIPTION_BILLING_CYCLES:
+        return billing_cycle
+
+    base_monthly_price = Decimal(plan.discount_price if plan.discount_price else plan.price)
+    if base_monthly_price > 0 and payment.amount >= base_monthly_price * Decimal('12'):
+        return 'yearly'
+    return 'monthly'
+
+
+def _resolve_billing_cycle(plan, payment=None, billing_cycle=None):
+    if billing_cycle:
+        normalized = str(billing_cycle).lower()
+        if normalized not in SUBSCRIPTION_BILLING_CYCLES:
+            raise ValidationError({"error": "billing_cycle must be 'monthly' or 'yearly'."})
+        return normalized
+
+    inferred = _infer_billing_cycle_from_payment(plan, payment)
+    if inferred:
+        return inferred
+    return 'monthly'
+
+
+def _duration_days_for_billing_cycle(plan, billing_cycle):
+    if plan.duration_days == 0:
+        return 0
+    if billing_cycle == 'yearly':
+        return 365
+    return plan.duration_days
+
+
+def subscribe_to_plan(user, plan_id, payment_id=None, billing_cycle=None):
     try:
         plan = SubscriptionPlan.objects.get(
             id=plan_id, status='active', is_deleted=False
@@ -220,12 +248,6 @@ def subscribe_to_plan(user, plan_id, payment_id=None):
             "subscription_id": existing.id,
         })
 
-    now = timezone.now()
-    end_date = None
-    if plan.duration_days > 0:
-        end_date = now + timedelta(days=plan.duration_days)
-
-
     payment = None
     if payment_id:
         from payments.models import Payment
@@ -236,6 +258,17 @@ def subscribe_to_plan(user, plan_id, payment_id=None):
                 raise ValidationError({"error": "Thanh toán chưa hoàn tất. Không thể kích hoạt gói."})
         except Payment.DoesNotExist:
             raise ValidationError({"error": "Payment not found."})
+
+    resolved_billing_cycle = _resolve_billing_cycle(plan, payment, billing_cycle)
+    duration_days = _duration_days_for_billing_cycle(plan, resolved_billing_cycle)
+    if payment and getattr(payment, 'billing_cycle', None) != resolved_billing_cycle:
+        payment.billing_cycle = resolved_billing_cycle
+        payment.save(update_fields=['billing_cycle'])
+
+    now = timezone.now()
+    end_date = None
+    if duration_days > 0:
+        end_date = now + timedelta(days=duration_days)
 
     with transaction.atomic():
         subscription = UserSubscription.objects.create(
@@ -263,14 +296,14 @@ def subscribe_to_plan(user, plan_id, payment_id=None):
 def get_user_subscriptions(user):
     subs = UserSubscription.objects.filter(
         user=user, is_deleted=False
-    ).select_related('plan').order_by('-start_date')
+    ).select_related('plan', 'payment').order_by('-start_date')
     return subs
 
 
 def get_user_subscription_detail(subscription_id, user):
     try:
         sub = UserSubscription.objects.select_related(
-            'plan'
+            'plan', 'payment'
         ).prefetch_related(
             'plan__plan_courses__course'
         ).get(id=subscription_id, user=user, is_deleted=False)
@@ -556,8 +589,6 @@ def get_plan_candidate_courses(plan_id, limit=20):
         is_deleted=False,
         status='published',
         is_public=True,
-        subscription_consent__consent_status=CourseSubscriptionConsent.ConsentStatus.OPTED_IN,
-        subscription_consent__is_deleted=False,
     ).exclude(
         id__in=active_course_ids
     ).annotate(

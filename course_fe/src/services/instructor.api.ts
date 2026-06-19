@@ -1,4 +1,5 @@
-import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
+import { downloadBlob } from './download'
+import { http } from './http'
 import { buildListQuery, type PaginatedResponse } from './common/pagination'
 
 
@@ -318,38 +319,11 @@ export async function exportInstructorStudents(instructorId?: number, courseId?:
   const params = new URLSearchParams()
   if (instructorId) params.set('instructor_id', String(instructorId))
   if (courseId) params.set('course_id', String(courseId))
-
-  const token = getAccessToken()
-  const response = await fetch(
-    `${API_BASE_URL}/instructor/students/export/${params.toString() ? `?${params.toString()}` : ''}`,
-    {
-      headers: {
-        ...getApiTransportHeaders(),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    }
+  await downloadBlob(
+    `/instructor/students/export/${params.toString() ? `?${params.toString()}` : ''}`,
+    'instructor-students.csv',
+    { errorMessage: 'Failed to export students' },
   )
-
-  if (!response.ok) {
-    let message = 'Failed to export students'
-    try {
-      const error = await response.json()
-      message = error.message || error.error || message
-    } catch {
-
-    }
-    throw new Error(message)
-  }
-
-  const blob = await response.blob()
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = 'instructor-students.csv'
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
 }
 
 

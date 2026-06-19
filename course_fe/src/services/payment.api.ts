@@ -26,6 +26,7 @@ export interface Payment {
   payment_date: string
   payment_status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled'
   payment_method: 'vnpay' | 'momo'
+  billing_cycle?: 'monthly' | 'yearly' | null
   refund_amount: string
   payment_gateway: string
   gateway_response: string | null

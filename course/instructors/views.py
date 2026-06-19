@@ -21,7 +21,7 @@ from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
 from utils.roles import is_active_admin, is_active_instructor
 from utils.pagination import paginate_queryset
-from utils.export_helpers import export_to_csv, export_to_excel
+from utils.export_helpers import export_content_disposition, export_to_csv, export_to_excel
 
 
 def parse_date_param(raw, end_of_day=False):
@@ -252,7 +252,7 @@ class InstructorStudentsExportView(APIView):
 
         csv_content = export_instructor_students_csv(instructor, course_id=course_id)
         response = HttpResponse(csv_content, content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="instructor-students.csv"'
+        response['Content-Disposition'] = export_content_disposition('instructor-students', 'csv')
         return response
 
 

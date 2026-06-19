@@ -11,6 +11,7 @@ from reports.models import Report
 from reports.services import create_report
 from reports.stats_services import export_reports_csv, get_report_statistics
 from users.models import User
+from utils.export_helpers import export_to_csv
 
 
 def make_user(username):
@@ -52,3 +53,11 @@ class ReportStatsTests(TestCase):
         lines = [l for l in csv_data.strip().splitlines() if l]
         self.assertEqual(len(lines), 3)  # header + 2 reports
         self.assertIn('target_type', lines[0])
+
+    def test_export_helper_adds_timestamp_to_filename(self):
+        response = export_to_csv(['ID'], [[1]], 'reports')
+
+        self.assertRegex(
+            response['Content-Disposition'],
+            r'attachment; filename="reports_\d{8}_\d{6}\.csv"',
+        )

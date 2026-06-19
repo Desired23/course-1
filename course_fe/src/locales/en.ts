@@ -3371,6 +3371,8 @@ export const en = {
       title: "Subscription Management",
       subtitle: "Manage subscription plans and customer subscriptions",
       create_plan: "Create Plan",
+      empty_plans_title: "No subscription plans yet",
+      empty_plans_description: "Create the first plan to start selling subscriptions on the platform.",
       create_plan_dialog_title: "Create Subscription Plan",
       create_plan_dialog_description: "Configure a new subscription plan for your platform",
       plan_name: "Plan Name",

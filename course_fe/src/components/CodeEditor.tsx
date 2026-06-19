@@ -33,6 +33,13 @@ export function CodeEditor({
   const monacoRef = useRef<any>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Keep latest callbacks in refs so the Monaco listeners (registered once on
+  // init) always call the current onChange/onSave instead of a stale closure.
+  const onChangeRef = useRef(onChange)
+  const onSaveRef = useRef(onSave)
+  onChangeRef.current = onChange
+  onSaveRef.current = onSave
+
 
   const getMonacoLanguage = (lang: string): string => {
     if (!lang) return 'javascript'
@@ -147,12 +154,12 @@ export function CodeEditor({
 
           editorInstance.onDidChangeModelContent(() => {
             const currentValue = editorInstance.getValue()
-            onChange(currentValue)
+            onChangeRef.current(currentValue)
           })
 
 
           editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-            if (onSave) onSave()
+            if (onSaveRef.current) onSaveRef.current()
           })
 
           setIsLoading(false)

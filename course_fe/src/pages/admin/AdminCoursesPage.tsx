@@ -20,6 +20,7 @@ import { AdminConfirmDialog } from '../../components/admin/AdminConfirmDialog'
 import { Checkbox } from "../../components/ui/checkbox"
 import { getCourses, deleteCourse as deleteCourseApi, moderateCourse, updateCourse, type CourseListItem, type CourseModerationAction, parseDecimal, formatPrice } from '../../services/course.api'
 import { listItemTransition } from '../../lib/motion'
+import { useNotificationRefetch } from '../../hooks/useNotificationRefetch'
 
 const ITEMS_PER_PAGE = 10
 type CourseViolationAction = Extract<CourseModerationAction, 'suspend_sale' | 'freeze' | 'takedown' | 'restore'>
@@ -272,6 +273,11 @@ export function AdminCoursesPage() {
     setTotalCount(res.count || 0)
     await loadStatusCounts()
   }
+
+  useNotificationRefetch(
+    ['course_status_changed_by_admin'],
+    () => { refetchCurrentPageAndCounts().catch(() => {}) },
+  )
 
   const openConfirm = (
     title: string,

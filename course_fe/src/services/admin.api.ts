@@ -42,7 +42,8 @@
 
 
 
-import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
+import { downloadBlob } from './download'
+import { http } from './http'
 
 interface PaginatedListResponse<T> {
   next: string | null
@@ -155,6 +156,10 @@ export interface AdminDashboardStats {
 export interface RevenueTrend {
   date: string
   revenue: number
+  estimated_revenue?: number
+  realized_revenue?: number
+  refunded_amount?: number
+  transaction_count?: number
 }
 
 export interface UserTrend {
@@ -168,7 +173,11 @@ export interface TopCourse {
   instructor_name: string | null
   enrollment_count: number
   revenue?: number
+  estimated_revenue?: number
+  realized_revenue?: number
+  refunded_amount?: number
   transactions?: number
+  transaction_count?: number
   rating: number
 }
 
@@ -253,7 +262,12 @@ export interface CourseRevenueRow {
   title: string
   instructor_name: string | null
   revenue: number
+  estimated_revenue?: number
+  realized_revenue?: number
+  refunded_amount?: number
   transactions: number
+  transaction_count?: number
+  rating?: number
 }
 
 export interface CourseRevenueDetailRow {
@@ -266,11 +280,15 @@ export interface CourseRevenueDetailRow {
   subscription_revenue?: number
   refunded: number
   net_revenue: number
+  estimated_revenue?: number
+  estimated_gross?: number
   realized_revenue?: number
   transactions: number
   transaction_count?: number
+  estimated_transaction_count?: number
   enrollments: number
   enrollment_count?: number
+  rating?: number
 }
 
 export interface CategoryRevenueRow {
@@ -279,7 +297,10 @@ export interface CategoryRevenueRow {
   revenue: number
   refunded: number
   net_revenue: number
+  estimated_revenue?: number
+  realized_revenue?: number
   transactions: number
+  transaction_count?: number
   course_count: number
 }
 
@@ -302,6 +323,10 @@ export interface SubscriptionPlanMetric {
   plan_name: string
   duration_type: string
   revenue: number
+  estimated_revenue?: number
+  realized_revenue?: number
+  refunded_amount?: number
+  transaction_count?: number
   payments: number
   new_subscribers: number
   cancelled_subscribers: number
@@ -312,6 +337,10 @@ export interface SubscriptionPlanMetric {
 
 export interface SubscriptionMetrics {
   total_revenue: number
+  total_estimated_revenue?: number
+  total_realized_revenue?: number
+  total_refunded_amount?: number
+  transaction_count?: number
   new_subscribers: number
   cancelled_subscribers: number
   expired_subscribers: number
@@ -546,35 +575,6 @@ export async function exportAdminBulkReports(
   )
 }
 
-async function downloadBlob(endpoint: string, filename: string): Promise<void> {
-  const token = getAccessToken()
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    headers: {
-      ...getApiTransportHeaders(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-  if (!response.ok) {
-    let message = 'Download failed'
-    try {
-      const error = await response.json()
-      message = error.error || error.message || message
-    } catch {
-
-    }
-    throw new Error(message)
-  }
-  const blob = await response.blob()
-  const url = window.URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  window.URL.revokeObjectURL(url)
-}
-
 export async function exportAdminRevenue(format: 'csv' | 'excel' = 'csv', dateFrom?: string, dateTo?: string): Promise<void> {
   const params = new URLSearchParams({ format })
   if (dateFrom) params.set('date_from', dateFrom)
@@ -653,7 +653,7 @@ export async function importSubscriptionPlan(file: File, planId: number): Promis
 }
 
 export async function downloadSubscriptionTemplate(): Promise<void> {
-  await downloadBlob('/admin/import/subscription-plan/template/', 'subscription_import_template.xlsx')
+  await downloadBlob('/admin/import/subscription-plan/template/', 'subscription_import_template.xlsx', { timestampFallback: false })
 }
 
 export async function importUsersBulk(file: File): Promise<ImportResult> {
@@ -663,7 +663,7 @@ export async function importUsersBulk(file: File): Promise<ImportResult> {
 }
 
 export async function downloadUsersTemplate(): Promise<void> {
-  await downloadBlob('/admin/import/users/template/', 'users_import_template.xlsx')
+  await downloadBlob('/admin/import/users/template/', 'users_import_template.xlsx', { timestampFallback: false })
 }
 
 export async function importCourseGrants(file: File, courseIds: number[]): Promise<ImportResult> {
@@ -674,7 +674,7 @@ export async function importCourseGrants(file: File, courseIds: number[]): Promi
 }
 
 export async function downloadCourseGrantsTemplate(): Promise<void> {
-  await downloadBlob('/admin/import/course-grants/template/', 'course_grants_template.xlsx')
+  await downloadBlob('/admin/import/course-grants/template/', 'course_grants_template.xlsx', { timestampFallback: false })
 }
 
 

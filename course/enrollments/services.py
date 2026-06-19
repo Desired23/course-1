@@ -1,6 +1,7 @@
 import logging
 from rest_framework.exceptions import ValidationError
 from .serializers import EnrollmentSerializer, EnrollmentCreateSerializer
+from .constants import OWNED_ENROLLMENT_STATUSES
 from .models import Enrollment
 from django.utils import timezone
 from courses.models import Course
@@ -9,13 +10,6 @@ from django.db.models import F, Q
 from activity_logs.services import log_activity
 
 logger = logging.getLogger(__name__)
-
-OWNED_ENROLLMENT_STATUSES = {
-    Enrollment.Status.Active,
-    Enrollment.Status.Complete,
-    Enrollment.Status.SUSPENDED,
-}
-
 
 def _id_or_value(value):
     return getattr(value, 'id', value)

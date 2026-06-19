@@ -21,7 +21,7 @@ def calculate_quiz_evaluation(quiz_result_id):
         lesson_id = quiz_result.lesson.id
         answers = quiz_result.answers or {}
 
-        quiz_questions = QuizQuestion.objects.filter(lesson=lesson_id)
+        quiz_questions = QuizQuestion.objects.filter(lesson=lesson_id, is_deleted=False)
         total_questions = quiz_questions.count()
         correct_answers = 0
         total_points = 0

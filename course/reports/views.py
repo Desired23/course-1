@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 
 from utils.pagination import StandardPagination
 from utils.permissions import RolePermissionFactory
+from utils.export_helpers import export_content_disposition
 
 from .serializers import (
     AdminCopyrightActionSerializer,
@@ -204,7 +205,7 @@ class AdminReportExportView(APIView):
     def get(self, request):
         csv_data = export_reports_csv(_collect_report_filters(request))
         response = HttpResponse(csv_data, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="reports.csv"'
+        response['Content-Disposition'] = export_content_disposition('reports', 'csv')
         return response
 
 
@@ -215,7 +216,7 @@ class AdminCopyrightCaseExportView(APIView):
     def get(self, request):
         csv_data = export_copyright_cases_csv(_collect_report_filters(request))
         response = HttpResponse(csv_data, content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="copyright_cases.csv"'
+        response['Content-Disposition'] = export_content_disposition('copyright_cases', 'csv')
         return response
 
 

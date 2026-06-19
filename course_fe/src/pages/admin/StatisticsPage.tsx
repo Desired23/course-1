@@ -27,6 +27,7 @@ import {
   type AdminReportListStatus,
   type ReportCase,
 } from '../../services/report.api'
+import { timestampedFilename } from '../../services/download'
 
 type MainTab = 'orders' | 'earningPayout' | 'courses' | 'instructors' | 'reports'
 
@@ -103,7 +104,7 @@ function downloadText(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = filename
+  link.download = timestampedFilename(filename)
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -328,7 +329,7 @@ export function StatisticsPage() {
   const { canAccess } = useAuth()
   const [activeTab, setActiveTab] = useState<MainTab>('orders')
   const now = new Date()
-  const initialRange = { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: isoDate(now) }
+  const initialRange = { dateFrom: isoDate(new Date(now.getFullYear(), 0, 1)), dateTo: isoDate(now) }
   const [draftRange, setDraftRange] = useState<DateRange>(initialRange)
   const [appliedRange, setAppliedRange] = useState<DateRange>(initialRange)
   const [loadingByTab, setLoadingByTab] = useState<Record<MainTab, boolean>>({

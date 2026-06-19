@@ -4,6 +4,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone as dt_timezone
+from enrollments.constants import OWNED_ENROLLMENT_STATUSES
 from utils.revenue_reporting import (
     detail_has_open_refund,
     detail_is_final_for_report,
@@ -168,7 +169,10 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
     pending_courses = courses_qs.filter(status='pending').count()
 
 
-    payments_qs = Payment.objects.filter(payment_status=Payment.PaymentStatus.COMPLETED)
+    payments_qs = Payment.objects.filter(
+        payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
+        is_deleted=False,
+    )
     if date_from:
         payments_qs = payments_qs.filter(payment_date__gte=date_from)
     if date_to:
@@ -182,7 +186,10 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
     this_month_revenue = month_revenue_classification['estimated_revenue']
 
 
-    enrollments_qs = Enrollment.objects.filter(is_deleted=False)
+    enrollments_qs = Enrollment.objects.filter(
+        is_deleted=False,
+        status__in=OWNED_ENROLLMENT_STATUSES,
+    )
     if date_from:
         enrollments_qs = enrollments_qs.filter(enrollment_date__gte=date_from)
     if date_to:
@@ -208,7 +215,7 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
     ).count()
 
 
-    platform_rating = reviews_qs.filter(status='approved').aggregate(avg=Avg('rating'))['avg'] or 0
+    platform_rating = reviews_qs.exclude(status=Review.StatusChoices.REJECTED).aggregate(avg=Avg('rating'))['avg'] or 0
 
     return {
         'total_users': total_users,
@@ -237,7 +244,6 @@ def get_admin_dashboard_stats(date_from=None, date_to=None):
 
 def get_admin_revenue_analytics(months=6, date_from=None, date_to=None):
     from payments.models import Payment
-    from payment_details.models import Payment_Details
     from datetime import timedelta
 
     now = timezone.now()
@@ -252,7 +258,8 @@ def get_admin_revenue_analytics(months=6, date_from=None, date_to=None):
             month_end = month_start.replace(month=month_start.month + 1)
 
         revenue_qs = Payment.objects.filter(
-            payment_status=Payment.PaymentStatus.COMPLETED,
+            payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
+            is_deleted=False,
             payment_date__gte=month_start,
             payment_date__lt=month_end,
         )
@@ -260,16 +267,15 @@ def get_admin_revenue_analytics(months=6, date_from=None, date_to=None):
             revenue_qs = revenue_qs.filter(payment_date__gte=date_from)
         if date_to:
             revenue_qs = revenue_qs.filter(payment_date__lte=date_to)
-        gross = revenue_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
-        refunded = Payment_Details.objects.filter(
-            payment__in=revenue_qs,
-            refund_status=Payment_Details.RefundStatus.SUCCESS,
-            is_deleted=False,
-        ).aggregate(t=Sum('refund_amount'))['t'] or Decimal('0')
+        revenue = _classify_completed_revenue(revenue_qs)
 
         result.append({
             'date': month_start.strftime('%Y-%m'),
-            'revenue': float(gross - refunded),
+            'revenue': _as_float(revenue['estimated_revenue']),
+            'estimated_revenue': _as_float(revenue['estimated_revenue']),
+            'realized_revenue': _as_float(revenue['realized_revenue']),
+            'refunded_amount': _as_float(revenue['refunded_amount']),
+            'transaction_count': revenue['transaction_count'],
         })
     return result
 
@@ -307,61 +313,22 @@ def get_admin_user_analytics(months=6, date_from=None, date_to=None):
 
 
 def get_admin_course_analytics(date_from=None, date_to=None):
-    from courses.models import Course
-    from enrollments.models import Enrollment
-    from payment_details.models import Payment_Details
-    from reviews.models import Review
-
-    payment_details = Payment_Details.objects.filter(
-        is_deleted=False,
-        payment__is_deleted=False,
-        payment__payment_status='completed',
-    )
-    if date_from:
-        payment_details = payment_details.filter(payment__payment_date__gte=date_from)
-    if date_to:
-        payment_details = payment_details.filter(payment__payment_date__lte=date_to)
-
-    top_revenue = list(
-        payment_details.values('course_id')
-        .annotate(
-            gross=Coalesce(Sum('final_price'), Decimal('0')),
-            refunded=Coalesce(
-                Sum('refund_amount', filter=Q(refund_status=Payment_Details.RefundStatus.SUCCESS)),
-                Decimal('0'),
-            ),
-            transactions=Count('id'),
-        )
-        .annotate(revenue=F('gross') - F('refunded'))
-        .order_by('-revenue')[:10]
-    )
-    course_map = {
-        c.id: c
-        for c in Course.objects.filter(
-            id__in=[row['course_id'] for row in top_revenue],
-            is_deleted=False,
-        ).select_related('instructor__user')
-    }
-
-    result = []
-    for row in top_revenue:
-        c = course_map.get(row['course_id'])
-        if not c:
-            continue
-        enrollment_count = Enrollment.objects.filter(course=c, is_deleted=False).count()
-        avg_rating = Review.objects.filter(
-            course=c, is_deleted=False, status='approved'
-        ).aggregate(avg=Avg('rating'))['avg'] or 0
-        result.append({
-            'course_id': c.id,
-            'title': c.title,
-            'instructor_name': c.instructor.user.full_name if c.instructor and c.instructor.user else None,
-            'enrollment_count': enrollment_count,
-            'revenue': float(row['revenue'] or 0),
-            'transactions': row['transactions'],
-            'rating': round(float(avg_rating), 2),
-        })
-    return result
+    return [
+        {
+            'course_id': row['course_id'],
+            'title': row['title'],
+            'instructor_name': row['instructor_name'],
+            'enrollment_count': row['enrollment_count'],
+            'revenue': row['estimated_revenue'],
+            'estimated_revenue': row['estimated_revenue'],
+            'realized_revenue': row['realized_revenue'],
+            'refunded_amount': row['refunded'],
+            'transactions': row['estimated_transaction_count'],
+            'transaction_count': row['transaction_count'],
+            'rating': row['rating'],
+        }
+        for row in get_admin_revenue_by_course(10, date_from, date_to)
+    ]
 
 
 def _month_bounds(now, months_back):
@@ -380,7 +347,7 @@ def get_admin_revenue_breakdown(date_from=None, date_to=None):
     from payments.models import Payment
 
     qs = Payment.objects.filter(
-        payment_status=Payment.PaymentStatus.COMPLETED,
+        payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
         is_deleted=False,
     )
     qs = _apply_date_range(qs, 'payment_date', date_from, date_to)
@@ -415,7 +382,7 @@ def get_admin_revenue_monthly_breakdown(months=12, date_from=None, date_to=None,
         group_by = 'month'
     if date_from or date_to or group_by in {'day', 'week'}:
         base_qs = Payment.objects.filter(
-            payment_status=Payment.PaymentStatus.COMPLETED,
+            payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
             is_deleted=False,
         )
         base_qs = _apply_date_range(base_qs, 'payment_date', date_from, date_to)
@@ -451,7 +418,7 @@ def get_admin_revenue_monthly_breakdown(months=12, date_from=None, date_to=None,
     for i in range(months - 1, -1, -1):
         month_start, month_end = _month_bounds(now, i)
         qs = Payment.objects.filter(
-            payment_status=Payment.PaymentStatus.COMPLETED,
+            payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
             is_deleted=False,
             payment_date__gte=month_start,
             payment_date__lt=month_end,
@@ -579,40 +546,20 @@ def get_admin_refund_analytics(date_from=None, date_to=None):
 
 
 def get_admin_top_courses_by_revenue(limit=10, date_from=None, date_to=None):
-    from payment_details.models import Payment_Details
-
-    pd_qs = Payment_Details.objects.filter(
-        is_deleted=False,
-        payment__payment_status='completed',
-        payment__is_deleted=False,
-    )
-    if date_from:
-        pd_qs = pd_qs.filter(payment__payment_date__gte=date_from)
-    if date_to:
-        pd_qs = pd_qs.filter(payment__payment_date__lte=date_to)
-
-    top = (
-        pd_qs.values('course__id', 'course__title', 'course__instructor__user__full_name')
-        .annotate(
-            gross=Coalesce(Sum('final_price'), Decimal('0')),
-            refunded=Coalesce(
-                Sum('refund_amount', filter=Q(refund_status=Payment_Details.RefundStatus.SUCCESS)),
-                Decimal('0'),
-            ),
-            transactions=Count('id'),
-        )
-        .annotate(revenue=F('gross') - F('refunded'))
-        .order_by('-revenue')[:limit]
-    )
     return [
         {
-            'course_id': r['course__id'],
-            'title': r['course__title'],
-            'instructor_name': r['course__instructor__user__full_name'],
-            'revenue': float(r['revenue'] or 0),
-            'transactions': r['transactions'],
+            'course_id': row['course_id'],
+            'title': row['title'],
+            'instructor_name': row['instructor_name'],
+            'revenue': row['estimated_revenue'],
+            'estimated_revenue': row['estimated_revenue'],
+            'realized_revenue': row['realized_revenue'],
+            'refunded_amount': row['refunded'],
+            'transactions': row['estimated_transaction_count'],
+            'transaction_count': row['transaction_count'],
+            'rating': row['rating'],
         }
-        for r in top
+        for row in get_admin_revenue_by_course(limit, date_from, date_to)
     ]
 
 
@@ -622,6 +569,7 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
     from instructor_earnings.models import InstructorEarning
     from payment_details.models import Payment_Details
     from payments.models import Payment
+    from reviews.models import Review
 
     qs = Payment_Details.objects.filter(
         is_deleted=False,
@@ -657,8 +605,6 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
         refunded = _refund_success_amount(detail)
         net = max(gross - refunded, Decimal('0'))
         enrollment = enrollment_map.get((detail.payment_id, detail.course_id))
-        if not detail_is_final_for_report(detail, enrollment, gross, now):
-            continue
         row = rows_by_course.setdefault(course.id, {
             'course_id': course.id,
             'title': course.title,
@@ -668,11 +614,19 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
             'subscription_revenue': Decimal('0'),
             'revenue': Decimal('0'),
             'refunded': Decimal('0'),
+            'estimated_revenue': Decimal('0'),
+            'estimated_gross': Decimal('0'),
             'realized_revenue': Decimal('0'),
             'transaction_count': 0,
+            'estimated_transaction_count': 0,
             'retail_transaction_count': 0,
             'subscription_transaction_count': 0,
         })
+        row['estimated_revenue'] += net
+        row['estimated_gross'] += gross
+        row['estimated_transaction_count'] += 1
+        if not detail_is_final_for_report(detail, enrollment, gross, now):
+            continue
         row['retail_revenue'] += gross
         row['revenue'] += gross
         row['refunded'] += refunded
@@ -683,13 +637,13 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
     sub_qs = InstructorEarning.objects.filter(
         is_deleted=False,
         user_subscription__isnull=False,
+    ).exclude(
+        status=InstructorEarning.StatusChoices.CANCELLED,
     ).select_related('course', 'course__instructor__user', 'course__category', 'user_subscription__payment')
     sub_qs = _apply_date_range(sub_qs, 'earning_date', date_from, date_to)
     for earning in sub_qs:
         course = earning.course
         if not course:
-            continue
-        if not earning_is_final_for_report(earning, now):
             continue
         row = rows_by_course.setdefault(course.id, {
             'course_id': course.id,
@@ -700,12 +654,20 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
             'subscription_revenue': Decimal('0'),
             'revenue': Decimal('0'),
             'refunded': Decimal('0'),
+            'estimated_revenue': Decimal('0'),
+            'estimated_gross': Decimal('0'),
             'realized_revenue': Decimal('0'),
             'transaction_count': 0,
+            'estimated_transaction_count': 0,
             'retail_transaction_count': 0,
             'subscription_transaction_count': 0,
         })
         amount = _as_decimal(earning.amount)
+        row['estimated_revenue'] += amount
+        row['estimated_gross'] += amount
+        row['estimated_transaction_count'] += 1
+        if not earning_is_final_for_report(earning, now):
+            continue
         row['subscription_revenue'] += amount
         row['revenue'] += amount
         row['realized_revenue'] += amount
@@ -713,7 +675,11 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
         row['subscription_transaction_count'] += 1
 
     course_ids = list(rows_by_course)
-    enrollment_qs = Enrollment.objects.filter(course_id__in=course_ids, is_deleted=False)
+    enrollment_qs = Enrollment.objects.filter(
+        course_id__in=course_ids,
+        is_deleted=False,
+        status__in=OWNED_ENROLLMENT_STATUSES,
+    )
     enrollment_qs = _apply_date_range(enrollment_qs, 'enrollment_date', date_from, date_to)
     enrollment_counts = {
         row['course_id']: row['count']
@@ -723,6 +689,13 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
     known_courses = {
         course.id: course
         for course in Course.objects.filter(id__in=course_ids, is_deleted=False).select_related('instructor__user', 'category')
+    }
+    rating_by_course = {
+        row['course_id']: row['avg']
+        for row in Review.objects.filter(course_id__in=course_ids, is_deleted=False)
+        .exclude(status=Review.StatusChoices.REJECTED)
+        .values('course_id')
+        .annotate(avg=Avg('rating'))
     }
 
     result = []
@@ -743,56 +716,74 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
             'subscription_revenue': _as_float(row['subscription_revenue']),
             'refunded': _as_float(refunded),
             'net_revenue': _as_float(net_revenue),
+            'estimated_revenue': _as_float(row['estimated_revenue']),
+            'estimated_gross': _as_float(row['estimated_gross']),
             'realized_revenue': _as_float(row['realized_revenue']),
             'transactions': row['transaction_count'],
             'transaction_count': row['transaction_count'],
+            'estimated_transaction_count': row['estimated_transaction_count'],
             'retail_transaction_count': row['retail_transaction_count'],
             'subscription_transaction_count': row['subscription_transaction_count'],
             'enrollments': enrollment_counts.get(course_id, 0),
             'enrollment_count': enrollment_counts.get(course_id, 0),
+            'rating': round(float(rating_by_course.get(course_id) or 0), 2),
         })
-    result.sort(key=lambda item: (item['realized_revenue'], item['revenue']), reverse=True)
+    result.sort(key=lambda item: (item['estimated_revenue'], item['realized_revenue'], item['revenue']), reverse=True)
     return result[:limit]
 
 
 def get_admin_revenue_by_category(limit=20, date_from=None, date_to=None):
-    from payment_details.models import Payment_Details
+    from courses.models import Course
 
-    qs = Payment_Details.objects.filter(
-        is_deleted=False,
-        payment__payment_status='completed',
-        payment__is_deleted=False,
-    )
-    if date_from:
-        qs = qs.filter(payment__payment_date__gte=date_from)
-    if date_to:
-        qs = qs.filter(payment__payment_date__lte=date_to)
-
-    rows = (
-        qs.values('course__category__id', 'course__category__name')
-        .annotate(
-            revenue=Sum('final_price'),
-            refunded=Sum('refund_amount', filter=Q(refund_status=Payment_Details.RefundStatus.SUCCESS)),
-            transactions=Count('id'),
-            course_count=Count('course_id', distinct=True),
+    course_rows = get_admin_revenue_by_course(max(limit * 5, 100), date_from, date_to)
+    course_ids = [row['course_id'] for row in course_rows]
+    course_category = {
+        course.id: (
+            course.category_id,
+            course.category.name if course.category else 'Uncategorized',
         )
-        .order_by('-revenue')[:limit]
-    )
+        for course in Course.objects.filter(id__in=course_ids, is_deleted=False).select_related('category')
+    }
+    grouped = {}
+    for row in course_rows:
+        category_id, category_name = course_category.get(row['course_id'], (None, 'Uncategorized'))
+        target = grouped.setdefault(category_id, {
+            'category_id': category_id,
+            'category_name': category_name,
+            'revenue': Decimal('0'),
+            'refunded': Decimal('0'),
+            'net_revenue': Decimal('0'),
+            'estimated_revenue': Decimal('0'),
+            'realized_revenue': Decimal('0'),
+            'transactions': 0,
+            'transaction_count': 0,
+            'course_ids': set(),
+        })
+        target['revenue'] += _as_decimal(row['revenue'])
+        target['refunded'] += _as_decimal(row['refunded'])
+        target['net_revenue'] += _as_decimal(row['net_revenue'])
+        target['estimated_revenue'] += _as_decimal(row['estimated_revenue'])
+        target['realized_revenue'] += _as_decimal(row['realized_revenue'])
+        target['transactions'] += row['estimated_transaction_count']
+        target['transaction_count'] += row['transaction_count']
+        target['course_ids'].add(row['course_id'])
 
     result = []
-    for row in rows:
-        revenue = row['revenue'] or Decimal('0')
-        refunded = row['refunded'] or Decimal('0')
+    for row in grouped.values():
         result.append({
-            'category_id': row['course__category__id'],
-            'category_name': row['course__category__name'] or 'Uncategorized',
-            'revenue': float(revenue),
-            'refunded': float(refunded),
-            'net_revenue': float(revenue - refunded),
+            'category_id': row['category_id'],
+            'category_name': row['category_name'],
+            'revenue': _as_float(row['revenue']),
+            'refunded': _as_float(row['refunded']),
+            'net_revenue': _as_float(row['net_revenue']),
+            'estimated_revenue': _as_float(row['estimated_revenue']),
+            'realized_revenue': _as_float(row['realized_revenue']),
             'transactions': row['transactions'],
-            'course_count': row['course_count'],
+            'transaction_count': row['transaction_count'],
+            'course_count': len(row['course_ids']),
         })
-    return result
+    result.sort(key=lambda item: (item['estimated_revenue'], item['realized_revenue']), reverse=True)
+    return result[:limit]
 
 
 def _final_earning_report_q(now=None):
@@ -1160,7 +1151,7 @@ def get_admin_subscription_metrics(date_from=None, date_to=None):
     from subscription_plans.models import SubscriptionPlan, UserSubscription
 
     payment_qs = Payment.objects.filter(
-        payment_status=Payment.PaymentStatus.COMPLETED,
+        payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
         payment_type=Payment.PaymentType.SUBSCRIPTION,
         is_deleted=False,
     )
@@ -1186,10 +1177,6 @@ def get_admin_subscription_metrics(date_from=None, date_to=None):
     now = timezone.now()
     active_qs = active_qs.filter(Q(end_date__isnull=True) | Q(end_date__gte=now))
 
-    revenue_by_plan = {
-        row['subscription_plan_id']: row['revenue'] or Decimal('0')
-        for row in payment_qs.values('subscription_plan_id').annotate(revenue=Sum('total_amount'))
-    }
     payment_count_by_plan = {
         row['subscription_plan_id']: row['count']
         for row in payment_qs.values('subscription_plan_id').annotate(count=Count('id'))
@@ -1233,12 +1220,17 @@ def get_admin_subscription_metrics(date_from=None, date_to=None):
         total_expired += plan_expired
         total_active += plan_active
         denominator_total += denominator
+        revenue = _classify_completed_revenue(payment_qs.filter(subscription_plan=plan))
 
         per_plan.append({
             'plan_id': plan.id,
             'plan_name': plan.name,
             'duration_type': plan.duration_type,
-            'revenue': float(revenue_by_plan.get(plan.id, Decimal('0'))),
+            'revenue': _as_float(revenue['estimated_revenue']),
+            'estimated_revenue': _as_float(revenue['estimated_revenue']),
+            'realized_revenue': _as_float(revenue['realized_revenue']),
+            'refunded_amount': _as_float(revenue['refunded_amount']),
+            'transaction_count': revenue['transaction_count'],
             'payments': payment_count_by_plan.get(plan.id, 0),
             'new_subscribers': plan_new,
             'cancelled_subscribers': plan_cancelled,
@@ -1247,7 +1239,7 @@ def get_admin_subscription_metrics(date_from=None, date_to=None):
             'churn_rate': churn_rate,
         })
 
-    total_revenue = payment_qs.aggregate(t=Sum('total_amount'))['t'] or Decimal('0')
+    total_revenue = _classify_completed_revenue(payment_qs)
     cancel_condition = Q(cancelled_at__isnull=False)
     expire_condition = Q(status=UserSubscription.Status.EXPIRED, end_date__isnull=False)
     if date_from:
@@ -1259,7 +1251,11 @@ def get_admin_subscription_metrics(date_from=None, date_to=None):
     churn_qs = sub_qs.filter(cancel_condition | expire_condition)
     total_churned = churn_qs.distinct().count()
     return {
-        'total_revenue': float(total_revenue),
+        'total_revenue': _as_float(total_revenue['estimated_revenue']),
+        'total_estimated_revenue': _as_float(total_revenue['estimated_revenue']),
+        'total_realized_revenue': _as_float(total_revenue['realized_revenue']),
+        'total_refunded_amount': _as_float(total_revenue['refunded_amount']),
+        'transaction_count': total_revenue['transaction_count'],
         'new_subscribers': total_new,
         'cancelled_subscribers': total_cancelled,
         'expired_subscribers': total_expired,
@@ -1287,7 +1283,7 @@ def get_admin_promotion_stats(date_from=None, date_to=None, limit=100):
             promotion=promotion,
             is_deleted=False,
             payment__is_deleted=False,
-            payment__payment_status=Payment.PaymentStatus.COMPLETED,
+            payment__payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
         ).select_related('payment')
         detail_qs = _apply_date_range(detail_qs, 'payment__payment_date', date_from, date_to)
         detail_rows = list(detail_qs)
@@ -1320,7 +1316,7 @@ def get_admin_promotion_stats(date_from=None, date_to=None, limit=100):
         payment_qs = Payment.objects.filter(
             promotion=promotion,
             is_deleted=False,
-            payment_status=Payment.PaymentStatus.COMPLETED,
+            payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
         ).prefetch_related('payment_details', 'enrollments')
         payment_qs = _apply_date_range(payment_qs, 'payment_date', date_from, date_to)
 

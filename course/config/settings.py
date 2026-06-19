@@ -476,6 +476,9 @@ for candidate_url in (
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'ngrok-skip-browser-warning',
 ]
+CORS_EXPOSE_HEADERS = [
+    'Content-Disposition',
+]
 CORS_ALLOW_CREDENTIALS = True
 
 

@@ -3372,6 +3372,8 @@
       title: "Quản lý gói đăng ký",
       subtitle: "Quản lý các gói đăng ký và đăng ký của khách hàng",
       create_plan: "Tạo gói",
+      empty_plans_title: "Chưa có gói đăng ký",
+      empty_plans_description: "Tạo gói đầu tiên để bắt đầu bán subscription trên nền tảng.",
       create_plan_dialog_title: "Tạo gói đăng ký",
       create_plan_dialog_description: "Cấu hình một gói đăng ký mới cho nền tảng của bạn",
       plan_name: "Tên gói",

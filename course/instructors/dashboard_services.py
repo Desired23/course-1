@@ -2,6 +2,7 @@ from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
+from enrollments.constants import OWNED_ENROLLMENT_STATUSES
 from utils.revenue_reporting import earning_is_final_for_report
 
 
@@ -102,7 +103,9 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
     draft_count = status_counts['draft']
 
     enrollments_qs = Enrollment.objects.filter(
-        course_id__in=course_ids, is_deleted=False, status='active'
+        course_id__in=course_ids,
+        is_deleted=False,
+        status__in=OWNED_ENROLLMENT_STATUSES,
     )
     enrollments_qs = _apply_date_range(enrollments_qs, 'enrollment_date', date_from, date_to)
     total_students = enrollments_qs.values('user_id').distinct().count()
@@ -118,22 +121,23 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
         instructor=instructor, is_deleted=False
     )
     earnings_qs = _apply_date_range(earnings_qs, 'earning_date', date_from, date_to)
-    total_earnings = earnings_qs.aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-    this_month_earnings = earnings_qs.filter(
+    active_earnings_qs = earnings_qs.exclude(status=InstructorEarning.StatusChoices.CANCELLED)
+    total_earnings = active_earnings_qs.aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    this_month_earnings = active_earnings_qs.filter(
         earning_date__gte=month_start
     ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-    pending_earnings = earnings_qs.filter(
+    pending_earnings = active_earnings_qs.filter(
         status=InstructorEarning.StatusChoices.PENDING,
     ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-    available_earnings = earnings_qs.filter(
+    available_earnings = active_earnings_qs.filter(
         status=InstructorEarning.StatusChoices.AVAILABLE,
         instructor_payout__isnull=True,
     ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-    this_month_pending_earnings = earnings_qs.filter(
+    this_month_pending_earnings = active_earnings_qs.filter(
         status=InstructorEarning.StatusChoices.PENDING,
         earning_date__gte=month_start,
     ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-    this_month_available_earnings = earnings_qs.filter(
+    this_month_available_earnings = active_earnings_qs.filter(
         status=InstructorEarning.StatusChoices.AVAILABLE,
         instructor_payout__isnull=True,
         earning_date__gte=month_start,
@@ -179,8 +183,8 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
     )
 
     reviews_qs = Review.objects.filter(
-        course_id__in=course_ids, is_deleted=False, status='approved'
-    )
+        course_id__in=course_ids, is_deleted=False
+    ).exclude(status=Review.StatusChoices.REJECTED)
     reviews_qs = _apply_date_range(reviews_qs, 'created_at', date_from, date_to)
     avg_rating = reviews_qs.aggregate(avg=Avg('rating'))['avg'] or 0
     total_reviews = reviews_qs.count()
@@ -215,16 +219,22 @@ def get_instructor_dashboard_stats(instructor, date_from=None, date_to=None):
 
     course_stats = []
     for course in courses_qs.order_by('-created_at'):
-        c_enrollments = Enrollment.objects.filter(course=course, is_deleted=False)
+        c_enrollments = Enrollment.objects.filter(
+            course=course,
+            is_deleted=False,
+            status__in=OWNED_ENROLLMENT_STATUSES,
+        )
         c_enrollments = _apply_date_range(c_enrollments, 'enrollment_date', date_from, date_to)
         c_new = c_enrollments.filter(enrollment_date__gte=month_start).count()
         c_total = c_enrollments.count()
         c_completed = c_enrollments.filter(status='complete').count()
         c_completion_rate = round(c_completed / c_total * 100, 1) if c_total else 0
-        c_reviews = Review.objects.filter(course=course, is_deleted=False, status='approved')
+        c_reviews = Review.objects.filter(course=course, is_deleted=False).exclude(
+            status=Review.StatusChoices.REJECTED
+        )
         c_reviews = _apply_date_range(c_reviews, 'created_at', date_from, date_to)
         c_rating = c_reviews.aggregate(avg=Avg('rating'))['avg'] or 0
-        c_earnings = earnings_qs.filter(course=course).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+        c_earnings = active_earnings_qs.filter(course=course).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
         c_refund_rate = _course_refund_rate(course, earnings_qs)
 
         course_stats.append({
@@ -286,7 +296,11 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
 
     enrollment_trend = []
     if date_from or date_to:
-        trend_qs = Enrollment.objects.filter(course=course, is_deleted=False)
+        trend_qs = Enrollment.objects.filter(
+            course=course,
+            is_deleted=False,
+            status__in=OWNED_ENROLLMENT_STATUSES,
+        )
         trend_qs = _apply_date_range(trend_qs, 'enrollment_date', date_from, date_to)
         grouped = {}
         for value in trend_qs.values_list('enrollment_date', flat=True):
@@ -304,7 +318,9 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
             else:
                 month_end = month_start.replace(month=month_start.month + 1)
             count = Enrollment.objects.filter(
-                course=course, is_deleted=False,
+                course=course,
+                is_deleted=False,
+                status__in=OWNED_ENROLLMENT_STATUSES,
                 enrollment_date__gte=month_start, enrollment_date__lt=month_end
             ).count()
             enrollment_trend.append({
@@ -316,12 +332,19 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
     from instructor_earnings.models import InstructorEarning
     revenue_trend = []
     if date_from or date_to:
-        trend_qs = InstructorEarning.objects.filter(course=course, instructor=instructor, is_deleted=False)
+        trend_qs = (
+            InstructorEarning.objects
+            .filter(course=course, instructor=instructor, is_deleted=False)
+            .select_related('course', 'payment', 'user_subscription__payment')
+            .prefetch_related('payment__payment_details', 'payment__enrollments')
+        )
         trend_qs = _apply_date_range(trend_qs, 'earning_date', date_from, date_to)
         grouped = {}
-        for row in trend_qs.values('earning_date', 'net_amount'):
-            label = _period_label(row['earning_date'], group_by)
-            grouped[label] = grouped.get(label, Decimal('0')) + (row['net_amount'] or Decimal('0'))
+        for earning in trend_qs:
+            if not earning_is_final_for_report(earning, now):
+                continue
+            label = _period_label(earning.earning_date, group_by)
+            grouped[label] = grouped.get(label, Decimal('0')) + (earning.net_amount or Decimal('0'))
         revenue_trend = [{'date': label, 'revenue': float(grouped[label])} for label in sorted(grouped)]
     else:
         for i in range(5, -1, -1):
@@ -332,16 +355,30 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
                 month_end = month_start.replace(year=month_start.year + 1, month=1)
             else:
                 month_end = month_start.replace(month=month_start.month + 1)
-            revenue = InstructorEarning.objects.filter(
-                course=course, instructor=instructor, is_deleted=False,
-                earning_date__gte=month_start, earning_date__lt=month_end
-            ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+            revenue_qs = (
+                InstructorEarning.objects
+                .filter(
+                    course=course, instructor=instructor, is_deleted=False,
+                    earning_date__gte=month_start, earning_date__lt=month_end,
+                )
+                .select_related('course', 'payment', 'user_subscription__payment')
+                .prefetch_related('payment__payment_details', 'payment__enrollments')
+            )
+            revenue = sum(
+                (earning.net_amount or Decimal('0'))
+                for earning in revenue_qs
+                if earning_is_final_for_report(earning, now)
+            )
             revenue_trend.append({
                 'date': month_start.strftime('%Y-%m'),
                 'revenue': float(revenue),
             })
 
-    enrollments = Enrollment.objects.filter(course=course, is_deleted=False)
+    enrollments = Enrollment.objects.filter(
+        course=course,
+        is_deleted=False,
+        status__in=OWNED_ENROLLMENT_STATUSES,
+    )
     enrollments = _apply_date_range(enrollments, 'enrollment_date', date_from, date_to)
     not_started = enrollments.filter(progress=0).count()
     completed = enrollments.filter(status='complete').count()
@@ -369,7 +406,9 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
 
 
     from reviews.models import Review
-    reviews_qs = Review.objects.filter(course=course, is_deleted=False, status='approved')
+    reviews_qs = Review.objects.filter(course=course, is_deleted=False).exclude(
+        status=Review.StatusChoices.REJECTED
+    )
     reviews_qs = _apply_date_range(reviews_qs, 'created_at', date_from, date_to)
     rating_dist = {f'{i}_star': 0 for i in range(1, 6)}
     for row in reviews_qs.values('rating').annotate(cnt=Count('id')):
@@ -384,14 +423,24 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
     completion_rate = round(completed / total_students * 100, 1) if total_students else 0
 
     last_30_start = now - timedelta(days=30)
-    earnings_qs = InstructorEarning.objects.filter(
-        course=course, instructor=instructor, is_deleted=False
+    earnings_qs = (
+        InstructorEarning.objects.filter(
+            course=course, instructor=instructor, is_deleted=False
+        )
+        .select_related('course', 'payment', 'user_subscription__payment')
+        .prefetch_related('payment__payment_details', 'payment__enrollments')
     )
     earnings_qs = _apply_date_range(earnings_qs, 'earning_date', date_from, date_to)
-    total_revenue = earnings_qs.aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
-    last_30_revenue = earnings_qs.filter(
-        earning_date__gte=last_30_start
-    ).aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    finalized_earnings = [
+        earning for earning in earnings_qs
+        if earning_is_final_for_report(earning, now)
+    ]
+    total_revenue = sum((earning.net_amount or Decimal('0')) for earning in finalized_earnings)
+    last_30_revenue = sum(
+        (earning.net_amount or Decimal('0'))
+        for earning in finalized_earnings
+        if earning.earning_date and earning.earning_date >= last_30_start
+    )
     last_30_enrollments = enrollments.filter(enrollment_date__gte=last_30_start).count()
 
     from payment_details.models import Payment_Details
@@ -425,16 +474,27 @@ def get_course_analytics(instructor, course_id, date_from=None, date_to=None, gr
     )
     inst_total_courses = len(inst_course_ids)
     inst_total_students = (
-        Enrollment.objects.filter(course_id__in=inst_course_ids, is_deleted=False).values('user_id').distinct().count()
+        Enrollment.objects.filter(
+            course_id__in=inst_course_ids,
+            is_deleted=False,
+            status__in=OWNED_ENROLLMENT_STATUSES,
+        ).values('user_id').distinct().count()
     )
     inst_avg_rating_val = (
-        Review.objects.filter(course_id__in=inst_course_ids, is_deleted=False, status='approved')
+        Review.objects.filter(course_id__in=inst_course_ids, is_deleted=False)
+        .exclude(status=Review.StatusChoices.REJECTED)
         .aggregate(avg=Avg('rating'))['avg'] or 0
     )
-    inst_total_revenue = float(
+    inst_earnings = (
         _IE.objects.filter(instructor=instructor, is_deleted=False)
-        .aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+        .select_related('course', 'payment', 'user_subscription__payment')
+        .prefetch_related('payment__payment_details', 'payment__enrollments')
     )
+    inst_total_revenue = float(sum(
+        (earning.net_amount or Decimal('0'))
+        for earning in inst_earnings
+        if earning_is_final_for_report(earning, now)
+    ))
 
     return {
         'course_id': course.id,
@@ -529,7 +589,11 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
 
         enrollment_groups = {}
         enrollment_qs = _apply_date_range(
-            Enrollment.objects.filter(course_id__in=course_ids, is_deleted=False),
+            Enrollment.objects.filter(
+                course_id__in=course_ids,
+                is_deleted=False,
+                status__in=OWNED_ENROLLMENT_STATUSES,
+            ),
             'enrollment_date',
             date_from,
             date_to,
@@ -588,7 +652,9 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
             })
 
         reviews_qs = _apply_date_range(
-            Review.objects.filter(course_id__in=course_ids, is_deleted=False, status='approved'),
+            Review.objects.filter(course_id__in=course_ids, is_deleted=False).exclude(
+                status=Review.StatusChoices.REJECTED
+            ),
             'created_at',
             date_from,
             date_to,
@@ -648,7 +714,9 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
 
 
         enr_count = Enrollment.objects.filter(
-            course_id__in=course_ids, is_deleted=False,
+            course_id__in=course_ids,
+            is_deleted=False,
+            status__in=OWNED_ENROLLMENT_STATUSES,
             enrollment_date__gte=month_start, enrollment_date__lt=month_end
         ).count()
         enrollment_trend.append({'date': label, 'enrollments': enr_count})
@@ -704,8 +772,8 @@ def get_instructor_analytics_timeseries(instructor, months=12, date_from=None, d
 
 
     reviews_qs = Review.objects.filter(
-        course_id__in=course_ids, is_deleted=False, status='approved'
-    )
+        course_id__in=course_ids, is_deleted=False
+    ).exclude(status=Review.StatusChoices.REJECTED)
     rating_dist = {f'{i}_star': 0 for i in range(1, 6)}
     for row in reviews_qs.values('rating').annotate(cnt=Count('id')):
         key = f"{int(row['rating'])}_star"

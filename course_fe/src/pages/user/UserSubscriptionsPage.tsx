@@ -13,7 +13,7 @@ import {
   getMySubscriptions,
   cancelSubscription,
   type UserSubscription,
-  getDurationLabel,
+  getBillingCycleLabel,
   getSubscriptionStatusLabel,
 } from "../../services/subscription.api"
 import { useTranslation } from "react-i18next"
@@ -165,7 +165,9 @@ export function UserSubscriptionsPage() {
   }
 
   const planDetail = activeSubscription?.plan_detail
-  const planPrice = planDetail ? Number(planDetail.effective_price) : 0
+  const planPrice = activeSubscription?.payment_total_amount
+    ? Number(activeSubscription.payment_total_amount)
+    : planDetail ? Number(planDetail.effective_price) : 0
   const planFeatures = planDetail?.features || []
 
   return (
@@ -196,7 +198,7 @@ export function UserSubscriptionsPage() {
                       <Badge>{getSubscriptionStatusLabel(activeSubscription.status)}</Badge>
                     </div>
                     <p className="text-muted-foreground mt-1">
-                      {planDetail ? getDurationLabel(planDetail.duration_type) : ''}
+                      {getBillingCycleLabel(activeSubscription.billing_cycle)}
                     </p>
                   </div>
                 </div>

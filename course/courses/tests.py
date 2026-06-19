@@ -3,12 +3,16 @@ from decimal import Decimal
 
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from categories.models import Category
 from courses.models import Course
 from courses.serializers import CourseSerializer
+from courses.services import recalc_course_structure
+from coursemodules.models import CourseModule
 from enrollments.models import Enrollment
 from instructor_earnings.models import InstructorEarning
+from lessons.models import Lesson
 from reports.models import CopyrightCase, InstructorEarningHold, Report
 from reviews.models import Review
 from utils.test_helpers import auth_client, make_user
@@ -125,6 +129,82 @@ class InstructorCourseStatusTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.course.refresh_from_db()
         self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+
+
+class CoursePublishedContentTests(TestCase):
+    def setUp(self):
+        self.instructor_user = make_user("instructor", username="published_content_inst")
+        self.client = auth_client(self.instructor_user)
+        self.course = Course.objects.create(
+            title="Published Content Course",
+            instructor=self.instructor_user.instructor,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+        )
+        self.published_module = CourseModule.objects.create(
+            course=self.course,
+            title="Published Module",
+            order_number=1,
+            status="Published",
+        )
+        self.draft_module = CourseModule.objects.create(
+            course=self.course,
+            title="Draft Module",
+            order_number=2,
+            status="Draft",
+        )
+        self.published_lesson = Lesson.objects.create(
+            coursemodule=self.published_module,
+            title="Published Lesson",
+            content_type=Lesson.ContentType.VIDEO,
+            duration=10,
+            order=1,
+            status=Lesson.Status.PUBLISHED,
+        )
+        Lesson.objects.create(
+            coursemodule=self.published_module,
+            title="Draft Lesson",
+            content_type=Lesson.ContentType.VIDEO,
+            duration=20,
+            order=2,
+            status=Lesson.Status.DRAFT,
+        )
+        Lesson.objects.create(
+            coursemodule=self.draft_module,
+            title="Draft Module Published Lesson",
+            content_type=Lesson.ContentType.VIDEO,
+            duration=40,
+            order=1,
+            status=Lesson.Status.PUBLISHED,
+        )
+
+    def test_recalc_course_structure_counts_only_published_public_content(self):
+        recalc_course_structure(self.course.id)
+
+        self.course.refresh_from_db()
+        self.published_module.refresh_from_db()
+
+        self.assertEqual(self.course.total_modules, 1)
+        self.assertEqual(self.course.total_lessons, 1)
+        self.assertEqual(self.course.duration, 10)
+        self.assertEqual(self.published_module.duration, 10)
+
+    def test_public_detail_hides_draft_modules_and_lessons_but_owner_sees_them(self):
+        public_response = APIClient().get(f"/api/courses/{self.course.id}")
+        self.assertEqual(public_response.status_code, 200, public_response.content)
+
+        public_modules = public_response.data["modules"]
+        self.assertEqual([module["module_id"] for module in public_modules], [self.published_module.id])
+        self.assertEqual(
+            [lesson["lesson_id"] for lesson in public_modules[0]["lessons"]],
+            [self.published_lesson.id],
+        )
+
+        owner_response = auth_client(self.instructor_user).get(f"/api/courses/{self.course.id}")
+        self.assertEqual(owner_response.status_code, 200, owner_response.content)
+        self.assertEqual(len(owner_response.data["modules"]), 2)
+        owner_lesson_count = sum(len(module["lessons"]) for module in owner_response.data["modules"])
+        self.assertEqual(owner_lesson_count, 3)
 
     def test_instructor_cannot_restore_admin_archived_course(self):
         self.course.status = Course.Status.ARCHIVED

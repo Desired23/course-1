@@ -46,7 +46,7 @@ from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.core.management.color import no_style
 from django.db import connection, transaction
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Sum
 from django.utils import timezone
 
 from activity_logs.models import ActivityLog
@@ -84,6 +84,7 @@ from reports.models import (
 from reviews.models import Review
 from systems_settings.models import PaymentSetting, PlatformSetting
 from transcripts.models import LessonTranscript, TranscriptSegment, TranscriptWord
+from transcripts.services import get_lesson_source_snapshot
 from users.models import User, UserSettings
 from wishlists.models import Wishlist
 
@@ -689,8 +690,8 @@ def seed_users():
     specs = {
         "admin": ("admin", "admin@example.com", "Nguyễn Quản Trị", "0900000001", dt("2026-01-02 08:00")),
         "instructor_linh": ("linh_instructor", "linh.instructor@example.com", "Trần Minh Linh", "0900000002", dt("2026-01-03 09:00")),
-        "instructor_an": ("an_instructor", "an.instructor@example.com", "Phạm Hoài An", "0900000003", dt("2026-01-04 09:30")),
-        "student_lan": ("lan.student", "lan.student@example.com", "Lê Thanh Lan", "0900000101", dt("2026-01-05 10:00")),
+        "instructor_an": ("an_instructor", "huydang2312003@gmail.com", "Phạm Hoài An", "0900000003", dt("2026-01-04 09:30")),
+        "student_lan": ("lan.student", "danghuy2312003@gmail.com", "Lê Thanh Lan", "0900000101", dt("2026-01-05 10:00")),
         "student_minh": ("minh.student", "minh.student@example.com", "Đỗ Minh", "0900000102", dt("2026-01-06 10:00")),
         "student_hoa": ("hoa.student", "hoa.student@example.com", "Nguyễn Mai Hoa", "0900000103", dt("2026-01-08 10:00")),
         "student_quang": ("quang.student", "quang.student@example.com", "Vũ Đức Quang", "0900000104", dt("2026-01-09 10:00")),
@@ -1092,7 +1093,7 @@ def create_transcript_sample(lesson, topic, at):
         status=LessonTranscript.Status.PUBLISHED,
         origin=LessonTranscript.Origin.MANUAL,
         provider="local_whisper",
-        source_video_url_snapshot=lesson.video_url or "",
+        source_video_url_snapshot=get_lesson_source_snapshot(lesson),
         detected_language_code="vi",
         published_at=at,
     )
@@ -1222,6 +1223,13 @@ def create_payment(user, items, paid_at, method=Payment.PaymentMethod.VNPAY, sta
     if total <= 0:
         raise SeedError("Payment course_purchase chỉ dùng cho khóa trả phí.")
 
+    gateway_responses = {
+        Payment.PaymentStatus.COMPLETED: "00|seeded_success",
+        Payment.PaymentStatus.PENDING: "01|seeded_pending",
+        Payment.PaymentStatus.FAILED: "24|seeded_failed",
+        Payment.PaymentStatus.CANCELLED: "24|seeded_cancelled",
+        Payment.PaymentStatus.REFUNDED: "00|seeded_refunded",
+    }
     payment = Payment.objects.create(
         user=user,
         payment_type=Payment.PaymentType.COURSE_PURCHASE,
@@ -1232,7 +1240,7 @@ def create_payment(user, items, paid_at, method=Payment.PaymentMethod.VNPAY, sta
         payment_status=status,
         payment_method=method,
         payment_gateway=method,
-        gateway_response="00|seeded_success" if status == Payment.PaymentStatus.COMPLETED else "99|seeded_pending",
+        gateway_response=gateway_responses[status],
     )
     created(payment, paid_at)
 
@@ -1412,6 +1420,48 @@ def seed_orders_and_learning(users, courses, lessons_by_course, promotions):
     [enrollments["lan_math"]] = create_purchase_enrollments(payment, details, dt("2026-06-02 08:04"))
     earnings["lan_math"] = generate_earnings(payment, details, dt("2026-06-02 08:08"), InstructorEarning.StatusChoices.PENDING)
 
+    payment, details = create_payment(
+        users["student_nam"],
+        [
+            {"course": courses["marketing"], "price": money(499000)},
+            {"course": courses["finance"], "price": money(459000)},
+        ],
+        dt("2026-05-12 20:00"),
+        Payment.PaymentMethod.VNPAY,
+    )
+    payments["nam_may_bundle"] = payment
+    enrollments["nam_marketing"], enrollments["nam_finance"] = create_purchase_enrollments(payment, details, dt("2026-05-12 20:05"))
+    earnings["nam_may_bundle"] = generate_earnings(payment, details, dt("2026-05-12 20:10"), InstructorEarning.StatusChoices.AVAILABLE)
+
+    payment, details = create_payment(
+        users["student_hoa"],
+        [{"course": courses["english"], "price": money(399000), "discount": money(60000), "promotion": promotions["english"]}],
+        dt("2026-05-22 19:30"),
+        Payment.PaymentMethod.VNPAY,
+        Payment.PaymentStatus.FAILED,
+    )
+    payments["hoa_english_failed"] = payment
+
+    payment, details = create_payment(
+        users["student_quang"],
+        [{"course": courses["marketing"], "price": money(499000), "discount": money(49900), "promotion": promotions["summer"]}],
+        dt("2026-06-08 18:00"),
+        Payment.PaymentMethod.VNPAY,
+    )
+    payments["quang_marketing"] = payment
+    [enrollments["quang_marketing"]] = create_purchase_enrollments(payment, details, dt("2026-06-08 18:03"))
+    earnings["quang_marketing"] = generate_earnings(payment, details, dt("2026-06-08 18:08"), InstructorEarning.StatusChoices.PENDING)
+
+    payment, details = create_payment(
+        users["student_thao"],
+        [{"course": courses["python"], "price": money(599000), "discount": money(100000), "promotion": promotions["python"]}],
+        dt("2026-06-11 07:45"),
+        Payment.PaymentMethod.MOMO,
+    )
+    payments["thao_python"] = payment
+    [enrollments["thao_python"]] = create_purchase_enrollments(payment, details, dt("2026-06-11 07:50"))
+    earnings["thao_python"] = generate_earnings(payment, details, dt("2026-06-11 07:55"), InstructorEarning.StatusChoices.PENDING)
+
     pending_payment, pending_details = create_payment(
         users["student_quang"],
         [{"course": courses["finance"], "price": money(459000)}],
@@ -1420,6 +1470,15 @@ def seed_orders_and_learning(users, courses, lessons_by_course, promotions):
         Payment.PaymentStatus.PENDING,
     )
     payments["quang_finance_pending"] = pending_payment
+
+    cancelled_payment, cancelled_details = create_payment(
+        users["student_nam"],
+        [{"course": courses["video"], "price": money(429000)}],
+        dt("2026-06-09 22:00"),
+        Payment.PaymentMethod.VNPAY,
+        Payment.PaymentStatus.CANCELLED,
+    )
+    payments["nam_video_cancelled"] = cancelled_payment
 
     for promo in Promotion.objects.all():
         used = Payment_Details.objects.filter(promotion=promo, payment__payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]).count()
@@ -1446,8 +1505,12 @@ def seed_progress_and_results(users, courses, lessons_by_course, enrollments):
         "lan_python": (Decimal("80.00"), dt("2026-04-25 20:00")),
         "hoa_productivity": (Decimal("45.00"), dt("2026-04-10 08:00")),
         "quang_english": (Decimal("35.00"), dt("2026-05-08 21:00")),
+        "nam_marketing": (Decimal("55.00"), dt("2026-06-10 20:00")),
+        "nam_finance": (Decimal("35.00"), dt("2026-06-11 20:00")),
         "lan_math": (Decimal("30.00"), dt("2026-06-12 08:30")),
         "hoa_python": (Decimal("20.00"), dt("2026-06-12 12:00")),
+        "quang_marketing": (Decimal("25.00"), dt("2026-06-14 19:00")),
+        "thao_python": (Decimal("18.00"), dt("2026-06-16 08:00")),
     }
 
     enrollment_to_course_key = {
@@ -1461,6 +1524,10 @@ def seed_progress_and_results(users, courses, lessons_by_course, enrollments):
         "minh_video": "video",
         "lan_math": "math",
         "hoa_python": "python",
+        "nam_marketing": "marketing",
+        "nam_finance": "finance",
+        "quang_marketing": "marketing",
+        "thao_python": "python",
     }
 
     for key, enrollment in enrollments.items():
@@ -1527,7 +1594,10 @@ def seed_progress_and_results(users, courses, lessons_by_course, enrollments):
                     is_completed=False,
                 )
                 created(progress, last_at)
-            update_obj(enrollment, last_at, progress=percent, last_access_date=last_at)
+            progress_rows = LearningProgress.objects.filter(enrollment=enrollment, is_deleted=False)
+            progress_total = sum((row.progress_percentage for row in progress_rows), money(0))
+            computed_progress = (progress_total / Decimal(len(lessons))).quantize(Decimal("0.01"))
+            update_obj(enrollment, last_at, progress=computed_progress, last_access_date=last_at)
 
 
 def create_quiz_result(enrollment, lesson, at, passed=True):
@@ -1648,7 +1718,7 @@ def seed_payouts(earnings):
         dt("2026-04-30 17:00"),
     )
     create_payout(
-        earnings["nam_python_advanced"] + earnings["thao_math"],
+        earnings["nam_python_advanced"] + earnings["thao_math"] + earnings["nam_may_bundle"],
         "2026-06",
         dt("2026-06-17 15:00"),
         dt("2026-06-17 16:00"),
@@ -2006,6 +2076,85 @@ def validate_business_rules():
         if enrollment.payment and enrollment.enrollment_date and enrollment.payment.payment_date:
             if enrollment.enrollment_date < enrollment.payment.payment_date:
                 errors.append(f"Enrollment #{enrollment.id} xảy ra trước payment.")
+        if enrollment.status == Enrollment.Status.Complete:
+            if enrollment.progress != money(100) or not enrollment.completion_date:
+                errors.append(f"Enrollment #{enrollment.id} complete nhưng progress/completion_date không hợp lệ.")
+        if enrollment.status == Enrollment.Status.Cancelled:
+            if not enrollment.expiry_date:
+                errors.append(f"Enrollment #{enrollment.id} cancelled nhưng thiếu expiry_date.")
+            if enrollment.payment and enrollment.payment.payment_status != Payment.PaymentStatus.REFUNDED:
+                errors.append(f"Enrollment #{enrollment.id} cancelled nhưng payment chưa refunded.")
+        if enrollment.course:
+            course_lessons = Lesson.objects.filter(coursemodule__course=enrollment.course, is_deleted=False).count()
+            if course_lessons:
+                progress_total = LearningProgress.objects.filter(
+                    enrollment=enrollment,
+                    user=enrollment.user,
+                    course=enrollment.course,
+                    is_deleted=False,
+                ).aggregate(total=Sum("progress_percentage"))["total"] or money(0)
+                expected_progress = (progress_total / Decimal(course_lessons)).quantize(Decimal("0.01"))
+                if enrollment.progress != expected_progress:
+                    errors.append(f"Enrollment #{enrollment.id} progress snapshot không khớp LearningProgress.")
+
+    for progress in LearningProgress.objects.select_related("enrollment__course", "course", "lesson__coursemodule__course", "user"):
+        if progress.enrollment.user_id != progress.user_id:
+            errors.append(f"LearningProgress #{progress.id} user không khớp enrollment.")
+        if progress.enrollment.course_id != progress.course_id:
+            errors.append(f"LearningProgress #{progress.id} course không khớp enrollment.")
+        if progress.lesson.coursemodule.course_id != progress.course_id:
+            errors.append(f"LearningProgress #{progress.id} lesson không thuộc course.")
+        if progress.start_time and progress.enrollment.enrollment_date and progress.start_time < progress.enrollment.enrollment_date:
+            errors.append(f"LearningProgress #{progress.id} bắt đầu trước enrollment.")
+        if progress.progress_percentage < 0 or progress.progress_percentage > 100:
+            errors.append(f"LearningProgress #{progress.id} progress_percentage ngoài 0-100.")
+        if progress.status == LearningProgress.StatusChoices.COMPLETED:
+            if not progress.is_completed or progress.progress_percentage != money(100) or not progress.completion_date:
+                errors.append(f"LearningProgress #{progress.id} completed nhưng trạng thái phụ không khớp.")
+            if progress.completion_date and progress.start_time and progress.completion_date < progress.start_time:
+                errors.append(f"LearningProgress #{progress.id} completion_date trước start_time.")
+        if progress.status == LearningProgress.StatusChoices.IN_PROGRESS:
+            if progress.is_completed or progress.progress_percentage <= 0 or progress.progress_percentage >= 100:
+                errors.append(f"LearningProgress #{progress.id} in-progress nhưng progress/is_completed không khớp.")
+
+    for result in QuizResult.objects.select_related("enrollment__course", "lesson__coursemodule__course"):
+        if result.lesson.coursemodule.course_id != result.enrollment.course_id:
+            errors.append(f"QuizResult #{result.id} lesson không thuộc enrollment course.")
+        if result.lesson.content_type not in [Lesson.ContentType.QUIZ, Lesson.ContentType.CODE]:
+            errors.append(f"QuizResult #{result.id} không gắn với quiz/code lesson.")
+        questions = list(result.lesson.quiz_question_lesson.filter(is_deleted=False))
+        expected_points = sum((question.points for question in questions), 0)
+        if result.total_questions != len(questions):
+            errors.append(f"QuizResult #{result.id} total_questions không khớp câu hỏi thật.")
+        if result.total_points != expected_points:
+            errors.append(f"QuizResult #{result.id} total_points không khớp câu hỏi thật.")
+        if result.correct_answers is not None and result.total_questions is not None and result.correct_answers > result.total_questions:
+            errors.append(f"QuizResult #{result.id} correct_answers lớn hơn total_questions.")
+        if result.score is not None and (result.score < 0 or result.score > 100):
+            errors.append(f"QuizResult #{result.id} score ngoài 0-100.")
+        if result.passed and result.score is not None and result.score < 70:
+            errors.append(f"QuizResult #{result.id} passed nhưng score dưới passing score.")
+        if result.start_time and result.enrollment.enrollment_date and result.start_time < result.enrollment.enrollment_date:
+            errors.append(f"QuizResult #{result.id} bắt đầu trước enrollment.")
+        if result.start_time and result.submit_time and result.submit_time < result.start_time:
+            errors.append(f"QuizResult #{result.id} submit_time trước start_time.")
+
+    for transcript in LessonTranscript.objects.prefetch_related("segments__words").select_related("lesson"):
+        if transcript.lesson.content_type != Lesson.ContentType.VIDEO:
+            errors.append(f"Transcript #{transcript.id} không gắn với video lesson.")
+        expected_snapshot = get_lesson_source_snapshot(transcript.lesson)
+        if transcript.source_video_url_snapshot != expected_snapshot:
+            errors.append(f"Transcript #{transcript.id} source snapshot không khớp lesson video hiện tại.")
+        if transcript.status == LessonTranscript.Status.PUBLISHED and not transcript.published_at:
+            errors.append(f"Transcript #{transcript.id} published nhưng thiếu published_at.")
+        for segment in transcript.segments.all():
+            if segment.end_ms <= segment.start_ms:
+                errors.append(f"Transcript segment #{segment.id} end_ms không sau start_ms.")
+            for word in segment.words.all():
+                if word.end_ms <= word.start_ms:
+                    errors.append(f"Transcript word #{word.id} end_ms không sau start_ms.")
+                if word.start_ms < segment.start_ms or word.end_ms > segment.end_ms:
+                    errors.append(f"Transcript word #{word.id} nằm ngoài segment.")
 
     for payment in Payment.objects.select_related("user"):
         details = list(payment.payment_details.select_related("course__instructor"))
@@ -2014,28 +2163,109 @@ def validate_business_rules():
         if not payment.user:
             errors.append(f"Payment #{payment.id} không có người mua.")
         detail_total = sum((detail.final_price for detail in details), money(0))
-        if payment.payment_status in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED] and detail_total != payment.total_amount:
+        if detail_total != payment.total_amount:
             errors.append(f"Payment #{payment.id} total_amount không khớp tổng detail.")
+        success_refund_total = sum(
+            (
+                detail.refund_amount or money(0)
+                for detail in details
+                if detail.refund_status == Payment_Details.RefundStatus.SUCCESS
+            ),
+            money(0),
+        )
+        if payment.refund_amount != success_refund_total:
+            errors.append(f"Payment #{payment.id} refund_amount không khớp tổng refund success.")
+        if payment.payment_status == Payment.PaymentStatus.REFUNDED and payment.refund_amount < payment.total_amount:
+            errors.append(f"Payment #{payment.id} refunded nhưng refund_amount chưa đủ total_amount.")
+        if payment.payment_status != Payment.PaymentStatus.REFUNDED and payment.refund_amount >= payment.total_amount:
+            errors.append(f"Payment #{payment.id} chưa refunded nhưng refund_amount đã đủ total_amount.")
         for detail in details:
             if not detail.course or not detail.course.instructor:
                 errors.append(f"Payment detail #{detail.id} thiếu course hoặc người bán.")
             if detail.course and detail.course.price <= 0:
                 errors.append(f"Payment detail #{detail.id} đang bán khóa miễn phí.")
+            if detail.discount < 0 or detail.final_price <= 0 or detail.final_price != detail.price - detail.discount:
+                errors.append(f"Payment detail #{detail.id} discount/final_price không hợp lệ.")
+            if detail.promotion:
+                promo = detail.promotion
+                if promo.status != Promotion.StatusChoices.ACTIVE:
+                    errors.append(f"Payment detail #{detail.id} dùng promotion không active.")
+                if payment.payment_date and not (promo.start_date <= payment.payment_date <= promo.end_date):
+                    errors.append(f"Payment detail #{detail.id} dùng promotion ngoài thời gian hiệu lực.")
+                if detail.price < promo.min_purchase:
+                    errors.append(f"Payment detail #{detail.id} chưa đạt min_purchase của promotion.")
+                if promo.discount_type == Promotion.DiscountTypeChoices.PERCENTAGE:
+                    expected_discount = (detail.price * promo.discount_value / money("100.00")).quantize(Decimal("0.01"))
+                    if promo.max_discount is not None:
+                        expected_discount = min(expected_discount, promo.max_discount)
+                    if detail.discount != expected_discount:
+                        errors.append(f"Payment detail #{detail.id} discount không khớp promotion percentage.")
+                if promo.discount_type == Promotion.DiscountTypeChoices.FIXED_AMOUNT and detail.discount != promo.discount_value:
+                    errors.append(f"Payment detail #{detail.id} discount không khớp promotion fixed.")
+                if promo.applicable_courses.exists() and not promo.applicable_courses.filter(pk=detail.course_id).exists():
+                    errors.append(f"Payment detail #{detail.id} dùng promotion không áp dụng cho course.")
+                if promo.applicable_categories.exists() and detail.course:
+                    category_ids = {detail.course.category_id, detail.course.subcategory_id}
+                    if detail.course.subcategory and detail.course.subcategory.parent_category_id:
+                        category_ids.add(detail.course.subcategory.parent_category_id)
+                    if not promo.applicable_categories.filter(pk__in=category_ids).exists():
+                        errors.append(f"Payment detail #{detail.id} dùng promotion không áp dụng cho category.")
+                if promo.instructor_id and detail.course and promo.instructor_id != detail.course.instructor_id:
+                    errors.append(f"Payment detail #{detail.id} dùng promotion sai instructor.")
+                if promo.admin_id is None and promo.instructor_id is None:
+                    errors.append(f"Payment detail #{detail.id} dùng promotion thiếu owner admin/instructor.")
+            if detail.course and (detail.course.admin_hidden or detail.course.is_hard_blocked):
+                blocked_at = detail.course.updated_at
+                if payment.payment_date and blocked_at and payment.payment_date > blocked_at:
+                    errors.append(f"Payment detail #{detail.id} xảy ra sau khi course bị khóa/ẩn.")
+            has_enrollment = Enrollment.objects.filter(
+                user=payment.user,
+                course=detail.course,
+                payment=payment,
+                is_deleted=False,
+            ).exists()
+            has_earning = InstructorEarning.objects.filter(
+                payment=payment,
+                course=detail.course,
+                is_deleted=False,
+            ).exists()
+            if payment.payment_status in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]:
+                if not has_enrollment:
+                    errors.append(f"Payment detail #{detail.id} đã thanh toán nhưng thiếu enrollment.")
+                if not has_earning:
+                    errors.append(f"Payment detail #{detail.id} đã thanh toán nhưng thiếu earning.")
+            else:
+                if has_enrollment:
+                    errors.append(f"Payment detail #{detail.id} chưa completed/refunded nhưng đã có enrollment.")
+                if has_earning:
+                    errors.append(f"Payment detail #{detail.id} chưa completed/refunded nhưng đã có earning.")
             if detail.refund_request_time and not detail.refund_amount:
                 errors.append(f"Refund detail #{detail.id} có request nhưng thiếu refund_amount.")
             if detail.refund_status == Payment_Details.RefundStatus.SUCCESS and not detail.refund_transaction_id:
                 errors.append(f"Refund detail #{detail.id} success nhưng thiếu refund_transaction_id.")
             if detail.refund_status == Payment_Details.RefundStatus.SUCCESS:
+                if payment.payment_status != Payment.PaymentStatus.REFUNDED:
+                    errors.append(f"Refund detail #{detail.id} success nhưng payment chưa refunded.")
                 if detail.refund_amount != detail.final_price:
                     errors.append(f"Refund detail #{detail.id} không hoàn đúng final_price.")
                 if detail.refund_request_time and detail.refund_date and detail.refund_date < detail.refund_request_time:
                     errors.append(f"Refund detail #{detail.id} có refund_date trước request_time.")
+
+    for promo in Promotion.objects.all():
+        used_count = Payment_Details.objects.filter(
+            promotion=promo,
+            payment__payment_status__in=[Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED],
+        ).count()
+        if promo.used_count != used_count:
+            errors.append(f"Promotion {promo.code} used_count không khớp payment detail.")
 
     for earning in InstructorEarning.objects.select_related("payment", "course__instructor", "instructor"):
         if not earning.payment and not earning.user_subscription:
             errors.append(f"Earning #{earning.id} không có nguồn giao dịch.")
         if earning.payment and not Payment_Details.objects.filter(payment=earning.payment, course=earning.course).exists():
             errors.append(f"Earning #{earning.id} không có payment detail tương ứng.")
+        if earning.payment and earning.payment.payment_status not in [Payment.PaymentStatus.COMPLETED, Payment.PaymentStatus.REFUNDED]:
+            errors.append(f"Earning #{earning.id} trỏ đến payment chưa hoàn tất.")
         if earning.course and earning.course.instructor_id != earning.instructor_id:
             errors.append(f"Earning #{earning.id} instructor không khớp người bán của course.")
         if earning.instructor and earning.instructor.level:
@@ -2052,23 +2282,52 @@ def validate_business_rules():
         if earning.payment and earning.earning_date and earning.payment.payment_date:
             if earning.earning_date < earning.payment.payment_date:
                 errors.append(f"Earning #{earning.id} xảy ra trước payment.")
+        if earning.status == InstructorEarning.StatusChoices.PAID and not earning.instructor_payout_id:
+            errors.append(f"Earning #{earning.id} PAID nhưng thiếu payout.")
+        if earning.status != InstructorEarning.StatusChoices.PAID and earning.instructor_payout_id:
+            errors.append(f"Earning #{earning.id} chưa PAID nhưng đã gắn payout.")
 
     for payout in InstructorPayout.objects.prefetch_related("earnings"):
         if payout.status == InstructorPayout.PayoutStatusChoices.PROCESSED and payout.processed_date is None:
             errors.append(f"Payout #{payout.id} processed nhưng thiếu processed_date.")
+        earning_total = sum((earning.net_amount for earning in payout.earnings.all()), money(0))
+        if payout.amount != earning_total:
+            errors.append(f"Payout #{payout.id} amount không khớp tổng earning.")
+        if payout.net_amount != payout.amount - payout.fee:
+            errors.append(f"Payout #{payout.id} net_amount không khớp amount-fee.")
         for earning in payout.earnings.all():
             if earning.status != InstructorEarning.StatusChoices.PAID:
                 errors.append(f"Payout #{payout.id} chứa earning #{earning.id} chưa PAID.")
             if earning.earning_date and payout.processed_date and earning.earning_date > payout.processed_date:
                 errors.append(f"Payout #{payout.id} xảy ra trước earning #{earning.id}.")
 
+    for course in Course.objects.filter(is_hard_blocked=True):
+        active_enrollments = Enrollment.objects.filter(
+            course=course,
+            status__in=[Enrollment.Status.Active, Enrollment.Status.Complete, Enrollment.Status.SUSPENDED],
+            is_deleted=False,
+        ).count()
+        if active_enrollments:
+            errors.append(f"Course #{course.id} hard-blocked nhưng còn enrollment đang sở hữu.")
+
     for cert in Certificate.objects.select_related("enrollment"):
+        if cert.user_id != cert.enrollment.user_id or cert.course_id != cert.enrollment.course_id:
+            errors.append(f"Certificate #{cert.id} user/course không khớp enrollment.")
+        if cert.student_name != cert.enrollment.user.full_name:
+            errors.append(f"Certificate #{cert.id} student_name snapshot không khớp user.")
+        if cert.course_title != cert.enrollment.course.title:
+            errors.append(f"Certificate #{cert.id} course_title snapshot không khớp course.")
+        expected_instructor_name = cert.enrollment.course.instructor.user.full_name if cert.enrollment.course.instructor else None
+        if cert.instructor_name != expected_instructor_name:
+            errors.append(f"Certificate #{cert.id} instructor_name snapshot không khớp course.")
         if cert.enrollment.status not in [Enrollment.Status.Complete, Enrollment.Status.Cancelled]:
             errors.append(f"Certificate #{cert.id} không gắn với enrollment hoàn thành/đã refund.")
         if cert.issued_at and cert.enrollment.completion_date and cert.issued_at < cert.enrollment.completion_date:
             errors.append(f"Certificate #{cert.id} cấp trước completion_date.")
         if cert.revoked and not (cert.revoked_at and cert.revoked_by):
             errors.append(f"Certificate #{cert.id} revoked nhưng thiếu thời gian/người thu hồi.")
+        if cert.revoked_at and cert.issued_at and cert.revoked_at < cert.issued_at:
+            errors.append(f"Certificate #{cert.id} revoked_at trước issued_at.")
 
     for review in Review.objects.select_related("user", "course"):
         enrollment = Enrollment.objects.filter(user=review.user, course=review.course).first()
@@ -2078,6 +2337,8 @@ def validate_business_rules():
             errors.append(f"Review #{review.id} xảy ra trước enrollment.")
         if enrollment and enrollment.status == Enrollment.Status.Cancelled and not review.is_deleted:
             errors.append(f"Review #{review.id} của enrollment refunded/cancelled chưa bị ẩn.")
+        if review.response_at and review.response_at < review.created_at:
+            errors.append(f"Review #{review.id} có instructor response trước review.")
 
     for hold in InstructorEarningHold.objects.select_related("case", "earning"):
         if hold.status == InstructorEarningHold.Status.ACTIVE and hold.earning.status == InstructorEarning.StatusChoices.PAID:
@@ -2105,8 +2366,8 @@ def print_summary(asset_context):
     print("\nTài khoản đăng nhập mẫu:")
     print(f"  admin@example.com / {DEFAULT_PASSWORD}")
     print(f"  linh.instructor@example.com / {DEFAULT_PASSWORD}")
-    print(f"  an.instructor@example.com / {DEFAULT_PASSWORD}")
-    print(f"  lan.student@example.com / {DEFAULT_PASSWORD}")
+    print(f"  huydang2312003@gmail.com / {DEFAULT_PASSWORD}")
+    print(f"  danghuy2312003@gmail.com / {DEFAULT_PASSWORD}")
 
 
 def main():

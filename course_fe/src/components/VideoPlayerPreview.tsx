@@ -20,13 +20,18 @@ interface VideoPlayerPreviewProps {
   title: string
   duration: string
   className?: string
+  // When true, the media area grows to fill the container height (instead of a
+  // fixed 16:9 aspect ratio) and the title footer is hidden. Used inside the
+  // split-layout preview modal where the surrounding panel sets the height.
+  fill?: boolean
 }
 
 export function VideoPlayerPreview({
   videoUrl,
   title,
   duration,
-  className
+  className,
+  fill = false
 }: VideoPlayerPreviewProps) {
   const { t } = useTranslation()
   const [isPlaying, setIsPlaying] = useState(false)
@@ -83,17 +88,20 @@ export function VideoPlayerPreview({
 
   return (
     <Card
-      className={cn("overflow-hidden bg-black relative group", className)}
+      className={cn("overflow-hidden bg-black relative group", fill && "flex flex-col", className)}
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(isPlaying ? false : true)}
     >
 
-      <div className="relative aspect-video bg-black flex items-center justify-center">
+      <div className={cn(
+        "relative bg-black flex items-center justify-center",
+        fill ? "flex-1 min-h-0" : "aspect-video"
+      )}>
         {videoUrl && !hasError ? (
           <video
             ref={videoRef}
             src={videoUrl}
-            className="w-full h-full"
+            className="w-full h-full object-contain"
             onClick={togglePlay}
             onTimeUpdate={(e) => {
               const video = e.currentTarget
@@ -245,12 +253,14 @@ export function VideoPlayerPreview({
       </div>
 
 
-      <div className="p-4 bg-background border-t">
-        <h3 className="font-semibold">{title}</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          {t('video_player_preview.duration')}: {duration}
-        </p>
-      </div>
+      {!fill && (
+        <div className="p-4 bg-background border-t">
+          <h3 className="font-semibold">{title}</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('video_player_preview.duration')}: {duration}
+          </p>
+        </div>
+      )}
     </Card>
   )
 }

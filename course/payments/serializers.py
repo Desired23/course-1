@@ -17,6 +17,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             'payment_date',
             'payment_status',
             'payment_method',
+            'billing_cycle',
             'refund_amount',
             'payment_gateway',
             'gateway_response',
@@ -39,6 +40,7 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             'total_amount',
             'transaction_id',
             'payment_method',
+            'billing_cycle',
             'payment_date',
             'created_at'
         ]

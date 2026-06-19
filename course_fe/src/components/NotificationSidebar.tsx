@@ -214,6 +214,7 @@ export function NotificationSidebar({
       // Course moderation (instructor) -> deep link to the course (related_id = course id)
       case 'course_moderated':
       case 'course_status_changed_by_admin':
+        if (isAdmin) return relatedId ? `/admin/courses/${relatedId}` : '/admin/courses'
         return relatedId ? `/instructor/courses/${relatedId}` : '/instructor/courses'
 
       // Lesson/module moderation (instructor) -> no deep id available

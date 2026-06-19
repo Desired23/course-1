@@ -26,6 +26,25 @@ def _can_view_course_holds(serializer):
         return False
 
 
+def _can_view_draft_course_content(serializer, course):
+    user = serializer.context.get('user')
+    request = serializer.context.get('request')
+    if user is None and request is not None:
+        user = getattr(request, 'user', None)
+    try:
+        from utils.roles import is_active_admin, is_active_instructor
+        if is_active_admin(user):
+            return True
+        return bool(
+            user
+            and is_active_instructor(user)
+            and getattr(user, 'instructor', None)
+            and course.instructor_id == user.instructor.id
+        )
+    except Exception:
+        return False
+
+
 def _active_course_holds(course):
     return course.copyright_earning_holds.filter(status='active').select_related('earning')
 
@@ -270,7 +289,10 @@ class ModuleSummarySerializer(serializers.Serializer):
         lessons = obj.lessons.filter(
             is_deleted=False,
             content_type__in=['video', 'quiz', 'code'],
-        ).order_by('order')
+        )
+        if self.context.get('published_only'):
+            lessons = lessons.filter(status='published')
+        lessons = lessons.order_by('order')
         return LessonSummarySerializer(lessons, many=True, context=self.context).data
 
 
@@ -346,6 +368,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_modules(self, obj):
         modules = obj.modules.filter(is_deleted=False).order_by('order_number')
+        published_only = not _can_view_draft_course_content(self, obj)
+        if published_only:
+            modules = modules.filter(status='Published')
         user = self.context.get('user')
         media_allowed = False
         if user:
@@ -353,6 +378,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             media_allowed = has_existing_course_access(user, obj)
         context = dict(self.context)
         context['media_allowed'] = media_allowed
+        context['published_only'] = published_only
         return ModuleSummarySerializer(modules, many=True, context=context).data
 
     def get_user_enrollment(self, obj):
@@ -375,12 +401,18 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     def get_total_resources(self, obj):
         from lesson_attachments.models import LessonAttachment
-        return LessonAttachment.objects.filter(
+        resources = LessonAttachment.objects.filter(
             lesson__coursemodule__course=obj,
             is_deleted=False,
             lesson__is_deleted=False,
             lesson__coursemodule__is_deleted=False,
-        ).count()
+        )
+        if not _can_view_draft_course_content(self, obj):
+            resources = resources.filter(
+                lesson__status='published',
+                lesson__coursemodule__status='Published',
+            )
+        return resources.count()
 
     def get_active_hold_count(self, obj):
         if not _can_view_course_holds(self):

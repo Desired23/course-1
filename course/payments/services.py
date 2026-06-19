@@ -335,6 +335,7 @@ def create_payment(payment_data):
                 "payment_method": payment_method,
                 "payment_type": payment_type,
                 "subscription_plan": payment_data.get("subscription_plan_id"),
+                "billing_cycle": billing_cycle if payment_type == "subscription" else None,
                 "transaction_id": transaction_id,
                 "promotion": promotion_id if promotion_id else None
             })
@@ -504,6 +505,7 @@ def get_payment_status(payment_id, user, admin_override=False):
         "discount_amount": payment.discount_amount,
         "total_amount": payment.total_amount,
         "payment_method": payment.payment_method,
+        "billing_cycle": payment.billing_cycle,
         "refund_amount": payment.refund_amount,
         "payment_gateway": payment.payment_gateway,
         "gateway_response": payment.gateway_response,

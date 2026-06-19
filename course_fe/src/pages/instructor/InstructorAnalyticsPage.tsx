@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { getInstructorAnalyticsTimeseries, type AnalyticsTimeseries } from '../../services/instructor.api'
 import { getAllInstructorEarnings, parseEarningAmount, type InstructorEarning } from '../../services/instructor-earnings.api'
+import { timestampedFilename } from '../../services/download'
 
 type GroupBy = 'day' | 'month' | 'quarter' | 'year'
 
@@ -54,7 +55,7 @@ function isoDate(date: Date) {
 function initialDateRange(): DateRange {
   const now = new Date()
   return {
-    dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
+    dateFrom: isoDate(new Date(now.getFullYear(), 0, 1)),
     dateTo: isoDate(now),
   }
 }
@@ -118,7 +119,7 @@ function downloadText(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = filename
+  link.download = timestampedFilename(filename)
   document.body.appendChild(link)
   link.click()
   link.remove()

@@ -1,4 +1,5 @@
-import { API_BASE_URL, getAccessToken, getApiTransportHeaders, http } from './http'
+import { downloadBlob } from './download'
+import { http } from './http'
 
 export type ReportTargetType =
   | 'review'
@@ -300,27 +301,7 @@ async function downloadCsv(endpoint: string, filename: string, filters?: Record<
   const query = Object.keys(filtered).length > 0
     ? `?${new URLSearchParams(filtered as Record<string, string>).toString()}`
     : ''
-  const token = getAccessToken()
-  const response = await fetch(`${API_BASE_URL}${endpoint}${query}`, {
-    headers: {
-      ...getApiTransportHeaders(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  })
-  if (!response.ok) {
-    const message = await response.text().catch(() => '')
-    throw new Error(message || 'Export failed')
-  }
-
-  const blob = await response.blob()
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+  return downloadBlob(`${endpoint}${query}`, filename, { errorMessage: 'Export failed' })
 }
 
 export async function downloadReportExport(filters?: ReportStatsFilters): Promise<void> {

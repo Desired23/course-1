@@ -3,6 +3,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from courses.models import Course
+from courses.services import recalc_course_rating
 from enrollments.models import Enrollment
 from reviews.models import Review
 from utils.test_helpers import auth_client, make_user
@@ -129,6 +130,35 @@ class ReviewWriteFlowTests(TestCase):
         review.refresh_from_db()
         self.assertEqual(review.instructor_response, "Thanks for learning and sharing feedback.")
         self.assertIsNotNone(review.response_at)
+
+    def test_course_rating_includes_pending_and_excludes_rejected_reviews(self):
+        Review.objects.create(
+            course=self.course,
+            user=make_user("student", username="rating_approved"),
+            rating=4,
+            comment="Approved",
+            status=Review.StatusChoices.APPROVED,
+        )
+        Review.objects.create(
+            course=self.course,
+            user=make_user("student", username="rating_pending"),
+            rating=2,
+            comment="Pending",
+            status=Review.StatusChoices.PENDING,
+        )
+        Review.objects.create(
+            course=self.course,
+            user=make_user("student", username="rating_rejected"),
+            rating=1,
+            comment="Rejected",
+            status=Review.StatusChoices.REJECTED,
+        )
+
+        recalc_course_rating(self.course.id)
+
+        self.course.refresh_from_db()
+        self.assertEqual(self.course.total_reviews, 2)
+        self.assertEqual(float(self.course.rating), 3.0)
 
     def test_hidden_review_is_excluded_publicly_but_visible_to_admin_list(self):
         visible = Review.objects.create(

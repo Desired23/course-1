@@ -159,7 +159,7 @@ function ReportExtraDetails({
 
   return (
     <Card size="small" title="Thông tin bổ sung">
-      <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={6} style={{ width: '100%' }}>
         {entries.map(([key, value]) => (
           <Text key={key}>
             <Text strong>{REPORT_METADATA_LABELS[key] ?? key}: </Text>
@@ -388,7 +388,7 @@ export function ReportManagementPage() {
         dataIndex: 'reporter_name',
         width: 260,
         render: (_, report) => (
-          <Space direction="vertical" size={4} style={{ maxWidth: 240 }}>
+          <Space orientation="vertical" size={4} style={{ maxWidth: 240 }}>
             <Space size={6}>
               <User className="h-3 w-3" />
               <Text strong ellipsis style={{ maxWidth: 190 }}>
@@ -409,7 +409,7 @@ export function ReportManagementPage() {
         dataIndex: 'title',
         ellipsis: true,
         render: (_, report) => (
-          <Space direction="vertical" size={2} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={2} style={{ width: '100%' }}>
             <Typography.Link strong onClick={() => void openReportDetail(report)}>
               {report.title || `${report.target_type} #${report.target_id}`}
             </Typography.Link>
@@ -529,7 +529,7 @@ export function ReportManagementPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
           <div>
             <Title level={2} style={{ marginBottom: 4 }}>Quản lý báo cáo</Title>
@@ -550,7 +550,7 @@ export function ReportManagementPage() {
           ].map(item => (
             <Card key={item.label} size="small">
               <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text type="secondary">{item.label}</Text>
                   <Title level={3} style={{ margin: 0 }}>{item.value}</Title>
                 </Space>
@@ -691,9 +691,9 @@ export function ReportManagementPage() {
         {detailLoading && !selectedReport ? (
           <Skeleton active paragraph={{ rows: 5 }} />
         ) : selectedReport ? (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Card size="small">
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 <Space wrap>
                   <TargetTypeTag type={selectedReport.target_type} />
                   <Tag>{selectedReport.reason_label}</Tag>
@@ -709,7 +709,7 @@ export function ReportManagementPage() {
 
             <Descriptions bordered size="small" column={2}>
               <Descriptions.Item label="Người báo cáo">
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text strong>{selectedReport.reporter_name || 'Ẩn danh'}</Text>
                   {selectedReport.reporter_email && <Text type="secondary">{selectedReport.reporter_email}</Text>}
                 </Space>
@@ -743,7 +743,7 @@ export function ReportManagementPage() {
         width={920}
       >
         {selectedCopyrightCase && (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Descriptions bordered size="small" column={2}>
               <Descriptions.Item label="Nội dung">{selectedCopyrightCase.title}</Descriptions.Item>
               <Descriptions.Item label="Target">{selectedCopyrightCase.target_type} #{selectedCopyrightCase.target_id}</Descriptions.Item>
@@ -762,7 +762,7 @@ export function ReportManagementPage() {
             </Descriptions>
 
             <Card size="small" title="Xử lý case bản quyền">
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 <Space wrap>
                   <AntSelect
                     placeholder="Biện pháp"
@@ -817,7 +817,7 @@ export function ReportManagementPage() {
                 locale={{ emptyText: 'Chưa có timeline.' }}
                 renderItem={(item) => (
                   <List.Item>
-                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                       <Space wrap>
                         <Tag>{item.actor_role}</Tag>
                         <Text strong>{item.response_type || 'message'}</Text>
@@ -839,7 +839,7 @@ export function ReportManagementPage() {
                 locale={{ emptyText: 'Không có report gốc.' }}
                 renderItem={(report) => (
                   <List.Item>
-                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                       <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                         <Text strong>{report.reporter_name || 'Ẩn danh'}</Text>
                         <Text type="secondary">{formatDateTime(report.created_at)}</Text>
