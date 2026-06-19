@@ -4,7 +4,7 @@ import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Crown, Loader2, XCircle
 import { Button } from "../../components/ui/button"
 import { Card, CardContent } from "../../components/ui/card"
 import { useRouter } from "../../components/Router"
-import { formatCurrency, getPaymentStatus, Payment } from "../../services/payment.api"
+import { formatCurrency, getPaymentStatus, Payment, submitLocalPaymentCallback } from "../../services/payment.api"
 import { motion } from "motion/react"
 import { useCart } from "../../contexts/CartContext"
 import { useAuth } from "../../contexts/AuthContext"
@@ -143,12 +143,46 @@ export function PaymentResultPage() {
     const txn = params.get("transaction")
     const msg = params.get("message")
     const code = params.get("code")
+    const isLocalCallback = params.get("local_callback") === "1"
 
     setPaymentId(pid)
     setTransactionId(txn)
     setErrorMessage(msg)
     setResponseCode(code)
     setRequiresAuthForDetails(false)
+
+    if (isLocalCallback) {
+      setStatus("loading")
+      const provider = params.get("provider")
+      const amount = params.get("amount")
+      const localStatus = statusParam === "success" ? "success" : statusParam === "cancelled" ? "cancelled" : "failed"
+      if (!pid || !amount || (provider !== "momo" && provider !== "vnpay")) {
+        setStatus("error")
+        setErrorMessage(t("payment_result_page.invalid_status"))
+      } else {
+        void (async () => {
+          try {
+            await submitLocalPaymentCallback({
+              provider,
+              payment_id: pid,
+              amount,
+              status: localStatus,
+              code,
+              transaction_id: txn,
+            })
+            if (cancelled) return
+            await pollPaymentStatus(Number(pid))
+          } catch (err: any) {
+            if (cancelled) return
+            setErrorMessage(err?.message || t("payment_result_page.load_failed"))
+            setStatus("error")
+          }
+        })()
+      }
+      return () => {
+        cancelled = true
+      }
+    }
 
     if (statusParam === "success") {
       setStatus("loading")

@@ -359,7 +359,7 @@ export function TransactionHistoryPage() {
     setRetryingPaymentId(payment.id)
     try {
       if (payment.payment_method === "momo") {
-        const response = await createMomoPayment({ payment_id: payment.id })
+        const response = await createMomoPayment({ payment_id: payment.id, return_url: `${window.location.origin}/payment/result` })
         if (!response.payUrl) throw new Error(t("transaction_history_page.errors.create_momo_url"))
         window.location.href = response.payUrl
         return
@@ -368,6 +368,7 @@ export function TransactionHistoryPage() {
         order_id: String(payment.id),
         amount: Math.round(parseFloat(payment.total_amount)),
         order_desc: t("transaction_history_page.retry_order_description", { id: payment.id }),
+        return_url: `${window.location.origin}/payment/result`,
       })
       if (!response.payment_url) throw new Error(t("transaction_history_page.errors.create_vnpay_url"))
       window.location.href = response.payment_url

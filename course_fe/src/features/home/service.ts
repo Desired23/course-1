@@ -30,7 +30,6 @@ const LEGACY_COMPONENTS_DEFAULT_ORDER = [
   "TestimonialsSection",
   "StatsSection",
   "InstructorPromo",
-  "NewsletterSection",
 ]
 
 export interface HomeSchemaLoadResult {

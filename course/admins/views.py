@@ -163,8 +163,8 @@ def _report_sheet(report_key, date_from=None, date_to=None):
         data = get_admin_earning_payout_metrics(100, date_from, date_to)
         return {
             'title': 'Thu nhập và chi trả theo giảng viên',
-            'headers': ['Giảng viên', 'Thu nhập gộp', 'Thu nhập giảng viên', 'Thu nhập bán lẻ', 'Thu nhập từ gói đăng ký', 'Thu nhập chờ xử lý', 'Thu nhập khả dụng', 'Cần chi trả', 'Thu nhập đã thanh toán', 'Yêu cầu chi trả', 'Chi trả đã xử lý (gộp)', 'Chi trả đã xử lý (thuần)', 'Chi trả đang chờ', 'Chênh lệch đã trả - đã xử lý thuần'],
-            'rows': [[r['instructor_name'], r['gross'], r['instructor_earnings'], r['retail_earnings'], r['subscription_earnings'], r['pending_earnings'], r['available_earnings'], r['payable_earnings'], r['paid_earnings'], r['payout_requested'], r['payout_processed'], r['payout_processed_net'], r['payout_pending'], r['settlement_gap']] for r in data['per_instructor']],
+            'headers': ['Giảng viên', 'Thu nhập gộp', 'Thu nhập giảng viên', 'Thu nhập bán lẻ', 'Thu nhập từ gói đăng ký', 'Thu nhập chờ xử lý', 'Thu nhập khả dụng', 'Cần chi trả', 'Thu nhập đã thanh toán', 'Yêu cầu chi trả', 'Chi trả đã xử lý (gộp)', 'Chi trả đã xử lý (thuần)', 'Chi trả đang chờ'],
+            'rows': [[r['instructor_name'], r['gross'], r['instructor_earnings'], r['retail_earnings'], r['subscription_earnings'], r['pending_earnings'], r['available_earnings'], r['payable_earnings'], r['paid_earnings'], r['payout_requested'], r['payout_processed'], r['payout_processed_net'], r['payout_pending']] for r in data['per_instructor']],
         }
 
     if report_key == 'refunds':

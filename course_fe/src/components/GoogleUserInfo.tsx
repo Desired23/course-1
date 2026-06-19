@@ -20,7 +20,7 @@ export function GoogleUserInfo() {
 
   const handleLogout = () => {
     logout()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   return (

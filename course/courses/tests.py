@@ -6,7 +6,10 @@ from django.utils import timezone
 
 from categories.models import Category
 from courses.models import Course
+from courses.serializers import CourseSerializer
 from enrollments.models import Enrollment
+from instructor_earnings.models import InstructorEarning
+from reports.models import CopyrightCase, InstructorEarningHold, Report
 from reviews.models import Review
 from utils.test_helpers import auth_client, make_user
 
@@ -151,3 +154,82 @@ class InstructorCourseStatusTests(TestCase):
         self.assertEqual(response.status_code, 400, response.content)
         self.course.refresh_from_db()
         self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+
+
+class CourseHoldModerationTests(TestCase):
+    def setUp(self):
+        self.admin_user = make_user("admin", username="hold_admin")
+        self.instructor_user = make_user("instructor", username="hold_inst")
+        self.category = Category.objects.create(name="Finance", status="active")
+        self.course = Course.objects.create(
+            title="Held Course",
+            instructor=self.instructor_user.instructor,
+            category=self.category,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+            admin_hidden=True,
+            is_hard_blocked=True,
+        )
+        self.other_course = Course.objects.create(
+            title="Other Held Course",
+            instructor=self.instructor_user.instructor,
+            category=self.category,
+            status=Course.Status.PUBLISHED,
+            is_public=True,
+        )
+
+    def _hold_for_course(self, course, net="100.00"):
+        case = CopyrightCase.objects.create(
+            target_type=Report.TargetType.COURSE,
+            target_id=course.id,
+            course=course,
+            instructor=course.instructor,
+            created_by=self.admin_user,
+        )
+        earning = InstructorEarning.objects.create(
+            instructor=course.instructor,
+            course=course,
+            amount=Decimal(net),
+            net_amount=Decimal(net),
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+        )
+        return InstructorEarningHold.objects.create(
+            case=case,
+            earning=earning,
+            course=course,
+            instructor=course.instructor,
+            status=InstructorEarningHold.Status.ACTIVE,
+            created_by=self.admin_user,
+        )
+
+    def test_course_serializer_includes_active_hold_summary(self):
+        self._hold_for_course(self.course, "120.00")
+        self._hold_for_course(self.course, "30.00")
+
+        data = CourseSerializer(self.course, context={"user": self.admin_user}).data
+
+        self.assertEqual(data["active_hold_count"], 2)
+        self.assertEqual(data["held_amount"], "150.00")
+
+    def test_release_holds_releases_course_holds_only_without_changing_visibility(self):
+        hold = self._hold_for_course(self.course, "120.00")
+        other_hold = self._hold_for_course(self.other_course, "60.00")
+
+        response = auth_client(self.admin_user).post(
+            f"/api/courses/{self.course.id}/moderate",
+            {"action": "release_holds", "reason": "Resolved financial hold."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        hold.refresh_from_db()
+        other_hold.refresh_from_db()
+        self.course.refresh_from_db()
+
+        self.assertEqual(hold.status, InstructorEarningHold.Status.RELEASED)
+        self.assertEqual(other_hold.status, InstructorEarningHold.Status.ACTIVE)
+        self.assertTrue(self.course.admin_hidden)
+        self.assertTrue(self.course.is_hard_blocked)
+        self.assertEqual(self.course.status, Course.Status.PUBLISHED)
+        self.assertEqual(response.data["active_hold_count"], 0)
+        self.assertEqual(response.data["held_amount"], "0.00")

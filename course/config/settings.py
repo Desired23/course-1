@@ -51,6 +51,11 @@ SECRET_KEY = os.getenv(
 
 ASGI_APPLICATION = "config.asgi.application"
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+PAYMENT_GATEWAY_MODE = os.getenv("PAYMENT_GATEWAY_MODE", "local" if DEBUG else "sandbox").strip().lower()
+PAYMENT_FINALIZE_ON_RETURN = os.getenv(
+    "PAYMENT_FINALIZE_ON_RETURN",
+    "True" if PAYMENT_GATEWAY_MODE == "local" else "False",
+).strip().lower() == "true"
 
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
@@ -137,12 +142,19 @@ PAYMENT_RETURN_URL_ALLOWLIST = [
 for _candidate in (FRONTEND_URL, PAYMENT_RESULT_URL, VNPAY_FE_RETURN_URL, MOMO_FE_RETURN_URL):
     if _candidate and _candidate not in PAYMENT_RETURN_URL_ALLOWLIST:
         PAYMENT_RETURN_URL_ALLOWLIST.append(_candidate)
+if DEBUG:
+    for _candidate in (
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ):
+        if _candidate not in PAYMENT_RETURN_URL_ALLOWLIST:
+            PAYMENT_RETURN_URL_ALLOWLIST.append(_candidate)
 NGROK_URL = os.getenv("NGROK_URL", "").rstrip("/")
-BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip()
-if NGROK_URL:
+BACKEND_PUBLIC_URL = os.getenv("BACKEND_PUBLIC_URL", "").rstrip("/")
+if NGROK_URL and PAYMENT_GATEWAY_MODE != "local":
     BACKEND_PUBLIC_URL = NGROK_URL
-if not BACKEND_PUBLIC_URL:
-    BACKEND_PUBLIC_URL = "https://course-1-zelz.onrender.com"
 if not BACKEND_PUBLIC_URL and RENDER_EXTERNAL_HOSTNAME:
     BACKEND_PUBLIC_URL = f"https://{RENDER_EXTERNAL_HOSTNAME}"
 for candidate_url in (FRONTEND_URL, PAYMENT_RESULT_URL, VNPAY_FE_RETURN_URL, MOMO_FE_RETURN_URL, NGROK_URL, BACKEND_PUBLIC_URL):
@@ -165,7 +177,7 @@ GOOGLE_OAUTH_CLIENT_IDS = [
 
 VNPAY_RETURN_URL = os.getenv(
     "VNPAY_RETURN_URL",
-    f"{BACKEND_PUBLIC_URL}/api/vnpay/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/vnpay/payment-return/",
+    f"{BACKEND_PUBLIC_URL}/api/vnpay/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8080/api/vnpay/payment-return/",
 )
 
 MOMO_PARTNER_CODE = os.getenv("MOMO_PARTNER_CODE", "MOMO")
@@ -180,11 +192,11 @@ MOMO_REFUND_URL = os.getenv("MOMO_REFUND_URL", "https://test-payment.momo.vn/v2/
 MOMO_REFUND_QUERY_URL = os.getenv("MOMO_REFUND_QUERY_URL", "https://test-payment.momo.vn/v2/gateway/api/refund/query")
 MOMO_REDIRECT_URL = os.getenv(
     "MOMO_REDIRECT_URL",
-    f"{BACKEND_PUBLIC_URL}/api/momo/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/momo/payment-return/",
+    f"{BACKEND_PUBLIC_URL}/api/momo/payment-return/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8080/api/momo/payment-return/",
 )
 MOMO_IPN_URL = os.getenv(
     "MOMO_IPN_URL",
-    f"{BACKEND_PUBLIC_URL}/api/momo/ipn/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8000/api/momo/ipn/",
+    f"{BACKEND_PUBLIC_URL}/api/momo/ipn/" if BACKEND_PUBLIC_URL else "http://127.0.0.1:8080/api/momo/ipn/",
 )
 MOMO_STORE_ID = os.getenv("MOMO_STORE_ID", "MoMoTestStore")
 MOMO_PARTNER_NAME = os.getenv("MOMO_PARTNER_NAME", "Course Platform Test")

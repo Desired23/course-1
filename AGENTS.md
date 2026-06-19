@@ -71,7 +71,7 @@ A full-stack Udemy-like e-learning platform. Django REST Framework backend + Rea
 cd course
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver           # Dev server at http://127.0.0.1:8000
+python manage.py runserver 127.0.0.1:8080 --noreload  # Dev server at http://127.0.0.1:8080
 ```
 
 Run tests:
@@ -148,7 +148,7 @@ npm run build      # Production build to /build
 | Hooks | `src/hooks/` | Custom hooks composing the above |
 | Routes | `src/routes/` | Route definitions split by role |
 
-**API base URL** is set via `VITE_API_BASE_URL` env var (defaults to `http://localhost:8000/api`).
+**API base URL** is set via `VITE_API_BASE_URL` env var (defaults to `http://localhost:8080/api`).
 
 **JWT tokens** stored in `localStorage`. `src/services/http.ts` implements a refresh-token queue to prevent race conditions when multiple requests trigger simultaneous token refreshes.
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DatePicker, Space, Table as AntTable } from 'antd'
 import type { TableColumnsType } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -229,16 +229,16 @@ function buildOrderTable(rows: AdminPayment[]): TableModel<AdminPayment> {
 
 function buildEarningPayoutTable(rows: EarningPayoutInstructorRow[]): TableModel<EarningPayoutInstructorRow> {
   return {
-    title: 'Thống kê earning và payout',
+    title: 'Thống kê tiền chi trả giảng viên',
     rows,
     columns: [
       { label: 'Giảng viên', render: (row) => row.instructor_name || '-', exportValue: (row) => row.instructor_name || '-', searchValue: (row) => row.instructor_name || '' },
-      moneyColumn('Earning', (row) => row.instructor_earnings ?? 0),
-      moneyColumn('Có thể chi', (row) => row.payable_earnings ?? 0),
-      moneyColumn('Đã chi net', (row) => row.payout_processed_net ?? 0),
-      moneyColumn('Payout đang chờ', (row) => row.payout_pending ?? 0),
-      numberColumn('Lệnh chi', (row) => row.payout_count ?? 0),
-      moneyColumn('Chênh lệch', (row) => row.settlement_gap ?? 0),
+      moneyColumn('Thu nhập giảng viên', (row) => row.instructor_earnings ?? 0),
+      moneyColumn('Có thể thanh toán', (row) => row.payable_earnings ?? 0),
+      moneyColumn('Đang giữ', (row) => row.active_hold_earnings ?? 0),
+      moneyColumn('Đã thanh toán', (row) => row.payout_processed_net ?? 0),
+      moneyColumn('Đang chờ thanh toán', (row) => row.payout_pending ?? 0),
+      numberColumn('Số lần chi', (row) => row.payout_count ?? 0),
     ],
   }
 }
@@ -291,7 +291,7 @@ function buildReportTable(rows: ReportCase[]): TableModel<ReportCase> {
   }
 }
 
-async function fetchReportPages(status: AdminReportListStatus, range: DateRange) {
+async function fetchReportPages(status: AdminReportListStatus, range: DateRange, reloadKey?: number) {
   const reports: ReportCase[] = []
   let page = 1
   while (true) {
@@ -301,6 +301,7 @@ async function fetchReportPages(status: AdminReportListStatus, range: DateRange)
       date_to: range.dateTo,
       page,
       page_size: 100,
+      _reload: reloadKey,
     })
     reports.push(...response.results)
     if (!response.next) break
@@ -309,10 +310,18 @@ async function fetchReportPages(status: AdminReportListStatus, range: DateRange)
   return reports
 }
 
-function exportTable<T>(model: TableModel<T>) {
+const exportFileNames: Record<MainTab, string> = {
+  orders: 'thong_ke_don_hang.xls',
+  earningPayout: 'thong_ke_chi_tra_giang_vien.xls',
+  courses: 'thong_ke_doanh_thu_khoa_hoc.xls',
+  instructors: 'thong_ke_doanh_thu_giang_vien.xls',
+  reports: 'thong_ke_bao_cao_nguoi_dung.xls',
+}
+
+function exportTable<T>(model: TableModel<T>, filename: string) {
   const headers = model.columns.map((column) => column.label)
   const rows = model.rows.map((row) => model.columns.map((column) => column.exportValue(row)))
-  downloadText('statistics_current_table.xls', rowsToExcelHtml(model.title, headers, rows), 'application/vnd.ms-excel;charset=utf-8')
+  downloadText(filename, rowsToExcelHtml(model.title, headers, rows), 'application/vnd.ms-excel;charset=utf-8')
 }
 
 export function StatisticsPage() {
@@ -322,48 +331,52 @@ export function StatisticsPage() {
   const initialRange = { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: isoDate(now) }
   const [draftRange, setDraftRange] = useState<DateRange>(initialRange)
   const [appliedRange, setAppliedRange] = useState<DateRange>(initialRange)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [loadingByTab, setLoadingByTab] = useState<Record<MainTab, boolean>>({
+    orders: false,
+    earningPayout: false,
+    courses: false,
+    instructors: false,
+    reports: false,
+  })
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [courses, setCourses] = useState<CourseRevenueDetailRow[]>([])
   const [instructors, setInstructors] = useState<InstructorRevenueRow[]>([])
   const [earningPayout, setEarningPayout] = useState<EarningPayoutMetrics | null>(null)
   const [reports, setReports] = useState<ReportCase[]>([])
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const [paymentsRes, courseRes, instructorRes, earningPayoutRes, openReportsRes, processedReportsRes] = await Promise.all([
-          getAdminPayments(),
-          getAdminRevenueByCourse(100),
-          getAdminRevenueByInstructor(100),
-          getAdminEarningPayoutMetrics(100, appliedRange.dateFrom, appliedRange.dateTo),
-          fetchReportPages('open', appliedRange),
-          fetchReportPages('processed', appliedRange),
+  const loadTable = useCallback(async (tab: MainTab, forceReload = false) => {
+    const reloadKey = forceReload ? Date.now() : undefined
+    setLoadingByTab(prev => ({ ...prev, [tab]: true }))
+    try {
+      if (tab === 'orders') {
+        setPayments(await getAdminPayments(false, reloadKey))
+      } else if (tab === 'earningPayout') {
+        setEarningPayout(await getAdminEarningPayoutMetrics(100, appliedRange.dateFrom, appliedRange.dateTo, reloadKey))
+      } else if (tab === 'courses') {
+        setCourses(await getAdminRevenueByCourse(100, undefined, undefined, reloadKey))
+      } else if (tab === 'instructors') {
+        setInstructors(await getAdminRevenueByInstructor(100, undefined, undefined, reloadKey))
+      } else {
+        const [openReportsRes, processedReportsRes] = await Promise.all([
+          fetchReportPages('open', appliedRange, reloadKey),
+          fetchReportPages('processed', appliedRange, reloadKey),
         ])
-        if (cancelled) return
-        setPayments(paymentsRes)
-        setCourses(courseRes)
-        setInstructors(instructorRes)
-        setEarningPayout(earningPayoutRes)
         setReports(
           [...openReportsRes, ...processedReportsRes].sort((a, b) =>
             new Date(b.reported_at).getTime() - new Date(a.reported_at).getTime()
           ),
         )
-      } catch (err: any) {
-        if (!cancelled) toast.error(err?.message || 'Không thể tải thống kê')
-      } finally {
-        if (!cancelled) setLoading(false)
       }
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể tải thống kê')
+    } finally {
+      setLoadingByTab(prev => ({ ...prev, [tab]: false }))
     }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [appliedRange, refreshKey])
+  }, [appliedRange])
+
+  useEffect(() => {
+    void loadTable(activeTab)
+  }, [activeTab, loadTable])
 
   if (!canAccess(['admin'], ['admin.statistics.view'])) {
     return <div className="p-6">Bạn không có quyền xem thống kê.</div>
@@ -383,6 +396,7 @@ export function StatisticsPage() {
   } satisfies Record<MainTab, TableModel<any>>
 
   const currentTable = tables[activeTab]
+  const currentLoading = loadingByTab[activeTab]
   const showDateFilter = activeTab === 'orders' || activeTab === 'earningPayout' || activeTab === 'reports'
 
   function applyRange() {
@@ -398,6 +412,7 @@ export function StatisticsPage() {
             value={rangeToPickerValue(draftRange)}
             format="YYYY-MM-DD"
             allowClear
+            disabledDate={(current) => current && current > dayjs().endOf('day')}
             placeholder={['Từ ngày', 'Đến ngày']}
             onChange={(_, values) => setDraftRange({
               dateFrom: values[0] || undefined,
@@ -412,10 +427,11 @@ export function StatisticsPage() {
       )}
 
       <Space wrap size={[8, 8]}>
-        <Button variant="outline" size="icon" onClick={() => setRefreshKey((key) => key + 1)} disabled={loading} aria-label="Tải lại">
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+        <Button variant="outline" onClick={() => void loadTable(activeTab, true)} disabled={currentLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${currentLoading ? 'animate-spin' : ''}`} />
+          Tải lại
         </Button>
-        <Button variant="outline" onClick={() => exportTable(currentTable)}>
+        <Button variant="outline" onClick={() => exportTable(currentTable, exportFileNames[activeTab])}>
           <Download className="mr-2 h-4 w-4" />
           Excel
         </Button>
@@ -435,30 +451,30 @@ export function StatisticsPage() {
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as MainTab)} className="space-y-4">
         <TabsList className="grid h-auto grid-cols-2 gap-1 lg:grid-cols-5">
           <TabsTrigger value="orders">Đơn hàng</TabsTrigger>
-          <TabsTrigger value="earningPayout">Earning/Payout</TabsTrigger>
+          <TabsTrigger value="earningPayout">Chi trả giảng viên</TabsTrigger>
           <TabsTrigger value="courses">Doanh thu khóa học</TabsTrigger>
           <TabsTrigger value="instructors">Doanh thu giảng viên</TabsTrigger>
           <TabsTrigger value="reports">Báo cáo người dùng</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="space-y-4">
-          <DataTable model={tables.orders} loading={loading} toolbar={tableToolbar} />
+          <DataTable model={tables.orders} loading={loadingByTab.orders} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="earningPayout" className="space-y-4">
-          <DataTable model={tables.earningPayout} loading={loading} toolbar={tableToolbar} />
+          <DataTable model={tables.earningPayout} loading={loadingByTab.earningPayout} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="courses" className="space-y-4">
-          <DataTable model={tables.courses} loading={loading} toolbar={tableToolbar} />
+          <DataTable model={tables.courses} loading={loadingByTab.courses} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="instructors" className="space-y-4">
-          <DataTable model={tables.instructors} loading={loading} toolbar={tableToolbar} />
+          <DataTable model={tables.instructors} loading={loadingByTab.instructors} toolbar={tableToolbar} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <DataTable model={tables.reports} loading={loading} toolbar={tableToolbar} />
+          <DataTable model={tables.reports} loading={loadingByTab.reports} toolbar={tableToolbar} />
         </TabsContent>
       </Tabs>
     </div>

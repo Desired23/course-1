@@ -398,6 +398,20 @@ def cancel_payment(payment_id, user):
     payment.payment_status = Payment.PaymentStatus.CANCELLED
     payment.save(update_fields=["payment_status", "updated_at"])
 
+    try:
+        from notifications.services import notify_admins
+        notify_admins(
+            title="Thanh toan da huy",
+            message=f"Don hang #{payment.id} da bi huy.",
+            type="payment",
+            notification_code="payment_cancelled",
+            related_id=payment.id,
+            action_url="/admin/payments",
+            force=True,
+        )
+    except Exception:
+        pass
+
     log_activity(
         user_id=user.id,
         action="PAYMENT_CANCELLED",

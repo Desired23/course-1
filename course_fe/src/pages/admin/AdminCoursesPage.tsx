@@ -22,6 +22,12 @@ import { getCourses, deleteCourse as deleteCourseApi, moderateCourse, updateCour
 import { listItemTransition } from '../../lib/motion'
 
 const ITEMS_PER_PAGE = 10
+type CourseViolationAction = Extract<CourseModerationAction, 'suspend_sale' | 'freeze' | 'takedown' | 'restore'>
+
+const HOLD_COURSE_ACTIONS: CourseViolationAction[] = ['suspend_sale', 'freeze', 'takedown', 'restore']
+const REFUND_COURSE_ACTIONS: CourseViolationAction[] = ['takedown']
+const STRIKE_COURSE_ACTIONS: CourseViolationAction[] = ['freeze', 'takedown']
+const canAdminManageAvailability = (status: CourseListItem['status']) => status === 'published' || status === 'archived'
 
 const sectionStagger = {
   hidden: { opacity: 0 },
@@ -79,6 +85,33 @@ export function AdminCoursesPage() {
     loading: false,
   })
   const [moderationReason, setModerationReason] = useState('')
+  const [violationState, setViolationState] = useState<{
+    open: boolean
+    ids: number[]
+    action: CourseViolationAction
+    title: string
+    description: string
+    confirmLabel: string
+    successMessage: string
+    destructive: boolean
+    clearSelectionOnSuccess: boolean
+    loading: boolean
+  }>({
+    open: false,
+    ids: [],
+    action: 'suspend_sale',
+    title: '',
+    description: '',
+    confirmLabel: '',
+    successMessage: '',
+    destructive: false,
+    clearSelectionOnSuccess: false,
+    loading: false,
+  })
+  const [violationReason, setViolationReason] = useState('')
+  const [violationWithHold, setViolationWithHold] = useState(true)
+  const [violationWithRefund, setViolationWithRefund] = useState(true)
+  const [violationCountAsStrike, setViolationCountAsStrike] = useState(true)
   const [confirmState, setConfirmState] = useState<{
     open: boolean
     title: string
@@ -316,6 +349,63 @@ export function AdminCoursesPage() {
     }
   }
 
+  const openCourseViolationDialog = (config: {
+    ids: number[]
+    action: CourseViolationAction
+    title: string
+    description: string
+    confirmLabel: string
+    successMessage: string
+    destructive?: boolean
+    clearSelectionOnSuccess?: boolean
+  }) => {
+    setViolationReason('')
+    setViolationWithHold(HOLD_COURSE_ACTIONS.includes(config.action))
+    setViolationWithRefund(REFUND_COURSE_ACTIONS.includes(config.action))
+    setViolationCountAsStrike(STRIKE_COURSE_ACTIONS.includes(config.action))
+    setViolationState({
+      open: true,
+      ids: config.ids,
+      action: config.action,
+      title: config.title,
+      description: config.description,
+      confirmLabel: config.confirmLabel,
+      successMessage: config.successMessage,
+      destructive: Boolean(config.destructive),
+      clearSelectionOnSuccess: Boolean(config.clearSelectionOnSuccess),
+      loading: false,
+    })
+  }
+
+  const handleCourseViolationSubmit = async () => {
+    if (violationState.ids.length === 0) return
+    const options: { count_as_strike?: boolean; with_refund?: boolean; with_hold?: boolean } = {
+      ...(HOLD_COURSE_ACTIONS.includes(violationState.action) ? { with_hold: violationWithHold } : {}),
+      ...(REFUND_COURSE_ACTIONS.includes(violationState.action) ? { with_refund: violationWithRefund } : {}),
+      ...(STRIKE_COURSE_ACTIONS.includes(violationState.action) ? { count_as_strike: violationCountAsStrike } : {}),
+    }
+    try {
+      setViolationState(prev => ({ ...prev, loading: true }))
+      for (const id of violationState.ids) {
+        await moderateCourse(
+          id,
+          violationState.action,
+          violationReason.trim() || undefined,
+          Object.keys(options).length > 0 ? options : undefined,
+        )
+      }
+      toast.success(violationState.successMessage)
+      if (violationState.clearSelectionOnSuccess) {
+        setSelectedCourseIds([])
+      }
+      setViolationState(prev => ({ ...prev, open: false, loading: false }))
+      await refetchCurrentPageAndCounts()
+    } catch {
+      setViolationState(prev => ({ ...prev, loading: false }))
+      toast.error(t('admin_course_detail.toasts.action_failed'))
+    }
+  }
+
   const handleDeleteCourse = async (courseId: number) => {
     try {
       await deleteCourseApi(courseId)
@@ -323,16 +413,6 @@ export function AdminCoursesPage() {
       await refetchCurrentPageAndCounts()
     } catch {
       toast.error(t('admin_courses.toasts.delete_failed'))
-    }
-  }
-
-  const handleModerateCourse = async (courseId: number, action: CourseModerationAction) => {
-    try {
-      await moderateCourse(courseId, action)
-      toast.success(t('admin_course_detail.toasts.status_updated'))
-      await refetchCurrentPageAndCounts()
-    } catch {
-      toast.error(t('admin_course_detail.toasts.action_failed'))
     }
   }
 
@@ -376,7 +456,7 @@ export function AdminCoursesPage() {
   const startIdx = totalCount === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1
   const endIdx = Math.min(currentPage * ITEMS_PER_PAGE, totalCount)
   const selectedCourses = courses.filter(course => selectedCourseIds.includes(course.id))
-  const canBulkManageAvailability = selectedCourses.length > 0 && selectedCourses.every(course => course.status === 'published')
+  const canBulkManageAvailability = selectedCourses.length > 0 && selectedCourses.every(course => canAdminManageAvailability(course.status))
 
   return (
     <motion.div className="p-4 sm:p-6 lg:p-8" variants={sectionStagger} initial="hidden" animate="show">
@@ -489,36 +569,45 @@ export function AdminCoursesPage() {
           ...(canBulkManageAvailability ? [{
             key: 'hide',
             label: t('admin_courses.moderation.hide_course'),
-            onClick: () => openConfirm(
-              t('admin_courses.moderation.hide_course'),
-              t('admin_courses.bulk.hide_description', { count: selectedCourseIds.length }),
-              t('admin_courses.moderation.hide_course'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'suspend_sale'), t('admin_courses.toasts.bulk_hide_success')),
-            ),
+            onClick: () => openCourseViolationDialog({
+              ids: [...selectedCourseIds],
+              action: 'suspend_sale',
+              title: t('admin_courses.moderation.hide_course'),
+              description: t('admin_courses.bulk.hide_description', { count: selectedCourseIds.length }),
+              confirmLabel: t('admin_courses.moderation.hide_course'),
+              successMessage: t('admin_courses.toasts.bulk_hide_success'),
+              clearSelectionOnSuccess: true,
+            }),
           },
           {
             key: 'block',
             label: t('admin_courses.moderation.block_course'),
             destructive: true,
-            onClick: () => openConfirm(
-              t('admin_courses.moderation.block_course'),
-              t('admin_courses.bulk.block_description', { count: selectedCourseIds.length }),
-              t('admin_courses.moderation.block_course'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'freeze'), t('admin_courses.toasts.bulk_block_success')),
-              true,
-            ),
+            onClick: () => openCourseViolationDialog({
+              ids: [...selectedCourseIds],
+              action: 'freeze',
+              title: t('admin_courses.moderation.block_course'),
+              description: t('admin_courses.bulk.block_description', { count: selectedCourseIds.length }),
+              confirmLabel: t('admin_courses.moderation.block_course'),
+              successMessage: t('admin_courses.toasts.bulk_block_success'),
+              destructive: true,
+              clearSelectionOnSuccess: true,
+            }),
           },
           {
             key: 'takedown',
             label: t('admin_courses.moderation.takedown_course'),
             destructive: true,
-            onClick: () => openConfirm(
-              t('admin_courses.bulk.takedown_title'),
-              t('admin_courses.bulk.takedown_description', { count: selectedCourseIds.length }),
-              t('admin_courses.moderation.takedown_course'),
-              () => bulkUpdateCourses(selectedCourseIds, (id) => moderateCourse(id, 'takedown'), t('admin_courses.toasts.bulk_takedown_success')),
-              true,
-            ),
+            onClick: () => openCourseViolationDialog({
+              ids: [...selectedCourseIds],
+              action: 'takedown',
+              title: t('admin_courses.bulk.takedown_title'),
+              description: t('admin_courses.bulk.takedown_description', { count: selectedCourseIds.length }),
+              confirmLabel: t('admin_courses.moderation.takedown_course'),
+              successMessage: t('admin_courses.toasts.bulk_takedown_success'),
+              destructive: true,
+              clearSelectionOnSuccess: true,
+            }),
           }] : []),
           {
             key: 'delete',
@@ -649,11 +738,24 @@ export function AdminCoursesPage() {
                               <Eye className="h-4 w-4 md:mr-1" />
                               <span className="hidden md:inline">{t('admin_courses.view')}</span>
                             </Button>
-                            {course.status === 'published' && (course.admin_hidden || course.is_hard_blocked ? (
+                            {canAdminManageAvailability(course.status) && (course.admin_hidden || course.is_hard_blocked ? (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleModerateCourse(course.id, 'restore')}
+                                onClick={() => openCourseViolationDialog({
+                                  ids: [course.id],
+                                  action: 'restore',
+                                  title: course.is_hard_blocked
+                                    ? t('admin_courses.moderation.unlock_course')
+                                    : t('admin_courses.moderation.resume_sale'),
+                                  description: course.is_hard_blocked
+                                    ? `Bỏ chặn truy cập "${course.title}"? Học viên và giảng viên có thể truy cập lại nếu đủ điều kiện.`
+                                    : `Mở bán lại "${course.title}"? Học viên mới có thể mua hoặc đăng ký lại nếu đủ điều kiện.`,
+                                  confirmLabel: course.is_hard_blocked
+                                    ? t('admin_courses.moderation.unlock_course')
+                                    : t('admin_courses.moderation.resume_sale'),
+                                  successMessage: t('admin_course_detail.toasts.status_updated'),
+                                })}
                               >
                                 <Check className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">
@@ -666,42 +768,68 @@ export function AdminCoursesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleModerateCourse(course.id, 'suspend_sale')}
+                                onClick={() => openCourseViolationDialog({
+                                  ids: [course.id],
+                                  action: 'suspend_sale',
+                                  title: t('admin_courses.moderation.hide_course'),
+                                  description: `Ngừng bán "${course.title}"? Học viên mới không thể mua hoặc đăng ký, học viên đã sở hữu vẫn học được.`,
+                                  confirmLabel: t('admin_courses.moderation.hide_course'),
+                                  successMessage: t('admin_course_detail.toasts.status_updated'),
+                                })}
                               >
                                 <X className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">{t('admin_courses.moderation.hide_course')}</span>
                               </Button>
                             ))}
-                            {course.status === 'published' && !course.is_hard_blocked && (
+                            {canAdminManageAvailability(course.status) && !course.is_hard_blocked && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => openConfirm(
-                                  t('admin_courses.moderation.block_course'),
-                                  t('admin_courses.actions.block_description', { title: course.title }),
-                                  t('admin_courses.moderation.block_course'),
-                                  () => handleModerateCourse(course.id, 'freeze'),
-                                  true,
-                                )}
+                                onClick={() => openCourseViolationDialog({
+                                  ids: [course.id],
+                                  action: 'freeze',
+                                  title: t('admin_courses.moderation.block_course'),
+                                  description: t('admin_courses.actions.block_description', { title: course.title }),
+                                  confirmLabel: t('admin_courses.moderation.block_course'),
+                                  successMessage: t('admin_course_detail.toasts.status_updated'),
+                                  destructive: true,
+                                })}
                               >
                                 <X className="h-4 w-4 md:mr-1" />
                                 <span className="hidden md:inline">{t('admin_courses.moderation.block_course')}</span>
                               </Button>
                             )}
-                            {course.status === 'published' && (
+                            {canAdminManageAvailability(course.status) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openCourseViolationDialog({
+                                  ids: [course.id],
+                                  action: 'takedown',
+                                  title: t('admin_courses.moderation.takedown_course'),
+                                  description: t('admin_courses.actions.takedown_description', { title: course.title }),
+                                  confirmLabel: t('admin_courses.moderation.takedown_course'),
+                                  successMessage: t('admin_course_detail.toasts.status_updated'),
+                                  destructive: true,
+                                })}
+                              >
+                                <X className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">{t('admin_courses.moderation.takedown_course')}</span>
+                              </Button>
+                            )}
+                            {(course.active_hold_count || 0) > 0 && (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => openConfirm(
-                                  t('admin_courses.moderation.takedown_course'),
-                                  t('admin_courses.actions.takedown_description', { title: course.title }),
-                                  t('admin_courses.moderation.takedown_course'),
-                                  () => handleModerateCourse(course.id, 'takedown'),
-                                  true,
+                                  'Giải phóng tiền đang giữ',
+                                  `Giải phóng ${formatPrice(parseDecimal(course.held_amount || '0'))} đang giữ của "${course.title}"? Hành động này không mở bán hoặc bỏ chặn khóa học.`,
+                                  'Giải phóng tiền',
+                                  () => bulkUpdateCourses([course.id], (id) => moderateCourse(id, 'release_holds'), t('admin_course_detail.toasts.status_updated')),
                                 )}
                               >
-                                <X className="h-4 w-4 md:mr-1" />
-                                <span className="hidden md:inline">{t('admin_courses.moderation.takedown_course')}</span>
+                                <DollarSign className="h-4 w-4 md:mr-1" />
+                                <span className="hidden md:inline">Giải phóng tiền</span>
                               </Button>
                             )}
                             <Button
@@ -721,10 +849,21 @@ export function AdminCoursesPage() {
                           </div>
                         </div>
 
-                        {(course.admin_hidden || course.is_hard_blocked) && (
+                        {(course.admin_hidden || course.is_hard_blocked || (course.active_hold_count || 0) > 0) && (
                           <div className="flex flex-wrap gap-2">
                             {course.admin_hidden && <Badge variant="secondary">{t('admin_courses.moderation.hidden_badge')}</Badge>}
-                            {course.is_hard_blocked && <Badge variant="destructive">{t('admin_courses.moderation.blocked_badge')}</Badge>}
+                            {course.is_hard_blocked && (
+                              <Badge variant="destructive">
+                                {course.moderation_action === 'takedown'
+                                  ? t('admin_courses.moderation.takedown_badge')
+                                  : t('admin_courses.moderation.blocked_badge')}
+                              </Badge>
+                            )}
+                            {(course.active_hold_count || 0) > 0 && (
+                              <Badge variant="outline">
+                                Đang giữ {formatPrice(parseDecimal(course.held_amount || '0'))}
+                              </Badge>
+                            )}
                           </div>
                         )}
 
@@ -830,6 +969,82 @@ export function AdminCoursesPage() {
         onOpenChange={(open) => setConfirmState(prev => ({ ...prev, open }))}
         onConfirm={runConfirmedAction}
       />
+      <Dialog
+        open={violationState.open}
+        onOpenChange={(open) => {
+          if (!violationState.loading) {
+            setViolationState(prev => ({ ...prev, open }))
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{violationState.title}</DialogTitle>
+            <DialogDescription>{violationState.description}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="course-violation-reason">{t('admin_courses.moderation.reason')}</Label>
+              <Textarea
+                id="course-violation-reason"
+                value={violationReason}
+                onChange={(event) => setViolationReason(event.target.value)}
+                placeholder={t('admin_courses.moderation.reason_placeholder')}
+                rows={4}
+              />
+            </div>
+            {HOLD_COURSE_ACTIONS.includes(violationState.action) && (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={violationWithHold}
+                  onCheckedChange={(value) => setViolationWithHold(value === true)}
+                />
+                <span>
+                  {violationState.action === 'restore'
+                    ? 'Giải phóng tiền đang giữ'
+                    : violationState.action === 'takedown'
+                      ? 'Hủy/giam earning chưa trả'
+                      : 'Giam/giữ earning chưa trả'}
+                </span>
+              </label>
+            )}
+            {REFUND_COURSE_ACTIONS.includes(violationState.action) && (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={violationWithRefund}
+                  onCheckedChange={(value) => setViolationWithRefund(value === true)}
+                />
+                <span>Hoàn tiền</span>
+              </label>
+            )}
+            {STRIKE_COURSE_ACTIONS.includes(violationState.action) && (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={violationCountAsStrike}
+                  onCheckedChange={(value) => setViolationCountAsStrike(value === true)}
+                />
+                <span>Tính hành động này là 1 gậy vi phạm bản quyền</span>
+              </label>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setViolationState(prev => ({ ...prev, open: false }))}
+              disabled={violationState.loading}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant={violationState.destructive ? 'destructive' : 'default'}
+              onClick={handleCourseViolationSubmit}
+              disabled={violationState.loading}
+            >
+              {violationState.loading ? t('admin_courses.moderation.saving') : violationState.confirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={moderationState.open}
         onOpenChange={(open) => {

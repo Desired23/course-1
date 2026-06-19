@@ -560,7 +560,7 @@ export function InstructorAnalyticsPage() {
 
   const exportTimeRows = () => {
     exportExcel(
-      'instructor_revenue_by_time.xls',
+      'doanh_thu_theo_thoi_gian.xls',
       `Doanh thu theo thời gian - ${rangeLabel(timeAppliedRange)}`,
       ['Thời gian', 'Doanh thu giảng viên', 'Bán lẻ', 'Gói đăng ký', 'Giao dịch'],
       rows.map((row) => [
@@ -575,7 +575,7 @@ export function InstructorAnalyticsPage() {
 
   const exportCourseRows = () => {
     exportExcel(
-      'instructor_revenue_by_course.xls',
+      'doanh_thu_theo_khoa_hoc.xls',
       `Doanh thu theo khóa học - ${rangeLabel(courseAppliedRange)}`,
       ['Khóa học', 'Doanh thu giảng viên', 'Bán lẻ', 'Gói đăng ký', 'Giao dịch', 'Tỷ lệ hoàn', 'Học viên', 'Rating'],
       filteredCourseRows.map((row) => [
@@ -593,7 +593,7 @@ export function InstructorAnalyticsPage() {
 
   const exportOrderRows = () => {
     exportExcel(
-      'instructor_orders.xls',
+      'doanh_thu_theo_don.xls',
       `Thống kê doanh thu theo đơn - ${rangeLabel(orderAppliedRange)}`,
       ['Ngày', 'Học viên', 'Email', 'Khóa học', 'Nguồn', 'Giá bán', 'Giảm sàn', 'Sau giảm sàn', 'Sàn giữ', 'Refund', 'GV nhận', 'Giao dịch'],
       orderRows.map((row) => [
@@ -615,7 +615,7 @@ export function InstructorAnalyticsPage() {
 
   const exportRefundRows = () => {
     exportExcel(
-      'instructor_refunds.xls',
+      'hoan_tien.xls',
       `Hoàn tiền - ${rangeLabel(refundAppliedRange)}`,
       ['Ngày hoàn tiền', 'Học viên', 'Email', 'Khóa học', 'Trạng thái', 'Giá bán', 'Giảm sàn', 'Sau giảm sàn', 'Hoàn học viên', 'GV còn nhận', 'Lý do'],
       refundRows.map((row) => [

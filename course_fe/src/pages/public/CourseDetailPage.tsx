@@ -14,9 +14,9 @@ import { getCourseById, getCourses, type CourseDetail, type CourseListItem, pars
 import { getCoursePromotions, type HomepagePromotion, formatDiscountValue } from "../../services/promotions.api"
 import { getInitials } from "../../services/instructor.api"
 import { extractRouteParams } from "../../utils/routeHelpers"
-import { getReviewsByCourse, createReview, updateReview, reportReview, type Review } from "../../services/review.api"
+import { getReviewsByCourse, getMyReviewForCourse, createReview, updateReview, reportReview, type Review } from "../../services/review.api"
 import { DiscountCountdown } from "../../components/DiscountCountdown"
-import { useOwnedCourses } from "../../hooks/useOwnedCourses"
+import { invalidateOwnedCoursesCache } from "../../hooks/useOwnedCourses"
 import { createEnrollment } from "../../services/enrollment.api"
 import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
@@ -70,6 +70,7 @@ export function CourseDetailPage() {
 
 
   const [reviews, setReviews] = useState<Review[]>([])
+  const [ownCourseReview, setOwnCourseReview] = useState<Review | null>(null)
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [newRating, setNewRating] = useState(5)
   const [newComment, setNewComment] = useState('')
@@ -93,8 +94,8 @@ export function CourseDetailPage() {
   const { user, isAuthenticated } = useAuth()
   const { openChatWithUser } = useChat()
   const { navigate, currentRoute } = useRouter()
-  const { refresh: refreshOwned } = useOwnedCourses()
-  const currentUserReview = reviews.find((review) => String(review.user) === user?.id)
+  const currentUserReview = ownCourseReview ?? reviews.find((review) => String(review.user) === user?.id)
+  const isCurrentUserReviewHidden = currentUserReview?.status === 'rejected'
 
 
   useEffect(() => {
@@ -239,7 +240,7 @@ export function CourseDetailPage() {
     try {
       await createEnrollment({ course_id: courseData.id, source })
       toast.success(t('course_detail.enroll_success'), { description: courseData.title })
-      refreshOwned()
+      invalidateOwnedCoursesCache()
       navigate(`/course-player/${courseData.id}`)
     } catch (err: any) {
       toast.error(err?.message || t('course_detail.enroll_failed'))
@@ -289,9 +290,27 @@ export function CourseDetailPage() {
     setReviewsLoading(false)
   }, [])
 
+  const loadOwnCourseReview = useCallback(async (courseId: number) => {
+    if (!isAuthenticated || !user?.id) {
+      setOwnCourseReview(null)
+      return
+    }
+
+    try {
+      setOwnCourseReview(await getMyReviewForCourse(courseId))
+    } catch (err) {
+      console.error('[CourseDetail] Failed to load own review:', err)
+      setOwnCourseReview(null)
+    }
+  }, [isAuthenticated, user?.id])
+
   useEffect(() => {
     if (courseData) loadReviews(courseData.id)
   }, [courseData, loadReviews])
+
+  useEffect(() => {
+    if (courseData) loadOwnCourseReview(courseData.id)
+  }, [courseData, loadOwnCourseReview])
 
   useEffect(() => {
     let cancelled = false
@@ -479,6 +498,10 @@ export function CourseDetailPage() {
 
   const handleSubmitReview = async () => {
     if (!isAuthenticated || !user || !courseData || submittingReview) return
+    if (isCurrentUserReviewHidden) {
+      toast.error(t('course_detail.hidden_review_notice'))
+      return
+    }
     setSubmittingReview(true)
     try {
       if (currentUserReview) {
@@ -492,6 +515,7 @@ export function CourseDetailPage() {
       setNewComment('')
       setNewRating(5)
       loadReviews(courseData.id)
+      loadOwnCourseReview(courseData.id)
     } catch (err: any) {
       toast.error(err?.message || t('course_detail.review_submit_failed'))
     } finally {
@@ -500,7 +524,7 @@ export function CourseDetailPage() {
   }
 
   const handleEditOwnReview = () => {
-    if (!currentUserReview) return
+    if (!currentUserReview || isCurrentUserReviewHidden) return
     setNewRating(currentUserReview.rating)
     setNewComment(currentUserReview.comment || '')
     setEditingOwnReview(true)
@@ -1216,7 +1240,15 @@ export function CourseDetailPage() {
                  </Card>
                )}
 
-               {isAuthenticated && canReviewCourse && currentUserReview && !editingOwnReview && (
+               {isAuthenticated && canReviewCourse && isCurrentUserReviewHidden && (
+                 <Card className="mb-4">
+                   <CardContent className="p-4 text-sm text-muted-foreground">
+                     {t('course_detail.hidden_review_notice')}
+                   </CardContent>
+                 </Card>
+               )}
+
+               {isAuthenticated && canReviewCourse && currentUserReview && !isCurrentUserReviewHidden && !editingOwnReview && (
                  <Card className="mb-4">
                    <CardContent className="p-4 space-y-3">
                      <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1241,7 +1273,7 @@ export function CourseDetailPage() {
                  </Card>
                )}
 
-               {isAuthenticated && canReviewCourse && (!currentUserReview || editingOwnReview) && (
+               {isAuthenticated && canReviewCourse && !isCurrentUserReviewHidden && (!currentUserReview || editingOwnReview) && (
                  <Card className="mb-4">
                    <CardContent className="p-4 space-y-3">
                      <p className="font-medium">

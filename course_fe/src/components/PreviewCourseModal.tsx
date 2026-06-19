@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { QuizPlayer, type Quiz } from "./QuizPlayer"
 import { VideoPlayer } from "./VideoPlayer"
 import { Button } from "./ui/button"
 import { Progress } from "./ui/progress"
@@ -27,7 +28,9 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { toast } from "sonner"
+import { mapLessonQuizQuestion } from "../lib/quizMapping"
 import { getCourseById, type CourseDetail } from "../services/course.api"
+import { getLessonQuiz } from "../services/quiz-questions.api"
 import { useTranslation } from "react-i18next"
 
 interface PreviewCourseModalProps {
@@ -99,6 +102,8 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
   }>>([])
   const [playbackPercent, setPlaybackPercent] = useState(0)
   const [videoError, setVideoError] = useState<string | null>(null)
+  const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null)
+  const [previewQuizLoading, setPreviewQuizLoading] = useState(false)
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -156,7 +161,7 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
         return {
           id: lesson.lesson_id,
           title: lesson.title,
-          type: lesson.content_type || 'video',
+          type: (lesson.has_quiz || lesson.content_type === 'code') ? 'quiz' : lesson.content_type || 'video',
           durationLabel: formatDurationLabel(durationMinutes),
           durationMinutes,
           isFree: lesson.is_free,
@@ -190,6 +195,41 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
     setVideoError(null)
     setPlaybackPercent(0)
   }, [currentLesson?.id])
+
+  useEffect(() => {
+    if (!currentLesson || currentLesson.type !== 'quiz') {
+      setPreviewQuiz(null)
+      setPreviewQuizLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setPreviewQuiz(null)
+    setPreviewQuizLoading(true)
+
+    getLessonQuiz(currentLesson.id)
+      .then((quiz) => {
+        if (cancelled) return
+        setPreviewQuiz({
+          id: quiz.quiz_id,
+          title: quiz.title || currentLesson.title,
+          description: quiz.description,
+          passingScore: quiz.passing_score,
+          timeLimit: quiz.time_limit ? Math.ceil(quiz.time_limit / 60) : undefined,
+          questions: quiz.questions.map(mapLessonQuizQuestion),
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewQuiz(null)
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewQuizLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentLesson?.id, currentLesson?.title, currentLesson?.type])
 
   if (!isOpen) return null
 
@@ -392,13 +432,21 @@ export function PreviewCourseModal({ courseId, isOpen, onClose }: PreviewCourseM
           <div className="lg:col-span-3 flex flex-col">
             {currentLesson.type === 'quiz' ? (
               <div className="bg-muted/50 p-8 flex-shrink-0">
-                <div className="max-w-3xl mx-auto rounded-xl border bg-card p-6 space-y-4">
-                  <Badge variant="secondary">{t('preview_course_modal.quiz_preview')}</Badge>
-                  <h2 className="text-2xl font-semibold">{currentLesson.title}</h2>
-                  <p className="text-muted-foreground">
-                    {t('preview_course_modal.quiz_preview_description')}
-                  </p>
-                </div>
+                {previewQuizLoading ? (
+                  <div className="min-h-[240px] flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : previewQuiz && previewQuiz.questions.length > 0 ? (
+                  <QuizPlayer key={currentLesson.id} quiz={previewQuiz} />
+                ) : (
+                  <div className="max-w-3xl mx-auto rounded-xl border bg-card p-6 space-y-4">
+                    <Badge variant="secondary">{t('preview_course_modal.quiz_preview')}</Badge>
+                    <h2 className="text-2xl font-semibold">{currentLesson.title}</h2>
+                    <p className="text-muted-foreground">
+                      {t('preview_course_modal.quiz_preview_description')}
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex-shrink-0">

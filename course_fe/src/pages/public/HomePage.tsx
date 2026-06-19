@@ -7,7 +7,6 @@ import { LearningGoals } from "../../components/LearningGoals"
 import { TestimonialsSection } from "../../components/TestimonialsSection"
 import { StatsSection } from "../../components/StatsSection"
 import { InstructorPromo } from "../../components/InstructorPromo"
-import { NewsletterSection } from "../../components/NewsletterSection"
 import { FeaturesSection } from "../../components/FeaturesSection"
 import { PopularSkillsSection } from "../../components/PopularSkillsSection"
 import { motion } from 'motion/react'
@@ -75,9 +74,6 @@ export function HomePage() {
       </motion.div>
       <motion.div variants={fadeInUp}>
         <InstructorPromo />
-      </motion.div>
-      <motion.div variants={fadeInUp}>
-        <NewsletterSection />
       </motion.div>
     </motion.main>
   )

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import timezone as dt_timezone
+from datetime import timedelta, timezone as dt_timezone
 from django.test import TestCase
 from django.utils import timezone
 
@@ -79,12 +79,13 @@ def _make_plan(name, price=Decimal("100.00")):
     )
 
 
-def _make_subscription(user, plan, payment=None, start_date=None):
+def _make_subscription(user, plan, payment=None, start_date=None, end_date=None):
     return UserSubscription.objects.create(
         user=user,
         plan=plan,
         payment=payment,
         start_date=start_date or timezone.now(),
+        end_date=end_date,
         status="active",
     )
 
@@ -281,6 +282,30 @@ class SubscriptionUsageEventTest(TestCase):
         )
         self.assertEqual(SubscriptionUsageEvent.objects.count(), initial_count)
 
+    def test_purchase_source_no_event(self):
+        # Da mua le (du co goi active): xem video KHONG sinh subscription usage event,
+        # tranh tra trung va lam loang pool subscription.
+        from subscription_plans.models import SubscriptionUsageEvent
+
+        self.enrollment.source = "purchase"
+        self.enrollment.save(update_fields=["source"])
+
+        initial_count = SubscriptionUsageEvent.objects.count()
+        event = self._call(60)
+        self.assertIsNone(event)
+        self.assertEqual(SubscriptionUsageEvent.objects.count(), initial_count)
+
+    def test_granted_source_no_event(self):
+        from subscription_plans.models import SubscriptionUsageEvent
+
+        self.enrollment.source = "granted"
+        self.enrollment.save(update_fields=["source"])
+
+        initial_count = SubscriptionUsageEvent.objects.count()
+        event = self._call(60)
+        self.assertIsNone(event)
+        self.assertEqual(SubscriptionUsageEvent.objects.count(), initial_count)
+
 
 # ---------------------------------------------------------------------------
 # Subscription earning calculation tests
@@ -422,6 +447,104 @@ class SubscriptionEarningCalculationTest(TestCase):
 
     def test_no_usage_no_earning(self):
         result = calculate_subscription_earnings_for_month(2026, 1)
+        self.assertEqual(result['earnings_created'], 0)
+
+
+class SubscriptionProratedEarningTest(TestCase):
+    """Pro-rate doanh thu theo thang cho subscription co ky trai nhieu thang."""
+
+    def setUp(self):
+        from enrollments.models import Enrollment
+
+        self.level = _make_level("LvP", plan_commission_rate=30)
+        self.instructor = _make_instructor("inst_p", level=self.level)
+        self.student = _make_user("student_p")
+        self.course = _make_course("Course P", self.instructor)
+
+        self.plan = _make_plan("Span Plan", price=Decimal("100.00"))
+        PlanCourse.objects.create(plan=self.plan, course=self.course, status="active")
+
+        self.payment = _make_payment(self.student, Decimal("100.00"))
+        # Ky 30 ngay trai 2 thang: 20/01 -> 19/02 (Jan = 12 ngay, Feb = 18 ngay).
+        self.sub = _make_subscription(
+            self.student, self.plan, payment=self.payment,
+            start_date=timezone.datetime(2026, 1, 20, tzinfo=dt_timezone.utc),
+            end_date=timezone.datetime(2026, 2, 19, tzinfo=dt_timezone.utc),
+        )
+        self.enrollment = Enrollment.objects.create(
+            user=self.student, course=self.course,
+            status="active", source="subscription", subscription=self.sub,
+        )
+
+    def _event(self, delta_seconds, occurred_at):
+        return SubscriptionUsageEvent.objects.create(
+            user_subscription=self.sub,
+            user=self.student,
+            course=self.course,
+            enrollment=self.enrollment,
+            instructor=self.instructor,
+            delta_seconds=delta_seconds,
+            occurred_at=occurred_at,
+            platform_commission_rate_snapshot=Decimal("30.00"),
+            instructor_share_rate_snapshot=Decimal("70.00"),
+            instructor_level_id_snapshot=self.level.id,
+            instructor_level_name_snapshot=self.level.name,
+        )
+
+    def test_period_spanning_two_months_prorates_and_sums_to_price(self):
+        self._event(600, timezone.datetime(2026, 1, 25, tzinfo=dt_timezone.utc))
+        self._event(600, timezone.datetime(2026, 2, 10, tzinfo=dt_timezone.utc))
+
+        calculate_subscription_earnings_for_month(2026, 1)
+        calculate_subscription_earnings_for_month(2026, 2)
+
+        jan = InstructorEarning.objects.get(
+            user_subscription=self.sub, course=self.course,
+            earning_period_start="2026-01-01",
+        )
+        feb = InstructorEarning.objects.get(
+            user_subscription=self.sub, course=self.course,
+            earning_period_start="2026-02-01",
+        )
+        # Jan = 100 * 12/30 = 40 ; Feb = phan con lai = 60 ; tong = dung gia goi.
+        self.assertEqual(jan.amount, Decimal("40.00"))
+        self.assertEqual(feb.amount, Decimal("60.00"))
+        self.assertEqual(jan.amount + feb.amount, Decimal("100.00"))
+        self.assertEqual(jan.net_amount, Decimal("28.00"))
+        self.assertEqual(feb.net_amount, Decimal("42.00"))
+
+    def test_usage_only_in_later_month_is_paid(self):
+        # Bug cu: usage o thang sau thang bat dau bi bo qua hoan toan -> instructor mat tien.
+        self._event(600, timezone.datetime(2026, 2, 10, tzinfo=dt_timezone.utc))
+
+        jan_result = calculate_subscription_earnings_for_month(2026, 1)
+        feb_result = calculate_subscription_earnings_for_month(2026, 2)
+
+        # Thang 1 khong co usage -> khong tao earning (pool thang 1 thuoc ve platform).
+        self.assertEqual(jan_result['earnings_created'], 0)
+        self.assertEqual(feb_result['earnings_created'], 1)
+
+        feb = InstructorEarning.objects.get(
+            user_subscription=self.sub, earning_period_start="2026-02-01",
+        )
+        self.assertEqual(feb.amount, Decimal("60.00"))
+
+    def test_refunded_payment_yields_no_earning(self):
+        self.payment.payment_status = "refunded"
+        self.payment.save(update_fields=["payment_status"])
+        self._event(600, timezone.datetime(2026, 1, 25, tzinfo=dt_timezone.utc))
+
+        result = calculate_subscription_earnings_for_month(2026, 1)
+        self.assertEqual(result['subscriptions_processed'], 0)
+        self.assertEqual(result['earnings_created'], 0)
+
+    def test_incomplete_month_is_skipped(self):
+        now = timezone.now()
+        future = now.replace(day=1) + timedelta(days=70)  # >= thang sau, chac chan chua ket thuc
+        self._event(600, now)
+
+        result = calculate_subscription_earnings_for_month(future.year, future.month)
+        self.assertEqual(result.get('skipped_reason'), 'month_not_ended')
         self.assertEqual(result['earnings_created'], 0)
 
 

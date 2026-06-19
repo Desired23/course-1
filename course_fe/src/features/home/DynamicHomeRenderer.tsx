@@ -46,7 +46,6 @@ import { LearningGoals } from "../../components/LearningGoals"
 import { TestimonialsSection } from "../../components/TestimonialsSection"
 import { StatsSection } from "../../components/StatsSection"
 import { InstructorPromo } from "../../components/InstructorPromo"
-import { NewsletterSection } from "../../components/NewsletterSection"
 import { FeaturesSection } from "../../components/FeaturesSection"
 import { PopularSkillsSection } from "../../components/PopularSkillsSection"
 import { resolveLocalizedText, type HomeSection, type HomeSectionType } from "./schema"
@@ -63,7 +62,6 @@ const LEGACY_COMPONENTS: Record<string, JSX.Element> = {
   TestimonialsSection: <TestimonialsSection />,
   StatsSection: <StatsSection />,
   InstructorPromo: <InstructorPromo />,
-  NewsletterSection: <NewsletterSection />,
 }
 
 const ICONS: Record<string, JSX.Element> = {
@@ -823,7 +821,7 @@ function renderSectionByType(section: HomeSection): JSX.Element | null {
     case "stats":
       return <StatsDynamicSection section={section} />
     case "newsletter":
-      return <NewsletterDynamicSection section={section} />
+      return null
     case "custom_html":
       return <CustomHtmlSection section={section} />
     case "legacy_component":

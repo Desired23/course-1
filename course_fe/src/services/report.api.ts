@@ -189,6 +189,7 @@ export async function getAdminReports(params?: {
   date_to?: string
   page?: number
   page_size?: number
+  _reload?: number
 }): Promise<PaginatedResponse<ReportCase>> {
   return http.get<PaginatedResponse<ReportCase>>('/reports/admin/', params)
 }

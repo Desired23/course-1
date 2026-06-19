@@ -652,6 +652,12 @@ def record_subscription_usage_event_from_progress(
     if delta_seconds <= 0:
         return None
 
+    # Chi ghi nhan usage khi khoa hoc duoc tieu thu QUA GOI. Neu user da mua le
+    # (source=purchase) hoac duoc cap (granted) thi instructor da/se duoc tra theo
+    # luong khac -> khong tinh vao pool subscription, tranh tra trung va lam loang share.
+    if enrollment is None or enrollment.source != Enrollment.Source.SUBSCRIPTION:
+        return None
+
     now = timezone.now()
     active_subscription = UserSubscription.objects.filter(
         user=user,

@@ -12,8 +12,9 @@ from enrollments.models import Enrollment
 from instructors.models import Instructor
 from payments.models import Payment
 from payment_details.models import Payment_Details
+from instructor_earnings.models import InstructorEarning
 from reports.copyright_services import admin_action
-from reports.models import CopyrightCase, InstructorStrike, Report
+from reports.models import CopyrightCase, InstructorEarningHold, InstructorStrike, Report
 from reports.services import create_report
 from users.models import User
 
@@ -135,6 +136,42 @@ class TakedownPipelineTests(TestCase):
         refund = msg.metadata['financial']['takedown']['refund']
         self.assertEqual(len(refund['auto_refund_created']), 1)
         self.assertEqual(len(refund['manual_compensation_required']), 1)
+
+    def test_takedown_cancels_refunded_recent_earning_and_holds_old_unpaid(self):
+        course = self._course('Hold vs refund')
+        recent_payment, _ = self._purchase(course, days_ago=5)
+        old_payment, _ = self._purchase(course, days_ago=60)
+        recent_earning = InstructorEarning.objects.create(
+            instructor=self.instructor, course=course, payment=recent_payment,
+            amount=Decimal('70.00'), net_amount=Decimal('70.00'),
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+        )
+        old_earning = InstructorEarning.objects.create(
+            instructor=self.instructor, course=course, payment=old_payment,
+            amount=Decimal('70.00'), net_amount=Decimal('70.00'),
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+        )
+        case = self._case(course)
+
+        with patch('payments.refund_services.send_vnpay_refund_request',
+                   return_value={'status': 'success', 'message': 'ok',
+                                 'transaction_id': 'tx1', 'response_code': '00'}):
+            admin_action(case.id, self.admin_user, 'takedown', message='takedown')
+
+        recent_earning.refresh_from_db()
+        old_earning.refresh_from_db()
+        # Recent purchase (<=30d) was refunded -> its earning is cancelled.
+        self.assertEqual(recent_earning.status, InstructorEarning.StatusChoices.CANCELLED)
+        # Old purchase (>30d) was not refunded -> its earning is held, not cancelled.
+        self.assertEqual(old_earning.status, InstructorEarning.StatusChoices.AVAILABLE)
+        hold = InstructorEarningHold.objects.get(case=case, earning=old_earning)
+        self.assertEqual(hold.status, InstructorEarningHold.Status.ACTIVE)
+        # No active hold lingers on the refunded earning.
+        self.assertFalse(
+            InstructorEarningHold.objects.filter(
+                earning=recent_earning, status=InstructorEarningHold.Status.ACTIVE
+            ).exists()
+        )
 
     def test_forced_refund_uses_admin_profile_when_user_and_admin_ids_differ(self):
         course = self._course('Refund actor course')

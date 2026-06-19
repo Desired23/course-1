@@ -12,6 +12,10 @@ class LearningPathItemSerializer(serializers.ModelSerializer):
     course_discount_price = serializers.CharField(source='course.discount_price', read_only=True)
     course_discount_start_date = serializers.DateTimeField(source='course.discount_start_date', read_only=True)
     course_discount_end_date = serializers.DateTimeField(source='course.discount_end_date', read_only=True)
+    course_rating = serializers.CharField(source='course.rating', read_only=True)
+    course_total_students = serializers.IntegerField(source='course.total_students', read_only=True)
+    course_instructor_name = serializers.SerializerMethodField()
+    course_language = serializers.CharField(source='course.language', read_only=True)
 
     class Meta:
         model = LearningPathItem
@@ -25,6 +29,10 @@ class LearningPathItemSerializer(serializers.ModelSerializer):
             'course_discount_price',
             'course_discount_start_date',
             'course_discount_end_date',
+            'course_rating',
+            'course_total_students',
+            'course_instructor_name',
+            'course_language',
             'order',
             'reason',
             'is_skippable',
@@ -35,6 +43,11 @@ class LearningPathItemSerializer(serializers.ModelSerializer):
         if obj.course.duration is None:
             return None
         return round(obj.course.duration / 60, 2)
+
+    def get_course_instructor_name(self, obj):
+        if obj.course.instructor and obj.course.instructor.user:
+            return obj.course.instructor.user.full_name
+        return ''
 
 
 class LearningPathListSerializer(serializers.ModelSerializer):

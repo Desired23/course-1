@@ -48,6 +48,7 @@ class HomepageReviewListViewTests(TestCase):
 
 class ReviewWriteFlowTests(TestCase):
     def setUp(self):
+        self.admin = make_user("admin", username="review_admin")
         self.instructor_user = make_user("instructor", username="review_instructor")
         self.student = make_user("student", username="review_owner")
         self.course = Course.objects.create(
@@ -128,3 +129,51 @@ class ReviewWriteFlowTests(TestCase):
         review.refresh_from_db()
         self.assertEqual(review.instructor_response, "Thanks for learning and sharing feedback.")
         self.assertIsNotNone(review.response_at)
+
+    def test_hidden_review_is_excluded_publicly_but_visible_to_admin_list(self):
+        visible = Review.objects.create(
+            course=self.course,
+            user=self.student,
+            rating=5,
+            comment="Visible",
+            status=Review.StatusChoices.APPROVED,
+        )
+        hidden = Review.objects.create(
+            course=self.course,
+            user=make_user("student", username="hidden_review_owner"),
+            rating=1,
+            comment="Hidden",
+            status=Review.StatusChoices.REJECTED,
+        )
+
+        public_response = APIClient().get("/api/reviews/", {"course_id": self.course.id, "page_size": 100})
+        self.assertEqual(public_response.status_code, 200, public_response.content)
+        self.assertEqual(
+            [item["review_id"] for item in public_response.data["results"]],
+            [visible.id],
+        )
+
+        admin_response = auth_client(self.admin).get(
+            "/api/reviews/",
+            {"include_hidden": "true", "page_size": 100},
+        )
+        self.assertEqual(admin_response.status_code, 200, admin_response.content)
+        self.assertIn(hidden.id, [item["review_id"] for item in admin_response.data["results"]])
+
+    def test_mine_filter_returns_hidden_review_for_owner(self):
+        hidden = Review.objects.create(
+            course=self.course,
+            user=self.student,
+            rating=1,
+            comment="Hidden",
+            status=Review.StatusChoices.REJECTED,
+        )
+        client = auth_client(self.student)
+
+        response = client.get(
+            "/api/reviews/",
+            {"mine": "true", "course_id": self.course.id, "page_size": 1},
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual([item["review_id"] for item in response.data["results"]], [hidden.id])

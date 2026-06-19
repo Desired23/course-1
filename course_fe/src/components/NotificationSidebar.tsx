@@ -147,6 +147,7 @@ export function NotificationSidebar({
     const code = notification.notification_code ?? notification.notificationCode
     const relatedId = notification.related_id ?? notification.relatedId
     const type = notification.type
+    const isAdmin = user?.roles?.includes('admin')
 
     if (code === 'copyright_case_decision') {
       if (isRemovedCopyrightDecisionRoute(actionUrl)) return null
@@ -186,10 +187,12 @@ export function NotificationSidebar({
       // Payments & refund results (student)
       case 'payment_completed':
       case 'payment_failed':
+      case 'payment_cancelled':
+        return isAdmin ? '/admin/payments' : '/user/transactions'
       case 'refund_processed':
       case 'refund_failed':
       case 'refund_rejected':
-        return '/user/transactions'
+        return isAdmin ? '/admin/refunds' : '/user/transactions'
 
       // Subscriptions (student)
       case 'subscription_renewed':

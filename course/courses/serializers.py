@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from decimal import Decimal
 from .models import Course
 from instructors.models import Instructor
 from categories.models import Category
@@ -12,12 +13,53 @@ from transcripts.services import (
     get_transcript_last_generated_at,
 )
 
+
+def _can_view_course_holds(serializer):
+    user = serializer.context.get('user')
+    request = serializer.context.get('request')
+    if user is None and request is not None:
+        user = getattr(request, 'user', None)
+    try:
+        from utils.roles import is_active_admin
+        return is_active_admin(user)
+    except Exception:
+        return False
+
+
+def _active_course_holds(course):
+    return course.copyright_earning_holds.filter(status='active').select_related('earning')
+
+
+def _active_course_hold_count(course):
+    return _active_course_holds(course).count()
+
+
+def _active_course_held_amount(course):
+    total = sum((hold.earning.net_amount for hold in _active_course_holds(course)), Decimal('0.00'))
+    return str(total)
+
+
+def _current_course_content_action(course):
+    """content_action của copyright case hiện hành (mới nhất) cho khóa học —
+    dùng để phân biệt takedown vs chặn truy cập (freeze) trên UI admin."""
+    from reports.models import CopyrightCase, Report
+    case = (
+        CopyrightCase.objects
+        .filter(target_type=Report.TargetType.COURSE, target_id=course.id)
+        .order_by('-updated_at')
+        .first()
+    )
+    return case.content_action if case else None
+
 class CourseSerializer(serializers.ModelSerializer):
     instructor_name = serializers.SerializerMethodField()
     instructor_avatar = serializers.SerializerMethodField()
     category_name = serializers.SerializerMethodField()
     subcategory_name = serializers.SerializerMethodField()
     duration_hours = serializers.SerializerMethodField()
+    active_hold_count = serializers.SerializerMethodField()
+    held_amount = serializers.SerializerMethodField()
+    moderation_action = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -62,6 +104,9 @@ class CourseSerializer(serializers.ModelSerializer):
             'category_name',
             'subcategory_name',
             'duration_hours',
+            'active_hold_count',
+            'held_amount',
+            'moderation_action',
         ]
         read_only_fields = [
             'rating', 'total_reviews', 'total_students'
@@ -91,6 +136,21 @@ class CourseSerializer(serializers.ModelSerializer):
         if obj.duration is None:
             return None
         return round(obj.duration / 60, 2)
+
+    def get_active_hold_count(self, obj):
+        if not _can_view_course_holds(self):
+            return 0
+        return _active_course_hold_count(obj)
+
+    def get_held_amount(self, obj):
+        if not _can_view_course_holds(self):
+            return '0.00'
+        return _active_course_held_amount(obj)
+
+    def get_moderation_action(self, obj):
+        if not _can_view_course_holds(self):
+            return None
+        return _current_course_content_action(obj)
 
 
 
@@ -232,6 +292,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     access_info = serializers.SerializerMethodField()
     duration_hours = serializers.SerializerMethodField()
     total_resources = serializers.SerializerMethodField()
+    active_hold_count = serializers.SerializerMethodField()
+    held_amount = serializers.SerializerMethodField()
+    moderation_action = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
@@ -276,6 +339,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'access_info',
             'duration_hours',
             'total_resources',
+            'active_hold_count',
+            'held_amount',
+            'moderation_action',
         ]
 
     def get_modules(self, obj):
@@ -315,6 +381,21 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             lesson__is_deleted=False,
             lesson__coursemodule__is_deleted=False,
         ).count()
+
+    def get_active_hold_count(self, obj):
+        if not _can_view_course_holds(self):
+            return 0
+        return _active_course_hold_count(obj)
+
+    def get_held_amount(self, obj):
+        if not _can_view_course_holds(self):
+            return '0.00'
+        return _active_course_held_amount(obj)
+
+    def get_moderation_action(self, obj):
+        if not _can_view_course_holds(self):
+            return None
+        return _current_course_content_action(obj)
 
     def get_access_info(self, obj):
         user = self.context.get('user')

@@ -25,10 +25,14 @@ export interface LearningPathItem {
   course_title?: string
   course_level?: string
   duration_hours?: number | null
-   course_price?: string | null
-   course_discount_price?: string | null
-   course_discount_start_date?: string | null
-   course_discount_end_date?: string | null
+  course_price?: string | null
+  course_discount_price?: string | null
+  course_discount_start_date?: string | null
+  course_discount_end_date?: string | null
+  course_rating?: string | null
+  course_total_students?: number | null
+  course_instructor_name?: string | null
+  course_language?: string | null
   order: number
   reason: string
   is_skippable: boolean

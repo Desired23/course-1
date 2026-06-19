@@ -82,6 +82,9 @@ interface CourseDetail {
   status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
   admin_hidden: boolean
   is_hard_blocked: boolean
+  active_hold_count: number
+  held_amount: number
+  moderation_action: string | null
   created_at: Date
   updated_at: Date
   published_at?: Date
@@ -172,6 +175,18 @@ const STRIKE_MODERATION_ACTIONS: Array<Exclude<CourseModerationAction, 'delete' 
   'takedown',
 ]
 
+const HOLD_MODERATION_ACTIONS: Array<Exclude<CourseModerationAction, 'delete' | 'archive'>> = [
+  'suspend_sale',
+  'freeze',
+  'takedown',
+  'restore',
+]
+
+const REFUND_MODERATION_ACTIONS: Array<Exclude<CourseModerationAction, 'delete' | 'archive'>> = [
+  'takedown',
+]
+const canAdminManageAvailability = (status: CourseDetail['status']) => status === 'published' || status === 'archived'
+
 
 
 export function AdminCourseDetailPage() {
@@ -180,7 +195,9 @@ export function AdminCourseDetailPage() {
   const { t } = useTranslation()
   const [course, setCourse] = useState<CourseDetail | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [confirmReleaseHoldsOpen, setConfirmReleaseHoldsOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isReleasingHolds, setIsReleasingHolds] = useState(false)
   const [moderationState, setModerationState] = useState<{
     open: boolean
     action: Exclude<CourseModerationAction, 'delete' | 'archive'>
@@ -198,6 +215,8 @@ export function AdminCourseDetailPage() {
   })
   const [moderationReason, setModerationReason] = useState('')
   const [moderationCountAsStrike, setModerationCountAsStrike] = useState(true)
+  const [moderationWithHold, setModerationWithHold] = useState(true)
+  const [moderationWithRefund, setModerationWithRefund] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'content' | 'students' | 'reviews' | 'instructor' | 'analytics'>('overview')
   const [studentRows, setStudentRows] = useState<CourseStudentRow[]>([])
   const [studentPage, setStudentPage] = useState(1)
@@ -248,6 +267,9 @@ export function AdminCourseDetailPage() {
           status: courseData.status as any,
           admin_hidden: courseData.admin_hidden,
           is_hard_blocked: courseData.is_hard_blocked,
+          active_hold_count: courseData.active_hold_count || 0,
+          held_amount: Number(courseData.held_amount || 0),
+          moderation_action: courseData.moderation_action ?? null,
           created_at: new Date(courseData.created_at),
           updated_at: new Date(courseData.updated_at),
           published_at: courseData.published_date ? new Date(courseData.published_date) : undefined,
@@ -403,6 +425,8 @@ export function AdminCourseDetailPage() {
   const openModerationDialog = (action: Exclude<CourseModerationAction, 'delete' | 'archive'>) => {
     setModerationReason('')
     setModerationCountAsStrike(STRIKE_MODERATION_ACTIONS.includes(action))
+    setModerationWithHold(HOLD_MODERATION_ACTIONS.includes(action))
+    setModerationWithRefund(REFUND_MODERATION_ACTIONS.includes(action))
     const restoringHardBlock = action === 'restore' && Boolean(course?.is_hard_blocked)
     const restoreTitle = restoringHardBlock
       ? t('admin_course_detail.moderation.unlock_title')
@@ -456,15 +480,18 @@ export function AdminCourseDetailPage() {
   const submitModeration = async () => {
     const numId = Number(courseId)
     if (!numId) return
+    const options = {
+      ...(HOLD_MODERATION_ACTIONS.includes(moderationState.action) ? { with_hold: moderationWithHold } : {}),
+      ...(REFUND_MODERATION_ACTIONS.includes(moderationState.action) ? { with_refund: moderationWithRefund } : {}),
+      ...(STRIKE_MODERATION_ACTIONS.includes(moderationState.action) ? { count_as_strike: moderationCountAsStrike } : {}),
+    }
     try {
       setModerationState(prev => ({ ...prev, loading: true }))
       await moderateCourse(
         numId,
         moderationState.action,
         moderationReason.trim() || undefined,
-        STRIKE_MODERATION_ACTIONS.includes(moderationState.action)
-          ? { count_as_strike: moderationCountAsStrike }
-          : undefined,
+        Object.keys(options).length > 0 ? options : undefined,
       )
       const courseData = await getCourseByIdApi(numId)
       setCourse(prev => prev ? {
@@ -472,6 +499,9 @@ export function AdminCourseDetailPage() {
         status: courseData.status as any,
         admin_hidden: courseData.admin_hidden,
         is_hard_blocked: courseData.is_hard_blocked,
+        active_hold_count: courseData.active_hold_count || 0,
+        held_amount: Number(courseData.held_amount || 0),
+        moderation_action: courseData.moderation_action ?? null,
       } : prev)
       setModerationState(prev => ({ ...prev, open: false, loading: false }))
       toast.success(t('admin_course_detail.toasts.status_updated'))
@@ -501,6 +531,27 @@ export function AdminCourseDetailPage() {
       toast.error(t('admin_course_detail.toasts.certificate_preview_failed'))
     } finally {
       setCertificatePreviewing(false)
+    }
+  }
+
+  const handleReleaseCourseHolds = async () => {
+    const numId = Number(courseId)
+    if (!numId) return
+    try {
+      setIsReleasingHolds(true)
+      await moderateCourse(numId, 'release_holds', 'Giải phóng tiền đang giữ từ trang quản lý khóa học.')
+      const courseData = await getCourseByIdApi(numId)
+      setCourse(prev => prev ? {
+        ...prev,
+        active_hold_count: courseData.active_hold_count || 0,
+        held_amount: Number(courseData.held_amount || 0),
+      } : prev)
+      setConfirmReleaseHoldsOpen(false)
+      toast.success(t('admin_course_detail.toasts.status_updated'))
+    } catch {
+      toast.error(t('admin_course_detail.toasts.action_failed'))
+    } finally {
+      setIsReleasingHolds(false)
     }
   }
 
@@ -590,7 +641,14 @@ export function AdminCourseDetailPage() {
                   <Badge variant="secondary">{t('admin_courses.moderation.hidden_badge')}</Badge>
                 )}
                 {course.is_hard_blocked && (
-                  <Badge variant="destructive">{t('admin_courses.moderation.blocked_badge')}</Badge>
+                  <Badge variant="destructive">
+                    {course.moderation_action === 'takedown'
+                      ? t('admin_courses.moderation.takedown_badge')
+                      : t('admin_courses.moderation.blocked_badge')}
+                  </Badge>
+                )}
+                {course.active_hold_count > 0 && (
+                  <Badge variant="outline">Đang giữ {formatCurrency(course.held_amount)}</Badge>
                 )}
               </div>
               <h1 className="text-3xl mb-2">{course.title}</h1>
@@ -650,7 +708,7 @@ export function AdminCourseDetailPage() {
                     </DropdownMenuItem>
                   </>
                 )}
-                {course.status === 'published' && (
+                {canAdminManageAvailability(course.status) && (
                   <>
                     {course.admin_hidden || course.is_hard_blocked ? (
                       <DropdownMenuItem onClick={() => openModerationDialog('restore')}>
@@ -667,19 +725,25 @@ export function AdminCourseDetailPage() {
                     )}
                   </>
                 )}
-                {course.status === 'published' && !course.is_hard_blocked && (
+                {canAdminManageAvailability(course.status) && !course.is_hard_blocked && (
                   <DropdownMenuItem onClick={() => openModerationDialog('freeze')}>
                     <XCircle className="h-4 w-4 mr-2" />
                     {t('admin_course_detail.header.block_course')}
                   </DropdownMenuItem>
                 )}
-                {course.status === 'published' && (
+                {canAdminManageAvailability(course.status) && (
                   <DropdownMenuItem className="text-destructive" onClick={() => openModerationDialog('takedown')}>
                     <XCircle className="h-4 w-4 mr-2" />
                     Gỡ vĩnh viễn (takedown)
                   </DropdownMenuItem>
                 )}
-                {course.status === 'published' && <DropdownMenuSeparator />}
+                {course.active_hold_count > 0 && (
+                  <DropdownMenuItem onClick={() => setConfirmReleaseHoldsOpen(true)}>
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Giải phóng tiền đang giữ
+                  </DropdownMenuItem>
+                )}
+                {canAdminManageAvailability(course.status) && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => setConfirmDeleteOpen(true)}
@@ -799,6 +863,14 @@ export function AdminCourseDetailPage() {
                     <div>
                       <span className="text-muted-foreground">{t('admin_course_detail.overview.price')}:</span>
                       <p>{formatCurrency(course.price)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Tiền đang giữ:</span>
+                      <p>
+                        {course.active_hold_count > 0
+                          ? `${formatCurrency(course.held_amount)} (${course.active_hold_count} hold)`
+                          : 'Không có'}
+                      </p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">{t('admin_course_detail.overview.created_at')}:</span>
@@ -1165,6 +1237,30 @@ export function AdminCourseDetailPage() {
                   <span>Tính hành động này là 1 gậy vi phạm bản quyền (gậy thứ 3 sẽ tự ban giảng viên)</span>
                 </label>
               )}
+              {HOLD_MODERATION_ACTIONS.includes(moderationState.action) && (
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={moderationWithHold}
+                    onCheckedChange={(value) => setModerationWithHold(value === true)}
+                  />
+                  <span>
+                    {moderationState.action === 'restore'
+                      ? 'Giải phóng tiền đang giữ'
+                      : moderationState.action === 'takedown'
+                        ? 'Hủy/giam earning chưa trả'
+                        : 'Giam/giữ earning chưa trả'}
+                  </span>
+                </label>
+              )}
+              {REFUND_MODERATION_ACTIONS.includes(moderationState.action) && (
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={moderationWithRefund}
+                    onCheckedChange={(value) => setModerationWithRefund(value === true)}
+                  />
+                  <span>Hoàn tiền</span>
+                </label>
+              )}
             </div>
             <DialogFooter>
               <Button
@@ -1193,6 +1289,15 @@ export function AdminCourseDetailPage() {
           destructive
           loading={isDeleting}
           onConfirm={handleDeleteCourse}
+        />
+        <AdminConfirmDialog
+          open={confirmReleaseHoldsOpen}
+          onOpenChange={setConfirmReleaseHoldsOpen}
+          title="Giải phóng tiền đang giữ"
+          description={`Giải phóng ${formatCurrency(course.held_amount)} đang giữ của "${course.title}"? Hành động này không mở bán hoặc bỏ chặn khóa học.`}
+          confirmLabel="Giải phóng tiền"
+          loading={isReleasingHolds}
+          onConfirm={handleReleaseCourseHolds}
         />
       </motion.div>
     </motion.div>

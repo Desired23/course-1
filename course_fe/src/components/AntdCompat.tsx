@@ -370,7 +370,7 @@ export function Dialog({ open, onOpenChange, children }: any) {
   )
 }
 
-export function DialogContent({ className, children }: any) {
+export function DialogContent({ className, children, closable = true }: any) {
   const ctx = useContext(DialogContext)
   return (
     <Modal
@@ -379,6 +379,7 @@ export function DialogContent({ className, children }: any) {
       onCancel={() => ctx?.onOpenChange(false)}
       width="min(95vw, 1100px)"
       className={className}
+      closable={closable}
       destroyOnHidden
     >
       {children}

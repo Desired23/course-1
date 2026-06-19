@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 import uuid
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -30,6 +31,10 @@ DEFAULT_REFUND_SETTINGS = {
     "allow_admin_override_refund_status": True,
     "allow_admin_soft_delete_refund": True,
 }
+
+
+def _is_local_payment_mode():
+    return str(getattr(settings, "PAYMENT_GATEWAY_MODE", "")).lower() == "local"
 
 
 def get_refund_settings():
@@ -280,6 +285,22 @@ def _revert_success_side_effects(detail):
         cert.save(update_fields=["revoked", "revoked_at", "revoked_by", "updated_at"])
 
 
+def _notify_admin_refund_event(detail, notification_code, title, message):
+    try:
+        from notifications.services import notify_admins
+        notify_admins(
+            title=title,
+            message=message,
+            type="payment",
+            notification_code=notification_code,
+            related_id=detail.id,
+            action_url="/admin/refunds",
+            force=True,
+        )
+    except Exception:
+        pass
+
+
 def _mark_processing(detail, actor, message, settings_value):
     detail.refund_status = Payment_Details.RefundStatus.PROCESSING
     detail.last_gateway_error = message
@@ -337,7 +358,17 @@ def _execute_gateway_refund(detail, actor, settings_value):
         "updated_at",
     ])
 
-    if detail.payment.payment_method == Payment.PaymentMethod.MOMO:
+    if _is_local_payment_mode():
+        result = {
+            "status": "success",
+            "message": "Local refund completed.",
+            "transaction_id": f"LOCAL-REFUND-{detail.id}-{uuid.uuid4().hex[:8]}",
+            "response_code": "00",
+            "retryable": False,
+            "refund_order_id": f"local-refund-{detail.id}",
+            "refund_request_id": f"local-refund-req-{detail.id}",
+        }
+    elif detail.payment.payment_method == Payment.PaymentMethod.MOMO:
         try:
             result = send_momo_refund_request(
                 detail,
@@ -403,6 +434,12 @@ def _execute_gateway_refund(detail, actor, settings_value):
             )
         except Exception:
             pass
+        _notify_admin_refund_event(
+            detail,
+            "refund_processed",
+            "Hoan tien thanh cong",
+            f"Refund #{detail.id} da duoc xu ly thanh cong.",
+        )
     elif result["status"] == "failed" and not result.get("retryable", True):
         try:
             from notifications.services import create_notification
@@ -416,11 +453,37 @@ def _execute_gateway_refund(detail, actor, settings_value):
             )
         except Exception:
             pass
+    if result["status"] == "failed":
+        _notify_admin_refund_event(
+            detail,
+            "refund_failed",
+            "Hoan tien that bai",
+            f"Refund #{detail.id} xu ly that bai.",
+        )
 
     return result
 
 
 def _sync_momo_processing_refund(detail, actor, settings_value):
+    if _is_local_payment_mode():
+        result = {
+            "status": "success",
+            "message": "Local refund synchronized.",
+            "transaction_id": f"LOCAL-REFUND-{detail.id}-{uuid.uuid4().hex[:8]}",
+            "response_code": "00",
+            "retryable": False,
+        }
+        _mark_success(
+            detail,
+            actor=actor,
+            message=result["message"],
+            transaction_id=result["transaction_id"],
+            response_code=result["response_code"],
+        )
+        _apply_success_side_effects(detail)
+        detail.save()
+        return result
+
     reference = _get_latest_gateway_reference(detail)
     if not reference or not reference.get("refund_order_id"):
         raise ValidationError("Khong tim thay refund_order_id de dong bo trang thai MoMo.")
@@ -457,6 +520,8 @@ def _sync_momo_processing_refund(detail, actor, settings_value):
 def _ensure_retryable(detail, settings_value):
     if detail.refund_status not in [Payment_Details.RefundStatus.PROCESSING, Payment_Details.RefundStatus.FAILED]:
         raise ValidationError("Only processing or failed refunds can be retried.")
+    if _is_local_payment_mode():
+        return
     max_retry = int(settings_value.get("refund_max_retry_count", 3))
     if (detail.gateway_attempt_count or 0) >= max_retry:
         raise ValidationError(f"Refund đã đạt giới hạn retry tối đa ({max_retry} lần).")
@@ -642,6 +707,12 @@ def admin_refund_action(action, refund_ids, admin_actor, note=None, override_sta
                         )
                     except Exception:
                         pass
+                    _notify_admin_refund_event(
+                        detail,
+                        "refund_rejected",
+                        "Yeu cau hoan tien bi tu choi",
+                        f"Refund #{detail.id} da bi tu choi.",
+                    )
                 elif action == "retry":
                     _ensure_retryable(detail, settings_value)
                     if detail.payment.payment_method == Payment.PaymentMethod.MOMO and detail.refund_status == Payment_Details.RefundStatus.PROCESSING:
@@ -655,11 +726,14 @@ def admin_refund_action(action, refund_ids, admin_actor, note=None, override_sta
                     _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
                     _log_refund_activity(actor_user_id(admin_actor), "REFUND_RETRIED", detail, f"Admin retried refund {detail.id}")
                 elif action == "sync":
-                    if detail.payment.payment_method != Payment.PaymentMethod.MOMO:
-                        raise ValidationError("Sync action hien chi ho tro refund MoMo.")
                     if detail.refund_status != Payment_Details.RefundStatus.PROCESSING:
                         raise ValidationError("Chi refund dang processing moi co the sync.")
-                    _sync_momo_processing_refund(detail, actor=actor, settings_value=settings_value)
+                    if _is_local_payment_mode():
+                        _execute_gateway_refund(detail, actor=actor, settings_value=settings_value)
+                    else:
+                        if detail.payment.payment_method != Payment.PaymentMethod.MOMO:
+                            raise ValidationError("Sync action hien chi ho tro refund MoMo.")
+                        _sync_momo_processing_refund(detail, actor=actor, settings_value=settings_value)
                     _log_refund_activity(actor_user_id(admin_actor), "REFUND_SYNCED", detail, f"Admin synced refund {detail.id}")
                 elif action == "cancel":
                     if detail.refund_status not in [Payment_Details.RefundStatus.PENDING, Payment_Details.RefundStatus.PROCESSING]:

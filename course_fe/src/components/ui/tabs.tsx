@@ -29,7 +29,7 @@ function collectItems(children: React.ReactNode): Array<{ key: string; label: Re
 
   return Array.from(contents.entries()).map(([key, content]) => ({
     key,
-    label: labels.get(key) ?? key,
+    label: <span className="inline-flex items-center">{labels.get(key) ?? key}</span>,
     children: content,
   }))
 }

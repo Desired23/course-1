@@ -281,14 +281,12 @@ export function MyLearningPage() {
         setLearningPaths(active)
         setLearningPathsLoaded(true)
         setCachedLearningPaths(userCacheKey, active)
-        if (active.length === 0) openAiLearningPath()
       })
       .catch(() => {
         if (cancelled) return
         setLearningPaths([])
         setLearningPathsLoaded(true)
         setCachedLearningPaths(userCacheKey, [])
-        openAiLearningPath()
       })
       .finally(() => {
         if (!cancelled) setLearningPathsLoading(false)

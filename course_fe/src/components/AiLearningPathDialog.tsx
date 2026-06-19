@@ -20,7 +20,7 @@ import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import {
-  chatWithLearningAdvisorStream,
+  chatWithLearningAdvisor,
   createLearningPath,
   deleteLearningPath,
   getLearningPathDetail,
@@ -151,21 +151,47 @@ function parseMessageBlocks(content: string): MessageBlock[] {
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', content }]
 }
 
+function stripMarkdownTables(content: string) {
+  const lines = (content || '').split('\n')
+  const keptLines: string[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const current = lines[i]?.trim() || ''
+    const next = lines[i + 1]?.trim() || ''
+    const isTableStart = current.startsWith('|') && /^\|?[\s\-|:]+\|?$/.test(next)
+
+    if (isTableStart) {
+      i += 2
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        i++
+      }
+      continue
+    }
+
+    keptLines.push(lines[i])
+    i++
+  }
+
+  return keptLines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 function buildPathAssistantSummary(
   summary: string,
   pathItems: LearningPathItem[],
   tr: (key: string, fallback: string, options?: Record<string, unknown>) => string,
 ) {
+  const cleanSummary = stripMarkdownTables(summary)
   const courseLinks = (pathItems || [])
     .slice(0, 6)
     .map((item, idx) => {
-      const safeTitle = (item.course_title || `Khoa hoc #${item.course_id}`).replace(/\]/g, ')')
-      return `${idx + 1}. [Mo khoa hoc: ${safeTitle}](/course/${item.course_id})`
+      const safeTitle = (item.course_title || `Khóa học #${item.course_id}`).replace(/\]/g, ')')
+      return `${idx + 1}. [Mở khóa học: ${safeTitle}](/course/${item.course_id})`
     })
     .join('\n')
 
-  if ((summary || '').trim()) {
-    return `${tr('ai_learning_path.message_path_generated', 'Mình đã phân tích yêu cầu và gợi ý nội dung phù hợp dựa trên hội thoại hiện tại.')}\n\n${summary}\n\n${tr('ai_learning_path.message_course_links', 'Link khóa học đề xuất:')}\n${courseLinks}`
+  if (cleanSummary) {
+    return `${tr('ai_learning_path.message_path_generated', 'Mình đã phân tích yêu cầu và gợi ý nội dung phù hợp dựa trên hội thoại hiện tại.')}\n\n${cleanSummary}\n\n${tr('ai_learning_path.message_course_links', 'Link khóa học đề xuất:')}\n${courseLinks}`
   }
 
   return `${tr('ai_learning_path.message_path_generated', 'Mình đã phân tích yêu cầu và gợi ý nội dung phù hợp dựa trên hội thoại hiện tại.')}\n\n${tr('ai_learning_path.message_course_links', 'Link khóa học đề xuất:')}\n${courseLinks}`
@@ -179,8 +205,8 @@ function buildCourseListAssistantSummary(
   const courseLinks = (courses || [])
     .slice(0, 8)
     .map((item, idx) => {
-      const safeTitle = (item.course_title || `Khoa hoc #${item.course_id}`).replace(/\]/g, ')')
-      return `${idx + 1}. [Mo khoa hoc: ${safeTitle}](/course/${item.course_id})`
+      const safeTitle = (item.course_title || `Khóa học #${item.course_id}`).replace(/\]/g, ')')
+      return `${idx + 1}. [Mở khóa học: ${safeTitle}](/course/${item.course_id})`
     })
     .join('\n')
 
@@ -203,6 +229,31 @@ function isQuestionResponse(value: AdvisorChatResponse | LearningPathDetail): va
   return typeof value === 'object' && value !== null && 'type' in value && value.type === 'question'
 }
 
+function formatCoursePrice(item: LearningPathItem) {
+  const rawDiscount = item.course_discount_price
+  const rawPrice = item.course_price
+  const discount = rawDiscount !== null && rawDiscount !== undefined && rawDiscount !== '' ? Number(rawDiscount) : null
+  const price = rawPrice !== null && rawPrice !== undefined && rawPrice !== '' ? Number(rawPrice) : null
+  const activePrice = discount !== null && Number.isFinite(discount) ? discount : price
+
+  if (activePrice === null || !Number.isFinite(activePrice)) {
+    return 'Chưa có giá'
+  }
+  if (activePrice <= 0) {
+    return 'Miễn phí'
+  }
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(activePrice)
+}
+
+function formatCourseHours(hours?: number | null) {
+  if (hours === null || hours === undefined) return 'Chưa có thời lượng'
+  return `${hours} giờ`
+}
+
 export function AiLearningPathDialog({
   open,
   onOpenChange,
@@ -213,7 +264,7 @@ export function AiLearningPathDialog({
   const { navigate } = useRouter()
   const { isAuthenticated, user } = useAuth()
   const { addToCartFromApi, isInCartByCourseId, loadCart } = useCart()
-  const { isOwned, getProgress, loading: ownedLoading } = useOwnedCourses()
+  const { isOwned, getProgress, loading: ownedLoading } = useOwnedCourses({ enabled: open })
   const { open: openLogin } = useModal('login')
 
   const [goalText, setGoalText] = useState('')
@@ -547,17 +598,10 @@ export function AiLearningPathDialog({
               goal_text: resolvedGoal,
               messages: nextMessages,
             })
-          : await chatWithLearningAdvisorStream(
-              {
-                goal_text: resolvedGoal,
-                messages: nextMessages,
-              },
-              {
-                onDelta: (delta) => {
-                  setStreamingAssistantText((prev) => `${prev}${delta}`)
-                },
-              }
-            )
+          : await chatWithLearningAdvisor({
+              goal_text: resolvedGoal,
+              messages: nextMessages,
+            })
       normalizeAdvisorResult(response, nextMessages)
     } catch (error: any) {
       toast.error(error?.message || tr('ai_learning_path.toast_advisor_failed', 'Không thể lấy tư vấn lộ trình.'))
@@ -781,6 +825,69 @@ export function AiLearningPathDialog({
     }, 0)
   }
 
+  const renderPathPreview = (snapshot: AdvisorState) => (
+    <div className="mt-2 w-full max-w-full space-y-2 sm:max-w-[78%] lg:max-w-[70%]">
+      {snapshot.path.map((item) => {
+        const owned = isOwned(item.course_id)
+        const priceLabel = formatCoursePrice(item)
+        const isFree = !owned && priceLabel === 'Miễn phí'
+        const rating = item.course_rating ? Number(item.course_rating) : null
+        const metaItems = [
+          priceLabel,
+          formatCourseHours(item.duration_hours),
+          rating !== null && Number.isFinite(rating) ? `${rating.toFixed(1)} sao` : 'Chưa có đánh giá',
+          item.course_total_students !== null && item.course_total_students !== undefined
+            ? `${item.course_total_students} học viên`
+            : 'Chưa có số học viên',
+          item.course_instructor_name ? `GV: ${item.course_instructor_name}` : 'Chưa có giảng viên',
+        ]
+
+        return (
+          <div
+            key={`${item.order}-${item.course_id}`}
+            className="rounded-lg border border-slate-700/50 bg-slate-900/50 p-3"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase text-slate-400">
+                  Bước {item.order}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleOpenCourse(item.course_id, owned)}
+                  className="mt-1 text-left text-sm font-semibold text-blue-300 hover:text-blue-200 hover:underline"
+                >
+                  {item.course_title || `Khóa học #${item.course_id}`}
+                </button>
+              </div>
+              <span className="shrink-0 rounded-full border border-slate-700/60 px-2 py-0.5 text-[11px] text-slate-300">
+                {owned ? 'Đã sở hữu' : isFree ? 'Miễn phí' : item.is_skippable ? 'Có thể bỏ qua' : 'Cần đăng ký'}
+              </span>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-slate-300">
+              {item.reason}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {metaItems.map((meta) => (
+                <span
+                  key={meta}
+                  className="rounded-md border border-slate-700/60 bg-slate-800/60 px-2 py-1 text-[11px] text-slate-300"
+                >
+                  {meta}
+                </span>
+              ))}
+            </div>
+            {item.is_skippable && item.skippable_reason && (
+              <p className="mt-1 text-xs text-slate-500">
+                Có thể bỏ qua: {item.skippable_reason}
+              </p>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+
   const renderMessageContent = (content: string, isOwnedFn?: (courseId: number) => boolean): ReactNode => {
     const blocks = parseMessageBlocks(content)
 
@@ -901,12 +1008,12 @@ export function AiLearningPathDialog({
           const markdownLinkRegex = /\[([^\]]+)\]\((\/course-player\/\d+|\/course\/\d+|\/cart)\)/g
           const routeLabelFromPath = (path: string) => {
             const courseMatch = path.match(/^\/course\/(\d+)$/)
-            if (courseMatch) return `Mo khoa hoc #${courseMatch[1]}`
+            if (courseMatch) return `Mở khóa học #${courseMatch[1]}`
 
             const playerMatch = path.match(/^\/course-player\/(\d+)$/)
-            if (playerMatch) return `Tiep tuc hoc #${playerMatch[1]}`
+            if (playerMatch) return `Tiếp tục học #${playerMatch[1]}`
 
-            if (path === '/cart') return 'Mo gio hang'
+            if (path === '/cart') return 'Mở giỏ hàng'
             return path
           }
 
@@ -1141,6 +1248,7 @@ export function AiLearningPathDialog({
                     <div className="text-sm leading-relaxed break-words">{renderMessageContent(message.content, isOwned)}</div>
                   )}
                 </div>
+                {message.role === 'assistant' && pathSnapshots[index] && renderPathPreview(pathSnapshots[index])}
                 {message.role === 'assistant' && pathSnapshots[index] && (
                   <button
                     type="button"
@@ -1204,6 +1312,30 @@ export function AiLearningPathDialog({
                     {action}
                   </Button>
                 ))}
+              </div>
+            )}
+
+            {advisorState && (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={savedPathId ? 'outline' : 'default'}
+                  onClick={() => void handleSave()}
+                  disabled={isSaving || !!savedPathId}
+                  className={
+                    savedPathId
+                      ? 'h-8 border-slate-700/50 bg-slate-800/30 text-slate-300'
+                      : 'h-8 bg-emerald-600 text-white hover:bg-emerald-700'
+                  }
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {savedPathId
+                    ? tr('ai_learning_path.saved_label', 'Đã lưu')
+                    : isSaving
+                      ? tr('ai_learning_path.saving_label', 'Đang lưu...')
+                      : tr('ai_learning_path.save_label', 'Lưu lộ trình')}
+                </Button>
               </div>
             )}
 

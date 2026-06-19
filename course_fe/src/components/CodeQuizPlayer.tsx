@@ -695,6 +695,7 @@ export function CodeQuizPlayer({ question, lessonId, enrollmentId, onComplete, o
                   size="sm"
                   onClick={handleRun}
                   disabled={isRunning}
+                  className="h-auto min-h-8 flex-row items-center whitespace-nowrap"
                 >
                   {isRunning ? (
                     <>

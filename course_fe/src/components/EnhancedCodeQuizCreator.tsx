@@ -47,9 +47,9 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react'
-import { CodeExecutionDebugPanel, type DebugExecutionResult } from './CodeExecutionDebugPanel'
+import { CodeExecutionDebugPanel } from './CodeExecutionDebugPanel'
 import { CodeEditor } from './CodeEditor'
-import { SUPPORTED_LANGUAGES, CODE_LESSON_LANGUAGES, generateStarterCode, extractDebugLogs, runTestCases, submitAndWait, wrapUserCode, type ExecutionMode, type TestResult } from '../utils/judge0'
+import { SUPPORTED_LANGUAGES, CODE_LESSON_LANGUAGES, generateStarterCode, runTestCases, wrapUserCode, type ExecutionMode, type TestResult } from '../utils/judge0'
 import { confirmDialog } from '../utils/confirmDialog'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
@@ -384,15 +384,10 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
   const [solutionTestResults, setSolutionTestResults] = useState<TestResult[]>([])
   const [solutionRunError, setSolutionRunError] = useState<string | null>(null)
   const [runProgress, setRunProgress] = useState({ current: 0, total: 0 })
-  const [customInput, setCustomInput] = useState('[2,7,11,15]\n9')
-  const [isRunningCustomInput, setIsRunningCustomInput] = useState(false)
-  const [customRunResult, setCustomRunResult] = useState<DebugExecutionResult | null>(null)
-  const [customRunError, setCustomRunError] = useState<string | null>(null)
   const [starterEdited, setStarterEdited] = useState<Record<number, boolean>>({})
   const isSyncingFromPropsRef = useRef(false)
   const lastEmittedRef = useRef<EnhancedCodeQuizData | null>(null)
   const lastSolutionRunAtRef = useRef(0)
-  const lastCustomRunAtRef = useRef(0)
 
   useEffect(() => {
     if (initialData && initialData !== formData) {
@@ -729,66 +724,6 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
     } finally {
       setIsRunningSolutionTests(false)
       setRunProgress({ current: 0, total: 0 })
-    }
-  }
-
-  const handleRunCustomInput = async () => {
-    if (isRunningCustomInput) return
-
-    const now = Date.now()
-    if (now - lastCustomRunAtRef.current < RUN_ACTION_DEBOUNCE_MS) {
-      toast.warning(t('enhanced_code_quiz_creator.toasts.wait_before_rerun_custom'))
-      return
-    }
-    lastCustomRunAtRef.current = now
-
-    const code = formData.solution?.code?.trim() || ''
-    if (!code) {
-      setCustomRunError(t('enhanced_code_quiz_creator.errors.solution_code_before_custom'))
-      return
-    }
-
-    const trimmedInput = customInput.trim()
-    if (!trimmedInput) {
-      setCustomRunError(t('enhanced_code_quiz_creator.errors.custom_input_required'))
-      return
-    }
-
-    setIsRunningCustomInput(true)
-    setCustomRunError(null)
-    setCustomRunResult(null)
-
-    try {
-      const languageId = formData.solution?.codeLanguage || formData.allowedLanguages[0] || 63
-      const languageValue = SUPPORTED_LANGUAGES.find((lang) => lang.id === languageId)?.value || 'javascript'
-      const executableCode = formData.executionMode === 'function'
-        ? wrapUserCode(code, languageValue, '', formData.functionName || undefined)
-        : code
-
-      const result = await submitAndWait({
-        source_code: executableCode,
-        language_id: languageId,
-        stdin: customInput,
-        cpu_time_limit: formData.timeLimit || 3,
-        memory_limit: formData.memoryLimit || 256000,
-      })
-
-      const { cleanStderr, debugLogs } = extractDebugLogs(result.stderr)
-      setCustomRunResult({
-        stdout: result.stdout,
-        stderr: cleanStderr,
-        compileOutput: result.compile_output,
-        message: result.message,
-        statusId: result.status?.id,
-        statusDescription: result.status?.description,
-        time: result.time,
-        memory: result.memory,
-        debugLogs,
-      })
-    } catch (error) {
-      setCustomRunError(error instanceof Error ? error.message : t('enhanced_code_quiz_creator.toasts.run_custom_failed'))
-    } finally {
-      setIsRunningCustomInput(false)
     }
   }
 
@@ -1250,21 +1185,6 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
               </CardContent>
             </Card>
 
-
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <p className="font-medium mb-2">{t('enhanced_code_quiz_creator.test_case_guidelines_title')}</p>
-                  <ul className="list-disc list-inside space-y-1 text-sm">
-                    <li><strong>{t('enhanced_code_quiz_creator.test_case_guidelines.input_format_label')}</strong> {t('enhanced_code_quiz_creator.test_case_guidelines.input_format')}</li>
-                    <li><strong>{t('enhanced_code_quiz_creator.test_case_guidelines.basic_tests_label')}</strong> {t('enhanced_code_quiz_creator.test_case_guidelines.basic_tests')}</li>
-                  <li><strong>{t('enhanced_code_quiz_creator.test_case_guidelines.edge_cases_label')}</strong> {t('enhanced_code_quiz_creator.test_case_guidelines.edge_cases')}</li>
-                  <li><strong>{t('enhanced_code_quiz_creator.test_case_guidelines.corner_cases_label')}</strong> {t('enhanced_code_quiz_creator.test_case_guidelines.corner_cases')}</li>
-                  <li><strong>{t('enhanced_code_quiz_creator.test_case_guidelines.stress_tests_label')}</strong> {t('enhanced_code_quiz_creator.test_case_guidelines.stress_tests')}</li>
-                  <li><strong>{t('enhanced_code_quiz_creator.test_case_guidelines.all_visible_label')}</strong> {t('enhanced_code_quiz_creator.test_case_guidelines.all_visible')}</li>
-                </ul>
-              </AlertDescription>
-            </Alert>
           </TabsContent>
 
 
@@ -1505,12 +1425,6 @@ export const EnhancedCodeQuizCreator = forwardRef<EnhancedCodeQuizCreatorHandle,
                   isRunningTests={isRunningSolutionTests}
                   runProgress={runProgress}
                   runError={solutionRunError}
-                  customInput={customInput}
-                  onCustomInputChange={setCustomInput}
-                  onRunCustom={handleRunCustomInput}
-                  isRunningCustom={isRunningCustomInput}
-                  customResult={customRunResult}
-                  customError={customRunError}
                 />
 
                 <Separator />

@@ -41,7 +41,7 @@ export function InstructorHeader({ title, subtitle, className }: InstructorHeade
 
   const handleLogout = () => {
     logout()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   return (

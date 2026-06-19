@@ -1,4 +1,5 @@
-from django.db.models import Count, Sum, Avg, Q, F
+from django.conf import settings
+from django.db.models import Count, Sum, Avg, Q, F, Exists, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from decimal import Decimal
@@ -620,10 +621,14 @@ def get_admin_revenue_by_course(limit=50, date_from=None, date_to=None):
     from enrollments.models import Enrollment
     from instructor_earnings.models import InstructorEarning
     from payment_details.models import Payment_Details
+    from payments.models import Payment
 
     qs = Payment_Details.objects.filter(
         is_deleted=False,
-        payment__payment_status='completed',
+        payment__payment_status__in=[
+            Payment.PaymentStatus.COMPLETED,
+            Payment.PaymentStatus.REFUNDED,
+        ],
         payment__is_deleted=False,
     ).select_related(
         'course',
@@ -790,58 +795,146 @@ def get_admin_revenue_by_category(limit=20, date_from=None, date_to=None):
     return result
 
 
+def _final_earning_report_q(now=None):
+    from enrollments.models import Enrollment
+    from instructor_earnings.models import InstructorEarning
+    from payment_details.models import Payment_Details
+
+    now = now or timezone.now()
+    refund_cutoff = now - timedelta(days=int(getattr(settings, 'REFUND_DAYS', 30)))
+
+    detail_qs = Payment_Details.objects.filter(
+        payment_id=OuterRef('payment_id'),
+        course_id=OuterRef('course_id'),
+        is_deleted=False,
+    )
+    open_refund_qs = detail_qs.filter(
+        Q(refund_status__in=[
+            Payment_Details.RefundStatus.PROCESSING,
+            Payment_Details.RefundStatus.APPROVED,
+        ])
+        | Q(
+            refund_status=Payment_Details.RefundStatus.PENDING,
+            refund_request_time__isnull=False,
+        )
+    )
+    fully_refunded_qs = detail_qs.filter(
+        final_price__gt=0,
+        refund_status=Payment_Details.RefundStatus.SUCCESS,
+        refund_amount__gte=F('final_price'),
+    )
+    refund_eligible_enrollment_qs = Enrollment.objects.filter(
+        payment_id=OuterRef('payment_id'),
+        course_id=OuterRef('course_id'),
+        is_deleted=False,
+        status=Enrollment.Status.Active,
+        progress__lte=Decimal('50'),
+    ).filter(
+        Q(expiry_date__isnull=True) | Q(expiry_date__gte=now)
+    )
+
+    retail_not_refund_eligible_q = (
+        Q(has_refund_eligible_enrollment=False)
+        | Q(payment__payment_date__lte=refund_cutoff)
+        | Q(has_report_detail=False)
+        | Q(report_detail_refund_request_time__isnull=False)
+        | Q(report_detail_refund_status__in=[
+            Payment_Details.RefundStatus.SUCCESS,
+            Payment_Details.RefundStatus.REJECTED,
+            Payment_Details.RefundStatus.FAILED,
+            Payment_Details.RefundStatus.CANCELLED,
+        ])
+    )
+    retail_final_q = (
+        Q(payment__isnull=False)
+        & Q(has_open_report_refund=False)
+        & (Q(has_fully_refunded_report_detail=True) | retail_not_refund_eligible_q)
+    )
+    subscription_final_q = (
+        Q(payment__isnull=True)
+        & Q(user_subscription__isnull=False)
+        & (
+            (
+                Q(user_subscription__payment__isnull=False)
+                & (
+                    Q(amount__gt=0, user_subscription__payment__refund_amount__gte=F('amount'))
+                    | Q(user_subscription__payment__payment_date__lte=refund_cutoff)
+                )
+            )
+            | (
+                Q(user_subscription__payment__isnull=True)
+                & Q(status__in=[
+                    InstructorEarning.StatusChoices.AVAILABLE,
+                    InstructorEarning.StatusChoices.PAID,
+                ])
+            )
+        )
+    )
+    standalone_final_q = (
+        Q(payment__isnull=True)
+        & Q(user_subscription__isnull=True)
+        & Q(status__in=[
+            InstructorEarning.StatusChoices.AVAILABLE,
+            InstructorEarning.StatusChoices.PAID,
+        ])
+    )
+
+    return (
+        Exists(detail_qs),
+        Exists(open_refund_qs),
+        Exists(fully_refunded_qs),
+        Exists(refund_eligible_enrollment_qs),
+        retail_final_q | subscription_final_q | standalone_final_q,
+    )
+
+
 def get_admin_revenue_by_instructor(limit=20, date_from=None, date_to=None):
     from instructor_earnings.models import InstructorEarning
+    from payment_details.models import Payment_Details
 
-    qs = (
-        InstructorEarning.objects
-        .filter(is_deleted=False)
-        .select_related('instructor__user', 'payment', 'user_subscription__payment')
-        .prefetch_related('payment__payment_details', 'payment__enrollments')
+    report_detail_qs = Payment_Details.objects.filter(
+        payment_id=OuterRef('payment_id'),
+        course_id=OuterRef('course_id'),
+        is_deleted=False,
     )
+    (
+        has_report_detail,
+        has_open_report_refund,
+        has_fully_refunded_report_detail,
+        has_refund_eligible_enrollment,
+        final_earning_q,
+    ) = _final_earning_report_q()
+    qs = InstructorEarning.objects.filter(is_deleted=False).annotate(
+        has_report_detail=has_report_detail,
+        has_open_report_refund=has_open_report_refund,
+        has_fully_refunded_report_detail=has_fully_refunded_report_detail,
+        has_refund_eligible_enrollment=has_refund_eligible_enrollment,
+        report_detail_refund_status=Subquery(report_detail_qs.values('refund_status')[:1]),
+        report_detail_refund_request_time=Subquery(report_detail_qs.values('refund_request_time')[:1]),
+    ).filter(final_earning_q)
     qs = _apply_date_range(qs, 'earning_date', date_from, date_to)
 
-    rows_by_instructor = {}
-    now = timezone.now()
-    for earning in qs:
-        if not earning_is_final_for_report(earning, now):
-            continue
-        row = rows_by_instructor.setdefault(earning.instructor_id, {
-            'instructor_id': earning.instructor_id,
-            'instructor_name': earning.instructor.user.full_name if earning.instructor and earning.instructor.user else None,
-            'gross': Decimal('0'),
-            'instructor_earnings': Decimal('0'),
-            'retail_revenue': Decimal('0'),
-            'subscription_revenue': Decimal('0'),
-            'pending': Decimal('0'),
-            'available': Decimal('0'),
-            'paid': Decimal('0'),
-            'transactions': 0,
-        })
-        gross = _as_decimal(earning.amount)
-        net = _as_decimal(earning.net_amount)
-        row['gross'] += gross
-        row['instructor_earnings'] += net
-        if earning.payment_id:
-            row['retail_revenue'] += gross
-        if earning.user_subscription_id:
-            row['subscription_revenue'] += gross
-        if earning.status == InstructorEarning.StatusChoices.PENDING:
-            row['pending'] += net
-        if earning.status == InstructorEarning.StatusChoices.AVAILABLE:
-            row['available'] += net
-        if earning.status == InstructorEarning.StatusChoices.PAID:
-            row['paid'] += net
-        row['transactions'] += 1
+    rows = qs.values('instructor_id', 'instructor__user__full_name').annotate(
+        gross=Sum('amount'),
+        instructor_earnings=Sum('net_amount'),
+        retail_revenue=Sum('amount', filter=Q(payment__isnull=False)),
+        subscription_revenue=Sum('amount', filter=Q(user_subscription__isnull=False)),
+        pending=Sum('net_amount', filter=Q(status=InstructorEarning.StatusChoices.PENDING)),
+        available=Sum('net_amount', filter=Q(status=InstructorEarning.StatusChoices.AVAILABLE)),
+        paid=Sum('net_amount', filter=Q(status=InstructorEarning.StatusChoices.PAID)),
+        transactions=Count('id'),
+    ).order_by('-gross')[:limit]
 
     result = []
-    for row in rows_by_instructor.values():
+    for row in rows:
+        gross = _as_decimal(row['gross'])
+        instructor_earnings = _as_decimal(row['instructor_earnings'])
         result.append({
             'instructor_id': row['instructor_id'],
-            'instructor_name': row['instructor_name'],
-            'gross': _as_float(row['gross']),
-            'instructor_earnings': _as_float(row['instructor_earnings']),
-            'platform_revenue': _as_float(row['gross'] - row['instructor_earnings']),
+            'instructor_name': row['instructor__user__full_name'],
+            'gross': _as_float(gross),
+            'instructor_earnings': _as_float(instructor_earnings),
+            'platform_revenue': _as_float(gross - instructor_earnings),
             'retail_revenue': _as_float(row['retail_revenue']),
             'subscription_revenue': _as_float(row['subscription_revenue']),
             'pending': _as_float(row['pending']),
@@ -849,15 +942,16 @@ def get_admin_revenue_by_instructor(limit=20, date_from=None, date_to=None):
             'paid': _as_float(row['paid']),
             'transactions': row['transactions'],
         })
-    result.sort(key=lambda row: row['gross'], reverse=True)
     return result
 
 
 def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
     from instructor_earnings.models import InstructorEarning
+    from instructor_earnings.services import exclude_active_hold_earnings, exclude_open_refund_earnings
     from instructor_payouts.models import InstructorPayout
 
-    earning_qs = InstructorEarning.objects.filter(is_deleted=False)
+    all_earning_qs = InstructorEarning.objects.filter(is_deleted=False)
+    earning_qs = all_earning_qs
     if date_from:
         earning_qs = earning_qs.filter(earning_date__gte=date_from)
     if date_to:
@@ -920,6 +1014,27 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
             earning_count=Count('id'),
         )
     }
+    payable_qs = exclude_active_hold_earnings(exclude_open_refund_earnings(
+        all_earning_qs.filter(
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+            instructor_payout__isnull=True,
+        )
+    ))
+    payable_by_instructor = {
+        row['instructor__id']: row['payable'] or Decimal('0')
+        for row in payable_qs.values('instructor__id').annotate(payable=Sum('net_amount'))
+    }
+    active_hold_qs = all_earning_qs.filter(copyright_holds__status='active').distinct()
+    active_hold_by_instructor = {
+        row['instructor__id']: {
+            'amount': row['amount'] or Decimal('0'),
+            'count': row['count'] or 0,
+        }
+        for row in active_hold_qs.values('instructor__id').annotate(
+            amount=Sum('net_amount'),
+            count=Count('id'),
+        )
+    }
     payout_requests_by_instructor = {
         row['instructor__id']: row
         for row in payout_request_qs.values('instructor__id', 'instructor__user__full_name')
@@ -944,7 +1059,13 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
         )
     }
 
-    instructor_ids = set(earnings_by_instructor) | set(payout_requests_by_instructor) | set(payout_processed_by_instructor)
+    instructor_ids = (
+        set(earnings_by_instructor)
+        | set(payable_by_instructor)
+        | set(active_hold_by_instructor)
+        | set(payout_requests_by_instructor)
+        | set(payout_processed_by_instructor)
+    )
     per_instructor = []
     for instructor_id in instructor_ids:
         earning = earnings_by_instructor.get(instructor_id, {})
@@ -959,7 +1080,8 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
         pending = earning.get('pending') or Decimal('0')
         available = earning.get('available') or Decimal('0')
         paid = earning.get('paid') or Decimal('0')
-        payable = pending + available
+        payable = payable_by_instructor.get(instructor_id, Decimal('0'))
+        active_hold = active_hold_by_instructor.get(instructor_id, {})
         payout_processed = processed_payout.get('payout_processed') or Decimal('0')
         payout_processed_net = processed_payout.get('payout_processed_net') or Decimal('0')
         payout_pending = payout.get('payout_pending') or Decimal('0')
@@ -972,6 +1094,8 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
             'subscription_earnings': float(earning.get('subscription_earnings') or 0),
             'pending_earnings': float(pending),
             'available_earnings': float(available),
+            'active_hold_earnings': float(active_hold.get('amount') or 0),
+            'active_hold_count': active_hold.get('count') or 0,
             'paid_earnings': float(paid),
             'payout_requested': float(payout.get('payout_requested') or 0),
             'payout_processed': float(payout_processed),
@@ -986,7 +1110,6 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
             'payout_processed_count': processed_payout.get('payout_processed_count') or 0,
             'payable_earnings': float(payable),
             'unpaid_balance': float(payable),
-            'settlement_gap': float(paid - payout_processed_net),
         })
 
     per_instructor.sort(key=lambda row: row['payable_earnings'], reverse=True)
@@ -995,7 +1118,8 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
     pending_payout = payout_by_status.get(InstructorPayout.PayoutStatusChoices.PENDING, {})
     failed = payout_by_status.get(InstructorPayout.PayoutStatusChoices.FAILED, {})
     cancelled = payout_by_status.get(InstructorPayout.PayoutStatusChoices.CANCELLED, {})
-    payable_earnings = (earning_totals['pending'] or Decimal('0')) + (earning_totals['available'] or Decimal('0'))
+    payable_earnings = payable_qs.aggregate(t=Sum('net_amount'))['t'] or Decimal('0')
+    active_hold_totals = active_hold_qs.aggregate(amount=Sum('net_amount'), count=Count('id'))
     processed_totals = payout_processed_qs.aggregate(
         amount=Sum('amount'),
         net_amount=Sum('net_amount'),
@@ -1010,6 +1134,8 @@ def get_admin_earning_payout_metrics(limit=100, date_from=None, date_to=None):
         'subscription_earnings': float(earning_totals['subscription_earnings'] or 0),
         'pending_earnings': float(earning_totals['pending'] or 0),
         'available_earnings': float(earning_totals['available'] or 0),
+        'active_hold_earnings': float(active_hold_totals['amount'] or 0),
+        'active_hold_count': active_hold_totals['count'] or 0,
         'payable_earnings': float(payable_earnings),
         'paid_earnings': float(earning_totals['paid'] or 0),
         'cancelled_earnings': float(earning_totals['cancelled'] or 0),

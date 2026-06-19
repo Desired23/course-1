@@ -17,6 +17,10 @@ def _advisor_course_item(course, order, reason):
         'course_discount_start_date': course.get('course_discount_start_date'),
         'course_discount_end_date': course.get('course_discount_end_date'),
         'duration_hours': course.get('duration_hours'),
+        'course_rating': course.get('rating'),
+        'course_total_students': course.get('total_students'),
+        'course_instructor_name': course.get('instructor_name'),
+        'course_language': course.get('language'),
     }
 
 
@@ -87,6 +91,10 @@ def validate_advisor_payload(payload, catalog_snapshot):
             'course_discount_start_date': course.get('course_discount_start_date'),
             'course_discount_end_date': course.get('course_discount_end_date'),
             'duration_hours': course.get('duration_hours'),
+            'course_rating': course.get('rating'),
+            'course_total_students': course.get('total_students'),
+            'course_instructor_name': course.get('instructor_name'),
+            'course_language': course.get('language'),
             '_estimated_weeks': int(item.get('_estimated_weeks') or 1),
         })
         expected_order += 1

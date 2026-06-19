@@ -395,15 +395,60 @@ def release_case_holds(case, actor):
     return updated
 
 
-def adjust_case_earnings(case, actor):
+def release_course_holds(course_id, actor, reason=''):
+    with transaction.atomic():
+        holds = (
+            InstructorEarningHold.objects
+            .select_for_update()
+            .filter(course_id=course_id, status=InstructorEarningHold.Status.ACTIVE)
+            .select_related('case', 'earning')
+        )
+        now = timezone.now()
+        released_count = 0
+        released_amount = Decimal('0.00')
+        case_ids = set()
+
+        for hold in holds:
+            hold.status = InstructorEarningHold.Status.RELEASED
+            hold.released_by = actor
+            hold.released_at = now
+            hold.save(update_fields=['status', 'released_by', 'released_at', 'updated_at'])
+            released_count += 1
+            released_amount += hold.earning.net_amount
+            case_ids.add(hold.case_id)
+
+        cases = CopyrightCase.objects.select_for_update().filter(id__in=case_ids)
+        for case in cases:
+            if not case.earning_holds.filter(status=InstructorEarningHold.Status.ACTIVE).exists():
+                case.financial_action = CopyrightCase.FinancialAction.RELEASED
+                case.save(update_fields=['financial_action', 'updated_at'])
+            _create_case_message(
+                case,
+                actor=actor,
+                actor_role=CopyrightCaseMessage.ActorRole.ADMIN,
+                message=reason,
+                response_type='release_holds',
+                metadata={
+                    'course_id': course_id,
+                    'released_count': released_count,
+                    'released_amount': str(released_amount),
+                },
+                visibility=CopyrightCaseMessage.Visibility.ADMIN_ONLY,
+            )
+
+        return {'released_count': released_count, 'released_amount': str(released_amount)}
+
+
+def _detach_unpaid_from_pending_payouts(case):
+    """Gỡ các earning chưa trả (pending/available) khỏi payout đang chờ, để
+    refund cưỡng chế khi takedown không bị _ensure_earning_not_paid_out chặn."""
     from instructor_earnings.models import InstructorEarning
     from instructor_payouts.models import InstructorPayout
 
     if not case.course_id or not case.instructor_id:
-        return {'cancelled_count': 0, 'manual_follow_up': False}
+        return
 
     payouts_to_recalc = set()
-    cancelled_count = 0
     unpaid = (
         InstructorEarning.objects
         .select_for_update()
@@ -419,21 +464,19 @@ def adjust_case_earnings(case, actor):
         payout = earning.instructor_payout
         if payout and payout.status == InstructorPayout.PayoutStatusChoices.PENDING:
             payouts_to_recalc.add(payout.id)
-        earning.status = InstructorEarning.StatusChoices.CANCELLED
-        earning.instructor_payout = None
-        earning.save(update_fields=['status', 'instructor_payout', 'updated_at'])
-        cancelled_count += 1
-
-    now = timezone.now()
-    case.earning_holds.filter(status=InstructorEarningHold.Status.ACTIVE).update(
-        status=InstructorEarningHold.Status.ADJUSTED,
-        adjusted_at=now,
-        updated_at=now,
-    )
+            earning.instructor_payout = None
+            earning.save(update_fields=['instructor_payout', 'updated_at'])
 
     for payout_id in payouts_to_recalc:
         payout = InstructorPayout.objects.filter(id=payout_id).first()
         _recalculate_pending_payout(payout)
+
+
+def _finalize_takedown_financial(case, actor, held_count):
+    """Sau khi refund + hold xong: nếu còn earning đã PAID thì cần thu hồi thủ
+    công; nếu có khoản đang giữ thì giữ trạng thái HOLD; còn lại coi như đã
+    quyết toán. Trả về True nếu cần follow-up thủ công."""
+    from instructor_earnings.models import InstructorEarning
 
     paid_exists = InstructorEarning.objects.filter(
         course_id=case.course_id,
@@ -443,14 +486,15 @@ def adjust_case_earnings(case, actor):
     ).exists()
 
     case.manual_follow_up = paid_exists
-    case.financial_action = (
-        CopyrightCase.FinancialAction.MANUAL_FOLLOW_UP
-        if paid_exists
-        else CopyrightCase.FinancialAction.ADJUSTED
-    )
+    if paid_exists:
+        case.financial_action = CopyrightCase.FinancialAction.MANUAL_FOLLOW_UP
+    elif held_count:
+        case.financial_action = CopyrightCase.FinancialAction.HOLD
+    else:
+        case.financial_action = CopyrightCase.FinancialAction.ADJUSTED
     case.last_action_by = actor
     case.save(update_fields=['manual_follow_up', 'financial_action', 'last_action_by', 'updated_at'])
-    return {'cancelled_count': cancelled_count, 'manual_follow_up': paid_exists}
+    return paid_exists
 
 
 def _sync_reports_final(case, report_status, action, notes, admin):
@@ -636,11 +680,20 @@ def admin_action(case_id, actor, action, message='', severity=None,
             case.last_action_by = actor
             case.save(update_fields=['status', 'severity', 'resolved_by', 'resolved_at', 'last_action_by', 'updated_at'])
             _apply_content_action(case, CopyrightCase.ContentAction.TAKEDOWN)
+            # Refund purchases <=30 days (which cancels their earnings) then HOLD
+            # the un-refunded leftovers (chiefly >30 days) instead of cancelling
+            # everything. Detach unpaid earnings from pending payouts first so the
+            # forced refund is not blocked by _ensure_earning_not_paid_out.
             if with_hold:
-                financial_summary = adjust_case_earnings(case, actor)
+                _detach_unpaid_from_pending_payouts(case)
             financial_summary['takedown'] = _handle_takedown_consequences(
                 case, actor, count_as_strike=count_as_strike, with_refund=with_refund
             )
+            if with_hold:
+                financial_summary.update(hold_case_earnings(case, actor, message or 'Copyright takedown hold'))
+                financial_summary['manual_follow_up'] = _finalize_takedown_financial(
+                    case, actor, financial_summary.get('held_count', 0)
+                )
             _sync_reports_final(case, Report.Status.RESOLVED, 'copyright_takedown', message, actor)
         elif action == 'restore':
             case.status = CopyrightCase.Status.RESTORED
@@ -649,7 +702,10 @@ def admin_action(case_id, actor, action, message='', severity=None,
             case.last_action_by = actor
             case.save(update_fields=['status', 'resolved_by', 'resolved_at', 'last_action_by', 'updated_at'])
             _apply_content_action(case, CopyrightCase.ContentAction.RESTORED)
-            financial_summary = {'released_holds': release_case_holds(case, actor)}
+            financial_summary = {
+                'released_holds': release_case_holds(case, actor) if with_hold else 0,
+                'holds_kept': not with_hold,
+            }
             _sync_reports_final(case, Report.Status.DISMISSED, 'copyright_restored', message, actor)
         else:
             raise ValidationError({'action': 'Unsupported copyright action.'})
@@ -659,6 +715,11 @@ def admin_action(case_id, actor, action, message='', severity=None,
         audit_metadata = {
             'previous_course_flags': prev_flags,
             'next_course_flags': _course_flags(case.course),
+            'options': {
+                'count_as_strike': count_as_strike,
+                'with_refund': with_refund,
+                'with_hold': with_hold,
+            },
             'financial': financial_summary,
         }
         _create_case_message(

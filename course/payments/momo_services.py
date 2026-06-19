@@ -31,6 +31,7 @@ from activity_logs.services import log_activity
 from instructor_earnings.services import generate_instructor_earnings_from_payment
 from payments.models import Payment
 
+from .finalization_services import finalize_payment_failure, finalize_payment_success
 from .services import ensure_payment_retryable
 from .return_url import resolve_payment_return_url
 from .vnpay_services import create_enrollments_from_payment
@@ -383,6 +384,13 @@ def query_momo_refund_status(refund_order_id: str, timeout_seconds: int = 30) ->
 
 
 def _finalize_momo_success(payment: Payment, payload: dict):
+    return finalize_payment_success(
+        payment,
+        provider=Payment.PaymentMethod.MOMO,
+        transaction_id=payload.get("transId"),
+        response_code=payload.get("resultCode"),
+        payload=payload,
+    )
     with transaction.atomic():
         payment = Payment.objects.select_for_update().get(id=payment.id)
         if payment.payment_status == Payment.PaymentStatus.COMPLETED:
@@ -437,6 +445,13 @@ def _finalize_momo_success(payment: Payment, payload: dict):
 
 
 def _finalize_momo_failure(payment: Payment, payload: dict):
+    return finalize_payment_failure(
+        payment,
+        provider=Payment.PaymentMethod.MOMO,
+        transaction_id=payload.get("transId"),
+        response_code=payload.get("resultCode"),
+        payload=payload,
+    )
     if payment.payment_status != Payment.PaymentStatus.PENDING:
         return payment
     payment.payment_status = Payment.PaymentStatus.FAILED
@@ -487,6 +502,33 @@ def momo_payment_return(request):
     trans_id = params.get("transId")
     result_url = resolve_payment_return_url(order_id, settings.MOMO_FE_RETURN_URL)
     encoded_message = urllib.parse.quote_plus(message)
+
+    if getattr(settings, "PAYMENT_FINALIZE_ON_RETURN", False):
+        payload = params.dict()
+        signature = payload.get("signature")
+        if not signature or signature != _momo_ipn_signature(payload):
+            return HttpResponseRedirect(
+                f"{result_url}?status=error&payment_id={order_id}&message=Invalid+checksum"
+            )
+        try:
+            payment = Payment.objects.get(id=order_id)
+        except Payment.DoesNotExist:
+            return HttpResponseRedirect(
+                f"{result_url}?status=error&payment_id={order_id}&message=Order+not+found"
+            )
+        try:
+            return_amount = int(payload.get("amount", -1))
+        except (ValueError, TypeError):
+            return_amount = -1
+        if return_amount != int(payment.total_amount):
+            return HttpResponseRedirect(
+                f"{result_url}?status=error&payment_id={order_id}&message=Invalid+amount"
+            )
+        if result_code in MOMO_SUCCESS_CODES:
+            _finalize_momo_success(payment, payload)
+        elif result_code in MOMO_FINAL_FAILED_CODES:
+            _finalize_momo_failure(payment, payload)
+
     if result_code in MOMO_SUCCESS_CODES:
         return HttpResponseRedirect(
             f"{result_url}?status=success&payment_id={order_id}&transaction={trans_id}"

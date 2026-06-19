@@ -117,15 +117,5 @@ export const HARDCODED_BACKUP_HOME_SCHEMA: HomeSchemaV2 = {
       data_source: { component: "InstructorPromo" },
       display_rules: { devices: ["mobile", "desktop"], audience: "all" },
     },
-    {
-      id: "legacy_component_1774691118511_jxcp1w",
-      type: "legacy_component",
-      enabled: true,
-      order: 12,
-      layout: { container: "default", spacing_top: "md", spacing_bottom: "md", background: "none" },
-      content: {},
-      data_source: { component: "NewsletterSection" },
-      display_rules: { devices: ["mobile", "desktop"], audience: "all" },
-    },
   ],
 }

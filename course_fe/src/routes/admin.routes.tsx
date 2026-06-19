@@ -24,7 +24,6 @@ const AdminInstructorApplicationsPage = lazy(() => import('../pages/admin/AdminI
 const PayoutManagementPage = lazy(() => import('../pages/admin/PayoutManagementPage').then((module) => ({ default: module.PayoutManagementPage })))
 const AdminSubscriptionPage = lazy(() => import('../pages/admin/AdminSubscriptionPage').then((module) => ({ default: module.AdminSubscriptionPage })))
 const CreateSubscriptionPlanPage = lazy(() => import('../pages/admin/CreateSubscriptionPlanPage').then((module) => ({ default: module.CreateSubscriptionPlanPage })))
-const AdminNewsletterPage = lazy(() => import('../pages/admin/AdminNewsletterPage').then((module) => ({ default: module.AdminNewsletterPage })))
 const AdminPolicyPage = lazy(() => import('../pages/admin/AdminPolicyPage').then((module) => ({ default: module.AdminPolicyPage })))
 
 interface AdminRouteDefinition {
@@ -77,7 +76,6 @@ const adminRouteDefinitions: AdminRouteDefinition[] = [
   { path: '/admin/settings', page: <PlatformSettingsPage /> },
   { path: '/admin/blog', page: <AdminBlogPostsPage /> },
   { path: '/admin/qa', page: <AdminQAPage /> },
-  { path: '/admin/newsletter', page: <AdminNewsletterPage /> },
   { path: '/admin/reviews', page: <ReviewManagementPage /> },
   { path: '/admin/reports', page: <ReportManagementPage /> },
   { path: '/admin/refunds', page: <PaymentManagementPage /> },

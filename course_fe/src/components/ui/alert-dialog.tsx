@@ -99,7 +99,7 @@ function AlertDialogContent({ className, children, ...props }: AlertDialogConten
       closable={false}
       centered
       destroyOnHidden
-      maskClosable={false}
+      mask={{ closable: false }}
       keyboard
       width="min(420px, calc(100vw - 2rem))"
       onCancel={() => setOpen(false)}

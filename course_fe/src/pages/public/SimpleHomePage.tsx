@@ -151,7 +151,7 @@ function SectionSkeleton({ section }: { section: HomeSection }) {
     )
   }
 
-  if (section.type === "promo_banner" || section.type === "newsletter" || section.type === "custom_html") {
+  if (section.type === "promo_banner" || section.type === "custom_html") {
     return <section className={`h-44 ${baseClass}`} />
   }
 
@@ -159,7 +159,9 @@ function SectionSkeleton({ section }: { section: HomeSection }) {
 }
 
 function HomeLoadingSkeleton({ schema }: { schema: HomeSchemaV2 | null }) {
-  const sections = schema?.sections?.length ? schema.sections.filter((section) => section.enabled) : getDefaultHomeSchemaV2().sections
+  const sections = (
+    schema?.sections?.length ? schema.sections : getDefaultHomeSchemaV2().sections
+  ).filter((section) => section.enabled && section.type !== "newsletter")
 
   return (
     <motion.div

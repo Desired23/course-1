@@ -40,17 +40,31 @@ class ReviewListView(APIView):
 
     def get(self, request):
         user_id = request.query_params.get('user_id')
+        course_id = request.query_params.get('course_id')
         instructor_id = request.query_params.get('instructor_id')
         reported_only = request.query_params.get('reported') == 'true'
+        mine_only = request.query_params.get('mine') == 'true'
+        include_hidden = request.query_params.get('include_hidden') == 'true'
 
-        if reported_only:
+        if include_hidden:
+            self.permission_classes = [RolePermissionFactory(['admin'])]
+            self.check_permissions(request)
+
+        if mine_only:
+            self.permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+            self.check_permissions(request)
+            reviews = get_reviews_by_user(request.user.id)
+        elif reported_only:
             reviews = get_reported_reviews()
         elif user_id:
             reviews = get_reviews_by_user(user_id)
         elif instructor_id:
             reviews = get_reviews_by_instructor(instructor_id)
         else:
-            reviews = get_reviews_by_course(request.query_params.get('course_id'))
+            reviews = get_reviews_by_course(course_id, include_hidden=include_hidden)
+
+        if course_id and (mine_only or reported_only or user_id or instructor_id):
+            reviews = reviews.filter(course=course_id)
 
         search = (request.query_params.get('search') or '').strip()
         rating = request.query_params.get('rating')

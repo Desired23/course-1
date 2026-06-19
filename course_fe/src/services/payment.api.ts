@@ -138,6 +138,7 @@ export async function createVnpayPayment(data: {
   order_desc?: string
   language?: string
   bank_code?: string
+  return_url?: string
 }): Promise<VnpayCreateResponse> {
   return http.post<VnpayCreateResponse>('/vnpay/create/', data)
 }
@@ -145,8 +146,25 @@ export async function createVnpayPayment(data: {
 export async function createMomoPayment(data: {
   payment_id?: number | string
   order_id?: number | string
+  return_url?: string
 }): Promise<MomoCreateResponse> {
   return http.post<MomoCreateResponse>('/momo/create/', data)
+}
+
+export async function submitLocalPaymentCallback(data: {
+  provider: 'momo' | 'vnpay'
+  payment_id: number | string
+  amount: number | string
+  status: 'success' | 'failed' | 'cancelled'
+  code?: string | null
+  transaction_id?: string | null
+}): Promise<{
+  payment_id: number
+  payment_status: Payment['payment_status']
+  transaction_id: string | null
+  gateway_response: string | null
+}> {
+  return http.post('/payments/local-callback/', data)
 }
 
 export async function cancelPayment(paymentId: number | string): Promise<{ message: string }> {

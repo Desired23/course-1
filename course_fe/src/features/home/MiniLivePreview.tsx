@@ -31,7 +31,6 @@ const SECTION_TYPES: HomeSectionType[] = [
   "feature_grid",
   "testimonial",
   "stats",
-  "newsletter",
   "custom_html",
   "legacy_component",
 ]

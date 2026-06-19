@@ -239,7 +239,7 @@ export function Header({ hideMobileMenu = false }: HeaderProps = {}) {
                     <DropdownMenuItem onClick={() => navigate('/account-settings')}>{t('common.account_settings')}</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/user/subscriptions')}>{t('sidebar.subscriptions')}</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={logout}>{t('common.log_out')}</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { logout(); window.location.href = '/login' }}>{t('common.log_out')}</DropdownMenuItem>
                   </>
                 ) : (
                   <>

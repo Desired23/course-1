@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .cron_view import process_transcript_jobs_view
 from .views import (
     LessonTranscriptEditorView,
     LessonTranscriptGenerateView,
@@ -10,6 +11,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path("transcripts/cron/process-jobs/", process_transcript_jobs_view, name="transcripts-cron-process-jobs"),
+
     path("lessons/<int:lesson_id>/transcript/generate", LessonTranscriptGenerateView.as_view(), name="lesson-transcript-generate"),
     path("lessons/<int:lesson_id>/transcript", LessonTranscriptPublicView.as_view(), name="lesson-transcript-public"),
     path("lessons/<int:lesson_id>/transcript/editor", LessonTranscriptEditorView.as_view(), name="lesson-transcript-editor"),

@@ -298,8 +298,36 @@ class CopyrightCaseWorkflowTests(TestCase):
         hold = InstructorEarningHold.objects.get(case=case, earning=earning)
         self.assertEqual(hold.status, InstructorEarningHold.Status.RELEASED)
 
-    def test_confirm_takedown_cancels_unpaid_and_marks_paid_for_manual_follow_up(self):
+    def test_restore_can_keep_active_holds(self):
         _, case = self.make_case()
+        earning = self.make_earning()
+        admin_action(
+            case.id,
+            self.admin_user,
+            'freeze',
+            message='Temporary block.',
+        )
+
+        updated = admin_action(
+            case.id,
+            self.admin_user,
+            'restore',
+            message='Restore content, keep financial hold.',
+            with_hold=False,
+        )
+
+        self.assertEqual(updated.status, CopyrightCase.Status.RESTORED)
+        self.course.refresh_from_db()
+        self.assertFalse(self.course.admin_hidden)
+        self.assertFalse(self.course.is_hard_blocked)
+
+        hold = InstructorEarningHold.objects.get(case=case, earning=earning)
+        self.assertEqual(hold.status, InstructorEarningHold.Status.ACTIVE)
+
+    def test_confirm_takedown_holds_unrefunded_and_marks_paid_for_manual_follow_up(self):
+        _, case = self.make_case()
+        # No payment is attached to these earnings, so the forced refund cannot
+        # reverse them -> the unpaid one is HELD (not cancelled) under the new model.
         unpaid = self.make_earning(status=InstructorEarning.StatusChoices.AVAILABLE)
         paid = self.make_earning(net='25.00', status=InstructorEarning.StatusChoices.PAID)
         admin_action(
@@ -321,5 +349,8 @@ class CopyrightCaseWorkflowTests(TestCase):
         self.assertEqual(updated.status, CopyrightCase.Status.TAKEDOWN)
         self.assertTrue(updated.manual_follow_up)
         self.assertEqual(updated.financial_action, CopyrightCase.FinancialAction.MANUAL_FOLLOW_UP)
-        self.assertEqual(unpaid.status, InstructorEarning.StatusChoices.CANCELLED)
+        # Unpaid earning is held, not cancelled; instructor keeps no payable balance.
+        self.assertEqual(unpaid.status, InstructorEarning.StatusChoices.AVAILABLE)
+        hold = InstructorEarningHold.objects.get(case=case, earning=unpaid)
+        self.assertEqual(hold.status, InstructorEarningHold.Status.ACTIVE)
         self.assertEqual(paid.status, InstructorEarning.StatusChoices.PAID)

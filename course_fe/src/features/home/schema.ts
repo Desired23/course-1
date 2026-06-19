@@ -73,7 +73,6 @@ const DEFAULT_LEGACY_LAYOUT = [
   { component: "TestimonialsSection", enabled: true, order: 9 },
   { component: "StatsSection", enabled: true, order: 10 },
   { component: "InstructorPromo", enabled: true, order: 11 },
-  { component: "NewsletterSection", enabled: true, order: 12 },
 ]
 
 export const LEGACY_COMPONENT_NAMES = DEFAULT_LEGACY_LAYOUT.map((item) => item.component)
@@ -579,6 +578,7 @@ export function normalizeHomeSchemaV2(value: unknown): HomeSchemaV2 {
   const sections = sectionsRaw
     .map((section, index) => normalizeSection(section, index + 1))
     .filter((section): section is HomeSection => Boolean(section))
+    .filter((section) => section.type !== "newsletter")
     .sort((a, b) => a.order - b.order)
     .map((section, index) => ({ ...section, order: index + 1 }))
 

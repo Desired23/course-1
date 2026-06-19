@@ -78,12 +78,22 @@ export async function getAllReviews(): Promise<Review[]> {
   const all: Review[] = []
   let page = 1
   while (true) {
-    const res = await http.get<PaginatedResponse<Review>>('/reviews/', { page, page_size: 100 })
+    const res = await http.get<PaginatedResponse<Review>>('/reviews/', { page, page_size: 100, include_hidden: 'true' })
     all.push(...res.results)
     if (!res.next) break
     page += 1
   }
   return all
+}
+
+export async function getMyReviewForCourse(courseId: number): Promise<Review | null> {
+  const res = await http.get<PaginatedResponse<Review>>('/reviews/', {
+    mine: 'true',
+    course_id: courseId,
+    page: 1,
+    page_size: 1,
+  })
+  return res.results[0] ?? null
 }
 
 export async function getAllReviewsByCourse(courseId: number): Promise<Review[]> {

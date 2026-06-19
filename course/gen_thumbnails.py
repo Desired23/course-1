@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 from users.services import _issue_auth_tokens
 from users.models import User
 
-API = "http://127.0.0.1:8000/api"
+API = "http://127.0.0.1:8080/api"
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".tmp_thumbs")
 os.makedirs(OUT, exist_ok=True)
 

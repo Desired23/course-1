@@ -8,6 +8,7 @@ from admins.dashboard_services import (
     get_admin_best_selling_courses,
     get_admin_creation_stats,
     get_admin_dashboard_stats,
+    get_admin_earning_payout_metrics,
     get_admin_promotion_stats,
     get_admin_revenue_breakdown,
     get_admin_revenue_by_course,
@@ -21,6 +22,7 @@ from instructors.models import Instructor
 from payment_details.models import Payment_Details
 from payments.models import Payment
 from promotions.models import Promotion
+from reports.models import CopyrightCase, InstructorEarningHold, Report
 from subscription_plans.models import SubscriptionPlan, UserSubscription
 from users.models import User
 
@@ -150,6 +152,82 @@ class AdminStatisticsServiceTests(TestCase):
         self.assertEqual(row['subscription_revenue'], 80.0)
         self.assertEqual(row['realized_revenue'], 200.0)
         self.assertEqual(row['transaction_count'], 2)
+
+    def test_course_revenue_includes_refunded_payment_details(self):
+        course = self._course('Refunded Course Revenue')
+        self._purchase(course, Decimal('499000.00'), progress=60)
+        refunded_payment, refunded_detail = self._purchase(
+            course,
+            Decimal('599000.00'),
+            progress=20,
+            refund_status=Payment_Details.RefundStatus.SUCCESS,
+            refund_amount=Decimal('599000.00'),
+        )
+        Payment.objects.filter(id=refunded_payment.id).update(
+            payment_status=Payment.PaymentStatus.REFUNDED,
+            refund_amount=Decimal('599000.00'),
+        )
+        Payment_Details.objects.filter(id=refunded_detail.id).update(refund_date=timezone.now())
+
+        row = get_admin_revenue_by_course()[0]
+
+        self.assertEqual(row['course_id'], course.id)
+        self.assertEqual(row['revenue'], 1098000.0)
+        self.assertEqual(row['refunded'], 599000.0)
+        self.assertEqual(row['net_revenue'], 499000.0)
+        self.assertEqual(row['transaction_count'], 2)
+
+    def test_earning_payout_payable_counts_only_available_unassigned_earnings(self):
+        course = self._course('Payable Earnings')
+        InstructorEarning.objects.create(
+            instructor=course.instructor,
+            course=course,
+            amount=Decimal('100.00'),
+            net_amount=Decimal('70.00'),
+            status=InstructorEarning.StatusChoices.PENDING,
+        )
+        InstructorEarning.objects.create(
+            instructor=course.instructor,
+            course=course,
+            amount=Decimal('200.00'),
+            net_amount=Decimal('140.00'),
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+        )
+        held_earning = InstructorEarning.objects.create(
+            instructor=course.instructor,
+            course=course,
+            amount=Decimal('300.00'),
+            net_amount=Decimal('210.00'),
+            status=InstructorEarning.StatusChoices.AVAILABLE,
+        )
+        copyright_case = CopyrightCase.objects.create(
+            target_type=Report.TargetType.COURSE,
+            target_id=course.id,
+            course=course,
+            instructor=course.instructor,
+            financial_action=CopyrightCase.FinancialAction.HOLD,
+        )
+        InstructorEarningHold.objects.create(
+            case=copyright_case,
+            earning=held_earning,
+            course=course,
+            instructor=course.instructor,
+        )
+        InstructorEarning.objects.filter(id=held_earning.id).update(earning_date=timezone.now() - timedelta(days=90))
+
+        data = get_admin_earning_payout_metrics(
+            date_from=timezone.now() - timedelta(days=1),
+            date_to=timezone.now(),
+        )
+        row = data['per_instructor'][0]
+
+        self.assertEqual(data['pending_earnings'], 70.0)
+        self.assertEqual(data['available_earnings'], 140.0)
+        self.assertEqual(data['active_hold_earnings'], 210.0)
+        self.assertEqual(data['payable_earnings'], 140.0)
+        self.assertEqual(row['active_hold_earnings'], 210.0)
+        self.assertEqual(row['active_hold_count'], 1)
+        self.assertEqual(row['payable_earnings'], 140.0)
 
     def test_promotion_stats_filter_completed_payments_by_payment_date(self):
         admin = Admin.objects.create(user=self._user('promo-admin'), department='Ops', role='admin')

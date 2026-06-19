@@ -100,10 +100,10 @@ def create_review(data):
     raise ValidationError(serializer.errors)
 
 
-def get_reviews_by_course(course_id):
-    qs = Review.objects.filter(is_deleted=False).exclude(
-        status=Review.StatusChoices.REJECTED
-    ).select_related('user', 'course')
+def get_reviews_by_course(course_id, include_hidden=False):
+    qs = Review.objects.filter(is_deleted=False).select_related('user', 'course')
+    if not include_hidden:
+        qs = qs.exclude(status=Review.StatusChoices.REJECTED)
     if course_id:
         qs = qs.filter(course=course_id)
     return qs

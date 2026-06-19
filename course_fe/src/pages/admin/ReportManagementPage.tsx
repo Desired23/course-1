@@ -572,6 +572,7 @@ export function ReportManagementPage() {
                 }))
               }}
               format="DD/MM/YYYY"
+              disabledDate={(current) => current && current > dayjs().endOf('day')}
               placeholder={['Từ ngày', 'Đến ngày']}
               style={{ width: 260 }}
             />

@@ -47,6 +47,9 @@ export interface CourseListItem {
   is_public: boolean
   admin_hidden: boolean
   is_hard_blocked: boolean
+  active_hold_count: number
+  held_amount: string
+  moderation_action: string | null
   created_at: string
   updated_at: string
   published_date: string | null
@@ -182,6 +185,9 @@ export interface CourseDetail {
   is_public: boolean
   admin_hidden: boolean
   is_hard_blocked: boolean
+  active_hold_count: number
+  held_amount: string
+  moderation_action: string | null
   created_at: string
   updated_at: string
   published_date: string | null
@@ -339,6 +345,7 @@ export type CourseModerationAction =
   | 'freeze'
   | 'takedown'
   | 'restore'
+  | 'release_holds'
 
 export async function moderateCourse(
   courseId: number,

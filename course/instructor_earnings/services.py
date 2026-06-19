@@ -237,6 +237,7 @@ def update_earnings_available():
                 status=InstructorEarning.StatusChoices.PENDING,
                 payment__isnull=True,
                 user_subscription__isnull=False,
+                user_subscription__payment__payment_status=Payment.PaymentStatus.COMPLETED,
                 earning_date__lt=sub_settle_time,
             ).select_for_update()
 
@@ -256,57 +257,124 @@ def update_earnings_available():
 
 
 
+def _month_bounds(year: int, month: int):
+    """Tra (month_start, next_month_start) o UTC, can tren EXCLUSIVE.
+
+    Dung can tren exclusive de tranh bug bo sot event luc 23:59:59.x cuoi thang.
+    """
+    month_start = timezone.datetime(year, month, 1, tzinfo=dt_timezone.utc)
+    if month == 12:
+        next_month_start = timezone.datetime(year + 1, 1, 1, tzinfo=dt_timezone.utc)
+    else:
+        next_month_start = timezone.datetime(year, month + 1, 1, tzinfo=dt_timezone.utc)
+    return month_start, next_month_start
+
+
+def _subscription_month_pool(sub, month_start, next_month_start):
+    """Phan doanh thu cua subscription duoc ghi nhan cho thang [month_start, next_month_start).
+
+    Pro-rate theo thoi luong ky active roi vao thang. Dung ky thuat lam tron luy ke
+    (cumulative rounding) de tong cac thang = dung effective_price, khong lech xu.
+
+    Lifetime (end_date=None): ghi nhan tron gia 1 lan, o thang dau tien co usage.
+    """
+    price = sub.plan.effective_price
+    period_start = sub.start_date
+
+    if sub.end_date is None:
+        already_recognized = InstructorEarning.objects.filter(
+            user_subscription=sub,
+            is_deleted=False,
+            earning_period_start__lt=month_start.date(),
+        ).exists()
+        return Decimal('0.00') if already_recognized else price.quantize(Decimal('0.01'))
+
+    period_end = sub.end_date
+    total_seconds = int((period_end - period_start).total_seconds())
+    if total_seconds <= 0:
+        return Decimal('0.00')
+
+    def cumulative(boundary):
+        """Doanh thu luy ke da ghi nhan tu period_start den min(period_end, boundary)."""
+        end = min(period_end, boundary)
+        secs = int((end - period_start).total_seconds())
+        if secs <= 0:
+            return Decimal('0.00')
+        if secs >= total_seconds:
+            return price.quantize(Decimal('0.01'))
+        return (price * Decimal(secs) / Decimal(total_seconds)).quantize(Decimal('0.01'))
+
+    return cumulative(next_month_start) - cumulative(month_start)
+
+
 def calculate_subscription_earnings_for_month(year: int, month: int):
-    import calendar
     from collections import defaultdict
     from subscription_plans.models import UserSubscription, SubscriptionUsageEvent
 
-    first_day = timezone.datetime(year, month, 1, tzinfo=dt_timezone.utc)
-    last_day = timezone.datetime(
-        year, month, calendar.monthrange(year, month)[1],
-        23, 59, 59, tzinfo=dt_timezone.utc
-    )
+    month_start, next_month_start = _month_bounds(year, month)
 
+    # Chi tinh cho thang da ket thuc: usage da chot, so tien on dinh, recompute idempotent.
+    if next_month_start > timezone.now():
+        return {
+            'year': year,
+            'month': month,
+            'subscriptions_processed': 0,
+            'earnings_created': 0,
+            'earnings_updated': 0,
+            'skipped_reason': 'month_not_ended',
+            'detail': [],
+        }
+
+    # Subscription active trong thang = ky [start_date, end_date] giao voi thang,
+    # va da thanh toan thanh cong (loai refund/chua hoan tat).
     subscriptions = UserSubscription.objects.filter(
-        start_date__gte=first_day,
-        start_date__lte=last_day,
-        payment__isnull=False,
         is_deleted=False,
+        payment__isnull=False,
+        payment__payment_status=Payment.PaymentStatus.COMPLETED,
+        start_date__lt=next_month_start,
+    ).filter(
+        Q(end_date__isnull=True) | Q(end_date__gte=month_start)
     ).select_related('plan', 'payment')
 
+    period_end_date = (next_month_start - timedelta(days=1)).date()
     created_earnings = []
     updated_earnings = []
+    processed = 0
 
     with transaction.atomic():
         for sub in subscriptions:
-            plan_revenue = sub.plan.effective_price
+            processed += 1
+            month_pool = _subscription_month_pool(sub, month_start, next_month_start)
+            if month_pool <= 0:
+                continue
 
             events = list(SubscriptionUsageEvent.objects.filter(
                 user_subscription=sub,
-                occurred_at__gte=first_day,
-                occurred_at__lte=last_day,
+                occurred_at__gte=month_start,
+                occurred_at__lt=next_month_start,
                 delta_seconds__gt=0,
+                instructor_id__isnull=False,
+                course_id__isnull=False,
             ))
 
             if not events:
                 continue
 
             total_seconds = sum(e.delta_seconds for e in events)
-            if total_seconds == 0:
+            if total_seconds <= 0:
                 continue
 
             groups = defaultdict(list)
             for event in events:
-                if event.instructor_id and event.course_id:
-                    groups[(event.course_id, event.instructor_id)].append(event)
+                groups[(event.course_id, event.instructor_id)].append(event)
 
             for (course_id, instructor_id), group_events in groups.items():
                 group_seconds = sum(e.delta_seconds for e in group_events)
 
-                gross_allocated = (plan_revenue * Decimal(group_seconds) / Decimal(total_seconds)).quantize(Decimal('0.01'))
+                gross_allocated = (month_pool * Decimal(group_seconds) / Decimal(total_seconds)).quantize(Decimal('0.01'))
 
                 net_amount = sum(
-                    plan_revenue * Decimal(e.delta_seconds) / Decimal(total_seconds)
+                    month_pool * Decimal(e.delta_seconds) / Decimal(total_seconds)
                     * e.instructor_share_rate_snapshot / Decimal('100')
                     for e in group_events
                 ).quantize(Decimal('0.01'))
@@ -330,7 +398,7 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
                     user_subscription=sub,
                     course_id=course_id,
                     instructor_id=instructor_id,
-                    earning_period_start=first_day.date(),
+                    earning_period_start=month_start.date(),
                     defaults={
                         'payment': None,
                         'amount': gross_allocated,
@@ -341,15 +409,13 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
                         'instructor_level_name_snapshot': level_name_snapshot,
                         'usage_share_rate': usage_share_rate,
                         'usage_seconds': group_seconds,
-                        'earning_period_end': last_day.date(),
+                        'earning_period_end': period_end_date,
                         'status': InstructorEarning.StatusChoices.PENDING,
                     }
                 )
 
-                if not created and earning.status in [
-                    InstructorEarning.StatusChoices.PENDING,
-                    InstructorEarning.StatusChoices.AVAILABLE,
-                ]:
+                # Chi cap nhat khi con PENDING: khong dong vao earning da AVAILABLE/PAID/CANCELLED.
+                if not created and earning.status == InstructorEarning.StatusChoices.PENDING:
                     earning.amount = gross_allocated
                     earning.net_amount = net_amount
                     earning.platform_commission_rate = weighted_platform_rate
@@ -358,7 +424,7 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
                     earning.instructor_level_name_snapshot = level_name_snapshot
                     earning.usage_share_rate = usage_share_rate
                     earning.usage_seconds = group_seconds
-                    earning.earning_period_end = last_day.date()
+                    earning.earning_period_end = period_end_date
                     earning.save()
                     updated_earnings.append(earning.id)
 
@@ -368,6 +434,7 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
                         'course_id': course_id,
                         'instructor_id': instructor_id,
                         'subscription_id': sub.id,
+                        'month_pool': str(month_pool),
                         'gross_allocated': str(gross_allocated),
                         'net_amount': str(net_amount),
                         'usage_seconds': group_seconds,
@@ -378,7 +445,7 @@ def calculate_subscription_earnings_for_month(year: int, month: int):
     return {
         'year': year,
         'month': month,
-        'subscriptions_processed': subscriptions.count(),
+        'subscriptions_processed': processed,
         'earnings_created': len(created_earnings),
         'earnings_updated': len(updated_earnings),
         'detail': created_earnings,
@@ -517,28 +584,41 @@ def get_instructor_earnings_by_month(instructor_id, months=12):
         else:
             month_end = datetime(year, month + 1, 1, tzinfo=dt_timezone.utc)
 
-        qs = InstructorEarning.objects.filter(
+        # Retail: gom theo earning_date (thoi diem phat sinh).
+        retail_agg = InstructorEarning.objects.filter(
             instructor_id=instructor_id,
             is_deleted=False,
+            payment__isnull=False,
             earning_date__gte=first_day,
             earning_date__lt=month_end,
+        ).aggregate(
+            retail_amount=Sum('amount'),
+            retail_net=Sum('net_amount'),
         )
-        agg = qs.aggregate(
-            retail_amount=Sum('amount', filter=Q(payment__isnull=False)),
-            retail_net=Sum('net_amount', filter=Q(payment__isnull=False)),
-            sub_amount=Sum('amount', filter=Q(user_subscription__isnull=False)),
-            sub_net=Sum('net_amount', filter=Q(user_subscription__isnull=False)),
-            sub_usage_seconds=Sum('usage_seconds', filter=Q(user_subscription__isnull=False)),
+
+        # Subscription: gom theo earning_period_start (thang doanh thu thuc su thuoc ve),
+        # vi earning_date la thoi diem cron chay (thang sau) nen se lech thang neu dung no.
+        sub_agg = InstructorEarning.objects.filter(
+            instructor_id=instructor_id,
+            is_deleted=False,
+            user_subscription__isnull=False,
+            earning_period_start__gte=first_day.date(),
+            earning_period_start__lt=month_end.date(),
+        ).aggregate(
+            sub_amount=Sum('amount'),
+            sub_net=Sum('net_amount'),
+            sub_usage_seconds=Sum('usage_seconds'),
         )
-        retail_net = agg['retail_net'] or Decimal('0')
-        sub_net = agg['sub_net'] or Decimal('0')
+
+        retail_net = retail_agg['retail_net'] or Decimal('0')
+        sub_net = sub_agg['sub_net'] or Decimal('0')
         result.append({
             'date': first_day.strftime('%Y-%m'),
-            'retail_gross': float(agg['retail_amount'] or 0),
+            'retail_gross': float(retail_agg['retail_amount'] or 0),
             'retail_net': float(retail_net),
-            'sub_gross': float(agg['sub_amount'] or 0),
+            'sub_gross': float(sub_agg['sub_amount'] or 0),
             'sub_net': float(sub_net),
-            'sub_usage_seconds': agg['sub_usage_seconds'] or 0,
+            'sub_usage_seconds': sub_agg['sub_usage_seconds'] or 0,
             'total_net': float(retail_net + sub_net),
         })
 

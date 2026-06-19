@@ -581,6 +581,15 @@ def moderate_course(course_id, action, reason='', actor=None,
 
     # Vi phạm bản quyền: tái dùng pipeline case (tạo case do admin chủ động nếu
     # chưa có report nào), để hold/refund/strike chạy thống nhất ở mọi nơi.
+    if action == 'release_holds':
+        from reports.copyright_services import release_course_holds
+        try:
+            course = Course.objects.get(id=course_id, is_deleted=False)
+        except Course.DoesNotExist:
+            raise NotFound("Course not found.")
+        release_course_holds(course_id, actor, reason)
+        return course
+
     if action in COURSE_VIOLATION_ACTIONS:
         from reports.copyright_services import get_or_create_admin_case, admin_action
         case = get_or_create_admin_case(course_id, actor)
@@ -613,7 +622,7 @@ def moderate_course(course_id, action, reason='', actor=None,
     else:
         raise ValidationError({
             'error': 'Invalid action. Use: approve, reject, archive, dismiss, '
-                     'suspend_sale, freeze, takedown, restore'
+                     'suspend_sale, freeze, takedown, restore, release_holds'
         })
 
     course.save()

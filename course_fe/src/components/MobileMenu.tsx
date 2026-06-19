@@ -72,8 +72,8 @@ export function MobileMenu() {
 
   const handleLogout = () => {
     logout()
-    navigate('/')
     setOpen(false)
+    window.location.href = '/login'
   }
 
   return (

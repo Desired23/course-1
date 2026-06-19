@@ -38,6 +38,8 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 from .momo_services import create_momo_payment, momo_ipn, momo_payment_return
+from .finalization_services import finalize_local_payment_callback
+from .local_gateway import is_local_payment_mode
 from .return_url import (
     store_payment_return_url,
     validate_and_normalize_return_url,
@@ -52,6 +54,11 @@ class CreateVnpayPaymentView(APIView):
 
     def post(self, request):
         try:
+            order_id = request.data.get("order_id") or request.data.get("payment_id")
+            return_url = request.data.get("return_url")
+            if order_id and return_url:
+                normalized_return_url = validate_and_normalize_return_url(return_url)
+                store_payment_return_url(order_id, normalized_return_url)
             return create_vnpay_payment(request)
         except ValidationError as e:
             return Response({"message": e.detail if isinstance(e.detail, str) else str(e.detail), "errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
@@ -219,6 +226,28 @@ class CancelPaymentView(APIView):
         except Exception:
             logger.exception("CancelPayment error")
             return Response({"message": "Không thể hủy giao dịch. Vui lòng thử lại."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class LocalPaymentCallbackView(APIView):
+    permission_classes = [RolePermissionFactory(['admin', 'instructor', 'student'])]
+    throttle_scope = 'payment'
+
+    def post(self, request):
+        if not is_local_payment_mode():
+            return Response({"message": "Local payment callback is disabled."}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            payment = finalize_local_payment_callback(request.user, request.data)
+            return Response({
+                "payment_id": payment.id,
+                "payment_status": payment.payment_status,
+                "transaction_id": payment.transaction_id,
+                "gateway_response": payment.gateway_response,
+            }, status=status.HTTP_200_OK)
+        except (ValidationError, PermissionDenied):
+            raise
+        except Exception:
+            logger.exception("LocalPaymentCallback error")
+            return Response({"message": "Khong the cap nhat ket qua thanh toan local."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class RefundDetailView(APIView):

@@ -103,12 +103,13 @@ export interface AdminPayment {
 
 
 
-export async function getAdminPayments(problematic = false): Promise<AdminPayment[]> {
+export async function getAdminPayments(problematic = false, reloadKey?: number): Promise<AdminPayment[]> {
   const all: AdminPayment[] = []
   let page = 1
   while (true) {
     const params: any = { page, page_size: 100 }
     if (problematic) params.problematic = true
+    if (reloadKey) params._reload = reloadKey
     const res = await http.get<any>('/payments/', params)
     if (Array.isArray(res)) return res
     if (isPaginatedListResponse<AdminPayment>(res)) {
@@ -328,6 +329,8 @@ export interface EarningPayoutInstructorRow {
   subscription_earnings: number
   pending_earnings: number
   available_earnings: number
+  active_hold_earnings: number
+  active_hold_count: number
   paid_earnings: number
   payout_requested: number
   payout_processed: number
@@ -342,7 +345,6 @@ export interface EarningPayoutInstructorRow {
   payout_processed_count: number
   payable_earnings: number
   unpaid_balance: number
-  settlement_gap: number
 }
 
 export interface EarningPayoutMetrics {
@@ -352,6 +354,8 @@ export interface EarningPayoutMetrics {
   subscription_earnings: number
   pending_earnings: number
   available_earnings: number
+  active_hold_earnings: number
+  active_hold_count: number
   payable_earnings: number
   paid_earnings: number
   cancelled_earnings: number
@@ -451,10 +455,11 @@ export async function getAdminTopCoursesByRevenue(limit = 10, dateFrom?: string,
   })
 }
 
-export async function getAdminRevenueByCourse(limit = 50, dateFrom?: string, dateTo?: string): Promise<CourseRevenueDetailRow[]> {
+export async function getAdminRevenueByCourse(limit = 50, dateFrom?: string, dateTo?: string, reloadKey?: number): Promise<CourseRevenueDetailRow[]> {
   return http.get<CourseRevenueDetailRow[]>('/admin/analytics/revenue-by-course/', {
     limit,
     ...rangeParams(dateFrom, dateTo),
+    ...(reloadKey ? { _reload: reloadKey } : {}),
   })
 }
 
@@ -465,10 +470,11 @@ export async function getAdminRevenueByCategory(limit = 20, dateFrom?: string, d
   })
 }
 
-export async function getAdminRevenueByInstructor(limit = 20, dateFrom?: string, dateTo?: string): Promise<InstructorRevenueRow[]> {
+export async function getAdminRevenueByInstructor(limit = 20, dateFrom?: string, dateTo?: string, reloadKey?: number): Promise<InstructorRevenueRow[]> {
   return http.get<InstructorRevenueRow[]>('/admin/analytics/revenue-by-instructor/', {
     limit,
     ...rangeParams(dateFrom, dateTo),
+    ...(reloadKey ? { _reload: reloadKey } : {}),
   })
 }
 
@@ -476,10 +482,11 @@ export async function getAdminSubscriptionMetrics(dateFrom?: string, dateTo?: st
   return http.get<SubscriptionMetrics>('/admin/analytics/subscription-metrics/', rangeParams(dateFrom, dateTo))
 }
 
-export async function getAdminEarningPayoutMetrics(limit = 100, dateFrom?: string, dateTo?: string): Promise<EarningPayoutMetrics> {
+export async function getAdminEarningPayoutMetrics(limit = 100, dateFrom?: string, dateTo?: string, reloadKey?: number): Promise<EarningPayoutMetrics> {
   return http.get<EarningPayoutMetrics>('/admin/analytics/earning-payout/', {
     limit,
     ...rangeParams(dateFrom, dateTo),
+    ...(reloadKey ? { _reload: reloadKey } : {}),
   })
 }
 

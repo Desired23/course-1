@@ -50,6 +50,7 @@ import type { AdminRefundItem } from '../../services/payment.api'
 import { useTranslation } from 'react-i18next'
 import { useRouter } from '../../components/Router'
 import { UserPagination } from '../../components/UserPagination'
+import { useNotificationRefetch } from '../../hooks/useNotificationRefetch'
 
 
 
@@ -109,6 +110,15 @@ interface RefundRequest {
 
 
 const ITEMS_PER_PAGE = 10
+const PAYMENT_MANAGEMENT_REFRESH_CODES = [
+  'payment_completed',
+  'payment_failed',
+  'payment_cancelled',
+  'refund_requested',
+  'refund_processed',
+  'refund_failed',
+  'refund_rejected',
+]
 
 function getPaymentManagementRouteTab(route: string): 'payments' | 'refunds' {
   const [path, search = ''] = route.split('?')
@@ -262,7 +272,7 @@ export function PaymentManagementPage() {
         toast.success(t('payment_management.refund_request_sent'))
       }
       setAdminRefundPayment(null)
-      await loadRefundQueue()
+      await refreshPaymentManagementData()
       setActiveTab('refunds')
     } catch (err: any) {
       toast.error(err?.message || t('payment_management.refund_create_failed'))
@@ -277,6 +287,20 @@ export function PaymentManagementPage() {
     setRefundRequests(mappedRefunds)
     setFilteredRefundRequests(mappedRefunds.filter((refund) => !refund.is_deleted))
   }
+
+  const refreshPaymentManagementData = useCallback(async () => {
+    const [p] = await Promise.all([
+      getAdminPayments(),
+      loadRefundQueue(),
+    ])
+    setPayments(p)
+    setFilteredPayments(p)
+  }, [])
+
+  useNotificationRefetch(
+    PAYMENT_MANAGEMENT_REFRESH_CODES,
+    () => { refreshPaymentManagementData().catch(() => {}) },
+  )
 
   useEffect(() => {
     const loadData = async () => {
@@ -487,7 +511,7 @@ export function PaymentManagementPage() {
         override_status: options?.override_status,
       })
       mergeRefundUpdates(result.updated_items)
-      await loadRefundQueue()
+      await refreshPaymentManagementData()
       if (result.errors?.length) {
         toast.error(result.errors[0].message || t('payment_management.refund_action_failed'))
         return
@@ -880,6 +904,19 @@ export function PaymentManagementPage() {
                               try {
                                 const detail = await getPaymentStatus(payment.payment_id)
                                 setSelectedPayment(detail)
+                                const syncPaymentRow = (row: AdminPayment): AdminPayment => (
+                                  row.payment_id === payment.payment_id
+                                    ? {
+                                        ...row,
+                                        payment_status: detail.payment_status,
+                                        payment_gateway: detail.payment_gateway,
+                                        gateway_response: detail.gateway_response,
+                                        transaction_id: detail.transaction_id,
+                                      }
+                                    : row
+                                )
+                                setPayments(prev => prev.map(syncPaymentRow))
+                                setFilteredPayments(prev => prev.map(syncPaymentRow))
                               } catch (err) {
                                 toast.error(t('payment_management.payments.detail_failed'))
                               }
@@ -1500,7 +1537,25 @@ export function PaymentManagementPage() {
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
                 Giao dịch #{adminRefundPayment.id} — {adminRefundPayment.courses.length} khóa học
-                {adminRefundPayment.courses.every(c => c.refund_eligible === false) && (
+                {adminRefundPayment.courses.every(c => c.refund_eligible === false) && (() => {
+                  const statuses = new Set(adminRefundPayment.courses.map(c => c.refund_status).filter(Boolean))
+                  let summary = 'Cac khoa hoc dang co yeu cau hoan tien'
+                  if (statuses.size === 1 && statuses.has('success')) {
+                    summary = 'Tat ca khoa hoc da duoc hoan tien'
+                  } else if (statuses.has('processing')) {
+                    summary = 'Yeu cau hoan tien dang duoc xu ly'
+                  } else if (statuses.has('pending') || statuses.has('approved')) {
+                    summary = 'Yeu cau hoan tien dang cho xu ly'
+                  } else if (statuses.has('failed')) {
+                    summary = 'Yeu cau hoan tien truoc do that bai'
+                  } else if (statuses.has('rejected')) {
+                    summary = 'Yeu cau hoan tien da bi tu choi'
+                  } else if (statuses.has('cancelled')) {
+                    summary = 'Yeu cau hoan tien da bi huy'
+                  }
+                  return <span className="ml-2 text-amber-600 font-medium">- {summary}</span>
+                })()}
+                {false && adminRefundPayment.courses.every(c => c.refund_eligible === false) && (
                   <span className="ml-2 text-amber-600 font-medium">— Tất cả khóa học đã được hoàn tiền</span>
                 )}
               </div>

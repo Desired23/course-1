@@ -22,7 +22,12 @@ registerCacheClearer(() => {
   _cache = null
 })
 
-export function useOwnedCourses() {
+interface UseOwnedCoursesOptions {
+  enabled?: boolean
+}
+
+export function useOwnedCourses(options: UseOwnedCoursesOptions = {}) {
+  const enabled = options.enabled ?? true
   const { user, isAuthenticated } = useAuth()
   const [ownedIds, setOwnedIds] = useState<Set<number>>(new Set())
   const [enrolledIds, setEnrolledIds] = useState<Set<number>>(new Set())
@@ -31,6 +36,11 @@ export function useOwnedCourses() {
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
+
     if (!isAuthenticated || !user?.id) {
       setOwnedIds(new Set())
       setEnrolledIds(new Set())
@@ -89,7 +99,7 @@ export function useOwnedCourses() {
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated, user?.id])
+  }, [enabled, isAuthenticated, user?.id])
 
   useEffect(() => {
     load()
@@ -113,8 +123,8 @@ export function useOwnedCourses() {
 
   const refresh = useCallback(() => {
     _cache = null
-    load()
-  }, [load])
+    if (enabled) load()
+  }, [enabled, load])
 
   return useMemo(() => ({
     ownedIds,

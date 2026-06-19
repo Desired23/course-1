@@ -8,6 +8,7 @@ $frontendEnvLocalFile = Join-Path $frontendDir ".env.local"
 $venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
 $ngrokExe = Join-Path $repoRoot "ngrok.exe"
 $frontendUrl = "http://localhost:3000"
+$localBackendUrl = "http://127.0.0.1:8080"
 $ngrokApi = "http://127.0.0.1:4040/api/tunnels"
 $ngrokLogFile = Join-Path $env:TEMP "course-1-ngrok.log"
 $ngrokErrFile = Join-Path $env:TEMP "course-1-ngrok.err.log"
@@ -160,9 +161,9 @@ Import-EnvFile -FilePath $backendEnvFile -ExcludedKeys @(
 
 $publicUrl = Get-NgrokPublicUrl
 if (-not $publicUrl) {
-    Write-Host "Starting ngrok on :8000..."
+    Write-Host "Starting ngrok on :8080..."
     Remove-Item $ngrokLogFile, $ngrokErrFile -ErrorAction SilentlyContinue
-    Start-Process -FilePath $ngrokExe -ArgumentList "http", "8000", "--log=stdout" -WindowStyle Hidden -RedirectStandardOutput $ngrokLogFile -RedirectStandardError $ngrokErrFile
+    Start-Process -FilePath $ngrokExe -ArgumentList "http", "127.0.0.1:8080", "--log=stdout" -WindowStyle Hidden -RedirectStandardOutput $ngrokLogFile -RedirectStandardError $ngrokErrFile
 
     $deadline = (Get-Date).AddSeconds(15)
     do {
@@ -190,7 +191,7 @@ $env:PYTHONUTF8 = "1"
 
 if (Test-Path $frontendDir) {
     Set-EnvFileValues -FilePath $frontendEnvLocalFile -Values @{
-        "VITE_API_BASE_URL" = "$publicUrl/api"
+        "VITE_API_BASE_URL" = "$localBackendUrl/api"
     }
 }
 
@@ -201,8 +202,9 @@ if ($geminiKeyLength -eq 0 -and $env:LEARNING_PATH_FORCE_GEMINI -eq "True") {
 
 Write-Host ""
 Write-Host "Backend tunnel ready"
-Write-Host "  Local:   http://127.0.0.1:8000"
-Write-Host "  API:     $publicUrl/api"
+Write-Host "  Local:   $localBackendUrl"
+Write-Host "  FE API:  $localBackendUrl/api"
+Write-Host "  Public:  $publicUrl/api"
 Write-Host "  Ngrok:   $publicUrl"
 Write-Host "  MoMo IPN:      $env:MOMO_IPN_URL"
 Write-Host "  MoMo Redirect: $env:MOMO_REDIRECT_URL"
@@ -227,7 +229,7 @@ if (Test-Path $venvPython) {
 
     if ($venvReady) {
         Write-Host "Python: .venv"
-        & $venvPython manage.py runserver
+        & $venvPython manage.py runserver 127.0.0.1:8080 --noreload
         exit $LASTEXITCODE
     }
 
@@ -244,4 +246,5 @@ if (-not (Test-Path $venvPython)) {
     Write-Host "Python: system"
 }
 
-python manage.py runserver
+# Yêu cầu daphne/runserver lắng nghe trên mọi adapter mạng cục bộ (IPv4)
+python manage.py runserver 127.0.0.1:8080 --noreload

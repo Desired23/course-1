@@ -1,4 +1,5 @@
 from django.urls import path
+from .cron_view import expire_suspend_view, notify_expiry_view, process_removals_view
 from .views import (
     SubscriptionPlanPublicView,
     PlanCoursesPublicView,
@@ -35,6 +36,10 @@ urlpatterns = [
     path('subscriptions/admin/<int:subscription_id>/cancel/', AdminCancelSubscriptionView.as_view(), name='admin-cancel-subscription'),
     path('subscription-plans/admin/<int:plan_id>/candidates/', PlanCandidateSuggestionView.as_view(), name='plan-candidate-suggestions'),
     path('subscription-plans/admin/expire/', ExpireSubscriptionsView.as_view(), name='expire-subscriptions'),
+
+    path('subscriptions/cron/expire-suspend/', expire_suspend_view, name='sub-cron-expire-suspend'),
+    path('subscriptions/cron/notify-expiry/', notify_expiry_view, name='sub-cron-notify-expiry'),
+    path('subscriptions/cron/process-removals/', process_removals_view, name='sub-cron-process-removals'),
 
 
     path('subscriptions/admin/notify-expiry/', SendExpiryNotificationsView.as_view(), name='sub-notify-expiry'),

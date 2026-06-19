@@ -1,4 +1,5 @@
 from django.urls import path
+from .cron_view import reconcile_payments_view, alert_ipn_failures_view
 from .views import (
     CreateVnpayPaymentView, VnpayPaymentReturnView, RefundDetailView,
     CreatePaymentRecordView, VnpayIPNView, PaymentStatusView, CancelPaymentView,
@@ -6,10 +7,13 @@ from .views import (
     UserPaymentListView, AdminPaymentFixView, AdminPaymentListView, AdminPaymentConfigView,
     AdminRefundActionView, AdminCreateRefundView,
     CreateMomoPaymentView, MomoIPNView, MomoPaymentReturnView,
-    AdminPaymentExportView,
+    AdminPaymentExportView, LocalPaymentCallbackView,
 )
 
 urlpatterns = [
+    path('payments/cron/reconcile/', reconcile_payments_view, name='payments-cron-reconcile'),
+    path('payments/cron/alert-ipn/', alert_ipn_failures_view, name='payments-cron-alert-ipn'),
+
     path('vnpay/create/', CreateVnpayPaymentView.as_view(), name='vnpay-create'),
     path('vnpay/ipn/', VnpayIPNView.as_view(), name='vnpay-ipn'),
     path('vnpay/payment-return/', VnpayPaymentReturnView.as_view(), name='vnpay-payment-return'),
@@ -18,6 +22,7 @@ urlpatterns = [
     path('momo/payment-return/', MomoPaymentReturnView.as_view(), name='momo-payment-return'),
     path('payment/create/', CreatePaymentRecordView.as_view(), name='payment-create'),
     path('payment/cancel/', CancelPaymentView.as_view(), name='payment-cancel'),
+    path('payments/local-callback/', LocalPaymentCallbackView.as_view(), name='payment-local-callback'),
     path('payments/status/<int:payment_id>/', PaymentStatusView.as_view(), name='payment-status'),
     path('payments/', AdminPaymentListView.as_view(), name='payment-list'),
     path('payments/export/', AdminPaymentExportView.as_view(), name='payment-export'),

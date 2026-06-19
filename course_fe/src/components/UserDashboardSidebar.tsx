@@ -65,7 +65,7 @@ export function UserDashboardSidebar({ className }: UserDashboardSidebarProps) {
   const handleLogout = () => {
     setSidebarOpen(false)
     logout()
-    navigate('/login')
+    window.location.href = '/login'
   }
 
   return (

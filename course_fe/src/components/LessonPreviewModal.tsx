@@ -3,8 +3,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
   DialogTitle,
   Tabs,
   TabsContent,
@@ -16,34 +14,22 @@ import {
   Smartphone,
   Tablet,
   X,
-  Eye,
   Lock,
-  Play,
-  Check,
-  XCircle,
-  Code2,
   BookOpen,
   Loader2,
-  ChevronUp,
-  ChevronDown,
-  Terminal,
   MessageSquare,
-  Send,
   User,
-  ThumbsUp,
-  CornerDownRight,
-  MoreVertical,
-  Reply
 } from 'lucide-react'
 import { VideoPlayerPreview } from './VideoPlayerPreview'
-import { QuizPreview } from './QuizPreview'
+import { QuizPlayer, type Quiz, type QuizQuestion } from './QuizPlayer'
 import { cn } from './AntdCompat'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { CommentItem } from './CommentItem'
 import { useTranslation } from 'react-i18next'
 import { getLessonComments, getAllReplies, createLessonComment, formatCommentDate } from '../services/lesson-comments.api'
 import { useAuthStore } from '../stores/auth.store'
-import { runTestCases, wrapUserCode } from '../utils/judge0'
+import { getLessonQuiz } from '../services/quiz-questions.api'
+import { mapLessonQuizQuestion } from '../lib/quizMapping'
 
 interface Lesson {
   id: number
@@ -69,6 +55,127 @@ interface LessonPreviewModalProps {
 type DeviceType = 'desktop' | 'tablet' | 'mobile'
 type ViewMode = 'free' | 'enrolled'
 
+function stringifyStarterCode(starterCode: unknown): string | undefined {
+  if (!starterCode) return undefined
+  if (typeof starterCode === 'string') return starterCode
+  try {
+    return JSON.stringify(starterCode)
+  } catch {
+    return undefined
+  }
+}
+
+function buildCodePreviewQuiz(lesson: Lesson, quizData: any): Quiz | null {
+  if (!quizData) return null
+
+  const description = quizData.problemStatement?.description || quizData.description || lesson.description || ''
+  const questionTitle = quizData.title || lesson.title
+  const allowedLanguages = Array.isArray(quizData.allowedLanguages) && quizData.allowedLanguages.length > 0
+    ? quizData.allowedLanguages
+    : [63]
+
+  return {
+    id: lesson.id,
+    title: questionTitle,
+    description,
+    passingScore: quizData.passingScore || 70,
+    timeLimit: quizData.timeLimit ? Math.ceil(Number(quizData.timeLimit) / 60) : undefined,
+    questions: [{
+      id: lesson.id,
+      question: questionTitle,
+      type: 'code',
+      points: quizData.points || 100,
+      requireCompletion: false,
+      codeQuestion: {
+        id: lesson.id,
+        question: questionTitle,
+        description,
+        type: 'code',
+        allowedLanguages,
+        starterCode: stringifyStarterCode(quizData.starterCode),
+        functionName: quizData.functionName || undefined,
+        executionMode: quizData.executionMode || (quizData.functionName ? 'function' : 'stdin'),
+        timeLimit: quizData.timeLimit || undefined,
+        memoryLimit: quizData.memoryLimit || undefined,
+        difficulty: quizData.learningObjectives?.difficulty || 'medium',
+        points: quizData.points || 100,
+        hints: Array.isArray(quizData.hints)
+          ? quizData.hints.map((hint: any) => typeof hint === 'string' ? hint : hint?.content).filter(Boolean)
+          : undefined,
+        testCases: (quizData.testCases || []).map((testCase: any, index: number) => ({
+          id: testCase.id || index + 1,
+          input: testCase.input ?? testCase.input_data ?? '',
+          expectedOutput: testCase.expectedOutput ?? testCase.expected_output ?? '',
+          isHidden: Boolean(testCase.isHidden ?? testCase.is_hidden),
+          points: testCase.points,
+        })),
+      },
+    }],
+  }
+}
+
+function buildLocalQuizPreview(lesson: Lesson, contentType: string): Quiz | null {
+  const quizData = (lesson as any).quizData
+  if (!quizData) return null
+  if (contentType === 'code') return buildCodePreviewQuiz(lesson, quizData)
+
+  const questions: QuizQuestion[] = Array.isArray(quizData.questions)
+    ? quizData.questions.map((question: any, index: number): QuizQuestion => {
+        if (question.type === 'code') {
+          const codeQuiz = buildCodePreviewQuiz(lesson, {
+            title: question.question || quizData.title || lesson.title,
+            description: question.explanation || quizData.description,
+            starterCode: question.codeStarter,
+            functionName: question.functionName,
+            allowedLanguages: question.allowedLanguages,
+            timeLimit: question.timeLimit,
+            memoryLimit: question.memoryLimit,
+            points: question.points,
+            testCases: question.testCases,
+          })
+          return codeQuiz?.questions[0] || {
+            id: question.id || index + 1,
+            question: question.question || '',
+            type: 'single',
+            options: [],
+            correctAnswer: 0,
+          }
+        }
+
+        if (question.type === 'true-false') {
+          return {
+            id: question.id || index + 1,
+            question: question.question || '',
+            type: 'single',
+            options: ['True', 'False'],
+            correctAnswer: String(question.correctAnswer).toLowerCase() === 'false' ? 1 : 0,
+            explanation: question.explanation || undefined,
+            points: question.points,
+          }
+        }
+
+        return {
+          id: question.id || index + 1,
+          question: question.question || '',
+          type: 'single',
+          options: Array.isArray(question.options) ? question.options : [],
+          correctAnswer: Number(question.correctAnswer) || 0,
+          explanation: question.explanation || undefined,
+          points: question.points,
+        }
+      })
+    : []
+
+  return {
+    id: lesson.id,
+    title: quizData.title || lesson.title,
+    description: quizData.description || lesson.description || undefined,
+    passingScore: quizData.passingScore || 70,
+    timeLimit: quizData.timeLimit || undefined,
+    questions,
+  }
+}
+
 export function LessonPreviewModal({
   open,
   onOpenChange,
@@ -79,11 +186,8 @@ export function LessonPreviewModal({
   const currentUser = useAuthStore(s => s.user)
   const [device, setDevice] = useState<DeviceType>('desktop')
   const [viewMode, setViewMode] = useState<ViewMode>('enrolled')
-  const [activeTab, setActiveTab] = useState<'problem' | 'code'>('problem')
-  const [isRunning, setIsRunning] = useState(false)
-  const [consoleOpen, setConsoleOpen] = useState(false)
-  const [consoleOutput, setConsoleOutput] = useState<any>(null)
-  const codeRef = useRef('')
+  const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null)
+  const [previewQuizLoading, setPreviewQuizLoading] = useState(false)
 
   const [comments, setComments] = useState<any[]>([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
@@ -125,90 +229,54 @@ export function LessonPreviewModal({
   }, [open, lesson?.id, commentsRefreshKey])
 
 
-  useEffect(() => {
-    if (lesson) {
-      const quizData = (lesson as any).quizData || {}
-      const initialCode =
-        quizData.starterCode?.[63] ||
-        quizData.starterCode?.['javascript'] ||
-        t('lesson_preview_modal.write_code_here')
-      codeRef.current = initialCode
-    }
-  }, [lesson, t])
-
   const contentType = lesson.content_type || lesson.type
-  const quizQuestions = Array.isArray((lesson as any)?.quizData?.questions)
-    ? (lesson as any).quizData.questions
-    : []
 
-  const previewQuizQuestions = quizQuestions.map((q: any, index: number) => {
-    const options = Array.isArray(q.options) ? q.options : []
-    if (q.type === 'multiple-choice') {
-      return {
-        id: q.id || index + 1,
-        question: q.question || '',
-        type: 'single' as const,
-        options,
-        correctAnswer: Number(q.correctAnswer),
-        explanation: q.explanation || '',
-      }
+  useEffect(() => {
+    if (!open || !lesson?.id || !['quiz', 'code'].includes(contentType)) {
+      setPreviewQuiz(null)
+      setPreviewQuizLoading(false)
+      return
     }
-    if (q.type === 'true-false') {
-      return {
-        id: q.id || index + 1,
-        question: q.question || '',
-        type: 'single' as const,
-        options: ['True', 'False'],
-        correctAnswer: String(q.correctAnswer).toLowerCase() === 'false' ? 1 : 0,
-        explanation: q.explanation || '',
-      }
+
+    const localPreview = buildLocalQuizPreview(lesson, contentType)
+    if (localPreview?.questions.length) {
+      setPreviewQuiz(localPreview)
+      setPreviewQuizLoading(false)
+      return
     }
-    return {
-      id: q.id || index + 1,
-      question: q.question || '',
-      type: 'text' as const,
-      options: [],
-      correctAnswer: q.correctAnswer || '',
-      explanation: q.explanation || '',
+
+    let cancelled = false
+    setPreviewQuiz(null)
+    setPreviewQuizLoading(true)
+
+    getLessonQuiz(lesson.id)
+      .then((quiz) => {
+        if (cancelled) return
+        setPreviewQuiz({
+          id: quiz.quiz_id,
+          title: quiz.title || lesson.title,
+          description: quiz.description,
+          passingScore: quiz.passing_score,
+          timeLimit: quiz.time_limit ? Math.ceil(quiz.time_limit / 60) : undefined,
+          questions: quiz.questions.map(mapLessonQuizQuestion),
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewQuiz(localPreview)
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewQuizLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
-  })
+  }, [open, lesson, lesson?.id, lesson?.title, contentType])
 
   const deviceSizes = {
     desktop: 'sm:max-w-[95vw] w-[95vw]',
     tablet: 'sm:max-w-3xl',
     mobile: 'sm:max-w-md'
-  }
-
-  const runCode = async (quizData: any) => {
-    setIsRunning(true)
-    setConsoleOpen(true)
-    setConsoleOutput(null)
-
-    try {
-      // Preview runs JavaScript through the same Judge0 pipeline + wrapper as the
-      // real Course Player, so results match. Honor the lesson's executionMode.
-      const userCode = codeRef.current
-      const languageId = 63
-      const executionMode = quizData.executionMode || (quizData.functionName ? 'function' : 'stdin')
-      const executableCode = executionMode === 'function'
-        ? wrapUserCode(userCode, 'javascript', '', quizData.functionName || undefined)
-        : userCode
-
-      const results = await runTestCases(executableCode, languageId, quizData.testCases ?? [])
-
-      setConsoleOutput({
-        type: 'test-results',
-        results
-      })
-
-    } catch (e: any) {
-      setConsoleOutput({
-        type: 'error',
-        message: e.message
-      })
-    } finally {
-      setIsRunning(false)
-    }
   }
 
   const handlePostComment = async () => {
@@ -385,240 +453,24 @@ export function LessonPreviewModal({
         )
 
       case 'quiz':
-        return (
-          <QuizPreview
-            title={lesson.title}
-            questions={previewQuizQuestions}
-            passingScore={70}
-            showAnswers={false}
-          />
-        )
-
       case 'code':
-        const quizData = (lesson as any).quizData || {}
-        const isMobileOrTablet = device === 'mobile' || device === 'tablet'
-
-        const ProblemDescription = () => (
-          <div className="w-full h-full overflow-y-auto bg-muted/10 p-6">
-             <div className="flex items-center gap-2 mb-4">
-               <Code2 className="h-5 w-5 text-primary" />
-               <h3 className="font-bold text-lg">{quizData.title || lesson.title}</h3>
-             </div>
-
-             <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
-                <p className="whitespace-pre-wrap">{quizData.problemStatement?.description || lesson.description}</p>
-             </div>
-
-
-             {quizData.examples?.length > 0 && (
-               <div className="mt-6 space-y-4">
-                  <h4 className="font-semibold text-sm flex items-center gap-2">
-                    <Eye className="h-4 w-4" /> {t('lesson_preview_modal.examples')}
-                  </h4>
-                  {quizData.examples.map((ex: any, i: number) => (
-                    <div key={i} className="bg-muted/50 border rounded-md p-3 text-sm font-mono">
-                       <div className="mb-1"><span className="text-muted-foreground select-none">{t('lesson_preview_modal.input')} </span>{ex.input}</div>
-                       <div><span className="text-muted-foreground select-none">{t('lesson_preview_modal.output')} </span>{ex.output}</div>
-                    </div>
-                  ))}
-               </div>
-             )}
-
-
-             {quizData.constraints?.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-semibold text-sm mb-2">{t('lesson_preview_modal.constraints')}</h4>
-                  <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                    {quizData.constraints.map((c: any, i: number) => (
-                      <li key={i}>{c.description}</li>
-                    ))}
-                  </ul>
-                </div>
-             )}
-          </div>
-        )
-
-
-        const CodeEditor = () => (
-          <div className="flex-1 flex flex-col bg-[#1e1e1e] text-white h-full min-h-[400px] relative">
-             <div className="p-2 px-4 bg-[#252526] flex justify-between items-center text-xs text-gray-400 border-b border-[#333]">
-                <div className="flex items-center gap-2">
-                  <span className="bg-[#1e1e1e] px-2 py-1 rounded text-yellow-500">{t('lesson_preview_modal.language_javascript')}</span>
-                  <span className="bg-[#1e1e1e] px-2 py-1 rounded text-blue-400">
-                    {t(`enhanced_code_quiz_creator.execution_mode_${quizData.executionMode || (quizData.functionName ? 'function' : 'stdin')}`)}
-                  </span>
-                </div>
-                <span>solution.js</span>
-             </div>
-             <textarea
-               className="flex-1 w-full bg-[#1e1e1e] p-4 font-mono text-sm resize-none focus:outline-none text-[#d4d4d4]"
-               defaultValue={codeRef.current}
-               onChange={(e) => { codeRef.current = e.target.value }}
-               spellCheck={false}
-             />
-
-
-             {consoleOpen && (
-               <div className="absolute bottom-[57px] left-0 right-0 bg-[#1e1e1e] border-t border-[#333] max-h-[50%] overflow-y-auto z-10 shadow-xl">
-                 <div className="flex items-center justify-between p-2 bg-[#252526] sticky top-0">
-                   <span className="text-xs text-gray-400 flex items-center gap-2">
-                     <Terminal className="h-3 w-3" />
-                     {t('lesson_preview_modal.console')}
-                   </span>
-                   <button onClick={() => setConsoleOpen(false)} className="text-gray-400 hover:text-white">
-                     <ChevronDown className="h-4 w-4" />
-                   </button>
-                 </div>
-                 <div className="p-4 font-mono text-sm">
-                   {isRunning ? (
-                     <div className="flex items-center gap-2 text-gray-400">
-                       <Loader2 className="h-4 w-4 animate-spin" />
-                       {t('lesson_preview_modal.running_tests')}
-                     </div>
-                   ) : consoleOutput?.type === 'error' ? (
-                     <div className="text-red-400">
-                       {consoleOutput.message}
-                     </div>
-                   ) : consoleOutput?.type === 'test-results' ? (
-                     <div className="space-y-4">
-                       <div className="flex items-center justify-between">
-                         <h4 className="font-bold text-gray-300">{t('lesson_preview_modal.test_results')}</h4>
-                         <span className={cn(
-                           "text-xs px-2 py-1 rounded",
-                           (consoleOutput.results ?? []).every((r: any) => r.passed) ? "bg-green-900/50 text-green-400" : "bg-red-900/50 text-red-400"
-                         )}>
-                           {t('lesson_preview_modal.passed_summary', {
-                             passed: (consoleOutput.results ?? []).filter((r: any) => r.passed).length,
-                             total: (consoleOutput.results ?? []).length,
-                           })}
-                         </span>
-                       </div>
-
-                       <div className="space-y-3">
-                         {(consoleOutput.results ?? []).map((result: any, i: number) => (
-                           <div key={i} className="bg-[#252526] rounded p-3 text-xs">
-                             <div className="flex items-center justify-between mb-2">
-                               <span className="font-semibold text-gray-400">Test Case {i + 1}</span>
-                               {result.passed ? (
-                                 <span className="flex items-center gap-1 text-green-500">
-                                   <Check className="h-3 w-3" /> {t('lesson_preview_modal.passed')}
-                                 </span>
-                               ) : (
-                                 <span className="flex items-center gap-1 text-red-500">
-                                   <XCircle className="h-3 w-3" /> {t('lesson_preview_modal.failed')}
-                                 </span>
-                               )}
-                             </div>
-
-                             {!result.isHidden && (
-                               <div className="space-y-1 text-gray-400">
-                                 <div className="grid grid-cols-[60px_1fr] gap-2">
-                                   <span>{t('lesson_preview_modal.input')}</span>
-                                   <span className="text-gray-300">{result.input}</span>
-                                 </div>
-                                 <div className="grid grid-cols-[60px_1fr] gap-2">
-                                   <span>{t('lesson_preview_modal.expected')}</span>
-                                   <span className="text-gray-300">{result.expectedOutput}</span>
-                                 </div>
-                                 {!result.passed && (
-                                   <div className="grid grid-cols-[60px_1fr] gap-2">
-                                     <span>{t('lesson_preview_modal.actual')}</span>
-                                     <span className="text-red-400">{result.actualOutput}</span>
-                                   </div>
-                                 )}
-                               </div>
-                             )}
-                             {result.isHidden && (
-                               <div className="text-gray-500 italic">{t('lesson_preview_modal.hidden_test_case')}</div>
-                             )}
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   ) : (
-                     <div className="text-gray-500 italic">{t('lesson_preview_modal.ready_to_run')}</div>
-                   )}
-                 </div>
-               </div>
-             )}
-
-             <div className="p-3 bg-[#252526] border-t border-[#333] flex justify-between items-center shrink-0 z-20">
-                <div className="text-xs text-gray-500 flex items-center gap-2">
-                  <button
-                    onClick={() => setConsoleOpen(!consoleOpen)}
-                    className="hover:text-gray-300 flex items-center gap-1"
-                  >
-                    <Terminal className="h-3.5 w-3.5" />
-                    {t('lesson_preview_modal.console')}
-                    {consoleOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="bg-[#333] text-white hover:bg-[#444] border-0 h-8"
-                    onClick={() => runCode(quizData)}
-                    disabled={isRunning}
-                  >
-                    {isRunning ? (
-                      <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                    ) : (
-                      <Play className="h-3.5 w-3.5 mr-2" />
-                    )}
-                    {t('lesson_preview_modal.run_code')}
-                  </Button>
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8">
-                    {t('lesson_preview_modal.submit')}
-                  </Button>
-                </div>
-             </div>
-          </div>
-        )
-
-        if (isMobileOrTablet) {
+        if (previewQuizLoading) {
           return (
-            <div className="flex flex-col h-[600px] border rounded-lg overflow-hidden bg-background shadow-sm">
-               <div className="flex border-b">
-                 <button
-                   onClick={() => setActiveTab('problem')}
-                   className={cn(
-                     "flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2",
-                     activeTab === 'problem'
-                       ? "border-primary text-primary"
-                       : "border-transparent text-muted-foreground hover:text-foreground"
-                   )}
-                 >
-                   <Code2 className="h-4 w-4" /> {t('lesson_preview_modal.problem_tab')}
-                 </button>
-                 <button
-                   onClick={() => setActiveTab('code')}
-                   className={cn(
-                     "flex-1 py-3 text-sm font-medium border-b-2 transition-colors flex items-center justify-center gap-2",
-                     activeTab === 'code'
-                       ? "border-primary text-primary"
-                       : "border-transparent text-muted-foreground hover:text-foreground"
-                   )}
-                 >
-                   <Terminal className="h-4 w-4" /> {t('lesson_preview_modal.code_tab')}
-                 </button>
-               </div>
-
-               <div className="flex-1 overflow-hidden relative">
-                  {activeTab === 'problem' ? <ProblemDescription /> : <CodeEditor />}
-               </div>
+            <div className="min-h-[360px] flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           )
         }
 
-        return (
-          <div className="flex h-[600px] border rounded-lg overflow-hidden bg-background shadow-sm">
-             <div className="w-1/3 border-r h-full flex flex-col">
-               <ProblemDescription />
-             </div>
-             <div className="w-2/3 h-full flex flex-col">
-               <CodeEditor />
-             </div>
+        return previewQuiz ? (
+          <QuizPlayer
+            key={`${contentType}-${lesson.id}`}
+            quiz={previewQuiz}
+            lessonId={lesson.id}
+          />
+        ) : (
+          <div className="min-h-[240px] flex items-center justify-center rounded-lg border bg-card p-6 text-center text-muted-foreground">
+            {t('quiz_preview.no_questions')}
           </div>
         )
 
@@ -629,7 +481,7 @@ export function LessonPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={undefined} className={cn("p-0 gap-0 overflow-hidden", deviceSizes[device])}>
+      <DialogContent aria-describedby={undefined} closable={false} className={cn("p-0 gap-0 overflow-hidden", deviceSizes[device])}>
         <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/50">
           <div className="flex items-center gap-2">
             <DialogTitle className="text-sm font-medium">{t('lesson_preview_modal.title')}</DialogTitle>

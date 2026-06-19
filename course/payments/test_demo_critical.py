@@ -8,10 +8,13 @@ These tests exercise the service layer directly (no HMAC/gateway needed).
 """
 from decimal import Decimal
 from html import unescape
+import urllib.parse
+from unittest.mock import patch
 
 from django.contrib.auth.hashers import make_password
+from django.conf import settings
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
 from admins.models import Admin
@@ -24,9 +27,11 @@ from instructor_levels.models import InstructorLevel
 from instructors.models import Instructor
 from payment_details.models import Payment_Details
 from payments.models import Payment
-from payments.refund_services import get_admin_refunds
+from payments.finalization_services import finalize_local_payment_callback
+from payments.momo_services import create_momo_payment, momo_payment_return, simulate_momo_ipn_payload
+from payments.refund_services import admin_create_refund, admin_refund_action, get_admin_refunds
 from payments.services import get_payment_status, list_admin_payments
-from payments.vnpay_services import create_enrollments_from_payment
+from payments.vnpay_services import build_vnpay_payment_data, create_enrollments_from_payment, hmacsha512, payment_return
 from utils.mailer.mailer import send_payment_invoice
 from users.models import User
 
@@ -74,6 +79,25 @@ class PaymentEnrollmentIdempotencyTests(TestCase):
         )
         Cart.objects.create(user=self.student, course=self.course)
 
+    def _make_pending_payment(self, method=Payment.PaymentMethod.MOMO, amount=Decimal("100.00")):
+        payment = Payment.objects.create(
+            user=self.student,
+            amount=amount,
+            discount_amount=Decimal("0.00"),
+            total_amount=amount,
+            payment_status=Payment.PaymentStatus.PENDING,
+            payment_method=method,
+            payment_type=Payment.PaymentType.COURSE_PURCHASE,
+            transaction_id=f"pending-{method}-{timezone.now().timestamp()}",
+        )
+        Payment_Details.objects.create(
+            payment=payment, course=self.course,
+            price=amount, discount=Decimal("0.00"),
+            final_price=amount,
+        )
+        Cart.objects.get_or_create(user=self.student, course=self.course)
+        return payment
+
     def test_completed_payment_creates_single_enrollment_and_clears_cart(self):
         create_enrollments_from_payment(self.payment)
 
@@ -91,6 +115,176 @@ class PaymentEnrollmentIdempotencyTests(TestCase):
             Enrollment.objects.filter(user=self.student, course=self.course).count(),
             1,
         )
+
+    @override_settings(
+        PAYMENT_GATEWAY_MODE="local",
+        FRONTEND_URL="http://localhost:3000",
+        PAYMENT_RESULT_URL="http://localhost:3000/payment/result",
+    )
+    def test_local_mode_momo_create_still_uses_gateway_url(self):
+        payment = self._make_pending_payment(Payment.PaymentMethod.MOMO)
+
+        with patch("payments.momo_services.requests.post") as post:
+            post.return_value.status_code = 200
+            post.return_value.json.return_value = {
+                "resultCode": 0,
+                "message": "Success",
+                "payUrl": "https://test-payment.momo.vn/v2/gateway/pay/demo",
+            }
+            response = create_momo_payment(payment)
+
+        post.assert_called_once()
+        self.assertEqual(response["resultCode"], 0)
+        self.assertIn("test-payment.momo.vn", response["payUrl"])
+
+    @override_settings(
+        PAYMENT_GATEWAY_MODE="local",
+        FRONTEND_URL="http://localhost:3000",
+        PAYMENT_RESULT_URL="http://localhost:3000/payment/result",
+    )
+    def test_local_mode_vnpay_create_still_uses_gateway_url(self):
+        payment = self._make_pending_payment(Payment.PaymentMethod.VNPAY)
+        request = RequestFactory().get("/api/vnpay/create/")
+
+        response = build_vnpay_payment_data(request, payment=payment)
+
+        self.assertNotIn("/payment/local-gateway", response["payment_url"])
+        self.assertIn("vnp_TxnRef=", response["payment_url"])
+
+    @override_settings(PAYMENT_FINALIZE_ON_RETURN=True)
+    def test_momo_return_finalizes_payment_without_ipn(self):
+        payment = self._make_pending_payment(Payment.PaymentMethod.MOMO)
+        payload = simulate_momo_ipn_payload(payment, trans_id=123456, result_code=0)
+        request = RequestFactory().get("/api/payments/momo/return/", data=payload)
+
+        momo_payment_return(request)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.payment_status, Payment.PaymentStatus.COMPLETED)
+        self.assertEqual(Enrollment.objects.filter(user=self.student, course=self.course).count(), 1)
+
+    @override_settings(PAYMENT_FINALIZE_ON_RETURN=True)
+    def test_vnpay_return_finalizes_payment_without_ipn(self):
+        payment = self._make_pending_payment(Payment.PaymentMethod.VNPAY)
+        params = {
+            "vnp_Amount": str(int(payment.total_amount) * 100),
+            "vnp_BankCode": "NCB",
+            "vnp_OrderInfo": f"Thanh toan don hang {payment.id}",
+            "vnp_PayDate": "20260619120000",
+            "vnp_ResponseCode": "00",
+            "vnp_TmnCode": "TEST",
+            "vnp_TransactionNo": "987654",
+            "vnp_TxnRef": str(payment.id),
+        }
+        signing_data = "&".join(
+            f"{key}={urllib.parse.quote_plus(str(value))}"
+            for key, value in sorted(params.items())
+            if key.startswith("vnp_")
+        )
+        params["vnp_SecureHash"] = hmacsha512(settings.VNPAY_HASH_SECRET_KEY, signing_data)
+        request = RequestFactory().get("/api/payments/vnpay/return/", data=params)
+
+        payment_return(request)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.payment_status, Payment.PaymentStatus.COMPLETED)
+        self.assertEqual(Enrollment.objects.filter(user=self.student, course=self.course).count(), 1)
+
+    def test_local_callback_success_completes_payment_and_is_idempotent(self):
+        payment = self._make_pending_payment(Payment.PaymentMethod.MOMO)
+
+        payload = {
+            "provider": "momo",
+            "payment_id": payment.id,
+            "amount": "100.00",
+            "status": "success",
+            "code": "0",
+            "transaction_id": f"LOCAL-MOMO-{payment.id}",
+        }
+        finalize_local_payment_callback(self.student, payload)
+        finalize_local_payment_callback(self.student, payload)
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.payment_status, Payment.PaymentStatus.COMPLETED)
+        self.assertEqual(Enrollment.objects.filter(user=self.student, course=self.course).count(), 1)
+        self.assertEqual(Cart.objects.filter(user=self.student).count(), 0)
+        self.assertEqual(InstructorEarning.objects.filter(payment=payment, course=self.course).count(), 1)
+
+    def test_local_callback_rejects_amount_mismatch(self):
+        payment = self._make_pending_payment(Payment.PaymentMethod.VNPAY)
+
+        with self.assertRaises(Exception):
+            finalize_local_payment_callback(self.student, {
+                "provider": "vnpay",
+                "payment_id": payment.id,
+                "amount": "99.00",
+                "status": "success",
+                "code": "00",
+                "transaction_id": f"LOCAL-VNPAY-{payment.id}",
+            })
+
+        payment.refresh_from_db()
+        self.assertEqual(payment.payment_status, Payment.PaymentStatus.PENDING)
+
+    @override_settings(PAYMENT_GATEWAY_MODE="local")
+    def test_local_admin_refund_does_not_call_external_gateway(self):
+        admin_user = User.objects.create(
+            username="refund_admin",
+            email="refund_admin@example.com",
+            password_hash=make_password("password123"),
+            full_name="Refund Admin",
+            status="active",
+        )
+        admin = Admin.objects.create(user=admin_user, department="Ops", role="admin")
+        create_enrollments_from_payment(self.payment)
+        detail = Payment_Details.objects.get(payment=self.payment, course=self.course)
+
+        with patch("payments.refund_services.send_vnpay_refund_request") as vnpay_refund, \
+             patch("payments.refund_services.send_momo_refund_request") as momo_refund:
+            admin_create_refund(self.payment.id, [detail.id], admin, reason="local refund")
+
+        vnpay_refund.assert_not_called()
+        momo_refund.assert_not_called()
+        detail.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual(detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+        self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.REFUNDED)
+
+    @override_settings(PAYMENT_GATEWAY_MODE="local")
+    def test_local_sync_processing_refund_completes_without_external_gateway(self):
+        admin_user = User.objects.create(
+            username="refund_sync_admin",
+            email="refund_sync_admin@example.com",
+            password_hash=make_password("password123"),
+            full_name="Refund Sync Admin",
+            status="active",
+        )
+        admin = Admin.objects.create(user=admin_user, department="Ops", role="admin")
+        create_enrollments_from_payment(self.payment)
+        detail = Payment_Details.objects.get(payment=self.payment, course=self.course)
+        detail.refund_request_time = timezone.now()
+        detail.refund_amount = detail.final_price
+        detail.refund_status = Payment_Details.RefundStatus.PROCESSING
+        detail.last_gateway_error = "Waiting for gateway"
+        detail.save(update_fields=[
+            "refund_request_time",
+            "refund_amount",
+            "refund_status",
+            "last_gateway_error",
+            "updated_at",
+        ])
+
+        with patch("payments.refund_services.send_vnpay_refund_request") as vnpay_refund, \
+             patch("payments.refund_services.send_momo_refund_request") as momo_refund:
+            result = admin_refund_action("sync", [detail.id], admin)
+
+        vnpay_refund.assert_not_called()
+        momo_refund.assert_not_called()
+        self.assertEqual(result["errors"], [])
+        detail.refresh_from_db()
+        self.payment.refresh_from_db()
+        self.assertEqual(detail.refund_status, Payment_Details.RefundStatus.SUCCESS)
+        self.assertEqual(self.payment.payment_status, Payment.PaymentStatus.REFUNDED)
 
     def test_earnings_generation_is_idempotent(self):
         generate_instructor_earnings_from_payment(self.payment.id)

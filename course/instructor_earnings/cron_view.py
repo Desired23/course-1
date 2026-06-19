@@ -4,15 +4,23 @@ from django.db.models import Max, Min
 from django.http import JsonResponse
 from django.utils import timezone
 
+from utils.cron import read_payload, check_cron_key
+
 
 def calculate_subscription_earnings_view(request):
     """Tính earning subscription (PENDING).
 
-    Endpoint test, KHONG validate quyen -> goi truc tiep tu trinh duyet.
+    Cron endpoint: bảo vệ bằng CRON_SECRET_KEY (?key= / body 'key' / header X-Cron-Key).
     - Mac dinh: tinh thang truoc.
     - ?year=&month=: tinh dung thang do.
     - ?all=true: quet moi thang co subscription va tinh het mot luot (back-fill thang sot).
     """
+    payload, error = read_payload(request)
+    if error:
+        return error
+    if not check_cron_key(request, payload):
+        return JsonResponse({"error": "Invalid key"}, status=403)
+
     from .services import calculate_subscription_earnings_for_month
 
     if request.GET.get("all") in ("true", "1", "yes"):
@@ -20,10 +28,19 @@ def calculate_subscription_earnings_view(request):
 
         bounds = UserSubscription.objects.filter(
             payment__isnull=False, is_deleted=False,
-        ).aggregate(first=Min("start_date"), last=Max("start_date"))
-        first, last = bounds["first"], bounds["last"]
+        ).aggregate(
+            first=Min("start_date"),
+            last_start=Max("start_date"),
+            last_end=Max("end_date"),
+        )
+        first = bounds["first"]
         if first is None:
             return JsonResponse({"message": "Khong co subscription nao.", "months": []})
+
+        # Ky subscription co the keo dai qua thang bat dau (vd: goi nam),
+        # nen quet den thang muon nhat trong [max(start_date), max(end_date)].
+        last_candidates = [d for d in (bounds["last_start"], bounds["last_end"]) if d is not None]
+        last = max(last_candidates)
 
         results = []
         year, month = first.year, first.month

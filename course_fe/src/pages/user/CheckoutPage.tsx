@@ -298,7 +298,7 @@ export function CheckoutPage() {
   const resumePendingPayment = async (paymentId: string, method?: string) => {
     try {
       if (method === "momo") {
-        const response = await createMomoPayment({ payment_id: paymentId })
+        const response = await createMomoPayment({ payment_id: paymentId, return_url: `${window.location.origin}/payment/result` })
         if (!response.payUrl) throw new Error(t("checkout.create_payment_url_failed"))
         window.location.href = response.payUrl
         return
@@ -307,6 +307,7 @@ export function CheckoutPage() {
         order_id: paymentId,
         amount: Math.round(checkoutTotals.totalPrice),
         order_desc: t("checkout.order_description", { count: checkoutItems.length }),
+        return_url: `${window.location.origin}/payment/result`,
       })
       if (!response.payment_url) throw new Error(t("checkout.create_payment_url_failed"))
       window.location.href = response.payment_url
@@ -355,6 +356,7 @@ export function CheckoutPage() {
       amount,
       order_id: paymentId,
       order_desc: t("checkout.order_description", { count: checkoutItems.length }),
+      return_url: `${window.location.origin}/payment/result`,
     })
 
     if (vnpayRes.payment_url) {

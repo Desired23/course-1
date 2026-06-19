@@ -127,7 +127,7 @@ class CourseListView(APIView):
                 kwargs['public_only'] = True
 
             courses = get_all_courses(**kwargs)
-            return paginate_queryset(courses, request, CourseSerializer)
+            return paginate_queryset(courses, request, CourseSerializer, context={'user': requester})
         except ValidationError as e:
             return Response({"errors": e.detail}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -215,4 +215,4 @@ class CourseModerationView(APIView):
             with_refund=request.data.get('with_refund', True),
             with_hold=request.data.get('with_hold', True),
         )
-        return Response(CourseSerializer(course).data, status=status.HTTP_200_OK)
+        return Response(CourseSerializer(course, context={'request': request}).data, status=status.HTTP_200_OK)

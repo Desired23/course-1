@@ -36,6 +36,7 @@ from activity_logs.services import log_activity
 from .services import ensure_payment_retryable
 from .return_url import resolve_payment_return_url
 from notifications.services import create_notification
+from .finalization_services import finalize_payment_failure, finalize_payment_success
 
 
 
@@ -187,7 +188,9 @@ def create_vnpay_payment(request: HttpRequest):
         ensure_payment_retryable(payment)
         amount = int(payment.total_amount) * 100
     except Payment.DoesNotExist:
+        payment = None
         amount = int(data.get('amount', 0)) * 100
+
     order_type = data.get('order_type', 'other')
     language = data.get('language', 'vn')
     bank_code = data.get('bank_code')
@@ -301,6 +304,33 @@ def payment_return(request):
                 f"{result_url}?status=error&payment_id={order_id}&message=Invalid+checksum"
             )
 
+        if getattr(settings, "PAYMENT_FINALIZE_ON_RETURN", False):
+            try:
+                payment = Payment.objects.get(id=order_id)
+            except Payment.DoesNotExist:
+                return HttpResponseRedirect(
+                    f"{result_url}?status=error&payment_id={order_id}&message=Order+not+found"
+                )
+            if Decimal(payment.total_amount) != Decimal(amount):
+                return HttpResponseRedirect(
+                    f"{result_url}?status=error&payment_id={order_id}&message=Invalid+amount"
+                )
+            if vnp_ResponseCode == "00":
+                finalize_payment_success(
+                    payment,
+                    provider=Payment.PaymentMethod.VNPAY,
+                    transaction_id=vnp_TransactionNo,
+                    response_code=vnp_ResponseCode,
+                    payload=inputData.dict(),
+                )
+            else:
+                finalize_payment_failure(
+                    payment,
+                    provider=Payment.PaymentMethod.VNPAY,
+                    transaction_id=vnp_TransactionNo,
+                    response_code=vnp_ResponseCode,
+                    payload=inputData.dict(),
+                )
 
 
         if vnp_ResponseCode == "00":
@@ -348,6 +378,25 @@ def payment_ipn(request):
 
         if payment.payment_status != Payment.PaymentStatus.PENDING:
             return JsonResponse({'RspCode': '02', 'Message': 'Order Already Update'})
+
+        if vnp_ResponseCode == "00":
+            finalize_payment_success(
+                payment,
+                provider=Payment.PaymentMethod.VNPAY,
+                transaction_id=vnp_TransactionNo,
+                response_code=vnp_ResponseCode,
+                payload=inputData.dict(),
+            )
+            return JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
+
+        finalize_payment_failure(
+            payment,
+            provider=Payment.PaymentMethod.VNPAY,
+            transaction_id=vnp_TransactionNo,
+            response_code=vnp_ResponseCode,
+            payload=inputData.dict(),
+        )
+        return JsonResponse({'RspCode': '00', 'Message': 'Confirm Success'})
 
         if vnp_ResponseCode == "00":
             with transaction.atomic():

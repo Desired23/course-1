@@ -6,7 +6,7 @@ Tạo các khóa học demo BẰNG ĐÚNG LUỒNG API như khi giảng viên th�
   -> chuyển status pending -> published.
 
 Không insert thẳng DB. total_lessons/total_modules để backend tự tính.
-Chạy: (trong thư mục course/, server đang chạy ở 127.0.0.1:8000)
+Chạy: (trong thư mục course/, server đang chạy ở 127.0.0.1:8080)
     python seed_demo_courses.py
 """
 import os
@@ -21,7 +21,7 @@ import requests
 from users.models import User
 from users.services import _issue_auth_tokens
 
-API = "http://127.0.0.1:8000/api"
+API = "http://127.0.0.1:8080/api"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (chứa file .mp4)
 
 # ---- video file -> tiêu đề chủ đề (con người đọc được) ----
